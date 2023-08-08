@@ -1,0 +1,8 @@
+[package]
+name = "snos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cairo-vm = "0.8.5"
+log = "0.4.19"
