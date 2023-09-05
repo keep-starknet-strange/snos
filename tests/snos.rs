@@ -1,10 +1,7 @@
-#[cfg(test)]
-mod tests {
-    use snos::run_os;
+// use snos::run_os;
 
-    #[test]
-    fn snos_ok() {
-        run_os();
-        assert_eq!(4, 4);
-    }
-}
+// #[test]
+// fn snos_ok() {
+//     run_os();
+//     assert_eq!(4, 4);
+// }

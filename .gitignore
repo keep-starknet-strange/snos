@@ -1,2 +1,5 @@
 /target
 /Cargo.lock
+
+contracts/build/*
+!contracts/build/.gitkeep 
