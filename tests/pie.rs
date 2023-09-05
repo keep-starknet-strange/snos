@@ -1,8 +1,10 @@
+use snos::pie::zip_pie;
+
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_pie::{
-    BuiltinAdditionalData, CairoPieMemory, OutputBuiltinAdditionalData, SegmentInfo,
+    BuiltinAdditionalData, OutputBuiltinAdditionalData, SegmentInfo,
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use std::collections::HashMap;
@@ -49,10 +51,21 @@ fn pie_ok() {
     };
     assert_eq!(cairo_pie.execution_resources, expected_execution_resources);
 
-    
-    // memory
-    // assert_eq!(
-    //     cairo_pie.memory,
-    //     Into::<CairoPieMemory>::into(&vm.segments.memory)
-    // );
+    let expected_additional_data = HashMap::from([
+        (
+            OUTPUT_BUILTIN_NAME.to_string(),
+            BuiltinAdditionalData::Output(OutputBuiltinAdditionalData {
+                pages: HashMap::new(),
+                attributes: HashMap::new(),
+            }),
+        ),
+    ]);
+    assert_eq!(cairo_pie.additional_data, expected_additional_data);
+   
+    // TODO: test memory layout
+}
+
+#[test]
+fn zip_pie_ok() {
+    zip_pie("contracts/build");
 }

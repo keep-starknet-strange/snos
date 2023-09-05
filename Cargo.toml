@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+base64 = "0.21.3"
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm.git" }
 log = "0.4.19"
+serde_json = "1.0.105"
+zip = { ver = "0.6.6", features = ["deflate-zlib"] }

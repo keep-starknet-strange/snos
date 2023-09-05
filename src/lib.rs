@@ -1,5 +1,6 @@
 mod hints;
 mod hints_raw;
+pub mod pie;
 
 use std::fs::File;
 use std::io::{BufReader, Read};
