@@ -3,7 +3,15 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use zip::write::FileOptions;
 
-const PIE_FILES: [&'static str; 5] = ["metadata.json", "memory.bin", "additional_data.json", "execution_resources.json", "version.json"];
+const CAIRO_PIE_VERSION: &str = "1.1";
+
+const PIE_FILES: [&'static str; 5] = [
+    "metadata.json",
+    "memory.bin",
+    "additional_data.json",
+    "execution_resources.json",
+    "version.json",
+];
 
 // def to_file(self, file, merge_extra_segments: bool = False):
 // extra_segments, segment_offsets = (
@@ -40,7 +48,7 @@ pub fn zip_pie(path: &str) {
     let mut pie_dir = PathBuf::from(path.clone());
     let pie_zip = PathBuf::from(path).join("testy.zip");
     print!("OUT: {:?}", pie_dir);
-    
+
     let file = File::create(pie_zip).unwrap();
 
     let mut zip = zip::ZipWriter::new(file);
@@ -67,9 +75,7 @@ pub fn zip_pie(path: &str) {
 }
 
 // "add_job", {"cairo_pie": base64.b64encode(cairo_pie.serialize()).decode("ascii")}
-pub fn encode_pie() {
-
-}
+pub fn encode_pie() {}
 
 // MISC
 // """
