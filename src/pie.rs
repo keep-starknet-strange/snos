@@ -34,12 +34,10 @@ pub fn serialize_memory(memory: CairoPieMemory) -> Vec<u8> {
     for ((addr, val), rel) in memory.iter() {
         println!("Addr: {:?}:{:?}", addr, val);
         println!("Rel: {:?}", rel);
-        
-    };
+    }
 
     res
 }
-
 
 // def to_file(self, file, merge_extra_segments: bool = False):
 // extra_segments, segment_offsets = (
@@ -130,5 +128,3 @@ pub fn encode_pie() {}
 //     + RelocatableValue.to_bytes(relocate_value(value), field_bytes, "little")
 //     for addr, value in self.items()
 // )
-
-

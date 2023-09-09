@@ -63,7 +63,7 @@ fn pie_execution_resources_ok() {
 #[test]
 fn pie_memory_ok() {
     let memory: CairoPieMemory = common::setup_pie().memory;
-    
+
     let memory_bin = serialize_memory(memory);
     println!("Memory bin: {:?}", memory_bin);
 

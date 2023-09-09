@@ -1,7 +1,8 @@
-// use snos::run_os;
+use snos::SnOsRunner;
 
-// #[test]
-// fn snos_ok() {
-//     run_os();
-//     assert_eq!(4, 4);
-// }
+#[test]
+fn snos_ok() {
+    let snos_runner = SnOsRunner::default();
+    let _runner_res = snos_runner.run();
+    assert_eq!(4, 4);
+}
