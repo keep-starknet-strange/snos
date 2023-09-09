@@ -3,7 +3,10 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use zip::write::FileOptions;
 
+use cairo_vm::vm::runners::cairo_pie::CairoPieMemory;
+
 const CAIRO_PIE_VERSION: &str = "1.1";
+const FIELD_BYTES: u8 = 32;
 
 const PIE_FILES: [&'static str; 5] = [
     "metadata.json",
@@ -12,6 +15,31 @@ const PIE_FILES: [&'static str; 5] = [
     "execution_resources.json",
     "version.json",
 ];
+
+// Memory address in Cairo is represented like this: <segment>:<offset>
+// <segment> is the segment number deterimined by runner
+// <offset> is the position of the address relative to the segment
+// "relocatable": on program run these memory cells will be relocated so that the memory ends up continuous.
+// field bytes = 32
+
+// Serializes RelocatableValue as:
+// 1bit |   SEGMENT_BITS |   OFFSET_BITS
+// 1    |     segment    |   offset
+// Serializes int as
+// 1bit | num
+// 0    | num
+
+pub fn serialize_memory(memory: CairoPieMemory) -> Vec<u8> {
+    let res = Vec::new();
+    for ((addr, val), rel) in memory.iter() {
+        println!("Addr: {:?}:{:?}", addr, val);
+        println!("Rel: {:?}", rel);
+        
+    };
+
+    res
+}
+
 
 // def to_file(self, file, merge_extra_segments: bool = False):
 // extra_segments, segment_offsets = (
@@ -102,3 +130,5 @@ pub fn encode_pie() {}
 //     + RelocatableValue.to_bytes(relocate_value(value), field_bytes, "little")
 //     for addr, value in self.items()
 // )
+
+

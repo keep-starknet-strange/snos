@@ -15,3 +15,10 @@ cairo-compile tests/contracts/fact.cairo --output contracts/build/fact.json
 cairo-run --program contracts/build/fact.json --layout=small --cairo_pie_output=contracts/build/fact.pie.zip
 unzip contracts/build/fact.pie.zip -d contracts/build
 ```
+
+
+# PIE NOTES:
+- AdditionalResources - Output is uppercase and nested
+- Metadata - does not have prime
+- Metadata - program serialization is nested
+- Version - no version 

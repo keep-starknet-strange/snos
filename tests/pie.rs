@@ -1,10 +1,10 @@
-use snos::pie::zip_pie;
+use snos::pie::{serialize_memory, zip_pie};
 
 mod common;
 
 use cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_pie::{
-    BuiltinAdditionalData, OutputBuiltinAdditionalData, SegmentInfo,
+    BuiltinAdditionalData, CairoPieMemory, OutputBuiltinAdditionalData, SegmentInfo,
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use std::collections::HashMap;
@@ -21,9 +21,9 @@ fn pie_metadata_ok() {
     assert_eq!(pie_metadata.program_segment, SegmentInfo::from((0, 12)));
     assert_eq!(pie_metadata.execution_segment, SegmentInfo::from((1, 7)));
 
-    let metadata_s = serde_json::to_string(&pie_metadata);
+    let metadata_s = serde_json::to_string_pretty(&pie_metadata);
     assert!(metadata_s.is_ok());
-    print!("META: {:?}", metadata_s.unwrap());
+    // print!("META: {}", metadata_s.unwrap());
 }
 
 #[test]
@@ -39,9 +39,9 @@ fn pie_additional_data_ok() {
     )]);
 
     assert_eq!(additional_data, expected_additional_data);
-    let additional_data_s = serde_json::to_string(&additional_data);
+    let additional_data_s = serde_json::to_string_pretty(&additional_data);
     assert!(additional_data_s.is_ok());
-    print!("ADD: {:?}", additional_data_s.unwrap());
+    // print!("ADD: {}", additional_data_s.unwrap());
 }
 
 #[test]
@@ -55,9 +55,22 @@ fn pie_execution_resources_ok() {
     };
     assert_eq!(execution_resources, expected_execution_resources);
 
-    let execution_resources_s = serde_json::to_string(&execution_resources);
+    let execution_resources_s = serde_json::to_string_pretty(&execution_resources);
     assert!(execution_resources_s.is_ok());
-    print!("EXEC: {:?}", execution_resources_s.unwrap())
+    // print!("EXEC: {}", execution_resources_s.unwrap())
+}
+
+#[test]
+fn pie_memory_ok() {
+    let memory: CairoPieMemory = common::setup_pie().memory;
+    
+    let memory_bin = serialize_memory(memory);
+    println!("Memory bin: {:?}", memory_bin);
+
+    // let memory_s = serde_json::to_string_pretty(&memory);
+    // assert!(memory_s.is_ok());
+    // let memoryChecksum: u128 = 0x0;
+    // assert_eq!(0x39b6a444d0487c64616c6066bda42f24, memoryChecksum);
 }
 
 #[test]
