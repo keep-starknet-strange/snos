@@ -1,0 +1,3 @@
+[submodule "cairo-lang"]
+	path = cairo-lang
+	url = https://github.com/starkware-libs/cairo-lang.git
