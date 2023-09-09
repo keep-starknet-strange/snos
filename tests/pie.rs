@@ -73,5 +73,5 @@ fn pie_memory_ok() {
 
 // #[test]
 // fn zip_pie_ok() {
-//     zip_pie("contracts/build");
+//     zip_pie("build");
 // }

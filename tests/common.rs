@@ -8,7 +8,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
     // Load the test program
-    let program_content = include_bytes!("../contracts/build/fact.json");
+    let program_content = include_bytes!("../build/fact.json");
 
     let mut hint_processor = BuiltinHintProcessor::new_empty();
 
@@ -28,6 +28,7 @@ pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
     )
     .unwrap()
 }
+
 
 pub fn setup_pie() -> (CairoPie, RelocatedMemory) {
     // Run the runner
