@@ -50,7 +50,7 @@ impl Default for SnOsRunner {
     fn default() -> Self {
         Self {
             layout: "starknet_with_keccak".to_string(),
-            os_path: PathBuf::from("contracts/build/os_compiled.cairo"),
+            os_path: PathBuf::from("build/os_compiled.cairo"),
         }
     }
 }

@@ -1,6 +1,6 @@
 /target
 /Cargo.lock
 
-contracts/build/*
-!contracts/build/fact.json
-!contracts/build/.gitkeep 
+build/*
+!build/fact.json
+!build/.gitkeep 
