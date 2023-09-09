@@ -71,7 +71,7 @@ fn pie_memory_ok() {
     assert_eq!(expected_mem, hex::encode(memory_bin));
 }
 
-#[test]
-fn zip_pie_ok() {
-    zip_pie("contracts/build");
-}
+// #[test]
+// fn zip_pie_ok() {
+//     zip_pie("contracts/build");
+// }

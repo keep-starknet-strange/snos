@@ -11,14 +11,5 @@ Rust Library for running the Starknet OS via the [Cairo VM](https://github.com/l
 ***compile/run test contracts***
 
 ```bash
-cairo-compile tests/contracts/fact.cairo --output contracts/build/fact.json
-cairo-run --program contracts/build/fact.json --layout=small --cairo_pie_output=contracts/build/fact.pie.zip
-unzip contracts/build/fact.pie.zip -d contracts/build
+cargo test -- --nocapture
 ```
-
-
-# PIE NOTES:
-- AdditionalResources - Output is uppercase and nested
-- Metadata - does not have prime
-- Metadata - program serialization is nested
-- Version - no version 
