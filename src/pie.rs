@@ -1,3 +1,6 @@
+use cairo_vm::types::relocatable::MaybeRelocatable;
+use num_bigint::BigUint;
+use num_traits::Num;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
@@ -5,8 +8,15 @@ use zip::write::FileOptions;
 
 use cairo_vm::vm::runners::cairo_pie::CairoPieMemory;
 
-const CAIRO_PIE_VERSION: &str = "1.1";
-const FIELD_BYTES: u8 = 32;
+const _CAIRO_PIE_VERSION: &str = "1.1";
+
+const ADDR_BYTE_LEN: usize = 8;
+const FIELD_BYTE_LEN: usize = 32;
+const _SEGMENT_BIT_LEN: usize = 16;
+const _OFFSET_BIT_LEN: usize = 47;
+const ADDR_BASE: usize = 0x8000000000000000; // 2 ** (8 * ADDR_BYTE_LEN - 1)
+const OFFSET_BASE: usize = 0x800000000000; // 2 ** OFFSET_BIT_LEN
+const RELOCATE_BASE: &str = "8000000000000000000000000000000000000000000000000000000000000000"; // 2 ** (8 * FIELD_BYTE_LEN - 1)
 
 const PIE_FILES: [&'static str; 5] = [
     "metadata.json",
@@ -29,51 +39,50 @@ const PIE_FILES: [&'static str; 5] = [
 // 1bit | num
 // 0    | num
 
-pub fn serialize_memory(memory: CairoPieMemory) -> Vec<u8> {
-    let res = Vec::new();
-    for ((addr, val), rel) in memory.iter() {
-        println!("Addr: {:?}:{:?}", addr, val);
-        println!("Rel: {:?}", rel);
+pub fn serialize_memory(memory: CairoPieMemory, relocated_mem: crate::RelocatedMemory) -> Vec<u8> {
+    let mem_cap = memory.len() * ADDR_BYTE_LEN + memory.len() * FIELD_BYTE_LEN;
+    let mut res = Vec::with_capacity(mem_cap);
+
+    // TODO: safety checks
+    for (i, ((segment, offset), value)) in memory.iter().enumerate() {
+        match value {
+            MaybeRelocatable::RelocatableValue(rel_val) => {
+                let mem_addr = ADDR_BASE + *segment * OFFSET_BASE + *offset;
+
+                let reloc_base = BigUint::from_str_radix(RELOCATE_BASE, 16).unwrap();
+                let reloc_value = reloc_base
+                    + BigUint::from(rel_val.segment_index as usize) * BigUint::from(OFFSET_BASE)
+                    + BigUint::from(rel_val.offset);
+                res.extend_from_slice(mem_addr.to_le_bytes().as_ref());
+                res.extend_from_slice(reloc_value.to_bytes_le().as_ref());
+                println!(
+                    "{}: {:?}:{:?} {:?}:{:?} {:?} {:?}",
+                    i + 1,
+                    segment,
+                    offset,
+                    rel_val.segment_index,
+                    rel_val.offset,
+                    relocated_mem[i+1],
+                    reloc_value.to_bytes_le()
+                );
+            }
+            MaybeRelocatable::Int(data_val) => {
+                let mem_addr = ADDR_BASE + *segment * OFFSET_BASE + *offset;
+                res.extend_from_slice(mem_addr.to_le_bytes().as_ref());
+                res.extend_from_slice(data_val.to_le_bytes().as_ref());
+                println!("{}: {:?}:{:?} {} {:?}", i + 1, segment, offset, data_val, data_val.to_le_bytes());
+            }
+        };
     }
+    println!("Mem Len: {}/{}", res.len(), res.capacity());
 
     res
 }
 
-// def to_file(self, file, merge_extra_segments: bool = False):
-// extra_segments, segment_offsets = (
-//     self.merge_extra_segments()
-//     if merge_extra_segments and len(self.metadata.extra_segments) > 0
-//     else (None, None)
-// )
-// metadata = self.metadata
-// if extra_segments is not None:
-//     metadata = dataclasses.replace(metadata, extra_segments=extra_segments)
-// with zipfile.ZipFile(file, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-//     with zf.open(self.METADATA_FILENAME, "w") as fp:
-//         fp.write(json.dumps(CairoPieMetadata.Schema().dump(metadata)).encode("ascii"))
-//     with zf.open(self.MEMORY_FILENAME, "w") as fp:
-//         fp.write(
-//             self.memory.serialize(
-//                 field_bytes=self.metadata.field_bytes,
-//                 relocate_value=self.get_relocate_value_func(
-//                     segment_offsets=segment_offsets
-//                 ),
-//             )
-//         )
-//     with zf.open(self.ADDITIONAL_DATA_FILENAME, "w") as fp:
-//         fp.write(json.dumps(self.additional_data).encode("ascii"))
-//     with zf.open(self.EXECUTION_RESOURCES_FILENAME, "w") as fp:
-//         fp.write(
-//             json.dumps(ExecutionResources.Schema().dump(self.execution_resources)).encode(
-//                 "ascii"
-//             )
-//         )
-//     with zf.open(self.VERSION_FILENAME, "w") as fp:
-//         fp.write(json.dumps(self.version).encode("ascii"))
+
 pub fn zip_pie(path: &str) {
     let mut pie_dir = PathBuf::from(path.clone());
     let pie_zip = PathBuf::from(path).join("testy.zip");
-    print!("OUT: {:?}", pie_dir);
 
     let file = File::create(pie_zip).unwrap();
 
@@ -102,29 +111,3 @@ pub fn zip_pie(path: &str) {
 
 // "add_job", {"cairo_pie": base64.b64encode(cairo_pie.serialize()).decode("ascii")}
 pub fn encode_pie() {}
-
-// MISC
-// """
-// Submits a job to the SHARP, and returns a job identifier.
-// Asserts that the number of execution steps does not exceed the allowed limit.
-// """
-// n_steps = cairo_pie.execution_resources.n_steps
-// assert n_steps < self.steps_limit, (
-//     f"Execution trace length exceeds limit. The execution length is {n_steps} "
-//     f"and the limit is {self.steps_limit}."
-// )
-
-// memory serialize
-// def serialize(self, field_bytes, relocate_value: Optional[RelocateValueFunc] = None):
-// assert (
-//     len(self.relocation_rules) == 0
-// ), "Cannot serialize a MemoryDict with active segment relocation rules."
-
-// if relocate_value is None:
-//     relocate_value = lambda val: val
-
-// return b"".join(
-//     RelocatableValue.to_bytes(relocate_value(addr), ADDR_SIZE_IN_BYTES, "little")
-//     + RelocatableValue.to_bytes(relocate_value(value), field_bytes, "little")
-//     for addr, value in self.items()
-// )

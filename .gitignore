@@ -2,4 +2,5 @@
 /Cargo.lock
 
 contracts/build/*
+!contracts/build/fact.json
 !contracts/build/.gitkeep 

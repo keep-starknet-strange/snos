@@ -5,8 +5,11 @@ pub mod pie;
 use error::SnOsError;
 use std::fs;
 use std::path::PathBuf;
+use cairo_felt::Felt252;
 
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
+
+pub type RelocatedMemory = Vec<Option<Felt252>>;
 
 pub struct SnOsRunner {
     layout: String,
@@ -24,12 +27,13 @@ impl SnOsRunner {
         // Load the Starknet OS
         let starknet_os = fs::read_to_string(self.os_path.as_path())
             .map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
-        println!("SNOS: {:?}", starknet_os);
 
         let _run_output = cairo_run(
             starknet_os.as_bytes(),
             &CairoRunConfig {
                 layout: self.layout.as_str(),
+                relocate_mem: true,
+                trace_enabled: true,
                 ..Default::default()
             },
             &mut sn_hint_processor,
