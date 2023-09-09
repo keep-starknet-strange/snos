@@ -8,7 +8,7 @@ Rust Library for running the Starknet OS via the [Cairo VM](https://github.com/l
 
 ## Setup
 
-***Cairo 0 [Env](https://docs.cairo-lang.org/0.12.0/quickstart.html)***
+***Cairo [Env](https://docs.cairo-lang.org/0.12.0/quickstart.html)***
 
 ```bash
 git submodule update --init
