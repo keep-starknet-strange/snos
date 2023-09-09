@@ -62,7 +62,7 @@ pub fn serialize_memory(memory: CairoPieMemory, relocated_mem: crate::RelocatedM
                     offset,
                     rel_val.segment_index,
                     rel_val.offset,
-                    relocated_mem[i+1],
+                    relocated_mem[i + 1],
                     reloc_value.to_bytes_le()
                 );
             }
@@ -70,7 +70,14 @@ pub fn serialize_memory(memory: CairoPieMemory, relocated_mem: crate::RelocatedM
                 let mem_addr = ADDR_BASE + *segment * OFFSET_BASE + *offset;
                 res.extend_from_slice(mem_addr.to_le_bytes().as_ref());
                 res.extend_from_slice(data_val.to_le_bytes().as_ref());
-                println!("{}: {:?}:{:?} {} {:?}", i + 1, segment, offset, data_val, data_val.to_le_bytes());
+                println!(
+                    "{}: {:?}:{:?} {} {:?}",
+                    i + 1,
+                    segment,
+                    offset,
+                    data_val,
+                    data_val.to_le_bytes()
+                );
             }
         };
     }
@@ -78,7 +85,6 @@ pub fn serialize_memory(memory: CairoPieMemory, relocated_mem: crate::RelocatedM
 
     res
 }
-
 
 pub fn zip_pie(path: &str) {
     let mut pie_dir = PathBuf::from(path.clone());

@@ -2,10 +2,10 @@ pub mod error;
 pub mod hints;
 pub mod pie;
 
+use cairo_felt::Felt252;
 use error::SnOsError;
 use std::fs;
 use std::path::PathBuf;
-use cairo_felt::Felt252;
 
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 

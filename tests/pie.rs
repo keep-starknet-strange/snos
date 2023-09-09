@@ -1,4 +1,4 @@
-use snos::pie::{serialize_memory, zip_pie};
+use snos::pie::serialize_memory;
 
 mod common;
 

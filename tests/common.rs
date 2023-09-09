@@ -29,7 +29,6 @@ pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
     .unwrap()
 }
 
-
 pub fn setup_pie() -> (CairoPie, RelocatedMemory) {
     // Run the runner
     let (runner, vm) = setup_runner();
