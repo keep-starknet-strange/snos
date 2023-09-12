@@ -40,7 +40,7 @@ const PIE_FILES: [&'static str; 5] = [
 // 1bit | num
 // 0    | num
 
-pub fn serialize_memory(memory: CairoPieMemory, relocated_mem: crate::RelocatedMemory) -> Vec<u8> {
+pub fn serialize_memory(memory: CairoPieMemory) -> Vec<u8> {
     let mem_cap = memory.len() * ADDR_BYTE_LEN + memory.len() * FIELD_BYTE_LEN;
     let mut res = Vec::with_capacity(mem_cap);
 
