@@ -5,7 +5,6 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use zip::write::FileOptions;
-use std::fs;
 
 use cairo_vm::vm::runners::cairo_pie::CairoPieMemory;
 
@@ -45,7 +44,7 @@ pub fn serialize_memory(memory: CairoPieMemory) -> Vec<u8> {
     let mut res = Vec::with_capacity(mem_cap);
 
     // TODO: safety checks
-    for  ((segment, offset), value) in memory.iter() {
+    for ((segment, offset), value) in memory.iter() {
         match value {
             MaybeRelocatable::RelocatableValue(rel_val) => {
                 let mem_addr = ADDR_BASE + *segment * OFFSET_BASE + *offset;
