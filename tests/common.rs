@@ -1,5 +1,3 @@
-use snos::RelocatedMemory;
-
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
@@ -28,7 +26,6 @@ pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
     )
     .unwrap()
 }
-
 
 pub fn setup_pie() -> CairoPie {
     // Run the runner
