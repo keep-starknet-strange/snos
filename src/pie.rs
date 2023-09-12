@@ -45,7 +45,7 @@ pub fn serialize_memory(memory: CairoPieMemory) -> Vec<u8> {
     let mut res = Vec::with_capacity(mem_cap);
 
     // TODO: safety checks
-    for (i, ((segment, offset), value)) in memory.iter().enumerate() {
+    for  ((segment, offset), value) in memory.iter() {
         match value {
             MaybeRelocatable::RelocatableValue(rel_val) => {
                 let mem_addr = ADDR_BASE + *segment * OFFSET_BASE + *offset;
@@ -64,8 +64,6 @@ pub fn serialize_memory(memory: CairoPieMemory) -> Vec<u8> {
             }
         };
     }
-    println!("Mem Len: {}/{}", res.len(), res.capacity());
-    fs::write("build/memoryRs.bin", res.clone()).unwrap();
 
     res
 }
