@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use zip::write::FileOptions;
+use std::fs;
 
 use cairo_vm::vm::runners::cairo_pie::CairoPieMemory;
 
@@ -55,33 +56,16 @@ pub fn serialize_memory(memory: CairoPieMemory, relocated_mem: crate::RelocatedM
                     + BigUint::from(rel_val.offset);
                 res.extend_from_slice(mem_addr.to_le_bytes().as_ref());
                 res.extend_from_slice(reloc_value.to_bytes_le().as_ref());
-                println!(
-                    "{}: {:?}:{:?} {:?}:{:?} {:?} {:?}",
-                    i + 1,
-                    segment,
-                    offset,
-                    rel_val.segment_index,
-                    rel_val.offset,
-                    relocated_mem[i + 1],
-                    reloc_value.to_bytes_le()
-                );
             }
             MaybeRelocatable::Int(data_val) => {
                 let mem_addr = ADDR_BASE + *segment * OFFSET_BASE + *offset;
                 res.extend_from_slice(mem_addr.to_le_bytes().as_ref());
                 res.extend_from_slice(data_val.to_le_bytes().as_ref());
-                println!(
-                    "{}: {:?}:{:?} {} {:?}",
-                    i + 1,
-                    segment,
-                    offset,
-                    data_val,
-                    data_val.to_le_bytes()
-                );
             }
         };
     }
     println!("Mem Len: {}/{}", res.len(), res.capacity());
+    fs::write("build/memoryRs.bin", res.clone()).unwrap();
 
     res
 }

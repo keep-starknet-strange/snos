@@ -21,7 +21,7 @@ pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
             relocate_mem: true,
             layout: "small",
             proof_mode: false,
-            secure_run: None,
+            secure_run: Some(true),
             disable_trace_padding: false,
         },
         &mut hint_processor,
