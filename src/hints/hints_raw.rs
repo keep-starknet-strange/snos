@@ -1,11 +1,9 @@
-pub const SN_INPUT_RAW: &str = " 
-from starkware.starknet.core.os.os_input import StarknetOsInput
+pub const SN_INPUT_RAW: &str = r#"from starkware.starknet.core.os.os_input import StarknetOsInput
 
 os_input = StarknetOsInput.load(data=program_input)
 
 ids.initial_carried_outputs.messages_to_l1 = segments.add_temp_segment()
-ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()  
-";
+ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()"#;
 
 pub const _VM_ENTER_SCOPE: &str = "
 # This hint shouldn't be whitelisted.

@@ -68,7 +68,7 @@ pub fn serialize_memory(memory: CairoPieMemory) -> Vec<u8> {
 }
 
 pub fn zip_pie(path: &str) {
-    let mut pie_dir = PathBuf::from(path.clone());
+    let mut pie_dir = PathBuf::from(path);
     let pie_zip = PathBuf::from(path).join("testy.zip");
 
     let file = File::create(pie_zip).unwrap();

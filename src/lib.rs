@@ -25,6 +25,8 @@ impl SnOsRunner {
         let starknet_os = fs::read_to_string(self.os_path.as_path())
             .map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
 
+        println!("Running the OS");
+
         let _run_output = cairo_run(
             starknet_os.as_bytes(),
             &CairoRunConfig {
@@ -35,9 +37,9 @@ impl SnOsRunner {
             },
             &mut sn_hint_processor,
         )
-        .map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
+        .expect("Couldn't run program");
 
-        log::debug!("successful run...");
+        println!("successful run...");
 
         Ok(())
     }
