@@ -1,6 +1,8 @@
 pub mod error;
 pub mod hints;
+pub mod storage;
 pub mod pie;
+pub mod os_input;
 
 use error::SnOsError;
 use std::fs;

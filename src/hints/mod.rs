@@ -44,6 +44,8 @@ pub fn starknet_os_input(
 ) -> Result<(), HintError> {
     println!("Running hint {:?} {:?}", ids_data, exec_scopes);
 
+    // Deserialize the program_input
+
     let initial_carried_outputs_ptr =
         get_ptr_from_var_name("initial_carried_outputs", vm, ids_data, ap_tracking)?;
     // We now have a pointer to a struct with the fields (messages_to_l1, messages_to_l2)
