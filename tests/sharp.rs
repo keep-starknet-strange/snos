@@ -14,6 +14,7 @@ const TEST_CAIRO_JOB_ID: &str = "3a24bbca-ad75-49d5-8ced-12796c6c0738";
 // }
 
 #[rstest]
+#[ignore]
 fn sharp_client_status() {
     let sharp_client = SharpClient::default();
     let submit_resp = sharp_client.get_status(TEST_CAIRO_JOB_ID).unwrap();

@@ -28,4 +28,4 @@ jobs:
         run: rustup show
       - uses: Swatinem/rust-cache@v2
       - name: Run tests
-        run: cargo test
+        run: pip install cairo-lang; cargo test

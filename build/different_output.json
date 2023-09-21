@@ -6,7 +6,7 @@
     "compiler_version": "0.12.2",
     "data": [
         "0x480680017fff8000",
-        "0x11",
+        "0x12",
         "0x480280007ffd7fff",
         "0x482680017ffd8000",
         "0x1",
@@ -34,7 +34,7 @@
                     "end_col": 19,
                     "end_line": 4,
                     "input_file": {
-                        "filename": "tests/contracts/hint.cairo"
+                        "filename": "tests/contracts/different_output.cairo"
                     },
                     "start_col": 17,
                     "start_line": 4
@@ -60,7 +60,7 @@
                     "end_col": 27,
                     "end_line": 5,
                     "input_file": {
-                        "filename": "tests/contracts/hint.cairo"
+                        "filename": "tests/contracts/different_output.cairo"
                     },
                     "start_col": 5,
                     "start_line": 5
@@ -87,7 +87,7 @@
                             "end_col": 23,
                             "end_line": 8,
                             "input_file": {
-                                "filename": "tests/contracts/hint.cairo"
+                                "filename": "tests/contracts/different_output.cairo"
                             },
                             "start_col": 5,
                             "start_line": 8
@@ -99,14 +99,14 @@
                     "end_col": 36,
                     "end_line": 9,
                     "input_file": {
-                        "filename": "tests/contracts/hint.cairo"
+                        "filename": "tests/contracts/different_output.cairo"
                     },
                     "parent_location": [
                         {
                             "end_col": 35,
                             "end_line": 11,
                             "input_file": {
-                                "filename": "tests/contracts/hint.cairo"
+                                "filename": "tests/contracts/different_output.cairo"
                             },
                             "start_col": 25,
                             "start_line": 11
@@ -137,7 +137,7 @@
                     "end_col": 37,
                     "end_line": 11,
                     "input_file": {
-                        "filename": "tests/contracts/hint.cairo"
+                        "filename": "tests/contracts/different_output.cairo"
                     },
                     "start_col": 5,
                     "start_line": 11
