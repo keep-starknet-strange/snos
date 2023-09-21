@@ -6,12 +6,14 @@ pub mod os_input;
 pub mod pie;
 pub mod storage;
 pub mod utils;
+pub mod sharp;
 
 use error::SnOsError;
 use std::fs;
 use std::path::PathBuf;
 
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
+use cairo_vm::vm::runners::cairo_pie::CairoPie;
 
 pub struct SnOsRunner {
     layout: String,
@@ -23,16 +25,14 @@ impl SnOsRunner {
         Self { layout, os_path }
     }
 
-    pub fn run(&self) -> Result<(), SnOsError> {
+    pub fn run(&self) -> Result<CairoPie, SnOsError> {
         let mut sn_hint_processor = hints::sn_hint_processor();
 
         // Load the Starknet OS
         let starknet_os = fs::read_to_string(self.os_path.as_path())
             .map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
 
-        println!("Running the OS");
-
-        let _run_output = cairo_run(
+        let (runner, vm) = cairo_run(
             starknet_os.as_bytes(),
             &CairoRunConfig {
                 layout: self.layout.as_str(),
@@ -46,7 +46,12 @@ impl SnOsRunner {
 
         println!("successful run...");
 
-        Ok(())
+        let pie = runner
+            .get_cairo_pie(&vm)
+            .map_err(|e| SnOsError::PieParsing(format!("{e}")))?;
+
+        // TODO: also return program output
+        Ok(pie)
     }
 }
 
