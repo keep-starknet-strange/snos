@@ -1,8 +1,11 @@
+#![feature(async_fn_in_trait)]
+
 pub mod error;
 pub mod hints;
-pub mod storage;
-pub mod pie;
 pub mod os_input;
+pub mod pie;
+pub mod storage;
+pub mod utils;
 
 use error::SnOsError;
 use std::fs;
