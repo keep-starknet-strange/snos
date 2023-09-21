@@ -4,6 +4,9 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
+use rstest::*;
+
+#[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
     // Load the test program
     let program_content = include_bytes!("../build/fact.json");
@@ -27,6 +30,7 @@ pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
     .unwrap()
 }
 
+#[fixture]
 pub fn setup_pie() -> CairoPie {
     // Run the runner
     let (runner, vm) = setup_runner();
