@@ -1,6 +1,12 @@
-func main() {
-    let a = 17;
+%builtins output
+
+func main(output_ptr: felt*) -> (output_ptr: felt*) {
+    tempvar a = 17;
+    a = [output_ptr], ap++;
+
     // Use custom hint to print the value of a
     %{ print(ids.a) %}
-    return ();
+    let output_ptr = output_ptr + 1;
+
+    return(output_ptr = output_ptr);
 }
