@@ -8,4 +8,6 @@ pub enum SnOsError {
     PieZipping(String),
     #[error("PIE Encode Error: {0}")]
     PieEncoding(String),
+    #[error("SHARP Request Error: {0}")]
+    SharpRequest(String),
 }
