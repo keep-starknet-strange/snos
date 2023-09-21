@@ -5,45 +5,52 @@ use starknet::core::types::FieldElement;
 use crate::{
     error::FactTreeError,
     storage::{FactCheckingContext, Storage},
+    utils::hasher::HasherT,
 };
 
 use super::{
     binary_fact_tree::{BinaryFactDict, BinaryFactTree},
-    leaf_fact::LeafFact,
+    nodes::InnerNodeFact,
 };
 
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PatriciaTree {
     pub root: FieldElement,
     pub height: usize,
 }
 
-impl<S: Storage, L: LeafFact> BinaryFactTree<S, L> for PatriciaTree {
-    async fn empty_tree(&self, _ffc: FactCheckingContext<S>, _height: usize, _leaft_fact: L) {
+impl<S: Storage, H: HasherT> BinaryFactTree<S, H> for PatriciaTree {
+    async fn empty_tree(
+        &self,
+        _ffc: FactCheckingContext<S, H>,
+        _height: usize,
+        _leaft_fact: InnerNodeFact,
+    ) {
         todo!()
     }
 
     async fn get_leaves(
         &self,
-        _ffc: FactCheckingContext<S>,
+        _ffc: &FactCheckingContext<S, H>,
         _indices: Vec<FieldElement>,
         _facts: Option<BinaryFactDict>,
-    ) -> HashMap<FieldElement, L> {
+    ) -> HashMap<FieldElement, InnerNodeFact> {
         todo!()
     }
 
     async fn _get_leaves(
         &self,
-        _ffc: FactCheckingContext<S>,
+        _ffc: &FactCheckingContext<S, H>,
         _indices: Vec<FieldElement>,
         _facts: Option<BinaryFactDict>,
-    ) -> HashMap<FieldElement, L> {
+    ) -> HashMap<FieldElement, InnerNodeFact> {
         todo!()
     }
 
     async fn update(
         &self,
-        _ffc: FactCheckingContext<S>,
-        _modifications: HashMap<FieldElement, L>,
+        _ffc: &FactCheckingContext<S, H>,
+        _modifications: HashMap<FieldElement, InnerNodeFact>,
         _facts: Option<&mut BinaryFactDict>,
     ) -> Self {
         todo!()
@@ -51,9 +58,9 @@ impl<S: Storage, L: LeafFact> BinaryFactTree<S, L> for PatriciaTree {
 
     async fn get_leaf(
         &self,
-        _ffc: FactCheckingContext<S>,
+        _ffc: &FactCheckingContext<S, H>,
         _index: FieldElement,
-    ) -> Result<L, FactTreeError> {
+    ) -> Result<InnerNodeFact, FactTreeError> {
         todo!()
     }
 }
