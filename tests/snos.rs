@@ -66,3 +66,34 @@ fn snos_ok() {
     let _runner_res = snos_runner.run();
     assert_eq!(4, 4);
 }
+
+#[test]
+#[should_panic(expected = "Output #0 is different")]
+fn test_different_outputs() {
+    let program_path = "build/hint.json";
+    // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
+    let hint = HintFunc(Box::new(print_a_hint));
+
+    //Instantiate the hint processor
+    let mut hint_processor = BuiltinHintProcessor::new_empty();
+
+    //Add the custom hint, together with the Python code
+    hint_processor.add_hint(String::from("print(ids.a)"), Rc::new(hint));
+
+    let file = File::open(Path::new(program_path)).expect("Couldn't load file");
+    let mut reader = BufReader::new(file);
+    let mut buffer = Vec::<u8>::new();
+    reader.read_to_end(&mut buffer).expect("Couldn't read file");
+
+    //Run the cairo program
+    let (_cairo_runner, virtual_machine) = cairo_run(
+        &buffer,
+        &CairoRunConfig {
+            layout: "all_cairo",
+            ..Default::default()
+        },
+        &mut hint_processor,
+    )
+    .expect("Couldn't run program");
+    compare_python_output("build/different_output.json", virtual_machine);
+}

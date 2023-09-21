@@ -57,8 +57,8 @@ pub fn compare_python_output(program: &str, mut vm: VirtualMachine) {
         .skip(1)
         .filter(|&x| !x.trim().is_empty())
         .into_iter();
-    for (rs, py) in rs_output.zip(python_output) {
+    for (i, (rs, py)) in rs_output.zip(python_output).enumerate() {
         let py = py.to_string().trim().to_string();
-        assert_eq!(*rs, py);
+        pretty_assertions::assert_eq!(*rs, py, "Output #{i:} is different");
     }
 }
