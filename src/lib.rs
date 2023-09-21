@@ -1,6 +1,11 @@
+#![feature(async_fn_in_trait)]
+
 pub mod error;
 pub mod hints;
+pub mod os_input;
 pub mod sharp;
+pub mod storage;
+pub mod utils;
 
 use error::SnOsError;
 use std::fs;
@@ -36,9 +41,9 @@ impl SnOsRunner {
             },
             &mut sn_hint_processor,
         )
-        .map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
+        .expect("Couldn't run program");
 
-        log::debug!("successful run...");
+        println!("successful run...");
 
         let pie = runner
             .get_cairo_pie(&vm)
