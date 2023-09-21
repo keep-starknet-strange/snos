@@ -25,6 +25,18 @@ pub fn zip_pie(pie: CairoPie, dst: &Path) -> Result<(), SnOsError> {
     Ok(())
 }
 
+pub fn encode_pie(dst: &Path) -> Result<String, SnOsError> {
+    let mut pie_zip = File::open(dst).map_err(|e| SnOsError::PieEncoding(format!("{e}")))?;
+    let mut buffer = Vec::new();
+
+    // Read file into vector.
+    pie_zip
+        .read_to_end(&mut buffer)
+        .map_err(|e| SnOsError::PieEncoding(format!("{e}")))?;
+
+    Ok(general_purpose::STANDARD_NO_PAD.encode(buffer))
+}
+
 pub fn zip_pie_mem(pie: CairoPie) -> Result<Vec<u8>, SnOsError> {
     let mut data = Vec::new();
 
@@ -37,18 +49,6 @@ pub fn zip_pie_mem(pie: CairoPie) -> Result<Vec<u8>, SnOsError> {
     }
 
     Ok(data)
-}
-
-pub fn encode_pie(dst: &Path) -> Result<String, SnOsError> {
-    let mut pie_zip = File::open(dst).map_err(|e| SnOsError::PieEncoding(format!("{e}")))?;
-    let mut buffer = Vec::new();
-
-    // Read file into vector.
-    pie_zip
-        .read_to_end(&mut buffer)
-        .map_err(|e| SnOsError::PieEncoding(format!("{e}")))?;
-
-    Ok(general_purpose::STANDARD_NO_PAD.encode(buffer))
 }
 
 pub fn encode_pie_mem(buffer: Vec<u8>) -> Result<String, SnOsError> {
