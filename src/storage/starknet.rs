@@ -70,7 +70,7 @@ impl CommitmentInfo {
         let actual_updated_tree = previous_tree
             .update(ffc, modifications, Some(&mut commitment_facts))
             .await;
-        let actual_updated_root: FieldElement = actual_updated_tree.root.into();
+        let actual_updated_root: FieldElement = actual_updated_tree.root;
 
         if actual_updated_root != expected_updated_root {
             return Err(CommitmentInfoError::InconsistentTreeRoots(

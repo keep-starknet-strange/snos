@@ -45,7 +45,7 @@ where
         index: FieldElement,
     ) -> Result<L, FactTreeError> {
         let leaves = self.get_leaves(ffc, vec![index], None).await;
-        if leaves.keys().ne(vec![index].iter()) {
+        if leaves.keys().ne([index].iter()) {
             return Err(FactTreeError::UnexpectedResult(index));
         }
 

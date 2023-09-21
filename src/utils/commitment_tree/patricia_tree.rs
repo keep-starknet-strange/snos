@@ -18,41 +18,41 @@ pub struct PatriciaTree {
 }
 
 impl<S: Storage, L: LeafFact> BinaryFactTree<S, L> for PatriciaTree {
-    async fn empty_tree(&self, ffc: FactCheckingContext<S>, height: usize, leaft_fact: L) {
+    async fn empty_tree(&self, _ffc: FactCheckingContext<S>, _height: usize, _leaft_fact: L) {
         todo!()
     }
 
     async fn get_leaves(
         &self,
-        ffc: FactCheckingContext<S>,
-        indices: Vec<FieldElement>,
-        facts: Option<BinaryFactDict>,
+        _ffc: FactCheckingContext<S>,
+        _indices: Vec<FieldElement>,
+        _facts: Option<BinaryFactDict>,
     ) -> HashMap<FieldElement, L> {
         todo!()
     }
 
     async fn _get_leaves(
         &self,
-        ffc: FactCheckingContext<S>,
-        indices: Vec<FieldElement>,
-        facts: Option<BinaryFactDict>,
+        _ffc: FactCheckingContext<S>,
+        _indices: Vec<FieldElement>,
+        _facts: Option<BinaryFactDict>,
     ) -> HashMap<FieldElement, L> {
         todo!()
     }
 
     async fn update(
         &self,
-        ffc: FactCheckingContext<S>,
-        modifications: HashMap<FieldElement, L>,
-        facts: Option<&mut BinaryFactDict>,
+        _ffc: FactCheckingContext<S>,
+        _modifications: HashMap<FieldElement, L>,
+        _facts: Option<&mut BinaryFactDict>,
     ) -> Self {
         todo!()
     }
 
     async fn get_leaf(
         &self,
-        ffc: FactCheckingContext<S>,
-        index: FieldElement,
+        _ffc: FactCheckingContext<S>,
+        _index: FieldElement,
     ) -> Result<L, FactTreeError> {
         todo!()
     }
