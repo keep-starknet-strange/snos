@@ -16,20 +16,19 @@ pub trait DBObject: Serialize + for<'de> Deserialize<'de> + Copy {
     fn db_key(suffix: Vec<u8>) -> Vec<u8>;
 
     /// Asynchronous methods for getting and setting the object in storage
-    async fn get<S: Storage>(storage: &S, suffix: &Vec<u8>) -> Option<Self>
+    async fn get<S: Storage>(storage: &S, suffix: &[u8]) -> Option<Self>
     where
         Self: Sized,
     {
-        let key = Self::db_key(suffix.clone());
-        if let Some(data) = storage.get_value(key).await {
-            Some(from_slice(&data).expect("Failed to deserialize data"))
-        } else {
-            None
-        }
+        let key = Self::db_key(suffix.to_vec());
+        storage
+            .get_value(key)
+            .await
+            .map(|data| from_slice(&data).expect("Failed to deserialize data"))
     }
 
-    async fn set<S: Storage>(&self, storage: &S, suffix: &Vec<u8>) {
-        let key = Self::db_key(suffix.clone());
+    async fn set<S: Storage>(&self, storage: &S, suffix: &[u8]) {
+        let key = Self::db_key(suffix.to_vec());
         let data = to_vec(self).expect("Failed to serialize data");
         storage.set_value(key, data).await;
     }
@@ -39,7 +38,7 @@ pub trait DBObject: Serialize + for<'de> Deserialize<'de> + Copy {
 pub struct FactCheckingContext<S: Storage> {
     storage: S,
     hash_func: HashFunctionType,
-    n_workers: Option<u32>,
+    _n_workers: Option<u32>,
 }
 
 pub trait Fact: DBObject {
