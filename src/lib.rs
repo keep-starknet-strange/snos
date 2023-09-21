@@ -1,6 +1,6 @@
 pub mod error;
 pub mod hints;
-pub mod pie;
+pub mod sharp;
 
 use error::SnOsError;
 use std::fs;
