@@ -7,7 +7,7 @@ use std::path::Path;
 use zip::write::FileOptions;
 use zip::ZipWriter;
 
-const PIE_FILES: [&'static str; 5] = [
+const PIE_FILES: [&str; 5] = [
     "metadata",
     "memory",
     "additional_data",
@@ -29,7 +29,7 @@ pub fn encode_pie(pie: CairoPie, dst: &Path) -> Result<String, SnOsError> {
         .read_to_end(&mut buffer)
         .map_err(|e| SnOsError::PieEncoding(format!("{e}")))?;
 
-    Ok(general_purpose::STANDARD_NO_PAD.encode(buffer))
+    Ok(general_purpose::STANDARD.encode(buffer))
 }
 
 pub fn encode_pie_mem(pie: CairoPie) -> Result<String, SnOsError> {
@@ -42,7 +42,7 @@ pub fn encode_pie_mem(pie: CairoPie) -> Result<String, SnOsError> {
         write_to_zip(pie, zip)?;
     }
 
-    Ok(general_purpose::STANDARD_NO_PAD.encode(data))
+    Ok(general_purpose::STANDARD.encode(data))
 }
 
 fn write_to_zip<W: Write + Seek>(pie: CairoPie, mut zip: ZipWriter<W>) -> Result<(), SnOsError> {
@@ -54,7 +54,7 @@ fn write_to_zip<W: Write + Seek>(pie: CairoPie, mut zip: ZipWriter<W>) -> Result
 
     for file in PIE_FILES {
         if file == "memory" {
-            let pie_mem_bytes = hex::decode(&pie_s[file].to_string().trim_matches('"'))
+            let pie_mem_bytes = hex::decode(pie_s[file].to_string().trim_matches('"'))
                 .map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
 
             zip.start_file(&format!("{file}.bin"), options)

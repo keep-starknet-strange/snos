@@ -1,9 +1,9 @@
 mod common;
-
 use common::setup_pie;
+
 use rstest::*;
 use serde_json::json;
-use snos::pie::{encode_pie, encode_pie_mem};
+use snos::sharp::pie::{encode_pie, encode_pie_mem};
 use std::path::Path;
 
 use cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME;
