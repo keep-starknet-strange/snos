@@ -15,17 +15,12 @@ const PIE_FILES: [&'static str; 5] = [
     "version",
 ];
 
-pub fn zip_pie(pie: CairoPie, dst: &Path) -> Result<(), SnOsError> {
+pub fn encode_pie(pie: CairoPie, dst: &Path) -> Result<String, SnOsError> {
     let output = File::create(dst).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
-
     let zip = zip::ZipWriter::new(output);
 
     write_to_zip(pie, zip)?;
 
-    Ok(())
-}
-
-pub fn encode_pie(dst: &Path) -> Result<String, SnOsError> {
     let mut pie_zip = File::open(dst).map_err(|e| SnOsError::PieEncoding(format!("{e}")))?;
     let mut buffer = Vec::new();
 
@@ -37,22 +32,17 @@ pub fn encode_pie(dst: &Path) -> Result<String, SnOsError> {
     Ok(general_purpose::STANDARD_NO_PAD.encode(buffer))
 }
 
-pub fn zip_pie_mem(pie: CairoPie) -> Result<Vec<u8>, SnOsError> {
+pub fn encode_pie_mem(pie: CairoPie) -> Result<String, SnOsError> {
     let mut data = Vec::new();
 
     {
         let buf = Cursor::new(&mut data);
-
         let zip = zip::ZipWriter::new(buf);
 
         write_to_zip(pie, zip)?;
     }
 
-    Ok(data)
-}
-
-pub fn encode_pie_mem(buffer: Vec<u8>) -> Result<String, SnOsError> {
-    Ok(general_purpose::STANDARD_NO_PAD.encode(buffer))
+    Ok(general_purpose::STANDARD_NO_PAD.encode(data))
 }
 
 fn write_to_zip<W: Write + Seek>(pie: CairoPie, mut zip: ZipWriter<W>) -> Result<(), SnOsError> {

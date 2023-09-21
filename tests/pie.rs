@@ -3,7 +3,7 @@ mod common;
 use common::setup_pie;
 use rstest::*;
 use serde_json::json;
-use snos::pie::{encode_pie, encode_pie_mem, zip_pie, zip_pie_mem};
+use snos::pie::{encode_pie, encode_pie_mem};
 use std::path::Path;
 
 use cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME;
@@ -83,12 +83,10 @@ fn pie_memory_ok(setup_pie: CairoPie) {
 
 #[rstest]
 fn prepare_pie_ok(setup_pie: CairoPie) {
-    assert!(zip_pie(setup_pie.clone(), &Path::new("build/test.zip")).is_ok());
-    let disk_b64 = encode_pie(&Path::new("build/test.zip"));
+    let disk_b64 = encode_pie(setup_pie.clone(), &Path::new("build/test.zip"));
     assert!(disk_b64.is_ok());
 
-    let mem_zip = zip_pie_mem(setup_pie).unwrap();
-    let mem_b64 = encode_pie_mem(mem_zip.clone());
+    let mem_b64 = encode_pie_mem(setup_pie);
     assert!(mem_b64.is_ok());
     assert_eq!(disk_b64.unwrap(), mem_b64.unwrap());
 }
