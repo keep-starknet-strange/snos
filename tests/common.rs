@@ -39,7 +39,7 @@ pub fn setup_pie() -> CairoPie {
 }
 
 #[allow(unused)]
-pub fn compare_python_output(program: &str, mut vm: VirtualMachine) {
+pub fn assert_python_and_rust_output_match(program: &str, mut vm: VirtualMachine) {
     let mut rs_output = String::new();
     vm.write_output(&mut rs_output).unwrap();
     let rs_output = rs_output.split('\n').filter(|&x| !x.is_empty());

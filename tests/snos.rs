@@ -9,7 +9,7 @@ use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::{errors::hint_errors::HintError, vm_core::VirtualMachine};
-use common::compare_python_output;
+use common::assert_python_and_rust_output_match;
 use snos::SnOsRunner;
 use std::collections::HashMap;
 use std::fs::File;
@@ -57,7 +57,7 @@ fn custom_hint_ok() {
         &mut hint_processor,
     )
     .expect("Couldn't run program");
-    compare_python_output(program_path, virtual_machine);
+    assert_python_and_rust_output_match(program_path, virtual_machine);
 }
 
 #[test]
@@ -95,5 +95,5 @@ fn test_different_outputs() {
         &mut hint_processor,
     )
     .expect("Couldn't run program");
-    compare_python_output("build/different_output.json", virtual_machine);
+    assert_python_and_rust_output_match("build/different_output.json", virtual_machine);
 }
