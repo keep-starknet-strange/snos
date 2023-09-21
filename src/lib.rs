@@ -3,10 +3,9 @@
 pub mod error;
 pub mod hints;
 pub mod os_input;
-pub mod pie;
+pub mod sharp;
 pub mod storage;
 pub mod utils;
-pub mod sharp;
 
 use error::SnOsError;
 use std::fs;
