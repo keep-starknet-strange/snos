@@ -1,16 +1,15 @@
 use starknet::core::types::FieldElement;
 
 use crate::{
-    storage::{DBObject, Fact, HASH_BYTES},
+    storage::{DBObject, Fact},
     utils::{
         commitment_tree::{
             leaf_fact::LeafFact, nodes::EMPTY_NODE_HASH, patricia_tree::PatriciaTree,
         },
+        definitions::constants::UNINITIALIZED_CLASS_HASH,
         hasher::HasherT,
     },
 };
-
-const UNINITIALIZED_CLASS_HASH: [u8; 4] = HASH_BYTES;
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ContractState {

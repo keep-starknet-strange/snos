@@ -2011,6 +2011,7 @@ dependencies = [
  "serde_json",
  "starknet",
  "thiserror",
+ "tokio",
  "uuid 1.4.1",
  "zip",
 ]

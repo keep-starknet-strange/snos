@@ -6,7 +6,7 @@ use starknet::core::types::FieldElement;
 use crate::{
     fact_state::contract_state::ContractState,
     storage::{starknet::CommitmentInfo, Storage},
-    utils::{hasher::HasherT, definitions::general_config::StarknetGeneralConfig},
+    utils::{definitions::general_config::StarknetGeneralConfig, hasher::HasherT},
 };
 
 // TODO: Add missing fields

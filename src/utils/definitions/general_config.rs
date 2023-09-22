@@ -3,15 +3,22 @@ use starknet::core::chain_id::TESTNET;
 use starknet::core::types::FieldElement;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tokio::sync::OnceCell;
+
+use super::constants;
 
 const GENERAL_CONFIG_FILE_NAME: &str = "general_config.yml";
-const DOCKER_GENERAL_CONFIG_PATH: PathBuf = PathBuf::from("/").join(GENERAL_CONFIG_FILE_NAME);
-const GENERAL_CONFIG_PATH: PathBuf = PathBuf::from(file!()).parent().unwrap().join(GENERAL_CONFIG_FILE_NAME);
 const N_STEPS_RESOURCE: &str = "n_steps";
-
 const DEFAULT_CHAIN_ID: FieldElement = TESTNET;
 
-// ... other constants ...
+// Default configuration values.
+
+pub const DEFAULT_VALIDATE_MAX_STEPS: usize = 10usize.pow(6);
+pub const DEFAULT_TX_MAX_STEPS: usize = 3 * 10usize.pow(6);
+pub const DEFAULT_ENFORCE_L1_FEE: bool = true;
+
+// Given in units of wei
+pub const DEFAULT_GAS_PRICE: usize = 10usize.pow(8);
 
 #[derive(Debug, Serialize, Deserialize)]
 struct StarknetOsConfig {
@@ -28,7 +35,7 @@ impl Default for StarknetOsConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StarknetGeneralConfig {
     starknet_os_config: StarknetOsConfig,
     contract_storage_commitment_tree_height: usize,
@@ -45,6 +52,30 @@ pub struct StarknetGeneralConfig {
     enforce_l1_handler_fee: bool,
 }
 
+pub static CONFIG: OnceCell<StarknetGeneralConfig> = OnceCell::const_new();
+
+impl Default for StarknetGeneralConfig {
+    fn default() -> Self {
+        StarknetGeneralConfig {
+            starknet_os_config: StarknetOsConfig::default(),
+            contract_storage_commitment_tree_height:
+                constants::CONTRACT_STATES_COMMITMENT_TREE_HEIGHT,
+            compiled_class_hash_commitment_tree_height:
+                constants::COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT,
+            global_state_commitment_tree_height: constants::CONTRACT_ADDRESS_BITS,
+            invoke_tx_max_n_steps: DEFAULT_TX_MAX_STEPS,
+            validate_max_n_steps: DEFAULT_VALIDATE_MAX_STEPS,
+            min_gas_price: DEFAULT_GAS_PRICE,
+            constant_gas_price: false,
+            sequencer_address: FieldElement::ZERO, // TODO: Add real value
+            tx_commitment_tree_height: constants::TRANSACTION_COMMITMENT_TREE_HEIGHT,
+            event_commitment_tree_height: constants::EVENT_COMMITMENT_TREE_HEIGHT,
+            cairo_resource_fee_weights: HashMap::default(), // TODO: Add builtins module
+            enforce_l1_handler_fee: DEFAULT_ENFORCE_L1_FEE,
+        }
+    }
+}
+
 impl StarknetGeneralConfig {
     fn chain_id(&self) -> FieldElement {
         self.starknet_os_config.chain_id
@@ -55,10 +86,8 @@ impl StarknetGeneralConfig {
     }
 }
 
-fn build_general_config(raw_general_config: HashMap<String, String>) -> StarknetGeneralConfig {
+#[allow(unused)]
+pub fn build_general_config(raw_general_config: HashMap<String, String>) -> StarknetGeneralConfig {
     // ... logic to build the general config ...
     StarknetGeneralConfig::default()
 }
-
-// ... other structs and functions ...
-
