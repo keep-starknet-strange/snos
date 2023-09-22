@@ -1,7 +1,7 @@
 %builtins output
 
 func main(output_ptr: felt*) -> (output_ptr: felt*) {
-    tempvar a = 17;
+    tempvar a = 18;
     a = [output_ptr], ap++;
 
     // Use custom hint to print the value of a
