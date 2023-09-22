@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
+use cairo_felt::Felt252;
 use serde::{Deserialize, Serialize};
-use starknet::core::types::FieldElement;
 
 // TODO: Complete this module
 
@@ -13,6 +13,6 @@ struct Transaction {
 
 #[derive(Serialize, Deserialize)]
 pub struct InternalTransaction {
-    hash_value: FieldElement,
+    hash_value: Felt252,
     external_to_internal_cls: HashMap<Transaction, Self>,
 }

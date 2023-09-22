@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use starknet::core::types::FieldElement;
+use cairo_felt::Felt252;
 
 use crate::{
     error::FactTreeError,
@@ -15,7 +15,7 @@ use super::{
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PatriciaTree {
-    pub root: FieldElement,
+    pub root: Felt252,
     pub height: usize,
 }
 
@@ -32,25 +32,25 @@ impl<S: Storage, H: HasherT> BinaryFactTree<S, H> for PatriciaTree {
     async fn get_leaves(
         &self,
         _ffc: &FactCheckingContext<S, H>,
-        _indices: Vec<FieldElement>,
+        _indices: Vec<Felt252>,
         _facts: Option<BinaryFactDict>,
-    ) -> HashMap<FieldElement, InnerNodeFact> {
+    ) -> HashMap<Felt252, InnerNodeFact> {
         todo!()
     }
 
     async fn _get_leaves(
         &self,
         _ffc: &FactCheckingContext<S, H>,
-        _indices: Vec<FieldElement>,
+        _indices: Vec<Felt252>,
         _facts: Option<BinaryFactDict>,
-    ) -> HashMap<FieldElement, InnerNodeFact> {
+    ) -> HashMap<Felt252, InnerNodeFact> {
         todo!()
     }
 
     async fn update(
         &self,
         _ffc: &FactCheckingContext<S, H>,
-        _modifications: HashMap<FieldElement, InnerNodeFact>,
+        _modifications: HashMap<Felt252, InnerNodeFact>,
         _facts: Option<&mut BinaryFactDict>,
     ) -> Self {
         todo!()
@@ -59,7 +59,7 @@ impl<S: Storage, H: HasherT> BinaryFactTree<S, H> for PatriciaTree {
     async fn get_leaf(
         &self,
         _ffc: &FactCheckingContext<S, H>,
-        _index: FieldElement,
+        _index: Felt252,
     ) -> Result<InnerNodeFact, FactTreeError> {
         todo!()
     }

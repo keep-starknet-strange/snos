@@ -1,5 +1,5 @@
 use bitvec::{prelude::Msb0, vec::BitVec};
-use starknet::core::types::FieldElement;
+use cairo_felt::Felt252;
 
 use crate::{
     storage::{DBObject, Fact, HASH_BYTES},
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 pub const EMPTY_NODE_HASH: [u8; 4] = HASH_BYTES;
 
-pub const EMPTY_NODE_PREIMAGE_LENGTH: FieldElement = FieldElement::ZERO;
+pub const EMPTY_NODE_PREIMAGE_LENGTH: Felt252 = Felt252::new(0);
 
 /// A node in a Binary Merkle-Patricia Tree graph.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -36,14 +36,14 @@ impl Fact for EmptyNode {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BinaryNode {
-    left: FieldElement,
-    right: FieldElement,
+    left: Felt252,
+    right: Felt252,
 }
 
 impl BinaryNode {
     #[allow(unused)]
-    pub(crate) fn preimage_length() -> FieldElement {
-        FieldElement::TWO * FieldElement::from_byte_slice_be(HASH_BYTES.as_slice()).unwrap()
+    pub(crate) fn preimage_length() -> Felt252 {
+        Felt252::new(2) * Felt252::from_bytes_be(HASH_BYTES.as_slice()).unwrap()
     }
 }
 
@@ -65,9 +65,8 @@ pub struct EdgeNode {
 
 impl EdgeNode {
     #[allow(unused)]
-    pub(crate) fn preimage_length() -> FieldElement {
-        FieldElement::TWO * FieldElement::from_byte_slice_be(HASH_BYTES.as_slice()).unwrap()
-            + FieldElement::ONE
+    pub(crate) fn preimage_length() -> Felt252 {
+        Felt252::new(2) * Felt252::from_bytes_be(HASH_BYTES.as_slice()).unwrap() + Felt252::new(1)
     }
 }
 
@@ -80,7 +79,7 @@ impl Fact for EdgeNode {
 
         let bottom_path_hash = H::hash_elements(
             self.bottom_node.hash().unwrap(),
-            FieldElement::from_byte_slice_be(bvec.as_slice()).unwrap(),
+            Felt252::from_bytes_be(bvec.as_slice()).unwrap(),
         );
 
         // Add the edge length.
@@ -94,7 +93,7 @@ impl Fact for EdgeNode {
 
 impl InnerNodeFact {
     /// Returns true if the node represents an empty node -- this is defined as a node
-    /// with the [FieldElement::ZERO].
+    /// with the [Felt252::new(0)].
     ///
     /// This can occur for the root node in an empty graph.
     pub fn is_empty(&self) -> bool {
@@ -109,20 +108,17 @@ impl InnerNodeFact {
     }
 
     /// Get the hash of an inner node fact.
-    pub fn hash(&self) -> Option<FieldElement> {
+    pub fn hash(&self) -> Option<Felt252> {
         match self {
-            InnerNodeFact::Empty(empty) => Some(
-                FieldElement::from_byte_slice_be(empty._hash::<PedersenHasher>().as_slice())
-                    .unwrap(),
-            ),
-            InnerNodeFact::Binary(binary) => Some(
-                FieldElement::from_byte_slice_be(binary._hash::<PedersenHasher>().as_slice())
-                    .unwrap(),
-            ),
-            InnerNodeFact::Edge(edge) => Some(
-                FieldElement::from_byte_slice_be(edge._hash::<PedersenHasher>().as_slice())
-                    .unwrap(),
-            ),
+            InnerNodeFact::Empty(empty) => {
+                Some(Felt252::from_bytes_be(empty._hash::<PedersenHasher>().as_slice()).unwrap())
+            }
+            InnerNodeFact::Binary(binary) => {
+                Some(Felt252::from_bytes_be(binary._hash::<PedersenHasher>().as_slice()).unwrap())
+            }
+            InnerNodeFact::Edge(edge) => {
+                Some(Felt252::from_bytes_be(edge._hash::<PedersenHasher>().as_slice()).unwrap())
+            }
         }
     }
 }

@@ -1,10 +1,6 @@
-use starknet::core::{
-    crypto::{compute_hash_on_elements, pedersen_hash},
-    types::FieldElement,
-};
-
 use super::HasherT;
-
+use starknet::core::crypto::{compute_hash_on_elements, pedersen_hash};
+use starknet::core::types::FieldElement;
 /// The Pedersen hasher.
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

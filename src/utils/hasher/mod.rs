@@ -1,6 +1,6 @@
-pub mod pedersen;
-
 use starknet::core::types::FieldElement;
+
+pub mod pedersen;
 
 /// A trait for hashing.
 pub trait HasherT {

@@ -1,4 +1,4 @@
-use starknet::core::types::FieldElement;
+use cairo_felt::Felt252;
 
 use crate::{
     storage::{DBObject, Fact},
@@ -13,18 +13,16 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ContractState {
-    contract_hash: FieldElement,
+    contract_hash: Felt252,
     storage_commitment_tree: PatriciaTree,
-    nonce: FieldElement,
+    nonce: Felt252,
 }
 
 impl LeafFact for ContractState {
     fn is_empty(&self) -> bool {
-        self.storage_commitment_tree.root
-            == FieldElement::from_byte_slice_be(EMPTY_NODE_HASH.as_slice()).unwrap()
-            && self.contract_hash
-                == FieldElement::from_byte_slice_be(UNINITIALIZED_CLASS_HASH.as_slice()).unwrap()
-            && self.nonce == FieldElement::ZERO
+        self.storage_commitment_tree.root == Felt252::from_bytes_be(EMPTY_NODE_HASH.as_slice())
+            && self.contract_hash == Felt252::from_bytes_be(UNINITIALIZED_CLASS_HASH.as_slice())
+            && self.nonce == Felt252::new(0)
     }
 }
 
@@ -36,7 +34,7 @@ impl Fact for ContractState {
             return EMPTY_NODE_HASH.to_vec();
         }
 
-        let contract_state_hash_version = FieldElement::ZERO;
+        let contract_state_hash_version = Felt252::new(0);
 
         // Set hash_value = H(H(contract_hash, storage_root), RESERVED)
         let hash_value = H::hash_elements(self.contract_hash, self.storage_commitment_tree.root);

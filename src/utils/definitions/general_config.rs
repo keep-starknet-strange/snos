@@ -1,6 +1,5 @@
+use cairo_felt::Felt252;
 use serde::{Deserialize, Serialize};
-use starknet::core::chain_id::TESTNET;
-use starknet::core::types::FieldElement;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::sync::OnceCell;
@@ -9,7 +8,7 @@ use super::constants;
 
 const GENERAL_CONFIG_FILE_NAME: &str = "general_config.yml";
 const N_STEPS_RESOURCE: &str = "n_steps";
-const DEFAULT_CHAIN_ID: FieldElement = TESTNET;
+const DEFAULT_CHAIN_ID: Felt252 = Felt252::new(0); // Fix this
 
 // Default configuration values.
 
@@ -22,15 +21,15 @@ pub const DEFAULT_GAS_PRICE: usize = 10usize.pow(8);
 
 #[derive(Debug, Serialize, Deserialize)]
 struct StarknetOsConfig {
-    chain_id: FieldElement,
-    fee_token_address: FieldElement,
+    chain_id: Felt252,
+    fee_token_address: Felt252,
 }
 
 impl Default for StarknetOsConfig {
     fn default() -> Self {
         StarknetOsConfig {
             chain_id: DEFAULT_CHAIN_ID,
-            fee_token_address: FieldElement::ZERO,
+            fee_token_address: Felt252::new(0),
         }
     }
 }
@@ -45,7 +44,7 @@ pub struct StarknetGeneralConfig {
     validate_max_n_steps: usize,
     min_gas_price: usize,
     constant_gas_price: bool,
-    sequencer_address: FieldElement,
+    sequencer_address: Felt252,
     tx_commitment_tree_height: usize,
     event_commitment_tree_height: usize,
     cairo_resource_fee_weights: HashMap<String, f32>,
@@ -67,7 +66,7 @@ impl Default for StarknetGeneralConfig {
             validate_max_n_steps: DEFAULT_VALIDATE_MAX_STEPS,
             min_gas_price: DEFAULT_GAS_PRICE,
             constant_gas_price: false,
-            sequencer_address: FieldElement::ZERO, // TODO: Add real value
+            sequencer_address: Felt252::new(0), // TODO: Add real value
             tx_commitment_tree_height: constants::TRANSACTION_COMMITMENT_TREE_HEIGHT,
             event_commitment_tree_height: constants::EVENT_COMMITMENT_TREE_HEIGHT,
             cairo_resource_fee_weights: HashMap::default(), // TODO: Add builtins module
@@ -77,11 +76,11 @@ impl Default for StarknetGeneralConfig {
 }
 
 impl StarknetGeneralConfig {
-    fn chain_id(&self) -> FieldElement {
+    fn chain_id(&self) -> Felt252 {
         self.starknet_os_config.chain_id
     }
 
-    fn fee_token_address(&self) -> FieldElement {
+    fn fee_token_address(&self) -> Felt252 {
         self.starknet_os_config.fee_token_address
     }
 }
