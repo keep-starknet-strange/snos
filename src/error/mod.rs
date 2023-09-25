@@ -18,7 +18,7 @@ pub enum SnOsError {
 pub enum CommitmentInfoError {
     #[error("Inconsistent tree heights : {0} {1}.")]
     InconsistentTreeHeights(usize, usize),
-    #[error("Inconsistent tree roots : {0} {1}.")]
+    #[error("Inconsistent tree roots, actual : {0} , expected : {1}.")]
     InconsistentTreeRoots(Felt252, Felt252),
 }
 

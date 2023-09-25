@@ -11,67 +11,61 @@ const _N_STEPS_RESOURCE: &str = "n_steps";
 
 // Default configuration values.
 
-pub const DEFAULT_VALIDATE_MAX_STEPS: usize = 10usize.pow(6);
-pub const DEFAULT_TX_MAX_STEPS: usize = 3 * 10usize.pow(6);
+pub const DEFAULT_VALIDATE_MAX_STEPS: u64 = 10u64.pow(6);
+pub const DEFAULT_TX_MAX_STEPS: u64 = 3 * 10u64.pow(6);
 pub const DEFAULT_ENFORCE_L1_FEE: bool = true;
 
 // Given in units of wei
-pub const DEFAULT_GAS_PRICE: usize = 10usize.pow(8);
+pub const DEFAULT_GAS_PRICE: u64 = 10u64.pow(8);
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 struct StarknetOsConfig {
     chain_id: Felt252,
     fee_token_address: Felt252,
 }
 
-// TODO: add real values
-impl Default for StarknetOsConfig {
-    fn default() -> Self {
-        StarknetOsConfig {
-            chain_id: Felt252::new(0),
-            fee_token_address: Felt252::new(0),
-        }
+fn starknet_os_config() -> StarknetOsConfig {
+    StarknetOsConfig {
+        chain_id: Felt252::new(0),
+        fee_token_address: Felt252::new(0),
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct StarknetGeneralConfig {
     starknet_os_config: StarknetOsConfig,
-    contract_storage_commitment_tree_height: usize,
-    compiled_class_hash_commitment_tree_height: usize,
-    global_state_commitment_tree_height: usize,
-    invoke_tx_max_n_steps: usize,
-    validate_max_n_steps: usize,
-    min_gas_price: usize,
+    contract_storage_commitment_tree_height: u64,
+    compiled_class_hash_commitment_tree_height: u64,
+    global_state_commitment_tree_height: u64,
+    invoke_tx_max_n_steps: u64,
+    validate_max_n_steps: u64,
+    min_gas_price: u64,
     constant_gas_price: bool,
     sequencer_address: Felt252,
-    tx_commitment_tree_height: usize,
-    event_commitment_tree_height: usize,
+    tx_commitment_tree_height: u64,
+    event_commitment_tree_height: u64,
     cairo_resource_fee_weights: HashMap<String, f32>,
     enforce_l1_handler_fee: bool,
 }
 
 pub static CONFIG: OnceCell<StarknetGeneralConfig> = OnceCell::const_new();
 
-impl Default for StarknetGeneralConfig {
-    fn default() -> Self {
-        StarknetGeneralConfig {
-            starknet_os_config: StarknetOsConfig::default(),
-            contract_storage_commitment_tree_height:
-                constants::CONTRACT_STATES_COMMITMENT_TREE_HEIGHT,
-            compiled_class_hash_commitment_tree_height:
-                constants::COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT,
-            global_state_commitment_tree_height: constants::CONTRACT_ADDRESS_BITS,
-            invoke_tx_max_n_steps: DEFAULT_TX_MAX_STEPS,
-            validate_max_n_steps: DEFAULT_VALIDATE_MAX_STEPS,
-            min_gas_price: DEFAULT_GAS_PRICE,
-            constant_gas_price: false,
-            sequencer_address: Felt252::new(0), // TODO: Add real value
-            tx_commitment_tree_height: constants::TRANSACTION_COMMITMENT_TREE_HEIGHT,
-            event_commitment_tree_height: constants::EVENT_COMMITMENT_TREE_HEIGHT,
-            cairo_resource_fee_weights: HashMap::default(), // TODO: Add builtins module
-            enforce_l1_handler_fee: DEFAULT_ENFORCE_L1_FEE,
-        }
+fn starknet_config() -> StarknetGeneralConfig {
+    StarknetGeneralConfig {
+        starknet_os_config: starknet_os_config(),
+        contract_storage_commitment_tree_height: constants::CONTRACT_STATES_COMMITMENT_TREE_HEIGHT,
+        compiled_class_hash_commitment_tree_height:
+            constants::COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT,
+        global_state_commitment_tree_height: constants::CONTRACT_ADDRESS_BITS,
+        invoke_tx_max_n_steps: DEFAULT_TX_MAX_STEPS,
+        validate_max_n_steps: DEFAULT_VALIDATE_MAX_STEPS,
+        min_gas_price: DEFAULT_GAS_PRICE,
+        constant_gas_price: false,
+        sequencer_address: Felt252::new(0), // TODO: Add real value
+        tx_commitment_tree_height: constants::TRANSACTION_COMMITMENT_TREE_HEIGHT,
+        event_commitment_tree_height: constants::EVENT_COMMITMENT_TREE_HEIGHT,
+        cairo_resource_fee_weights: HashMap::default(), // TODO: Add builtins module
+        enforce_l1_handler_fee: DEFAULT_ENFORCE_L1_FEE,
     }
 }
 
@@ -88,5 +82,5 @@ impl StarknetGeneralConfig {
 #[allow(unused)]
 pub fn build_general_config(raw_general_config: HashMap<String, String>) -> StarknetGeneralConfig {
     // ... logic to build the general config ...
-    StarknetGeneralConfig::default()
+    starknet_config()
 }

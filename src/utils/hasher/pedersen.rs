@@ -21,10 +21,10 @@ impl HasherT for PedersenHasher {
         let mut hash_value = Felt252::new(0);
 
         for chunk in data.chunks(CHUNK_SIZE) {
-            // It is safe to unwrap here because we know that the chunk size is 31 and the value can not
+            // We know that the chunk size is 31 and the value can not
             // overflow than the field's modulus value. In more detail, the Felt252 Maximum value is 2^251
             // + 17 * 2^192. So the chunk (31 bytes is 248 bits) is smaller than the maximum value (== 2^248 - 1
-            // < 2^251 + 17 * 2^192). So it is safe to unwrap here.
+            // < 2^251 + 17 * 2^192).
             let _field_element = Felt252::from_bytes_be(chunk);
             // TODO: use lambdaworks
             // hash_value = pedersen_hash(&hash_value, &field_element);
@@ -55,33 +55,3 @@ impl HasherT for PedersenHasher {
         Felt252::new(0)
     }
 }
-
-// #[test]
-// fn dynamic_string_hashing() {
-//     use std::str::FromStr;
-
-//     let message = "Hello, madara!!. It is pedersen hash.".to_string(); // 37 bytes
-//     let message = message.as_bytes();
-//     let hash_value = PedersenHasher::hash_bytes(message);
-
-//     assert_eq!(
-//         hash_value,
-//         Felt252::from_str("0x03501abfd0e0606ecab6702213a03294b81837e4d48232df3c39a62b88cc6f73")
-//             .unwrap()
-//     );
-// }
-
-// #[test]
-// fn short_string_hashing() {
-//     use std::str::FromStr;
-
-//     let message = "madara".to_string();
-//     let message = message.as_bytes();
-//     let hash_value = PedersenHasher::hash_bytes(message);
-
-//     assert_eq!(
-//         hash_value,
-//         Felt252::from_str("0x04b1b68d0622d978edcef1071b697f003896a8f432d4d5523a2f72ec812591f8")
-//             .unwrap()
-//     );
-// }

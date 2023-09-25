@@ -5,6 +5,8 @@ pub mod pedersen;
 /// A trait for hashing.
 pub trait HasherT {
     /// Hashes the given data.
+    /// The hash is computed by first converting the data to bytes and then hashing the bytes.
+    /// It is handled dynamically by hashing in chunks of 31 bytes.
     /// # Arguments
     /// * `data` - The data to hash.
     /// # Returns

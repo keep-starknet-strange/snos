@@ -23,8 +23,8 @@ pub struct CommitmentInfo<S: Storage, H: HasherT> {
     pub updated_root: Felt252,
     tree_height: usize,
     commitment_facts: CommitmentFacts,
-    _phantom_data: PhantomData<S>,
-    _phantom_data_2: PhantomData<H>,
+    _phantom_storage: PhantomData<S>,
+    _phantom_hasher: PhantomData<H>,
 }
 
 impl<S: Storage, H: HasherT> CommitmentInfo<S, H> {
@@ -88,8 +88,8 @@ impl<S: Storage, H: HasherT> CommitmentInfo<S, H> {
             updated_root: actual_updated_root,
             tree_height: previous_tree.height,
             commitment_facts,
-            _phantom_data: PhantomData,
-            _phantom_data_2: PhantomData,
+            _phantom_storage: PhantomData,
+            _phantom_hasher: PhantomData,
         })
     }
 }

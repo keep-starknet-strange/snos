@@ -9,10 +9,10 @@ pub const STARKNET_LANG_DIRECTIVE: &str = "starknet";
 // TODO: add real value
 pub const FIELD_SIZE: u128 = 123456;
 
-pub const FIELD_SIZE_BITS: usize = 251;
-pub const ADDRESS_BITS: usize = FIELD_SIZE_BITS;
-pub const CONTRACT_ADDRESS_BITS: usize = ADDRESS_BITS;
-pub const NONCE_BITS: usize = FIELD_SIZE_BITS;
+pub const FIELD_SIZE_BITS: u64 = 251;
+pub const ADDRESS_BITS: u64 = FIELD_SIZE_BITS;
+pub const CONTRACT_ADDRESS_BITS: u64 = ADDRESS_BITS;
+pub const NONCE_BITS: u64 = FIELD_SIZE_BITS;
 
 pub const FELT_LOWER_BOUND: u128 = FIELD_LOW;
 pub const FELT_UPPER_BOUND: u128 = FIELD_HIGH;
@@ -24,15 +24,15 @@ pub const L2_ADDRESS_LOWER_BOUND: u128 = 1;
 // The address upper bound is defined to be congruent with the storage var address upper bound (see
 // storage.cairo).
 // TODO: add real value
-// pub const L2_ADDRESS_UPPER_BOUND: u128 = (2u8.pow(CONTRACT_ADDRESS_BITS as u32) - 256u8) as u128;
+// pub const L2_ADDRESS_UPPER_BOUND: u128 = (2u8.pow(CONTRACT_ADDRESS_BITS as u64) - 256u8) as u128;
 pub const L2_ADDRESS_UPPER_BOUND: u128 = 0;
 
 pub const CLASS_HASH_BYTES: [u8; 4] = HASH_BYTES;
 pub const CLASS_HASH_UPPER_BOUND: u128 = FIELD_SIZE;
 
-pub const CONTRACT_STATES_COMMITMENT_TREE_HEIGHT: usize = FIELD_SIZE_BITS;
-pub const COMPILED_CLASS_HASH_UPPER_BOUND: usize = FIELD_SIZE_BITS;
-pub const COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT: usize = FIELD_SIZE_BITS;
+pub const CONTRACT_STATES_COMMITMENT_TREE_HEIGHT: u64 = FIELD_SIZE_BITS;
+pub const COMPILED_CLASS_HASH_UPPER_BOUND: u64 = FIELD_SIZE_BITS;
+pub const COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT: u64 = FIELD_SIZE_BITS;
 
 pub const ENTRY_POINT_FUNCTION_IDX_LOWER_BOUND: u128 = 0;
 pub const ENTRY_POINT_FUNCTION_IDX_UPPER_BOUND: u128 = FIELD_SIZE;
@@ -41,7 +41,7 @@ pub const ENTRY_POINT_OFFSET_UPPER_BOUND: u128 = FIELD_SIZE;
 pub const ENTRY_POINT_SELECTOR_LOWER_BOUND: u128 = 0;
 pub const ENTRY_POINT_SELECTOR_UPPER_BOUND: u128 = FIELD_SIZE;
 
-pub const EVENT_COMMITMENT_TREE_HEIGHT: usize = 64;
+pub const EVENT_COMMITMENT_TREE_HEIGHT: u64 = 64;
 pub const FEE_LOWER_BOUND: u128 = 0;
 // pub const FEE_UPPER_BOUND: u128 = 2u8.pow(128) as u128;
 pub const FEE_UPPER_BOUND: u128 = 0;
@@ -52,22 +52,22 @@ pub const GAS_PRICE_LOWER_BOUND: u128 = 0;
 // pub const GAS_PRICE_UPPER_BOUND: u128 = 2u8.pow(128) as u128;
 pub const GAS_PRICE_UPPER_BOUND: u128 = 0;
 
-pub const MAX_MESSAGE_TO_L1_LENGTH: usize = 100;
+pub const MAX_MESSAGE_TO_L1_LENGTH: u64 = 100;
 pub const NONCE_LOWER_BOUND: u128 = 0;
-// pub const NONCE_UPPER_BOUND: u128 = 2u8.pow(NONCE_BITS as u32) as u128;
+// pub const NONCE_UPPER_BOUND: u128 = 2u8.pow(NONCE_BITS as u64) as u128;
 pub const NONCE_UPPER_BOUND: u128 = 0;
 
-pub const SIERRA_ARRAY_LEN_BOUND: usize = 2usize.pow(32);
+pub const SIERRA_ARRAY_LEN_BOUND: u64 = 2u64.pow(32);
 pub const SYSCALL_SELECTOR_UPPER_BOUND: u128 = FIELD_SIZE;
 
-pub const TRANSACTION_COMMITMENT_TREE_HEIGHT: usize = 64;
+pub const TRANSACTION_COMMITMENT_TREE_HEIGHT: u64 = 64;
 pub const TRANSACTION_HASH_LOWER_BOUND: u128 = 0;
 pub const TRANSACTION_HASH_UPPER_BOUND: u128 = FIELD_SIZE;
 pub const TRANSACTION_VERSION_LOWER_BOUND: u128 = 0;
 pub const TRANSACTION_VERSION_UPPER_BOUND: u128 = FIELD_SIZE;
 
 pub const ADDRESS_LOWER_BOUND: u128 = 0;
-// pub const ADDRESS_UPPER_BOUND: u128 = 2u8.pow(ADDRESS_BITS as u32) as u128;
+// pub const ADDRESS_UPPER_BOUND: u128 = 2u8.pow(ADDRESS_BITS as u64) as u128;
 pub const ADDRESS_UPPER_BOUND: u128 = 0;
 
 pub const UNINITIALIZED_CLASS_HASH: [u8; 4] = HASH_BYTES;
@@ -103,9 +103,9 @@ pub const COMPILED_CLASS_VERSION: &[u8] = b"COMPILED_CLASS_V1";
 pub const BLOCK_SIGNATURE_VERSION: u8 = 0;
 
 // OS-related constants.
-pub const L1_TO_L2_MSG_HEADER_SIZE: usize = 5;
-pub const L2_TO_L1_MSG_HEADER_SIZE: usize = 3;
-pub const CLASS_UPDATE_SIZE: usize = 1;
+pub const L1_TO_L2_MSG_HEADER_SIZE: u64 = 5;
+pub const L2_TO_L1_MSG_HEADER_SIZE: u64 = 3;
+pub const CLASS_UPDATE_SIZE: u64 = 1;
 
 // OS reserved contract addresses.
 pub const ORIGIN_ADDRESS: u128 = 0;
@@ -113,15 +113,15 @@ pub const BLOCK_HASH_CONTRACT_ADDRESS: u128 = 1;
 pub const OS_RESERVED_CONTRACT_ADDRESSES: [u128; 2] = [ORIGIN_ADDRESS, BLOCK_HASH_CONTRACT_ADDRESS];
 
 // StarkNet solidity contract-related constants.
-pub const N_DEFAULT_TOPICS: usize = 1; // Events have one default topic.
-                                       // Excluding the default topic.
-pub const LOG_MSG_TO_L1_N_TOPICS: usize = 2;
-pub const CONSUMED_MSG_TO_L2_N_TOPICS: usize = 3;
+pub const N_DEFAULT_TOPICS: u64 = 1; // Events have one default topic.
+                                     // Excluding the default topic.
+pub const LOG_MSG_TO_L1_N_TOPICS: u64 = 2;
+pub const CONSUMED_MSG_TO_L2_N_TOPICS: u64 = 3;
 // The headers include the payload size, so we need to add +1 since arrays are encoded with two
 // additional parameters (offset and length) in solidity.
-pub const LOG_MSG_TO_L1_ENCODED_DATA_SIZE: usize =
+pub const LOG_MSG_TO_L1_ENCODED_DATA_SIZE: u64 =
     (L2_TO_L1_MSG_HEADER_SIZE + 1) - LOG_MSG_TO_L1_N_TOPICS;
-pub const CONSUMED_MSG_TO_L2_ENCODED_DATA_SIZE: usize =
+pub const CONSUMED_MSG_TO_L2_ENCODED_DATA_SIZE: u64 =
     (L1_TO_L2_MSG_HEADER_SIZE + 1) - CONSUMED_MSG_TO_L2_N_TOPICS;
 
 // The (empirical) L1 gas cost of each Cairo step.
