@@ -37,8 +37,11 @@ impl Fact for ContractState {
         let contract_state_hash_version = Felt252::new(0);
 
         // Set hash_value = H(H(contract_hash, storage_root), RESERVED)
-        let hash_value = H::hash_elements(self.contract_hash, self.storage_commitment_tree.root);
-        let hash_value = H::hash_elements(hash_value, self.nonce);
+        let hash_value = H::hash_elements(
+            self.contract_hash.clone(),
+            self.storage_commitment_tree.root.clone(),
+        );
+        let hash_value = H::hash_elements(hash_value, self.nonce.clone());
 
         // Return H(hash_value, CONTRACT_STATE_HASH_VERSION). CONTRACT_STATE_HASH_VERSION must be in
         // the outermost hash to guarantee unique "decoding".

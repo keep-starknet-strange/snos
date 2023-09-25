@@ -1,4 +1,4 @@
-use starknet::core::types::FieldElement;
+use cairo_felt::Felt252;
 
 pub mod pedersen;
 
@@ -9,7 +9,7 @@ pub trait HasherT {
     /// * `data` - The data to hash.
     /// # Returns
     /// The hash of the data.
-    fn hash_bytes(data: &[u8]) -> FieldElement;
+    fn hash_bytes(data: &[u8]) -> Felt252;
 
     /// Hashes the 2 felts sent.
     ///
@@ -21,7 +21,7 @@ pub trait HasherT {
     /// # Returns
     ///
     /// The hash of the 2 values.
-    fn hash_elements(a: FieldElement, b: FieldElement) -> FieldElement;
+    fn hash_elements(a: Felt252, b: Felt252) -> Felt252;
 
     /// Computes a hash chain over the data, in the following order:
     /// h(h(h(h(0, data\[0\]), data\[1\]), ...), data\[n-1\]), n).
@@ -36,5 +36,5 @@ pub trait HasherT {
     /// # Returns
     ///
     /// The hash of the array.
-    fn compute_hash_on_elements(elements: &[FieldElement]) -> FieldElement;
+    fn compute_hash_on_elements(elements: &[Felt252]) -> Felt252;
 }

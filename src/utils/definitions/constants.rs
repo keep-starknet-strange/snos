@@ -23,7 +23,9 @@ pub const BLOCK_HASH_UPPER_BOUND: u128 = FIELD_SIZE;
 pub const L2_ADDRESS_LOWER_BOUND: u128 = 1;
 // The address upper bound is defined to be congruent with the storage var address upper bound (see
 // storage.cairo).
-pub const L2_ADDRESS_UPPER_BOUND: u128 = (2u8.pow(CONTRACT_ADDRESS_BITS as u32) - 256u8) as u128;
+// TODO: add real value
+// pub const L2_ADDRESS_UPPER_BOUND: u128 = (2u8.pow(CONTRACT_ADDRESS_BITS as u32) - 256u8) as u128;
+pub const L2_ADDRESS_UPPER_BOUND: u128 = 0;
 
 pub const CLASS_HASH_BYTES: [u8; 4] = HASH_BYTES;
 pub const CLASS_HASH_UPPER_BOUND: u128 = FIELD_SIZE;
@@ -41,16 +43,19 @@ pub const ENTRY_POINT_SELECTOR_UPPER_BOUND: u128 = FIELD_SIZE;
 
 pub const EVENT_COMMITMENT_TREE_HEIGHT: usize = 64;
 pub const FEE_LOWER_BOUND: u128 = 0;
-pub const FEE_UPPER_BOUND: u128 = 2u8.pow(128) as u128;
+// pub const FEE_UPPER_BOUND: u128 = 2u8.pow(128) as u128;
+pub const FEE_UPPER_BOUND: u128 = 0;
 
 // Default hash to fill the parent_hash field of the first block in the sequence.
 pub const GENESIS_PARENT_BLOCK_HASH: u128 = 0;
 pub const GAS_PRICE_LOWER_BOUND: u128 = 0;
-pub const GAS_PRICE_UPPER_BOUND: u128 = 2u8.pow(128) as u128;
+// pub const GAS_PRICE_UPPER_BOUND: u128 = 2u8.pow(128) as u128;
+pub const GAS_PRICE_UPPER_BOUND: u128 = 0;
 
 pub const MAX_MESSAGE_TO_L1_LENGTH: usize = 100;
 pub const NONCE_LOWER_BOUND: u128 = 0;
-pub const NONCE_UPPER_BOUND: u128 = 2u8.pow(NONCE_BITS as u32) as u128;
+// pub const NONCE_UPPER_BOUND: u128 = 2u8.pow(NONCE_BITS as u32) as u128;
+pub const NONCE_UPPER_BOUND: u128 = 0;
 
 pub const SIERRA_ARRAY_LEN_BOUND: usize = 2usize.pow(32);
 pub const SYSCALL_SELECTOR_UPPER_BOUND: u128 = FIELD_SIZE;
@@ -62,7 +67,8 @@ pub const TRANSACTION_VERSION_LOWER_BOUND: u128 = 0;
 pub const TRANSACTION_VERSION_UPPER_BOUND: u128 = FIELD_SIZE;
 
 pub const ADDRESS_LOWER_BOUND: u128 = 0;
-pub const ADDRESS_UPPER_BOUND: u128 = 2u8.pow(ADDRESS_BITS as u32) as u128;
+// pub const ADDRESS_UPPER_BOUND: u128 = 2u8.pow(ADDRESS_BITS as u32) as u128;
+pub const ADDRESS_UPPER_BOUND: u128 = 0;
 
 pub const UNINITIALIZED_CLASS_HASH: [u8; 4] = HASH_BYTES;
 
@@ -72,7 +78,8 @@ pub const TRANSACTION_VERSION: u8 = 1;
 pub const L1_HANDLER_VERSION: u8 = 0;
 // Indentation for transactions meant to query and not addressed to the OS.
 pub const DECLARE_VERSION: u8 = 2;
-pub const QUERY_VERSION_BASE: u128 = 2u8.pow(128) as u128;
+// pub const QUERY_VERSION_BASE: u128 = 2u8.pow(128) as u128;
+pub const QUERY_VERSION_BASE: u128 = 0;
 pub const QUERY_VERSION: u128 = QUERY_VERSION_BASE + TRANSACTION_VERSION as u128;
 pub const QUERY_DECLARE_VERSION: u128 = QUERY_VERSION_BASE + DECLARE_VERSION as u128;
 pub const DEPRECATED_DECLARE_VERSIONS: [u128; 4] =

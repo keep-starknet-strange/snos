@@ -1,14 +1,13 @@
 use cairo_felt::Felt252;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
 use tokio::sync::OnceCell;
 
 use super::constants;
 
-const GENERAL_CONFIG_FILE_NAME: &str = "general_config.yml";
-const N_STEPS_RESOURCE: &str = "n_steps";
-const DEFAULT_CHAIN_ID: Felt252 = Felt252::new(0); // Fix this
+const _GENERAL_CONFIG_FILE_NAME: &str = "general_config.yml";
+const _N_STEPS_RESOURCE: &str = "n_steps";
+// const DEFAULT_CHAIN_ID: Felt252 = Felt252::new(0); // Fix this
 
 // Default configuration values.
 
@@ -25,10 +24,11 @@ struct StarknetOsConfig {
     fee_token_address: Felt252,
 }
 
+// TODO: add real values
 impl Default for StarknetOsConfig {
     fn default() -> Self {
         StarknetOsConfig {
-            chain_id: DEFAULT_CHAIN_ID,
+            chain_id: Felt252::new(0),
             fee_token_address: Felt252::new(0),
         }
     }
@@ -76,12 +76,12 @@ impl Default for StarknetGeneralConfig {
 }
 
 impl StarknetGeneralConfig {
-    fn chain_id(&self) -> Felt252 {
-        self.starknet_os_config.chain_id
+    fn _chain_id(&self) -> Felt252 {
+        self.starknet_os_config.chain_id.clone()
     }
 
-    fn fee_token_address(&self) -> Felt252 {
-        self.starknet_os_config.fee_token_address
+    fn _fee_token_address(&self) -> Felt252 {
+        self.starknet_os_config.fee_token_address.clone()
     }
 }
 

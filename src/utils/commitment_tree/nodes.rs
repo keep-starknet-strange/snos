@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 pub const EMPTY_NODE_HASH: [u8; 4] = HASH_BYTES;
 
-pub const EMPTY_NODE_PREIMAGE_LENGTH: Felt252 = Felt252::new(0);
+// pub const EMPTY_NODE_PREIMAGE_LENGTH: Felt252 = Felt252::new(0);
 
 /// A node in a Binary Merkle-Patricia Tree graph.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -43,7 +43,7 @@ pub struct BinaryNode {
 impl BinaryNode {
     #[allow(unused)]
     pub(crate) fn preimage_length() -> Felt252 {
-        Felt252::new(2) * Felt252::from_bytes_be(HASH_BYTES.as_slice()).unwrap()
+        Felt252::new(2) * Felt252::from_bytes_be(HASH_BYTES.as_slice())
     }
 }
 
@@ -66,7 +66,7 @@ pub struct EdgeNode {
 impl EdgeNode {
     #[allow(unused)]
     pub(crate) fn preimage_length() -> Felt252 {
-        Felt252::new(2) * Felt252::from_bytes_be(HASH_BYTES.as_slice()).unwrap() + Felt252::new(1)
+        Felt252::new(2) * Felt252::from_bytes_be(HASH_BYTES.as_slice()) + Felt252::new(1)
     }
 }
 
@@ -75,12 +75,14 @@ impl Fact for EdgeNode {
         // https://github.com/ferrilab/bitvec/issues/27
         let mut bv = self.edge_path.to_owned();
         bv.force_align();
-        let bvec = bv.into_vec();
+        let _bvec = bv.into_vec();
 
-        let bottom_path_hash = H::hash_elements(
-            self.bottom_node.hash().unwrap(),
-            Felt252::from_bytes_be(bvec.as_slice()).unwrap(),
-        );
+        // TODO: Fix with new Hasher
+        // let bottom_path_hash = H::hash_elements(
+        //     self.bottom_node.hash().unwrap(),
+        //     Felt252::from_bytes_be(bvec.as_slice()).unwrap(),
+        // );
+        let bottom_path_hash = Felt252::new(0);
 
         // Add the edge length.
         [
@@ -110,15 +112,15 @@ impl InnerNodeFact {
     /// Get the hash of an inner node fact.
     pub fn hash(&self) -> Option<Felt252> {
         match self {
-            InnerNodeFact::Empty(empty) => {
-                Some(Felt252::from_bytes_be(empty._hash::<PedersenHasher>().as_slice()).unwrap())
-            }
-            InnerNodeFact::Binary(binary) => {
-                Some(Felt252::from_bytes_be(binary._hash::<PedersenHasher>().as_slice()).unwrap())
-            }
-            InnerNodeFact::Edge(edge) => {
-                Some(Felt252::from_bytes_be(edge._hash::<PedersenHasher>().as_slice()).unwrap())
-            }
+            InnerNodeFact::Empty(empty) => Some(Felt252::from_bytes_be(
+                empty._hash::<PedersenHasher>().as_slice(),
+            )),
+            InnerNodeFact::Binary(binary) => Some(Felt252::from_bytes_be(
+                binary._hash::<PedersenHasher>().as_slice(),
+            )),
+            InnerNodeFact::Edge(edge) => Some(Felt252::from_bytes_be(
+                edge._hash::<PedersenHasher>().as_slice(),
+            )),
         }
     }
 }

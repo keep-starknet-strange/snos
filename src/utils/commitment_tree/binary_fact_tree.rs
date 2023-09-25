@@ -50,8 +50,8 @@ where
         ffc: &FactCheckingContext<S, H>,
         index: Felt252,
     ) -> Result<InnerNodeFact, FactTreeError> {
-        let leaves = self.get_leaves(ffc, vec![index], None).await;
-        if leaves.keys().ne([index].iter()) {
+        let leaves = self.get_leaves(ffc, vec![index.clone()], None).await;
+        if leaves.keys().ne([index.clone()].iter()) {
             return Err(FactTreeError::UnexpectedResult(index));
         }
 
