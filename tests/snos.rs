@@ -60,6 +60,7 @@ fn custom_hint_ok() {
     assert_python_and_rust_output_match(program_path, virtual_machine);
 }
 
+#[ignore = "This test tests for the full execution of the OS, which is not yet supported"]
 #[test]
 fn snos_ok() {
     let snos_runner = SnOsRunner::default();

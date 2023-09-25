@@ -1,56 +1,62 @@
 use std::collections::HashMap;
 
-use starknet::core::types::FieldElement;
+use cairo_felt::Felt252;
 
 use crate::{
     error::FactTreeError,
     storage::{FactCheckingContext, Storage},
+    utils::hasher::HasherT,
 };
 
-use super::leaf_fact::LeafFact;
+use super::nodes::InnerNodeFact;
 
-pub type BinaryFactDict = HashMap<FieldElement, Vec<FieldElement>>;
+pub type BinaryFactDict = HashMap<Felt252, Vec<Felt252>>;
 
-pub trait BinaryFactTree<S: Storage, L: LeafFact>
+pub trait BinaryFactTree<S: Storage, H: HasherT>
 where
     Self: Sized,
 {
     /// Initializes an empty BinaryFactTree of the given height.
-    async fn empty_tree(&self, ffc: FactCheckingContext<S>, height: usize, leaft_fact: L);
+    async fn empty_tree(
+        &self,
+        ffc: FactCheckingContext<S, H>,
+        height: usize,
+        leaft_fact: InnerNodeFact,
+    );
     /// Returns the values of the leaves whose indices are given.
     async fn get_leaves(
         &self,
-        ffc: FactCheckingContext<S>,
-        indices: Vec<FieldElement>,
+        ffc: &FactCheckingContext<S, H>,
+        indices: Vec<Felt252>,
         facts: Option<BinaryFactDict>,
-    ) -> HashMap<FieldElement, L>;
+    ) -> HashMap<Felt252, InnerNodeFact>;
 
     async fn _get_leaves(
         &self,
-        ffc: FactCheckingContext<S>,
-        indices: Vec<FieldElement>,
+        ffc: &FactCheckingContext<S, H>,
+        indices: Vec<Felt252>,
         facts: Option<BinaryFactDict>,
-    ) -> HashMap<FieldElement, L>;
+    ) -> HashMap<Felt252, InnerNodeFact>;
 
     async fn update(
         &self,
-        ffc: FactCheckingContext<S>,
-        modifications: HashMap<FieldElement, L>,
+        ffc: &FactCheckingContext<S, H>,
+        modifications: HashMap<Felt252, InnerNodeFact>,
         facts: Option<&mut BinaryFactDict>,
     ) -> Self;
 
     async fn get_leaf(
         &self,
-        ffc: FactCheckingContext<S>,
-        index: FieldElement,
-    ) -> Result<L, FactTreeError> {
-        let leaves = self.get_leaves(ffc, vec![index], None).await;
-        if leaves.keys().ne([index].iter()) {
+        ffc: &FactCheckingContext<S, H>,
+        index: Felt252,
+    ) -> Result<InnerNodeFact, FactTreeError> {
+        let leaves = self.get_leaves(ffc, vec![index.clone()], None).await;
+        if leaves.keys().ne([index.clone()].iter()) {
             return Err(FactTreeError::UnexpectedResult(index));
         }
 
         // TODO: remove unwrap
-        let leaf = *leaves.get(&index).unwrap();
+        let leaf = leaves.get(&index).unwrap().clone();
 
         Ok(leaf)
     }

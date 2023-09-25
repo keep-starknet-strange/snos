@@ -1,9 +1,11 @@
 pub mod starknet;
 
+use std::marker::PhantomData;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{from_slice, to_vec};
 
-type HashFunctionType = fn(&[u8], &[u8]) -> Vec<u8>;
+use crate::utils::hasher::{pedersen::PedersenHasher, HasherT};
 
 pub trait Storage: Clone {
     async fn set_value(&self, key: Vec<u8>, value: Vec<u8>);
@@ -11,7 +13,7 @@ pub trait Storage: Clone {
     async fn del_value(&self, key: Vec<u8>);
 }
 
-pub trait DBObject: Serialize + for<'de> Deserialize<'de> + Copy {
+pub trait DBObject: Serialize + for<'de> Deserialize<'de> {
     /// Method to get the database key for the object
     fn db_key(suffix: Vec<u8>) -> Vec<u8>;
 
@@ -34,20 +36,22 @@ pub trait DBObject: Serialize + for<'de> Deserialize<'de> + Copy {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct FactCheckingContext<S: Storage> {
-    storage: S,
-    hash_func: HashFunctionType,
-    _n_workers: Option<u32>,
+pub const HASH_BYTES: [u8; 4] = 32u32.to_be_bytes();
+
+#[derive(Debug)]
+pub struct FactCheckingContext<S: Storage, H: HasherT> {
+    pub storage: S,
+    pub _n_workers: Option<u32>,
+    phantom_data: PhantomData<H>,
 }
 
 pub trait Fact: DBObject {
     ///  A fact is a DB object with a DB key that is a hash of its value.
     ///  Use set_fact() and get() to read and write facts.
-    fn _hash(&self, hash_func: HashFunctionType) -> Vec<u8>;
+    fn _hash<H: HasherT>(&self) -> Vec<u8>;
 
-    async fn set_fact<S: Storage>(&self, ffc: FactCheckingContext<S>) -> Vec<u8> {
-        let hash_val = self._hash(ffc.hash_func);
+    async fn set_fact<S: Storage, H: HasherT>(&self, ffc: FactCheckingContext<S, H>) -> Vec<u8> {
+        let hash_val = self._hash::<PedersenHasher>();
         self.set(&ffc.storage, &hash_val);
         hash_val
     }
