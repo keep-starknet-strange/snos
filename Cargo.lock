@@ -258,6 +258,7 @@ checksum = "1bc2832c24239b0141d5674bb9174f9d68a8b5b3f2753311927c172ca46f7e9c"
 dependencies = [
  "funty",
  "radium",
+ "serde",
  "tap",
  "wyz",
 ]
@@ -1802,9 +1803,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.101.5"
+version = "0.101.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45a27e3b59326c16e23d30aeb7a36a24cc0d29e71d68ff611cdfb4a01d013bed"
+checksum = "3c7d5dece342910d9ba34d259310cae3e0154b873b35408b787b59bce53d34fe"
 dependencies = [
  "ring",
  "untrusted",
@@ -2013,6 +2014,7 @@ name = "snos"
 version = "0.1.0"
 dependencies = [
  "base64 0.21.4",
+ "bitvec",
  "cairo-felt",
  "cairo-vm",
  "hex",
@@ -2026,6 +2028,7 @@ dependencies = [
  "serde_json",
  "starknet",
  "thiserror",
+ "tokio",
  "uuid 1.4.1",
  "zip",
 ]
