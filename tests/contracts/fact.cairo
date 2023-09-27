@@ -8,7 +8,7 @@ func main(output_ptr: felt*) -> (output_ptr: felt*) {
     [ap] = [output_ptr + 1], ap++;
 
     [ap] = 300;
-    [ap] = [output_ptr + 1], ap++;
+    [ap] = [output_ptr + 2], ap++;
 
     let output_ptr = output_ptr + 3;
 

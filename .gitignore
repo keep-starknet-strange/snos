@@ -1,2 +1,7 @@
-/target
-build/test.zip
+# Rust artifacts
+Cargo.lock
+target/
+
+# Snos artifacts
+build/*
+!build/os_*.json

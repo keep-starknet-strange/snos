@@ -1,0 +1,45 @@
+name: check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  
+jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo install taplo-cli --locked
+      - run: taplo fmt --no-auto-config --option reorder_keys=true Cargo.toml --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all -- -D warnings
+        
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: pip install cairo-lang; cargo test
+
+  udeps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - run: cargo install cargo-udeps --locked
+      - run: cargo +nightly udeps --all-targets

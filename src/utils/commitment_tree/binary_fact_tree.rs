@@ -17,40 +17,35 @@ where
     Self: Sized,
 {
     /// Initializes an empty BinaryFactTree of the given height.
-    async fn empty_tree(
-        &self,
-        ffc: FactCheckingContext<S, H>,
-        height: usize,
-        leaft_fact: InnerNodeFact,
-    );
+    fn empty_tree(&self, ffc: FactCheckingContext<S, H>, height: usize, leaft_fact: InnerNodeFact);
     /// Returns the values of the leaves whose indices are given.
-    async fn get_leaves(
+    fn get_leaves(
         &self,
         ffc: &FactCheckingContext<S, H>,
         indices: Vec<Felt252>,
         facts: Option<BinaryFactDict>,
     ) -> HashMap<Felt252, InnerNodeFact>;
 
-    async fn _get_leaves(
+    fn _get_leaves(
         &self,
         ffc: &FactCheckingContext<S, H>,
         indices: Vec<Felt252>,
         facts: Option<BinaryFactDict>,
     ) -> HashMap<Felt252, InnerNodeFact>;
 
-    async fn update(
+    fn update(
         &self,
         ffc: &FactCheckingContext<S, H>,
         modifications: HashMap<Felt252, InnerNodeFact>,
         facts: Option<&mut BinaryFactDict>,
     ) -> Self;
 
-    async fn get_leaf(
+    fn get_leaf(
         &self,
         ffc: &FactCheckingContext<S, H>,
         index: Felt252,
     ) -> Result<InnerNodeFact, FactTreeError> {
-        let leaves = self.get_leaves(ffc, vec![index.clone()], None).await;
+        let leaves = self.get_leaves(ffc, vec![index.clone()], None);
         if leaves.keys().ne([index.clone()].iter()) {
             return Err(FactTreeError::UnexpectedResult(index));
         }

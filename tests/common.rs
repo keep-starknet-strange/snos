@@ -4,18 +4,54 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
+use std::fs;
+use std::path;
+use std::process;
+
 use rstest::*;
 
+const BUILD_DIR: &str = "build/";
+const CAIRO_COMPILE_CMD: &str = "cairo-compile";
+const TEST_CONTRACTS_DIR: &str = "tests/contracts/";
+
 #[fixture]
-pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
-    // Load the test program
-    let program_content = include_bytes!("../build/fact.json");
+#[once]
+pub fn compile_contracts() {
+    let contracts = fs::read_dir(TEST_CONTRACTS_DIR).unwrap();
+
+    for contract in contracts {
+        let contract_path = contract.unwrap().path();
+        let stem = contract_path.file_stem().unwrap();
+
+        let contract_out_fmt = format!("{BUILD_DIR}{}.json", stem.to_str().unwrap());
+        let contract_out = path::PathBuf::from(&contract_out_fmt);
+
+        if !contract_out.exists() {
+            let cmd_check = process::Command::new(CAIRO_COMPILE_CMD).arg("-v").output();
+            assert!(cmd_check.is_ok());
+
+            let out = process::Command::new(CAIRO_COMPILE_CMD)
+                .args([
+                    contract_path.to_str().unwrap(),
+                    "--output",
+                    contract_out.to_str().unwrap(),
+                    "--no_debug_info",
+                ])
+                .output();
+            assert!(out.is_ok());
+        }
+    }
+}
+
+#[fixture]
+pub fn setup_runner(_compile_contracts: ()) -> (CairoRunner, VirtualMachine) {
+    let program_content = fs::read("build/fact.json").unwrap();
 
     let mut hint_processor = BuiltinHintProcessor::new_empty();
 
     // Run the program
     cairo_run(
-        program_content,
+        &program_content,
         &CairoRunConfig {
             entrypoint: "main",
             trace_enabled: true,
@@ -31,15 +67,15 @@ pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
 }
 
 #[fixture]
-pub fn setup_pie() -> CairoPie {
+pub fn setup_pie(setup_runner: (CairoRunner, VirtualMachine)) -> CairoPie {
     // Run the runner
-    let (runner, vm) = setup_runner();
+    let (runner, vm) = setup_runner;
 
     runner.get_cairo_pie(&vm).unwrap()
 }
 
 #[allow(unused)]
-pub fn assert_python_and_rust_output_match(program: &str, mut vm: VirtualMachine) {
+pub fn check_output_vs_python(program: &str, mut vm: VirtualMachine) {
     let mut rs_output = String::new();
     vm.write_output(&mut rs_output).unwrap();
     let rs_output = rs_output.split('\n').filter(|&x| !x.is_empty());
