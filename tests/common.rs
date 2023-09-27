@@ -52,7 +52,6 @@ pub fn compile_contracts() -> HashMap<String, Vec<u8>> {
 #[fixture]
 pub fn setup_runner(compile_contracts: &HashMap<String, Vec<u8>>) -> (CairoRunner, VirtualMachine) {
     // Load the test program
-    // let program_content = include_bytes!("../build/fact.json");
     let program_content = compile_contracts.get("build/fact.json").unwrap();
 
     let mut hint_processor = BuiltinHintProcessor::new_empty();

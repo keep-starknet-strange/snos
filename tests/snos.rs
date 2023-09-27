@@ -41,8 +41,6 @@ fn snos_ok() {
 fn custom_hint_ok(compile_contracts: &HashMap<String, Vec<u8>>) {
     let program_content = compile_contracts.get("build/hint.json").unwrap();
 
-    // let program_content = include_bytes!("../build/hint.json");
-
     // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
     let hint = HintFunc(Box::new(print_a_hint));
 
@@ -70,8 +68,6 @@ fn custom_hint_ok(compile_contracts: &HashMap<String, Vec<u8>>) {
 fn test_different_outputs(compile_contracts: &HashMap<String, Vec<u8>>) {
     let program_content = compile_contracts.get("build/hint.json").unwrap();
 
-    // let program_content = include_bytes!("../build/hint.json");
-
     // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
     let hint = HintFunc(Box::new(print_a_hint));
 
@@ -90,6 +86,6 @@ fn test_different_outputs(compile_contracts: &HashMap<String, Vec<u8>>) {
         },
         &mut hint_processor,
     )
-    .expect("Couldn't run programm");
+    .expect("Couldn't run program");
     check_output_vs_python("build/different_output.json", virtual_machine);
 }
