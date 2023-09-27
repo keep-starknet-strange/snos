@@ -1,6 +1,11 @@
-on: [push, pull_request]
+name: check
 
-name: Sn os
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  
 jobs:
   rustfmt:
     runs-on: ubuntu-latest
