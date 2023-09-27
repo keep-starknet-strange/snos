@@ -31,15 +31,15 @@ pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
 }
 
 #[fixture]
-pub fn setup_pie() -> CairoPie {
+pub fn setup_pie(setup_runner: (CairoRunner, VirtualMachine)) -> CairoPie {
     // Run the runner
-    let (runner, vm) = setup_runner();
+    let (runner, vm) = setup_runner;
 
     runner.get_cairo_pie(&vm).unwrap()
 }
 
 #[allow(unused)]
-pub fn assert_python_and_rust_output_match(program: &str, mut vm: VirtualMachine) {
+pub fn check_output_vs_python(program: &str, mut vm: VirtualMachine) {
     let mut rs_output = String::new();
     vm.write_output(&mut rs_output).unwrap();
     let rs_output = rs_output.split('\n').filter(|&x| !x.is_empty());
