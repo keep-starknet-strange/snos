@@ -12,6 +12,7 @@ use cairo_vm::vm::{errors::hint_errors::HintError, vm_core::VirtualMachine};
 use common::{check_output_vs_python, compile_contracts};
 use snos::SnOsRunner;
 use std::collections::HashMap;
+use std::fs;
 use std::rc::Rc;
 
 use rstest::*;
@@ -38,8 +39,8 @@ fn snos_ok() {
 }
 
 #[rstest]
-fn custom_hint_ok(compile_contracts: &HashMap<String, Vec<u8>>) {
-    let program_content = compile_contracts.get("build/hint.json").unwrap();
+fn custom_hint_ok(_compile_contracts: ()) {
+    let program_content = fs::read("build/hint.json").unwrap();
 
     // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
     let hint = HintFunc(Box::new(print_a_hint));
@@ -52,7 +53,7 @@ fn custom_hint_ok(compile_contracts: &HashMap<String, Vec<u8>>) {
 
     //Run the cairo program
     let (_cairo_runner, virtual_machine) = cairo_run(
-        program_content,
+        &program_content,
         &CairoRunConfig {
             layout: "all_cairo",
             ..Default::default()
@@ -65,8 +66,8 @@ fn custom_hint_ok(compile_contracts: &HashMap<String, Vec<u8>>) {
 
 #[rstest]
 #[should_panic(expected = "Output #0 is different")]
-fn test_different_outputs(compile_contracts: &HashMap<String, Vec<u8>>) {
-    let program_content = compile_contracts.get("build/hint.json").unwrap();
+fn test_different_outputs(_compile_contracts: ()) {
+    let program_content = fs::read("build/hint.json").unwrap();
 
     // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
     let hint = HintFunc(Box::new(print_a_hint));
@@ -79,7 +80,7 @@ fn test_different_outputs(compile_contracts: &HashMap<String, Vec<u8>>) {
 
     //Run the cairo program
     let (_cairo_runner, virtual_machine) = cairo_run(
-        program_content,
+        &program_content,
         &CairoRunConfig {
             layout: "all_cairo",
             ..Default::default()

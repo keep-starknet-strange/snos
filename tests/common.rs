@@ -4,7 +4,6 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
-use std::collections::HashMap;
 use std::fs;
 use std::path;
 use std::process;
@@ -17,8 +16,7 @@ const TEST_CONTRACTS_DIR: &str = "tests/contracts/";
 
 #[fixture]
 #[once]
-pub fn compile_contracts() -> HashMap<String, Vec<u8>> {
-    let mut paths = HashMap::new();
+pub fn compile_contracts() {
     let contracts = fs::read_dir(TEST_CONTRACTS_DIR).unwrap();
 
     for contract in contracts {
@@ -42,23 +40,18 @@ pub fn compile_contracts() -> HashMap<String, Vec<u8>> {
                 .output();
             assert!(out.is_ok());
         }
-        let raw = fs::read(contract_out).unwrap();
-        paths.insert(contract_out_fmt, raw);
     }
-
-    paths
 }
 
 #[fixture]
-pub fn setup_runner(compile_contracts: &HashMap<String, Vec<u8>>) -> (CairoRunner, VirtualMachine) {
-    // Load the test program
-    let program_content = compile_contracts.get("build/fact.json").unwrap();
+pub fn setup_runner(_compile_contracts: ()) -> (CairoRunner, VirtualMachine) {
+    let program_content = fs::read("build/fact.json").unwrap();
 
     let mut hint_processor = BuiltinHintProcessor::new_empty();
 
     // Run the program
     cairo_run(
-        program_content,
+        &program_content,
         &CairoRunConfig {
             entrypoint: "main",
             trace_enabled: true,
