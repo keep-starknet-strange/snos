@@ -86,7 +86,7 @@ mod tests {
 
         assert_eq!(conf.invoke_tx_max_n_steps, 1000000);
         assert_eq!(conf.min_gas_price, 100000000000);
-        assert_eq!(conf.validate_max_n_steps, 100000000000);
+        assert_eq!(conf.validate_max_n_steps, 1000000);
 
         assert_eq!(
             conf.sequencer_address,

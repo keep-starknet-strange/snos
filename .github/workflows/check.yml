@@ -29,9 +29,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
-      - run: pip install cairo-lang; cargo test
+      - run: |
+        pip install cairo-lang
+        cargo test
 
   udeps:
     runs-on: ubuntu-latest
