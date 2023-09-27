@@ -10,52 +10,34 @@ jobs:
   rustfmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Rust Toolchain Setup
-        run: rustup show
+      - uses: actions/checkout@v3
+      - run: rustup show
       - uses: Swatinem/rust-cache@v2
-      - name: Check format
-        run: cargo fmt --all -- --check
+      - run: cargo fmt --all -- --check
 
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Rust Toolchain Setup
-        run: rustup show
+      - uses: actions/checkout@v3
+      - run: rustup show
       - uses: Swatinem/rust-cache@v2
-      - name: Check lint
-        run: cargo clippy
+      - run: cargo clippy
         
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Rust Toolchain Setup
-        run: rustup show
+      - uses: actions/checkout@v3
+      - run: rustup show
       - uses: Swatinem/rust-cache@v2
-      - name: Run tests
-        run: pip install cairo-lang; cargo test
+      - run: pip install cairo-lang; cargo test
 
   udeps:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Setup nightly toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          profile: minimal
-          override: true
-
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
-      - name: Install udeps
-        uses: actions-rs/cargo@v1
         with:
-          command: install
-          args: cargo-udeps
-      - name: Run udeps
-        uses: actions-rs/cargo@v1
-        with:
-          command: udeps
-          args: --all-targets
+          cache-on-failure: true
+      - run: cargo install cargo-udeps --locked
+      - run: cargo +nightly udeps --all-targets
