@@ -57,4 +57,5 @@ jobs:
       - name: Run udeps
         uses: actions-rs/cargo@v1
         with:
-          command: udeps --all-targets
+          command: udeps
+          args: --all-targets
