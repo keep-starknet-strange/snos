@@ -34,8 +34,8 @@ jobs:
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
       - run: |
-        pip install cairo-lang
-        cargo test
+          pip install cairo-lang
+          cargo test
 
   udeps:
     runs-on: ubuntu-latest
