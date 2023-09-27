@@ -28,11 +28,11 @@ impl SnOsRunner {
         let mut sn_hint_processor = hints::sn_hint_processor();
 
         // Load the Starknet OS
-        let starknet_os = fs::read_to_string(self.os_path.as_path())
-            .map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
+        let starknet_os =
+            fs::read(self.os_path.as_path()).map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
 
         let (runner, vm) = cairo_run(
-            starknet_os.as_bytes(),
+            &starknet_os,
             &CairoRunConfig {
                 layout: self.layout.as_str(),
                 relocate_mem: true,
@@ -58,7 +58,7 @@ impl Default for SnOsRunner {
     fn default() -> Self {
         Self {
             layout: "starknet_with_keccak".to_string(),
-            os_path: PathBuf::from("build/os_compiled.json"),
+            os_path: PathBuf::from("build/os_latest.json"),
         }
     }
 }
