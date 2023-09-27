@@ -4,4 +4,4 @@ target/
 
 # Snos artifacts
 build/*
-!build/.gitkeep
+!build/os_*.json
