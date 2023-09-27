@@ -1,15 +1,12 @@
 use cairo_felt::Felt252;
-use serde::{Deserialize, Serialize};
+use num_traits::Num;
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
-use tokio::sync::OnceCell;
+use std::fs::File;
+use std::path::PathBuf;
 
-use super::constants;
-
-const _GENERAL_CONFIG_FILE_NAME: &str = "general_config.yml";
-const _N_STEPS_RESOURCE: &str = "n_steps";
-// const DEFAULT_CHAIN_ID: Felt252 = Felt252::new(0); // Fix this
-
-// Default configuration values.
+const DEFAULT_CONFIG_PATH: &str =
+    "cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 
 pub const DEFAULT_VALIDATE_MAX_STEPS: u64 = 10u64.pow(6);
 pub const DEFAULT_TX_MAX_STEPS: u64 = 3 * 10u64.pow(6);
@@ -18,20 +15,14 @@ pub const DEFAULT_ENFORCE_L1_FEE: bool = true;
 // Given in units of wei
 pub const DEFAULT_GAS_PRICE: u64 = 10u64.pow(8);
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-struct StarknetOsConfig {
-    chain_id: Felt252,
-    fee_token_address: Felt252,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StarknetOsConfig {
+    pub chain_id: u128,
+    #[serde(deserialize_with = "felt_from_hex_string")]
+    pub fee_token_address: Felt252,
 }
 
-fn starknet_os_config() -> StarknetOsConfig {
-    StarknetOsConfig {
-        chain_id: Felt252::new(0),
-        fee_token_address: Felt252::new(0),
-    }
-}
-
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StarknetGeneralConfig {
     starknet_os_config: StarknetOsConfig,
     contract_storage_commitment_tree_height: u64,
@@ -41,6 +32,7 @@ pub struct StarknetGeneralConfig {
     validate_max_n_steps: u64,
     min_gas_price: u64,
     constant_gas_price: bool,
+    #[serde(deserialize_with = "felt_from_hex_string")]
     sequencer_address: Felt252,
     tx_commitment_tree_height: u64,
     event_commitment_tree_height: u64,
@@ -48,39 +40,61 @@ pub struct StarknetGeneralConfig {
     enforce_l1_handler_fee: bool,
 }
 
-pub static CONFIG: OnceCell<StarknetGeneralConfig> = OnceCell::const_new();
-
-fn starknet_config() -> StarknetGeneralConfig {
-    StarknetGeneralConfig {
-        starknet_os_config: starknet_os_config(),
-        contract_storage_commitment_tree_height: constants::CONTRACT_STATES_COMMITMENT_TREE_HEIGHT,
-        compiled_class_hash_commitment_tree_height:
-            constants::COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT,
-        global_state_commitment_tree_height: constants::CONTRACT_ADDRESS_BITS,
-        invoke_tx_max_n_steps: DEFAULT_TX_MAX_STEPS,
-        validate_max_n_steps: DEFAULT_VALIDATE_MAX_STEPS,
-        min_gas_price: DEFAULT_GAS_PRICE,
-        constant_gas_price: false,
-        sequencer_address: Felt252::new(0), // TODO: Add real value
-        tx_commitment_tree_height: constants::TRANSACTION_COMMITMENT_TREE_HEIGHT,
-        event_commitment_tree_height: constants::EVENT_COMMITMENT_TREE_HEIGHT,
-        cairo_resource_fee_weights: HashMap::default(), // TODO: Add builtins module
-        enforce_l1_handler_fee: DEFAULT_ENFORCE_L1_FEE,
+impl Default for StarknetGeneralConfig {
+    fn default() -> Self {
+        // TODO: handle unwrap
+        Self::try_from(PathBuf::from(DEFAULT_CONFIG_PATH)).unwrap()
     }
 }
 
-impl StarknetGeneralConfig {
-    fn _chain_id(&self) -> Felt252 {
-        self.starknet_os_config.chain_id.clone()
-    }
+impl TryFrom<PathBuf> for StarknetGeneralConfig {
+    type Error = std::io::Error;
 
-    fn _fee_token_address(&self) -> Felt252 {
-        self.starknet_os_config.fee_token_address.clone()
+    fn try_from(f: PathBuf) -> Result<StarknetGeneralConfig, Self::Error> {
+        let conf = File::open(f)?;
+        serde_yaml::from_reader(conf)
+            .map_err(|_| std::io::Error::from(std::io::ErrorKind::Unsupported))
     }
 }
 
-#[allow(unused)]
-pub fn build_general_config(raw_general_config: HashMap<String, String>) -> StarknetGeneralConfig {
-    // ... logic to build the general config ...
-    starknet_config()
+fn felt_from_hex_string<'de, D>(d: D) -> Result<Felt252, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let de_str = String::deserialize(d)?;
+    let de_str = de_str.trim_start_matches("0x");
+    Felt252::from_str_radix(de_str, 16).map_err(|e| serde::de::Error::custom(format!("{e}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_starknet_config() {
+        let conf = StarknetGeneralConfig::default();
+
+        assert_eq!(conf.compiled_class_hash_commitment_tree_height, 251);
+        assert_eq!(conf.contract_storage_commitment_tree_height, 251);
+        assert_eq!(conf.global_state_commitment_tree_height, 251);
+
+        assert_eq!(conf.constant_gas_price, false);
+        assert_eq!(conf.enforce_l1_handler_fee, true);
+
+        assert_eq!(conf.event_commitment_tree_height, 64);
+        assert_eq!(conf.tx_commitment_tree_height, 64);
+
+        assert_eq!(conf.invoke_tx_max_n_steps, 1000000);
+        assert_eq!(conf.min_gas_price, 100000000000);
+        assert_eq!(conf.validate_max_n_steps, 100000000000);
+
+        assert_eq!(
+            conf.sequencer_address,
+            Felt252::from_str_radix(
+                "6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa",
+                16
+            )
+            .unwrap()
+        );
+    }
 }
