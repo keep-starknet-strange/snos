@@ -31,7 +31,7 @@ impl<S: Storage, H: HasherT> CommitmentInfo<S, H> {
     /// # Returns
     /// * `commitment_info` - Commitment information corresponding to the expected modifications
     /// and updated tree
-    pub async fn create_from_expected_updated_tree(
+    pub fn create_from_expected_updated_tree(
         &mut self,
         previous_tree: PatriciaTree,
         expected_updated_tree: PatriciaTree,
@@ -45,25 +45,22 @@ impl<S: Storage, H: HasherT> CommitmentInfo<S, H> {
             ));
         }
 
-        let modifications: HashMap<Felt252, InnerNodeFact> = expected_updated_tree
-            .get_leaves(&ffc, expected_accessed_indices, None)
-            .await;
+        let modifications: HashMap<Felt252, InnerNodeFact> =
+            expected_updated_tree.get_leaves(&ffc, expected_accessed_indices, None);
 
-        let commitment_info = self
-            .create_from_modifications(
-                previous_tree,
-                expected_updated_tree.root,
-                modifications,
-                &ffc,
-            )
-            .await?;
+        let commitment_info = self.create_from_modifications(
+            previous_tree,
+            expected_updated_tree.root,
+            modifications,
+            &ffc,
+        )?;
 
         Ok(commitment_info)
     }
 
     /// # Returns
     /// * `commitment_info` - Commitment information corresponding to the given modifications.
-    pub async fn create_from_modifications(
+    pub fn create_from_modifications(
         &mut self,
         previous_tree: PatriciaTree,
         expected_updated_root: Felt252,
@@ -71,9 +68,8 @@ impl<S: Storage, H: HasherT> CommitmentInfo<S, H> {
         ffc: &FactCheckingContext<S, H>,
     ) -> Result<CommitmentInfo<S, H>, CommitmentInfoError> {
         let mut commitment_facts = CommitmentFacts::new();
-        let actual_updated_tree = previous_tree
-            .update(ffc, modifications, Some(&mut commitment_facts))
-            .await;
+        let actual_updated_tree =
+            previous_tree.update(ffc, modifications, Some(&mut commitment_facts));
         let actual_updated_root: Felt252 = actual_updated_tree.root;
 
         if actual_updated_root != expected_updated_root {

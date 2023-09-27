@@ -9,13 +9,12 @@ use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::{errors::hint_errors::HintError, vm_core::VirtualMachine};
-use common::assert_python_and_rust_output_match;
+use common::check_output_vs_python;
 use snos::SnOsRunner;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufReader, Read};
-use std::path::Path;
 use std::rc::Rc;
+
+use rstest::*;
 
 // Create the function that implements the custom hint
 fn print_a_hint(
@@ -30,36 +29,6 @@ fn print_a_hint(
     Ok(())
 }
 
-#[test]
-fn custom_hint_ok() {
-    let program_path = "build/hint.json";
-    // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
-    let hint = HintFunc(Box::new(print_a_hint));
-
-    //Instantiate the hint processor
-    let mut hint_processor = BuiltinHintProcessor::new_empty();
-
-    //Add the custom hint, together with the Python code
-    hint_processor.add_hint(String::from("print(ids.a)"), Rc::new(hint));
-
-    let file = File::open(Path::new(program_path)).expect("Couldn't load file");
-    let mut reader = BufReader::new(file);
-    let mut buffer = Vec::<u8>::new();
-    reader.read_to_end(&mut buffer).expect("Couldn't read file");
-
-    //Run the cairo program
-    let (_cairo_runner, virtual_machine) = cairo_run(
-        &buffer,
-        &CairoRunConfig {
-            layout: "all_cairo",
-            ..Default::default()
-        },
-        &mut hint_processor,
-    )
-    .expect("Couldn't run program");
-    assert_python_and_rust_output_match(program_path, virtual_machine);
-}
-
 #[ignore = "This test tests for the full execution of the OS, which is not yet supported"]
 #[test]
 fn snos_ok() {
@@ -68,10 +37,10 @@ fn snos_ok() {
     assert_eq!(4, 4);
 }
 
-#[test]
-#[should_panic(expected = "Output #0 is different")]
-fn test_different_outputs() {
-    let program_path = "build/hint.json";
+#[rstest]
+fn custom_hint_ok() {
+    let program_content = include_bytes!("../build/hint.json");
+
     // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
     let hint = HintFunc(Box::new(print_a_hint));
 
@@ -81,14 +50,9 @@ fn test_different_outputs() {
     //Add the custom hint, together with the Python code
     hint_processor.add_hint(String::from("print(ids.a)"), Rc::new(hint));
 
-    let file = File::open(Path::new(program_path)).expect("Couldn't load file");
-    let mut reader = BufReader::new(file);
-    let mut buffer = Vec::<u8>::new();
-    reader.read_to_end(&mut buffer).expect("Couldn't read file");
-
     //Run the cairo program
     let (_cairo_runner, virtual_machine) = cairo_run(
-        &buffer,
+        program_content,
         &CairoRunConfig {
             layout: "all_cairo",
             ..Default::default()
@@ -96,5 +60,32 @@ fn test_different_outputs() {
         &mut hint_processor,
     )
     .expect("Couldn't run program");
-    assert_python_and_rust_output_match("build/different_output.json", virtual_machine);
+    check_output_vs_python("../build/hint.json", virtual_machine);
+}
+
+#[test]
+#[should_panic(expected = "Output #0 is different")]
+fn test_different_outputs() {
+    let program_content = include_bytes!("../build/hint.json");
+
+    // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
+    let hint = HintFunc(Box::new(print_a_hint));
+
+    //Instantiate the hint processor
+    let mut hint_processor = BuiltinHintProcessor::new_empty();
+
+    //Add the custom hint, together with the Python code
+    hint_processor.add_hint(String::from("print(ids.a)"), Rc::new(hint));
+
+    //Run the cairo program
+    let (_cairo_runner, virtual_machine) = cairo_run(
+        program_content,
+        &CairoRunConfig {
+            layout: "all_cairo",
+            ..Default::default()
+        },
+        &mut hint_processor,
+    )
+    .expect("Couldn't run programm");
+    check_output_vs_python("build/different_output.json", virtual_machine);
 }

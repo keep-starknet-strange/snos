@@ -12,8 +12,6 @@ Rust Library for running the Starknet OS via the [Cairo VM](https://github.com/l
 
 ```bash
 git submodule update --init
-
-CAIRO_PATH=cairo-lang/src cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_compiled.json
 ```
 
 ## Tests

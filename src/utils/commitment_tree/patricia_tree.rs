@@ -20,7 +20,7 @@ pub struct PatriciaTree {
 }
 
 impl<S: Storage, H: HasherT> BinaryFactTree<S, H> for PatriciaTree {
-    async fn empty_tree(
+    fn empty_tree(
         &self,
         _ffc: FactCheckingContext<S, H>,
         _height: usize,
@@ -29,7 +29,7 @@ impl<S: Storage, H: HasherT> BinaryFactTree<S, H> for PatriciaTree {
         todo!()
     }
 
-    async fn get_leaves(
+    fn get_leaves(
         &self,
         _ffc: &FactCheckingContext<S, H>,
         _indices: Vec<Felt252>,
@@ -38,7 +38,7 @@ impl<S: Storage, H: HasherT> BinaryFactTree<S, H> for PatriciaTree {
         todo!()
     }
 
-    async fn _get_leaves(
+    fn _get_leaves(
         &self,
         _ffc: &FactCheckingContext<S, H>,
         _indices: Vec<Felt252>,
@@ -47,7 +47,7 @@ impl<S: Storage, H: HasherT> BinaryFactTree<S, H> for PatriciaTree {
         todo!()
     }
 
-    async fn update(
+    fn update(
         &self,
         _ffc: &FactCheckingContext<S, H>,
         _modifications: HashMap<Felt252, InnerNodeFact>,
@@ -56,7 +56,7 @@ impl<S: Storage, H: HasherT> BinaryFactTree<S, H> for PatriciaTree {
         todo!()
     }
 
-    async fn get_leaf(
+    fn get_leaf(
         &self,
         _ffc: &FactCheckingContext<S, H>,
         _index: Felt252,
