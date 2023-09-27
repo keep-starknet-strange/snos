@@ -25,7 +25,7 @@ jobs:
         run: rustup show
       - uses: Swatinem/rust-cache@v2
       - name: Check lint
-        run: cargo clippy
+        run: pip install cairo-lang; cargo clippy
         
   tests:
     runs-on: ubuntu-latest
@@ -36,3 +36,25 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run tests
         run: pip install cairo-lang; cargo test
+
+  udeps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          override: true
+
+      - uses: Swatinem/rust-cache@v2
+      - name: Install udeps
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-udeps
+      - name: Run udeps
+        uses: actions-rs/cargo@v1
+        with:
+          command: udeps
