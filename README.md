@@ -14,11 +14,19 @@ Rust Library for running the Starknet OS via the [Cairo VM](https://github.com/l
 git submodule update --init
 ```
 
+## Env
+
+To define an alternative OS from the [default(v0.12.2)](build/os_latest.json) set the `SNOS_PATH` environment variable.
+
+```bash
+SNOS_PATH="build/alt_os.json" cargo build
+```
+
 ## Tests
 
 ***compile/run test contracts***
 
 ```bash
-cargo test -- --nocapture
+cargo test
 ```
 

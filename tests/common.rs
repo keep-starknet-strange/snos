@@ -4,12 +4,56 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
+use std::collections::HashMap;
+use std::fs;
+use std::path;
+use std::process;
+
 use rstest::*;
 
+const BUILD_DIR: &str = "build/";
+const CAIRO_COMPILE_CMD: &str = "cairo-compile";
+const TEST_CONTRACTS_DIR: &str = "tests/contracts/";
+
 #[fixture]
-pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
+#[once]
+pub fn compile_contracts() -> HashMap<String, Vec<u8>> {
+    let mut paths = HashMap::new();
+    let contracts = fs::read_dir(TEST_CONTRACTS_DIR).unwrap();
+
+    for contract in contracts {
+        let contract_path = contract.unwrap().path();
+        let stem = contract_path.file_stem().unwrap();
+
+        let contract_out_fmt = format!("{BUILD_DIR}{}.json", stem.to_str().unwrap());
+        let contract_out = path::PathBuf::from(&contract_out_fmt);
+
+        if !contract_out.exists() {
+            let cmd_check = process::Command::new(CAIRO_COMPILE_CMD).arg("-v").output();
+            assert!(cmd_check.is_ok());
+
+            let out = process::Command::new(CAIRO_COMPILE_CMD)
+                .args([
+                    contract_path.to_str().unwrap(),
+                    "--output",
+                    contract_out.to_str().unwrap(),
+                    "--no_debug_info",
+                ])
+                .output();
+            assert!(out.is_ok());
+        }
+        let raw = fs::read(contract_out).unwrap();
+        paths.insert(contract_out_fmt, raw);
+    }
+
+    paths
+}
+
+#[fixture]
+pub fn setup_runner(compile_contracts: &HashMap<String, Vec<u8>>) -> (CairoRunner, VirtualMachine) {
     // Load the test program
-    let program_content = include_bytes!("../build/fact.json");
+    // let program_content = include_bytes!("../build/fact.json");
+    let program_content = compile_contracts.get("build/fact.json").unwrap();
 
     let mut hint_processor = BuiltinHintProcessor::new_empty();
 

@@ -9,7 +9,7 @@ use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::{errors::hint_errors::HintError, vm_core::VirtualMachine};
-use common::check_output_vs_python;
+use common::{check_output_vs_python, compile_contracts};
 use snos::SnOsRunner;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -29,8 +29,8 @@ fn print_a_hint(
     Ok(())
 }
 
-#[ignore = "This test tests for the full execution of the OS, which is not yet supported"]
-#[test]
+#[rstest]
+#[ignore]
 fn snos_ok() {
     let snos_runner = SnOsRunner::default();
     let _runner_res = snos_runner.run();
@@ -38,8 +38,10 @@ fn snos_ok() {
 }
 
 #[rstest]
-fn custom_hint_ok() {
-    let program_content = include_bytes!("../build/hint.json");
+fn custom_hint_ok(compile_contracts: &HashMap<String, Vec<u8>>) {
+    let program_content = compile_contracts.get("build/hint.json").unwrap();
+
+    // let program_content = include_bytes!("../build/hint.json");
 
     // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
     let hint = HintFunc(Box::new(print_a_hint));
@@ -60,13 +62,15 @@ fn custom_hint_ok() {
         &mut hint_processor,
     )
     .expect("Couldn't run program");
-    check_output_vs_python("../build/hint.json", virtual_machine);
+    check_output_vs_python("build/hint.json", virtual_machine);
 }
 
-#[test]
+#[rstest]
 #[should_panic(expected = "Output #0 is different")]
-fn test_different_outputs() {
-    let program_content = include_bytes!("../build/hint.json");
+fn test_different_outputs(compile_contracts: &HashMap<String, Vec<u8>>) {
+    let program_content = compile_contracts.get("build/hint.json").unwrap();
+
+    // let program_content = include_bytes!("../build/hint.json");
 
     // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
     let hint = HintFunc(Box::new(print_a_hint));
