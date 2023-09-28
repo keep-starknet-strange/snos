@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
 
+use crate::error::SnOsError;
+
 const DEFAULT_CONFIG_PATH: &str =
     "cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 
@@ -42,18 +44,15 @@ pub struct StarknetGeneralConfig {
 
 impl Default for StarknetGeneralConfig {
     fn default() -> Self {
-        // TODO: handle unwrap
-        Self::try_from(PathBuf::from(DEFAULT_CONFIG_PATH)).unwrap()
+        // Panic if we can't get the default values from cairo-lang submodule
+        StarknetGeneralConfig::from_file(PathBuf::from(DEFAULT_CONFIG_PATH)).unwrap()
     }
 }
 
-impl TryFrom<PathBuf> for StarknetGeneralConfig {
-    type Error = std::io::Error;
-
-    fn try_from(f: PathBuf) -> Result<StarknetGeneralConfig, Self::Error> {
-        let conf = File::open(f)?;
-        serde_yaml::from_reader(conf)
-            .map_err(|_| std::io::Error::from(std::io::ErrorKind::Unsupported))
+impl StarknetGeneralConfig {
+    fn from_file(f: PathBuf) -> Result<StarknetGeneralConfig, SnOsError> {
+        let conf = File::open(f).map_err(|e| SnOsError::CatchAll(format!("config - {e}")))?;
+        serde_yaml::from_reader(conf).map_err(|e| SnOsError::CatchAll(format!("config - {e}")))
     }
 }
 
