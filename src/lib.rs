@@ -14,6 +14,8 @@ use std::path::PathBuf;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 
+pub const DEFAULT_LAYOUT: &str = "starknet_with_keccak";
+
 pub struct SnOsRunner {
     layout: String,
     os_path: PathBuf,
@@ -43,8 +45,6 @@ impl SnOsRunner {
         )
         .expect("Couldn't run program");
 
-        println!("successful run...");
-
         let pie = runner
             .get_cairo_pie(&vm)
             .map_err(|e| SnOsError::PieParsing(format!("{e}")))?;
@@ -57,7 +57,7 @@ impl SnOsRunner {
 impl Default for SnOsRunner {
     fn default() -> Self {
         Self {
-            layout: "starknet_with_keccak".to_string(),
+            layout: DEFAULT_LAYOUT.to_string(),
             os_path: PathBuf::from("build/os_latest.json"),
         }
     }

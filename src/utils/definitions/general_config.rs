@@ -1,6 +1,5 @@
-use cairo_felt::Felt252;
-use num_traits::Num;
 use serde::{Deserialize, Deserializer, Serialize};
+use starknet_core::{crypto::compute_hash_on_elements, types::FieldElement};
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
@@ -9,6 +8,8 @@ use crate::error::SnOsError;
 
 const DEFAULT_CONFIG_PATH: &str =
     "cairo-lang/src/starkware/starknet/definitions/general_config.yml";
+
+const SN_OS_CONFIG_V1: &str = "537461726b6e65744f73436f6e66696732"; // StarknetOsConfig2
 
 pub const DEFAULT_VALIDATE_MAX_STEPS: u64 = 10u64.pow(6);
 pub const DEFAULT_TX_MAX_STEPS: u64 = 3 * 10u64.pow(6);
@@ -21,7 +22,7 @@ pub const DEFAULT_GAS_PRICE: u64 = 10u64.pow(8);
 pub struct StarknetOsConfig {
     pub chain_id: u128,
     #[serde(deserialize_with = "felt_from_hex_string")]
-    pub fee_token_address: Felt252,
+    pub fee_token_address: FieldElement,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -35,7 +36,7 @@ pub struct StarknetGeneralConfig {
     min_gas_price: u64,
     constant_gas_price: bool,
     #[serde(deserialize_with = "felt_from_hex_string")]
-    sequencer_address: Felt252,
+    sequencer_address: FieldElement,
     tx_commitment_tree_height: u64,
     event_commitment_tree_height: u64,
     cairo_resource_fee_weights: HashMap<String, f32>,
@@ -50,50 +51,78 @@ impl Default for StarknetGeneralConfig {
 }
 
 impl StarknetGeneralConfig {
-    fn from_file(f: PathBuf) -> Result<StarknetGeneralConfig, SnOsError> {
+    pub fn from_file(f: PathBuf) -> Result<StarknetGeneralConfig, SnOsError> {
         let conf = File::open(f).map_err(|e| SnOsError::CatchAll(format!("config - {e}")))?;
         serde_yaml::from_reader(conf).map_err(|e| SnOsError::CatchAll(format!("config - {e}")))
     }
+
+    pub fn os_config_hash(&self) -> Result<FieldElement, SnOsError> {
+        let config_ver = FieldElement::from_hex_be(SN_OS_CONFIG_V1)
+            .map_err(|e| SnOsError::CatchAll(format!("config - {e}")))?;
+
+        Ok(compute_hash_on_elements(&[
+            config_ver,
+            FieldElement::from(self.starknet_os_config.chain_id),
+            self.starknet_os_config.fee_token_address,
+            self.starknet_os_config.fee_token_address,
+        ]))
+    }
 }
 
-fn felt_from_hex_string<'de, D>(d: D) -> Result<Felt252, D::Error>
+fn felt_from_hex_string<'de, D>(d: D) -> Result<FieldElement, D::Error>
 where
     D: Deserializer<'de>,
 {
     let de_str = String::deserialize(d)?;
-    let de_str = de_str.trim_start_matches("0x");
-    Felt252::from_str_radix(de_str, 16).map_err(|e| serde::de::Error::custom(format!("{e}")))
+    FieldElement::from_hex_be(de_str.as_str()).map_err(|e| serde::de::Error::custom(format!("{e}")))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    const TEST_FEE_TOKEN_ADDR: &str =
+        "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
+
     #[test]
     fn parse_starknet_config() {
+        let expected_seq_addr = FieldElement::from_hex_be(
+            "6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa",
+        )
+        .unwrap();
+
         let conf = StarknetGeneralConfig::default();
 
-        assert_eq!(conf.compiled_class_hash_commitment_tree_height, 251);
-        assert_eq!(conf.contract_storage_commitment_tree_height, 251);
-        assert_eq!(conf.global_state_commitment_tree_height, 251);
+        assert_eq!(251, conf.compiled_class_hash_commitment_tree_height);
+        assert_eq!(251, conf.contract_storage_commitment_tree_height);
+        assert_eq!(251, conf.global_state_commitment_tree_height);
 
-        assert_eq!(conf.constant_gas_price, false);
-        assert_eq!(conf.enforce_l1_handler_fee, true);
+        assert_eq!(false, conf.constant_gas_price);
+        assert_eq!(true, conf.enforce_l1_handler_fee);
 
-        assert_eq!(conf.event_commitment_tree_height, 64);
-        assert_eq!(conf.tx_commitment_tree_height, 64);
+        assert_eq!(64, conf.event_commitment_tree_height);
+        assert_eq!(64, conf.tx_commitment_tree_height);
 
-        assert_eq!(conf.invoke_tx_max_n_steps, 1000000);
-        assert_eq!(conf.min_gas_price, 100000000000);
-        assert_eq!(conf.validate_max_n_steps, 1000000);
+        assert_eq!(1000000, conf.invoke_tx_max_n_steps);
+        assert_eq!(100000000000, conf.min_gas_price);
+        assert_eq!(1000000, conf.validate_max_n_steps);
 
-        assert_eq!(
-            conf.sequencer_address,
-            Felt252::from_str_radix(
-                "6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa",
-                16
-            )
-            .unwrap()
-        );
+        assert_eq!(expected_seq_addr, conf.sequencer_address);
+    }
+
+    #[test]
+    fn compare_starknet_config_hash() {
+        let exp_config_hash = FieldElement::from_hex_be(
+            "3691f1b3036bfbfa57956581785222c25ac187cfb3ac0bfc4c637074e1989e7",
+        )
+        .unwrap();
+
+        let mut conf = StarknetGeneralConfig::default();
+        conf.starknet_os_config.fee_token_address =
+            FieldElement::from_hex_be(TEST_FEE_TOKEN_ADDR).unwrap();
+
+        let os_hash = conf.os_config_hash().unwrap();
+
+        assert_eq!(exp_config_hash, os_hash);
     }
 }

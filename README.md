@@ -24,6 +24,12 @@ SNOS_PATH="build/alt_os.json" cargo build
 
 ## Tests
 
+***compile os w/ debug info***
+
+```bash
+CAIRO_PATH=cairo-lang/src cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json
+```
+
 ***compile/run test contracts***
 
 ```bash

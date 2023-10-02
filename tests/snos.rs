@@ -10,9 +10,10 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::{errors::hint_errors::HintError, vm_core::VirtualMachine};
 use common::{check_output_vs_python, compile_contracts};
-use snos::SnOsRunner;
+use snos::*;
 use std::collections::HashMap;
 use std::fs;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use rstest::*;
@@ -31,9 +32,11 @@ fn print_a_hint(
 }
 
 #[rstest]
-#[ignore]
 fn snos_ok() {
-    let snos_runner = SnOsRunner::default();
+    let snos_runner = SnOsRunner::new(
+        DEFAULT_LAYOUT.to_string(),
+        PathBuf::from("build/os_debug.json"),
+    );
     let _runner_res = snos_runner.run();
     assert_eq!(4, 4);
 }

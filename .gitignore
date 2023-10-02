@@ -4,4 +4,4 @@ target/
 
 # Snos artifacts
 build/*
-!build/os_*.json
+!build/os_latest.json
