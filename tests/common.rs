@@ -3,6 +3,9 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use snos::fact_state::shared::BlockInfo;
+use snos::utils::definitions::general_config::StarknetGeneralConfig;
+use starknet_core::{crypto::compute_hash_on_elements, types::FieldElement};
 
 use std::fs;
 use std::path;
@@ -97,4 +100,24 @@ pub fn check_output_vs_python(program: &str, mut vm: VirtualMachine) {
         let py = py.to_string().trim().to_string();
         pretty_assertions::assert_eq!(*rs, py, "Output #{i:} is different");
     }
+}
+
+#[fixture]
+pub fn sw_compat_config() -> (StarknetGeneralConfig, BlockInfo) {
+    let mut conf = StarknetGeneralConfig::default();
+
+    // update fee token to match sw test
+    conf.starknet_os_config.fee_token_address =
+        FieldElement::from_hex_be("482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3")
+            .unwrap();
+
+    let mut block_info = BlockInfo::default();
+    block_info.block_timestamp = 1000;
+
+    (conf, block_info)
+}
+
+#[rstest]
+pub fn setup_snos_data(sw_compat_config: (StarknetGeneralConfig, BlockInfo)) {
+    println!("CONF: {:?}", sw_compat_config.1);
 }

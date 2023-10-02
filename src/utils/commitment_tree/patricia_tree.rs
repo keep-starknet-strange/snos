@@ -10,7 +10,7 @@ use crate::{
 
 use super::{
     binary_fact_tree::{BinaryFactDict, BinaryFactTree},
-    nodes::InnerNodeFact,
+    nodes::{InnerNodeFact, EMPTY_NODE_HASH},
 };
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -23,10 +23,15 @@ impl<S: Storage, H: HasherT> BinaryFactTree<S, H> for PatriciaTree {
     fn empty_tree(
         &self,
         _ffc: FactCheckingContext<S, H>,
-        _height: usize,
-        _leaft_fact: InnerNodeFact,
-    ) {
-        todo!()
+        height: usize,
+        leaft_fact: InnerNodeFact,
+    ) -> Self {
+        assert!(matches!(leaft_fact, InnerNodeFact::Empty(EmptyNode)));
+
+        Self {
+            root: Felt252::from_bytes_be(&EMPTY_NODE_HASH[..]),
+            height,
+        }
     }
 
     fn get_leaves(

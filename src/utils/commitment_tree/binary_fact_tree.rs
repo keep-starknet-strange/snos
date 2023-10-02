@@ -17,7 +17,12 @@ where
     Self: Sized,
 {
     /// Initializes an empty BinaryFactTree of the given height.
-    fn empty_tree(&self, ffc: FactCheckingContext<S, H>, height: usize, leaft_fact: InnerNodeFact);
+    fn empty_tree(
+        &self,
+        ffc: FactCheckingContext<S, H>,
+        height: usize,
+        leaft_fact: InnerNodeFact,
+    ) -> Self;
     /// Returns the values of the leaves whose indices are given.
     fn get_leaves(
         &self,

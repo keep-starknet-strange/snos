@@ -22,15 +22,3 @@ struct StarknetOsInput<S: Storage, H: HasherT> {
     transactions: Vec<InternalTransaction>,
     block_hash: Felt252,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_genesis_root() {
-        // previous_root=1979936137588314659299290311388212850452581912938754160740725722960239001773,
-        // updated_root=600419662812745373863723309851967758205221993854252183250195928682564186741
-        // CommitmentInfo
-    }
-}

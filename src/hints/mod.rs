@@ -40,7 +40,7 @@ pub fn starknet_os_input(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    println!("Running hint {:?} {:?}", ids_data, exec_scopes);
+    // println!("Running hint {:?} {:?}", ids_data, exec_scopes);
 
     // Deserialize the program_input
 
@@ -59,10 +59,3 @@ pub fn starknet_os_input(
 
     Ok(())
 }
-
-/*
- Initial State
- SharedState(contract_states=PatriciaTree(root=b'\x04`\x9a\xa8\xfe\xbfr**.\xc1A\x1d$\x19\rqE\x96\xc8\xdfH\x88\xadF\x90\x04\xaf5t\x00\xad', height=251),
-  contract_classes=PatriciaTree(root=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00', height=251),
-  block_info=BlockInfo(block_number=0, block_timestamp=1000, eth_l1_gas_price=100000000, strk_l1_gas_price=0, sequencer_address=443902168967810054148884074756742919510645257800272067493104417962415061304, starknet_version='0.12.3'))
-*/

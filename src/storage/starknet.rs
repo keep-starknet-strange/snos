@@ -89,3 +89,12 @@ impl<S: Storage, H: HasherT> CommitmentInfo<S, H> {
         })
     }
 }
+
+// impl DBObject for ContractState {
+//     fn db_key(suffix: Vec<u8>) -> Vec<u8> {
+//         let prefix: &[u8] = b"contract_state";
+//         let sep: &[u8] = b":";
+
+//         [prefix, sep, suffix.as_slice()].concat()
+//     }
+// }

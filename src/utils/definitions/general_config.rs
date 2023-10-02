@@ -14,9 +14,11 @@ const SN_OS_CONFIG_V1: &str = "537461726b6e65744f73436f6e66696732"; // StarknetO
 pub const DEFAULT_VALIDATE_MAX_STEPS: u64 = 10u64.pow(6);
 pub const DEFAULT_TX_MAX_STEPS: u64 = 3 * 10u64.pow(6);
 pub const DEFAULT_ENFORCE_L1_FEE: bool = true;
+pub const DEFAULT_STORAGE_TREE_HEIGHT: u64 = 251;
 
 // Given in units of wei
-pub const DEFAULT_GAS_PRICE: u64 = 10u64.pow(8);
+pub const DEFAULT_L1_GAS_PRICE: u64 = 10u64.pow(8);
+pub const DEFAULT_STARK_L1_GAS_PRICE: u64 = 0;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StarknetOsConfig {
@@ -27,20 +29,20 @@ pub struct StarknetOsConfig {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StarknetGeneralConfig {
-    starknet_os_config: StarknetOsConfig,
-    contract_storage_commitment_tree_height: u64,
-    compiled_class_hash_commitment_tree_height: u64,
-    global_state_commitment_tree_height: u64,
-    invoke_tx_max_n_steps: u64,
-    validate_max_n_steps: u64,
-    min_gas_price: u64,
-    constant_gas_price: bool,
+    pub starknet_os_config: StarknetOsConfig,
+    pub contract_storage_commitment_tree_height: u64,
+    pub compiled_class_hash_commitment_tree_height: u64,
+    pub global_state_commitment_tree_height: u64,
+    pub invoke_tx_max_n_steps: u64,
+    pub validate_max_n_steps: u64,
+    pub min_gas_price: u64,
+    pub constant_gas_price: bool,
     #[serde(deserialize_with = "felt_from_hex_string")]
-    sequencer_address: FieldElement,
-    tx_commitment_tree_height: u64,
-    event_commitment_tree_height: u64,
-    cairo_resource_fee_weights: HashMap<String, f32>,
-    enforce_l1_handler_fee: bool,
+    pub sequencer_address: FieldElement,
+    pub tx_commitment_tree_height: u64,
+    pub event_commitment_tree_height: u64,
+    pub cairo_resource_fee_weights: HashMap<String, f32>,
+    pub enforce_l1_handler_fee: bool,
 }
 
 impl Default for StarknetGeneralConfig {
@@ -110,6 +112,7 @@ mod tests {
         assert_eq!(expected_seq_addr, conf.sequencer_address);
     }
 
+    // TODO: swap back to Felt252 and use Hasher
     #[test]
     fn compare_starknet_config_hash() {
         let exp_config_hash = FieldElement::from_hex_be(
