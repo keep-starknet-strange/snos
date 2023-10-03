@@ -29,8 +29,8 @@ from starkware.starknet.common.syscalls import (
     storage_write,
 )
 from starkware.starknet.core.os.constants import TRANSACTION_VERSION
-from tests.contracts.deprecated_syscalls import delegate_call
-from tests.contracts.test_contract_interface import StorageCell, TestContract
+from starkware.starknet.core.test_contract.deprecated_syscalls import delegate_call
+from starkware.starknet.core.test_contract.test_contract_interface import StorageCell, TestContract
 
 @storage_var
 func two_counters(index: felt) -> (res: (felt, felt)) {
