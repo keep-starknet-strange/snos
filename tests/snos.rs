@@ -9,7 +9,7 @@ use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::{errors::hint_errors::HintError, vm_core::VirtualMachine};
-use common::{check_output_vs_python, compile_contracts};
+use common::{check_output_vs_python, compile_programs};
 use snos::*;
 use std::collections::HashMap;
 use std::fs;
@@ -42,7 +42,7 @@ fn snos_ok() {
 }
 
 #[rstest]
-fn custom_hint_ok(_compile_contracts: ()) {
+fn custom_hint_ok(_compile_programs: ()) {
     let program_content = fs::read("build/hint.json").unwrap();
 
     // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
@@ -69,7 +69,7 @@ fn custom_hint_ok(_compile_contracts: ()) {
 
 #[rstest]
 #[should_panic(expected = "Output #0 is different")]
-fn test_different_outputs(_compile_contracts: ()) {
+fn test_different_outputs(_compile_programs: ()) {
     let program_content = fs::read("build/hint.json").unwrap();
 
     // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc

@@ -35,4 +35,3 @@ CAIRO_PATH=cairo-lang/src cairo-compile cairo-lang/src/starkware/starknet/core/o
 ```bash
 cargo test
 ```
-
