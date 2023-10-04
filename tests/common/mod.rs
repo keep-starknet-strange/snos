@@ -37,25 +37,29 @@ pub const TESTING_FEE: u128 = 0x10000000000000000000000000;
 pub const TESTING_TRANSFER_AMOUNT: u128 = 0x01000000000000000000000000000000;
 
 // Contract Addresses - 0.12.2
+pub const TOKEN_FOR_TESTING_ADDRESS_0_12_2: &str =
+    "572b6542feb4bf285b57a056b588d649e067b9cfab2a88c2b2df9ea6bae6049";
 pub const DUMMY_ACCOUNT_ADDRESS_0_12_2: &str =
-    "0x05ca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0";
+    "5ca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0";
+pub const DUMMY_TOKEN_ADDRESS_0_12_2: &str =
+    "3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8";
 
 // Class Hashes - 0.12.2
 // int - 1950604961159131904798252922088285101498625538306083185117403934352241550198
 pub const TOKEN_FOR_TESTING_HASH_0_12_2: &str =
-    "0x045000d731e6d5ad0023e448dd15cab6f997b04a39120daf56a8816d9f436376";
+    "45000d731e6d5ad0023e448dd15cab6f997b04a39120daf56a8816d9f436376";
 
 // int - 646245114977324210659279014519951538684823368221946044944492064370769527799
 pub const DUMMY_ACCOUNT_HASH_0_12_2: &str =
-    "0x016dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7";
+    "16dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7";
 
 // int - 3531298130119845387864440863187980726515137569165069484670944625223023734186
 pub const DUMMY_TOKEN_HASH_0_12_2: &str =
-    "0x07cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa";
+    "7cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa";
 
 // int - 3262122051170176624039908867798875903980511552421730070376672653403179864416
 pub const TESTING_HASH_0_12_2: &str =
-    "0x07364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160";
+    "7364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160";
 
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
@@ -89,7 +93,7 @@ pub fn setup_pie(setup_runner: (CairoRunner, VirtualMachine)) -> CairoPie {
 }
 
 #[fixture]
-pub fn empty_block_context() -> BlockContext {
+pub fn testing_block_context() -> BlockContext {
     let mut conf = StarknetGeneralConfig::default();
     conf.starknet_os_config.fee_token_address = contract_address!(DEFAULT_FEE_TOKEN_ADDR);
 
@@ -133,72 +137,43 @@ pub fn testing_state() -> CachedState<DictStateReader> {
     })
 }
 
-// StateDiff(
-#[rstest]
-pub fn setup_snos_data(
-    empty_block_context: BlockContext,
+#[fixture(token_class_hash=DUMMY_TOKEN_HASH_0_12_2)]
+pub fn initial_state(
+    token_class_hash: &str,
+    testing_block_context: BlockContext,
     mut testing_state: CachedState<DictStateReader>,
-) {
+) -> (BlockContext, CachedState<DictStateReader>) {
     let mut nonce_manager = NonceManager::default();
 
-    //CarriedState vs SharedState, empty either way
-
     let deploy_token_tx = deploy_account_tx(
-        DUMMY_TOKEN_HASH_0_12_2,
+        token_class_hash,
         Fee(TESTING_FEE),
         None,
         None,
         &mut nonce_manager,
     );
-    let deploy_token_info = AccountTransaction::DeployAccount(deploy_token_tx.clone()).execute(
-        &mut testing_state,
-        &empty_block_context,
-        false,
-        true,
-    );
-    // println!("DEPLOY INFO: {:?}", deploy_token_info);
-    println!("DIFF: {:?}", testing_state.to_state_diff());
+    AccountTransaction::DeployAccount(deploy_token_tx.clone())
+        .execute(&mut testing_state, &testing_block_context, false, true)
+        .unwrap();
 
     let tranfer_selector = selector_from_name("transfer");
-    let execute_calldata = calldata![
-        *deploy_token_tx.contract_address.0.key(),
-        tranfer_selector.0,
-        stark_felt!(3_u8),
-        stark_felt!(DUMMY_ACCOUNT_ADDRESS_0_12_2),
-        stark_felt!(TESTING_TRANSFER_AMOUNT),
-        stark_felt!(0_u8)
-    ];
-
-    let (low, high) = testing_state
-        .get_fee_token_balance(
-            &contract_address!(DUMMY_ACCOUNT_ADDRESS_0_12_2),
-            &deploy_token_tx.contract_address,
-        )
-        .unwrap();
-    println!("BEFOREE: {:?} {:?}", low, high);
-
     let fund_account = invoke_tx(invoke_tx_args! {
         max_fee: Fee(TESTING_FEE),
         nonce: Nonce(stark_felt!(1_u8)),
         sender_address: deploy_token_tx.contract_address,
-        calldata: execute_calldata,
+        calldata: calldata![
+            *deploy_token_tx.contract_address.0.key(),
+            tranfer_selector.0,
+            stark_felt!(3_u8),
+            stark_felt!(DUMMY_ACCOUNT_ADDRESS_0_12_2),
+            stark_felt!(TESTING_TRANSFER_AMOUNT),
+            stark_felt!(0_u8)
+        ],
         version: TransactionVersion::ONE,
     });
-    let fund_account_info = AccountTransaction::Invoke(fund_account.into()).execute(
-        &mut testing_state,
-        &empty_block_context,
-        false,
-        true,
-    );
-
-    let (low, high) = testing_state
-        .get_fee_token_balance(
-            &contract_address!(DUMMY_ACCOUNT_ADDRESS_0_12_2),
-            &deploy_token_tx.contract_address,
-        )
+    AccountTransaction::Invoke(fund_account.into())
+        .execute(&mut testing_state, &testing_block_context, false, true)
         .unwrap();
-    println!("AFTER: {:?} {:?}", low, high);
-    // println!("TOKEN FUNDING: {:?}", fund_account_info);
 
     let deploy_account_tx = deploy_account_tx(
         DUMMY_ACCOUNT_HASH_0_12_2,
@@ -207,23 +182,13 @@ pub fn setup_snos_data(
         None,
         &mut nonce_manager,
     );
-    let deploy_account_info = AccountTransaction::DeployAccount(deploy_account_tx.clone()).execute(
-        &mut testing_state,
-        &empty_block_context,
-        false,
-        true,
-    );
-    // println!("DEPLOY TOKEN: {:?}", deploy_account_info);
-    let block_number: u64 = 0;
-    let block_hash = StarkFelt::from(20u32);
-    let hash = pre_process_block(
-        &mut testing_state,
-        Some((BlockNumber(block_number), BlockHash(block_hash))),
-    );
+    AccountTransaction::DeployAccount(deploy_account_tx)
+        .execute(&mut testing_state, &testing_block_context, false, true)
+        .unwrap();
 
-    println!(
-        "DIFF({:?}): {:?}",
-        block_hash,
-        testing_state.to_state_diff()
-    );
+    // pre_process_block(
+    //     &mut testing_state,
+    //     Some((BlockNumber(0), BlockHash(StarkFelt::from(20u32)))),
+    // );
+    (testing_block_context, testing_state)
 }

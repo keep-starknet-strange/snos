@@ -18,6 +18,10 @@ pub fn load_contract_class_v0(path: &str) -> ContractClass {
         .into()
 }
 
+pub fn load_contract_class(path: &str) -> Vec<u8> {
+    fs::read(path::PathBuf::from(path)).unwrap()
+}
+
 #[allow(unused)]
 pub fn check_output_vs_python(program: &str, mut vm: VirtualMachine) {
     let mut rs_output = String::new();

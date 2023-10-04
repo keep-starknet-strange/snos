@@ -1,10 +1,21 @@
 mod common;
-use common::utils;
+
+use blockifier::block_context::BlockContext;
+use blockifier::state::cached_state::CachedState;
+use blockifier::state::state_api::{State, StateReader};
+use blockifier::test_utils::DictStateReader;
+
+use pathfinder_storage::{BlockId, Storage};
+
+use common::{initial_state, utils};
 
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
 };
+
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 
 use snos::*;
 use std::fs;
@@ -14,13 +25,28 @@ use std::rc::Rc;
 use rstest::*;
 
 #[rstest]
-fn snos_ok() {
+fn snos_ok(_initial_state: (BlockContext, CachedState<DictStateReader>)) {
     let snos_runner = SnOsRunner::new(
         DEFAULT_LAYOUT.to_string(),
         PathBuf::from("build/os_debug.json"),
     );
     let _runner_res = snos_runner.run();
     assert_eq!(4, 4);
+}
+
+#[rstest]
+fn shared_state(mut initial_state: (BlockContext, CachedState<DictStateReader>)) {
+    let storage = Storage::in_memory().unwrap();
+    let mut connection = storage.connection().unwrap();
+    let tx = connection.transaction().unwrap();
+
+    let mut shared_state = fact_state::SharedState::load_new(&tx);
+    shared_state.apply_diff(&tx, initial_state.1.to_state_diff());
+
+    assert_eq!(
+        stark_felt!("473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d"),
+        stark_felt!("473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d")
+    );
 }
 
 #[rstest]

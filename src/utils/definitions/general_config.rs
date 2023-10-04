@@ -23,10 +23,6 @@ pub const DEFAULT_FEE_TOKEN_ADDR: &str =
 pub const SEQUENCER_ADDR_0_12_2: &str =
     "6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa";
 
-// Given in units of wei
-pub const DEFAULT_L1_GAS_PRICE: u64 = 10u64.pow(8);
-pub const DEFAULT_STARK_L1_GAS_PRICE: u64 = 0;
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StarknetOsConfig {
     pub chain_id: ChainId,
