@@ -16,6 +16,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
     BuiltinHintProcessor, HintFunc,
 };
 
+use snos::fact_state::SharedState;
 use snos::*;
 use std::fs;
 use std::path::PathBuf;
@@ -35,12 +36,10 @@ fn snos_ok(_initial_state: (BlockContext, CachedState<DictStateReader>)) {
 
 #[rstest]
 fn shared_state(mut initial_state: (BlockContext, CachedState<DictStateReader>)) {
-    let storage = Storage::in_memory().unwrap();
-    let mut connection = storage.connection().unwrap();
-    let tx = connection.transaction().unwrap();
-
     let state_diff = initial_state.1.to_state_diff();
-    let commitment = fact_state::SharedState::apply_diff(&tx, state_diff.clone());
+
+    let shared_state = SharedState::new();
+    let commitment = shared_state.apply_diff(state_diff.clone());
 
     assert_eq!(
         StorageCommitment(felt!(

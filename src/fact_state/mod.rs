@@ -13,27 +13,34 @@ use pathfinder_merkle_tree::{
     contract_state::update_contract_state, ClassCommitmentTree, ContractsStorageTree,
     StorageCommitmentTree,
 };
-use pathfinder_storage::Transaction;
+use pathfinder_storage::{Storage, Transaction};
 
 use std::collections::HashMap;
 
 // TODO: parse from cairo-lang
 const STARKNET_VERSION: &str = "0.12.2";
 
-pub struct ContractState<'tx> {
+pub struct ContractState {
     contract_hash: Felt252,
-    storage_commitment_tree: StorageCommitmentTree<'tx>,
+    storage_commitment_tree: Storage,
     nonce: Felt252,
 }
 
-pub struct SharedState<'tx> {
-    contract_states: ContractsStorageTree<'tx>,
-    storage_commitment_tree: StorageCommitmentTree<'tx>,
-    contract_classes: ClassCommitmentTree<'tx>,
+pub struct SharedState {
+    storage: Storage,
 }
 
-impl<'tx> SharedState<'tx> {
-    pub fn apply_diff(tx: &'tx Transaction<'tx>, diff: CommitmentStateDiff) -> StorageCommitment {
+impl SharedState {
+    pub fn new() -> Self {
+        Self {
+            storage: Storage::in_memory().unwrap(),
+        }
+    }
+
+    pub fn apply_diff(&self, diff: CommitmentStateDiff) -> StorageCommitment {
+        let mut connection = self.storage.connection().unwrap();
+        let tx = connection.transaction().unwrap();
+
         let mut commitment = StorageCommitment::ZERO;
         for addr in diff.address_to_class_hash.keys().into_iter() {
             let mut updates: HashMap<StorageAddress, StorageValue> = HashMap::new();
@@ -46,7 +53,7 @@ impl<'tx> SharedState<'tx> {
                 }
             }
 
-            let mut sct = StorageCommitmentTree::load(tx, commitment);
+            let mut sct = StorageCommitmentTree::load(&tx, commitment);
             let nonce = ContractNonce(felt_bytes!(diff
                 .address_to_nonce
                 .get(addr)
@@ -61,7 +68,7 @@ impl<'tx> SharedState<'tx> {
                 Some(nonce),
                 Some(class_hash_bytes!(class_hash.0.bytes())),
                 &sct,
-                tx,
+                &tx,
                 false,
             )
             .unwrap();
