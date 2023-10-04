@@ -159,7 +159,7 @@ pub fn initial_state(
     let tranfer_selector = selector_from_name("transfer");
     let fund_account = invoke_tx(invoke_tx_args! {
         max_fee: Fee(TESTING_FEE),
-        nonce: Nonce(stark_felt!(1_u8)),
+        nonce: nonce_manager.next(deploy_token_tx.contract_address),
         sender_address: deploy_token_tx.contract_address,
         calldata: calldata![
             *deploy_token_tx.contract_address.0.key(),
@@ -186,9 +186,9 @@ pub fn initial_state(
         .execute(&mut testing_state, &testing_block_context, false, true)
         .unwrap();
 
-    // pre_process_block(
-    //     &mut testing_state,
-    //     Some((BlockNumber(0), BlockHash(StarkFelt::from(20u32)))),
-    // );
+    pre_process_block(
+        &mut testing_state,
+        Some((BlockNumber(0), BlockHash(StarkFelt::from(20u32)))),
+    );
     (testing_block_context, testing_state)
 }

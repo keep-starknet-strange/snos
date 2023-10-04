@@ -1,8 +1,7 @@
-use anyhow::Context;
-
 use cairo_felt::Felt252;
 
-use blockifier::block_context::BlockContext;
+use crate::utils::sn_to_path_address;
+
 use blockifier::state::cached_state::CommitmentStateDiff;
 
 use pathfinder_common::{
@@ -33,22 +32,10 @@ pub struct SharedState<'tx> {
     contract_classes: ClassCommitmentTree<'tx>,
 }
 
-// { address_to_class_hash: {ContractAddress(PatriciaKey(StarkFelt("0x05ca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0"))): ClassHash(StarkFelt("0x016dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7")), ContractAddress(PatriciaKey(StarkFelt("0x03400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8"))): ClassHash(StarkFelt("0x07cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa"))},
-//  address_to_nonce: {ContractAddress(PatriciaKey(StarkFelt("0x05ca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0"))): Nonce(StarkFelt("0x0000000000000000000000000000000000000000000000000000000000000001")), ContractAddress(PatriciaKey(StarkFelt("0x03400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8"))): Nonce(StarkFelt("0x0000000000000000000000000000000000000000000000000000000000000002"))},
-// storage_updates: {ContractAddress(PatriciaKey(StarkFelt("0x0000000000000000000000000000000000000000000000000000000000000001"))): {StorageKey(PatriciaKey(StarkFelt("0x0000000000000000000000000000000000000000000000000000000000000000"))): StarkFelt("0x0000000000000000000000000000000000000000000000000000000000000014")}}, class_hash_to_compiled_class_hash: {} }
-
 impl<'tx> SharedState<'tx> {
-    pub fn load_new(tx: &'tx Transaction<'tx>) -> Self {
-        Self {
-            contract_states: ContractsStorageTree::load(tx, ContractRoot::ZERO),
-            storage_commitment_tree: StorageCommitmentTree::load(tx, StorageCommitment::ZERO),
-            contract_classes: ClassCommitmentTree::load(tx, ClassCommitment::ZERO),
-        }
-    }
-
-    pub fn apply_diff(&mut self, tx: &'tx Transaction<'tx>, diff: CommitmentStateDiff) {
-        let accessed = diff.address_to_class_hash.keys();
-        for addr in accessed.into_iter() {
+    pub fn apply_diff(tx: &'tx Transaction<'tx>, diff: CommitmentStateDiff) -> StorageCommitment {
+        let mut commitment = StorageCommitment::ZERO;
+        for addr in diff.address_to_class_hash.keys().into_iter() {
             let mut updates: HashMap<StorageAddress, StorageValue> = HashMap::new();
             if let Some(storage_updates) = diff.storage_updates.get(addr) {
                 for update in storage_updates.into_iter() {
@@ -59,10 +46,7 @@ impl<'tx> SharedState<'tx> {
                 }
             }
 
-            println!("ADDR: {:?}", addr);
-            println!("UPDATES: {:?}", diff.storage_updates);
-            println!("FOR ADDR: {:?}", diff.storage_updates.get(addr));
-            let mut sct = StorageCommitmentTree::load(tx, StorageCommitment::ZERO);
+            let mut sct = StorageCommitmentTree::load(tx, commitment);
             let nonce = ContractNonce(felt_bytes!(diff
                 .address_to_nonce
                 .get(addr)
@@ -72,7 +56,7 @@ impl<'tx> SharedState<'tx> {
             let class_hash = diff.address_to_class_hash.get(addr).unwrap();
 
             let contract_state_hash = update_contract_state(
-                contract_address_bytes!(addr.0.key().bytes()),
+                sn_to_path_address(*addr),
                 &updates,
                 Some(nonce),
                 Some(class_hash_bytes!(class_hash.0.bytes())),
@@ -81,15 +65,13 @@ impl<'tx> SharedState<'tx> {
                 false,
             )
             .unwrap();
-            sct.set(
-                contract_address_bytes!(addr.0.key().bytes()),
-                contract_state_hash,
-            )
-            .unwrap();
-            let (commitment, nodes) = sct.commit().unwrap();
-            println!("COMMITMENT: {commitment:?}");
-            println!("NODE: {nodes:?}");
+
+            sct.set(sn_to_path_address(*addr), contract_state_hash)
+                .unwrap();
+            let (storage_commitment, nodes) = sct.commit().unwrap();
+            tx.insert_storage_trie(storage_commitment, &nodes).unwrap();
+            commitment = storage_commitment;
         }
-        // println!("KEYS: {:?}", storage_accessed);
+        commitment
     }
 }
