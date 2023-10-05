@@ -9,7 +9,7 @@ use pathfinder_common::{felt, ClassCommitment, StateCommitment, StorageCommitmen
 use pathfinder_merkle_tree::StorageCommitmentTree;
 use pathfinder_storage::{BlockId, Storage};
 
-use common::{initial_state, utils::check_output_vs_python, utils::print_a_hint};
+use common::{initial_state, prepare_os_test, utils::check_output_vs_python, utils::print_a_hint};
 
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -18,6 +18,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
 
 use snos::fact_state::SharedState;
 use snos::*;
+use starknet_api::transaction::Calldata;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -31,7 +32,6 @@ fn snos_ok(_initial_state: (BlockContext, CachedState<DictStateReader>)) {
         PathBuf::from("build/os_debug.json"),
     );
     let _runner_res = snos_runner.run();
-    assert_eq!(4, 4);
 }
 
 #[rstest]
@@ -47,6 +47,13 @@ fn shared_state(mut initial_state: (BlockContext, CachedState<DictStateReader>))
         )),
         commitment
     );
+}
+
+#[rstest]
+fn prepared_os_test(
+    mut prepare_os_test: (BlockContext, CachedState<DictStateReader>, Vec<Calldata>),
+) {
+    println!("VEC: {:?} {}", prepare_os_test.2, prepare_os_test.2.len());
 }
 
 #[rstest]

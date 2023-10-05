@@ -20,9 +20,9 @@ use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use snos::utils::definitions::general_config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR};
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
-use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
+use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionVersion};
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use std::collections::HashMap;
@@ -60,6 +60,12 @@ pub const DUMMY_TOKEN_HASH_0_12_2: &str =
 // int - 3262122051170176624039908867798875903980511552421730070376672653403179864416
 pub const TESTING_HASH_0_12_2: &str =
     "7364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160";
+
+pub const TESTING_HASH_2_0_12_2: &str =
+    "49bcc976d628b1b238aefc20e77303a251a14ba6c99cd543a86708513414057";
+
+pub const DELEGATE_PROXY_HASH_0_12_2: &str =
+    "1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9";
 
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
@@ -191,4 +197,361 @@ pub fn initial_state(
         Some((BlockNumber(0), BlockHash(StarkFelt::from(20u32)))),
     );
     (testing_block_context, testing_state)
+}
+
+#[fixture]
+pub fn prepare_os_test(
+    mut initial_state: (BlockContext, CachedState<DictStateReader>),
+) -> (BlockContext, CachedState<DictStateReader>, Vec<Calldata>) {
+    let mut nonce_manager = NonceManager::default();
+    let sender_addr = contract_address!(DUMMY_ACCOUNT_ADDRESS_0_12_2);
+    nonce_manager.next(sender_addr);
+
+    let test_contract_class = utils::load_contract_class_v0("build/test_contract.json");
+    initial_state
+        .1
+        .set_contract_class(&class_hash!(TESTING_HASH_0_12_2), test_contract_class)
+        .unwrap();
+
+    let contract_addresses = [
+        contract_address!("46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92"),
+        contract_address!("4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6"),
+        contract_address!("74cebec93a58b4400af9c082fb3c5adfa0800ff1489f8fc030076491ff86c48"),
+    ];
+    let testing_1 = calculate_contract_address(
+        ContractAddressSalt(stark_felt!(17_u32)),
+        class_hash!(TESTING_HASH_0_12_2),
+        &calldata![
+            stark_felt!(321_u32), // Calldata: address.
+            stark_felt!(543_u32)  // Calldata: value.
+        ],
+        contract_address!(0_u32),
+    )
+    .unwrap();
+    assert_eq!(contract_addresses[0], testing_1);
+
+    let account_tx = invoke_tx(invoke_tx_args! {
+        max_fee: Fee(TESTING_FEE),
+        nonce: nonce_manager.next(sender_addr),
+        sender_address: sender_addr,
+        calldata: calldata![
+            *sender_addr.0.key(),
+            selector_from_name("deploy_contract").0,
+            stark_felt!(5_u32),
+            stark_felt!(TESTING_HASH_0_12_2),
+            stark_felt!(17_u32),
+            stark_felt!(2_u32),
+            stark_felt!(321_u32),
+            stark_felt!(543_u32)
+        ],
+        version: TransactionVersion::ONE,
+    });
+    AccountTransaction::Invoke(account_tx.into())
+        .execute(&mut initial_state.1, &mut initial_state.0, false, true)
+        .unwrap();
+
+    let testing_2 = calculate_contract_address(
+        ContractAddressSalt(stark_felt!(42_u32)),
+        class_hash!(TESTING_HASH_0_12_2),
+        &calldata![
+            stark_felt!(111_u32), // Calldata: address.
+            stark_felt!(987_u32)  // Calldata: value.
+        ],
+        contract_address!(0_u32),
+    )
+    .unwrap();
+    assert_eq!(contract_addresses[1], testing_2);
+    let account_tx = invoke_tx(invoke_tx_args! {
+        max_fee: Fee(TESTING_FEE),
+        nonce: nonce_manager.next(sender_addr),
+        sender_address: sender_addr,
+        calldata: calldata![
+            *sender_addr.0.key(),
+            selector_from_name("deploy_contract").0,
+            stark_felt!(5_u32),
+            stark_felt!(TESTING_HASH_0_12_2),
+            stark_felt!(17_u32),
+            stark_felt!(2_u32),
+            stark_felt!(321_u32),
+            stark_felt!(543_u32)
+        ],
+        version: TransactionVersion::ONE,
+    });
+    AccountTransaction::Invoke(account_tx.into())
+        .execute(&mut initial_state.1, &mut initial_state.0, false, true)
+        .unwrap();
+
+    let testing_3 = calculate_contract_address(
+        ContractAddressSalt(stark_felt!(53_u32)),
+        class_hash!(TESTING_HASH_0_12_2),
+        &calldata![
+            stark_felt!(444_u32), // Calldata: address.
+            stark_felt!(0_u32)    // Calldata: value.
+        ],
+        contract_address!(0_u32),
+    )
+    .unwrap();
+    assert_eq!(contract_addresses[2], testing_3);
+    // TODO: deply via dummy account
+
+    let mut txs: Vec<Calldata> = Vec::new();
+
+    txs.push(calldata![
+        *contract_addresses[0].0.key(),
+        selector_from_name("set_value").0,
+        stark_felt!(2_u8),
+        stark_felt!(85_u8),
+        stark_felt!(47_u8)
+    ]);
+
+    txs.push(calldata![
+        *contract_addresses[0].0.key(),
+        selector_from_name("set_value").0,
+        stark_felt!(2_u8),
+        stark_felt!(81_u8),
+        stark_felt!(0_u8)
+    ]);
+
+    txs.push(calldata![
+        *contract_addresses[2].0.key(),
+        selector_from_name("set_value").0,
+        stark_felt!(2_u8),
+        stark_felt!(97_u8),
+        stark_felt!(0_u8)
+    ]);
+
+    txs.push(calldata![
+        *contract_addresses[1].0.key(),
+        selector_from_name("entry_point").0,
+        stark_felt!(0_u8)
+    ]);
+
+    txs.push(calldata![
+        *contract_addresses[0].0.key(),
+        selector_from_name("test_builtins").0,
+        stark_felt!(0_u8)
+    ]);
+
+    txs.push(calldata![
+        *contract_addresses[1].0.key(),
+        selector_from_name("test_get_block_timestamp").0,
+        stark_felt!(1_u8),
+        stark_felt!(1000_u32)
+    ]);
+
+    txs.push(calldata![
+        *contract_addresses[1].0.key(),
+        selector_from_name("test_emit_event").0,
+        stark_felt!(4_u8),
+        stark_felt!(1_u8),
+        stark_felt!(1991_u32),
+        stark_felt!(1_u8),
+        stark_felt!(2021_u32)
+    ]);
+
+    txs.push(calldata![
+        *contract_addresses[0].0.key(),
+        selector_from_name("test_get_block_number").0,
+        stark_felt!(1_u32),
+        stark_felt!(initial_state.0.block_number.0 + 1_u64)
+    ]);
+
+    txs.push(calldata![
+        *contract_addresses[0].0.key(),
+        selector_from_name("test_call_contract").0,
+        stark_felt!(4_u32),
+        *contract_addresses[0].0.key(),
+        stark_felt!(selector_from_name("send_message").0),
+        stark_felt!(1_u8),
+        stark_felt!(85_u8)
+    ]);
+
+    // TODO: StarknetMessageToL1
+
+    txs.push(calldata![
+        *contract_addresses[0].0.key(),
+        selector_from_name("test_call_contract").0,
+        stark_felt!(4_u32),
+        *contract_addresses[1].0.key(),
+        stark_felt!(selector_from_name("test_get_caller_address").0),
+        stark_felt!(1_u8),
+        *contract_addresses[0].0.key()
+    ]);
+
+    txs.push(calldata![
+        *contract_addresses[0].0.key(),
+        selector_from_name("test_get_contract_address").0,
+        stark_felt!(1_u32),
+        *contract_addresses[0].0.key()
+    ]);
+
+    let delegate_proxy_contract_class = utils::load_contract_class_v0("build/delegate_proxy.json");
+    let delegate_addr = calculate_contract_address(
+        ContractAddressSalt::default(),
+        class_hash!(DELEGATE_PROXY_HASH_0_12_2),
+        &calldata![],
+        contract_address!(0_u32),
+    )
+    .unwrap();
+    assert_eq!(
+        contract_address!("0x0238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0"),
+        delegate_addr
+    );
+    initial_state
+        .1
+        .set_contract_class(
+            &class_hash!(DELEGATE_PROXY_HASH_0_12_2),
+            delegate_proxy_contract_class,
+        )
+        .unwrap();
+    initial_state
+        .1
+        .set_class_hash_at(delegate_addr, class_hash!(DELEGATE_PROXY_HASH_0_12_2))
+        .unwrap();
+
+    txs.push(calldata![
+        *delegate_addr.0.key(),
+        selector_from_name("set_implementation_hash").0,
+        stark_felt!(1_u32),
+        stark_felt!(TESTING_HASH_0_12_2)
+    ]);
+
+    txs.push(calldata![
+        *delegate_addr.0.key(),
+        selector_from_name("test_get_contract_address").0,
+        stark_felt!(1_u32),
+        *delegate_addr.0.key()
+    ]);
+
+    txs.push(calldata![
+        *delegate_addr.0.key(),
+        selector_from_name("set_value").0,
+        stark_felt!(2_u32),
+        stark_felt!(123_u32),
+        stark_felt!(456_u32)
+    ]);
+
+    txs.push(calldata![
+        *delegate_addr.0.key(),
+        selector_from_name("test_get_caller_address").0,
+        stark_felt!(1_u32),
+        stark_felt!(DUMMY_ACCOUNT_ADDRESS_0_12_2)
+    ]);
+
+    txs.push(calldata![
+        *delegate_addr.0.key(),
+        selector_from_name("test_call_contract").0,
+        stark_felt!(4_u32),
+        *delegate_addr.0.key(),
+        selector_from_name("test_get_sequencer_address").0,
+        stark_felt!(1_u8),
+        *initial_state.0.sequencer_address.0.key()
+    ]);
+
+    txs.push(calldata![
+        *delegate_addr.0.key(),
+        selector_from_name("deposit").0,
+        stark_felt!(1_u32),
+        stark_felt!(85_u32),
+        stark_felt!(2_u32)
+    ]);
+
+    // TODO handle message to L2
+
+    txs.push(calldata![
+        *contract_addresses[0].0.key(),
+        selector_from_name("test_library_call_syntactic_sugar").0,
+        stark_felt!(1_u32),
+        stark_felt!(TESTING_HASH_0_12_2)
+    ]);
+
+    // TODO: add sig
+    txs.push(calldata![
+        *contract_addresses[0].0.key(),
+        selector_from_name("add_signature_to_counters").0,
+        stark_felt!(1_u32),
+        stark_felt!(2021_u32)
+    ]);
+
+    // TODO: add sig
+    txs.push(calldata![
+        *contract_addresses[0].0.key(),
+        selector_from_name("test_call_contract").0,
+        stark_felt!(4_u32),
+        *delegate_addr.0.key(),
+        selector_from_name("test_get_tx_info").0,
+        stark_felt!(1_u8),
+        stark_felt!(DUMMY_ACCOUNT_ADDRESS_0_12_2)
+    ]);
+
+    let test_contract_2_contract_class = utils::load_contract_class_v0("build/test_contract2.json");
+    let test_contract_2_addr = calculate_contract_address(
+        ContractAddressSalt::default(),
+        class_hash!(TESTING_HASH_2_0_12_2),
+        &calldata![],
+        contract_address!(0_u32),
+    )
+    .unwrap();
+    initial_state
+        .1
+        .set_contract_class(
+            &class_hash!(TESTING_HASH_2_0_12_2),
+            test_contract_2_contract_class,
+        )
+        .unwrap();
+    initial_state
+        .1
+        .set_class_hash_at(test_contract_2_addr, class_hash!(TESTING_HASH_2_0_12_2))
+        .unwrap();
+
+    // TODO: add sig
+    txs.push(calldata![
+        *contract_addresses[1].0.key(),
+        selector_from_name("test_library_call").0,
+        stark_felt!(5_u32),
+        *test_contract_2_addr.0.key(),
+        selector_from_name("test_storage_write").0,
+        stark_felt!(2_u8),
+        stark_felt!(555_u32),
+        stark_felt!(888_u32)
+    ]);
+
+    // TODO: add sig
+    txs.push(calldata![
+        *contract_addresses[1].0.key(),
+        selector_from_name("test_library_call_l1_handler").0,
+        stark_felt!(6_u32),
+        *test_contract_2_addr.0.key(),
+        selector_from_name("test_l1_handler_storage_write").0,
+        stark_felt!(3_u8),
+        stark_felt!(85_u32),
+        stark_felt!(666_u32),
+        stark_felt!(999_u32)
+    ]);
+
+    // TODO: add sig
+    txs.push(calldata![
+        *contract_addresses[0].0.key(),
+        selector_from_name("test_replace_class").0,
+        stark_felt!(1_u32),
+        *test_contract_2_addr.0.key()
+    ]);
+
+    for tx in txs.clone().into_iter() {
+        let account_tx = invoke_tx(invoke_tx_args! {
+            max_fee: Fee(TESTING_FEE),
+            nonce: nonce_manager.next(sender_addr),
+            sender_address: sender_addr,
+            calldata: tx,
+            version: TransactionVersion::ONE,
+        });
+        let exec_info = AccountTransaction::Invoke(account_tx.into())
+            .execute(&mut initial_state.1, &mut initial_state.0, false, true)
+            .unwrap();
+
+        println!("EXEC INFO: {:?}", exec_info);
+    }
+
+    // TODO: expected storage updates
+    (initial_state.0, initial_state.1, txs)
 }
