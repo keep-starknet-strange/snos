@@ -2,13 +2,13 @@
 
 if ! command -v cairo-compile > /dev/null
 then
-    echo "please start cairo dev environment"
+    echo "please start cairo(0.12.2) dev environment"
     exit 1
 fi
 
 if ! command -v starknet-compile-deprecated > /dev/null
 then
-    echo "please start cairo dev environment"
+    echo "please start cairo(0.12.2) dev environment"
     exit 1
 fi
 

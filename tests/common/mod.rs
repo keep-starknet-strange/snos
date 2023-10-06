@@ -548,8 +548,6 @@ pub fn prepare_os_test(
         let exec_info = AccountTransaction::Invoke(account_tx.into())
             .execute(&mut initial_state.1, &mut initial_state.0, false, true)
             .unwrap();
-
-        println!("EXEC INFO: {:?}", exec_info);
     }
 
     // TODO: expected storage updates

@@ -5,7 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 base64 = "0.21.3"
-blockifier = { git = "https://github.com/starkware-libs/blockifier.git", branch = "main", features = ["testing"] }
+blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "3d95caebee0a788dd8b86673e99e767fdd8bf222", features = ["testing"] }
 bitvec = { version = "1.0.1", features = ["serde"] }
 cairo-felt = { git = "https://github.com/lambdaclass/cairo-vm.git", branch = "main" }
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm.git", branch = "main" }
@@ -13,10 +13,10 @@ hex = "0.4.3"
 log = "0.4.19"
 num-bigint = "0.4.4"
 num-traits = "0.2.16"
-pathfinder-common = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
-pathfinder-merkle-tree = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
-pathfinder-storage = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
-stark_hash = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
+pathfinder-common = { git = "https://github.com/eqlabs/pathfinder.git", rev = "6f3ebee162e6029ae43da9739b36d9cdc72cf88c" }
+pathfinder-merkle-tree = { git = "https://github.com/eqlabs/pathfinder.git", rev = "6f3ebee162e6029ae43da9739b36d9cdc72cf88c" }
+pathfinder-storage = { git = "https://github.com/eqlabs/pathfinder.git", rev = "6f3ebee162e6029ae43da9739b36d9cdc72cf88c" }
+stark_hash = { git = "https://github.com/eqlabs/pathfinder.git", rev = "6f3ebee162e6029ae43da9739b36d9cdc72cf88c" }
 reqwest = { version = "0.11.18", features = ["blocking", "json"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.105"
