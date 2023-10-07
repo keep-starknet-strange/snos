@@ -1,12 +1,10 @@
 use cairo_felt::Felt252;
 
-use crate::utils::sn_to_path_address;
-
 use blockifier::state::cached_state::CommitmentStateDiff;
 
 use pathfinder_common::{
     class_hash_bytes, contract_address_bytes, felt_bytes, storage_address_bytes,
-    storage_value_bytes, ClassCommitment, ContractNonce, ContractRoot, StorageAddress,
+    storage_value_bytes, BlockNumber, ContractAddress, ContractNonce, ContractRoot, StorageAddress,
     StorageCommitment, StorageValue,
 };
 use pathfinder_merkle_tree::{
@@ -14,7 +12,7 @@ use pathfinder_merkle_tree::{
     StorageCommitmentTree,
 };
 use pathfinder_storage::{Storage, Transaction};
-
+use starknet_api::core::ContractAddress as SnContractAddress;
 use std::collections::HashMap;
 
 // TODO: parse from cairo-lang
@@ -41,7 +39,7 @@ impl SharedState {
         let mut connection = self.storage.connection().unwrap();
         let tx = connection.transaction().unwrap();
 
-        let mut commitment = StorageCommitment::ZERO;
+        let mut sct = StorageCommitmentTree::load(&tx, BlockNumber::GENESIS).unwrap();
         for addr in diff.address_to_class_hash.keys().into_iter() {
             let mut updates: HashMap<StorageAddress, StorageValue> = HashMap::new();
             if let Some(storage_updates) = diff.storage_updates.get(addr) {
@@ -53,7 +51,6 @@ impl SharedState {
                 }
             }
 
-            let mut sct = StorageCommitmentTree::load(&tx, commitment);
             let nonce = ContractNonce(felt_bytes!(diff
                 .address_to_nonce
                 .get(addr)
@@ -67,18 +64,28 @@ impl SharedState {
                 &updates,
                 Some(nonce),
                 Some(class_hash_bytes!(class_hash.0.bytes())),
-                &sct,
                 &tx,
                 false,
+                BlockNumber::GENESIS,
             )
             .unwrap();
 
+            println!(
+                "PATH SET: {:?} {:?}",
+                sn_to_path_address(*addr),
+                contract_state_hash
+            );
             sct.set(sn_to_path_address(*addr), contract_state_hash)
                 .unwrap();
-            let (storage_commitment, nodes) = sct.commit().unwrap();
-            tx.insert_storage_trie(storage_commitment, &nodes).unwrap();
-            commitment = storage_commitment;
         }
-        commitment
+        let (storage_commitment, nodes) = sct.commit().unwrap();
+        let root_idx = tx.insert_storage_trie(storage_commitment, &nodes).unwrap();
+        // println!("ROOT COMM: {storage_commitment}");
+        // println!("ROOT NODES: {nodes:?}");
+        storage_commitment
     }
+}
+
+fn sn_to_path_address(sn_addr: SnContractAddress) -> ContractAddress {
+    contract_address_bytes!(sn_addr.0.key().bytes())
 }

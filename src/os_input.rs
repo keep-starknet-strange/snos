@@ -3,15 +3,13 @@ use std::collections::HashMap;
 use cairo_felt::Felt252;
 
 use crate::{
-    business_logic::transaction::types::InternalTransaction,
-    fact_state::ContractState,
-    storage::{starknet::CommitmentInfo, Storage},
-    utils::{definitions::general_config::StarknetGeneralConfig, hasher::HasherT},
+    business_logic::transaction::types::InternalTransaction, config::StarknetGeneralConfig,
+    path_state::ContractState, storage::starknet::CommitmentInfo,
 };
 
-struct StarknetOsInput<S: Storage, H: HasherT> {
-    contract_state_commitment_info: CommitmentInfo<S, H>,
-    contract_class_commitment_info: CommitmentInfo<S, H>,
+struct StarknetOsInput {
+    contract_state_commitment_info: CommitmentInfo,
+    contract_class_commitment_info: CommitmentInfo,
     deprecated_compiled_classes: HashMap<Felt252, Felt252>, // TODO: Add contract_class module
     compiled_classes: HashMap<Felt252, Felt252>,            // TODO: Add contract_class module
     contracts: HashMap<Felt252, ContractState>,

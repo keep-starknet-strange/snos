@@ -5,7 +5,9 @@ version = "0.1.0"
 
 [dependencies]
 base64 = "0.21.3"
-blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "3d95caebee0a788dd8b86673e99e767fdd8bf222", features = ["testing"] }
+blockifier = { git = "https://github.com/starkware-libs/blockifier.git", branch = "main", features = ["testing"] }
+papyrus_common = { git = "https://github.com/starkware-libs/papyrus.git", branch = "main" }
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus.git", branch = "main", features = ["testing"] }
 bitvec = { version = "1.0.1", features = ["serde"] }
 cairo-felt = { git = "https://github.com/lambdaclass/cairo-vm.git", branch = "main" }
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm.git", branch = "main" }
@@ -13,10 +15,6 @@ hex = "0.4.3"
 log = "0.4.19"
 num-bigint = "0.4.4"
 num-traits = "0.2.16"
-pathfinder-common = { git = "https://github.com/eqlabs/pathfinder.git", rev = "6f3ebee162e6029ae43da9739b36d9cdc72cf88c" }
-pathfinder-merkle-tree = { git = "https://github.com/eqlabs/pathfinder.git", rev = "6f3ebee162e6029ae43da9739b36d9cdc72cf88c" }
-pathfinder-storage = { git = "https://github.com/eqlabs/pathfinder.git", rev = "6f3ebee162e6029ae43da9739b36d9cdc72cf88c" }
-stark_hash = { git = "https://github.com/eqlabs/pathfinder.git", rev = "6f3ebee162e6029ae43da9739b36d9cdc72cf88c" }
 reqwest = { version = "0.11.18", features = ["blocking", "json"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.105"
@@ -27,9 +25,20 @@ thiserror = "1.0.48"
 tokio = "1.32.0"
 uuid = { version = "1.4.0", features = ["v4", "serde"] }
 zip = { version = "0.6.6", features = ["deflate-zlib"] }
-indexmap = "2.0.2"
+indexmap = "1.9.2"
 anyhow = "1.0.75"
+tempfile = "3.8.0"
+starknet-crypto = "0.6.0"
+
+# TODO: delete for true papyrus impl
+pathfinder-common = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
+pathfinder-merkle-tree = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
+pathfinder-storage = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
+stark_hash = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"
 rstest = "0.18.2"
+
+[patch.crates-io]
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "1526a40921762641a39872643c53305c3e959ab2" }

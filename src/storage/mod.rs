@@ -1,57 +1,86 @@
 pub mod starknet;
 
-use std::marker::PhantomData;
+use anyhow::{anyhow, Context};
+use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0, view::BitView};
+use starknet_api::hash::{StarkFelt, StarkHash};
 
-use serde::{Deserialize, Serialize};
-use serde_json::{from_slice, to_vec};
+use std::collections::HashMap;
 
-use crate::utils::hasher::{pedersen::PedersenHasher, HasherT};
-
-pub trait Storage: Clone {
-    fn set_value(&self, key: Vec<u8>, value: Vec<u8>);
-    fn get_value(&self, key: Vec<u8>) -> Option<Vec<u8>>;
-    fn del_value(&self, key: Vec<u8>);
+/// Read-only storage used by the [Trie](crate::trie::Trie).
+pub trait Storage {
+    /// Returns the node stored at the given index.
+    fn get(&self, index: u32) -> anyhow::Result<Option<StoredNode>>;
+    /// Returns the hash of the node at the given index.
+    fn hash(&self, index: u32) -> anyhow::Result<Option<StarkFelt>>;
+    /// Returns the value of the leaf at the given path.
+    fn leaf(&self, path: &BitSlice<u8, Msb0>) -> anyhow::Result<Option<StarkFelt>>;
 }
 
-pub trait DBObject: Serialize + for<'de> Deserialize<'de> {
-    /// Method to get the database key for the object
-    fn db_key(suffix: Vec<u8>) -> Vec<u8>;
+#[derive(Clone, Debug)]
+pub enum Node {
+    Binary {
+        left: Child,
+        right: Child,
+    },
+    Edge {
+        child: Child,
+        path: BitVec<u8, Msb0>,
+    },
+    LeafBinary,
+    LeafEdge {
+        path: BitVec<u8, Msb0>,
+    },
+}
 
-    /// Asynchronous methods for getting and setting the object in storage
-    fn get<S: Storage>(storage: &S, suffix: &[u8]) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        let key = Self::db_key(suffix.to_vec());
-        storage
-            .get_value(key)
-            .map(|data| from_slice(&data).expect("Failed to deserialize data"))
+#[derive(Clone, Debug)]
+pub enum Child {
+    Id(u32),
+    Hash(StarkFelt),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum StoredNode {
+    Binary { left: u32, right: u32 },
+    Edge { child: u32, path: BitVec<u8, Msb0> },
+    LeafBinary,
+    LeafEdge { path: BitVec<u8, Msb0> },
+}
+
+#[derive(Default, Debug)]
+pub struct DefaultStorage {
+    nodes: HashMap<u32, (StarkFelt, StoredNode)>,
+    leaves: HashMap<StarkFelt, StarkFelt>,
+}
+
+impl Storage for DefaultStorage {
+    fn get(&self, node: u32) -> anyhow::Result<Option<StoredNode>> {
+        Ok(self.nodes.get(&node).map(|x| x.1.clone()))
     }
 
-    fn set<S: Storage>(&self, storage: &S, suffix: &[u8]) {
-        let key = Self::db_key(suffix.to_vec());
-        let data = to_vec(self).expect("Failed to serialize data");
-        storage.set_value(key, data);
+    fn hash(&self, node: u32) -> anyhow::Result<Option<StarkFelt>> {
+        Ok(self.nodes.get(&node).map(|x| x.0))
+    }
+
+    fn leaf(&self, path: &BitSlice<u8, Msb0>) -> anyhow::Result<Option<StarkFelt>> {
+        assert!(path.len() == 251);
+
+        let key = felt_from_bits(path).context("Mapping path to felt")?;
+
+        Ok(self.leaves.get(&key).cloned())
     }
 }
 
-pub const HASH_BYTES: [u8; 4] = 32u32.to_be_bytes();
+pub fn felt_from_bits(bits: &BitSlice<u8, Msb0>) -> anyhow::Result<StarkFelt> {
+    if bits.len() > 251 {
+        return Err(anyhow!("overflow: > 251 bits"));
+    }
 
-#[derive(Debug)]
-pub struct FactCheckingContext<S: Storage, H: HasherT> {
-    pub storage: S,
-    pub _n_workers: Option<u32>,
-    phantom_data: PhantomData<H>,
+    let mut bytes = [0u8; 32];
+    bytes.view_bits_mut::<Msb0>()[256 - bits.len()..].copy_from_bitslice(bits);
+
+    StarkFelt::new(bytes).map_err(|e| anyhow!(format!("{e}")))
 }
 
-pub trait Fact: DBObject {
-    ///  A fact is a DB object with a DB key that is a hash of its value.
-    ///  Use set_fact() and get() to read and write facts.
-    fn _hash<H: HasherT>(&self) -> Vec<u8>;
-
-    fn set_fact<S: Storage, H: HasherT>(&self, ffc: FactCheckingContext<S, H>) -> Vec<u8> {
-        let hash_val = self._hash::<PedersenHasher>();
-        self.set(&ffc.storage, &hash_val);
-        hash_val
-    }
+pub fn bits_from_felt(felt: StarkFelt) -> BitVec<u8, Msb0> {
+    felt.bytes().view_bits::<Msb0>()[5..].to_bitvec()
 }

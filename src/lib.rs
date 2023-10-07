@@ -1,11 +1,13 @@
 pub mod business_logic;
+pub mod config;
 pub mod error;
-pub mod fact_state;
 pub mod hints;
 pub mod os_input;
+pub mod pap_state;
+pub mod path_state;
 pub mod sharp;
+pub mod state;
 pub mod storage;
-pub mod utils;
 
 use error::SnOsError;
 use std::fs;

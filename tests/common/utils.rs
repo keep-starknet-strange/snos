@@ -5,21 +5,26 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::{errors::hint_errors::HintError, vm_core::VirtualMachine};
 
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
+
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
 
 use std::collections::HashMap;
 use std::fs;
 use std::path;
 
-pub fn load_contract_class_v0(path: &str) -> ContractClass {
-    let raw_contract_class = fs::read_to_string(path::PathBuf::from(path)).unwrap();
-    ContractClassV0::try_from_json_string(&raw_contract_class)
+pub fn load_class_v0(path: &str) -> ContractClass {
+    ContractClassV0::try_from_json_string(&load_class_raw(path))
         .unwrap()
         .into()
 }
 
-pub fn load_contract_class(path: &str) -> Vec<u8> {
-    fs::read(path::PathBuf::from(path)).unwrap()
+pub fn load_deprecated_class(path: &str) -> DeprecatedContractClass {
+    serde_json::from_str(&load_class_raw(path)).unwrap()
+}
+
+pub fn load_class_raw(path: &str) -> String {
+    fs::read_to_string(path::PathBuf::from(path)).unwrap()
 }
 
 #[allow(unused)]

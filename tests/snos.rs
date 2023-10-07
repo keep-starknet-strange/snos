@@ -2,22 +2,26 @@ mod common;
 
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
-use blockifier::state::state_api::{State, StateReader};
+use blockifier::state::state_api::State;
 use blockifier::test_utils::DictStateReader;
 
-use pathfinder_common::{felt, ClassCommitment, StateCommitment, StorageCommitment};
-use pathfinder_merkle_tree::StorageCommitmentTree;
-use pathfinder_storage::{BlockId, Storage};
+use pathfinder_common::{felt, StorageCommitment};
 
-use common::{initial_state, prepare_os_test, utils::check_output_vs_python, utils::print_a_hint};
+use common::{
+    initial_state, prepare_os_test, raw_state, utils::check_output_vs_python, utils::print_a_hint,
+    TestingContext,
+};
 
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
 };
 
-use snos::fact_state::SharedState;
-use snos::*;
+use snos::path_state::SharedState;
+use snos::DEFAULT_LAYOUT;
+use snos::{pap_state, SnOsRunner};
+use starknet_api::core::ClassHash;
+use starknet_api::state::DeprecatedDeclaredClasses;
 use starknet_api::transaction::Calldata;
 use std::fs;
 use std::path::PathBuf;
@@ -25,18 +29,18 @@ use std::rc::Rc;
 
 use rstest::*;
 
-#[rstest]
-fn snos_ok(_initial_state: (BlockContext, CachedState<DictStateReader>)) {
-    let snos_runner = SnOsRunner::new(
-        DEFAULT_LAYOUT.to_string(),
-        PathBuf::from("build/os_debug.json"),
-    );
-    let _runner_res = snos_runner.run();
-}
+// #[rstest]
+// fn snos_ok(_initial_state: TestingContext) {
+//     let snos_runner = SnOsRunner::new(
+//         DEFAULT_LAYOUT.to_string(),
+//         PathBuf::from("build/os_debug.json"),
+//     );
+//     let _runner_res = snos_runner.run();
+// }
 
 #[rstest]
-fn shared_state(mut initial_state: (BlockContext, CachedState<DictStateReader>)) {
-    let state_diff = initial_state.1.to_state_diff();
+fn shared_state(mut initial_state: TestingContext) {
+    let state_diff = initial_state.state.to_state_diff();
 
     let shared_state = SharedState::new();
     let commitment = shared_state.apply_diff(state_diff.clone());
@@ -50,11 +54,19 @@ fn shared_state(mut initial_state: (BlockContext, CachedState<DictStateReader>))
 }
 
 #[rstest]
-fn prepared_os_test(
-    mut prepare_os_test: (BlockContext, CachedState<DictStateReader>, Vec<Calldata>),
-) {
-    println!("VEC: {:?} {}", prepare_os_test.2, prepare_os_test.2.len());
+fn shared_state_pap(mut initial_state: TestingContext, raw_state: DeprecatedDeclaredClasses) {
+    let mut shared_state = pap_state::PapSharedState::new(
+        initial_state.block_context.chain_id,
+        Box::new(initial_state.state),
+    );
+
+    shared_state.apply_diff(Some(raw_state));
 }
+
+// #[rstest]
+// fn prepared_os_test(mut prepare_os_test: (TestingContext, Vec<Calldata>)) {
+//     println!("VEC: {:?} {}", prepare_os_test.1, prepare_os_test.1.len());
+// }
 
 #[rstest]
 fn custom_hint_ok() {

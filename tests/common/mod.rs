@@ -18,10 +18,11 @@ use cairo_vm::vm::runners::builtin_runner::{
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use snos::utils::definitions::general_config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR};
+use snos::config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR};
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::state::DeprecatedDeclaredClasses;
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionVersion};
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -67,6 +68,11 @@ pub const TESTING_HASH_2_0_12_2: &str =
 pub const DELEGATE_PROXY_HASH_0_12_2: &str =
     "1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9";
 
+pub struct TestingContext {
+    pub block_context: BlockContext,
+    pub state: CachedState<DictStateReader>,
+}
+
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
     let program_content = fs::read("build/fact.json").unwrap();
@@ -99,7 +105,7 @@ pub fn setup_pie(setup_runner: (CairoRunner, VirtualMachine)) -> CairoPie {
 }
 
 #[fixture]
-pub fn testing_block_context() -> BlockContext {
+pub fn block_context() -> BlockContext {
     let mut conf = StarknetGeneralConfig::default();
     conf.starknet_os_config.fee_token_address = contract_address!(DEFAULT_FEE_TOKEN_ADDR);
 
@@ -121,19 +127,19 @@ pub fn testing_block_context() -> BlockContext {
 }
 
 #[fixture]
-pub fn testing_state() -> CachedState<DictStateReader> {
+pub fn state() -> CachedState<DictStateReader> {
     let class_hash_to_class: ContractClassMapping = HashMap::from([
         (
             class_hash!(DUMMY_TOKEN_HASH_0_12_2),
-            utils::load_contract_class_v0("build/dummy_token.json"),
+            utils::load_class_v0("build/dummy_token.json"),
         ),
         (
             class_hash!(DUMMY_ACCOUNT_HASH_0_12_2),
-            utils::load_contract_class_v0("build/dummy_account.json"),
+            utils::load_class_v0("build/dummy_account.json"),
         ),
         (
             class_hash!(TOKEN_FOR_TESTING_HASH_0_12_2),
-            utils::load_contract_class_v0("build/token_for_testing.json"),
+            utils::load_class_v0("build/token_for_testing.json"),
         ),
     ]);
 
@@ -143,12 +149,30 @@ pub fn testing_state() -> CachedState<DictStateReader> {
     })
 }
 
+#[fixture]
+pub fn raw_state() -> DeprecatedDeclaredClasses {
+    DeprecatedDeclaredClasses::from([
+        (
+            class_hash!(DUMMY_TOKEN_HASH_0_12_2),
+            utils::load_deprecated_class("build/dummy_token.json"),
+        ),
+        (
+            class_hash!(DUMMY_ACCOUNT_HASH_0_12_2),
+            utils::load_deprecated_class("build/dummy_account.json"),
+        ),
+        (
+            class_hash!(TOKEN_FOR_TESTING_HASH_0_12_2),
+            utils::load_deprecated_class("build/token_for_testing.json"),
+        ),
+    ])
+}
+
 #[fixture(token_class_hash=DUMMY_TOKEN_HASH_0_12_2)]
 pub fn initial_state(
     token_class_hash: &str,
-    testing_block_context: BlockContext,
-    mut testing_state: CachedState<DictStateReader>,
-) -> (BlockContext, CachedState<DictStateReader>) {
+    block_context: BlockContext,
+    mut state: CachedState<DictStateReader>,
+) -> TestingContext {
     let mut nonce_manager = NonceManager::default();
 
     let deploy_token_tx = deploy_account_tx(
@@ -159,7 +183,7 @@ pub fn initial_state(
         &mut nonce_manager,
     );
     AccountTransaction::DeployAccount(deploy_token_tx.clone())
-        .execute(&mut testing_state, &testing_block_context, false, true)
+        .execute(&mut state, &block_context, false, true)
         .unwrap();
 
     let tranfer_selector = selector_from_name("transfer");
@@ -178,7 +202,7 @@ pub fn initial_state(
         version: TransactionVersion::ONE,
     });
     AccountTransaction::Invoke(fund_account.into())
-        .execute(&mut testing_state, &testing_block_context, false, true)
+        .execute(&mut state, &block_context, false, true)
         .unwrap();
 
     let deploy_account_tx = deploy_account_tx(
@@ -189,27 +213,28 @@ pub fn initial_state(
         &mut nonce_manager,
     );
     AccountTransaction::DeployAccount(deploy_account_tx)
-        .execute(&mut testing_state, &testing_block_context, false, true)
+        .execute(&mut state, &block_context, false, true)
         .unwrap();
 
     pre_process_block(
-        &mut testing_state,
+        &mut state,
         Some((BlockNumber(0), BlockHash(StarkFelt::from(20u32)))),
     );
-    (testing_block_context, testing_state)
+    TestingContext {
+        block_context,
+        state,
+    }
 }
 
 #[fixture]
-pub fn prepare_os_test(
-    mut initial_state: (BlockContext, CachedState<DictStateReader>),
-) -> (BlockContext, CachedState<DictStateReader>, Vec<Calldata>) {
+pub fn prepare_os_test(mut initial_state: TestingContext) -> (TestingContext, Vec<Calldata>) {
     let mut nonce_manager = NonceManager::default();
     let sender_addr = contract_address!(DUMMY_ACCOUNT_ADDRESS_0_12_2);
     nonce_manager.next(sender_addr);
 
-    let test_contract_class = utils::load_contract_class_v0("build/test_contract.json");
+    let test_contract_class = utils::load_class_v0("build/test_contract.json");
     initial_state
-        .1
+        .state
         .set_contract_class(&class_hash!(TESTING_HASH_0_12_2), test_contract_class)
         .unwrap();
 
@@ -247,7 +272,12 @@ pub fn prepare_os_test(
         version: TransactionVersion::ONE,
     });
     AccountTransaction::Invoke(account_tx.into())
-        .execute(&mut initial_state.1, &mut initial_state.0, false, true)
+        .execute(
+            &mut initial_state.state,
+            &mut initial_state.block_context,
+            false,
+            true,
+        )
         .unwrap();
 
     let testing_2 = calculate_contract_address(
@@ -278,7 +308,12 @@ pub fn prepare_os_test(
         version: TransactionVersion::ONE,
     });
     AccountTransaction::Invoke(account_tx.into())
-        .execute(&mut initial_state.1, &mut initial_state.0, false, true)
+        .execute(
+            &mut initial_state.state,
+            &mut initial_state.block_context,
+            false,
+            true,
+        )
         .unwrap();
 
     let testing_3 = calculate_contract_address(
@@ -353,7 +388,7 @@ pub fn prepare_os_test(
         *contract_addresses[0].0.key(),
         selector_from_name("test_get_block_number").0,
         stark_felt!(1_u32),
-        stark_felt!(initial_state.0.block_number.0 + 1_u64)
+        stark_felt!(initial_state.block_context.block_number.0 + 1_u64)
     ]);
 
     txs.push(calldata![
@@ -385,7 +420,7 @@ pub fn prepare_os_test(
         *contract_addresses[0].0.key()
     ]);
 
-    let delegate_proxy_contract_class = utils::load_contract_class_v0("build/delegate_proxy.json");
+    let delegate_proxy_contract_class = utils::load_class_v0("build/delegate_proxy.json");
     let delegate_addr = calculate_contract_address(
         ContractAddressSalt::default(),
         class_hash!(DELEGATE_PROXY_HASH_0_12_2),
@@ -398,14 +433,14 @@ pub fn prepare_os_test(
         delegate_addr
     );
     initial_state
-        .1
+        .state
         .set_contract_class(
             &class_hash!(DELEGATE_PROXY_HASH_0_12_2),
             delegate_proxy_contract_class,
         )
         .unwrap();
     initial_state
-        .1
+        .state
         .set_class_hash_at(delegate_addr, class_hash!(DELEGATE_PROXY_HASH_0_12_2))
         .unwrap();
 
@@ -445,7 +480,7 @@ pub fn prepare_os_test(
         *delegate_addr.0.key(),
         selector_from_name("test_get_sequencer_address").0,
         stark_felt!(1_u8),
-        *initial_state.0.sequencer_address.0.key()
+        *initial_state.block_context.sequencer_address.0.key()
     ]);
 
     txs.push(calldata![
@@ -484,7 +519,7 @@ pub fn prepare_os_test(
         stark_felt!(DUMMY_ACCOUNT_ADDRESS_0_12_2)
     ]);
 
-    let test_contract_2_contract_class = utils::load_contract_class_v0("build/test_contract2.json");
+    let test_contract_2_contract_class = utils::load_class_v0("build/test_contract2.json");
     let test_contract_2_addr = calculate_contract_address(
         ContractAddressSalt::default(),
         class_hash!(TESTING_HASH_2_0_12_2),
@@ -493,14 +528,14 @@ pub fn prepare_os_test(
     )
     .unwrap();
     initial_state
-        .1
+        .state
         .set_contract_class(
             &class_hash!(TESTING_HASH_2_0_12_2),
             test_contract_2_contract_class,
         )
         .unwrap();
     initial_state
-        .1
+        .state
         .set_class_hash_at(test_contract_2_addr, class_hash!(TESTING_HASH_2_0_12_2))
         .unwrap();
 
@@ -545,11 +580,16 @@ pub fn prepare_os_test(
             calldata: tx,
             version: TransactionVersion::ONE,
         });
-        let exec_info = AccountTransaction::Invoke(account_tx.into())
-            .execute(&mut initial_state.1, &mut initial_state.0, false, true)
+        let _exec_info = AccountTransaction::Invoke(account_tx.into())
+            .execute(
+                &mut initial_state.state,
+                &mut initial_state.block_context,
+                false,
+                true,
+            )
             .unwrap();
     }
 
     // TODO: expected storage updates
-    (initial_state.0, initial_state.1, txs)
+    (initial_state, txs)
 }
