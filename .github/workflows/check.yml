@@ -35,6 +35,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: |
           pip install cairo-lang
+          bash ./scripts/setup-tests.sh
           cargo test
 
   udeps:
