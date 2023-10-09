@@ -3,7 +3,7 @@
     <br>
 </div>
 
-***(overview)[https://hackmd.io/@pragma/ByP-iux1T]***
+***[overview](https://hackmd.io/@pragma/ByP-iux1T)***
 
 Rust Library for running the Starknet OS via the [Cairo VM](https://github.com/lambdaclass/cairo-vm).
 
