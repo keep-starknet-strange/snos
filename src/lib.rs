@@ -2,7 +2,7 @@ pub mod business_logic;
 pub mod config;
 pub mod error;
 pub mod hints;
-pub mod os_input;
+pub mod io;
 pub mod sharp;
 pub mod state;
 pub mod storage;
