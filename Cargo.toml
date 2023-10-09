@@ -30,12 +30,6 @@ anyhow = "1.0.75"
 tempfile = "3.8.0"
 starknet-crypto = "0.6.0"
 
-# TODO: delete for true papyrus impl
-pathfinder-common = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
-pathfinder-merkle-tree = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
-pathfinder-storage = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
-stark_hash = { git = "https://github.com/eqlabs/pathfinder.git", branch = "main" }
-
 [dev-dependencies]
 pretty_assertions = "1.4.0"
 rstest = "0.18.2"

@@ -405,6 +405,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
 
     /// Returns the value stored at key, or `None` if it does not exist.
     #[cfg(test)]
+    #[allow(unused)]
     fn get(
         &self,
         storage: &impl Storage,

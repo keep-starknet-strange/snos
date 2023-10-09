@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use super::trie::StarkHasher;
-use crate::storage::felt_from_bits;
+use crate::utils::felt_from_bits;
 use bitvec::{order::Msb0, prelude::BitVec, slice::BitSlice};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_crypto::FieldElement;

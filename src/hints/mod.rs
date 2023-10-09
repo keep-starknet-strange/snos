@@ -35,7 +35,7 @@ ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()  %}
 */
 pub fn starknet_os_input(
     vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,

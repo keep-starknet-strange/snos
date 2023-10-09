@@ -53,6 +53,7 @@ pub fn check_output_vs_python(program: &str, mut vm: VirtualMachine) {
 }
 
 // Create the function that implements the custom hint
+#[allow(unused)]
 pub fn print_a_hint(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,

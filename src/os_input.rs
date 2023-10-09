@@ -4,9 +4,10 @@ use cairo_felt::Felt252;
 
 use crate::{
     business_logic::transaction::types::InternalTransaction, config::StarknetGeneralConfig,
-    path_state::ContractState, storage::starknet::CommitmentInfo,
+    state::ContractState, storage::starknet::CommitmentInfo,
 };
 
+#[allow(unused)]
 struct StarknetOsInput {
     contract_state_commitment_info: CommitmentInfo,
     contract_class_commitment_info: CommitmentInfo,

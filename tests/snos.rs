@@ -1,14 +1,8 @@
 mod common;
 
-use blockifier::block_context::BlockContext;
-use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
-use blockifier::test_utils::DictStateReader;
-
-use pathfinder_common::{felt, StorageCommitment};
-
 use common::{
-    initial_state, prepare_os_test, raw_state, utils::check_output_vs_python, utils::print_a_hint,
+    initial_state, prepare_os_test, utils::check_output_vs_python, utils::print_a_hint,
     TestingContext,
 };
 
@@ -17,56 +11,42 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
     BuiltinHintProcessor, HintFunc,
 };
 
-use snos::path_state::SharedState;
 use snos::DEFAULT_LAYOUT;
-use snos::{pap_state, SnOsRunner};
-use starknet_api::core::ClassHash;
-use starknet_api::state::DeprecatedDeclaredClasses;
+use snos::{state::SharedState, SnOsRunner};
+use starknet_api::block::BlockNumber;
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 use starknet_api::transaction::Calldata;
+
 use std::fs;
-use std::path::PathBuf;
 use std::rc::Rc;
 
 use rstest::*;
 
-// #[rstest]
-// fn snos_ok(_initial_state: TestingContext) {
-//     let snos_runner = SnOsRunner::new(
-//         DEFAULT_LAYOUT.to_string(),
-//         PathBuf::from("build/os_debug.json"),
-//     );
-//     let _runner_res = snos_runner.run();
-// }
+#[rstest]
+fn snos_ok(_initial_state: TestingContext) {
+    let snos_runner = SnOsRunner::new(DEFAULT_LAYOUT.to_string(), "build/os_debug.json");
+    let _runner_res = snos_runner.run();
+}
 
 #[rstest]
-fn shared_state(mut initial_state: TestingContext) {
-    let state_diff = initial_state.state.to_state_diff();
-
-    let shared_state = SharedState::new();
-    let commitment = shared_state.apply_diff(state_diff.clone());
+fn shared_state(initial_state: TestingContext) {
+    let mut shared_state = SharedState::new(
+        initial_state.block_context.chain_id,
+        Box::new(initial_state.state),
+    );
+    let commitment = shared_state.apply_diff(BlockNumber(1));
 
     assert_eq!(
-        StorageCommitment(felt!(
-            "473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d"
-        )),
+        stark_felt!("473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d"),
         commitment
     );
 }
 
 #[rstest]
-fn shared_state_pap(mut initial_state: TestingContext, raw_state: DeprecatedDeclaredClasses) {
-    let mut shared_state = pap_state::PapSharedState::new(
-        initial_state.block_context.chain_id,
-        Box::new(initial_state.state),
-    );
-
-    shared_state.apply_diff(Some(raw_state));
+fn prepared_os_test(mut prepare_os_test: (TestingContext, Vec<Calldata>)) {
+    let _diff = prepare_os_test.0.state.to_state_diff();
 }
-
-// #[rstest]
-// fn prepared_os_test(mut prepare_os_test: (TestingContext, Vec<Calldata>)) {
-//     println!("VEC: {:?} {}", prepare_os_test.1, prepare_os_test.1.len());
-// }
 
 #[rstest]
 fn custom_hint_ok() {

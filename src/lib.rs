@@ -3,11 +3,10 @@ pub mod config;
 pub mod error;
 pub mod hints;
 pub mod os_input;
-pub mod pap_state;
-pub mod path_state;
 pub mod sharp;
 pub mod state;
 pub mod storage;
+pub mod utils;
 
 use error::SnOsError;
 use std::fs;
@@ -24,8 +23,11 @@ pub struct SnOsRunner {
 }
 
 impl SnOsRunner {
-    pub fn new(layout: String, os_path: PathBuf) -> Self {
-        Self { layout, os_path }
+    pub fn new(layout: String, os_path: &str) -> Self {
+        Self {
+            layout,
+            os_path: PathBuf::from(os_path),
+        }
     }
 
     pub fn run(&self) -> Result<CairoPie, SnOsError> {

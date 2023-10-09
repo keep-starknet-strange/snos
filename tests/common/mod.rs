@@ -6,7 +6,7 @@ use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
 use blockifier::state::cached_state::{CachedState, ContractClassMapping};
-use blockifier::state::state_api::{State, StateReader};
+use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
@@ -38,11 +38,11 @@ pub const TESTING_FEE: u128 = 0x10000000000000000000000000;
 pub const TESTING_TRANSFER_AMOUNT: u128 = 0x01000000000000000000000000000000;
 
 // Contract Addresses - 0.12.2
-pub const TOKEN_FOR_TESTING_ADDRESS_0_12_2: &str =
+pub const _TOKEN_FOR_TESTING_ADDRESS_0_12_2: &str =
     "572b6542feb4bf285b57a056b588d649e067b9cfab2a88c2b2df9ea6bae6049";
 pub const DUMMY_ACCOUNT_ADDRESS_0_12_2: &str =
     "5ca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0";
-pub const DUMMY_TOKEN_ADDRESS_0_12_2: &str =
+pub const _DUMMY_TOKEN_ADDRESS_0_12_2: &str =
     "3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8";
 
 // Class Hashes - 0.12.2
@@ -170,7 +170,7 @@ pub fn raw_state() -> DeprecatedDeclaredClasses {
 #[fixture(token_class_hash=DUMMY_TOKEN_HASH_0_12_2)]
 pub fn initial_state(
     token_class_hash: &str,
-    block_context: BlockContext,
+    mut block_context: BlockContext,
     mut state: CachedState<DictStateReader>,
 ) -> TestingContext {
     let mut nonce_manager = NonceManager::default();
@@ -220,6 +220,9 @@ pub fn initial_state(
         &mut state,
         Some((BlockNumber(0), BlockHash(StarkFelt::from(20u32)))),
     );
+    block_context.block_number = BlockNumber(1);
+    block_context.block_timestamp = BlockTimestamp(1001);
+
     TestingContext {
         block_context,
         state,
@@ -327,7 +330,6 @@ pub fn prepare_os_test(mut initial_state: TestingContext) -> (TestingContext, Ve
     )
     .unwrap();
     assert_eq!(contract_addresses[2], testing_3);
-    // TODO: deply via dummy account
 
     let mut txs: Vec<Calldata> = Vec::new();
 
@@ -486,12 +488,12 @@ pub fn prepare_os_test(mut initial_state: TestingContext) -> (TestingContext, Ve
     txs.push(calldata![
         *delegate_addr.0.key(),
         selector_from_name("deposit").0,
-        stark_felt!(1_u32),
+        stark_felt!(2_u32),
         stark_felt!(85_u32),
         stark_felt!(2_u32)
     ]);
 
-    // TODO handle message to L2
+    // // TODO handle message to L2
 
     txs.push(calldata![
         *contract_addresses[0].0.key(),
@@ -580,7 +582,7 @@ pub fn prepare_os_test(mut initial_state: TestingContext) -> (TestingContext, Ve
             calldata: tx,
             version: TransactionVersion::ONE,
         });
-        let _exec_info = AccountTransaction::Invoke(account_tx.into())
+        AccountTransaction::Invoke(account_tx.into())
             .execute(
                 &mut initial_state.state,
                 &mut initial_state.block_context,
@@ -590,6 +592,10 @@ pub fn prepare_os_test(mut initial_state: TestingContext) -> (TestingContext, Ve
             .unwrap();
     }
 
+    pre_process_block(
+        &mut initial_state.state,
+        Some((BlockNumber(1), BlockHash(StarkFelt::from(21u32)))),
+    );
     // TODO: expected storage updates
     (initial_state, txs)
 }

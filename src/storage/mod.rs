@@ -1,10 +1,12 @@
 pub mod starknet;
 
-use anyhow::{anyhow, Context};
-use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0, view::BitView};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use anyhow::Context;
+use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0};
+use starknet_api::hash::StarkFelt;
 
 use std::collections::HashMap;
+
+use crate::utils::felt_from_bits;
 
 /// Read-only storage used by the [Trie](crate::trie::Trie).
 pub trait Storage {
@@ -68,19 +70,4 @@ impl Storage for DefaultStorage {
 
         Ok(self.leaves.get(&key).cloned())
     }
-}
-
-pub fn felt_from_bits(bits: &BitSlice<u8, Msb0>) -> anyhow::Result<StarkFelt> {
-    if bits.len() > 251 {
-        return Err(anyhow!("overflow: > 251 bits"));
-    }
-
-    let mut bytes = [0u8; 32];
-    bytes.view_bits_mut::<Msb0>()[256 - bits.len()..].copy_from_bitslice(bits);
-
-    StarkFelt::new(bytes).map_err(|e| anyhow!(format!("{e}")))
-}
-
-pub fn bits_from_felt(felt: StarkFelt) -> BitVec<u8, Msb0> {
-    felt.bytes().view_bits::<Msb0>()[5..].to_bitvec()
 }
