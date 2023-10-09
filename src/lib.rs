@@ -1,9 +1,10 @@
 pub mod business_logic;
+pub mod config;
 pub mod error;
-pub mod fact_state;
 pub mod hints;
-pub mod os_input;
+pub mod io;
 pub mod sharp;
+pub mod state;
 pub mod storage;
 pub mod utils;
 
@@ -20,8 +21,18 @@ pub struct SnOsRunner {
 }
 
 impl SnOsRunner {
-    pub fn new(layout: String, os_path: PathBuf) -> Self {
-        Self { layout, os_path }
+    pub fn with_layout(layout: &str) -> Self {
+        Self {
+            layout: layout.to_string(),
+            os_path: Self::default().os_path,
+        }
+    }
+
+    pub fn with_os_path(os_path: &str) -> Self {
+        Self {
+            layout: Self::default().layout,
+            os_path: PathBuf::from(os_path),
+        }
     }
 
     pub fn run(&self) -> Result<CairoPie, SnOsError> {
@@ -43,8 +54,6 @@ impl SnOsRunner {
         )
         .expect("Couldn't run program");
 
-        println!("successful run...");
-
         let pie = runner
             .get_cairo_pie(&vm)
             .map_err(|e| SnOsError::PieParsing(format!("{e}")))?;
@@ -57,7 +66,7 @@ impl SnOsRunner {
 impl Default for SnOsRunner {
     fn default() -> Self {
         Self {
-            layout: "starknet_with_keccak".to_string(),
+            layout: config::DEFAULT_LAYOUT.to_string(),
             os_path: PathBuf::from("build/os_latest.json"),
         }
     }
