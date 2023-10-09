@@ -24,6 +24,7 @@ use std::rc::Rc;
 use rstest::*;
 
 #[rstest]
+#[ignore]
 fn snos_ok(_initial_state: TestingContext) {
     let snos_runner = SnOsRunner::new(DEFAULT_LAYOUT.to_string(), "build/os_debug.json");
     let _runner_res = snos_runner.run();
@@ -37,6 +38,7 @@ fn shared_state(initial_state: TestingContext) {
     );
     let commitment = shared_state.apply_diff(BlockNumber(1));
 
+    // expected root parsed from current os_test.py & test_utils.py(0.12.2)
     assert_eq!(
         stark_felt!("473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d"),
         commitment

@@ -15,6 +15,7 @@ use starknet_api::patricia_key;
 use starknet_api::state::{StateDiff, StateNumber};
 use tempfile::{tempdir, TempDir};
 
+use crate::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use crate::storage::DefaultStorage;
 use crate::utils::{bits_from_felt, calculate_contract_state_hash};
 use trie::{MerkleTrie, PedersenHash};
@@ -73,6 +74,7 @@ impl SharedState {
         let txn = writer.begin_rw_txn().unwrap();
 
         let mut contract_commitments: Vec<StarkHash> = Vec::new();
+        // TODO: use config const and reconcile usize -> u64
         let mut tree: MerkleTrie<PedersenHash, 251> = MerkleTrie::empty();
         let storage = DefaultStorage::default();
         let statetxn = txn.get_state_reader().unwrap();
@@ -82,6 +84,7 @@ impl SharedState {
                 .unwrap()
                 .unwrap();
 
+            // TODO: dynamically get new root
             let contract_commitment =
                 calculate_contract_state_hash(class_hash, patricia_key!("0x0"), nonce);
 

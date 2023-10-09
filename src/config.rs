@@ -16,6 +16,7 @@ use crate::error::SnOsError;
 const DEFAULT_CONFIG_PATH: &str =
     "cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 
+// TODO: ensure accuracy in CI
 pub const DEFAULT_STORAGE_TREE_HEIGHT: u64 = 251;
 pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
 pub const DEFAULT_FEE_TOKEN_ADDR: &str =

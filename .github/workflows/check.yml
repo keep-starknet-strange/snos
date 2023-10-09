@@ -37,6 +37,7 @@ jobs:
           pip install cairo-lang
           bash ./scripts/setup-tests.sh
           cargo test
+          bash ./scripts/teardown-tests.sh
 
   udeps:
     runs-on: ubuntu-latest

@@ -40,7 +40,7 @@ pub fn starknet_os_input(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // println!("Running hint {:?} {:?}", ids_data, exec_scopes);
+    println!("Running hint {:?} {:?}", ids_data, _exec_scopes);
 
     // Deserialize the program_input
 
