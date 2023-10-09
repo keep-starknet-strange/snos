@@ -13,7 +13,7 @@ pub fn calculate_contract_state_hash(
     const CONTRACT_STATE_HASH_VERSION: StarkFelt = StarkFelt::ZERO;
 
     // The contract state hash is defined as H(H(H(hash, root), nonce), CONTRACT_STATE_HASH_VERSION)
-    let hash = pedersen_hash(&class_hash.0, &contract_root.key());
+    let hash = pedersen_hash(&class_hash.0, contract_root.key());
     let hash = pedersen_hash(&hash, &nonce.0);
     pedersen_hash(&hash, &CONTRACT_STATE_HASH_VERSION)
 }

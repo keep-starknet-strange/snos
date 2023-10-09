@@ -67,7 +67,7 @@ impl SharedState {
 
         let txn = writer.begin_rw_txn().unwrap();
 
-        txn.append_state_diff(block_number, state_diff.clone(), IndexMap::new())
+        txn.append_state_diff(block_number, state_diff, IndexMap::new())
             .unwrap();
 
         let txn = writer.begin_rw_txn().unwrap();
