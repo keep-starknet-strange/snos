@@ -1,3 +1,6 @@
+//!
+//! pathfinder/crates/merkle-tree
+//!
 use std::{cell::RefCell, rc::Rc};
 
 use super::trie::StarkHasher;
