@@ -15,7 +15,6 @@ use starknet_api::patricia_key;
 use starknet_api::state::{StateDiff, StateNumber};
 use tempfile::{tempdir, TempDir};
 
-use crate::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use crate::storage::DefaultStorage;
 use crate::utils::{bits_from_felt, calculate_contract_state_hash};
 use trie::{MerkleTrie, PedersenHash};
