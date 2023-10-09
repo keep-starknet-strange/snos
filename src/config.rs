@@ -17,7 +17,9 @@ const DEFAULT_CONFIG_PATH: &str =
     "cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 
 // TODO: ensure accuracy in CI
-pub const DEFAULT_STORAGE_TREE_HEIGHT: u64 = 251;
+pub const DEFAULT_LAYOUT: &str = "starknet_with_keccak";
+pub const DEFAULT_COMPILER_VERSION: &str = "0.12.2";
+pub const DEFAULT_STORAGE_TREE_HEIGHT: usize = 251;
 pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
 pub const DEFAULT_FEE_TOKEN_ADDR: &str =
     "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
@@ -56,9 +58,9 @@ impl Default for StarknetGeneralConfig {
                     chain_id: ChainId("SN_GOERLI".to_string()),
                     fee_token_address: contract_address!(DEFAULT_FEE_TOKEN_ADDR),
                 },
-                contract_storage_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT,
-                compiled_class_hash_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT,
-                global_state_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT,
+                contract_storage_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
+                compiled_class_hash_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
+                global_state_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
                 invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
                 validate_max_n_steps: MAX_STEPS_PER_TX as u32,
                 min_gas_price: INITIAL_GAS_COST as u128,

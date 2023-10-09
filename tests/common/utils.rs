@@ -5,6 +5,7 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::{errors::hint_errors::HintError, vm_core::VirtualMachine};
 
+use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
@@ -13,12 +14,15 @@ use std::collections::HashMap;
 use std::fs;
 use std::path;
 
+use super::*;
+
 pub fn load_class_v0(path: &str) -> ContractClass {
     ContractClassV0::try_from_json_string(&load_class_raw(path))
         .unwrap()
         .into()
 }
 
+#[allow(unused)]
 pub fn load_deprecated_class(path: &str) -> DeprecatedContractClass {
     serde_json::from_str(&load_class_raw(path)).unwrap()
 }
@@ -64,4 +68,51 @@ pub fn print_a_hint(
     let a = get_integer_from_var_name("a", vm, ids_data, ap_tracking)?;
     println!("{}", a);
     Ok(())
+}
+
+pub fn deploy_with_syscall(
+    shared_state: &mut SharedState<DictStateReader>,
+    nonce_manager: &mut NonceManager,
+    sender_addr: ContractAddress,
+    class_hash: ClassHash,
+    test_calldata: (u32, u32),
+    salt: u32,
+) -> ContractAddress {
+    let contract_addr = calculate_contract_address(
+        ContractAddressSalt(stark_felt!(salt)),
+        class_hash,
+        &calldata![
+            stark_felt!(test_calldata.0), // Calldata: address.
+            stark_felt!(test_calldata.1)  // Calldata: value.
+        ],
+        contract_address!(0_u32),
+    )
+    .unwrap();
+
+    let account_tx = invoke_tx(invoke_tx_args! {
+        max_fee: Fee(TESTING_FEE),
+        nonce: nonce_manager.next(sender_addr),
+        sender_address: sender_addr,
+        calldata: calldata![
+            *sender_addr.0.key(),
+            selector_from_name("deploy_contract").0,
+            stark_felt!(5_u32),
+            class_hash.0,
+            stark_felt!(salt),
+            stark_felt!(2_u32),
+            stark_felt!(test_calldata.0),
+            stark_felt!(test_calldata.0)
+        ],
+        version: TransactionVersion::ONE,
+    });
+    AccountTransaction::Invoke(account_tx.into())
+        .execute(
+            &mut shared_state.cache,
+            &mut shared_state.block_context,
+            false,
+            true,
+        )
+        .unwrap();
+
+    contract_addr
 }

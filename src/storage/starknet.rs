@@ -5,10 +5,10 @@ use cairo_felt::Felt252;
 
 type CommitmentFacts = HashMap<Felt252, Vec<Felt252>>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CommitmentInfo {
     pub previous_root: Felt252,
     pub updated_root: Felt252,
-    tree_height: usize,
-    commitment_facts: CommitmentFacts,
+    pub(crate) tree_height: usize,
+    pub(crate) commitment_facts: CommitmentFacts,
 }

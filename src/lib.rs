@@ -15,17 +15,22 @@ use std::path::PathBuf;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 
-pub const DEFAULT_LAYOUT: &str = "starknet_with_keccak";
-
 pub struct SnOsRunner {
     layout: String,
     os_path: PathBuf,
 }
 
 impl SnOsRunner {
-    pub fn new(layout: String, os_path: &str) -> Self {
+    pub fn with_layout(layout: &str) -> Self {
         Self {
-            layout,
+            layout: layout.to_string(),
+            os_path: Self::default().os_path,
+        }
+    }
+
+    pub fn with_os_path(os_path: &str) -> Self {
+        Self {
+            layout: Self::default().layout,
             os_path: PathBuf::from(os_path),
         }
     }
@@ -61,7 +66,7 @@ impl SnOsRunner {
 impl Default for SnOsRunner {
     fn default() -> Self {
         Self {
-            layout: DEFAULT_LAYOUT.to_string(),
+            layout: config::DEFAULT_LAYOUT.to_string(),
             os_path: PathBuf::from("build/os_latest.json"),
         }
     }

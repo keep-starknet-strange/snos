@@ -49,12 +49,12 @@ pub enum StoredNode {
 }
 
 #[derive(Default, Debug)]
-pub struct DefaultStorage {
+pub struct DefaultTrieStorage {
     nodes: HashMap<u32, (StarkFelt, StoredNode)>,
     leaves: HashMap<StarkFelt, StarkFelt>,
 }
 
-impl Storage for DefaultStorage {
+impl Storage for DefaultTrieStorage {
     fn get(&self, node: u32) -> anyhow::Result<Option<StoredNode>> {
         Ok(self.nodes.get(&node).map(|x| x.1.clone()))
     }
