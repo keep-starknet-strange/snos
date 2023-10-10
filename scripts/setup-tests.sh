@@ -35,6 +35,8 @@ starknet-compile-deprecated --no_debug_info tests/contracts/dummy_token.cairo --
 starknet-compile-deprecated --no_debug_info tests/contracts/delegate_proxy.cairo --output build/delegate_proxy.json --cairo_path cairo-lang/src
 starknet-compile-deprecated --no_debug_info tests/contracts/test_contract2.cairo --output build/test_contract2.json --cairo_path cairo-lang/src
 
+
+
 # compile os with debug info
 cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json --cairo_path cairo-lang/src
 

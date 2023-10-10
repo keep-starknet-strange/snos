@@ -1,6 +1,7 @@
 mod common;
 
 use blockifier::test_utils::DictStateReader;
+use cairo_felt::Felt252;
 use common::{initial_state, prepare_os_test, utils::check_output_vs_python, utils::print_a_hint};
 
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
@@ -8,9 +9,13 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
     BuiltinHintProcessor, HintFunc,
 };
 
+use num_traits::Num;
 use snos::{state::SharedState, SnOsRunner};
 
 use starknet_api::block::BlockNumber;
+use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::{contract_address, patricia_key, stark_felt};
 
 use std::fs;
 use std::rc::Rc;
@@ -26,11 +31,45 @@ fn snos_ok(_initial_state: SharedState<DictStateReader>) {
 
 #[rstest]
 fn prepared_os_test(mut prepare_os_test: SharedState<DictStateReader>) {
-    let commitment = prepare_os_test.apply_diff();
+    let commitment = prepare_os_test.apply_state();
     assert_eq!(BlockNumber(2), prepare_os_test.get_block_num());
-    // 1fc35de150561b6229137b3f253fc1c894c93b1c184a8ca0d0f7171a64bcd04 -> addr 2
-    // 7d4b1bcb63f8b7f53ef32d5761afc3249180f03dc9773e421a9574c51453c00 -> addr 2
-    println!("COMMITMENT: {:?}", commitment);
+    assert_eq!(Felt252::from(0), commitment.previous_root);
+    assert_eq!(
+        Felt252::from_str_radix(
+            "486b2c996de12788e8715beb8dc5509d39f940dda2bc8132610a7ff18d3c0a4",
+            16
+        )
+        .unwrap(),
+        commitment.updated_root
+    );
+
+    let addr_1_root = prepare_os_test
+        .get_contract_root(contract_address!(
+            "46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92"
+        ))
+        .unwrap();
+    assert_eq!(
+        stark_felt!("7d4b1bcb63f8b7f53ef32d5761afc3249180f03dc9773e421a9574c51453c00"),
+        addr_1_root.0
+    );
+    let addr_2_root = prepare_os_test
+        .get_contract_root(contract_address!(
+            "4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6"
+        ))
+        .unwrap();
+    assert_eq!(
+        stark_felt!("1fc35de150561b6229137b3f253fc1c894c93b1c184a8ca0d0f7171a64bcd04"),
+        addr_2_root.0
+    );
+    let delegate_root = prepare_os_test
+        .get_contract_root(contract_address!(
+            "238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0"
+        ))
+        .unwrap();
+    assert_eq!(
+        stark_felt!("4ed2a0d5f47780aee355c14a37ab2ae7dc8fb6f73773563e02fef51b4ec4abe"),
+        delegate_root.0
+    );
 }
 
 #[rstest]

@@ -14,9 +14,7 @@ use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::patricia_key;
-use starknet_api::state::{StateDiff, StateUpdate, ThinStateDiff};
-use tempfile::{tempdir, TempDir};
+use starknet_api::{patricia_key, stark_felt};
 
 use std::collections::HashMap;
 
@@ -27,7 +25,7 @@ use trie::{MerkleTrie, PedersenHash};
 
 type CommitmentFacts = HashMap<Felt252, Vec<Felt252>>;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct CommitmentInfo {
     pub previous_root: Felt252,
     pub updated_root: Felt252,
@@ -67,27 +65,40 @@ impl<S: StateReader> SharedState<S> {
         self.block_context.block_number = self.block_context.block_number.next();
     }
 
-    pub fn apply_state(&mut self) -> CommitmentInfo {
-        let diff = self.cache.to_state_diff();
+    pub fn get_storage_root(&self, block_num: BlockNumber) -> (StarkFelt, u64) {
+        *self
+            .commitment_storage
+            .root_map
+            .get(&stark_felt!(block_num.0))
+            .unwrap_or(&(StarkFelt::ZERO, 0_u64))
+    }
 
-        let accessed_addrs = self.apply_diff(diff);
+    pub fn get_contract_root(&self, addr: ContractAddress) -> Option<&(StarkFelt, u64)> {
+        self.contract_storage.root_map.get(addr.0.key())
+    }
+
+    pub fn apply_state(&mut self) -> CommitmentInfo {
+        let (accessed_addrs, diff) = self.apply_diff();
 
         let mut storage_trie: MerkleTrie<PedersenHash, DEFAULT_STORAGE_TREE_HEIGHT> =
-            if previous_storage_root.1 > 0 {
-                MerkleTrie::new(previous_storage_root.1)
-            } else {
-                MerkleTrie::empty()
+            match self.get_block_num().prev() {
+                Some(block_num) => MerkleTrie::new(self.get_storage_root(block_num).1),
+                None => MerkleTrie::empty(),
             };
+
         for addr in accessed_addrs {
             let nonce = match diff.address_to_nonce.get(&addr) {
                 Some(new_nonce) => *new_nonce,
-                None => self.cache.get_nonce_at(addr).unwrap(),
+                None => self.cache.get_nonce_at(addr).unwrap_or_default(),
             };
-            let root = match root_map.get(&addr) {
-                Some(inner_root) => *inner_root,
+            let root = match self.get_contract_root(addr) {
+                Some(inner_root) => patricia_key!(inner_root.0),
                 None => patricia_key!("0x0"),
             };
-            let class_hash = self.cache.get_class_hash_at(addr).unwrap();
+            let class_hash = match diff.address_to_class_hash.get(&addr) {
+                Some(class_hash) => *class_hash,
+                None => self.cache.get_class_hash_at(addr).unwrap(),
+            };
 
             let contract_commitment = calculate_contract_state_hash(class_hash, root, nonce);
 
@@ -99,25 +110,23 @@ impl<S: StateReader> SharedState<S> {
                 )
                 .unwrap();
         }
-
-        // block num to root
-        let updated_root = self.commitment_storage.commit_and_persist(storage_trie);
-
-        // let state_update = StateUpdate {
-
-        // }
-
+        let block_num = self.get_block_num();
+        let previous_root = self.get_storage_root(block_num);
+        let updated_root = self
+            .commitment_storage
+            .commit_and_persist(storage_trie, stark_felt!(block_num.0));
         self.increment_block();
 
         CommitmentInfo {
-            previous_root: Felt252::from_bytes_be(previous_storage_root.0.bytes()),
+            previous_root: Felt252::from_bytes_be(previous_root.0.bytes()),
             updated_root: Felt252::from_bytes_be(updated_root.0.bytes()),
             tree_height: DEFAULT_STORAGE_TREE_HEIGHT,
             commitment_facts: HashMap::new(),
         }
     }
 
-    pub fn apply_diff(&mut self, diff: CommitmentStateDiff) -> IndexSet<ContractAddress> {
+    pub fn apply_diff(&mut self) -> (IndexSet<ContractAddress>, CommitmentStateDiff) {
+        let diff = self.cache.to_state_diff();
         let mut accessed_addrs = IndexSet::new();
 
         let mut deprecated_declared_classes: IndexMap<ClassHash, DeprecatedContractClass> =
@@ -133,9 +142,7 @@ impl<S: StateReader> SharedState<S> {
             accessed_addrs.insert(addr);
         }
 
-        let mut root_map = HashMap::new();
-
-        for (addr, updates) in diff.storage_updates {
+        for (addr, updates) in diff.storage_updates.clone() {
             let mut contract_trie: MerkleTrie<PedersenHash, DEFAULT_STORAGE_TREE_HEIGHT> =
                 MerkleTrie::empty();
 
@@ -148,10 +155,9 @@ impl<S: StateReader> SharedState<S> {
                     )
                     .unwrap();
             }
-            let (contract_root, contract_idx) =
-                self.contract_storage.commit_and_persist(contract_trie);
+            self.contract_storage
+                .commit_and_persist(contract_trie, *addr.0.key());
 
-            root_map.insert(addr, patricia_key!(contract_root));
             accessed_addrs.insert(addr);
         }
 
@@ -159,6 +165,6 @@ impl<S: StateReader> SharedState<S> {
             accessed_addrs.insert(addr);
         }
 
-        accessed_addrs
+        (accessed_addrs, diff)
     }
 }

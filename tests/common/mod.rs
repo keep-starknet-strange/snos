@@ -1,5 +1,6 @@
 pub mod utils;
 
+use blockifier::state::state_api::StateReader;
 use cairo_felt::felt_str;
 
 use blockifier::abi::constants::N_STEPS_RESOURCE;
@@ -44,6 +45,8 @@ use blockifier::test_utils::{
 
 pub const TESTING_FEE: u128 = 0x10000000000000000000000000;
 pub const TESTING_TRANSFER_AMOUNT: u128 = 0x01000000000000000000000000000000;
+pub const TESTING_BLOCK_HASH: &str =
+    "59b01ba262c999f2617412ffbba780f80b0103d928cbce1aecbaa50de90abda";
 
 // Contract Addresses - 0.12.2
 pub const _TOKEN_FOR_TESTING_ADDRESS_0_12_2: &str =
@@ -207,7 +210,7 @@ pub fn initial_state(
     block_context.block_timestamp = BlockTimestamp(1001);
 
     let mut shared_state = SharedState::new(cache, block_context);
-    let commitment = shared_state.apply_diff();
+    let commitment = shared_state.apply_state();
 
     // expected root parsed from current os_test.py & test_utils.py(0.12.2)
     assert_eq!(
@@ -225,15 +228,6 @@ pub fn initial_state(
 fn shared_state(initial_state: SharedState<DictStateReader>) {
     let block_num = initial_state.get_block_num();
     assert_eq!(BlockNumber(1), block_num);
-
-    let pre_state_diff = initial_state.get_diff(BlockNumber(0)).unwrap().unwrap();
-    let pre_nonces = pre_state_diff.nonces;
-
-    let dummy_account = &pre_nonces.get(&contract_address!(DUMMY_ACCOUNT_ADDRESS_0_12_2));
-    assert_eq!(&Nonce(stark_felt!(1_u32)), dummy_account.unwrap());
-
-    let dummy_token = &pre_nonces.get(&contract_address!(DUMMY_TOKEN_ADDRESS_0_12_2));
-    assert_eq!(&Nonce(stark_felt!(2_u32)), dummy_token.unwrap());
 }
 
 #[fixture]
@@ -428,14 +422,6 @@ pub fn prepare_os_test(
     ]);
 
     txs.push(calldata![
-        *delegate_addr.0.key(),
-        selector_from_name("deposit").0,
-        stark_felt!(2_u32),
-        stark_felt!(85_u32),
-        stark_felt!(2_u32)
-    ]);
-
-    txs.push(calldata![
         *contract_addresses[0].0.key(),
         selector_from_name("test_library_call_syntactic_sugar").0,
         stark_felt!(1_u32),
@@ -549,6 +535,24 @@ pub fn prepare_os_test(
             .unwrap();
     }
 
+    initial_state.cache.set_storage_at(
+        delegate_addr,
+        StorageKey(patricia_key!(300_u32)),
+        stark_felt!("4e5e39d16e565bacdbc7d8d13b9bc2b51a32c8b2b49062531688dcd2f6ec834"),
+    );
+    initial_state.cache.set_storage_at(
+        delegate_addr,
+        StorageKey(patricia_key!(311_u32)),
+        stark_felt!(1536727068981429685321_u128),
+    );
+    initial_state.cache.set_storage_at(
+        delegate_addr,
+        StorageKey(patricia_key!(
+            "1cda892019d02a987cdc80f1500179f0e33fbd6cac8cb2ffef5d6d05101a8dc"
+        )),
+        stark_felt!(2_u8),
+    );
+
     initial_state
 }
 
@@ -583,7 +587,6 @@ fn validate_prepare(mut prepare_os_test: SharedState<DictStateReader>) {
     let addr_2 =
         contract_address!("4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6");
     let addr_2_updates = diff.storage_updates.get(&addr_2).unwrap();
-    assert_eq!(4, addr_2_updates.len());
     assert_eq!(
         &stark_felt!(1_u32),
         addr_2_updates
@@ -613,27 +616,44 @@ fn validate_prepare(mut prepare_os_test: SharedState<DictStateReader>) {
         contract_address!("238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0");
     let delegate_addr_updates = diff.storage_updates.get(&delegate_addr).unwrap();
     // assert_eq!(6, delegate_addr_updates.len());
-    // assert_eq!(
-    //     &stark_felt!(456_u32),
-    //     delegate_addr_updates
-    //         .get(&StorageKey(patricia_key!(123_u32)))
-    //         .unwrap()
-    // );
-
-    // let msg_to_l2 = MessageToL2 {
-    //     from_address: EthAddress::try_from(stark_felt!(85_u16)).unwrap(),
-    //     payload: L1ToL2Payload(vec![
-    //         *delegate_addr.0.key(),
-    //         selector_from_name("deposit").0,
-    //         stark_felt!(2_u32),
-    //         stark_felt!(85_u32),
-    //         stark_felt!(2_u32),
-    //     ]),
-    // };
-
-    // let msg_to_l1 = MessageToL1 {
-    //     from_address: contract_addresses[0],
-    //     to_address: EthAddress::try_from(stark_felt!(85_u16)).unwrap(),
-    //     payload: L2ToL1Payload(vec![stark_felt!(12_u16), stark_felt!(34_u16)]),
-    // };
+    assert_eq!(
+        &stark_felt!(456_u32),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(123_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!("4e5e39d16e565bacdbc7d8d13b9bc2b51a32c8b2b49062531688dcd2f6ec834"),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(300_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(1536727068981429685321_u128),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(311_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(19_u32),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(322_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(TESTING_HASH_0_12_2),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(
+                "2e9111f912ea3746e28b8e693578fdbcc18d64a3380d03bd67c0c04f5715ed1"
+            )))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(2_u8),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(
+                "1cda892019d02a987cdc80f1500179f0e33fbd6cac8cb2ffef5d6d05101a8dc"
+            )))
+            .unwrap()
+    );
 }

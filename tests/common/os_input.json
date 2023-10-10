@@ -1,0 +1,132 @@
+{
+    "contract_state_commitment_info": {
+        "previous_root": "0x473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d",
+        "updated_root": "0x0482c9ce8a99afddc9777ff048520fcbfab6c0389f51584016c80a2e94ab8ca7",
+        "tree_height": 251,
+        "commitment_facts": {
+            "0x473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d": ["0x78ae47e863b0eeac50620a21d7aa9f163b1a9f1dcb2a810cb0c49f8fd16afdc", "0x446868832abcc6f03f057ad04c55047d1c21165b14094249024ef6f3e6effe9"],
+            "0x78ae47e863b0eeac50620a21d7aa9f163b1a9f1dcb2a810cb0c49f8fd16afdc": ["0xfb", "0x3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8", "0x312e8cd3be33c565e449d214efb762f49ef2a701f8fa33cbff791f592c4b97c"],
+            "0x446868832abcc6f03f057ad04c55047d1c21165b14094249024ef6f3e6effe9": ["0xfb", "0x1ca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0", "0x72039db031f1da533c4399d04af2e3bdc2e4e5cb2d707a06e0c9eb417035762"],
+            "0x6e786ba49c4fc2ef6897a9b4f2f7dbd281b91480af9acc480dd8949e0e5093f": ["0xf9", "0x14cebec93a58b4400af9c082fb3c5adfa0800ff1489f8fc030076491ff86c48", "0x1d5f83f69e3d1da456f4abfa9c4c54e35a1ec9295a770889aaafa115bf94ed8"],
+            "0x3a6ba9d7d3e7c256a0abe84f8f2ede47f5d81d3eee36eb7d48182a6f99e663d": ["0xf8", "0x38e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0", "0x3770eacc014536c28b49b68dab24af374ce1245abf0b13eca52d98af471afed"],
+            "0x3a71f65a73ca118032fb3d7ae6195f99d0db67c2a68c12879bd1a6c1a75b13": ["0xf8", "0x400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8", "0x312e8cd3be33c565e449d214efb762f49ef2a701f8fa33cbff791f592c4b97c"],
+            "0x3ede65e451e4a643dcc93e056af85e196e125dbc9720626424222d7c6b0f174": ["0xf8", "0xca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0", "0x582cceb5417524e9ec1a2d3b65c24e967a1a15bcf06de132f39f1ebcec56f2d"],
+            "0x40ed73ff214a36e736d2cb157ca1b76d198f74ada875c05c97367b9a894f328": ["0xf7", "0x6fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92", "0x26f90b65a29ec06d0329d048c736a5b3929757208de43cdf7fabd4b06fcf86"],
+            "0x3abcb072beea92b4bb2e815a0bbbca97ae43175f1b40985aaf21f41731a71": ["0xf7", "0x69665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6", "0x8944da2553c7414e1037e4e442c163f2f25f19fa628e7dafe6ceaac920e894"],
+            "0x6010b3092dea3fd1732014fcc16554cabe79090410c9f4ace2ed0264299f279": ["0x3a6ba9d7d3e7c256a0abe84f8f2ede47f5d81d3eee36eb7d48182a6f99e663d", "0x3a71f65a73ca118032fb3d7ae6195f99d0db67c2a68c12879bd1a6c1a75b13"],
+            "0x588c76d7a6d902cd6f2ca3ce5919b77014973400632a5c81463f5eebc0f9de8": ["0x40ed73ff214a36e736d2cb157ca1b76d198f74ada875c05c97367b9a894f328", "0x3abcb072beea92b4bb2e815a0bbbca97ae43175f1b40985aaf21f41731a71"],
+            "0x0738e8c7e0cb070b61443ab08f73e931d6c6e4ee16cdc89470a7a62d70be12aa": ["0x1", "0x1", "0x6010b3092dea3fd1732014fcc16554cabe79090410c9f4ace2ed0264299f279"],
+            "0x06b6255fe6372270afbf24f88f3ecd8649ad2ded37ef1e735f8089d0dc6dbe29": ["0x588c76d7a6d902cd6f2ca3ce5919b77014973400632a5c81463f5eebc0f9de8", "0x3ede65e451e4a643dcc93e056af85e196e125dbc9720626424222d7c6b0f174"],
+            "0x1c96e88dec3cc34f764ce6844c26ab0baa2883c2ac596a5a1701d5719e45044": ["0x6b6255fe6372270afbf24f88f3ecd8649ad2ded37ef1e735f8089d0dc6dbe29", "0x6e786ba49c4fc2ef6897a9b4f2f7dbd281b91480af9acc480dd8949e0e5093f"],
+            "0x482c9ce8a99afddc9777ff048520fcbfab6c0389f51584016c80a2e94ab8ca7": ["0x738e8c7e0cb070b61443ab08f73e931d6c6e4ee16cdc89470a7a62d70be12aa", "0x1c96e88dec3cc34f764ce6844c26ab0baa2883c2ac596a5a1701d5719e45044"]
+        }
+    },
+    "contract_class_commitment_info": {
+        "previous_root": "0x0",
+        "updated_root": "0x0",
+        "tree_height": 251,
+        "commitment_facts": {}
+    },
+    "deprecated_compiled_classes_raw": {
+        "build/delegate_proxy.json": "0x1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9",
+        "build/test_contract2.json": "0x49bcc976d628b1b238aefc20e77303a251a14ba6c99cd543a86708513414057",
+        "build/dummy_account.json": "0x16dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7",
+        "build/test_contract.json": "0x7364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160",
+        "build/dummy_token.json": "0x7cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa"
+    },
+    "deprecated_compiled_classes": {
+        "0x1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9": {},
+        "0x49bcc976d628b1b238aefc20e77303a251a14ba6c99cd543a86708513414057": {},
+        "0x16dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7": {},
+        "0x7364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160": {},
+        "0x7cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa": {}
+    },
+    "compiled_classes": {},
+    "contracts": {
+        "0x0": {
+            "contract_hash": "0x0",
+            "storage_commitment_tree": {
+                "root": "0x0",
+                "height": 251
+            },
+            "nonce": 0
+        },
+        "0x1": {
+            "contract_hash": "0x0",
+            "storage_commitment_tree": {
+                "root": "0x0",
+                "height": 251
+            },
+            "nonce": 0
+        },
+        "0x238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0": {
+            "contract_hash": "0x0",
+            "storage_commitment_tree": {
+                "root": "0x0",
+                "height": 251
+            },
+            "nonce": 0
+        },
+        "0x3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8": {
+            "contract_hash": "0x7cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa",
+            "storage_commitment_tree": {
+                "root": "0x0",
+                "height": 251
+            },
+            "nonce": 2
+        },
+        "0x46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92": {
+            "contract_hash": "0x0",
+            "storage_commitment_tree": {
+                "root": "0x0",
+                "height": 251
+            },
+            "nonce": 0
+        },
+        "0x4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6": {
+            "contract_hash": "0x0",
+            "storage_commitment_tree": {
+                "root": "0x0",
+                "height": 251
+            },
+            "nonce": 0
+        },
+        "0x5ca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0": {
+            "contract_hash": "0x16dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7",
+            "storage_commitment_tree": {
+                "root": "0x0",
+                "height": 251
+            },
+            "nonce": 1
+        },
+        "0x74cebec93a58b4400af9c082fb3c5adfa0800ff1489f8fc030076491ff86c48": {
+            "contract_hash": "0x0",
+            "storage_commitment_tree": {
+                "root": "0x0",
+                "height": 251
+            },
+            "nonce": 0
+        }
+    },
+    "class_hash_to_compiled_class_hash": {},
+    "general_config": {
+        "starknet_os_config": {
+            "chain_id": 1536727068981429685321,
+            "fee_token_address": "0x3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8"
+        },
+        "contract_storage_commitment_tree_height": 251,
+        "compiled_class_hash_commitment_tree_height": 251,
+        "global_state_commitment_tree_height": 251,
+        "invoke_tx_max_n_steps": 3000000,
+        "validate_max_n_steps": 1000000,
+        "min_gas_price": 100000000,
+        "constant_gas_price": false,
+        "sequencer_address": "0x6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa",
+        "tx_commitment_tree_height": 64,
+        "event_commitment_tree_height": 64,
+        "cairo_resource_fee_weights": {"n_steps": 1.0, "output_builtin": 0.0, "pedersen_builtin": 0.0, "range_check_builtin": 0.0, "ecdsa_builtin": 0.0, "bitwise_builtin": 0.0, "ec_op_builtin": 0.0, "keccak_builtin": 0.0, "poseidon_builtin": 0.0},
+        "enforce_l1_handler_fee": true
+    },
+    "transactions": {},
+    "block_hash": "0x59b01ba262c999f2617412ffbba780f80b0103d928cbce1aecbaa50de90abda"
+}

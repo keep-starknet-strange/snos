@@ -1,5 +1,6 @@
 use anyhow::Context;
 use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0};
+use starknet_api::block::BlockNumber;
 use starknet_api::hash::StarkFelt;
 
 use super::trie::{MerkleTrie, StarkHasher};
@@ -52,7 +53,7 @@ pub enum StoredNode {
 pub struct TrieStorage {
     nodes: HashMap<u64, (StarkFelt, StoredNode)>,
     leaves: HashMap<StarkFelt, StarkFelt>,
-    block_root_map: HashMap<BlockNumber, StarkFelt>,
+    pub root_map: HashMap<StarkFelt, (StarkFelt, u64)>,
 }
 
 impl Storage for TrieStorage {
@@ -77,6 +78,7 @@ impl TrieStorage {
     pub fn commit_and_persist<H: StarkHasher, const HEIGHT: usize>(
         &mut self,
         tree: MerkleTrie<H, HEIGHT>,
+        root_key: StarkFelt,
     ) -> (StarkFelt, u64) {
         for (key, value) in &tree.leaves {
             let key = felt_from_bits(key).unwrap();
@@ -130,6 +132,8 @@ impl TrieStorage {
         }
 
         let index = *indices.get(&update.root).unwrap();
+
+        self.root_map.insert(root_key, (update.root, index));
 
         (update.root, index)
     }
