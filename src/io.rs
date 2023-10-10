@@ -6,7 +6,7 @@ use starknet_api::transaction::{MessageToL1, MessageToL2};
 
 use crate::{
     business_logic::transaction::types::InternalTransaction, config::StarknetGeneralConfig,
-    state::ContractState, storage::starknet::CommitmentInfo,
+    state::CommitmentInfo, state::ContractState,
 };
 
 #[allow(unused)]

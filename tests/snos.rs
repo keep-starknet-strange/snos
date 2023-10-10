@@ -9,8 +9,8 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
 };
 
 use snos::{state::SharedState, SnOsRunner};
+
 use starknet_api::block::BlockNumber;
-use starknet_api::transaction::Calldata;
 
 use std::fs;
 use std::rc::Rc;
@@ -25,12 +25,12 @@ fn snos_ok(_initial_state: SharedState<DictStateReader>) {
 }
 
 #[rstest]
-fn prepared_os_test(prepare_os_test: (SharedState<DictStateReader>, Vec<Calldata>)) {
-    let (mut shared_state, txns) = prepare_os_test;
-    assert_eq!(23, txns.len());
-
-    shared_state.apply_diff();
-    assert_eq!(BlockNumber(2), shared_state.get_block_num())
+fn prepared_os_test(mut prepare_os_test: SharedState<DictStateReader>) {
+    let commitment = prepare_os_test.apply_diff();
+    assert_eq!(BlockNumber(2), prepare_os_test.get_block_num());
+    // 1fc35de150561b6229137b3f253fc1c894c93b1c184a8ca0d0f7171a64bcd04 -> addr 2
+    // 7d4b1bcb63f8b7f53ef32d5761afc3249180f03dc9773e421a9574c51453c00 -> addr 2
+    println!("COMMITMENT: {:?}", commitment);
 }
 
 #[rstest]

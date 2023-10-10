@@ -70,48 +70,27 @@ pub fn print_a_hint(
     Ok(())
 }
 
-pub fn deploy_with_syscall(
+pub fn raw_deploy(
     shared_state: &mut SharedState<DictStateReader>,
-    nonce_manager: &mut NonceManager,
-    sender_addr: ContractAddress,
+    class_path: &str,
     class_hash: ClassHash,
-    test_calldata: (u32, u32),
-    salt: u32,
 ) -> ContractAddress {
+    let contract_class = load_class_v0(class_path);
+    shared_state
+        .cache
+        .set_contract_class(&class_hash, contract_class)
+        .unwrap();
+
     let contract_addr = calculate_contract_address(
-        ContractAddressSalt(stark_felt!(salt)),
+        ContractAddressSalt::default(),
         class_hash,
-        &calldata![
-            stark_felt!(test_calldata.0), // Calldata: address.
-            stark_felt!(test_calldata.1)  // Calldata: value.
-        ],
+        &calldata![],
         contract_address!(0_u32),
     )
     .unwrap();
-
-    let account_tx = invoke_tx(invoke_tx_args! {
-        max_fee: Fee(TESTING_FEE),
-        nonce: nonce_manager.next(sender_addr),
-        sender_address: sender_addr,
-        calldata: calldata![
-            *sender_addr.0.key(),
-            selector_from_name("deploy_contract").0,
-            stark_felt!(5_u32),
-            class_hash.0,
-            stark_felt!(salt),
-            stark_felt!(2_u32),
-            stark_felt!(test_calldata.0),
-            stark_felt!(test_calldata.0)
-        ],
-        version: TransactionVersion::ONE,
-    });
-    AccountTransaction::Invoke(account_tx.into())
-        .execute(
-            &mut shared_state.cache,
-            &mut shared_state.block_context,
-            false,
-            true,
-        )
+    shared_state
+        .cache
+        .set_class_hash_at(contract_addr, class_hash)
         .unwrap();
 
     contract_addr

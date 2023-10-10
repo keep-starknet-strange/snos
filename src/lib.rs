@@ -5,7 +5,6 @@ pub mod hints;
 pub mod io;
 pub mod sharp;
 pub mod state;
-pub mod storage;
 pub mod utils;
 
 use error::SnOsError;

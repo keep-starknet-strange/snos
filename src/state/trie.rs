@@ -3,7 +3,7 @@
 //!
 
 use super::node::{BinaryNode, Direction, EdgeNode, InternalNode, TrieNode};
-use crate::storage::{Child, Node, Storage, StoredNode};
+use super::storage::{Child, Node, Storage, StoredNode};
 use anyhow::Context;
 use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0};
 use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
@@ -28,7 +28,7 @@ impl StarkHasher for PedersenHash {
 #[derive(Debug, Clone)]
 pub struct MerkleTrie<H: StarkHasher, const HEIGHT: usize> {
     root: Option<Rc<RefCell<InternalNode>>>,
-    leaves: HashMap<BitVec<u8, Msb0>, StarkFelt>,
+    pub leaves: HashMap<BitVec<u8, Msb0>, StarkFelt>,
     _hasher: std::marker::PhantomData<H>,
     /// If enables, node hashes are verified as they are resolved. This allows
     /// testing for database corruption.
@@ -46,7 +46,7 @@ pub struct TrieUpdate {
 }
 
 impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
-    pub fn new(root: u32) -> Self {
+    pub fn new(root: u64) -> Self {
         let root = Some(Rc::new(RefCell::new(InternalNode::Unresolved(root))));
         Self {
             root,
@@ -441,7 +441,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     ///   2. the hashes are correct, and
     ///   3. the root hash matches the known root
     pub fn get_proof(
-        root: u32,
+        root: u64,
         storage: &impl Storage,
         key: &BitSlice<u8, Msb0>,
     ) -> anyhow::Result<Vec<TrieNode>> {
@@ -593,7 +593,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     fn resolve(
         &self,
         storage: &impl Storage,
-        index: u32,
+        index: u64,
         height: usize,
     ) -> anyhow::Result<InternalNode> {
         anyhow::ensure!(
