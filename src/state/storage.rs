@@ -49,12 +49,13 @@ pub enum StoredNode {
 }
 
 #[derive(Default, Debug)]
-pub struct DefaultTrieStorage {
+pub struct TrieStorage {
     nodes: HashMap<u64, (StarkFelt, StoredNode)>,
     leaves: HashMap<StarkFelt, StarkFelt>,
+    block_root_map: HashMap<BlockNumber, StarkFelt>,
 }
 
-impl Storage for DefaultTrieStorage {
+impl Storage for TrieStorage {
     fn get(&self, node: u64) -> anyhow::Result<Option<StoredNode>> {
         Ok(self.nodes.get(&node).map(|x| x.1.clone()))
     }
@@ -72,7 +73,7 @@ impl Storage for DefaultTrieStorage {
     }
 }
 
-impl DefaultTrieStorage {
+impl TrieStorage {
     pub fn commit_and_persist<H: StarkHasher, const HEIGHT: usize>(
         &mut self,
         tree: MerkleTrie<H, HEIGHT>,
