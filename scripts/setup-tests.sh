@@ -44,3 +44,4 @@ cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/
 cairo-compile tests/programs/different_output.cairo --output build/different_output.json
 cairo-compile tests/programs/fact.cairo --output build/fact.json
 cairo-compile tests/programs/hint.cairo --output build/hint.json
+cairo-compile tests/programs/load_compiled_classes.cairo --output build/load_compiled_classes.json

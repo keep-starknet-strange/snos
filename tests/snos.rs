@@ -17,6 +17,9 @@ use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::{contract_address, patricia_key, stark_felt};
 
+use snos::hints::hints_raw::*;
+use snos::hints::load_compiled_class_facts;
+
 use std::fs;
 use std::rc::Rc;
 
@@ -73,44 +76,12 @@ fn prepared_os_test(mut prepare_os_test: SharedState<DictStateReader>) {
 }
 
 #[rstest]
-fn custom_hint_ok() {
-    let program_content = fs::read("build/hint.json").unwrap();
-
-    // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
-    let hint = HintFunc(Box::new(print_a_hint));
-
-    //Instantiate the hint processor
-    let mut hint_processor = BuiltinHintProcessor::new_empty();
-
-    //Add the custom hint, together with the Python code
-    hint_processor.add_hint(String::from("print(ids.a)"), Rc::new(hint));
-
-    //Run the cairo program
-    let (_cairo_runner, virtual_machine) = cairo_run(
-        &program_content,
-        &CairoRunConfig {
-            layout: "all_cairo",
-            ..Default::default()
-        },
-        &mut hint_processor,
-    )
-    .expect("Couldn't run program");
-    check_output_vs_python("build/hint.json", virtual_machine);
-}
-
-#[rstest]
 #[should_panic(expected = "Output #0 is different")]
 fn test_different_outputs() {
     let program_content = fs::read("build/hint.json").unwrap();
 
-    // Wrap the Rust hint implementation in a Box smart pointer inside a HintFunc
-    let hint = HintFunc(Box::new(print_a_hint));
-
     //Instantiate the hint processor
     let mut hint_processor = BuiltinHintProcessor::new_empty();
-
-    //Add the custom hint, together with the Python code
-    hint_processor.add_hint(String::from("print(ids.a)"), Rc::new(hint));
 
     //Run the cairo program
     let (_cairo_runner, virtual_machine) = cairo_run(
@@ -123,4 +94,31 @@ fn test_different_outputs() {
     )
     .expect("Couldn't run program");
     check_output_vs_python("build/different_output.json", virtual_machine);
+}
+
+#[rstest]
+fn load_compiled_classes_facts_test() {
+    let program_path = "build/load_compiled_classes.json";
+
+    // Instantiate the hint processor
+    let mut hint_processor = BuiltinHintProcessor::new_empty();
+
+    hint_processor.add_hint(
+        LOAD_COMPILED_CLASS_FACTS.to_owned(),
+        Rc::new(HintFunc(Box::new(load_compiled_class_facts))),
+    );
+
+    let program_content = fs::read(program_path).unwrap();
+
+    //Run the cairo program
+    let (_cairo_runner, virtual_machine) = cairo_run(
+        &program_content,
+        &CairoRunConfig {
+            layout: "all_cairo",
+            ..Default::default()
+        },
+        &mut hint_processor,
+    )
+    .expect("Couldn't run program");
+    check_output_vs_python(program_path, virtual_machine);
 }

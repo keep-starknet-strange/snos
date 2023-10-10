@@ -32,6 +32,11 @@ pub struct StarknetOsInput {
     #[serde(deserialize_with = "deserialize_felt_hex")]
     block_hash: Felt252,
 }
+impl StarknetOsInput {
+    pub fn compiled_classes(&self) -> &HashMap<Felt252, Felt252> {
+        &self.compiled_classes
+    }
+}
 
 impl StarknetOsInput {
     pub fn load(path: &str) -> Self {
