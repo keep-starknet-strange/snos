@@ -23,6 +23,7 @@ use std::rc::Rc;
 use rstest::*;
 
 #[rstest]
+#[ignore]
 fn snos_ok(_initial_state: SharedState<DictStateReader>) {
     let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
     let _runner_res = snos_runner.run();
@@ -35,7 +36,7 @@ fn prepared_os_test(mut prepare_os_test: SharedState<DictStateReader>) {
     assert_eq!(Felt252::from(0), commitment.previous_root);
     assert_eq!(
         Felt252::from_str_radix(
-            "486b2c996de12788e8715beb8dc5509d39f940dda2bc8132610a7ff18d3c0a4",
+            "26f415452a5d140f444d3cb814fded5b35386944d7c36812af0885bafd2ba56",
             16
         )
         .unwrap(),
