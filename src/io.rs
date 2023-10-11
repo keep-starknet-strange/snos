@@ -7,7 +7,7 @@ use cairo_vm::serde::deserialize_program::deserialize_felt_hex;
 use num_traits::Num;
 use serde::Deserializer;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::transaction::{MessageToL1, MessageToL2};
+use starknet_api::transaction::{MessageToL1, MessageToL2, Transaction};
 use std::fs;
 use std::path;
 
@@ -28,7 +28,7 @@ pub struct StarknetOsInput {
     #[serde(deserialize_with = "deserialize_felt_map")]
     class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
     general_config: StarknetGeneralConfig,
-    // transactions: Vec<InternalTransaction>,
+    transactions: Vec<Transaction>,
     #[serde(deserialize_with = "deserialize_felt_hex")]
     block_hash: Felt252,
 }
@@ -131,6 +131,7 @@ mod tests {
     #[test]
     fn parse_os_input() {
         let input = StarknetOsInput::load("tests/common/os_input.json");
+        println!("INPUT: {:?}", input.transactions);
         assert_eq!(
             Felt252::from_str_radix(TESTING_BLOCK_HASH, 16).unwrap(),
             input.block_hash
