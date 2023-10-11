@@ -10,6 +10,8 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::{errors::hint_errors::HintError, vm_core::VirtualMachine};
 use std::rc::Rc;
 
+use crate::io::StarknetOsInput;
+
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
 };
@@ -43,6 +45,7 @@ pub fn starknet_os_input(
     println!("Running hint {:?} {:?}", ids_data, _exec_scopes);
 
     // Deserialize the program_input
+    let _os_input = StarknetOsInput::load("tests/common/os_input.json");
 
     let initial_carried_outputs_ptr =
         get_ptr_from_var_name("initial_carried_outputs", vm, ids_data, ap_tracking)?;

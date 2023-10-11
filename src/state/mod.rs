@@ -8,6 +8,7 @@ use blockifier::state::cached_state::{CachedState, CommitmentStateDiff};
 use blockifier::state::state_api::{State, StateReader};
 use cairo_felt::Felt252;
 use indexmap::{IndexMap, IndexSet};
+use serde::Serialize;
 use storage::TrieStorage;
 
 use starknet_api::block::BlockNumber;
@@ -16,23 +17,16 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContract
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::{patricia_key, stark_felt};
 
+use serde::Deserialize;
 use std::collections::HashMap;
 
 use crate::config::DEFAULT_STORAGE_TREE_HEIGHT;
+use crate::io::CommitmentInfo;
 use crate::utils::{bits_from_felt, calculate_contract_state_hash, vm_class_to_api_v0};
-use serde::{Deserialize, Serialize};
+
 use trie::{MerkleTrie, PedersenHash};
 
-type CommitmentFacts = HashMap<Felt252, Vec<Felt252>>;
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct CommitmentInfo {
-    pub previous_root: Felt252,
-    pub updated_root: Felt252,
-    pub(crate) tree_height: usize,
-    pub(crate) commitment_facts: CommitmentFacts,
-}
-
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ContractState {
     _contract_hash: Felt252,
     _storage_commitment_tree: Felt252,

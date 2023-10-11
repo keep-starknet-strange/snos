@@ -1,7 +1,7 @@
 {
     "contract_state_commitment_info": {
         "previous_root": "0x473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d",
-        "updated_root": "0x0482c9ce8a99afddc9777ff048520fcbfab6c0389f51584016c80a2e94ab8ca7",
+        "updated_root": "0x482c9ce8a99afddc9777ff048520fcbfab6c0389f51584016c80a2e94ab8ca7",
         "tree_height": 251,
         "commitment_facts": {
             "0x473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d": ["0x78ae47e863b0eeac50620a21d7aa9f163b1a9f1dcb2a810cb0c49f8fd16afdc", "0x446868832abcc6f03f057ad04c55047d1c21165b14094249024ef6f3e6effe9"],
@@ -27,19 +27,12 @@
         "tree_height": 251,
         "commitment_facts": {}
     },
-    "deprecated_compiled_classes_raw": {
-        "build/delegate_proxy.json": "0x1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9",
-        "build/test_contract2.json": "0x49bcc976d628b1b238aefc20e77303a251a14ba6c99cd543a86708513414057",
-        "build/dummy_account.json": "0x16dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7",
-        "build/test_contract.json": "0x7364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160",
-        "build/dummy_token.json": "0x7cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa"
-    },
     "deprecated_compiled_classes": {
-        "0x1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9": {},
-        "0x49bcc976d628b1b238aefc20e77303a251a14ba6c99cd543a86708513414057": {},
-        "0x16dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7": {},
-        "0x7364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160": {},
-        "0x7cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa": {}
+        "0x1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9": "build/delegate_proxy.json",
+        "0x49bcc976d628b1b238aefc20e77303a251a14ba6c99cd543a86708513414057": "build/test_contract2.json",
+        "0x16dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7": "build/dummy_account.json",
+        "0x7364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160": "build/test_contract.json",
+        "0x7cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa": "build/dummy_token.json"
     },
     "compiled_classes": {},
     "contracts": {
@@ -111,7 +104,7 @@
     "class_hash_to_compiled_class_hash": {},
     "general_config": {
         "starknet_os_config": {
-            "chain_id": 1536727068981429685321,
+            "chain_id": "0x534e5f474f45524c49",
             "fee_token_address": "0x3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8"
         },
         "contract_storage_commitment_tree_height": 251,

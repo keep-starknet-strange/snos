@@ -1,6 +1,5 @@
 pub mod utils;
 
-use blockifier::state::state_api::StateReader;
 use cairo_felt::felt_str;
 
 use blockifier::abi::constants::N_STEPS_RESOURCE;
@@ -22,9 +21,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use snos::config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR};
 use snos::state::SharedState;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
-};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
@@ -45,15 +42,13 @@ use blockifier::test_utils::{
 
 pub const TESTING_FEE: u128 = 0x10000000000000000000000000;
 pub const TESTING_TRANSFER_AMOUNT: u128 = 0x01000000000000000000000000000000;
-pub const TESTING_BLOCK_HASH: &str =
-    "59b01ba262c999f2617412ffbba780f80b0103d928cbce1aecbaa50de90abda";
 
 // Contract Addresses - 0.12.2
 pub const _TOKEN_FOR_TESTING_ADDRESS_0_12_2: &str =
     "572b6542feb4bf285b57a056b588d649e067b9cfab2a88c2b2df9ea6bae6049";
 pub const DUMMY_ACCOUNT_ADDRESS_0_12_2: &str =
     "5ca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0";
-pub const DUMMY_TOKEN_ADDRESS_0_12_2: &str =
+pub const _DUMMY_TOKEN_ADDRESS_0_12_2: &str =
     "3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8";
 
 // Class Hashes - 0.12.2
@@ -557,7 +552,7 @@ pub fn prepare_os_test(
 }
 
 #[rstest]
-fn validate_prepare(mut prepare_os_test: SharedState<DictStateReader>) {
+fn validate_prepare(prepare_os_test: SharedState<DictStateReader>) {
     let mut shared_state = prepare_os_test;
     let diff = shared_state.cache.to_state_diff();
 

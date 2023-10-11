@@ -1,6 +1,5 @@
 use anyhow::Context;
 use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0};
-use starknet_api::block::BlockNumber;
 use starknet_api::hash::StarkFelt;
 
 use super::trie::{MerkleTrie, StarkHasher};
