@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_vm::felt::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_ptr_from_var_name, insert_value_from_var_name,
-};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 mod hints_raw;
 
@@ -39,17 +37,16 @@ ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()  %}
 */
 pub fn starknet_os_input(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    println!("Running hint {:?} {:?}", ids_data, _exec_scopes);
+    println!("Running hint {:?} {:?}", ids_data, exec_scopes);
 
     // Deserialize the program_input
     let os_input = Box::new(StarknetOsInput::load("tests/common/os_input.json"));
-    let mut scopes = ExecutionScopes::new();
-    scopes.assign_or_update_variable("os_input", os_input);
+    exec_scopes.assign_or_update_variable("os_input", os_input);
 
     let initial_carried_outputs_ptr =
         get_ptr_from_var_name("initial_carried_outputs", vm, ids_data, ap_tracking)?;
