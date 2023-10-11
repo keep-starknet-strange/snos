@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use cairo_vm::felt::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_ptr_from_var_name, insert_value_from_var_name,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 mod hints_raw;
 
@@ -20,8 +22,13 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let mut hint_processor = BuiltinHintProcessor::new_empty();
 
     let sn_input = HintFunc(Box::new(starknet_os_input));
-
     hint_processor.add_hint(String::from(hints_raw::SN_INPUT_RAW), Rc::new(sn_input));
+
+    let load_class_facts = HintFunc(Box::new(load_compiled_class_facts));
+    hint_processor.add_hint(
+        String::from(hints_raw::LOAD_COMPILED_CLASS_FACTS),
+        Rc::new(load_class_facts),
+    );
 
     hint_processor
 }
@@ -42,7 +49,7 @@ pub fn starknet_os_input(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    println!("Running hint {:?} {:?}", ids_data, exec_scopes);
+    // println!("Running hint {:?} {:?}", ids_data, exec_scopes);
 
     // Deserialize the program_input
     let os_input = Box::new(StarknetOsInput::load("tests/common/os_input.json"));
@@ -62,4 +69,32 @@ pub fn starknet_os_input(
     vm.insert_value(messages_to_l2, temp_segment)?;
 
     Ok(())
+}
+
+/*
+Implements hint:
+ids.compiled_class_facts = segments.add()
+ids.n_compiled_class_facts = len(os_input.compiled_classes)
+vm_enter_scope({
+    'compiled_class_facts': iter(os_input.compiled_classes.items()),
+})
+*/
+pub fn load_compiled_class_facts(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+
+    // TODO: add vm scope and class iter
+
+    insert_value_from_var_name(
+        "n_compiled_class_facts",
+        os_input.compiled_classes.len(),
+        vm,
+        ids_data,
+        ap_tracking,
+    )
 }

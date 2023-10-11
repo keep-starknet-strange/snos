@@ -3,6 +3,7 @@ pub mod utils;
 use cairo_felt::felt_str;
 
 use blockifier::abi::constants::N_STEPS_RESOURCE;
+use blockifier::transaction::objects::TransactionExecutionInfo;
 
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::block_context::BlockContext;
@@ -238,7 +239,7 @@ fn shared_state(initial_state: SharedState<DictStateReader>) {
 #[fixture]
 pub fn prepare_os_test(
     mut initial_state: SharedState<DictStateReader>,
-) -> SharedState<DictStateReader> {
+) -> (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>) {
     let contract_addresses = [
         contract_address!("46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92"),
         contract_address!("4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6"),
@@ -503,6 +504,8 @@ pub fn prepare_os_test(
         TransactionSignature(vec![]),
     ));
 
+    let mut exec_info: Vec<TransactionExecutionInfo> = Vec::new();
+
     for tx in txs.clone().into_iter() {
         let account_tx = invoke_tx(invoke_tx_args! {
             max_fee: Fee(TESTING_FEE),
@@ -511,7 +514,7 @@ pub fn prepare_os_test(
             calldata: tx,
             version: TransactionVersion::ONE,
         });
-        AccountTransaction::Invoke(account_tx.into())
+        let tx_info = AccountTransaction::Invoke(account_tx.into())
             .execute(
                 &mut initial_state.cache,
                 &mut initial_state.block_context,
@@ -519,6 +522,7 @@ pub fn prepare_os_test(
                 true,
             )
             .unwrap();
+        exec_info.push(tx_info);
     }
 
     for sig_tx in sig_txs.clone().into_iter() {
@@ -530,7 +534,7 @@ pub fn prepare_os_test(
             signature: sig_tx.1,
             version: TransactionVersion::ONE,
         });
-        AccountTransaction::Invoke(account_tx.into())
+        let tx_info = AccountTransaction::Invoke(account_tx.into())
             .execute(
                 &mut initial_state.cache,
                 &mut initial_state.block_context,
@@ -538,6 +542,7 @@ pub fn prepare_os_test(
                 true,
             )
             .unwrap();
+        exec_info.push(tx_info);
     }
 
     initial_state.cache.set_storage_at(
@@ -558,12 +563,14 @@ pub fn prepare_os_test(
         stark_felt!(2_u8),
     );
 
-    initial_state
+    (initial_state, exec_info)
 }
 
 #[rstest]
-fn validate_prepare(prepare_os_test: SharedState<DictStateReader>) {
-    let mut shared_state = prepare_os_test;
+fn validate_prepare(
+    prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),
+) {
+    let mut shared_state = prepare_os_test.0;
     let diff = shared_state.cache.to_state_diff();
 
     let addr_1 =

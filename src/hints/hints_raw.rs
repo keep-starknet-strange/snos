@@ -5,6 +5,8 @@ os_input = StarknetOsInput.load(data=program_input)
 ids.initial_carried_outputs.messages_to_l1 = segments.add_temp_segment()
 ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()"#;
 
+pub const LOAD_COMPILED_CLASS_FACTS: &str = "ids.compiled_class_facts = segments.add()\nids.n_compiled_class_facts = len(os_input.compiled_classes)\nvm_enter_scope({\n    'compiled_class_facts': iter(os_input.compiled_classes.items()),\n})";
+
 pub const _VM_ENTER_SCOPE: &str = "
 # This hint shouldn't be whitelisted.
 vm_enter_scope(dict(

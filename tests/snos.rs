@@ -1,6 +1,7 @@
 mod common;
 
 use blockifier::test_utils::DictStateReader;
+use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_felt::{felt_str, Felt252};
 use common::{
     initial_state, prepare_os_test, utils::check_output_vs_python, utils::print_a_hint,
@@ -25,25 +26,20 @@ use std::rc::Rc;
 use rstest::*;
 
 #[rstest]
-#[ignore]
+// #[ignore]
 fn snos_ok(_initial_state: SharedState<DictStateReader>) {
     let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
     let _runner_res = snos_runner.run();
 }
 
 #[rstest]
-fn prepared_os_test(mut prepare_os_test: SharedState<DictStateReader>) {
+fn prepared_os_test(
+    prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),
+) {
+    let (mut prepare_os_test, _exec_info) = prepare_os_test;
     let commitment = prepare_os_test.apply_state();
     assert_eq!(BlockNumber(2), prepare_os_test.get_block_num());
     assert_eq!(Felt252::from(0), commitment.previous_root);
-    // assert_eq!(
-    //     Felt252::from_str_radix(
-    //         "486b2c996de12788e8715beb8dc5509d39f940dda2bc8132610a7ff18d3c0a4",
-    //         16
-    //     )
-    //     .unwrap(),
-    //     commitment.updated_root
-    // );
 
     let addr_1_root = prepare_os_test
         .get_contract_root(contract_address!(

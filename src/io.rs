@@ -12,7 +12,7 @@ use crate::config::StarknetGeneralConfig;
 use crate::utils::{parse_deprecated_classes, Felt252Num, Felt252Str};
 
 #[serde_as]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct StarknetOsInput {
     pub contract_state_commitment_info: CommitmentInfo,
     pub contract_class_commitment_info: CommitmentInfo,
@@ -31,7 +31,7 @@ pub struct StarknetOsInput {
 }
 
 #[serde_as]
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct CommitmentInfo {
     #[serde_as(as = "Felt252Num")]
     pub previous_root: Felt252,
@@ -42,7 +42,7 @@ pub struct CommitmentInfo {
     pub commitment_facts: HashMap<Felt252, Vec<Felt252>>,
 }
 #[serde_as]
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct ContractState {
     #[serde_as(as = "Felt252Str")]
     pub contract_hash: Felt252,
@@ -52,7 +52,7 @@ pub struct ContractState {
 }
 
 #[serde_as]
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct StorageCommitment {
     #[serde_as(as = "Felt252Str")]
     pub root: Felt252,
@@ -60,7 +60,7 @@ pub struct StorageCommitment {
 }
 
 #[serde_as]
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct InternalTransaction {
     #[serde_as(as = "Felt252Str")]
     pub hash_value: Felt252,
