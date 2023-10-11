@@ -2,9 +2,12 @@ use anyhow::anyhow;
 use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0, view::BitView};
 use blockifier::execution::contract_class::ContractClassV0;
 
+use cairo_felt::Felt252;
 use cairo_vm_blockifier::types::program::Program;
 
 use std::collections::HashMap;
+use std::path;
+use std::fs;
 
 use crate::config::DEFAULT_COMPILER_VERSION;
 
@@ -13,6 +16,13 @@ use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, Program as DeprecatedProgram,
 };
 use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
+
+use serde::{Deserialize, Serialize};
+
+use num_traits::Num;
+use serde::{de, Deserializer};
+use serde_json::Number;
+use serde_with::{serde_as, DeserializeAs, SerializeAs};
 
 /// Calculates the contract state hash from its preimage.
 pub fn calculate_contract_state_hash(
@@ -68,4 +78,58 @@ pub fn vm_program_to_api_v0(program: &Program) -> DeprecatedProgram {
         prime: serde_json::to_value(program.prime()).unwrap(),
         ..DeprecatedProgram::default()
     }
+}
+
+pub struct Felt252Str;
+
+impl<'de> DeserializeAs<'de, Felt252> for Felt252Str {
+    fn deserialize_as<D>(deserializer: D) -> Result<Felt252, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let felt_str = String::deserialize(deserializer)?;
+        match felt_str.strip_prefix("0x") {
+            Some(felt_hex) => match Felt252::from_str_radix(felt_hex, 16) {
+                Ok(x) => Ok(x),
+                Err(e) => Err(de::Error::custom(format!("{e}"))),
+            },
+            None => match Felt252::from_str_radix(&felt_str, 10) {
+                Ok(x) => Ok(x),
+                Err(e) => Err(de::Error::custom(format!("{e}"))),
+            },
+        }
+    }
+}
+
+pub struct Felt252Num;
+
+impl<'de> DeserializeAs<'de, Felt252> for Felt252Num {
+    fn deserialize_as<D>(deserializer: D) -> Result<Felt252, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let felt_num = Number::deserialize(deserializer)?;
+        match Felt252::parse_bytes(felt_num.to_string().as_bytes(), 10) {
+            Some(x) => Ok(x),
+            None => Err(de::Error::custom(format!("felt_from_number parse error"))),
+        }
+    }
+}
+
+pub fn parse_deprecated_classes<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<HashMap<Felt252, DeprecatedContractClass>, D::Error> {
+    let mut ret_map: HashMap<Felt252, DeprecatedContractClass> = HashMap::new();
+    let buf: HashMap<String, String> = HashMap::deserialize(deserializer)?;
+    for (k, v) in buf.into_iter() {
+        let class_hash = Felt252::from_str_radix(k.trim_start_matches("0x"), 16)
+            .map_err(|e| de::Error::custom(format!("{e}")))?;
+        let raw_class = fs::read_to_string(path::PathBuf::from(v))
+            .map_err(|e| de::Error::custom(format!("{e}")))?;
+        let class =
+            serde_json::from_str(&raw_class).map_err(|e| de::Error::custom(format!("{e}")))?;
+        ret_map.insert(class_hash, class);
+    }
+
+    Ok(ret_map)
 }

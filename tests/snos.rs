@@ -9,7 +9,6 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
     BuiltinHintProcessor, HintFunc,
 };
 
-use num_traits::Num;
 use snos::{state::SharedState, SnOsRunner};
 
 use starknet_api::block::BlockNumber;
