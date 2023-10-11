@@ -47,8 +47,9 @@ pub fn starknet_os_input(
     println!("Running hint {:?} {:?}", ids_data, _exec_scopes);
 
     // Deserialize the program_input
-    let _os_input = StarknetOsInput::load("tests/common/os_input.json");
-    // insert_value_from_var_name("os_input", os_input, vm, ids_data, ap_tracking)?;
+    let os_input = Box::new(StarknetOsInput::load("tests/common/os_input.json"));
+    let mut scopes = ExecutionScopes::new();
+    scopes.assign_or_update_variable("os_input", os_input);
 
     let initial_carried_outputs_ptr =
         get_ptr_from_var_name("initial_carried_outputs", vm, ids_data, ap_tracking)?;
