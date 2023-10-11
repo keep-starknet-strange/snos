@@ -89,13 +89,6 @@ pub struct InternalTransaction {
     pub r#type: String,
 }
 
-impl StarknetOsInput {
-    pub fn load(path: &str) -> Self {
-        let raw_input = fs::read_to_string(path::PathBuf::from(path)).unwrap();
-        serde_json::from_str(&raw_input).unwrap()
-    }
-}
-
 pub struct StarknetOsOutput {
     /// The state commitment before this block.
     pub prev_state_root: Felt252,
@@ -113,32 +106,9 @@ pub struct StarknetOsOutput {
     pub messages_to_l2: Vec<MessageToL2>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use cairo_felt::{felt_str, Felt252};
-
-    pub const TESTING_BLOCK_HASH: &str =
-        "59b01ba262c999f2617412ffbba780f80b0103d928cbce1aecbaa50de90abda";
-    pub const EXPECTED_PREV_ROOT: &str =
-        "473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d";
-    pub const EXPECTED_UPDATED_ROOT: &str =
-        "482c9ce8a99afddc9777ff048520fcbfab6c0389f51584016c80a2e94ab8ca7";
-
-    #[test]
-    fn parse_os_input() {
-        let input = StarknetOsInput::load("tests/common/os_input.json");
-        assert_eq!(felt_str!(TESTING_BLOCK_HASH, 16), input.block_hash);
-        assert_eq!(
-            felt_str!(EXPECTED_PREV_ROOT, 16),
-            input.contract_state_commitment_info.previous_root
-        );
-        assert_eq!(
-            felt_str!(EXPECTED_UPDATED_ROOT, 16),
-            input.contract_state_commitment_info.updated_root
-        );
-        assert!(input.contracts.get(&Felt252::from(0)).is_some());
-        assert!(input.transactions.len() > 0);
+impl StarknetOsInput {
+    pub fn load(path: &str) -> Self {
+        let raw_input = fs::read_to_string(path::PathBuf::from(path)).unwrap();
+        serde_json::from_str(&raw_input).unwrap()
     }
 }

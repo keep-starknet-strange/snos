@@ -6,8 +6,8 @@ use cairo_felt::Felt252;
 use cairo_vm_blockifier::types::program::Program;
 
 use std::collections::HashMap;
-use std::path;
 use std::fs;
+use std::path;
 
 use crate::config::DEFAULT_COMPILER_VERSION;
 
@@ -17,12 +17,12 @@ use starknet_api::deprecated_contract_class::{
 };
 use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use num_traits::Num;
 use serde::{de, Deserializer};
 use serde_json::Number;
-use serde_with::{serde_as, DeserializeAs, SerializeAs};
+use serde_with::DeserializeAs;
 
 /// Calculates the contract state hash from its preimage.
 pub fn calculate_contract_state_hash(

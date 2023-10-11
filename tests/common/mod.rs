@@ -74,6 +74,16 @@ pub const TESTING_HASH_2_0_12_2: &str =
 pub const DELEGATE_PROXY_HASH_0_12_2: &str =
     "1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9";
 
+#[allow(dead_code)]
+pub const TESTING_BLOCK_HASH: &str =
+    "59b01ba262c999f2617412ffbba780f80b0103d928cbce1aecbaa50de90abda";
+#[allow(dead_code)]
+pub const EXPECTED_PREV_ROOT: &str =
+    "473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d";
+#[allow(dead_code)]
+pub const EXPECTED_UPDATED_ROOT: &str =
+    "482c9ce8a99afddc9777ff048520fcbfab6c0389f51584016c80a2e94ab8ca7";
+
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
     let program_content = fs::read("build/fact.json").unwrap();
