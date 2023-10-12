@@ -10,6 +10,9 @@ mod hints_raw;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::{errors::hint_errors::HintError, vm_core::VirtualMachine};
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
+use std::any::Any;
+use std::collections::hash_map::IntoIter;
 use std::rc::Rc;
 
 use crate::io::StarknetOsInput;
@@ -30,17 +33,30 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
         Rc::new(load_class_facts),
     );
 
+    let load_deprecated_class_facts = HintFunc(Box::new(load_deprecated_compiled_class_facts));
+    hint_processor.add_hint(
+        String::from(hints_raw::LOAD_DEPRECATED_CLASS_FACTS),
+        Rc::new(load_deprecated_class_facts),
+    );
+
+    let load_deprecated_class_inner = HintFunc(Box::new(load_deprecated_compiled_inner));
+    hint_processor.add_hint(
+        String::from(hints_raw::LOAD_DEPRECATED_CLASS_INNER),
+        Rc::new(load_deprecated_class_inner),
+    );
+
     hint_processor
 }
 
 /*
 Implements hint:
-%{ from starkware.starknet.core.os.os_input import StarknetOsInput
+
+from starkware.starknet.core.os.os_input import StarknetOsInput
 
 os_input = StarknetOsInput.load(data=program_input)
 
 ids.initial_carried_outputs.messages_to_l1 = segments.add_temp_segment()
-ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()  %}
+ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()
 */
 pub fn starknet_os_input(
     vm: &mut VirtualMachine,
@@ -73,6 +89,7 @@ pub fn starknet_os_input(
 
 /*
 Implements hint:
+
 ids.compiled_class_facts = segments.add()
 ids.n_compiled_class_facts = len(os_input.compiled_classes)
 vm_enter_scope({
@@ -87,8 +104,14 @@ pub fn load_compiled_class_facts(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
-
-    // TODO: add vm scope and class iter
+    let compiled_class_facts_ptr = vm.add_memory_segment();
+    insert_value_from_var_name(
+        "compiled_class_facts",
+        compiled_class_facts_ptr,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     insert_value_from_var_name(
         "n_compiled_class_facts",
@@ -96,5 +119,89 @@ pub fn load_compiled_class_facts(
         vm,
         ids_data,
         ap_tracking,
-    )
+    )?;
+
+    let scoped_classes: Box<dyn Any> = Box::new(os_input.compiled_classes.into_iter());
+    exec_scopes.enter_scope(HashMap::from([(
+        String::from("compiled_class_facts"),
+        scoped_classes,
+    )]));
+
+    Ok(())
+}
+
+/*
+Implements hint:
+
+# Creates a set of deprecated class hashes to distinguish calls to deprecated entry points.
+__deprecated_class_hashes=set(os_input.deprecated_compiled_classes.keys())
+ids.compiled_class_facts = segments.add()
+ids.n_compiled_class_facts = len(os_input.deprecated_compiled_classes)
+vm_enter_scope({
+    'compiled_class_facts': iter(os_input.deprecated_compiled_classes.items()),
+})
+*/
+pub fn load_deprecated_compiled_class_facts(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let compiled_class_facts_ptr = vm.add_memory_segment();
+    insert_value_from_var_name(
+        "compiled_class_facts",
+        compiled_class_facts_ptr,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
+
+    insert_value_from_var_name(
+        "n_compiled_class_facts",
+        os_input.deprecated_compiled_classes.len(),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
+    let scoped_classes: Box<dyn Any> = Box::new(os_input.deprecated_compiled_classes.into_iter());
+    exec_scopes.enter_scope(HashMap::from([(
+        String::from("compiled_class_facts"),
+        scoped_classes,
+    )]));
+
+    Ok(())
+}
+
+/*
+Implements hint:
+
+from starkware.starknet.core.os.contract_class.deprecated_class_hash import (
+    get_deprecated_contract_class_struct,
+)
+
+compiled_class_hash, compiled_class = next(compiled_class_facts)
+
+cairo_contract = get_deprecated_contract_class_struct(
+    identifiers=ids._context.identifiers, contract_class=compiled_class)
+ids.compiled_class = segments.gen_arg(cairo_contract)
+*/
+pub fn load_deprecated_compiled_inner(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let deprecated_class_iter = exec_scopes
+        .get_mut_ref::<IntoIter<Felt252, DeprecatedContractClass>>("compiled_class_facts")
+        .unwrap();
+
+    let (class_hash, _class) = deprecated_class_iter.next().unwrap();
+    println!("Deprecated Class Hash: {:?}", class_hash);
+
+    // TODO: insert parsed deprecated contract
+
+    Ok(())
 }

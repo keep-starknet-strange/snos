@@ -111,7 +111,9 @@ impl<'de> DeserializeAs<'de, Felt252> for Felt252Num {
         let felt_num = Number::deserialize(deserializer)?;
         match Felt252::parse_bytes(felt_num.to_string().as_bytes(), 10) {
             Some(x) => Ok(x),
-            None => Err(de::Error::custom(format!("felt_from_number parse error"))),
+            None => Err(de::Error::custom(String::from(
+                "felt_from_number parse error",
+            ))),
         }
     }
 }

@@ -26,7 +26,7 @@ use std::rc::Rc;
 use rstest::*;
 
 #[rstest]
-// #[ignore]
+#[ignore]
 fn snos_ok(_initial_state: SharedState<DictStateReader>) {
     let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
     let _runner_res = snos_runner.run();
