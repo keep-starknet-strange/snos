@@ -202,6 +202,7 @@ pub fn load_deprecated_compiled_inner(
     println!("Deprecated Class Hash: {:?}", class_hash);
 
     // TODO: insert parsed deprecated contract
+    // https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/core/os/contract_class/deprecated_class_hash.py#L140
 
     Ok(())
 }
