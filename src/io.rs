@@ -1,25 +1,92 @@
 use std::collections::HashMap;
 
 use cairo_felt::Felt252;
-
+use serde::Deserialize;
+use serde_with::serde_as;
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::transaction::{MessageToL1, MessageToL2};
+use std::fs;
+use std::path;
 
-use crate::{
-    business_logic::transaction::types::InternalTransaction, config::StarknetGeneralConfig,
-    state::ContractState, storage::starknet::CommitmentInfo,
-};
+use crate::config::StarknetGeneralConfig;
+use crate::utils::{parse_deprecated_classes, Felt252Num, Felt252Str};
 
-#[allow(unused)]
-struct StarknetOsInput {
-    contract_state_commitment_info: CommitmentInfo,
-    contract_class_commitment_info: CommitmentInfo,
-    deprecated_compiled_classes: HashMap<Felt252, Felt252>, // TODO: Add contract_class module
-    compiled_classes: HashMap<Felt252, Felt252>,            // TODO: Add contract_class module
-    contracts: HashMap<Felt252, ContractState>,
-    class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
-    general_config: StarknetGeneralConfig,
-    transactions: Vec<InternalTransaction>,
-    block_hash: Felt252,
+#[serde_as]
+#[derive(Debug, Clone, Deserialize)]
+pub struct StarknetOsInput {
+    pub contract_state_commitment_info: CommitmentInfo,
+    pub contract_class_commitment_info: CommitmentInfo,
+    #[serde(deserialize_with = "parse_deprecated_classes")]
+    pub deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass>,
+    #[serde_as(as = "HashMap<Felt252Str, Felt252Str>")]
+    pub compiled_classes: HashMap<Felt252, Felt252>,
+    #[serde_as(as = "HashMap<Felt252Str, _>")]
+    pub contracts: HashMap<Felt252, ContractState>,
+    #[serde_as(as = "HashMap<Felt252Str, Felt252Str>")]
+    pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
+    pub general_config: StarknetGeneralConfig,
+    pub transactions: Vec<InternalTransaction>,
+    #[serde_as(as = "Felt252Num")]
+    pub block_hash: Felt252,
+}
+
+#[serde_as]
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct CommitmentInfo {
+    #[serde_as(as = "Felt252Num")]
+    pub previous_root: Felt252,
+    #[serde_as(as = "Felt252Num")]
+    pub updated_root: Felt252,
+    pub tree_height: usize,
+    #[serde_as(as = "HashMap<Felt252Str, Vec<Felt252Str>>")]
+    pub commitment_facts: HashMap<Felt252, Vec<Felt252>>,
+}
+#[serde_as]
+#[derive(Deserialize, Clone, Debug)]
+pub struct ContractState {
+    #[serde_as(as = "Felt252Str")]
+    pub contract_hash: Felt252,
+    pub storage_commitment_tree: StorageCommitment,
+    #[serde_as(as = "Felt252Str")]
+    pub nonce: Felt252,
+}
+
+#[serde_as]
+#[derive(Deserialize, Clone, Debug)]
+pub struct StorageCommitment {
+    #[serde_as(as = "Felt252Str")]
+    pub root: Felt252,
+    pub height: usize,
+}
+
+#[serde_as]
+#[derive(Deserialize, Clone, Debug)]
+pub struct InternalTransaction {
+    #[serde_as(as = "Felt252Str")]
+    pub hash_value: Felt252,
+    #[serde_as(as = "Option<Felt252Str>")]
+    pub version: Option<Felt252>,
+    #[serde_as(as = "Option<Felt252Str>")]
+    pub contract_address: Option<Felt252>,
+    #[serde_as(as = "Option<Felt252Str>")]
+    pub contract_address_salt: Option<Felt252>,
+    #[serde_as(as = "Option<Vec<Felt252Str>>")]
+    pub constructor_calldata: Option<Vec<Felt252>>,
+    #[serde_as(as = "Option<Felt252Str>")]
+    pub nonce: Option<Felt252>,
+    #[serde_as(as = "Option<Felt252Str>")]
+    pub sender_address: Option<Felt252>,
+    #[serde_as(as = "Option<Felt252Str>")]
+    pub entry_point_selector: Option<Felt252>,
+    pub entry_point_type: Option<String>,
+    #[serde_as(as = "Option<Vec<Felt252Str>>")]
+    pub signature: Option<Vec<Felt252>>,
+    #[serde_as(as = "Option<Felt252Str>")]
+    pub class_hash: Option<Felt252>,
+    #[serde_as(as = "Option<Vec<Felt252Str>>")]
+    pub calldata: Option<Vec<Felt252>>,
+    pub paid_on_l1: Option<bool>,
+    pub r#type: String,
 }
 
 pub struct StarknetOsOutput {
@@ -37,4 +104,11 @@ pub struct StarknetOsOutput {
     pub messages_to_l1: Vec<MessageToL1>,
     /// List of messages from L1 handled in this block
     pub messages_to_l2: Vec<MessageToL2>,
+}
+
+impl StarknetOsInput {
+    pub fn load(path: &str) -> Self {
+        let raw_input = fs::read_to_string(path::PathBuf::from(path)).unwrap();
+        serde_json::from_str(&raw_input).unwrap()
+    }
 }

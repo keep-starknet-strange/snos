@@ -26,13 +26,13 @@ pub const DEFAULT_FEE_TOKEN_ADDR: &str =
 pub const SEQUENCER_ADDR_0_12_2: &str =
     "6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa";
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct StarknetOsConfig {
     pub chain_id: ChainId,
     pub fee_token_address: ContractAddress,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct StarknetGeneralConfig {
     pub starknet_os_config: StarknetOsConfig,
     pub contract_storage_commitment_tree_height: u64,

@@ -3,10 +3,10 @@ pub mod utils;
 use cairo_felt::felt_str;
 
 use blockifier::abi::constants::N_STEPS_RESOURCE;
+use blockifier::transaction::objects::TransactionExecutionInfo;
 
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::block_context::BlockContext;
-use blockifier::block_execution::pre_process_block;
 use blockifier::state::{cached_state::CachedState, state_api::State};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
@@ -21,12 +21,13 @@ use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use snos::config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR};
 use snos::state::SharedState;
-use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
-use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
-};
+use starknet_api::block::{BlockNumber, BlockTimestamp};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionVersion};
+use starknet_api::state::StorageKey;
+use starknet_api::transaction::{
+    Calldata, ContractAddressSalt, Fee, TransactionSignature, TransactionVersion,
+};
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use std::collections::HashMap;
@@ -48,7 +49,7 @@ pub const _TOKEN_FOR_TESTING_ADDRESS_0_12_2: &str =
     "572b6542feb4bf285b57a056b588d649e067b9cfab2a88c2b2df9ea6bae6049";
 pub const DUMMY_ACCOUNT_ADDRESS_0_12_2: &str =
     "5ca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0";
-pub const DUMMY_TOKEN_ADDRESS_0_12_2: &str =
+pub const _DUMMY_TOKEN_ADDRESS_0_12_2: &str =
     "3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8";
 
 // Class Hashes - 0.12.2
@@ -73,6 +74,16 @@ pub const TESTING_HASH_2_0_12_2: &str =
 
 pub const DELEGATE_PROXY_HASH_0_12_2: &str =
     "1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9";
+
+#[allow(dead_code)]
+pub const TESTING_BLOCK_HASH: &str =
+    "59b01ba262c999f2617412ffbba780f80b0103d928cbce1aecbaa50de90abda";
+#[allow(dead_code)]
+pub const EXPECTED_PREV_ROOT: &str =
+    "473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d";
+#[allow(dead_code)]
+pub const EXPECTED_UPDATED_ROOT: &str =
+    "482c9ce8a99afddc9777ff048520fcbfab6c0389f51584016c80a2e94ab8ca7";
 
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
@@ -111,7 +122,6 @@ pub fn block_context() -> BlockContext {
     conf.starknet_os_config.fee_token_address = contract_address!(DEFAULT_FEE_TOKEN_ADDR);
 
     let mut block_context = conf.empty_block_context();
-    block_context.block_timestamp = BlockTimestamp(1000);
 
     block_context.vm_resource_fee_cost = Arc::new(HashMap::from([
         (N_STEPS_RESOURCE.to_string(), 1_f64),
@@ -206,7 +216,7 @@ pub fn initial_state(
     block_context.block_timestamp = BlockTimestamp(1001);
 
     let mut shared_state = SharedState::new(cache, block_context);
-    let commitment = shared_state.apply_diff();
+    let commitment = shared_state.apply_state();
 
     // expected root parsed from current os_test.py & test_utils.py(0.12.2)
     assert_eq!(
@@ -224,21 +234,28 @@ pub fn initial_state(
 fn shared_state(initial_state: SharedState<DictStateReader>) {
     let block_num = initial_state.get_block_num();
     assert_eq!(BlockNumber(1), block_num);
-
-    let pre_state_diff = initial_state.get_diff(BlockNumber(0)).unwrap().unwrap();
-    let pre_nonces = pre_state_diff.nonces;
-
-    let dummy_account = &pre_nonces.get(&contract_address!(DUMMY_ACCOUNT_ADDRESS_0_12_2));
-    assert_eq!(&Nonce(stark_felt!(1_u32)), dummy_account.unwrap());
-
-    let dummy_token = &pre_nonces.get(&contract_address!(DUMMY_TOKEN_ADDRESS_0_12_2));
-    assert_eq!(&Nonce(stark_felt!(2_u32)), dummy_token.unwrap());
 }
 
 #[fixture]
 pub fn prepare_os_test(
     mut initial_state: SharedState<DictStateReader>,
-) -> (SharedState<DictStateReader>, Vec<Calldata>) {
+) -> (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>) {
+    let contract_addresses = [
+        contract_address!("46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92"),
+        contract_address!("4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6"),
+        contract_address!("74cebec93a58b4400af9c082fb3c5adfa0800ff1489f8fc030076491ff86c48"),
+    ];
+    let contract_calldata = [
+        vec![stark_felt!(321_u32), stark_felt!(543_u32)],
+        vec![stark_felt!(111_u32), stark_felt!(987_u32)],
+        vec![stark_felt!(444_u32), stark_felt!(0_u32)],
+    ];
+    let contract_salts = [
+        stark_felt!(17_u32),
+        stark_felt!(42_u32),
+        stark_felt!(53_u32),
+    ];
+
     let mut nonce_manager = NonceManager::default();
     let sender_addr = contract_address!(DUMMY_ACCOUNT_ADDRESS_0_12_2);
     nonce_manager.next(sender_addr);
@@ -250,24 +267,25 @@ pub fn prepare_os_test(
             utils::load_class_v0("build/test_contract.json"),
         )
         .unwrap();
-
-    let contract_addresses = [
-        contract_address!("46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92"),
-        contract_address!("4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6"),
-        contract_address!("74cebec93a58b4400af9c082fb3c5adfa0800ff1489f8fc030076491ff86c48"),
-    ];
-    let contract_calldata = [(321_u32, 543), (111, 987), (444, 0)];
-    let contract_salts = [17_u32, 42, 53];
     for (i, expected_addr) in contract_addresses.into_iter().enumerate() {
-        let addr = utils::deploy_with_syscall(
-            &mut initial_state,
-            &mut nonce_manager,
-            sender_addr,
+        let contract_addr = calculate_contract_address(
+            ContractAddressSalt(contract_salts[i]),
             class_hash!(TESTING_HASH_0_12_2),
-            contract_calldata[i],
-            contract_salts[i],
+            &Calldata(Arc::new(contract_calldata[i].clone())),
+            contract_address!(0_u32),
+        )
+        .unwrap();
+        initial_state
+            .cache
+            .set_class_hash_at(contract_addr, class_hash!(TESTING_HASH_0_12_2))
+            .unwrap();
+        initial_state.cache.set_storage_at(
+            contract_addr,
+            StorageKey(patricia_key!(*contract_calldata[i].first().unwrap())),
+            *contract_calldata[i].last().unwrap(),
         );
-        assert_eq!(expected_addr, addr);
+
+        assert_eq!(expected_addr, contract_addr);
     }
 
     let mut txs: Vec<Calldata> = Vec::new();
@@ -342,8 +360,6 @@ pub fn prepare_os_test(
         stark_felt!(85_u8)
     ]);
 
-    // TODO: StarknetMessageToL1
-
     txs.push(calldata![
         *contract_addresses[0].0.key(),
         selector_from_name("test_call_contract").0,
@@ -361,29 +377,16 @@ pub fn prepare_os_test(
         *contract_addresses[0].0.key()
     ]);
 
-    let delegate_proxy_contract_class = utils::load_class_v0("build/delegate_proxy.json");
-    let delegate_addr = calculate_contract_address(
-        ContractAddressSalt::default(),
+    let delegate_addr = utils::raw_deploy(
+        &mut initial_state,
+        "build/delegate_proxy.json",
         class_hash!(DELEGATE_PROXY_HASH_0_12_2),
-        &calldata![],
-        contract_address!(0_u32),
-    )
-    .unwrap();
+    );
+
     assert_eq!(
-        contract_address!("0x0238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0"),
+        contract_address!("238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0"),
         delegate_addr
     );
-    initial_state
-        .cache
-        .set_contract_class(
-            &class_hash!(DELEGATE_PROXY_HASH_0_12_2),
-            delegate_proxy_contract_class,
-        )
-        .unwrap();
-    initial_state
-        .cache
-        .set_class_hash_at(delegate_addr, class_hash!(DELEGATE_PROXY_HASH_0_12_2))
-        .unwrap();
 
     txs.push(calldata![
         *delegate_addr.0.key(),
@@ -425,93 +428,83 @@ pub fn prepare_os_test(
     ]);
 
     txs.push(calldata![
-        *delegate_addr.0.key(),
-        selector_from_name("deposit").0,
-        stark_felt!(2_u32),
-        stark_felt!(85_u32),
-        stark_felt!(2_u32)
-    ]);
-
-    // // TODO handle message to L2
-
-    txs.push(calldata![
         *contract_addresses[0].0.key(),
         selector_from_name("test_library_call_syntactic_sugar").0,
         stark_felt!(1_u32),
         stark_felt!(TESTING_HASH_0_12_2)
     ]);
 
-    // TODO: add sig
-    txs.push(calldata![
-        *contract_addresses[0].0.key(),
-        selector_from_name("add_signature_to_counters").0,
-        stark_felt!(1_u32),
-        stark_felt!(2021_u32)
-    ]);
+    let mut sig_txs: Vec<(Calldata, TransactionSignature)> = Vec::new();
 
-    // TODO: add sig
-    txs.push(calldata![
-        *contract_addresses[0].0.key(),
-        selector_from_name("test_call_contract").0,
-        stark_felt!(4_u32),
-        *delegate_addr.0.key(),
-        selector_from_name("test_get_tx_info").0,
-        stark_felt!(1_u8),
-        stark_felt!(DUMMY_ACCOUNT_ADDRESS_0_12_2)
-    ]);
+    sig_txs.push((
+        calldata![
+            *contract_addresses[0].0.key(),
+            selector_from_name("add_signature_to_counters").0,
+            stark_felt!(1_u32),
+            stark_felt!(2021_u32)
+        ],
+        TransactionSignature(vec![stark_felt!(100_u32), stark_felt!(200_u32)]),
+    ));
 
-    let test_contract_2_contract_class = utils::load_class_v0("build/test_contract2.json");
-    let test_contract_2_addr = calculate_contract_address(
-        ContractAddressSalt::default(),
+    sig_txs.push((
+        calldata![
+            *contract_addresses[0].0.key(),
+            selector_from_name("test_call_contract").0,
+            stark_felt!(4_u32),
+            *delegate_addr.0.key(),
+            selector_from_name("test_get_tx_info").0,
+            stark_felt!(1_u8),
+            stark_felt!(DUMMY_ACCOUNT_ADDRESS_0_12_2)
+        ],
+        TransactionSignature(vec![stark_felt!(100_u32)]),
+    ));
+
+    let test_contract_2_addr = utils::raw_deploy(
+        &mut initial_state,
+        "build/test_contract2.json",
         class_hash!(TESTING_HASH_2_0_12_2),
-        &calldata![],
-        contract_address!(0_u32),
-    )
-    .unwrap();
-    initial_state
-        .cache
-        .set_contract_class(
-            &class_hash!(TESTING_HASH_2_0_12_2),
-            test_contract_2_contract_class,
-        )
-        .unwrap();
-    initial_state
-        .cache
-        .set_class_hash_at(test_contract_2_addr, class_hash!(TESTING_HASH_2_0_12_2))
-        .unwrap();
+    );
 
-    // TODO: add sig
-    txs.push(calldata![
-        *contract_addresses[1].0.key(),
-        selector_from_name("test_library_call").0,
-        stark_felt!(5_u32),
-        *test_contract_2_addr.0.key(),
-        selector_from_name("test_storage_write").0,
-        stark_felt!(2_u8),
-        stark_felt!(555_u32),
-        stark_felt!(888_u32)
-    ]);
+    sig_txs.push((
+        calldata![
+            *contract_addresses[1].0.key(),
+            selector_from_name("test_library_call").0,
+            stark_felt!(5_u32),
+            class_hash!(TESTING_HASH_2_0_12_2).0,
+            selector_from_name("test_storage_write").0,
+            stark_felt!(2_u8),
+            stark_felt!(555_u32),
+            stark_felt!(888_u32)
+        ],
+        TransactionSignature(vec![stark_felt!(100_u32)]),
+    ));
 
-    // TODO: add sig
-    txs.push(calldata![
-        *contract_addresses[1].0.key(),
-        selector_from_name("test_library_call_l1_handler").0,
-        stark_felt!(6_u32),
-        *test_contract_2_addr.0.key(),
-        selector_from_name("test_l1_handler_storage_write").0,
-        stark_felt!(3_u8),
-        stark_felt!(85_u32),
-        stark_felt!(666_u32),
-        stark_felt!(999_u32)
-    ]);
+    sig_txs.push((
+        calldata![
+            *contract_addresses[1].0.key(),
+            selector_from_name("test_library_call_l1_handler").0,
+            stark_felt!(6_u32),
+            class_hash!(TESTING_HASH_2_0_12_2).0,
+            selector_from_name("test_l1_handler_storage_write").0,
+            stark_felt!(3_u8),
+            stark_felt!(85_u32),
+            stark_felt!(666_u32),
+            stark_felt!(999_u32)
+        ],
+        TransactionSignature(vec![stark_felt!(100_u32)]),
+    ));
 
-    // TODO: add sig
-    txs.push(calldata![
-        *contract_addresses[0].0.key(),
-        selector_from_name("test_replace_class").0,
-        stark_felt!(1_u32),
-        *test_contract_2_addr.0.key()
-    ]);
+    sig_txs.push((
+        calldata![
+            *contract_addresses[0].0.key(),
+            selector_from_name("test_replace_class").0,
+            stark_felt!(1_u32),
+            *test_contract_2_addr.0.key()
+        ],
+        TransactionSignature(vec![]),
+    ));
+
+    let mut exec_info: Vec<TransactionExecutionInfo> = Vec::new();
 
     for tx in txs.clone().into_iter() {
         let account_tx = invoke_tx(invoke_tx_args! {
@@ -521,7 +514,7 @@ pub fn prepare_os_test(
             calldata: tx,
             version: TransactionVersion::ONE,
         });
-        AccountTransaction::Invoke(account_tx.into())
+        let tx_info = AccountTransaction::Invoke(account_tx.into())
             .execute(
                 &mut initial_state.cache,
                 &mut initial_state.block_context,
@@ -529,12 +522,150 @@ pub fn prepare_os_test(
                 true,
             )
             .unwrap();
+        exec_info.push(tx_info);
     }
 
-    pre_process_block(
-        &mut initial_state.cache,
-        Some((BlockNumber(1), BlockHash(StarkFelt::from(21u32)))),
+    for sig_tx in sig_txs.clone().into_iter() {
+        let account_tx = invoke_tx(invoke_tx_args! {
+            max_fee: Fee(TESTING_FEE),
+            nonce: nonce_manager.next(sender_addr),
+            sender_address: sender_addr,
+            calldata: sig_tx.0,
+            signature: sig_tx.1,
+            version: TransactionVersion::ONE,
+        });
+        let tx_info = AccountTransaction::Invoke(account_tx.into())
+            .execute(
+                &mut initial_state.cache,
+                &mut initial_state.block_context,
+                false,
+                true,
+            )
+            .unwrap();
+        exec_info.push(tx_info);
+    }
+
+    initial_state.cache.set_storage_at(
+        delegate_addr,
+        StorageKey(patricia_key!(300_u32)),
+        stark_felt!("4e5e39d16e565bacdbc7d8d13b9bc2b51a32c8b2b49062531688dcd2f6ec834"),
     );
-    // TODO: expected storage updates
-    (initial_state, txs)
+    initial_state.cache.set_storage_at(
+        delegate_addr,
+        StorageKey(patricia_key!(311_u32)),
+        stark_felt!(1536727068981429685321_u128),
+    );
+    initial_state.cache.set_storage_at(
+        delegate_addr,
+        StorageKey(patricia_key!(
+            "1cda892019d02a987cdc80f1500179f0e33fbd6cac8cb2ffef5d6d05101a8dc"
+        )),
+        stark_felt!(2_u8),
+    );
+
+    (initial_state, exec_info)
+}
+
+#[rstest]
+fn validate_prepare(
+    prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),
+) {
+    let mut shared_state = prepare_os_test.0;
+    let diff = shared_state.cache.to_state_diff();
+
+    let addr_1 =
+        contract_address!("46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92");
+    let addr_1_updates = diff.storage_updates.get(&addr_1).unwrap();
+    assert_eq!(5, addr_1_updates.len());
+    assert_eq!(
+        &stark_felt!(47_u32),
+        addr_1_updates
+            .get(&StorageKey(patricia_key!(85_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(543_u32),
+        addr_1_updates
+            .get(&StorageKey(patricia_key!(321_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(666_u32),
+        addr_1_updates
+            .get(&StorageKey(patricia_key!(444_u32)))
+            .unwrap()
+    );
+
+    let addr_2 =
+        contract_address!("4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6");
+    let addr_2_updates = diff.storage_updates.get(&addr_2).unwrap();
+    assert_eq!(
+        &stark_felt!(1_u32),
+        addr_2_updates
+            .get(&StorageKey(patricia_key!(15_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(987_u32),
+        addr_2_updates
+            .get(&StorageKey(patricia_key!(111_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(888_u32),
+        addr_2_updates
+            .get(&StorageKey(patricia_key!(555_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(999_u32),
+        addr_2_updates
+            .get(&StorageKey(patricia_key!(666_u32)))
+            .unwrap()
+    );
+
+    let delegate_addr =
+        contract_address!("238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0");
+    let delegate_addr_updates = diff.storage_updates.get(&delegate_addr).unwrap();
+    // assert_eq!(6, delegate_addr_updates.len());
+    assert_eq!(
+        &stark_felt!(456_u32),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(123_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!("4e5e39d16e565bacdbc7d8d13b9bc2b51a32c8b2b49062531688dcd2f6ec834"),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(300_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(1536727068981429685321_u128),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(311_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(19_u32),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(322_u32)))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(TESTING_HASH_0_12_2),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(
+                "2e9111f912ea3746e28b8e693578fdbcc18d64a3380d03bd67c0c04f5715ed1"
+            )))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(2_u8),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!(
+                "1cda892019d02a987cdc80f1500179f0e33fbd6cac8cb2ffef5d6d05101a8dc"
+            )))
+            .unwrap()
+    );
 }
