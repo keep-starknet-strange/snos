@@ -20,9 +20,11 @@ use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 use serde::Deserialize;
 
 use num_traits::Num;
-use serde::{de, Deserializer};
+use serde::{de, ser, Deserializer, Serializer};
 use serde_json::Number;
-use serde_with::DeserializeAs;
+use serde_with::{DeserializeAs, SerializeAs};
+
+pub const REPLACE_KEY: &str = "replace:";
 
 /// Calculates the contract state hash from its preimage.
 pub fn calculate_contract_state_hash(
@@ -59,6 +61,10 @@ pub fn vm_class_to_api_v0(class: ContractClassV0) -> DeprecatedContractClass {
         program: vm_program_to_api_v0(&class.program),
         entry_points_by_type: class.entry_points_by_type.clone(),
     }
+}
+
+pub fn felt_from_hex_unchecked(hex_str: &str) -> Felt252 {
+    Felt252::from_str_radix(hex_str.trim_start_matches("0x"), 16).unwrap()
 }
 
 pub fn vm_program_to_api_v0(program: &Program) -> DeprecatedProgram {
@@ -101,6 +107,15 @@ impl<'de> DeserializeAs<'de, Felt252> for Felt252Str {
     }
 }
 
+impl SerializeAs<Felt252> for Felt252Str {
+    fn serialize_as<S>(value: &Felt252, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("0x{}", value.to_str_radix(16)))
+    }
+}
+
 pub struct Felt252Num;
 
 impl<'de> DeserializeAs<'de, Felt252> for Felt252Num {
@@ -118,20 +133,47 @@ impl<'de> DeserializeAs<'de, Felt252> for Felt252Num {
     }
 }
 
-pub fn parse_deprecated_classes<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<HashMap<Felt252, DeprecatedContractClass>, D::Error> {
-    let mut ret_map: HashMap<Felt252, DeprecatedContractClass> = HashMap::new();
-    let buf: HashMap<String, String> = HashMap::deserialize(deserializer)?;
-    for (k, v) in buf.into_iter() {
-        let class_hash = Felt252::from_str_radix(k.trim_start_matches("0x"), 16)
-            .map_err(|e| de::Error::custom(format!("{e}")))?;
-        let raw_class = fs::read_to_string(path::PathBuf::from(v))
-            .map_err(|e| de::Error::custom(format!("{e}")))?;
-        let class =
-            serde_json::from_str(&raw_class).map_err(|e| de::Error::custom(format!("{e}")))?;
-        ret_map.insert(class_hash, class);
+impl SerializeAs<Felt252> for Felt252Num {
+    fn serialize_as<S>(value: &Felt252, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("{}", value.to_bigint()))
     }
+}
+pub struct DeprecatedContractClassStr;
 
-    Ok(ret_map)
+impl<'de> DeserializeAs<'de, DeprecatedContractClass> for DeprecatedContractClassStr {
+    fn deserialize_as<D>(deserializer: D) -> Result<DeprecatedContractClass, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let deprecated_class = String::deserialize(deserializer)?;
+        let path_prefix = (&deprecated_class[..8]).to_string();
+        let raw_class = if path_prefix != REPLACE_KEY {
+            deprecated_class
+        } else {
+            fs::read_to_string(path::PathBuf::from(
+                deprecated_class.trim_start_matches(REPLACE_KEY),
+            ))
+            .map_err(|e| de::Error::custom(format!("{e}")))?
+        };
+
+        serde_json::from_str(&raw_class).map_err(|e| de::Error::custom(format!("{e}")))
+    }
+}
+
+impl SerializeAs<DeprecatedContractClass> for DeprecatedContractClassStr {
+    fn serialize_as<S>(
+        deprecated_class: &DeprecatedContractClass,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(
+            &serde_json::to_string(deprecated_class)
+                .map_err(|e| ser::Error::custom(format!("{e}")))?,
+        )
+    }
 }

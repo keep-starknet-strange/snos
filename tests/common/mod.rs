@@ -20,6 +20,7 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use snos::config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR};
+use snos::io::StarknetOsInput;
 use snos::state::SharedState;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
@@ -84,6 +85,15 @@ pub const EXPECTED_PREV_ROOT: &str =
 #[allow(dead_code)]
 pub const EXPECTED_UPDATED_ROOT: &str =
     "482c9ce8a99afddc9777ff048520fcbfab6c0389f51584016c80a2e94ab8ca7";
+
+#[fixture]
+#[once]
+pub fn heavy_input_path() -> (StarknetOsInput, String) {
+    let heavy_path = "build/os_input_heavy.json";
+    let input = StarknetOsInput::load("tests/common/os_input.json");
+    input.dump(heavy_path).unwrap();
+    (input, heavy_path.to_string())
+}
 
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {

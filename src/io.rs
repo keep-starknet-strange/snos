@@ -1,7 +1,8 @@
 use std::collections::HashMap;
+use std::io::Write;
 
 use cairo_felt::Felt252;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::transaction::{MessageToL1, MessageToL2};
@@ -9,14 +10,16 @@ use std::fs;
 use std::path;
 
 use crate::config::StarknetGeneralConfig;
-use crate::utils::{parse_deprecated_classes, Felt252Num, Felt252Str};
+use crate::error::SnOsError;
+use crate::utils::{DeprecatedContractClassStr, Felt252Num, Felt252Str};
 
 #[serde_as]
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct StarknetOsInput {
     pub contract_state_commitment_info: CommitmentInfo,
     pub contract_class_commitment_info: CommitmentInfo,
-    #[serde(deserialize_with = "parse_deprecated_classes")]
+    // #[serde(deserialize_with = "deserialize_deprecated_class_map")]
+    #[serde_as(as = "HashMap<Felt252Str, DeprecatedContractClassStr>")]
     pub deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass>,
     #[serde_as(as = "HashMap<Felt252Str, Felt252Str>")]
     pub compiled_classes: HashMap<Felt252, Felt252>,
@@ -31,7 +34,7 @@ pub struct StarknetOsInput {
 }
 
 #[serde_as]
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct CommitmentInfo {
     #[serde_as(as = "Felt252Num")]
     pub previous_root: Felt252,
@@ -42,7 +45,7 @@ pub struct CommitmentInfo {
     pub commitment_facts: HashMap<Felt252, Vec<Felt252>>,
 }
 #[serde_as]
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug, Serialize)]
 pub struct ContractState {
     #[serde_as(as = "Felt252Str")]
     pub contract_hash: Felt252,
@@ -52,7 +55,7 @@ pub struct ContractState {
 }
 
 #[serde_as]
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug, Serialize)]
 pub struct StorageCommitment {
     #[serde_as(as = "Felt252Str")]
     pub root: Felt252,
@@ -60,7 +63,7 @@ pub struct StorageCommitment {
 }
 
 #[serde_as]
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug, Serialize)]
 pub struct InternalTransaction {
     #[serde_as(as = "Felt252Str")]
     pub hash_value: Felt252,
@@ -110,5 +113,11 @@ impl StarknetOsInput {
     pub fn load(path: &str) -> Self {
         let raw_input = fs::read_to_string(path::PathBuf::from(path)).unwrap();
         serde_json::from_str(&raw_input).unwrap()
+    }
+    pub fn dump(&self, path: &str) -> Result<(), SnOsError> {
+        fs::File::create(path)
+            .unwrap()
+            .write_all(&serde_json::to_vec(&self).unwrap())
+            .map_err(|e| SnOsError::CatchAll(format!("{e}")))
     }
 }

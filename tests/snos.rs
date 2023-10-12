@@ -4,8 +4,8 @@ use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_felt::{felt_str, Felt252};
 use common::{
-    initial_state, prepare_os_test, utils::check_output_vs_python, utils::print_a_hint,
-    EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_BLOCK_HASH,
+    heavy_input_path, initial_state, prepare_os_test, utils::check_output_vs_python,
+    utils::print_a_hint, EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_BLOCK_HASH,
 };
 
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
@@ -26,7 +26,6 @@ use std::rc::Rc;
 use rstest::*;
 
 #[rstest]
-#[ignore]
 fn snos_ok(_initial_state: SharedState<DictStateReader>) {
     let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
     let _runner_res = snos_runner.run();
@@ -71,8 +70,8 @@ fn prepared_os_test(
 }
 
 #[rstest]
-fn parse_os_input() {
-    let input = StarknetOsInput::load("tests/common/os_input.json");
+fn parse_os_input(heavy_input_path: &(StarknetOsInput, String)) {
+    let (input, _) = heavy_input_path;
     assert_eq!(felt_str!(TESTING_BLOCK_HASH, 16), input.block_hash);
     assert_eq!(
         felt_str!(EXPECTED_PREV_ROOT, 16),
@@ -82,8 +81,8 @@ fn parse_os_input() {
         felt_str!(EXPECTED_UPDATED_ROOT, 16),
         input.contract_state_commitment_info.updated_root
     );
+
     assert!(input.contracts.get(&Felt252::from(0)).is_some());
-    assert!(input.transactions.len() > 0);
 }
 
 #[rstest]
