@@ -149,7 +149,7 @@ impl<'de> DeserializeAs<'de, DeprecatedContractClass> for DeprecatedContractClas
         D: Deserializer<'de>,
     {
         let deprecated_class = String::deserialize(deserializer)?;
-        let path_prefix = (&deprecated_class[..8]).to_string();
+        let path_prefix = (deprecated_class[..8]).to_string();
         let raw_class = if path_prefix != REPLACE_KEY {
             deprecated_class
         } else {
