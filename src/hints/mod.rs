@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_vm::felt::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_ptr_from_var_name, insert_value_from_var_name,
-};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 mod hints_raw;
 
@@ -15,7 +13,7 @@ use std::any::Any;
 use std::collections::hash_map::IntoIter;
 use std::rc::Rc;
 
-use crate::io::StarknetOsInput;
+use crate::io::{classes::flatten_deprecated_class, StarknetOsInput};
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
@@ -65,8 +63,6 @@ pub fn starknet_os_input(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // println!("Running hint {:?} {:?}", ids_data, exec_scopes);
-
     // Deserialize the program_input
     let os_input = Box::new(StarknetOsInput::load("tests/common/os_input.json"));
     exec_scopes.assign_or_update_variable("os_input", os_input);
@@ -188,21 +184,26 @@ cairo_contract = get_deprecated_contract_class_struct(
 ids.compiled_class = segments.gen_arg(cairo_contract)
 */
 pub fn load_deprecated_compiled_inner(
-    _vm: &mut VirtualMachine,
+    vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let deprecated_class_iter = exec_scopes
         .get_mut_ref::<IntoIter<Felt252, DeprecatedContractClass>>("compiled_class_facts")
         .unwrap();
 
-    let (class_hash, _class) = deprecated_class_iter.next().unwrap();
-    println!("Deprecated Class Hash: {:?}", class_hash);
+    let (_, deprecated_class) = deprecated_class_iter.next().unwrap();
 
-    // TODO: insert parsed deprecated contract
-    // https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/core/os/contract_class/deprecated_class_hash.py#L140
+    let flat_deprecated_class = flatten_deprecated_class(deprecated_class);
+    let dep_class_base = vm.add_memory_segment();
 
+    vm.load_data(
+        (dep_class_base + flat_deprecated_class.len())?,
+        &flat_deprecated_class,
+    )?;
+
+    insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)?;
     Ok(())
 }

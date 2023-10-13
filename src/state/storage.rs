@@ -6,7 +6,7 @@ use super::trie::{MerkleTrie, StarkHasher};
 
 use std::collections::HashMap;
 
-use crate::utils::felt_from_bits;
+use crate::utils::felt_from_bits_api;
 
 /// Read-only storage used by the [Trie](crate::trie::Trie).
 pub trait Storage {
@@ -67,7 +67,7 @@ impl Storage for TrieStorage {
     fn leaf(&self, path: &BitSlice<u8, Msb0>) -> anyhow::Result<Option<StarkFelt>> {
         assert!(path.len() == 251);
 
-        let key = felt_from_bits(path).context("Mapping path to felt")?;
+        let key = felt_from_bits_api(path).context("Mapping path to felt")?;
 
         Ok(self.leaves.get(&key).cloned())
     }
@@ -80,7 +80,7 @@ impl TrieStorage {
         root_key: StarkFelt,
     ) -> (StarkFelt, u64) {
         for (key, value) in &tree.leaves {
-            let key = felt_from_bits(key).unwrap();
+            let key = felt_from_bits_api(key).unwrap();
             self.leaves.insert(key, *value);
         }
 

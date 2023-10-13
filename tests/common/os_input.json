@@ -82,11 +82,11 @@
         "commitment_facts": {}
     },
     "deprecated_compiled_classes": {
-        "0x1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9": "build/delegate_proxy.json",
-        "0x49bcc976d628b1b238aefc20e77303a251a14ba6c99cd543a86708513414057": "build/test_contract2.json",
-        "0x16dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7": "build/dummy_account.json",
-        "0x7364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160": "build/test_contract.json",
-        "0x7cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa": "build/dummy_token.json"
+        "0x1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9": "replace:build/delegate_proxy.json",
+        "0x49bcc976d628b1b238aefc20e77303a251a14ba6c99cd543a86708513414057": "replace:build/test_contract2.json",
+        "0x16dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7": "replace:build/dummy_account.json",
+        "0x7364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160": "replace:build/test_contract.json",
+        "0x7cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa": "replace:build/dummy_token.json"
     },
     "compiled_classes": {},
     "contracts": {

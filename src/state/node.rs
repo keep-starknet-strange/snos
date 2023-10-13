@@ -4,7 +4,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use super::trie::StarkHasher;
-use crate::utils::felt_from_bits;
+use crate::utils::felt_from_bits_api;
 use bitvec::{order::Msb0, prelude::BitVec, slice::BitSlice};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_crypto::FieldElement;
@@ -29,7 +29,7 @@ impl TrieNode {
                 let mut length = [0; 32];
                 // Safe as len() is guaranteed to be <= 251
                 length[31] = path.len() as u8;
-                let path = felt_from_bits(path).unwrap();
+                let path = felt_from_bits_api(path).unwrap();
 
                 let length = FieldElement::from_bytes_be(&length).unwrap();
                 let hash = FieldElement::from(H::hash(child, &path));
@@ -194,7 +194,7 @@ impl EdgeNode {
         // Safe as len() is guaranteed to be <= 251
         length[31] = path.len() as u8;
         let length = FieldElement::from_bytes_be(&length).unwrap();
-        let path = felt_from_bits(path).unwrap();
+        let path = felt_from_bits_api(path).unwrap();
 
         StarkFelt::from(FieldElement::from(H::hash(child, &path)) + length)
     }
