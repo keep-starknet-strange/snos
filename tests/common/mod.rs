@@ -88,11 +88,17 @@ pub const EXPECTED_UPDATED_ROOT: &str =
 
 #[fixture]
 #[once]
-pub fn heavy_input_path() -> (StarknetOsInput, String) {
+pub fn load_input() -> StarknetOsInput {
+    StarknetOsInput::load("tests/common/os_input.json")
+}
+
+#[fixture]
+#[once]
+pub fn load_and_write_input() -> (StarknetOsInput, String) {
     let heavy_path = "build/os_input_heavy.json";
-    let input = StarknetOsInput::load("tests/common/os_input.json");
-    input.dump(heavy_path).unwrap();
-    (input, heavy_path.to_string())
+    let os_input = StarknetOsInput::load("tests/common/os_input.json");
+    os_input.dump(heavy_path).unwrap();
+    (os_input, heavy_path.to_string())
 }
 
 #[fixture]
@@ -229,13 +235,7 @@ pub fn initial_state(
     let commitment = shared_state.apply_state();
 
     // expected root parsed from current os_test.py & test_utils.py(0.12.2)
-    assert_eq!(
-        felt_str!(
-            "473010ec333f16b84334f9924912d7a13ce8296b0809c2091563ddfb63011d",
-            16
-        ),
-        commitment.updated_root
-    );
+    assert_eq!(felt_str!(EXPECTED_PREV_ROOT, 16), commitment.updated_root);
 
     shared_state
 }

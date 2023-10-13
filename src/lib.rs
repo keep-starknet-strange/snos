@@ -50,7 +50,7 @@ impl SnOsRunner {
             },
             &mut sn_hint_processor,
         )
-        .expect("Couldn't run program");
+        .map_err(SnOsError::Runner)?;
 
         let pie = runner
             .get_cairo_pie(&vm)

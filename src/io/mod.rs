@@ -1,3 +1,5 @@
+pub mod classes;
+
 use std::collections::HashMap;
 use std::io::Write;
 

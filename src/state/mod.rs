@@ -20,7 +20,7 @@ use std::collections::HashMap;
 
 use crate::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use crate::io::CommitmentInfo;
-use crate::utils::{bits_from_felt, calculate_contract_state_hash, vm_class_to_api_v0};
+use crate::utils::{calculate_contract_state_hash, deprecated_class_vm2api, felt_to_bits_api};
 
 use trie::{MerkleTrie, PedersenHash};
 
@@ -90,7 +90,7 @@ impl<S: StateReader> SharedState<S> {
             storage_trie
                 .set(
                     &self.commitment_storage,
-                    bits_from_felt(*addr.0.key()),
+                    felt_to_bits_api(*addr.0.key()),
                     contract_commitment,
                 )
                 .unwrap();
@@ -120,7 +120,8 @@ impl<S: StateReader> SharedState<S> {
         for (addr, class_hash) in diff.address_to_class_hash.clone().into_iter() {
             match self.cache.get_compiled_contract_class(&class_hash).unwrap() {
                 ContractClass::V0(class_inner) => {
-                    deprecated_declared_classes.insert(class_hash, vm_class_to_api_v0(class_inner));
+                    deprecated_declared_classes
+                        .insert(class_hash, deprecated_class_vm2api(class_inner));
                 }
                 ContractClass::V1(_) => todo!("handle v1"),
             }
@@ -135,7 +136,7 @@ impl<S: StateReader> SharedState<S> {
                 contract_trie
                     .set(
                         &self.contract_storage,
-                        bits_from_felt(*update.0 .0.key()),
+                        felt_to_bits_api(*update.0 .0.key()),
                         update.1,
                     )
                     .unwrap();

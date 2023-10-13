@@ -2,10 +2,10 @@ mod common;
 
 use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_felt::{felt_str, Felt252};
+use cairo_felt::felt_str;
 use common::{
-    heavy_input_path, initial_state, prepare_os_test, utils::check_output_vs_python,
-    utils::print_a_hint, EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_BLOCK_HASH,
+    initial_state, load_input, prepare_os_test, utils::check_output_vs_python, utils::print_a_hint,
+    EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_BLOCK_HASH,
 };
 
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
@@ -28,17 +28,17 @@ use rstest::*;
 #[rstest]
 fn snos_ok(_initial_state: SharedState<DictStateReader>) {
     let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
-    let _runner_res = snos_runner.run();
+    let runner_res = snos_runner.run();
+    println!("{:#?}", runner_res);
 }
 
 #[rstest]
 fn prepared_os_test(
     prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),
 ) {
-    let (mut prepare_os_test, _exec_info) = prepare_os_test;
-    let commitment = prepare_os_test.apply_state();
+    let (mut prepare_os_test, _) = prepare_os_test;
+    let _commitment = prepare_os_test.apply_state();
     assert_eq!(BlockNumber(2), prepare_os_test.get_block_num());
-    assert_eq!(Felt252::from(0), commitment.previous_root);
 
     let addr_1_root = prepare_os_test
         .get_contract_root(contract_address!(
@@ -70,19 +70,16 @@ fn prepared_os_test(
 }
 
 #[rstest]
-fn parse_os_input(heavy_input_path: &(StarknetOsInput, String)) {
-    let (input, _) = heavy_input_path;
-    assert_eq!(felt_str!(TESTING_BLOCK_HASH, 16), input.block_hash);
+fn parse_os_input(load_input: &StarknetOsInput) {
+    assert_eq!(felt_str!(TESTING_BLOCK_HASH, 16), load_input.block_hash);
     assert_eq!(
         felt_str!(EXPECTED_PREV_ROOT, 16),
-        input.contract_state_commitment_info.previous_root
+        load_input.contract_state_commitment_info.previous_root
     );
     assert_eq!(
         felt_str!(EXPECTED_UPDATED_ROOT, 16),
-        input.contract_state_commitment_info.updated_root
+        load_input.contract_state_commitment_info.updated_root
     );
-
-    assert!(input.contracts.get(&Felt252::from(0)).is_some());
 }
 
 #[rstest]

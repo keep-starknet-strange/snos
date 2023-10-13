@@ -1,6 +1,7 @@
 use cairo_felt::Felt252;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 
-#[derive(thiserror::Error, Clone, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum SnOsError {
     #[error("SnOs Error: {0}")]
     CatchAll(String),
@@ -12,6 +13,8 @@ pub enum SnOsError {
     PieEncoding(String),
     #[error("SHARP Request Error: {0}")]
     SharpRequest(String),
+    #[error("Starknet Os Runner Error: {0}")]
+    Runner(CairoRunError),
 }
 
 #[derive(thiserror::Error, Clone, Debug)]

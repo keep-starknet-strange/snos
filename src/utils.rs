@@ -1,8 +1,8 @@
 use anyhow::anyhow;
 use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0, view::BitView};
 use blockifier::execution::contract_class::ContractClassV0;
+use cairo_felt::{felt_str, Felt252};
 
-use cairo_felt::Felt252;
 use cairo_vm_blockifier::types::program::Program;
 
 use std::collections::HashMap;
@@ -16,6 +16,7 @@ use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, Program as DeprecatedProgram,
 };
 use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
+use starknet_api::stark_felt;
 
 use serde::Deserialize;
 
@@ -40,7 +41,7 @@ pub fn calculate_contract_state_hash(
     pedersen_hash(&hash, &CONTRACT_STATE_HASH_VERSION)
 }
 
-pub fn felt_from_bits(bits: &BitSlice<u8, Msb0>) -> anyhow::Result<StarkFelt> {
+pub fn felt_from_bits_api(bits: &BitSlice<u8, Msb0>) -> anyhow::Result<StarkFelt> {
     if bits.len() > 251 {
         return Err(anyhow!("overflow: > 251 bits"));
     }
@@ -51,23 +52,31 @@ pub fn felt_from_bits(bits: &BitSlice<u8, Msb0>) -> anyhow::Result<StarkFelt> {
     StarkFelt::new(bytes).map_err(|e| anyhow!(format!("{e}")))
 }
 
-pub fn bits_from_felt(felt: StarkFelt) -> BitVec<u8, Msb0> {
+pub fn felt_to_bits_api(felt: StarkFelt) -> BitVec<u8, Msb0> {
     felt.bytes().view_bits::<Msb0>()[5..].to_bitvec()
-}
-
-pub fn vm_class_to_api_v0(class: ContractClassV0) -> DeprecatedContractClass {
-    DeprecatedContractClass {
-        abi: None,
-        program: vm_program_to_api_v0(&class.program),
-        entry_points_by_type: class.entry_points_by_type.clone(),
-    }
 }
 
 pub fn felt_from_hex_unchecked(hex_str: &str) -> Felt252 {
     Felt252::from_str_radix(hex_str.trim_start_matches("0x"), 16).unwrap()
 }
 
-pub fn vm_program_to_api_v0(program: &Program) -> DeprecatedProgram {
+pub fn felt_vm2api(felt: Felt252) -> StarkFelt {
+    stark_felt!(felt.to_str_radix(16).as_str())
+}
+
+pub fn felt_api2vm(felt: StarkFelt) -> Felt252 {
+    felt_str!(felt.to_string().trim_start_matches("0x"), 16)
+}
+
+pub fn deprecated_class_vm2api(class: ContractClassV0) -> DeprecatedContractClass {
+    DeprecatedContractClass {
+        abi: None,
+        program: deprecated_program_vm2api(&class.program),
+        entry_points_by_type: class.entry_points_by_type.clone(),
+    }
+}
+
+pub fn deprecated_program_vm2api(program: &Program) -> DeprecatedProgram {
     let builtins = program.iter_builtins().cloned().collect::<Vec<_>>();
     let data = program.iter_data().cloned().collect::<Vec<_>>();
     let identifiers: HashMap<_, _> = program
@@ -175,5 +184,33 @@ impl SerializeAs<DeprecatedContractClass> for DeprecatedContractClassStr {
             &serde_json::to_string(deprecated_class)
                 .map_err(|e| ser::Error::custom(format!("{e}")))?,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use bitvec::prelude::*;
+
+    #[test]
+    fn felt_conversions() {
+        let vm_felt = felt_str!("DEADBEEF", 16);
+        let api_felt = stark_felt!("DEADBEEF");
+
+        assert_eq!(vm_felt, felt_api2vm(api_felt));
+        assert_eq!(api_felt, felt_vm2api(vm_felt.clone()));
+
+        let raw = "0xDEADBEEF";
+        assert_eq!(vm_felt, felt_from_hex_unchecked(raw));
+
+        let raw_prefix = "DEADBEEF";
+        assert_eq!(vm_felt, felt_from_hex_unchecked(raw_prefix));
+
+        let mut bv = bitvec![u8, Msb0; 0; 219];
+        bv.extend_from_bitslice(0xDEADBEEF_u32.view_bits::<Msb0>());
+
+        assert_eq!(bv, felt_to_bits_api(api_felt));
+        assert_eq!(api_felt, felt_from_bits_api(&bv).unwrap());
     }
 }
