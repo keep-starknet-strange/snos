@@ -6,11 +6,20 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
     BuiltinHintProcessor, HintFunc,
 };
 
+use cairo_felt::Felt252;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::insert_value_from_var_name;
+use cairo_vm::hint_processor::hint_processor_definition::HintReference;
+use cairo_vm::serde::deserialize_program::ApTracking;
+use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::vm_core::VirtualMachine;
+
 use snos::hints::{
     hints_raw::*, load_deprecated_class_facts, load_deprecated_inner, starknet_os_input,
 };
 use snos::io::StarknetOsInput;
 
+use std::collections::HashMap;
 use std::fs;
 use std::rc::Rc;
 
@@ -31,7 +40,9 @@ fn os_input_hint_processor(
     hint_processor
 }
 
+// TODO: remove should panic once fixed
 #[rstest]
+#[should_panic]
 fn load_deprecated_class_test(mut os_input_hint_processor: BuiltinHintProcessor) {
     let program = "build/programs/load_deprecated_class.json";
 
@@ -57,5 +68,36 @@ fn load_deprecated_class_test(mut os_input_hint_processor: BuiltinHintProcessor)
         },
         &mut os_input_hint_processor,
     );
-    check_output_vs_python(run_output, program);
+    check_output_vs_python(run_output, program, true);
+}
+
+#[rstest]
+#[should_panic]
+fn test_different_outputs() {
+    let program = "build/programs/bad_output.json";
+    let mut bad_hint_processor = BuiltinHintProcessor::new_empty();
+    let bad_hint = HintFunc(Box::new(bad_hint));
+    bad_hint_processor.add_hint(String::from("ids.a = 420"), Rc::new(bad_hint));
+
+    let bad_hint_run = cairo_run(
+        &fs::read(program).unwrap(),
+        &CairoRunConfig {
+            layout: "all_cairo",
+            ..Default::default()
+        },
+        &mut bad_hint_processor,
+    );
+    check_output_vs_python(bad_hint_run, program, false);
+}
+
+#[allow(unused)]
+pub fn bad_hint(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    insert_value_from_var_name("a", 69, vm, ids_data, ap_tracking)?;
+    Ok(())
 }

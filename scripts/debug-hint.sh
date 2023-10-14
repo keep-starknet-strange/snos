@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # PYTHONPATH=cairo-lang/src cairo-run \
-#     --layout=small --print_output \
 #     --program build/programs/$1.json \
-#     --program_input build/os_input_w_classes.json 
+#     --program_input build/os_input_w_classes.json \
+#     --layout=small --print_output
 
 
 echo -e "\nrecompiling cairo program($1)...\n"
