@@ -1,9 +1,10 @@
+pub mod hints_raw;
+
 use std::collections::HashMap;
 
 use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
-mod hints_raw;
 
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -22,22 +23,25 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let mut hint_processor = BuiltinHintProcessor::new_empty();
 
-    let sn_input = HintFunc(Box::new(starknet_os_input));
-    hint_processor.add_hint(String::from(hints_raw::SN_INPUT_RAW), Rc::new(sn_input));
-
-    let load_class_facts = HintFunc(Box::new(load_compiled_class_facts));
+    let sn_os_input = HintFunc(Box::new(starknet_os_input));
     hint_processor.add_hint(
-        String::from(hints_raw::LOAD_COMPILED_CLASS_FACTS),
+        String::from(hints_raw::STARKNET_OS_INPUT),
+        Rc::new(sn_os_input),
+    );
+
+    let load_class_facts = HintFunc(Box::new(load_class_facts));
+    hint_processor.add_hint(
+        String::from(hints_raw::LOAD_CLASS_FACTS),
         Rc::new(load_class_facts),
     );
 
-    let load_deprecated_class_facts = HintFunc(Box::new(load_deprecated_compiled_class_facts));
+    let load_deprecated_class_facts = HintFunc(Box::new(load_deprecated_class_facts));
     hint_processor.add_hint(
         String::from(hints_raw::LOAD_DEPRECATED_CLASS_FACTS),
         Rc::new(load_deprecated_class_facts),
     );
 
-    let load_deprecated_class_inner = HintFunc(Box::new(load_deprecated_compiled_inner));
+    let load_deprecated_class_inner = HintFunc(Box::new(load_deprecated_inner));
     hint_processor.add_hint(
         String::from(hints_raw::LOAD_DEPRECATED_CLASS_INNER),
         Rc::new(load_deprecated_class_inner),
@@ -63,20 +67,17 @@ pub fn starknet_os_input(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // Deserialize the program_input
     let os_input = Box::new(StarknetOsInput::load("tests/common/os_input.json"));
     exec_scopes.assign_or_update_variable("os_input", os_input);
 
     let initial_carried_outputs_ptr =
         get_ptr_from_var_name("initial_carried_outputs", vm, ids_data, ap_tracking)?;
-    // We now have a pointer to a struct with the fields (messages_to_l1, messages_to_l2)
-    // initial_carried_outputs_ptr + 1 will be equal to initial_carried_outputs.messages_to_l1
-    // initial_carried_outputs_ptr + 2 will be equal to initial_carried_outputs.messages_to_l2
-    let messages_to_l1 = (initial_carried_outputs_ptr + 1_i32)?;
-    let messages_to_l2 = (initial_carried_outputs_ptr + 2_i32)?;
 
+    let messages_to_l1 = initial_carried_outputs_ptr;
     let temp_segment = vm.add_temporary_segment();
     vm.insert_value(messages_to_l1, temp_segment)?;
+
+    let messages_to_l2 = (initial_carried_outputs_ptr + 1_i32)?;
     let temp_segment = vm.add_temporary_segment();
     vm.insert_value(messages_to_l2, temp_segment)?;
 
@@ -92,7 +93,7 @@ vm_enter_scope({
     'compiled_class_facts': iter(os_input.compiled_classes.items()),
 })
 */
-pub fn load_compiled_class_facts(
+pub fn load_class_facts(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -137,7 +138,7 @@ vm_enter_scope({
     'compiled_class_facts': iter(os_input.deprecated_compiled_classes.items()),
 })
 */
-pub fn load_deprecated_compiled_class_facts(
+pub fn load_deprecated_class_facts(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -183,7 +184,7 @@ cairo_contract = get_deprecated_contract_class_struct(
     identifiers=ids._context.identifiers, contract_class=compiled_class)
 ids.compiled_class = segments.gen_arg(cairo_contract)
 */
-pub fn load_deprecated_compiled_inner(
+pub fn load_deprecated_inner(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,

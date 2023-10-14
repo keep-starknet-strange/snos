@@ -13,19 +13,20 @@ use std::path;
 
 use crate::config::StarknetGeneralConfig;
 use crate::error::SnOsError;
-use crate::utils::{DeprecatedContractClassStr, Felt252Num, Felt252Str};
+use crate::utils::{
+    DeprecatedContractClassStr, Felt252HexNoPrefix, Felt252Num, Felt252Str, Felt252StrDec,
+};
 
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct StarknetOsInput {
     pub contract_state_commitment_info: CommitmentInfo,
     pub contract_class_commitment_info: CommitmentInfo,
-    // #[serde(deserialize_with = "deserialize_deprecated_class_map")]
     #[serde_as(as = "HashMap<Felt252Str, DeprecatedContractClassStr>")]
     pub deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass>,
     #[serde_as(as = "HashMap<Felt252Str, Felt252Str>")]
     pub compiled_classes: HashMap<Felt252, Felt252>,
-    #[serde_as(as = "HashMap<Felt252Str, _>")]
+    #[serde_as(as = "HashMap<Felt252StrDec, _>")]
     pub contracts: HashMap<Felt252, ContractState>,
     #[serde_as(as = "HashMap<Felt252Str, Felt252Str>")]
     pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
@@ -49,7 +50,7 @@ pub struct CommitmentInfo {
 #[serde_as]
 #[derive(Deserialize, Clone, Debug, Serialize)]
 pub struct ContractState {
-    #[serde_as(as = "Felt252Str")]
+    #[serde_as(as = "Felt252HexNoPrefix")]
     pub contract_hash: Felt252,
     pub storage_commitment_tree: StorageCommitment,
     #[serde_as(as = "Felt252Str")]
@@ -59,7 +60,7 @@ pub struct ContractState {
 #[serde_as]
 #[derive(Deserialize, Clone, Debug, Serialize)]
 pub struct StorageCommitment {
-    #[serde_as(as = "Felt252Str")]
+    #[serde_as(as = "Felt252HexNoPrefix")]
     pub root: Felt252,
     pub height: usize,
 }
@@ -70,26 +71,41 @@ pub struct InternalTransaction {
     #[serde_as(as = "Felt252Str")]
     pub hash_value: Felt252,
     #[serde_as(as = "Option<Felt252Str>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<Felt252>,
     #[serde_as(as = "Option<Felt252Str>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub contract_address: Option<Felt252>,
     #[serde_as(as = "Option<Felt252Str>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub contract_address_salt: Option<Felt252>,
+    #[serde_as(as = "Option<Felt252HexNoPrefix>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contract_hash: Option<Felt252>,
     #[serde_as(as = "Option<Vec<Felt252Str>>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub constructor_calldata: Option<Vec<Felt252>>,
     #[serde_as(as = "Option<Felt252Str>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub nonce: Option<Felt252>,
     #[serde_as(as = "Option<Felt252Str>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_address: Option<Felt252>,
     #[serde_as(as = "Option<Felt252Str>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub entry_point_selector: Option<Felt252>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub entry_point_type: Option<String>,
     #[serde_as(as = "Option<Vec<Felt252Str>>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub signature: Option<Vec<Felt252>>,
     #[serde_as(as = "Option<Felt252Str>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub class_hash: Option<Felt252>,
     #[serde_as(as = "Option<Vec<Felt252Str>>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub calldata: Option<Vec<Felt252>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub paid_on_l1: Option<bool>,
     pub r#type: String,
 }

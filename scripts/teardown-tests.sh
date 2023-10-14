@@ -2,8 +2,11 @@
 
 shopt -s extglob
 
+echo -e "\ncleaning cairo submodule...\n"
 git submodule deinit -f .
 git submodule update --init
 
 # remove compiled contracts
-rm -f build/!(os_latest.json)
+echo -e "\nremoving compiled contracts/programs...\n"
+rm starkware
+rm -rf build/!(os_latest.json)

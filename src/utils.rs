@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0, view::BitView};
 use blockifier::execution::contract_class::ContractClassV0;
 use cairo_felt::{felt_str, Felt252};
+use starknet_api::core::ChainId;
 
 use cairo_vm_blockifier::types::program::Program;
 
@@ -20,12 +21,18 @@ use starknet_api::stark_felt;
 
 use serde::Deserialize;
 
+use lazy_static::lazy_static;
 use num_traits::Num;
-use serde::{de, ser, Deserializer, Serializer};
+use regex::Regex;
+use serde::{de, ser, Deserializer, Serialize, Serializer};
 use serde_json::Number;
 use serde_with::{DeserializeAs, SerializeAs};
 
 pub const REPLACE_KEY: &str = "replace:";
+
+lazy_static! {
+    static ref RE: Regex = Regex::new(r"^[A-Fa-f0-9]+$").unwrap();
+}
 
 /// Calculates the contract state hash from its preimage.
 pub fn calculate_contract_state_hash(
@@ -103,16 +110,9 @@ impl<'de> DeserializeAs<'de, Felt252> for Felt252Str {
         D: Deserializer<'de>,
     {
         let felt_str = String::deserialize(deserializer)?;
-        match felt_str.strip_prefix("0x") {
-            Some(felt_hex) => match Felt252::from_str_radix(felt_hex, 16) {
-                Ok(x) => Ok(x),
-                Err(e) => Err(de::Error::custom(format!("{e}"))),
-            },
-            None => match Felt252::from_str_radix(&felt_str, 10) {
-                Ok(x) => Ok(x),
-                Err(e) => Err(de::Error::custom(format!("{e}"))),
-            },
-        }
+        let felt_str = felt_str.trim_start_matches("0x");
+
+        Felt252::from_str_radix(felt_str, 16).map_err(de::Error::custom)
     }
 }
 
@@ -122,6 +122,29 @@ impl SerializeAs<Felt252> for Felt252Str {
         S: Serializer,
     {
         serializer.serialize_str(&format!("0x{}", value.to_str_radix(16)))
+    }
+}
+
+pub struct Felt252StrDec;
+
+impl<'de> DeserializeAs<'de, Felt252> for Felt252StrDec {
+    fn deserialize_as<D>(deserializer: D) -> Result<Felt252, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let felt_str = String::deserialize(deserializer)?;
+        let felt_str = felt_str.trim_start_matches("0x");
+
+        Felt252::from_str_radix(felt_str, 10).map_err(de::Error::custom)
+    }
+}
+
+impl SerializeAs<Felt252> for Felt252StrDec {
+    fn serialize_as<S>(value: &Felt252, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&value.to_str_radix(10))
     }
 }
 
@@ -147,9 +170,52 @@ impl SerializeAs<Felt252> for Felt252Num {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&format!("{}", value.to_bigint()))
+        serializer.serialize_str(&value.to_bigint().to_string())
     }
 }
+
+pub struct Felt252HexNoPrefix;
+
+impl<'de> DeserializeAs<'de, Felt252> for Felt252HexNoPrefix {
+    fn deserialize_as<D>(deserializer: D) -> Result<Felt252, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let felt_str = String::deserialize(deserializer)?;
+        Felt252::from_str_radix(&felt_str, 16).map_err(de::Error::custom)
+    }
+}
+
+impl SerializeAs<Felt252> for Felt252HexNoPrefix {
+    fn serialize_as<S>(value: &Felt252, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("0{}", value.to_str_radix(16)))
+    }
+}
+
+pub struct ChainIdNum;
+
+impl<'de> DeserializeAs<'de, ChainId> for ChainIdNum {
+    fn deserialize_as<D>(deserializer: D) -> Result<ChainId, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let felt_num = u128::deserialize(deserializer)?;
+        Ok(ChainId(format!("{felt_num:x}")))
+    }
+}
+
+impl SerializeAs<ChainId> for ChainIdNum {
+    fn serialize_as<S>(value: &ChainId, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u128(u128::from_str_radix(&value.0, 16).map_err(ser::Error::custom)?)
+    }
+}
+
 pub struct DeprecatedContractClassStr;
 
 impl<'de> DeserializeAs<'de, DeprecatedContractClass> for DeprecatedContractClassStr {
@@ -165,10 +231,10 @@ impl<'de> DeserializeAs<'de, DeprecatedContractClass> for DeprecatedContractClas
             fs::read_to_string(path::PathBuf::from(
                 deprecated_class.trim_start_matches(REPLACE_KEY),
             ))
-            .map_err(|e| de::Error::custom(format!("{e}")))?
+            .map_err(de::Error::custom)?
         };
 
-        serde_json::from_str(&raw_class).map_err(|e| de::Error::custom(format!("{e}")))
+        serde_json::from_str(&raw_class).map_err(de::Error::custom)
     }
 }
 
@@ -180,10 +246,7 @@ impl SerializeAs<DeprecatedContractClass> for DeprecatedContractClassStr {
     where
         S: Serializer,
     {
-        serializer.serialize_str(
-            &serde_json::to_string(deprecated_class)
-                .map_err(|e| ser::Error::custom(format!("{e}")))?,
-        )
+        deprecated_class.serialize(serializer)
     }
 }
 

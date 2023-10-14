@@ -35,7 +35,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::sync::Arc;
 
-use rstest::*;
+use rstest::{fixture, rstest};
 
 use blockifier::invoke_tx_args;
 use blockifier::test_utils::{
@@ -95,7 +95,7 @@ pub fn load_input() -> StarknetOsInput {
 #[fixture]
 #[once]
 pub fn load_and_write_input() -> (StarknetOsInput, String) {
-    let heavy_path = "build/os_input_heavy.json";
+    let heavy_path = "build/os_input_with_classes.json";
     let os_input = StarknetOsInput::load("tests/common/os_input.json");
     os_input.dump(heavy_path).unwrap();
     (os_input, heavy_path.to_string())
@@ -103,7 +103,7 @@ pub fn load_and_write_input() -> (StarknetOsInput, String) {
 
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
-    let program_content = fs::read("build/fact.json").unwrap();
+    let program_content = fs::read("build/programs/fact.json").unwrap();
 
     let mut hint_processor = BuiltinHintProcessor::new_empty();
 
@@ -160,19 +160,19 @@ pub fn cache() -> CachedState<DictStateReader> {
     cached_state
         .set_contract_class(
             &class_hash!(DUMMY_TOKEN_HASH_0_12_2),
-            utils::load_class_v0("build/dummy_token.json"),
+            utils::load_class_v0("build/contracts/dummy_token.json"),
         )
         .unwrap();
     cached_state
         .set_contract_class(
             &class_hash!(DUMMY_ACCOUNT_HASH_0_12_2),
-            utils::load_class_v0("build/dummy_account.json"),
+            utils::load_class_v0("build/contracts/dummy_account.json"),
         )
         .unwrap();
     cached_state
         .set_contract_class(
             &class_hash!(TOKEN_FOR_TESTING_HASH_0_12_2),
-            utils::load_class_v0("build/token_for_testing.json"),
+            utils::load_class_v0("build/contracts/token_for_testing.json"),
         )
         .unwrap();
 
@@ -274,7 +274,7 @@ pub fn prepare_os_test(
         .cache
         .set_contract_class(
             &class_hash!(TESTING_HASH_0_12_2),
-            utils::load_class_v0("build/test_contract.json"),
+            utils::load_class_v0("build/contracts/test_contract.json"),
         )
         .unwrap();
     for (i, expected_addr) in contract_addresses.into_iter().enumerate() {
@@ -389,7 +389,7 @@ pub fn prepare_os_test(
 
     let delegate_addr = utils::raw_deploy(
         &mut initial_state,
-        "build/delegate_proxy.json",
+        "build/contracts/delegate_proxy.json",
         class_hash!(DELEGATE_PROXY_HASH_0_12_2),
     );
 
@@ -471,7 +471,7 @@ pub fn prepare_os_test(
 
     let test_contract_2_addr = utils::raw_deploy(
         &mut initial_state,
-        "build/test_contract2.json",
+        "build/contracts/test_contract2.json",
         class_hash!(TESTING_HASH_2_0_12_2),
     );
 

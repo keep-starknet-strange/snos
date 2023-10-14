@@ -8,3 +8,6 @@ build/*
 
 # Cairo dependencies
 cairo-lang
+
+# Hint Dependency symlink
+starkware

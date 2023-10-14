@@ -2,6 +2,7 @@ use blockifier::abi::constants::{INITIAL_GAS_COST, MAX_STEPS_PER_TX, N_STEPS_RES
 use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use blockifier::transaction::objects::FeeType;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
@@ -16,8 +17,8 @@ use crate::error::SnOsError;
 const DEFAULT_CONFIG_PATH: &str =
     "cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 
-// TODO: ensure accuracy in CI
 pub const DEFAULT_LAYOUT: &str = "starknet_with_keccak";
+pub const DEFAULT_COMPILED_OS: &str = "build/os_latest.json";
 pub const DEFAULT_COMPILER_VERSION: &str = "0.12.2";
 pub const DEFAULT_STORAGE_TREE_HEIGHT: usize = 251;
 pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
@@ -26,8 +27,11 @@ pub const DEFAULT_FEE_TOKEN_ADDR: &str =
 pub const SEQUENCER_ADDR_0_12_2: &str =
     "6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa";
 
+use crate::utils::ChainIdNum;
+#[serde_as]
 #[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct StarknetOsConfig {
+    #[serde_as(as = "ChainIdNum")]
     pub chain_id: ChainId,
     pub fee_token_address: ContractAddress,
 }
