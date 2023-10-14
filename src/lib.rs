@@ -8,14 +8,13 @@ pub mod utils;
 
 use error::SnOsError;
 use std::fs;
-use std::path::PathBuf;
 
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 
 pub struct SnOsRunner {
     layout: String,
-    os_path: PathBuf,
+    os_path: String,
 }
 
 impl SnOsRunner {
@@ -29,7 +28,7 @@ impl SnOsRunner {
     pub fn with_os_path(os_path: &str) -> Self {
         Self {
             layout: Self::default().layout,
-            os_path: PathBuf::from(os_path),
+            os_path: os_path.to_string(),
         }
     }
 
@@ -38,7 +37,7 @@ impl SnOsRunner {
 
         // Load the Starknet OS
         let starknet_os =
-            fs::read(self.os_path.as_path()).map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
+            fs::read(&self.os_path).map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
 
         let (runner, vm) = cairo_run(
             &starknet_os,
@@ -65,7 +64,7 @@ impl Default for SnOsRunner {
     fn default() -> Self {
         Self {
             layout: config::DEFAULT_LAYOUT.to_string(),
-            os_path: PathBuf::from("build/os_latest.json"),
+            os_path: config::DEFAULT_COMPILED_OS.to_string(),
         }
     }
 }

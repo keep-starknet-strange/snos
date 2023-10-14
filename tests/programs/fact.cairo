@@ -12,5 +12,5 @@ func main(output_ptr: felt*) -> (output_ptr: felt*) {
 
     let output_ptr = output_ptr + 3;
 
-    return(output_ptr = output_ptr);
+    return (output_ptr=output_ptr);
 }

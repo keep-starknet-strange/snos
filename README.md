@@ -7,18 +7,24 @@
 
 Rust Library for running the Starknet OS via the [Cairo VM](https://github.com/lambdaclass/cairo-vm).
 
-## Setup
+## Test Setup
 
-***Cairo [Env](https://docs.cairo-lang.org/0.12.0/quickstart.html)***
+**Cairo [Env](https://docs.cairo-lang.org/0.12.0/quickstart.html)**
 
 ```bash
 ./scripts/setup-tests.sh
-```
 
-```bash
 cargo test
 ```
 
+### Reset Tests
+
 ```bash
 ./scripts/teardown-tests.sh
+```
+
+### Debug Single Cairo Program
+
+```bash
+./scripts/debug-hint.sh load_deprecated_class
 ```

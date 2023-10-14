@@ -8,5 +8,5 @@ func main(output_ptr: felt*) -> (output_ptr: felt*) {
     %{ print(ids.a) %}
     let output_ptr = output_ptr + 1;
 
-    return(output_ptr = output_ptr);
+    return (output_ptr=output_ptr);
 }

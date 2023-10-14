@@ -11,6 +11,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContract
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
 
 use std::collections::HashMap;
+use std::env;
 use std::fs;
 use std::path;
 
@@ -32,27 +33,28 @@ pub fn load_class_raw(path: &str) -> String {
 }
 
 #[allow(unused)]
-pub fn check_output_vs_python(program: &str, mut vm: VirtualMachine) {
+pub fn check_output_vs_python(program: &str, mut vm: VirtualMachine, with_input: bool) {
     let mut rs_output = String::new();
     vm.write_output(&mut rs_output).unwrap();
-    let rs_output = rs_output.split('\n').filter(|&x| !x.is_empty());
-    let python_output = std::process::Command::new("cairo-run")
-        .arg("--layout=small")
-        .arg(format!("--program={program:}"))
-        .arg("--print_output")
-        .output()
-        .expect("failed to run python vm");
-    let python_output = unsafe { std::str::from_utf8_unchecked(&python_output.stdout) }.to_string();
-    let python_output = python_output
+    println!(
+        "\n-------------------------------RUST PROGRAM OUTPUT-------------------------------\n"
+    );
+    println!("Program output:");
+    println!("{rs_output}");
+
+    let python_output = deprecated_cairo_python_run(program, with_input);
+    println!(
+        "\n------------------------------PYTHON PROGRAM OUTPUT------------------------------\n"
+    );
+    println!("Program output:");
+    println!("{python_output}\n");
+
+    for (i, (rs, py)) in rs_output
         .split('\n')
-        .into_iter()
-        .skip_while(|&x| x != "Program output:")
-        .skip(1)
-        .filter(|&x| !x.trim().is_empty())
-        .into_iter();
-    for (i, (rs, py)) in rs_output.zip(python_output).enumerate() {
-        let py = py.to_string().trim().to_string();
-        pretty_assertions::assert_eq!(*rs, py, "Output #{i:} is different");
+        .zip(python_output.split('\n'))
+        .enumerate()
+    {
+        pretty_assertions::assert_eq!(rs, py, "Output Differs({i})");
     }
 }
 
@@ -68,6 +70,24 @@ pub fn print_a_hint(
     let a = get_integer_from_var_name("a", vm, ids_data, ap_tracking)?;
     println!("{}", a);
     Ok(())
+}
+
+pub fn deprecated_cairo_python_run(program: &str, with_input: bool) -> String {
+    env::set_var("PYTHONPATH", "cairo-lang/src");
+    let mut run_cmd = std::process::Command::new("cairo-run");
+    run_cmd
+        .arg("--layout=small")
+        .arg(format!("--program={program}"))
+        .arg("--print_output");
+
+    if with_input {
+        run_cmd.arg("--program_input=build/os_input_with_classes.json");
+    }
+    let raw = String::from_utf8(run_cmd.output().expect("failed to run python vm").stdout).unwrap();
+    raw.trim_start_matches("Program output:\n  ")
+        .trim_end_matches("\n\n")
+        .replace(" ", "")
+        .to_string()
 }
 
 pub fn raw_deploy(

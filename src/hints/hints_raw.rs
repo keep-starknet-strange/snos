@@ -1,6 +1,6 @@
-pub const SN_INPUT_RAW: &str = "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = StarknetOsInput.load(data=program_input)\n\nids.initial_carried_outputs.messages_to_l1 = segments.add_temp_segment()\nids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()";
+pub const STARKNET_OS_INPUT: &str = "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = StarknetOsInput.load(data=program_input)\n\nids.initial_carried_outputs.messages_to_l1 = segments.add_temp_segment()\nids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()";
 
-pub const LOAD_COMPILED_CLASS_FACTS: &str = "ids.compiled_class_facts = segments.add()\nids.n_compiled_class_facts = len(os_input.compiled_classes)\nvm_enter_scope({\n    'compiled_class_facts': iter(os_input.compiled_classes.items()),\n})";
+pub const LOAD_CLASS_FACTS: &str = "ids.compiled_class_facts = segments.add()\nids.n_compiled_class_facts = len(os_input.compiled_classes)\nvm_enter_scope({\n    'compiled_class_facts': iter(os_input.compiled_classes.items()),\n})";
 
 pub const LOAD_DEPRECATED_CLASS_FACTS: &str = "# Creates a set of deprecated class hashes to distinguish calls to deprecated entry points.\n__deprecated_class_hashes=set(os_input.deprecated_compiled_classes.keys())\nids.compiled_class_facts = segments.add()\nids.n_compiled_class_facts = len(os_input.deprecated_compiled_classes)\nvm_enter_scope({\n    'compiled_class_facts': iter(os_input.deprecated_compiled_classes.items()),\n})";
 
