@@ -47,7 +47,7 @@ fn load_deprecated_class_test(mut os_input_hint_processor: BuiltinHintProcessor)
         Rc::new(load_deprecated_class_inner_hint),
     );
 
-    match cairo_run(
+    let run_output = cairo_run(
         &fs::read(program).unwrap(),
         &CairoRunConfig {
             layout: "starknet",
@@ -56,8 +56,6 @@ fn load_deprecated_class_test(mut os_input_hint_processor: BuiltinHintProcessor)
             ..Default::default()
         },
         &mut os_input_hint_processor,
-    ) {
-        Ok((_runner, vm)) => check_output_vs_python(program, vm, true),
-        Err(e) => eprint!("{e:#?}"),
-    };
+    );
+    check_output_vs_python(run_output, program);
 }

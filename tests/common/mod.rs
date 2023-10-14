@@ -95,7 +95,7 @@ pub fn load_input() -> StarknetOsInput {
 #[fixture]
 #[once]
 pub fn load_and_write_input() -> (StarknetOsInput, String) {
-    let heavy_path = "build/os_input_with_classes.json";
+    let heavy_path = "build/os_input_w_classes.json";
     let os_input = StarknetOsInput::load("tests/common/os_input.json");
     os_input.dump(heavy_path).unwrap();
     (os_input, heavy_path.to_string())
