@@ -43,7 +43,7 @@ cp tests/dependencies/initializable.cairo cairo-lang/src/starkware/starknet/std_
 echo -e "compmiling cairo programs...\n"
 mkdir -p build/programs
 cairo-format -i tests/programs/*
-cairo-compile tests/programs/different_output.cairo --output build/programs/different_output.json
+cairo-compile tests/programs/bad_output.cairo --output build/programs/bad_output.json
 cairo-compile tests/programs/fact.cairo --output build/programs/fact.json
 cairo-compile tests/programs/load_deprecated_class.cairo --output build/programs/load_deprecated_class.json --cairo_path cairo-lang/src
 

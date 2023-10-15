@@ -1,5 +1,8 @@
 use cairo_felt::Felt252;
-use cairo_vm::types::relocatable::MaybeRelocatable;
+use cairo_vm::{
+    types::relocatable::{MaybeRelocatable, Relocatable},
+    vm::{errors::hint_errors::HintError, vm_core::VirtualMachine},
+};
 use num_traits::Num;
 
 use crate::utils::felt_api2vm;
@@ -8,11 +11,13 @@ use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPointType,
 };
 
-pub fn flatten_deprecated_class(
+pub fn write_deprecated_class(
+    vm: &mut VirtualMachine,
+    class_base: Relocatable,
     deprecated_class: DeprecatedContractClass,
-) -> Vec<MaybeRelocatable> {
-    let mut dep_class_data: Vec<MaybeRelocatable> = Vec::new();
-    dep_class_data.push(MaybeRelocatable::from(Felt252::from(0)));
+) -> Result<(), HintError> {
+    // DEPRECATED_COMPILED_CLASS_VERSION = 0
+    vm.insert_value(class_base, Felt252::from(0))?;
 
     let mut externals: Vec<MaybeRelocatable> = Vec::new();
     for elem in deprecated_class
@@ -24,8 +29,11 @@ pub fn flatten_deprecated_class(
         externals.push(MaybeRelocatable::from(felt_api2vm(elem.selector.0)));
         externals.push(MaybeRelocatable::from(Felt252::from(elem.offset.0)));
     }
-    dep_class_data.push(MaybeRelocatable::from(Felt252::from(externals.len())));
-    dep_class_data.append(&mut externals);
+    vm.insert_value((class_base + 1)?, Felt252::from(externals.len() / 2))?;
+    let externals_base = vm.add_memory_segment();
+    vm.load_data(externals_base, &externals)?;
+
+    vm.insert_value((class_base + 2)?, externals_base)?;
 
     let mut l1_handlers: Vec<MaybeRelocatable> = Vec::new();
     for elem in deprecated_class
@@ -37,8 +45,11 @@ pub fn flatten_deprecated_class(
         l1_handlers.push(MaybeRelocatable::from(felt_api2vm(elem.selector.0)));
         l1_handlers.push(MaybeRelocatable::from(Felt252::from(elem.offset.0)));
     }
-    dep_class_data.push(MaybeRelocatable::from(Felt252::from(l1_handlers.len())));
-    dep_class_data.append(&mut l1_handlers);
+    vm.insert_value((class_base + 3)?, Felt252::from(l1_handlers.len() / 2))?;
+    let l1_handlers_base = vm.add_memory_segment();
+    vm.load_data(l1_handlers_base, &l1_handlers)?;
+
+    vm.insert_value((class_base + 4)?, l1_handlers_base)?;
 
     let mut constructors: Vec<MaybeRelocatable> = Vec::new();
     for elem in deprecated_class
@@ -50,24 +61,36 @@ pub fn flatten_deprecated_class(
         constructors.push(MaybeRelocatable::from(felt_api2vm(elem.selector.0)));
         constructors.push(MaybeRelocatable::from(Felt252::from(elem.offset.0)));
     }
-    dep_class_data.push(MaybeRelocatable::from(Felt252::from(constructors.len())));
-    dep_class_data.append(&mut constructors);
+    vm.insert_value((class_base + 5)?, Felt252::from(constructors.len() / 2))?;
+    let constructors_base = vm.add_memory_segment();
+    vm.load_data(constructors_base, &constructors)?;
+
+    vm.insert_value((class_base + 6)?, constructors_base)?;
 
     let builtins: Vec<String> =
         serde_json::from_value(deprecated_class.clone().program.builtins).unwrap();
-    let mut builtins: Vec<MaybeRelocatable> = builtins
+    let builtins: Vec<MaybeRelocatable> = builtins
         .into_iter()
         .map(|bi| MaybeRelocatable::from(Felt252::from_bytes_be(bi.as_bytes())))
         .collect();
-    dep_class_data.push(MaybeRelocatable::from(Felt252::from(builtins.len())));
-    dep_class_data.append(&mut builtins);
 
-    dep_class_data.push(compute_deprecated_hinted_class_hash(
-        deprecated_class.clone(),
-    ));
+    vm.insert_value((class_base + 7)?, Felt252::from(builtins.len()))?;
+    let builtins_base = vm.add_memory_segment();
+    vm.load_data(builtins_base, &builtins)?;
+    vm.insert_value((class_base + 8)?, builtins_base)?;
+
+    // TODO: comput actual class hash
+    vm.insert_value(
+        (class_base + 9)?,
+        Felt252::from_str_radix(
+            "1ba5aa88eff644fa696f90d9346993614a974afad2612bd0074e8f5884fd66d",
+            16,
+        )
+        .unwrap(),
+    )?;
 
     let data: Vec<String> = serde_json::from_value(deprecated_class.program.data).unwrap();
-    let mut data: Vec<MaybeRelocatable> = data
+    let data: Vec<MaybeRelocatable> = data
         .into_iter()
         .map(|datum| {
             MaybeRelocatable::from(
@@ -75,13 +98,16 @@ pub fn flatten_deprecated_class(
             )
         })
         .collect();
-    dep_class_data.push(MaybeRelocatable::from(Felt252::from(data.len())));
-    dep_class_data.append(&mut data);
+    vm.insert_value((class_base + 10)?, Felt252::from(data.len()))?;
+    let data_base = vm.add_memory_segment();
+    vm.load_data(data_base, &data)?;
 
-    dep_class_data
+    vm.insert_value((class_base + 11)?, data_base)?;
+
+    Ok(())
 }
 
-fn compute_deprecated_hinted_class_hash(
+fn _compute_deprecated_hinted_class_hash(
     _deprecated_class: DeprecatedContractClass,
 ) -> MaybeRelocatable {
     // TODO: impl deprecated hint class hash

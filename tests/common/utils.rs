@@ -1,16 +1,11 @@
-use cairo_felt::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_integer_from_var_name;
-use cairo_vm::hint_processor::hint_processor_definition::HintReference;
-use cairo_vm::serde::deserialize_program::ApTracking;
-use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::vm::{errors::hint_errors::HintError, vm_core::VirtualMachine};
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::vm_core::VirtualMachine;
 
 use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
 
-use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path;
@@ -33,58 +28,54 @@ pub fn load_class_raw(path: &str) -> String {
 }
 
 #[allow(unused)]
-pub fn check_output_vs_python(program: &str, mut vm: VirtualMachine, with_input: bool) {
+pub fn check_output_vs_python(
+    run_output: Result<(CairoRunner, VirtualMachine), CairoRunError>,
+    program: &str,
+    with_input: bool,
+) {
     let mut rs_output = String::new();
-    vm.write_output(&mut rs_output).unwrap();
+    match run_output {
+        Ok((_, mut vm)) => vm.write_output(&mut rs_output),
+        Err(e) => Ok(rs_output.push_str(&format!("{e:#?}"))),
+    };
+
     println!(
         "\n-------------------------------RUST PROGRAM OUTPUT-------------------------------\n"
     );
     println!("Program output:");
     println!("{rs_output}");
 
-    let python_output = deprecated_cairo_python_run(program, with_input);
+    let py_output = deprecated_cairo_python_run(program, with_input);
     println!(
         "\n------------------------------PYTHON PROGRAM OUTPUT------------------------------\n"
     );
     println!("Program output:");
-    println!("{python_output}\n");
+    println!("{py_output}\n");
 
-    for (i, (rs, py)) in rs_output
-        .split('\n')
-        .zip(python_output.split('\n'))
-        .enumerate()
-    {
+    println!(
+        "\n--------------------------------------------------------------------------------\n"
+    );
+
+    for (i, (rs, py)) in rs_output.split('\n').zip(py_output.split('\n')).enumerate() {
         pretty_assertions::assert_eq!(rs, py, "Output Differs({i})");
     }
-}
-
-// Create the function that implements the custom hint
-#[allow(unused)]
-pub fn print_a_hint(
-    vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let a = get_integer_from_var_name("a", vm, ids_data, ap_tracking)?;
-    println!("{}", a);
-    Ok(())
 }
 
 pub fn deprecated_cairo_python_run(program: &str, with_input: bool) -> String {
     env::set_var("PYTHONPATH", "cairo-lang/src");
     let mut run_cmd = std::process::Command::new("cairo-run");
     run_cmd
-        .arg("--layout=small")
         .arg(format!("--program={program}"))
+        .arg("--layout=small")
         .arg("--print_output");
 
     if with_input {
-        run_cmd.arg("--program_input=build/os_input_with_classes.json");
+        run_cmd.arg("--program_input=build/os_input_w_classes.json");
     }
+
     let raw = String::from_utf8(run_cmd.output().expect("failed to run python vm").stdout).unwrap();
-    raw.trim_start_matches("Program output:\n  ")
+    raw.trim_start_matches("Program output:")
+        .trim_start_matches("\n  ")
         .trim_end_matches("\n\n")
         .replace(" ", "")
         .to_string()

@@ -28,3 +28,4 @@ cargo test
 ```bash
 ./scripts/debug-hint.sh load_deprecated_class
 ```
+    
