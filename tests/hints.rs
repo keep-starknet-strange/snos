@@ -7,7 +7,9 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
 };
 
 use cairo_felt::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::insert_value_from_var_name;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_integer_from_var_name, insert_value_from_var_name,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -15,7 +17,8 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
 use snos::hints::{
-    hints_raw::*, load_deprecated_class_facts, load_deprecated_inner, starknet_os_input,
+    check_deprecated_class_hash, hints_raw::*, load_deprecated_class_facts, load_deprecated_inner,
+    starknet_os_input,
 };
 use snos::io::StarknetOsInput;
 
@@ -42,7 +45,6 @@ fn os_input_hint_processor(
 
 // TODO: remove should panic once fixed
 #[rstest]
-#[should_panic]
 fn load_deprecated_class_test(mut os_input_hint_processor: BuiltinHintProcessor) {
     let program = "build/programs/load_deprecated_class.json";
 
@@ -56,6 +58,18 @@ fn load_deprecated_class_test(mut os_input_hint_processor: BuiltinHintProcessor)
     os_input_hint_processor.add_hint(
         String::from(LOAD_DEPRECATED_CLASS_INNER),
         Rc::new(load_deprecated_class_inner_hint),
+    );
+
+    let check_deprecated_class_hash_hint = HintFunc(Box::new(check_deprecated_class_hash));
+    os_input_hint_processor.add_hint(
+        String::from(CHECK_DEPRECATED_CLASS_HASH),
+        Rc::new(check_deprecated_class_hash_hint),
+    );
+
+    let debug_hint = HintFunc(Box::new(debug_id));
+    os_input_hint_processor.add_hint(
+        String::from("print('COMPILED: ', ids.hash)"),
+        Rc::new(debug_hint),
     );
 
     let run_output = cairo_run(
@@ -73,7 +87,7 @@ fn load_deprecated_class_test(mut os_input_hint_processor: BuiltinHintProcessor)
 
 #[rstest]
 #[should_panic]
-fn test_different_outputs() {
+fn bad_output_test() {
     let program = "build/programs/bad_output.json";
     let mut bad_hint_processor = BuiltinHintProcessor::new_empty();
     let bad_hint = HintFunc(Box::new(bad_hint));
@@ -99,5 +113,20 @@ pub fn bad_hint(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     insert_value_from_var_name("a", 69, vm, ids_data, ap_tracking)?;
+    Ok(())
+}
+
+#[allow(unused)]
+pub fn debug_id(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    println!(
+        "IDS: {}",
+        get_integer_from_var_name("hash", vm, ids_data, ap_tracking)?
+    );
     Ok(())
 }

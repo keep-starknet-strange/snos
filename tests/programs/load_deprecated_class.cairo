@@ -10,6 +10,7 @@ from starkware.starknet.core.os.contract_class.deprecated_compiled_class import 
     DeprecatedCompiledClassFact,
     deprecated_validate_entry_points,
     deprecated_compiled_class_hash,
+    DeprecatedContractEntryPoint,
 )
 
 const DEPRECATED_COMPILED_CLASS_VERSION = 0;
@@ -39,24 +40,22 @@ func main{output_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
         })
     %}
 
-    assert n_compiled_class_facts = 5;
-
     deprecated_load_compiled_class_facts_inner(
         n_compiled_class_facts=n_compiled_class_facts, compiled_class_facts=compiled_class_facts
     );
     %{ vm_exit_scope() %}
 
-    // TODO: check cmpiled class facts here
-
     relocate_segment(src_ptr=initial_carried_outputs.messages_to_l1, dest_ptr=output_ptr);
     relocate_segment(src_ptr=initial_carried_outputs.messages_to_l2, dest_ptr=output_ptr);
+
+    assert n_compiled_class_facts = 5;
 
     return ();
 }
 
-func deprecated_load_compiled_class_facts_inner{pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    n_compiled_class_facts, compiled_class_facts: DeprecatedCompiledClassFact*
-) {
+func deprecated_load_compiled_class_facts_inner{
+    output_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
+}(n_compiled_class_facts, compiled_class_facts: DeprecatedCompiledClassFact*) {
     if (n_compiled_class_facts == 0) {
         return ();
     }

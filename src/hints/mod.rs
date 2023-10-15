@@ -14,7 +14,7 @@ use std::any::Any;
 use std::collections::hash_map::IntoIter;
 use std::rc::Rc;
 
-use crate::io::{classes::flatten_deprecated_class, StarknetOsInput};
+use crate::io::{classes::write_deprecated_class, StarknetOsInput};
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
@@ -45,6 +45,12 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
     hint_processor.add_hint(
         String::from(hints_raw::LOAD_DEPRECATED_CLASS_INNER),
         Rc::new(load_deprecated_class_inner),
+    );
+
+    let check_deprecated_class_hash_hint = HintFunc(Box::new(check_deprecated_class_hash));
+    hint_processor.add_hint(
+        String::from(hints_raw::CHECK_DEPRECATED_CLASS_HASH),
+        Rc::new(check_deprecated_class_hash_hint),
     );
 
     hint_processor
@@ -195,16 +201,40 @@ pub fn load_deprecated_inner(
         .get_mut_ref::<IntoIter<Felt252, DeprecatedContractClass>>("compiled_class_facts")
         .unwrap();
 
-    let (_, deprecated_class) = deprecated_class_iter.next().unwrap();
+    let (class_hash, deprecated_class) = deprecated_class_iter.next().unwrap();
 
-    let flat_deprecated_class = flatten_deprecated_class(deprecated_class);
+    exec_scopes.insert_value("compiled_class_hash", class_hash);
+
     let dep_class_base = vm.add_memory_segment();
-
-    vm.load_data(
-        (dep_class_base + flat_deprecated_class.len())?,
-        &flat_deprecated_class,
-    )?;
+    write_deprecated_class(vm, dep_class_base, deprecated_class)?;
 
     insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+/*
+Implements hint:
+
+from starkware.python.utils import from_bytes
+
+computed_hash = ids.compiled_class_fact.hash
+expected_hash = compiled_class_hash
+assert computed_hash == expected_hash, (
+    "Computed compiled_class_hash is inconsistent with the hash in the os_input. "
+    f"Computed hash = {computed_hash}, Expected hash = {expected_hash}.")
+
+vm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)
+*/
+pub fn check_deprecated_class_hash(
+    _vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // TODO: decide if we really need to check this deprecated hash moving forward
+    // TODO: check w/ LC for `vm_load_program` impl
+
     Ok(())
 }
