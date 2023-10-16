@@ -5,6 +5,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use cairo_vm::felt::Felt252;
+use cairo_vm::types::relocatable::Relocatable;
+
+use crate::io::StarknetOsInput;
+use crate::utils::felt_api2vm;
+
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
 };
@@ -14,8 +19,6 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-
-use crate::io::StarknetOsInput;
 
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let mut hint_processor = BuiltinHintProcessor::new_empty();
@@ -35,6 +38,27 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let check_deprecated_class_hash_hint = HintFunc(Box::new(check_deprecated_class_hash));
     hint_processor
         .add_hint(String::from(hints_raw::CHECK_DEPRECATED_CLASS_HASH), Rc::new(check_deprecated_class_hash_hint));
+
+    let deprecated_block_number_hint = HintFunc(Box::new(deprecated_block_number));
+    hint_processor.add_hint(String::from(hints_raw::DEPRECATED_BLOCK_NUMBER), Rc::new(deprecated_block_number_hint));
+
+    let deprecated_block_timestamp_hint = HintFunc(Box::new(deprecated_block_timestamp));
+    hint_processor
+        .add_hint(String::from(hints_raw::DEPRECATED_BLOCK_TIMESTAMP), Rc::new(deprecated_block_timestamp_hint));
+
+    let deprecated_sequencer_address_hint = HintFunc(Box::new(deprecated_sequencer_address));
+    hint_processor
+        .add_hint(String::from(hints_raw::DEPRECATED_SEQUENCER_ADDRESS), Rc::new(deprecated_sequencer_address_hint));
+
+    let deprecated_chain_id_hint = HintFunc(Box::new(deprecated_chain_id));
+    hint_processor.add_hint(String::from(hints_raw::DEPRECATED_CHAIN_ID), Rc::new(deprecated_chain_id_hint));
+
+    let deprecated_fee_token_address_hint = HintFunc(Box::new(deprecated_fee_token_address));
+    hint_processor
+        .add_hint(String::from(hints_raw::DEPRECATED_FEE_TOKEN_ADDRESS), Rc::new(deprecated_fee_token_address_hint));
+
+    let initialize_state_changes_hint = HintFunc(Box::new(initialize_state_changes));
+    hint_processor.add_hint(String::from(hints_raw::INITIALIZE_STATE_CHANGES), Rc::new(initialize_state_changes_hint));
 
     hint_processor
 }
@@ -90,6 +114,41 @@ pub fn check_deprecated_class_hash(
 ) -> Result<(), HintError> {
     // TODO: decide if we really need to check this deprecated hash moving forward
     // TODO: check w/ LC for `vm_load_program` impl
+
+    Ok(())
+}
+
+/*
+Implements hint:
+
+from starkware.python.utils import from_bytes
+
+initial_dict = {
+    address: segments.gen_arg(
+        (from_bytes(contract.contract_hash), segments.add(), contract.nonce))
+    for address, contract in os_input.contracts.items()
+}
+*/
+pub fn initialize_state_changes(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // {1: RelocatableValue(segment_index=7, offset=0), 1470089414715992704702781317133162679047468004062084455026636858461958198968: RelocatableValue(segment_index=9, offset=0), 1005161437792794307757078281996005783125378987969285529172328835577592343232: RelocatableValue(segment_index=11, offset=0), 3302098605493938887217934688678356071939708546668669666319008757914002811976: RelocatableValue(segment_index=13, offset=0), 2006810680437147719782949677362224138923732654511812452693656965873469983890: RelocatableValue(segment_index=15, offset=0), 2618767603815038378512366346550627731109766804643583016834052353912473402832: RelocatableValue(segment_index=17, offset=0), 2221633069513894212967173919871301977519426338681819384231748898933664013766: RelocatableValue(segment_index=19, offset=0), 0: RelocatableValue(segment_index=21, offset=0)}
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let mut state_dict: HashMap<Felt252, Relocatable> = HashMap::new();
+    for (addr, contract_state) in os_input.contracts {
+        let nonce_base = vm.add_memory_segment();
+        vm.insert_value(nonce_base, contract_state.nonce)?;
+
+        state_dict.insert(addr, nonce_base);
+    }
+    // let res = default_dict_new(vm, exec_scopes, ids_data, ap_tracking);
+    // println!("thANG: {:?}", res);
+    exec_scopes.assign_or_update_variable("initial_dict", Box::new(state_dict));
+    println!("CONTRACT STATES: {:?}", exec_scopes);
 
     Ok(())
 }

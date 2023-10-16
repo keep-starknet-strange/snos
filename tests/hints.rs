@@ -18,7 +18,9 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use common::load_and_write_input;
 use common::utils::check_output_vs_python;
-use rstest::*;
+
+use rstest::{fixture, rstest};
+
 use snos::hints::block_context::{load_deprecated_class_facts, load_deprecated_inner, sequencer_address};
 use snos::hints::hints_raw::*;
 use snos::hints::{check_deprecated_class_hash, starknet_os_input};
@@ -34,7 +36,6 @@ fn os_input_hint_processor(_load_and_write_input: &(StarknetOsInput, String)) ->
     hint_processor
 }
 
-// TODO: remove should panic once fixed
 #[rstest]
 fn block_context_test(mut os_input_hint_processor: BuiltinHintProcessor) {
     let program = "build/programs/load_deprecated_class.json";
@@ -54,8 +55,20 @@ fn block_context_test(mut os_input_hint_processor: BuiltinHintProcessor) {
     let sequencer_address_hint = HintFunc(Box::new(sequencer_address));
     os_input_hint_processor.add_hint(String::from(SEQUENCER_ADDRESS), Rc::new(sequencer_address_hint));
 
-    let debug_hint = HintFunc(Box::new(debug_id));
-    os_input_hint_processor.add_hint(String::from("print('COMPILED: ', ids.hash)"), Rc::new(debug_hint));
+    let run_output = cairo_run(
+        &fs::read(program).unwrap(),
+        &CairoRunConfig { layout: "starknet", relocate_mem: true, trace_enabled: true, ..Default::default() },
+        &mut os_input_hint_processor,
+    );
+    check_output_vs_python(run_output, program, true);
+}
+
+#[rstest]
+fn initialize_state_changes_test(mut os_input_hint_processor: BuiltinHintProcessor) {
+    let program = "build/programs/initialize_state_changes.json";
+
+    let initialize_state_changes_hint = HintFunc(Box::new(initialize_state_changes));
+    os_input_hint_processor.add_hint(String::from(INITIALIZE_STATE_CHANGES), Rc::new(initialize_state_changes_hint));
 
     let run_output = cairo_run(
         &fs::read(program).unwrap(),

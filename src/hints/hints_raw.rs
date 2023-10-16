@@ -1,5 +1,4 @@
-pub const STARKNET_OS_INPUT: &str =
-    "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
+pub const STARKNET_OS_INPUT: &str = "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
      StarknetOsInput.load(data=program_input)\n\nids.initial_carried_outputs.messages_to_l1 = \
      segments.add_temp_segment()\nids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()";
 
@@ -28,3 +27,16 @@ pub const CHECK_DEPRECATED_CLASS_HASH: &str =
 
 /// This is the equivalent of nondet %{ os_input.general_config.sequencer_address %}
 pub const SEQUENCER_ADDRESS: &str = "memory[ap] = to_felt_or_relocatable(os_input.general_config.sequencer_address)";
+
+pub const DEPRECATED_BLOCK_NUMBER: &str =
+    "memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_number)";
+
+pub const DEPRECATED_BLOCK_TIMESTAMP: &str =
+    "memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_timestamp)";
+
+pub const CHAIN_ID: &str = "memory[ap] = to_felt_or_relocatable(os_input.general_config.chain_id.value)";
+
+pub const FEE_TOKEN_ADDRESS: &str = "memory[ap] = to_felt_or_relocatable(os_input.general_config.fee_token_address)";
+
+pub const INITIALIZE_STATE_CHANGES: &str =
+    "from starkware.python.utils import from_bytes\n\ninitial_dict = {\n    address: segments.gen_arg(\n        (from_bytes(contract.contract_hash), segments.add(), contract.nonce))\n    for address, contract in os_input.contracts.items()\n}";

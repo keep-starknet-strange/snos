@@ -14,6 +14,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContract
 
 use crate::io::classes::write_deprecated_class;
 use crate::io::StarknetOsInput;
+use crate::utils::felt_api2vm;
 
 /// Implements hint:
 ///
@@ -103,6 +104,72 @@ pub fn load_deprecated_inner(
     write_deprecated_class(vm, dep_class_base, deprecated_class)?;
 
     insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_number)
+pub fn deprecated_block_number(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // TODO: replace w/ block context from syscall handler
+    insert_value_into_ap(vm, Felt252::from(1))?;
+
+    Ok(())
+}
+
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_timestamp)
+pub fn deprecated_block_timestamp(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // TODO: replace w/ block context from syscall handler
+    insert_value_into_ap(vm, Felt252::from(1000))?;
+
+    Ok(())
+}
+
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(os_input.general_config.chain_id.value)
+pub fn chain_id(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let chain_id =
+        Felt252::from(u128::from_str_radix(&os_input.general_config.starknet_os_config.chain_id.0, 16).unwrap());
+    insert_value_into_ap(vm, chain_id)?;
+
+    Ok(())
+}
+
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(os_input.general_config.fee_token_address)
+pub fn fee_token_address(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    insert_value_into_ap(vm, felt_api2vm(*os_input.general_config.starknet_os_config.fee_token_address.0.key()))?;
 
     Ok(())
 }
