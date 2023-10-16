@@ -1,8 +1,9 @@
 use cairo_felt::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::insert_value_from_var_name;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{insert_value_from_var_name, insert_value_into_ap};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
@@ -12,13 +13,14 @@ use std::collections::HashMap;
 
 use crate::io::classes::write_deprecated_class;
 use crate::io::StarknetOsInput;
-// Implements hint:
-//
-// ids.compiled_class_facts = segments.add()
-// ids.n_compiled_class_facts = len(os_input.compiled_classes)
-// vm_enter_scope({
-// 'compiled_class_facts': iter(os_input.compiled_classes.items()),
-// })
+
+/// Implements hint:
+///
+/// ids.compiled_class_facts = segments.add()
+/// ids.n_compiled_class_facts = len(os_input.compiled_classes)
+/// vm_enter_scope({
+/// 'compiled_class_facts': iter(os_input.compiled_classes.items()),
+/// })
 pub fn load_class_facts(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -38,15 +40,15 @@ pub fn load_class_facts(
     Ok(())
 }
 
-// Implements hint:
-//
-// # Creates a set of deprecated class hashes to distinguish calls to deprecated entry points.
-// __deprecated_class_hashes=set(os_input.deprecated_compiled_classes.keys())
-// ids.compiled_class_facts = segments.add()
-// ids.n_compiled_class_facts = len(os_input.deprecated_compiled_classes)
-// vm_enter_scope({
-// 'compiled_class_facts': iter(os_input.deprecated_compiled_classes.items()),
-// })
+/// Implements hint:
+///
+/// # Creates a set of deprecated class hashes to distinguish calls to deprecated entry points.
+/// __deprecated_class_hashes=set(os_input.deprecated_compiled_classes.keys())
+/// ids.compiled_class_facts = segments.add()
+/// ids.n_compiled_class_facts = len(os_input.deprecated_compiled_classes)
+/// vm_enter_scope({
+/// 'compiled_class_facts': iter(os_input.deprecated_compiled_classes.items()),
+/// })
 pub fn load_deprecated_class_facts(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -71,17 +73,17 @@ pub fn load_deprecated_class_facts(
     Ok(())
 }
 
-// Implements hint:
-//
-// from starkware.starknet.core.os.contract_class.deprecated_class_hash import (
-// get_deprecated_contract_class_struct,
-// )
-//
-// compiled_class_hash, compiled_class = next(compiled_class_facts)
-//
-// cairo_contract = get_deprecated_contract_class_struct(
-// identifiers=ids._context.identifiers, contract_class=compiled_class)
-// ids.compiled_class = segments.gen_arg(cairo_contract)
+/// Implements hint:
+///
+/// from starkware.starknet.core.os.contract_class.deprecated_class_hash import (
+/// get_deprecated_contract_class_struct,
+/// )
+///
+/// compiled_class_hash, compiled_class = next(compiled_class_facts)
+///
+/// cairo_contract = get_deprecated_contract_class_struct(
+/// identifiers=ids._context.identifiers, contract_class=compiled_class)
+/// ids.compiled_class = segments.gen_arg(cairo_contract)
 pub fn load_deprecated_inner(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -102,4 +104,21 @@ pub fn load_deprecated_inner(
     insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)?;
 
     Ok(())
+}
+
+/// Implements hint:
+///
+/// os_input.general_config.sequencer_address
+pub fn sequencer_address(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    insert_value_into_ap(
+        vm,
+        MaybeRelocatable::Int(Felt252::from_bytes_be(&os_input.general_config.sequencer_address.0.key().bytes())),
+    )
 }
