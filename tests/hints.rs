@@ -19,8 +19,9 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use common::load_and_write_input;
 use common::utils::check_output_vs_python;
 use rstest::*;
+use snos::hints::block_context::{load_deprecated_class_facts, load_deprecated_inner};
 use snos::hints::hints_raw::*;
-use snos::hints::{check_deprecated_class_hash, load_deprecated_class_facts, load_deprecated_inner, starknet_os_input};
+use snos::hints::{check_deprecated_class_hash, starknet_os_input};
 use snos::io::StarknetOsInput;
 
 #[fixture]
