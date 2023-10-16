@@ -50,6 +50,8 @@ func main{output_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
 
     assert n_compiled_class_facts = 5;
 
+    tempvar sequencer_address = nondet %{ os_input.general_config.sequencer_address %};
+
     return ();
 }
 

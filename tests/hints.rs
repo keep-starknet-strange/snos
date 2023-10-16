@@ -19,8 +19,9 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use common::load_and_write_input;
 use common::utils::check_output_vs_python;
 use rstest::*;
+use snos::hints::block_context::{load_deprecated_class_facts, load_deprecated_inner, sequencer_address};
 use snos::hints::hints_raw::*;
-use snos::hints::{check_deprecated_class_hash, load_deprecated_class_facts, load_deprecated_inner, starknet_os_input};
+use snos::hints::{check_deprecated_class_hash, starknet_os_input};
 use snos::io::StarknetOsInput;
 
 #[fixture]
@@ -35,7 +36,7 @@ fn os_input_hint_processor(_load_and_write_input: &(StarknetOsInput, String)) ->
 
 // TODO: remove should panic once fixed
 #[rstest]
-fn load_deprecated_class_test(mut os_input_hint_processor: BuiltinHintProcessor) {
+fn block_context_test(mut os_input_hint_processor: BuiltinHintProcessor) {
     let program = "build/programs/load_deprecated_class.json";
 
     let load_deprecated_class_facts_hint = HintFunc(Box::new(load_deprecated_class_facts));
@@ -49,6 +50,9 @@ fn load_deprecated_class_test(mut os_input_hint_processor: BuiltinHintProcessor)
     let check_deprecated_class_hash_hint = HintFunc(Box::new(check_deprecated_class_hash));
     os_input_hint_processor
         .add_hint(String::from(CHECK_DEPRECATED_CLASS_HASH), Rc::new(check_deprecated_class_hash_hint));
+
+    let sequencer_address_hint = HintFunc(Box::new(sequencer_address));
+    os_input_hint_processor.add_hint(String::from(SEQUENCER_ADDRESS), Rc::new(sequencer_address_hint));
 
     let debug_hint = HintFunc(Box::new(debug_id));
     os_input_hint_processor.add_hint(String::from("print('COMPILED: ', ids.hash)"), Rc::new(debug_hint));
