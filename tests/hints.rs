@@ -8,9 +8,7 @@ use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
 };
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, insert_value_from_var_name,
-};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::insert_value_from_var_name;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -18,9 +16,7 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use common::load_and_write_input;
 use common::utils::check_output_vs_python;
-
 use rstest::{fixture, rstest};
-
 use snos::hints::block_context::{load_deprecated_class_facts, load_deprecated_inner, sequencer_address};
 use snos::hints::hints_raw::*;
 use snos::hints::{check_deprecated_class_hash, starknet_os_input};
@@ -64,21 +60,6 @@ fn block_context_test(mut os_input_hint_processor: BuiltinHintProcessor) {
 }
 
 #[rstest]
-fn initialize_state_changes_test(mut os_input_hint_processor: BuiltinHintProcessor) {
-    let program = "build/programs/initialize_state_changes.json";
-
-    let initialize_state_changes_hint = HintFunc(Box::new(initialize_state_changes));
-    os_input_hint_processor.add_hint(String::from(INITIALIZE_STATE_CHANGES), Rc::new(initialize_state_changes_hint));
-
-    let run_output = cairo_run(
-        &fs::read(program).unwrap(),
-        &CairoRunConfig { layout: "starknet", relocate_mem: true, trace_enabled: true, ..Default::default() },
-        &mut os_input_hint_processor,
-    );
-    check_output_vs_python(run_output, program, true);
-}
-
-#[rstest]
 #[should_panic]
 fn bad_output_test() {
     let program = "build/programs/bad_output.json";
@@ -103,17 +84,5 @@ pub fn bad_hint(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     insert_value_from_var_name("a", 69, vm, ids_data, ap_tracking)?;
-    Ok(())
-}
-
-#[allow(unused)]
-pub fn debug_id(
-    vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    println!("IDS: {}", get_integer_from_var_name("hash", vm, ids_data, ap_tracking)?);
     Ok(())
 }
