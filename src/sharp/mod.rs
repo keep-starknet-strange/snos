@@ -1,9 +1,10 @@
 pub mod pie;
 
+use std::path::PathBuf;
+
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use serde::Deserialize;
 use serde_json::json;
-use std::path::PathBuf;
 use uuid::Uuid;
 
 use crate::error::SnOsError;
@@ -68,11 +69,7 @@ pub struct SharpClient {
 
 impl SharpClient {
     pub fn new(sharp_addr: Option<String>, pie_path: Option<PathBuf>) -> Self {
-        Self {
-            client: reqwest::blocking::Client::new(),
-            sharp_addr: sharp_addr.unwrap_or_default(),
-            pie_path,
-        }
+        Self { client: reqwest::blocking::Client::new(), sharp_addr: sharp_addr.unwrap_or_default(), pie_path }
     }
 
     pub fn submit_pie(&self, pie_raw: CairoPie) -> Result<CairoJobResponse, SnOsError> {
@@ -93,16 +90,13 @@ impl SharpClient {
             .map_err(|e| SnOsError::SharpRequest(format!("{e}")))?;
 
         match resp.status() {
-            reqwest::StatusCode::OK => resp
-                .json()
-                .map_err(|e| SnOsError::SharpRequest(format!("{e}"))),
+            reqwest::StatusCode::OK => resp.json().map_err(|e| SnOsError::SharpRequest(format!("{e}"))),
             _ => Err(SnOsError::SharpRequest("could not submit pie".to_string())),
         }
     }
 
     pub fn get_status(&self, job_key: &str) -> Result<CairoStatusResponse, SnOsError> {
-        let data =
-            serde_json::json!({ "action": "get_status", "request": { "cairo_job_key": job_key } });
+        let data = serde_json::json!({ "action": "get_status", "request": { "cairo_job_key": job_key } });
 
         let resp = self
             .client
@@ -112,22 +106,14 @@ impl SharpClient {
             .map_err(|e| SnOsError::SharpRequest(format!("{e}")))?;
 
         match resp.status() {
-            reqwest::StatusCode::OK => resp
-                .json()
-                .map_err(|e| SnOsError::SharpRequest(format!("{e}"))),
-            _ => Err(SnOsError::SharpRequest(
-                "could not get job status".to_string(),
-            )),
+            reqwest::StatusCode::OK => resp.json().map_err(|e| SnOsError::SharpRequest(format!("{e}"))),
+            _ => Err(SnOsError::SharpRequest("could not get job status".to_string())),
         }
     }
 }
 
 impl Default for SharpClient {
     fn default() -> Self {
-        Self {
-            client: reqwest::blocking::Client::new(),
-            sharp_addr: DEFUALT_SHARP_URL.to_string(),
-            pie_path: None,
-        }
+        Self { client: reqwest::blocking::Client::new(), sharp_addr: DEFUALT_SHARP_URL.to_string(), pie_path: None }
     }
 }

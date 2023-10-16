@@ -1,32 +1,24 @@
+use std::collections::HashMap;
+use std::{fs, path};
+
 use anyhow::anyhow;
-use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0, view::BitView};
+use bitvec::prelude::{BitSlice, BitVec, Msb0};
+use bitvec::view::BitView;
 use blockifier::execution::contract_class::ContractClassV0;
 use cairo_felt::{felt_str, Felt252};
-use starknet_api::core::ChainId;
-
 use cairo_vm_blockifier::types::program::Program;
-
-use std::collections::HashMap;
-use std::fs;
-use std::path;
-
-use crate::config::DEFAULT_COMPILER_VERSION;
-
-use starknet_api::core::{ClassHash, Nonce, PatriciaKey};
-use starknet_api::deprecated_contract_class::{
-    ContractClass as DeprecatedContractClass, Program as DeprecatedProgram,
-};
-use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
-use starknet_api::stark_felt;
-
-use serde::Deserialize;
-
 use lazy_static::lazy_static;
 use num_traits::Num;
 use regex::Regex;
-use serde::{de, ser, Deserializer, Serialize, Serializer};
+use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Number;
 use serde_with::{DeserializeAs, SerializeAs};
+use starknet_api::core::{ChainId, ClassHash, Nonce, PatriciaKey};
+use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, Program as DeprecatedProgram};
+use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
+use starknet_api::stark_felt;
+
+use crate::config::DEFAULT_COMPILER_VERSION;
 
 pub const REPLACE_KEY: &str = "replace:";
 
@@ -35,11 +27,7 @@ lazy_static! {
 }
 
 /// Calculates the contract state hash from its preimage.
-pub fn calculate_contract_state_hash(
-    class_hash: ClassHash,
-    contract_root: PatriciaKey,
-    nonce: Nonce,
-) -> StarkHash {
+pub fn calculate_contract_state_hash(class_hash: ClassHash, contract_root: PatriciaKey, nonce: Nonce) -> StarkHash {
     const CONTRACT_STATE_HASH_VERSION: StarkFelt = StarkFelt::ZERO;
 
     // The contract state hash is defined as H(H(H(hash, root), nonce), CONTRACT_STATE_HASH_VERSION)
@@ -158,9 +146,7 @@ impl<'de> DeserializeAs<'de, Felt252> for Felt252Num {
         let felt_num = Number::deserialize(deserializer)?;
         match Felt252::parse_bytes(felt_num.to_string().as_bytes(), 10) {
             Some(x) => Ok(x),
-            None => Err(de::Error::custom(String::from(
-                "felt_from_number parse error",
-            ))),
+            None => Err(de::Error::custom(String::from("felt_from_number parse error"))),
         }
     }
 }
@@ -228,10 +214,8 @@ impl<'de> DeserializeAs<'de, DeprecatedContractClass> for DeprecatedContractClas
         let raw_class = if path_prefix != REPLACE_KEY {
             deprecated_class
         } else {
-            fs::read_to_string(path::PathBuf::from(
-                deprecated_class.trim_start_matches(REPLACE_KEY),
-            ))
-            .map_err(de::Error::custom)?
+            fs::read_to_string(path::PathBuf::from(deprecated_class.trim_start_matches(REPLACE_KEY)))
+                .map_err(de::Error::custom)?
         };
 
         serde_json::from_str(&raw_class).map_err(de::Error::custom)
@@ -239,10 +223,7 @@ impl<'de> DeserializeAs<'de, DeprecatedContractClass> for DeprecatedContractClas
 }
 
 impl SerializeAs<DeprecatedContractClass> for DeprecatedContractClassStr {
-    fn serialize_as<S>(
-        deprecated_class: &DeprecatedContractClass,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    fn serialize_as<S>(deprecated_class: &DeprecatedContractClass, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -252,9 +233,9 @@ impl SerializeAs<DeprecatedContractClass> for DeprecatedContractClassStr {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use bitvec::prelude::*;
+
+    use super::*;
 
     #[test]
     fn felt_conversions() {

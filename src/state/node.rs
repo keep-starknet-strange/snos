@@ -1,24 +1,20 @@
-//!
 //! pathfinder/crates/merkle-tree
-//!
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-use super::trie::StarkHasher;
-use crate::utils::felt_from_bits_api;
-use bitvec::{order::Msb0, prelude::BitVec, slice::BitSlice};
+use bitvec::order::Msb0;
+use bitvec::prelude::BitVec;
+use bitvec::slice::BitSlice;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_crypto::FieldElement;
 
+use super::trie::StarkHasher;
+use crate::utils::felt_from_bits_api;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TrieNode {
-    Binary {
-        left: StarkFelt,
-        right: StarkFelt,
-    },
-    Edge {
-        child: StarkFelt,
-        path: BitVec<u8, Msb0>,
-    },
+    Binary { left: StarkFelt, right: StarkFelt },
+    Edge { child: StarkFelt, path: BitVec<u8, Msb0> },
 }
 
 impl TrieNode {
@@ -178,18 +174,12 @@ impl EdgeNode {
     /// This is calculated with the edge's height taken into account.
     pub fn common_path(&self, key: &BitSlice<u8, Msb0>) -> &BitSlice<u8, Msb0> {
         let key_path = key.iter().skip(self.height);
-        let common_length = key_path
-            .zip(self.path.iter())
-            .take_while(|(a, b)| a == b)
-            .count();
+        let common_length = key_path.zip(self.path.iter()).take_while(|(a, b)| a == b).count();
 
         &self.path[..common_length]
     }
 
-    pub(crate) fn calculate_hash<H: StarkHasher>(
-        child: &StarkFelt,
-        path: &BitSlice<u8, Msb0>,
-    ) -> StarkHash {
+    pub(crate) fn calculate_hash<H: StarkHasher>(child: &StarkFelt, path: &BitSlice<u8, Msb0>) -> StarkHash {
         let mut length = [0; 32];
         // Safe as len() is guaranteed to be <= 251
         length[31] = path.len() as u8;

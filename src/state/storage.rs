@@ -1,11 +1,10 @@
+use std::collections::HashMap;
+
 use anyhow::Context;
-use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0};
+use bitvec::prelude::{BitSlice, BitVec, Msb0};
 use starknet_api::hash::StarkFelt;
 
 use super::trie::{MerkleTrie, StarkHasher};
-
-use std::collections::HashMap;
-
 use crate::utils::felt_from_bits_api;
 
 /// Read-only storage used by the [Trie](crate::trie::Trie).
@@ -20,18 +19,10 @@ pub trait Storage {
 
 #[derive(Clone, Debug)]
 pub enum Node {
-    Binary {
-        left: Child,
-        right: Child,
-    },
-    Edge {
-        child: Child,
-        path: BitVec<u8, Msb0>,
-    },
+    Binary { left: Child, right: Child },
+    Edge { child: Child, path: BitVec<u8, Msb0> },
     LeafBinary,
-    LeafEdge {
-        path: BitVec<u8, Msb0>,
-    },
+    LeafEdge { path: BitVec<u8, Msb0> },
 }
 
 #[derive(Clone, Debug)]
@@ -98,16 +89,12 @@ impl TrieStorage {
                 Node::Binary { left, right } => {
                     let left = match left {
                         Child::Id(idx) => idx,
-                        Child::Hash(hash) => {
-                            *indices.get(&hash).expect("Left child should have an index")
-                        }
+                        Child::Hash(hash) => *indices.get(&hash).expect("Left child should have an index"),
                     };
 
                     let right = match right {
                         Child::Id(idx) => idx,
-                        Child::Hash(hash) => *indices
-                            .get(&hash)
-                            .expect("Right child should have an index"),
+                        Child::Hash(hash) => *indices.get(&hash).expect("Right child should have an index"),
                     };
 
                     StoredNode::Binary { left, right }
@@ -115,9 +102,7 @@ impl TrieStorage {
                 Node::Edge { child, path } => {
                     let child = match child {
                         Child::Id(idx) => idx,
-                        Child::Hash(hash) => {
-                            *indices.get(&hash).expect("Child should have an index")
-                        }
+                        Child::Hash(hash) => *indices.get(&hash).expect("Child should have an index"),
                     };
 
                     StoredNode::Edge { child, path }
@@ -126,8 +111,7 @@ impl TrieStorage {
                 Node::LeafEdge { path } => StoredNode::LeafEdge { path },
             };
 
-            self.nodes
-                .insert(*indices.get(&hash).unwrap(), (hash, node));
+            self.nodes.insert(*indices.get(&hash).unwrap(), (hash, node));
         }
 
         let index = *indices.get(&update.root).unwrap();
