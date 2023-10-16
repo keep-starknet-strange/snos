@@ -25,3 +25,6 @@ pub const CHECK_DEPRECATED_CLASS_HASH: &str =
      compiled_class_hash\nassert computed_hash == expected_hash, (\n    \"Computed compiled_class_hash is \
      inconsistent with the hash in the os_input. \"\n    f\"Computed hash = {computed_hash}, Expected hash = \
      {expected_hash}.\")\n\nvm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)";
+
+/// This is the equivalent of nondet %{ os_input.general_config.sequencer_address %}
+pub const SEQUENCER_ADDRESS: &str = "memory[ap] = to_felt_or_relocatable(os_input.general_config.sequencer_address)";

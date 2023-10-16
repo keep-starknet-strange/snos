@@ -1,3 +1,7 @@
+use std::any::Any;
+use std::collections::hash_map::IntoIter;
+use std::collections::HashMap;
+
 use cairo_felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{insert_value_from_var_name, insert_value_into_ap};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
@@ -7,9 +11,6 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use std::any::Any;
-use std::collections::hash_map::IntoIter;
-use std::collections::HashMap;
 
 use crate::io::classes::write_deprecated_class;
 use crate::io::StarknetOsInput;
@@ -119,6 +120,6 @@ pub fn sequencer_address(
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
     insert_value_into_ap(
         vm,
-        MaybeRelocatable::Int(Felt252::from_bytes_be(&os_input.general_config.sequencer_address.0.key().bytes())),
+        MaybeRelocatable::Int(Felt252::from_bytes_be(os_input.general_config.sequencer_address.0.key().bytes())),
     )
 }

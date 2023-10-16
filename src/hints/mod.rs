@@ -4,7 +4,6 @@ pub mod hints_raw;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::io::StarknetOsInput;
 use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
@@ -15,6 +14,8 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+
+use crate::io::StarknetOsInput;
 
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let mut hint_processor = BuiltinHintProcessor::new_empty();
