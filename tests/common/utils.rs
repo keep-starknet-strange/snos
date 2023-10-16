@@ -1,21 +1,15 @@
-use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
-use cairo_vm::vm::vm_core::VirtualMachine;
-
-use starknet_api::core::ContractAddress;
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
+use std::{env, fs, path};
 
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
-
-use std::env;
-use std::fs;
-use std::path;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::vm_core::VirtualMachine;
+use starknet_api::core::ContractAddress;
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use super::*;
 
 pub fn load_class_v0(path: &str) -> ContractClass {
-    ContractClassV0::try_from_json_string(&load_class_raw(path))
-        .unwrap()
-        .into()
+    ContractClassV0::try_from_json_string(&load_class_raw(path)).unwrap().into()
 }
 
 #[allow(unused)]
@@ -39,22 +33,16 @@ pub fn check_output_vs_python(
         Err(e) => Ok(rs_output.push_str(&format!("{e:#?}"))),
     };
 
-    println!(
-        "\n-------------------------------RUST PROGRAM OUTPUT-------------------------------\n"
-    );
+    println!("\n-------------------------------RUST PROGRAM OUTPUT-------------------------------\n");
     println!("Program output:");
     println!("{rs_output}");
 
     let py_output = deprecated_cairo_python_run(program, with_input);
-    println!(
-        "\n------------------------------PYTHON PROGRAM OUTPUT------------------------------\n"
-    );
+    println!("\n------------------------------PYTHON PROGRAM OUTPUT------------------------------\n");
     println!("Program output:");
     println!("{py_output}\n");
 
-    println!(
-        "\n--------------------------------------------------------------------------------\n"
-    );
+    println!("\n--------------------------------------------------------------------------------\n");
 
     for (i, (rs, py)) in rs_output.split('\n').zip(py_output.split('\n')).enumerate() {
         pretty_assertions::assert_eq!(rs, py, "Output Differs({i})");
@@ -64,10 +52,7 @@ pub fn check_output_vs_python(
 pub fn deprecated_cairo_python_run(program: &str, with_input: bool) -> String {
     env::set_var("PYTHONPATH", "cairo-lang/src");
     let mut run_cmd = std::process::Command::new("cairo-run");
-    run_cmd
-        .arg(format!("--program={program}"))
-        .arg("--layout=small")
-        .arg("--print_output");
+    run_cmd.arg(format!("--program={program}")).arg("--layout=small").arg("--print_output");
 
     if with_input {
         run_cmd.arg("--program_input=build/os_input_w_classes.json");
@@ -87,22 +72,12 @@ pub fn raw_deploy(
     class_hash: ClassHash,
 ) -> ContractAddress {
     let contract_class = load_class_v0(class_path);
-    shared_state
-        .cache
-        .set_contract_class(&class_hash, contract_class)
-        .unwrap();
+    shared_state.cache.set_contract_class(&class_hash, contract_class).unwrap();
 
-    let contract_addr = calculate_contract_address(
-        ContractAddressSalt::default(),
-        class_hash,
-        &calldata![],
-        contract_address!(0_u32),
-    )
-    .unwrap();
-    shared_state
-        .cache
-        .set_class_hash_at(contract_addr, class_hash)
-        .unwrap();
+    let contract_addr =
+        calculate_contract_address(ContractAddressSalt::default(), class_hash, &calldata![], contract_address!(0_u32))
+            .unwrap();
+    shared_state.cache.set_class_hash_at(contract_addr, class_hash).unwrap();
 
     contract_addr
 }

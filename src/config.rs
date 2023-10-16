@@ -1,3 +1,8 @@
+use std::collections::HashMap;
+use std::fs::File;
+use std::path::PathBuf;
+use std::sync::Arc;
+
 use blockifier::abi::constants::{INITIAL_GAS_COST, MAX_STEPS_PER_TX, N_STEPS_RESOURCE};
 use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use blockifier::transaction::objects::FeeType;
@@ -7,25 +12,18 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
-use std::collections::HashMap;
-use std::fs::File;
-use std::path::PathBuf;
-use std::sync::Arc;
 
 use crate::error::SnOsError;
 
-const DEFAULT_CONFIG_PATH: &str =
-    "cairo-lang/src/starkware/starknet/definitions/general_config.yml";
+const DEFAULT_CONFIG_PATH: &str = "cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 
 pub const DEFAULT_LAYOUT: &str = "starknet_with_keccak";
 pub const DEFAULT_COMPILED_OS: &str = "build/os_latest.json";
 pub const DEFAULT_COMPILER_VERSION: &str = "0.12.2";
 pub const DEFAULT_STORAGE_TREE_HEIGHT: usize = 251;
 pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
-pub const DEFAULT_FEE_TOKEN_ADDR: &str =
-    "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
-pub const SEQUENCER_ADDR_0_12_2: &str =
-    "6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa";
+pub const DEFAULT_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
+pub const SEQUENCER_ADDR_0_12_2: &str = "6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa";
 
 use crate::utils::ChainIdNum;
 #[serde_as]
@@ -72,10 +70,7 @@ impl Default for StarknetGeneralConfig {
                 sequencer_address: contract_address!(SEQUENCER_ADDR_0_12_2),
                 tx_commitment_tree_height: DEFAULT_INNER_TREE_HEIGHT,
                 event_commitment_tree_height: DEFAULT_INNER_TREE_HEIGHT,
-                cairo_resource_fee_weights: Arc::new(HashMap::from([(
-                    N_STEPS_RESOURCE.to_string(),
-                    1.0,
-                )])),
+                cairo_resource_fee_weights: Arc::new(HashMap::from([(N_STEPS_RESOURCE.to_string(), 1.0)])),
                 enforce_l1_handler_fee: true,
             },
         }
@@ -98,10 +93,7 @@ impl StarknetGeneralConfig {
                 strk_fee_token_address: contract_address!("0x0"),
             },
             vm_resource_fee_cost: self.cairo_resource_fee_weights.clone(),
-            gas_prices: GasPrices {
-                eth_l1_gas_price: self.min_gas_price,
-                strk_l1_gas_price: self.min_gas_price,
-            },
+            gas_prices: GasPrices { eth_l1_gas_price: self.min_gas_price, strk_l1_gas_price: self.min_gas_price },
             invoke_tx_max_n_steps: self.invoke_tx_max_n_steps,
             validate_max_n_steps: self.validate_max_n_steps,
             max_recursion_depth: 50,
@@ -116,9 +108,7 @@ impl TryFrom<BlockContext> for StarknetGeneralConfig {
         Ok(Self {
             starknet_os_config: StarknetOsConfig {
                 chain_id: block_context.chain_id,
-                fee_token_address: block_context
-                    .fee_token_addresses
-                    .get_by_fee_type(&FeeType::Eth),
+                fee_token_address: block_context.fee_token_addresses.get_by_fee_type(&FeeType::Eth),
             },
             sequencer_address: block_context.sequencer_address,
             cairo_resource_fee_weights: block_context.vm_resource_fee_cost,
@@ -161,10 +151,7 @@ mod tests {
         let ctx: BlockContext = conf.empty_block_context();
 
         assert_eq!(conf.starknet_os_config.chain_id, ctx.chain_id);
-        assert_eq!(
-            conf.starknet_os_config.fee_token_address,
-            ctx.fee_token_addresses.get_by_fee_type(&FeeType::Eth)
-        );
+        assert_eq!(conf.starknet_os_config.fee_token_address, ctx.fee_token_addresses.get_by_fee_type(&FeeType::Eth));
         assert_eq!(conf.sequencer_address, ctx.sequencer_address);
         assert_eq!(conf.cairo_resource_fee_weights, ctx.vm_resource_fee_cost);
     }

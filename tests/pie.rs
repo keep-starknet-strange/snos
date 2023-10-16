@@ -1,15 +1,12 @@
 mod common;
-use common::setup_pie;
-
-use rstest::rstest;
-use serde_json::json;
+use std::collections::HashMap;
 
 use cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME;
-use cairo_vm::vm::runners::cairo_pie::{
-    BuiltinAdditionalData, CairoPie, OutputBuiltinAdditionalData, SegmentInfo,
-};
+use cairo_vm::vm::runners::cairo_pie::{BuiltinAdditionalData, CairoPie, OutputBuiltinAdditionalData, SegmentInfo};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use std::collections::HashMap;
+use common::setup_pie;
+use rstest::rstest;
+use serde_json::json;
 
 #[rstest]
 fn pie_metadata_ok(setup_pie: CairoPie) {
@@ -17,8 +14,7 @@ fn pie_metadata_ok(setup_pie: CairoPie) {
 
     assert_eq!(pie_metadata.ret_pc_segment, SegmentInfo::from((4, 0)));
     assert_eq!(pie_metadata.ret_fp_segment, SegmentInfo::from((3, 0)));
-    let expected_builtin_segments =
-        HashMap::from([(String::from("output"), SegmentInfo::from((2, 3)))]);
+    let expected_builtin_segments = HashMap::from([(String::from("output"), SegmentInfo::from((2, 3)))]);
     assert_eq!(pie_metadata.builtin_segments, expected_builtin_segments);
     assert_eq!(pie_metadata.program_segment, SegmentInfo::from((0, 12)));
     assert_eq!(pie_metadata.execution_segment, SegmentInfo::from((1, 7)));
@@ -41,10 +37,7 @@ fn pie_additional_data_ok(setup_pie: CairoPie) {
 
     assert_eq!(additional_data, expected_additional_data);
     let additional_data_s = serde_json::to_value(&additional_data).unwrap();
-    assert_eq!(
-        additional_data_s,
-        json!({"output_builtin": {"pages": {}, "attributes": {}}})
-    );
+    assert_eq!(additional_data_s, json!({"output_builtin": {"pages": {}, "attributes": {}}}));
 }
 
 #[rstest]

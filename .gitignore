@@ -8,6 +8,6 @@ build/*
 
 # Cairo dependencies
 cairo-lang
-
+venv
 # Hint Dependency symlink
 starkware

@@ -1,15 +1,16 @@
-//!
 //! pathfinder/crates/merkle-tree
-//!
+
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::ops::ControlFlow;
+use std::rc::Rc;
+
+use anyhow::Context;
+use bitvec::prelude::{BitSlice, BitVec, Msb0};
+use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 
 use super::node::{BinaryNode, Direction, EdgeNode, InternalNode, TrieNode};
 use super::storage::{Child, Node, Storage, StoredNode};
-use anyhow::Context;
-use bitvec::{prelude::BitSlice, prelude::BitVec, prelude::Msb0};
-use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
-use std::collections::HashMap;
-use std::ops::ControlFlow;
-use std::{cell::RefCell, rc::Rc};
 
 pub trait StarkHasher {
     fn hash(a: &StarkFelt, b: &StarkFelt) -> StarkHash;
@@ -48,12 +49,7 @@ pub struct TrieUpdate {
 impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     pub fn new(root: u64) -> Self {
         let root = Some(Rc::new(RefCell::new(InternalNode::Unresolved(root))));
-        Self {
-            root,
-            _hasher: std::marker::PhantomData,
-            verify_hashes: false,
-            leaves: Default::default(),
-        }
+        Self { root, _hasher: std::marker::PhantomData, verify_hashes: false, leaves: Default::default() }
     }
 
     pub fn with_verify_hashes(mut self, verify_hashes: bool) -> Self {
@@ -62,12 +58,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     }
 
     pub fn empty() -> Self {
-        Self {
-            root: None,
-            _hasher: std::marker::PhantomData,
-            verify_hashes: false,
-            leaves: Default::default(),
-        }
+        Self { root: None, _hasher: std::marker::PhantomData, verify_hashes: false, leaves: Default::default() }
     }
 
     /// Commits all tree mutations and returns the [changes](TrieUpdate) to the tree.
@@ -113,10 +104,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
             InternalNode::Unresolved(idx) => {
                 // Unresovlved nodes are already committed, but we need their hash for subsequent
                 // iterations.
-                storage
-                    .hash(*idx)
-                    .context("Fetching stored node's hash")?
-                    .context("Stored node's hash is missing")?
+                storage.hash(*idx).context("Fetching stored node's hash")?.context("Stored node's hash is missing")?
             }
             InternalNode::Leaf => {
                 if let Some(value) = self.leaves.get(&path) {
@@ -131,16 +119,10 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
             InternalNode::Binary(binary) => {
                 let mut left_path = path.clone();
                 left_path.push(Direction::Left.into());
-                let left_hash =
-                    self.commit_subtree(&mut binary.left.borrow_mut(), added, storage, left_path)?;
+                let left_hash = self.commit_subtree(&mut binary.left.borrow_mut(), added, storage, left_path)?;
                 let mut right_path = path.clone();
                 right_path.push(Direction::Right.into());
-                let right_hash = self.commit_subtree(
-                    &mut binary.right.borrow_mut(),
-                    added,
-                    storage,
-                    right_path,
-                )?;
+                let right_hash = self.commit_subtree(&mut binary.right.borrow_mut(), added, storage, right_path)?;
                 let hash = BinaryNode::calculate_hash::<H>(&left_hash, &right_hash);
 
                 let persisted_node = match (&*binary.left.borrow(), &*binary.right.borrow()) {
@@ -168,23 +150,14 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
             }
             InternalNode::Edge(edge) => {
                 path.extend_from_bitslice(&edge.path);
-                let child_hash =
-                    self.commit_subtree(&mut edge.child.borrow_mut(), added, storage, path)?;
+                let child_hash = self.commit_subtree(&mut edge.child.borrow_mut(), added, storage, path)?;
 
                 let hash = EdgeNode::calculate_hash::<H>(&child_hash, &edge.path);
 
                 let persisted_node = match *edge.child.borrow() {
-                    InternalNode::Leaf => Node::LeafEdge {
-                        path: edge.path.clone(),
-                    },
-                    InternalNode::Unresolved(idx) => Node::Edge {
-                        child: Child::Id(idx),
-                        path: edge.path.clone(),
-                    },
-                    _ => Node::Edge {
-                        child: Child::Hash(child_hash),
-                        path: edge.path.clone(),
-                    },
+                    InternalNode::Leaf => Node::LeafEdge { path: edge.path.clone() },
+                    InternalNode::Unresolved(idx) => Node::Edge { child: Child::Id(idx), path: edge.path.clone() },
+                    _ => Node::Edge { child: Child::Hash(child_hash), path: edge.path.clone() },
                 };
 
                 added.insert(hash, persisted_node);
@@ -196,12 +169,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     }
 
     /// Sets the value of a key. To delete a key, set the value to [StarkFelt::ZERO].
-    pub fn set(
-        &mut self,
-        storage: &impl Storage,
-        key: BitVec<u8, Msb0>,
-        value: StarkFelt,
-    ) -> anyhow::Result<()> {
+    pub fn set(&mut self, storage: &impl Storage, key: BitVec<u8, Msb0>, value: StarkFelt) -> anyhow::Result<()> {
         if value == StarkFelt::ZERO {
             return self.delete_leaf(storage, &key);
         }
@@ -216,8 +184,8 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
         //
         // 2. The tree is empty, we insert the new leaf and the root becomes an edge node connecting to it.
         //
-        // 3. The leaf does not exist, and the tree is not empty. The final node in the traversal will
-        //    be an edge node who's path diverges from our new leaf node's.
+        // 3. The leaf does not exist, and the tree is not empty. The final node in the traversal will be an
+        //    edge node who's path diverges from our new leaf node's.
         //
         //    This edge must be split into a new subtree containing both the existing edge's child and the
         //    new leaf. This requires an edge followed by a binary node and then further edges to both the
@@ -276,11 +244,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
                             Direction::Right => (old, new),
                         };
 
-                        let branch = InternalNode::Binary(BinaryNode {
-                            height: branch_height,
-                            left,
-                            right,
-                        });
+                        let branch = InternalNode::Binary(BinaryNode { height: branch_height, left, right });
 
                         // We may require an edge leading to the binary node.
                         match common.is_empty() {
@@ -325,11 +289,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     ///
     /// This is not an external facing API; the functionality is instead accessed by calling
     /// [`Trie::set`] with value set to [`StarkFelt::ZERO`].
-    fn delete_leaf(
-        &mut self,
-        storage: &impl Storage,
-        key: &BitSlice<u8, Msb0>,
-    ) -> anyhow::Result<()> {
+    fn delete_leaf(&mut self, storage: &impl Storage, key: &BitSlice<u8, Msb0>) -> anyhow::Result<()> {
         // Algorithm explanation:
         //
         // The leaf's parent node is either an edge, or a binary node.
@@ -355,10 +315,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
         }
 
         // Go backwards until we hit a branch node.
-        let mut node_iter = path
-            .into_iter()
-            .rev()
-            .skip_while(|node| !node.borrow().is_binary());
+        let mut node_iter = path.into_iter().rev().skip_while(|node| !node.borrow().is_binary());
 
         match node_iter.next() {
             Some(node) => {
@@ -371,11 +328,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
                     let direction = binary.direction(key).invert();
                     let child = binary.get_child(direction);
                     let path = std::iter::once(bool::from(direction)).collect::<BitVec<_, _>>();
-                    let mut edge = EdgeNode {
-                        height: binary.height,
-                        path,
-                        child,
-                    };
+                    let mut edge = EdgeNode { height: binary.height, path, child };
 
                     // Merge the remaining child if it's an edge.
                     self.merge_edges(storage, &mut edge)?;
@@ -406,11 +359,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     /// Returns the value stored at key, or `None` if it does not exist.
     #[cfg(test)]
     #[allow(unused)]
-    fn get(
-        &self,
-        storage: &impl Storage,
-        key: BitVec<u8, Msb0>,
-    ) -> anyhow::Result<Option<StarkFelt>> {
+    fn get(&self, storage: &impl Storage, key: BitVec<u8, Msb0>) -> anyhow::Result<Option<StarkFelt>> {
         let node = self.traverse(storage, &key)?;
         let node = node.last();
 
@@ -419,11 +368,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
         };
 
         if *node.borrow() == InternalNode::Leaf {
-            if let Some(value) = self.leaves.get(&key) {
-                Ok(Some(*value))
-            } else {
-                storage.leaf(&key)
-            }
+            if let Some(value) = self.leaves.get(&key) { Ok(Some(*value)) } else { storage.leaf(&key) }
         } else {
             Ok(None)
         }
@@ -440,21 +385,14 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     ///   1. the chain follows the path of `key`, and
     ///   2. the hashes are correct, and
     ///   3. the root hash matches the known root
-    pub fn get_proof(
-        root: u64,
-        storage: &impl Storage,
-        key: &BitSlice<u8, Msb0>,
-    ) -> anyhow::Result<Vec<TrieNode>> {
+    pub fn get_proof(root: u64, storage: &impl Storage, key: &BitSlice<u8, Msb0>) -> anyhow::Result<Vec<TrieNode>> {
         // Manually traverse towards the key.
         let mut nodes = Vec::new();
 
         let mut next = Some(root);
         let mut height = 0;
         while let Some(index) = next.take() {
-            let node = storage
-                .get(index)
-                .context("Resolving node")?
-                .context("Node is missing from storage")?;
+            let node = storage.get(index).context("Resolving node")?.context("Node is missing from storage")?;
 
             let node = match node {
                 StoredNode::Binary { left, right } => {
@@ -479,9 +417,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
                     TrieNode::Binary { left, right }
                 }
                 StoredNode::Edge { child, path } => {
-                    let key = key
-                        .get(height..height + path.len())
-                        .context("Key path is too short for edge node")?;
+                    let key = key.get(height..height + path.len()).context("Key path is too short for edge node")?;
                     height += path.len();
 
                     // If the path matches then we continue otherwise the proof is complete.
@@ -500,16 +436,12 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
                     // End of the line, get child hashes.
                     let mut path = key[..height].to_bitvec();
                     path.push(Direction::Left.into());
-                    let left = storage
-                        .leaf(&path)
-                        .context("Querying left leaf hash")?
-                        .context("Left leaf is missing")?;
+                    let left =
+                        storage.leaf(&path).context("Querying left leaf hash")?.context("Left leaf is missing")?;
                     path.pop();
                     path.push(Direction::Right.into());
-                    let right = storage
-                        .leaf(&path)
-                        .context("Querying right leaf hash")?
-                        .context("Right leaf is missing")?;
+                    let right =
+                        storage.leaf(&path).context("Querying right leaf hash")?.context("Right leaf is missing")?;
 
                     TrieNode::Binary { left, right }
                 }
@@ -517,10 +449,8 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
                     let mut current_path = key[..height].to_bitvec();
                     // End of the line, get hash of the child.
                     current_path.extend_from_bitslice(&path);
-                    let child = storage
-                        .leaf(&current_path)
-                        .context("Querying leaf hash")?
-                        .context("Child leaf is missing")?;
+                    let child =
+                        storage.leaf(&current_path).context("Querying leaf hash")?.context("Child leaf is missing")?;
 
                     TrieNode::Edge { child, path }
                 }
@@ -537,12 +467,14 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     ///
     /// If the destination node exists, it will be the final node in the list.
     ///
-    /// This means that the final node will always be either a the destination [Leaf](InternalNode::Leaf) node,
-    /// or an [Edge](InternalNode::Edge) node who's path suffix does not match the leaf's path.
+    /// This means that the final node will always be either a the destination
+    /// [Leaf](InternalNode::Leaf) node, or an [Edge](InternalNode::Edge) node who's path suffix
+    /// does not match the leaf's path.
     ///
-    /// The final node can __not__ be a [Binary](InternalNode::Binary) node since it would always be possible to continue
-    /// on towards the destination. Nor can it be an [Unresolved](InternalNode::Unresolved) node since this would be
-    /// resolved to check if we can travel further.
+    /// The final node can __not__ be a [Binary](InternalNode::Binary) node since it would always be
+    /// possible to continue on towards the destination. Nor can it be an
+    /// [Unresolved](InternalNode::Unresolved) node since this would be resolved to check if we
+    /// can travel further.
     fn traverse(
         &self,
         storage: &impl Storage,
@@ -589,21 +521,15 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
 
     /// Retrieves the requested node from storage.
     ///
-    /// Result will be either a [Binary](InternalNode::Binary), [Edge](InternalNode::Edge) or [Leaf](InternalNode::Leaf) node.
-    fn resolve(
-        &self,
-        storage: &impl Storage,
-        index: u64,
-        height: usize,
-    ) -> anyhow::Result<InternalNode> {
+    /// Result will be either a [Binary](InternalNode::Binary), [Edge](InternalNode::Edge) or
+    /// [Leaf](InternalNode::Leaf) node.
+    fn resolve(&self, storage: &impl Storage, index: u64, height: usize) -> anyhow::Result<InternalNode> {
         anyhow::ensure!(
             height < HEIGHT,
             "Attempted to resolve a node with height {height} which exceeds the tree height {HEIGHT}"
         );
 
-        let node = storage
-            .get(index)?
-            .with_context(|| format!("Node {index} at height {height} is missing"))?;
+        let node = storage.get(index)?.with_context(|| format!("Node {index} at height {height} is missing"))?;
 
         let node = match node {
             StoredNode::Binary { left, right } => InternalNode::Binary(BinaryNode {
@@ -621,27 +547,24 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
                 left: Rc::new(RefCell::new(InternalNode::Leaf)),
                 right: Rc::new(RefCell::new(InternalNode::Leaf)),
             }),
-            StoredNode::LeafEdge { path } => InternalNode::Edge(EdgeNode {
-                height,
-                path,
-                child: Rc::new(RefCell::new(InternalNode::Leaf)),
-            }),
+            StoredNode::LeafEdge { path } => {
+                InternalNode::Edge(EdgeNode { height, path, child: Rc::new(RefCell::new(InternalNode::Leaf)) })
+            }
         };
 
         Ok(node)
     }
 
-    /// This is a convenience function which merges the edge node with its child __iff__ it is also an edge.
+    /// This is a convenience function which merges the edge node with its child __iff__ it is also
+    /// an edge.
     ///
     /// Does nothing if the child is not also an edge node.
     ///
-    /// This can occur when mutating the tree (e.g. deleting a child of a binary node), and is an illegal state
-    /// (since edge nodes __must be__ maximal subtrees).
+    /// This can occur when mutating the tree (e.g. deleting a child of a binary node), and is an
+    /// illegal state (since edge nodes __must be__ maximal subtrees).
     fn merge_edges(&self, storage: &impl Storage, parent: &mut EdgeNode) -> anyhow::Result<()> {
         let resolved_child = match &*parent.child.borrow() {
-            InternalNode::Unresolved(hash) => {
-                self.resolve(storage, *hash, parent.height + parent.path.len())?
-            }
+            InternalNode::Unresolved(hash) => self.resolve(storage, *hash, parent.height + parent.path.len())?,
             other => other.clone(),
         };
 
@@ -655,20 +578,16 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
 
     /// Visits all of the nodes in the tree in pre-order using the given visitor function.
     ///
-    /// For each node, there will first be a visit for `InternalNode::Unresolved(hash)` followed by visit
-    /// at the loaded node when [`Visit::ContinueDeeper`] is returned. At any time the visitor
-    /// function can also return `ControlFlow::Break` to stop the visit with the given return
-    /// value, which will be returned as `Some(value))` to the caller.
+    /// For each node, there will first be a visit for `InternalNode::Unresolved(hash)` followed by
+    /// visit at the loaded node when [`Visit::ContinueDeeper`] is returned. At any time the
+    /// visitor function can also return `ControlFlow::Break` to stop the visit with the given
+    /// return value, which will be returned as `Some(value))` to the caller.
     ///
     /// The visitor function receives the node being visited, as well as the full path to that node.
     ///
     /// Upon successful non-breaking visit of the tree, `None` will be returned.
     #[allow(dead_code)]
-    pub fn dfs<X, VisitorFn>(
-        &self,
-        storage: &impl Storage,
-        visitor_fn: &mut VisitorFn,
-    ) -> anyhow::Result<Option<X>>
+    pub fn dfs<X, VisitorFn>(&self, storage: &impl Storage, visitor_fn: &mut VisitorFn) -> anyhow::Result<Option<X>>
     where
         VisitorFn: FnMut(&InternalNode, &BitSlice<u8, Msb0>) -> ControlFlow<X, Visit>,
     {
@@ -684,10 +603,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
             return Ok(None);
         };
 
-        let mut visiting = vec![VisitedNode {
-            node: root.clone(),
-            path: bitvec![u8, Msb0;],
-        }];
+        let mut visiting = vec![VisitedNode { node: root.clone(), path: bitvec![u8, Msb0;] }];
 
         loop {
             match visiting.pop() {
@@ -739,11 +655,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
                         InternalNode::Leaf => {}
                         InternalNode::Unresolved(idx) => {
                             visiting.push(VisitedNode {
-                                node: Rc::new(RefCell::new(self.resolve(
-                                    storage,
-                                    *idx,
-                                    path.len(),
-                                )?)),
+                                node: Rc::new(RefCell::new(self.resolve(storage, *idx, path.len())?)),
                                 path,
                             });
                         }
@@ -763,8 +675,9 @@ pub enum Visit {
     /// [`InternalNode::Leaf`].
     #[default]
     ContinueDeeper,
-    /// Returning this value for [`InternalNode::Binary`] or [`InternalNode::Edge`] will ignore all of the children
-    /// of the node for the rest of the iteration. This is useful because two trees often share a
-    /// number of subtrees with earlier blocks. Returning this for [`InternalNode::Leaf`] is a no-op.
+    /// Returning this value for [`InternalNode::Binary`] or [`InternalNode::Edge`] will ignore all
+    /// of the children of the node for the rest of the iteration. This is useful because two
+    /// trees often share a number of subtrees with earlier blocks. Returning this for
+    /// [`InternalNode::Leaf`] is a no-op.
     StopSubtree,
 }

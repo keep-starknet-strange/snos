@@ -2,20 +2,17 @@ pub mod classes;
 
 use std::collections::HashMap;
 use std::io::Write;
+use std::{fs, path};
 
 use cairo_felt::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::transaction::{MessageToL1, MessageToL2};
-use std::fs;
-use std::path;
 
 use crate::config::StarknetGeneralConfig;
 use crate::error::SnOsError;
-use crate::utils::{
-    DeprecatedContractClassStr, Felt252HexNoPrefix, Felt252Num, Felt252Str, Felt252StrDec,
-};
+use crate::utils::{DeprecatedContractClassStr, Felt252HexNoPrefix, Felt252Num, Felt252Str, Felt252StrDec};
 
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
