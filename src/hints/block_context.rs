@@ -104,9 +104,7 @@ pub fn load_deprecated_inner(
     let dep_class_base = vm.add_memory_segment();
     write_deprecated_class(vm, dep_class_base, deprecated_class)?;
 
-    insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)?;
-
-    Ok(())
+    insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)
 }
 
 /// Implements hint:
@@ -135,9 +133,7 @@ pub fn block_timestamp(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let block_context = exec_scopes.get::<BlockContext>("block_context")?;
-    insert_value_into_ap(vm, Felt252::from(block_context.block_timestamp.0))?;
-
-    Ok(())
+    insert_value_into_ap(vm, Felt252::from(block_context.block_timestamp.0))
 }
 
 /// Implements hint:
@@ -153,9 +149,7 @@ pub fn chain_id(
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
     let chain_id =
         Felt252::from(u128::from_str_radix(&os_input.general_config.starknet_os_config.chain_id.0, 16).unwrap());
-    insert_value_into_ap(vm, chain_id)?;
-
-    Ok(())
+    insert_value_into_ap(vm, chain_id)
 }
 
 /// Implements hint:
@@ -169,9 +163,7 @@ pub fn fee_token_address(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
-    insert_value_into_ap(vm, felt_api2vm(*os_input.general_config.starknet_os_config.fee_token_address.0.key()))?;
-
-    Ok(())
+    insert_value_into_ap(vm, felt_api2vm(*os_input.general_config.starknet_os_config.fee_token_address.0.key()))
 }
 
 /// Implements hint:

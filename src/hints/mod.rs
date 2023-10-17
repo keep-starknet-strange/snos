@@ -90,9 +90,7 @@ pub fn starknet_os_input(
 
     let messages_to_l2 = (initial_carried_outputs_ptr + 1_i32)?;
     let temp_segment = vm.add_temporary_segment();
-    vm.insert_value(messages_to_l2, temp_segment)?;
-
-    Ok(())
+    vm.insert_value(messages_to_l2, temp_segment).map_err(|e| e.into())
 }
 
 /// Implements hint:
@@ -168,6 +166,5 @@ pub fn initialize_class_hashes(
     }
 
     exec_scopes.insert_box("initial_dict", Box::new(class_dict));
-
     Ok(())
 }
