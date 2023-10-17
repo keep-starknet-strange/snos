@@ -39,12 +39,11 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
     hint_processor
         .add_hint(String::from(hints_raw::CHECK_DEPRECATED_CLASS_HASH), Rc::new(check_deprecated_class_hash_hint));
 
-    let deprecated_block_number_hint = HintFunc(Box::new(block_context::deprecated_block_number));
-    hint_processor.add_hint(String::from(hints_raw::DEPRECATED_BLOCK_NUMBER), Rc::new(deprecated_block_number_hint));
+    let block_number_hint = HintFunc(Box::new(block_context::block_number));
+    hint_processor.add_hint(String::from(hints_raw::DEPRECATED_BLOCK_NUMBER), Rc::new(block_number_hint));
 
-    let deprecated_block_timestamp_hint = HintFunc(Box::new(block_context::deprecated_block_timestamp));
-    hint_processor
-        .add_hint(String::from(hints_raw::DEPRECATED_BLOCK_TIMESTAMP), Rc::new(deprecated_block_timestamp_hint));
+    let block_timestamp_hint = HintFunc(Box::new(block_context::block_timestamp));
+    hint_processor.add_hint(String::from(hints_raw::DEPRECATED_BLOCK_TIMESTAMP), Rc::new(block_timestamp_hint));
 
     let sequencer_address_hint = HintFunc(Box::new(block_context::sequencer_address));
     hint_processor.add_hint(String::from(hints_raw::SEQUENCER_ADDRESS), Rc::new(sequencer_address_hint));

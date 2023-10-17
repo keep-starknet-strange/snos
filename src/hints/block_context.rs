@@ -112,7 +112,7 @@ pub fn load_deprecated_inner(
 /// Implements hint:
 ///
 /// memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_number)
-pub fn deprecated_block_number(
+pub fn block_number(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
@@ -129,7 +129,7 @@ pub fn deprecated_block_number(
 /// Implements hint:
 ///
 /// memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_timestamp)
-pub fn deprecated_block_timestamp(
+pub fn block_timestamp(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
