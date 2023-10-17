@@ -1,3 +1,4 @@
+pub mod serde;
 pub mod utils;
 
 use std::collections::HashMap;
@@ -25,7 +26,7 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use rstest::{fixture, rstest};
-use snos::config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR};
+use snos::config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR, DEFAULT_INPUT_PATH};
 use snos::io::StarknetOsInput;
 use snos::state::SharedState;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -69,17 +70,15 @@ pub const EXPECTED_UPDATED_ROOT: &str = "482c9ce8a99afddc9777ff048520fcbfab6c038
 
 #[fixture]
 #[once]
-pub fn load_input() -> StarknetOsInput {
-    StarknetOsInput::load("tests/common/os_input.json")
+pub fn load_and_write_input() {
+    let os_input = serde::StarknetOsInputUtil::load("tests/common/os_input.json");
+    os_input.dump(DEFAULT_INPUT_PATH).unwrap();
 }
 
 #[fixture]
 #[once]
-pub fn load_and_write_input() -> (StarknetOsInput, String) {
-    let heavy_path = "build/os_input_w_classes.json";
-    let os_input = StarknetOsInput::load("tests/common/os_input.json");
-    os_input.dump(heavy_path).unwrap();
-    (os_input, heavy_path.to_string())
+pub fn load_input(_load_and_write_input: ()) -> StarknetOsInput {
+    StarknetOsInput::load(DEFAULT_INPUT_PATH)
 }
 
 #[fixture]

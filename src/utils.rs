@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::{fs, path};
 
 use anyhow::anyhow;
 use bitvec::prelude::{BitSlice, BitVec, Msb0};
@@ -19,8 +18,6 @@ use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 use starknet_api::stark_felt;
 
 use crate::config::DEFAULT_COMPILER_VERSION;
-
-pub const REPLACE_KEY: &str = "replace:";
 
 lazy_static! {
     static ref RE: Regex = Regex::new(r"^[A-Fa-f0-9]+$").unwrap();
@@ -156,7 +153,8 @@ impl SerializeAs<Felt252> for Felt252Num {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&value.to_bigint().to_string())
+        let num = Number::from_string_unchecked(value.to_str_radix(10));
+        num.serialize(serializer)
     }
 }
 
@@ -199,35 +197,6 @@ impl SerializeAs<ChainId> for ChainIdNum {
         S: Serializer,
     {
         serializer.serialize_u128(u128::from_str_radix(&value.0, 16).map_err(ser::Error::custom)?)
-    }
-}
-
-pub struct DeprecatedContractClassStr;
-
-impl<'de> DeserializeAs<'de, DeprecatedContractClass> for DeprecatedContractClassStr {
-    fn deserialize_as<D>(deserializer: D) -> Result<DeprecatedContractClass, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let deprecated_class = String::deserialize(deserializer)?;
-        let path_prefix = (deprecated_class[..8]).to_string();
-        let raw_class = if path_prefix != REPLACE_KEY {
-            deprecated_class
-        } else {
-            fs::read_to_string(path::PathBuf::from(deprecated_class.trim_start_matches(REPLACE_KEY)))
-                .map_err(de::Error::custom)?
-        };
-
-        serde_json::from_str(&raw_class).map_err(de::Error::custom)
-    }
-}
-
-impl SerializeAs<DeprecatedContractClass> for DeprecatedContractClassStr {
-    fn serialize_as<S>(deprecated_class: &DeprecatedContractClass, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        deprecated_class.serialize(serializer)
     }
 }
 

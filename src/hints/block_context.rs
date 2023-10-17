@@ -2,6 +2,7 @@ use std::any::Any;
 use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
 
+use blockifier::block_context::BlockContext;
 use cairo_felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{insert_value_from_var_name, insert_value_into_ap};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
@@ -113,13 +114,14 @@ pub fn load_deprecated_inner(
 /// memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_number)
 pub fn deprecated_block_number(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // TODO: replace w/ block context from syscall handler
-    insert_value_into_ap(vm, Felt252::from(1))?;
+    let block_context = exec_scopes.get::<BlockContext>("block_context")?;
+    insert_value_into_ap(vm, Felt252::from(block_context.block_number.0))?;
 
     Ok(())
 }
@@ -129,13 +131,13 @@ pub fn deprecated_block_number(
 /// memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_timestamp)
 pub fn deprecated_block_timestamp(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // TODO: replace w/ block context from syscall handler
-    insert_value_into_ap(vm, Felt252::from(1000))?;
+    let block_context = exec_scopes.get::<BlockContext>("block_context")?;
+    insert_value_into_ap(vm, Felt252::from(block_context.block_timestamp.0))?;
 
     Ok(())
 }
@@ -185,6 +187,7 @@ pub fn sequencer_address(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+
     insert_value_into_ap(
         vm,
         MaybeRelocatable::Int(Felt252::from_bytes_be(os_input.general_config.sequencer_address.0.key().bytes())),
