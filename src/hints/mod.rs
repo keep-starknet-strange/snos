@@ -8,7 +8,6 @@ use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
 };
-// use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::DictManager;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
