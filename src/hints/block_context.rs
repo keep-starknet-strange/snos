@@ -121,9 +121,7 @@ pub fn block_number(
 ) -> Result<(), HintError> {
     // TODO: replace w/ block context from syscall handler
     let block_context = exec_scopes.get::<BlockContext>("block_context")?;
-    insert_value_into_ap(vm, Felt252::from(block_context.block_number.0))?;
-
-    Ok(())
+    insert_value_into_ap(vm, Felt252::from(block_context.block_number.0))
 }
 
 /// Implements hint:
