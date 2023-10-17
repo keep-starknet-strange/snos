@@ -28,3 +28,20 @@ pub const CHECK_DEPRECATED_CLASS_HASH: &str =
 
 /// This is the equivalent of nondet %{ os_input.general_config.sequencer_address %}
 pub const SEQUENCER_ADDRESS: &str = "memory[ap] = to_felt_or_relocatable(os_input.general_config.sequencer_address)";
+
+pub const DEPRECATED_BLOCK_NUMBER: &str =
+    "memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_number)";
+
+pub const DEPRECATED_BLOCK_TIMESTAMP: &str =
+    "memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_timestamp)";
+
+pub const CHAIN_ID: &str = "memory[ap] = to_felt_or_relocatable(os_input.general_config.chain_id.value)";
+
+pub const FEE_TOKEN_ADDRESS: &str = "memory[ap] = to_felt_or_relocatable(os_input.general_config.fee_token_address)";
+
+pub const INITIALIZE_STATE_CHANGES: &str = "from starkware.python.utils import from_bytes\n\ninitial_dict = {\n    \
+                                            address: segments.gen_arg(\n        (from_bytes(contract.contract_hash), \
+                                            segments.add(), contract.nonce))\n    for address, contract in \
+                                            os_input.contracts.items()\n}";
+
+pub const INITIALIZE_CLASS_HASHES: &str = "initial_dict = os_input.class_hash_to_compiled_class_hash";

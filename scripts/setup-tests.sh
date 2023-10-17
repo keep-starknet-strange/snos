@@ -46,6 +46,7 @@ cairo-format -i tests/programs/*
 cairo-compile tests/programs/bad_output.cairo --output build/programs/bad_output.json
 cairo-compile tests/programs/fact.cairo --output build/programs/fact.json
 cairo-compile tests/programs/load_deprecated_class.cairo --output build/programs/load_deprecated_class.json --cairo_path cairo-lang/src
+cairo-compile tests/programs/initialize_state_changes.cairo --output build/programs/initialize_state_changes.json --cairo_path cairo-lang/src
 
 # compile os with debug info
 cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json --cairo_path cairo-lang/src

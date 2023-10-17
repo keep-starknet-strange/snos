@@ -2,6 +2,7 @@ use std::any::Any;
 use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
 
+use blockifier::block_context::BlockContext;
 use cairo_felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{insert_value_from_var_name, insert_value_into_ap};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
@@ -14,6 +15,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContract
 
 use crate::io::classes::write_deprecated_class;
 use crate::io::StarknetOsInput;
+use crate::utils::felt_api2vm;
 
 /// Implements hint:
 ///
@@ -102,9 +104,66 @@ pub fn load_deprecated_inner(
     let dep_class_base = vm.add_memory_segment();
     write_deprecated_class(vm, dep_class_base, deprecated_class)?;
 
-    insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)
+}
 
-    Ok(())
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_number)
+pub fn block_number(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // TODO: replace w/ block context from syscall handler
+    let block_context = exec_scopes.get::<BlockContext>("block_context")?;
+    insert_value_into_ap(vm, Felt252::from(block_context.block_number.0))
+}
+
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_timestamp)
+pub fn block_timestamp(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let block_context = exec_scopes.get::<BlockContext>("block_context")?;
+    insert_value_into_ap(vm, Felt252::from(block_context.block_timestamp.0))
+}
+
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(os_input.general_config.chain_id.value)
+pub fn chain_id(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let chain_id =
+        Felt252::from(u128::from_str_radix(&os_input.general_config.starknet_os_config.chain_id.0, 16).unwrap());
+    insert_value_into_ap(vm, chain_id)
+}
+
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(os_input.general_config.fee_token_address)
+pub fn fee_token_address(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    insert_value_into_ap(vm, felt_api2vm(*os_input.general_config.starknet_os_config.fee_token_address.0.key()))
 }
 
 /// Implements hint:
@@ -118,6 +177,7 @@ pub fn sequencer_address(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+
     insert_value_into_ap(
         vm,
         MaybeRelocatable::Int(Felt252::from_bytes_be(os_input.general_config.sequencer_address.0.key().bytes())),

@@ -3,8 +3,7 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.segments import relocate_segment
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.starknet.core.os.output import OsCarriedOutputs, os_output_serialize
-from starkware.cairo.common.serialize import serialize_word
+from starkware.starknet.core.os.output import OsCarriedOutputs
 
 from starkware.starknet.core.os.contract_class.deprecated_compiled_class import (
     DeprecatedCompiledClassFact,

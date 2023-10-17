@@ -12,14 +12,14 @@ use starknet_api::transaction::{MessageToL1, MessageToL2};
 
 use crate::config::StarknetGeneralConfig;
 use crate::error::SnOsError;
-use crate::utils::{DeprecatedContractClassStr, Felt252HexNoPrefix, Felt252Num, Felt252Str, Felt252StrDec};
+use crate::utils::{Felt252HexNoPrefix, Felt252Num, Felt252Str, Felt252StrDec};
 
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct StarknetOsInput {
     pub contract_state_commitment_info: CommitmentInfo,
     pub contract_class_commitment_info: CommitmentInfo,
-    #[serde_as(as = "HashMap<Felt252Str, DeprecatedContractClassStr>")]
+    #[serde_as(as = "HashMap<Felt252Str, _>")]
     pub deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass>,
     #[serde_as(as = "HashMap<Felt252Str, Felt252Str>")]
     pub compiled_classes: HashMap<Felt252, Felt252>,

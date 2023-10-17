@@ -2,7 +2,7 @@
 
 # PYTHONPATH=cairo-lang/src cairo-run \
 #     --program build/programs/$1.json \
-#     --program_input build/os_input_w_classes.json \
+#     --program_input build/input.json \
 #     --layout=small --print_output
 
 

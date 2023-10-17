@@ -19,6 +19,7 @@ const DEFAULT_CONFIG_PATH: &str = "cairo-lang/src/starkware/starknet/definitions
 
 pub const DEFAULT_LAYOUT: &str = "starknet_with_keccak";
 pub const DEFAULT_COMPILED_OS: &str = "build/os_latest.json";
+pub const DEFAULT_INPUT_PATH: &str = "build/input.json";
 pub const DEFAULT_COMPILER_VERSION: &str = "0.12.2";
 pub const DEFAULT_STORAGE_TREE_HEIGHT: usize = 251;
 pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;

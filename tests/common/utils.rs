@@ -55,10 +55,13 @@ pub fn deprecated_cairo_python_run(program: &str, with_input: bool) -> String {
     run_cmd.arg(format!("--program={program}")).arg("--layout=small").arg("--print_output");
 
     if with_input {
-        run_cmd.arg("--program_input=build/os_input_w_classes.json");
+        run_cmd.arg("--program_input=build/input.json");
     }
 
-    let raw = String::from_utf8(run_cmd.output().expect("failed to run python vm").stdout).unwrap();
+    let cmd_out = run_cmd.output().expect("failed to run python vm");
+    let mut raw = String::from_utf8(cmd_out.stdout).unwrap();
+    raw.push_str(&String::from_utf8(cmd_out.stderr).unwrap());
+
     raw.trim_start_matches("Program output:")
         .trim_start_matches("\n  ")
         .trim_end_matches("\n\n")
