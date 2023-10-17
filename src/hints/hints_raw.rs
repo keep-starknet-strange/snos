@@ -1,4 +1,5 @@
-pub const STARKNET_OS_INPUT: &str = "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
+pub const STARKNET_OS_INPUT: &str =
+    "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
      StarknetOsInput.load(data=program_input)\n\nids.initial_carried_outputs.messages_to_l1 = \
      segments.add_temp_segment()\nids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()";
 
@@ -42,3 +43,5 @@ pub const INITIALIZE_STATE_CHANGES: &str = "from starkware.python.utils import f
                                             address: segments.gen_arg(\n        (from_bytes(contract.contract_hash), \
                                             segments.add(), contract.nonce))\n    for address, contract in \
                                             os_input.contracts.items()\n}";
+
+pub const INITIALIZE_CLASS_HASHES: &str = "initial_dict = os_input.class_hash_to_compiled_class_hash";

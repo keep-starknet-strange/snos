@@ -8,12 +8,12 @@ use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
 };
-use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::DictManager;
+// use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::DictManager;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
@@ -57,6 +57,9 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
 
     let initialize_state_changes_hint = HintFunc(Box::new(initialize_state_changes));
     hint_processor.add_hint(String::from(hints_raw::INITIALIZE_STATE_CHANGES), Rc::new(initialize_state_changes_hint));
+
+    let initialize_class_hashes_hint = HintFunc(Box::new(initialize_class_hashes));
+    hint_processor.add_hint(String::from(hints_raw::INITIALIZE_CLASS_HASHES), Rc::new(initialize_class_hashes_hint));
 
     hint_processor
 }
@@ -130,19 +133,43 @@ pub fn check_deprecated_class_hash(
 pub fn initialize_state_changes(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
     let mut state_dict: HashMap<MaybeRelocatable, MaybeRelocatable> = HashMap::new();
     for (addr, contract_state) in os_input.contracts {
-        let nonce_base = vm.add_memory_segment();
-        vm.insert_value(nonce_base, contract_state.nonce)?;
+        let change_base = vm.add_memory_segment();
+        vm.insert_value(change_base, contract_state.contract_hash)?;
+        let storage_commitment_base = vm.add_memory_segment();
+        vm.insert_value((change_base + 1)?, storage_commitment_base)?;
+        vm.insert_value((change_base + 2)?, contract_state.nonce)?;
 
-        state_dict.insert(MaybeRelocatable::from(addr), MaybeRelocatable::from(nonce_base));
+        state_dict.insert(MaybeRelocatable::from(addr), MaybeRelocatable::from(change_base));
     }
 
     exec_scopes.insert_box("initial_dict", Box::new(state_dict));
+    Ok(())
+}
+
+/// Implements hint:
+///
+/// initial_dict = os_input.class_hash_to_compiled_class_hash
+pub fn initialize_class_hashes(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let mut class_dict: HashMap<MaybeRelocatable, MaybeRelocatable> = HashMap::new();
+    for (class_hash, compiled_class_hash) in os_input.class_hash_to_compiled_class_hash {
+        class_dict.insert(MaybeRelocatable::from(class_hash), MaybeRelocatable::from(compiled_class_hash));
+    }
+
+    exec_scopes.insert_box("initial_dict", Box::new(class_dict));
+
     Ok(())
 }

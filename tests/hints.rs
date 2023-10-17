@@ -1,24 +1,18 @@
 mod common;
-use std::collections::HashMap;
 use std::fs;
 use std::rc::Rc;
 
-use cairo_felt::Felt252;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
 };
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
-};
-use cairo_vm::types::exec_scope;
-use cairo_vm::types::relocatable::MaybeRelocatable;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
 use common::load_input;
 use common::utils::check_output_vs_python;
 use rstest::{fixture, rstest};
 use snos::hints::block_context::{load_deprecated_class_facts, load_deprecated_inner, sequencer_address};
 use snos::hints::hints_raw::*;
-use snos::hints::{check_deprecated_class_hash, initialize_state_changes, starknet_os_input};
+use snos::hints::{check_deprecated_class_hash, initialize_class_hashes, initialize_state_changes, starknet_os_input};
 use snos::io::StarknetOsInput;
 
 #[fixture]
@@ -84,13 +78,8 @@ fn initialize_state_changes_test(mut os_input_hint_processor: BuiltinHintProcess
     let initialize_state_changes_hint = HintFunc(Box::new(initialize_state_changes));
     os_input_hint_processor.add_hint(String::from(INITIALIZE_STATE_CHANGES), Rc::new(initialize_state_changes_hint));
 
-    let output_hint = HintFunc(Box::new(|vm, exec_scopes, ids_data, ap_tracking, _| {
-        let debug_scope_var = exec_scopes.get::<HashMap<MaybeRelocatable, MaybeRelocatable>>("initial_dict").unwrap();
-
-        insert_value_from_var_name("test_val_len", debug_scope_var.len(), vm, ids_data, ap_tracking)?;
-        Ok(())
-    }));
-    os_input_hint_processor.add_hint(String::from("ids.test_val_len = len(initial_dict)"), Rc::new(output_hint));
+    let initialize_class_hashes_hint = HintFunc(Box::new(initialize_class_hashes));
+    os_input_hint_processor.add_hint(String::from(INITIALIZE_CLASS_HASHES), Rc::new(initialize_class_hashes_hint));
 
     let run_output = cairo_run(
         &fs::read(program).unwrap(),
