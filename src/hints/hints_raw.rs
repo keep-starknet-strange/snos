@@ -45,3 +45,6 @@ pub const INITIALIZE_STATE_CHANGES: &str = "from starkware.python.utils import f
                                             os_input.contracts.items()\n}";
 
 pub const INITIALIZE_CLASS_HASHES: &str = "initial_dict = os_input.class_hash_to_compiled_class_hash";
+
+pub const GET_BLOCK_MAPPING: &str =
+    "ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[\n    ids.BLOCK_HASH_CONTRACT_ADDRESS\n]";

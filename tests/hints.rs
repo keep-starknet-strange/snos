@@ -1,4 +1,5 @@
 mod common;
+
 use std::fs;
 use std::rc::Rc;
 
@@ -10,7 +11,9 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
 use common::load_input;
 use common::utils::check_output_vs_python;
 use rstest::{fixture, rstest};
-use snos::hints::block_context::{load_deprecated_class_facts, load_deprecated_inner, sequencer_address};
+use snos::hints::block_context::{
+    get_block_mapping, load_deprecated_class_facts, load_deprecated_inner, sequencer_address,
+};
 use snos::hints::hints_raw::*;
 use snos::hints::{check_deprecated_class_hash, initialize_class_hashes, initialize_state_changes, starknet_os_input};
 use snos::io::StarknetOsInput;
@@ -80,6 +83,27 @@ fn initialize_state_changes_test(mut os_input_hint_processor: BuiltinHintProcess
 
     let initialize_class_hashes_hint = HintFunc(Box::new(initialize_class_hashes));
     os_input_hint_processor.add_hint(String::from(INITIALIZE_CLASS_HASHES), Rc::new(initialize_class_hashes_hint));
+
+    let run_output = cairo_run(
+        &fs::read(program).unwrap(),
+        &CairoRunConfig { layout: "starknet", relocate_mem: true, trace_enabled: true, ..Default::default() },
+        &mut os_input_hint_processor,
+    );
+    check_output_vs_python(run_output, program, true);
+}
+
+#[rstest]
+fn get_block_mapping_test(mut os_input_hint_processor: BuiltinHintProcessor) {
+    let program = "build/programs/get_block_mapping.json";
+
+    let initialize_state_changes_hint = HintFunc(Box::new(initialize_state_changes));
+    os_input_hint_processor.add_hint(String::from(INITIALIZE_STATE_CHANGES), Rc::new(initialize_state_changes_hint));
+
+    let initialize_class_hashes_hint = HintFunc(Box::new(initialize_class_hashes));
+    os_input_hint_processor.add_hint(String::from(INITIALIZE_CLASS_HASHES), Rc::new(initialize_class_hashes_hint));
+
+    let get_block_mapping_hint = HintFunc(Box::new(get_block_mapping));
+    os_input_hint_processor.add_hint(String::from(GET_BLOCK_MAPPING), Rc::new(get_block_mapping_hint));
 
     let run_output = cairo_run(
         &fs::read(program).unwrap(),

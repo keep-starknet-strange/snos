@@ -1,10 +1,14 @@
+use core::panic;
 use std::any::Any;
 use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
 
 use blockifier::block_context::BlockContext;
 use cairo_felt::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{insert_value_from_var_name, insert_value_into_ap};
+use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -182,4 +186,34 @@ pub fn sequencer_address(
         vm,
         MaybeRelocatable::Int(Felt252::from_bytes_be(os_input.general_config.sequencer_address.0.key().bytes())),
     )
+}
+
+/// Implements hint:
+///
+/// ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
+///     ids.BLOCK_HASH_CONTRACT_ADDRESS
+/// ]
+pub fn get_block_mapping(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let key = constants
+        .get("starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS")
+        .expect("BLOCK_HASH_CONTRACT_ADDRESS should be in the context");
+    let dict_ptr = get_ptr_from_var_name("contract_state_changes", vm, ids_data, ap_tracking)?;
+    // def get_dict(self, dict_ptr) -> dict:
+    //     Gets the python dict that corresponds to dict_ptr.
+    //     return self.get_tracker(dict_ptr).data
+    let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
+        Dictionary::SimpleDictionary(dict) => {
+            dict.get(&MaybeRelocatable::Int(key.clone())).expect("State changes dictionnary shouldn't be None").clone()
+        }
+        Dictionary::DefaultDictionary { dict: _d, default_value: _v } => {
+            panic!("State changes dict shouldn't be a default dict")
+        }
+    };
+    insert_value_from_var_name("state_entry", val, vm, ids_data, ap_tracking)
 }
