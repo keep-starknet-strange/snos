@@ -65,7 +65,7 @@ pub fn deprecated_cairo_python_run(program: &str, with_input: bool) -> String {
     raw.trim_start_matches("Program output:")
         .trim_start_matches("\n  ")
         .trim_end_matches("\n\n")
-        .replace(" ", "")
+        .replace(' ', "")
         .to_string()
 }
 

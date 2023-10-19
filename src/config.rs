@@ -133,8 +133,8 @@ mod tests {
         assert_eq!(251, conf.contract_storage_commitment_tree_height);
         assert_eq!(251, conf.global_state_commitment_tree_height);
 
-        assert_eq!(false, conf.constant_gas_price);
-        assert_eq!(true, conf.enforce_l1_handler_fee);
+        assert!(!conf.constant_gas_price);
+        assert!(conf.enforce_l1_handler_fee);
 
         assert_eq!(64, conf.event_commitment_tree_height);
         assert_eq!(64, conf.tx_commitment_tree_height);

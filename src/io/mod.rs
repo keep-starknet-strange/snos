@@ -8,7 +8,6 @@ use cairo_felt::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::transaction::{MessageToL1, MessageToL2};
 
 use crate::config::StarknetGeneralConfig;
 use crate::error::SnOsError;
@@ -119,9 +118,22 @@ pub struct StarknetOsOutput {
     /// The Starknet chain config hash
     pub config_hash: Felt252,
     /// List of messages sent to L1 in this block
-    pub messages_to_l1: Vec<MessageToL1>,
+    pub messages_to_l1: Vec<Felt252>,
     /// List of messages from L1 handled in this block
-    pub messages_to_l2: Vec<MessageToL2>,
+    pub messages_to_l2: Vec<Felt252>,
+}
+impl StarknetOsOutput {
+    pub fn new(
+        prev_state_root: Felt252,
+        new_state_root: Felt252,
+        block_number: Felt252,
+        block_hash: Felt252,
+        config_hash: Felt252,
+        messages_to_l1: Vec<Felt252>,
+        messages_to_l2: Vec<Felt252>,
+    ) -> Self {
+        Self { prev_state_root, new_state_root, block_number, block_hash, config_hash, messages_to_l1, messages_to_l2 }
+    }
 }
 
 impl StarknetOsInput {

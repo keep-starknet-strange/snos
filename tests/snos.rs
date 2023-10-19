@@ -47,5 +47,5 @@ fn parse_os_input(load_input: &StarknetOsInput) {
     assert_eq!(felt_str!(TESTING_BLOCK_HASH, 16), load_input.block_hash);
     assert_eq!(felt_str!(EXPECTED_PREV_ROOT, 16), load_input.contract_state_commitment_info.previous_root);
     assert_eq!(felt_str!(EXPECTED_UPDATED_ROOT, 16), load_input.contract_state_commitment_info.updated_root);
-    assert!(load_input.transactions.len() > 0);
+    assert!(!load_input.transactions.is_empty());
 }
