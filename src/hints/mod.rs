@@ -232,8 +232,8 @@ pub fn transactions_len(
 ///      '__dict_manager': __dict_manager,
 /// })
 pub fn enter_syscall_scopes(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
