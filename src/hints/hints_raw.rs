@@ -48,3 +48,14 @@ pub const INITIALIZE_CLASS_HASHES: &str = "initial_dict = os_input.class_hash_to
 
 pub const GET_BLOCK_MAPPING: &str =
     "ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[\n    ids.BLOCK_HASH_CONTRACT_ADDRESS\n]";
+
+pub const SEGMENTS_ADD: &str = "memory[ap] = to_felt_or_relocatable(segments.add())";
+
+pub const SEGMENTS_ADD_TEMP: &str = "memory[ap] = to_felt_or_relocatable(segments.add_temp_segment())";
+
+pub const TRANSACTIONS_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(os_input.transactions))";
+
+pub const ENTER_SYSCALL_SCOPES: &str =
+    "vm_enter_scope({\n    '__deprecated_class_hashes': __deprecated_class_hashes,\n    'transactions': \
+     iter(os_input.transactions),\n    'execution_helper': execution_helper,\n    'deprecated_syscall_handler': \
+     deprecated_syscall_handler,\n    'syscall_handler': syscall_handler,\n     '__dict_manager': __dict_manager,\n})";
