@@ -187,7 +187,7 @@ pub fn initial_state(
         ],
         version: TransactionVersion::ONE,
     });
-    AccountTransaction::Invoke(fund_account.into()).execute(&mut cache, &block_context, false, true).unwrap();
+    AccountTransaction::Invoke(fund_account).execute(&mut cache, &block_context, false, true).unwrap();
 
     let deploy_account_tx =
         deploy_account_tx(DUMMY_ACCOUNT_HASH_0_12_2, Fee(TESTING_FEE), None, None, &mut nonce_manager);
@@ -256,86 +256,76 @@ pub fn prepare_os_test(
         assert_eq!(expected_addr, contract_addr);
     }
 
-    let mut txs: Vec<Calldata> = Vec::new();
-
-    txs.push(calldata![
-        *contract_addresses[0].0.key(),
-        selector_from_name("set_value").0,
-        stark_felt!(2_u8),
-        stark_felt!(85_u8),
-        stark_felt!(47_u8)
-    ]);
-
-    txs.push(calldata![
-        *contract_addresses[0].0.key(),
-        selector_from_name("set_value").0,
-        stark_felt!(2_u8),
-        stark_felt!(81_u8),
-        stark_felt!(0_u8)
-    ]);
-
-    txs.push(calldata![
-        *contract_addresses[2].0.key(),
-        selector_from_name("set_value").0,
-        stark_felt!(2_u8),
-        stark_felt!(97_u8),
-        stark_felt!(0_u8)
-    ]);
-
-    txs.push(calldata![*contract_addresses[1].0.key(), selector_from_name("entry_point").0, stark_felt!(0_u8)]);
-
-    txs.push(calldata![*contract_addresses[0].0.key(), selector_from_name("test_builtins").0, stark_felt!(0_u8)]);
-
-    txs.push(calldata![
-        *contract_addresses[1].0.key(),
-        selector_from_name("test_get_block_timestamp").0,
-        stark_felt!(1_u8),
-        stark_felt!(1000_u32)
-    ]);
-
-    txs.push(calldata![
-        *contract_addresses[1].0.key(),
-        selector_from_name("test_emit_event").0,
-        stark_felt!(4_u8),
-        stark_felt!(1_u8),
-        stark_felt!(1991_u32),
-        stark_felt!(1_u8),
-        stark_felt!(2021_u32)
-    ]);
-
-    txs.push(calldata![
-        *contract_addresses[0].0.key(),
-        selector_from_name("test_get_block_number").0,
-        stark_felt!(1_u32),
-        stark_felt!(initial_state.block_context.block_number.0 + 1_u64)
-    ]);
-
-    txs.push(calldata![
-        *contract_addresses[0].0.key(),
-        selector_from_name("test_call_contract").0,
-        stark_felt!(4_u32),
-        *contract_addresses[0].0.key(),
-        stark_felt!(selector_from_name("send_message").0),
-        stark_felt!(1_u8),
-        stark_felt!(85_u8)
-    ]);
-
-    txs.push(calldata![
-        *contract_addresses[0].0.key(),
-        selector_from_name("test_call_contract").0,
-        stark_felt!(4_u32),
-        *contract_addresses[1].0.key(),
-        stark_felt!(selector_from_name("test_get_caller_address").0),
-        stark_felt!(1_u8),
-        *contract_addresses[0].0.key()
-    ]);
-
-    txs.push(calldata![
-        *contract_addresses[0].0.key(),
-        selector_from_name("test_get_contract_address").0,
-        stark_felt!(1_u32),
-        *contract_addresses[0].0.key()
-    ]);
+    let mut txs: Vec<Calldata> = vec![
+        calldata![
+            *contract_addresses[0].0.key(),
+            selector_from_name("set_value").0,
+            stark_felt!(2_u8),
+            stark_felt!(85_u8),
+            stark_felt!(47_u8)
+        ],
+        calldata![
+            *contract_addresses[0].0.key(),
+            selector_from_name("set_value").0,
+            stark_felt!(2_u8),
+            stark_felt!(81_u8),
+            stark_felt!(0_u8)
+        ],
+        calldata![
+            *contract_addresses[2].0.key(),
+            selector_from_name("set_value").0,
+            stark_felt!(2_u8),
+            stark_felt!(97_u8),
+            stark_felt!(0_u8)
+        ],
+        calldata![*contract_addresses[1].0.key(), selector_from_name("entry_point").0, stark_felt!(0_u8)],
+        calldata![*contract_addresses[0].0.key(), selector_from_name("test_builtins").0, stark_felt!(0_u8)],
+        calldata![
+            *contract_addresses[1].0.key(),
+            selector_from_name("test_get_block_timestamp").0,
+            stark_felt!(1_u8),
+            stark_felt!(1000_u32)
+        ],
+        calldata![
+            *contract_addresses[1].0.key(),
+            selector_from_name("test_emit_event").0,
+            stark_felt!(4_u8),
+            stark_felt!(1_u8),
+            stark_felt!(1991_u32),
+            stark_felt!(1_u8),
+            stark_felt!(2021_u32)
+        ],
+        calldata![
+            *contract_addresses[0].0.key(),
+            selector_from_name("test_get_block_number").0,
+            stark_felt!(1_u32),
+            stark_felt!(initial_state.block_context.block_number.0 + 1_u64)
+        ],
+        calldata![
+            *contract_addresses[0].0.key(),
+            selector_from_name("test_call_contract").0,
+            stark_felt!(4_u32),
+            *contract_addresses[0].0.key(),
+            stark_felt!(selector_from_name("send_message").0),
+            stark_felt!(1_u8),
+            stark_felt!(85_u8)
+        ],
+        calldata![
+            *contract_addresses[0].0.key(),
+            selector_from_name("test_call_contract").0,
+            stark_felt!(4_u32),
+            *contract_addresses[1].0.key(),
+            stark_felt!(selector_from_name("test_get_caller_address").0),
+            stark_felt!(1_u8),
+            *contract_addresses[0].0.key()
+        ],
+        calldata![
+            *contract_addresses[0].0.key(),
+            selector_from_name("test_get_contract_address").0,
+            stark_felt!(1_u32),
+            *contract_addresses[0].0.key()
+        ],
+    ];
 
     let delegate_addr = utils::raw_deploy(
         &mut initial_state,
@@ -471,8 +461,8 @@ pub fn prepare_os_test(
             calldata: tx,
             version: TransactionVersion::ONE,
         });
-        let tx_info = AccountTransaction::Invoke(account_tx.into())
-            .execute(&mut initial_state.cache, &mut initial_state.block_context, false, true)
+        let tx_info = AccountTransaction::Invoke(account_tx)
+            .execute(&mut initial_state.cache, &initial_state.block_context, false, true)
             .unwrap();
         exec_info.push(tx_info);
     }
@@ -486,8 +476,8 @@ pub fn prepare_os_test(
             signature: sig_tx.1,
             version: TransactionVersion::ONE,
         });
-        let tx_info = AccountTransaction::Invoke(account_tx.into())
-            .execute(&mut initial_state.cache, &mut initial_state.block_context, false, true)
+        let tx_info = AccountTransaction::Invoke(account_tx)
+            .execute(&mut initial_state.cache, &initial_state.block_context, false, true)
             .unwrap();
         exec_info.push(tx_info);
     }

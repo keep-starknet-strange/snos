@@ -20,5 +20,5 @@ fn sharp_client_status() {
     let submit_resp = sharp_client.get_status(TEST_CAIRO_JOB_ID).unwrap();
 
     assert_eq!(submit_resp.version.unwrap(), 1);
-    assert_eq!(submit_resp.validation_done.unwrap(), true);
+    assert!(submit_resp.validation_done.unwrap());
 }
