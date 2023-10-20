@@ -59,6 +59,15 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let initialize_class_hashes_hint = HintFunc(Box::new(initialize_class_hashes));
     hint_processor.add_hint(String::from(hints_raw::INITIALIZE_CLASS_HASHES), Rc::new(initialize_class_hashes_hint));
 
+    let segments_add_hint = HintFunc(Box::new(segments_add));
+    hint_processor.add_hint(String::from(hints_raw::SEGMENTS_ADD), Rc::new(segments_add_hint));
+
+    let segments_add_temp_hint = HintFunc(Box::new(segments_add_temp));
+    hint_processor.add_hint(String::from(hints_raw::SEGMENTS_ADD_TEMP), Rc::new(segments_add_temp_hint));
+
+    let transactions_len_hint = HintFunc(Box::new(transactions_len));
+    hint_processor.add_hint(String::from(hints_raw::TRANSACTIONS_LEN), Rc::new(transactions_len_hint));
+
     hint_processor
 }
 
@@ -166,5 +175,68 @@ pub fn initialize_class_hashes(
     }
 
     exec_scopes.insert_box("initial_dict", Box::new(class_dict));
+    Ok(())
+}
+
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(segments.add())
+pub fn segments_add(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let segment = vm.add_memory_segment();
+    insert_value_into_ap(vm, segment)
+}
+
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(segments.add_temp_segment())
+pub fn segments_add_temp(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let temp_segment = vm.add_temporary_segment();
+    insert_value_into_ap(vm, temp_segment)
+}
+
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(len(os_input.transactions))
+pub fn transactions_len(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+
+    insert_value_into_ap(vm, os_input.transactions.len())
+}
+
+/// Implements hint:
+///
+/// vm_enter_scope({
+///     '__deprecated_class_hashes': __deprecated_class_hashes,
+///     'transactions': iter(os_input.transactions),
+///     'execution_helper': execution_helper,
+///     'deprecated_syscall_handler': deprecated_syscall_handler,
+///     'syscall_handler': syscall_handler,
+///      '__dict_manager': __dict_manager,
+/// })
+pub fn enter_syscall_scopes(
+    _vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
     Ok(())
 }
