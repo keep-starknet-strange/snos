@@ -97,11 +97,7 @@ fn parse_os_input(load_input: &StarknetOsInput) {
 }
 
 #[rstest]
-fn parse_os_output(load_output: StarknetOsOutput) {
-    println!("LOAD_OUTPUT: {:?}", load_output);
-    // assert_eq!(felt_str!(TESTING_BLOCK_HASH, 16), load_input.block_hash);
-    // assert_eq!(felt_str!(EXPECTED_PREV_ROOT, 16),
-    // load_input.contract_state_commitment_info.previous_root); assert_eq!(felt_str!
-    // (EXPECTED_UPDATED_ROOT, 16), load_input.contract_state_commitment_info.updated_root);
-    // assert!(!load_input.transactions.is_empty());
+fn parse_os_output(load_input: &StarknetOsInput, load_output: StarknetOsOutput) {
+    assert_eq!(load_input.contract_state_commitment_info.previous_root, load_output.prev_state_root);
+    assert_eq!(load_input.contract_state_commitment_info.updated_root, load_output.new_state_root);
 }

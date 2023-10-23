@@ -67,5 +67,5 @@ impl StarknetOsInputUtil {
 }
 
 #[serde_as]
-#[derive(Debug, Clone, Deserialize, Serialize)]
-struct RawOsOutput(#[serde_as(as = "Felt252Num")] Vec<Felt252>);
+#[derive(Debug, Deserialize)]
+pub struct RawOsOutput(#[serde_as(as = "Vec<Felt252Num>")] pub Vec<Felt252>);

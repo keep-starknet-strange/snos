@@ -1,4 +1,4 @@
-pub mod serde;
+pub mod serde_utils;
 pub mod utils;
 
 use std::collections::HashMap;
@@ -15,7 +15,7 @@ use blockifier::test_utils::{deploy_account_tx, invoke_tx, DictStateReader, Invo
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transactions::ExecutableTransaction;
-use cairo_felt::{felt_str, Felt252};
+use cairo_felt::felt_str;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_vm::vm::runners::builtin_runner::{
@@ -71,7 +71,7 @@ pub const EXPECTED_UPDATED_ROOT: &str = "482c9ce8a99afddc9777ff048520fcbfab6c038
 #[fixture]
 #[once]
 pub fn load_and_write_input() {
-    let os_input = serde::StarknetOsInputUtil::load("tests/common/os_input.json");
+    let os_input = serde_utils::StarknetOsInputUtil::load("tests/common/os_input.json");
     os_input.dump(DEFAULT_INPUT_PATH).unwrap();
 }
 
@@ -504,8 +504,7 @@ pub fn prepare_os_test(
 #[fixture]
 pub fn load_output() -> StarknetOsOutput {
     let buf = fs::read_to_string("tests/common/os_output.json").unwrap();
-    let raw_output: Vec<Felt252> = serde_json::from_str(&buf).unwrap();
-    println!("RAW: {:?}", raw_output);
+    let raw_output: serde_utils::RawOsOutput = serde_json::from_str(&buf).unwrap();
 
-    decode_output(raw_output).unwrap()
+    decode_output(raw_output.0).unwrap()
 }
