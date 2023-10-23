@@ -62,7 +62,7 @@ pub struct StorageCommitment {
 }
 
 #[serde_as]
-#[derive(Deserialize, Clone, Debug, Serialize)]
+#[derive(Deserialize, Clone, Debug, Serialize, Default)]
 pub struct InternalTransaction {
     #[serde_as(as = "Felt252Str")]
     pub hash_value: Felt252,

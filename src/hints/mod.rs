@@ -1,6 +1,7 @@
 pub mod block_context;
 pub mod hints_raw;
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::slice::Iter;
@@ -234,11 +235,14 @@ pub fn transactions_len(
 /// })
 pub fn enter_syscall_scopes(
     _vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
+    let transactions: Box<dyn Any> = Box::new([os_input.transactions.into_iter()].into_iter());
+    exec_scopes.enter_scope(HashMap::from_iter([(String::from("transactions"), transactions)]));
     Ok(())
 }
 
@@ -257,6 +261,6 @@ pub fn load_next_tx(
     let mut transactions = exec_scopes.get::<Iter<InternalTransaction>>("transactions")?;
     // Safe to unwrap because the remaining number of txs is checked in the cairo code.
     let tx = transactions.next().unwrap();
-    exec_scopes.insert_value(transactions, "transactions");
+    exec_scopes.insert_value("transactions", transactions);
     insert_value_from_var_name("tx_type", Felt252::from_bytes_be(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
 }
