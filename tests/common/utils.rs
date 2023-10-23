@@ -62,11 +62,7 @@ pub fn deprecated_cairo_python_run(program: &str, with_input: bool) -> String {
     let mut raw = String::from_utf8(cmd_out.stdout).unwrap();
     raw.push_str(&String::from_utf8(cmd_out.stderr).unwrap());
 
-    raw.trim_start_matches("Program output:")
-        .trim_start_matches("\n  ")
-        .trim_end_matches("\n\n")
-        .replace(' ', "")
-        .to_string()
+    raw.trim_start_matches("Program output:").trim_start_matches("\n  ").trim_end_matches("\n\n").replace(' ', "")
 }
 
 pub fn raw_deploy(
