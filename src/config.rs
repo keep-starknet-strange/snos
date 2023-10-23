@@ -10,13 +10,15 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
+use starknet_api::hash::{pedersen_hash_array, StarkFelt, StarkHash};
 use starknet_api::{contract_address, patricia_key};
+use starknet_crypto::FieldElement;
 
 use crate::error::SnOsError;
 
 const DEFAULT_CONFIG_PATH: &str = "cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 
+pub const STARKNET_OS_CONFIG_HASH_VERSION: &str = "StarknetOsConfig1";
 pub const DEFAULT_LAYOUT: &str = "starknet_with_keccak";
 pub const DEFAULT_COMPILED_OS: &str = "build/os_latest.json";
 pub const DEFAULT_INPUT_PATH: &str = "build/input.json";
@@ -33,6 +35,16 @@ pub struct StarknetOsConfig {
     #[serde_as(as = "ChainIdNum")]
     pub chain_id: ChainId,
     pub fee_token_address: ContractAddress,
+}
+
+impl StarknetOsConfig {
+    pub fn hash(&self) -> StarkHash {
+        pedersen_hash_array(&[
+            StarkFelt::from(FieldElement::from_byte_slice_be(STARKNET_OS_CONFIG_HASH_VERSION.as_bytes()).unwrap()),
+            StarkFelt::from(u128::from_str_radix(&self.chain_id.0, 16).unwrap()),
+            *self.fee_token_address.0.key(),
+        ])
+    }
 }
 
 #[derive(Debug, Serialize, Clone, Deserialize)]

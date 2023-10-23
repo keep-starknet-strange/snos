@@ -3,15 +3,15 @@ mod common;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_felt::felt_str;
+use cairo_felt::{felt_str, Felt252};
 use common::{
     initial_state, load_input, load_output, prepare_os_test, EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT,
     TESTING_BLOCK_HASH, TESTING_HASH_0_12_2,
 };
 use rstest::rstest;
-use snos::io::StarknetOsInput;
-use snos::io::StarknetOsOutput;
+use snos::io::{StarknetOsInput, StarknetOsOutput};
 use snos::state::SharedState;
+use snos::utils::felt_api2vm;
 use snos::SnOsRunner;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ContractAddress, PatriciaKey};
@@ -100,4 +100,11 @@ fn parse_os_input(load_input: &StarknetOsInput) {
 fn parse_os_output(load_input: &StarknetOsInput, load_output: StarknetOsOutput) {
     assert_eq!(load_input.contract_state_commitment_info.previous_root, load_output.prev_state_root);
     assert_eq!(load_input.contract_state_commitment_info.updated_root, load_output.new_state_root);
+    assert_eq!(Felt252::from(1), load_output.block_number);
+    assert_eq!(load_input.block_hash, load_output.block_hash);
+    assert_eq!(felt_api2vm(load_input.general_config.starknet_os_config.hash()), load_output.config_hash);
+    assert_eq!(4, load_output.messages_to_l1.len());
+    assert_eq!(4, load_output.messages_to_l2.len());
+    assert_eq!(4, load_output.state_updates.len());
+    assert_eq!(4, load_output.contract_class_diff.len());
 }

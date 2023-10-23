@@ -5,6 +5,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 
 use super::StarknetOsOutput;
 use crate::error::SnOsError;
+use crate::utils::felt_vm2usize;
 
 const PREVIOUS_MERKLE_UPDATE_OFFSET: usize = 0;
 const NEW_MERKLE_UPDATE_OFFSET: usize = 1;
@@ -31,10 +32,8 @@ impl StarknetOsOutput {
         };
 
         // Get is input and check that everything is an integer.
-        let raw_output = vm.get_range(
-            (output_base as isize, 0).into(),
-            <usize>::from_be_bytes((size_bound_up.clone() - output_base).to_be_bytes()[..8].try_into().unwrap()),
-        );
+        let raw_output = vm
+            .get_range((output_base as isize, 0).into(), felt_vm2usize(Some(&(size_bound_up.clone() - output_base)))?);
         let raw_output: Vec<Felt252> = raw_output
             .iter()
             .map(|x| {
@@ -50,17 +49,6 @@ impl StarknetOsOutput {
     }
 }
 
-fn felt_to_len(felt_op: Option<&Felt252>) -> Result<usize, SnOsError> {
-    match felt_op {
-        Some(felt) => {
-            let big_num: u16 = felt.to_bigint().try_into().map_err(|e| SnOsError::Output(format!("{e}")))?;
-
-            Ok(big_num.into())
-        }
-        None => Err(SnOsError::Output(format!("no length available"))),
-    }
-}
-
 pub fn decode_output(mut os_output: Vec<Felt252>) -> Result<StarknetOsOutput, SnOsError> {
     let header: Vec<Felt252> = os_output.drain(..HEADER_SIZE).collect();
 
@@ -70,9 +58,9 @@ pub fn decode_output(mut os_output: Vec<Felt252>) -> Result<StarknetOsOutput, Sn
         block_number: header[BLOCK_NUMBER_OFFSET].clone(),
         block_hash: header[BLOCK_HASH_OFFSET].clone(),
         config_hash: header[CONFIG_HASH_OFFSET].clone(),
-        messages_to_l1: os_output.drain(1..felt_to_len(os_output.first())?).collect(),
-        messages_to_l2: os_output.drain(1..felt_to_len(os_output.first())?).collect(),
-        state_updates: os_output.drain(1..felt_to_len(os_output.first())?).collect(),
-        contract_class_diff: os_output.drain(1..felt_to_len(os_output.first())?).collect(),
+        messages_to_l1: os_output.drain(1..felt_vm2usize(os_output.first())?).collect(),
+        messages_to_l2: os_output.drain(1..felt_vm2usize(os_output.first())?).collect(),
+        state_updates: os_output.drain(1..felt_vm2usize(os_output.first())?).collect(),
+        contract_class_diff: os_output.drain(1..felt_vm2usize(os_output.first())?).collect(),
     })
 }
