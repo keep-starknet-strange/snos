@@ -128,8 +128,16 @@ impl SnOsRunner {
         let messages_to_l1 = os_output[1..messages_to_l1_size].to_vec();
 
         let os_output = &os_output[messages_to_l1_size + 1..];
-        let messages_to_l2 =
-            os_output[1..<usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap())].to_vec();
+        let messages_to_l2_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
+        let messages_to_l2 = os_output[1..messages_to_l2_size].to_vec();
+        let os_output = &os_output[messages_to_l2_size + 1..];
+
+        let state_updates_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
+        let state_updates = os_output[1..state_updates_size].to_vec();
+        let os_output = &os_output[state_updates_size + 1..];
+
+        let contract_class_diff_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
+        let contract_class_diff = os_output[1..contract_class_diff_size].to_vec();
         StarknetOsOutput::new(
             prev_state_root,
             new_state_root,
@@ -138,6 +146,8 @@ impl SnOsRunner {
             config_hash,
             messages_to_l1,
             messages_to_l2,
+            state_updates,
+            contract_class_diff,
         );
 
         vm.verify_auto_deductions().map_err(|e| SnOsError::Runner(e.into()))?;

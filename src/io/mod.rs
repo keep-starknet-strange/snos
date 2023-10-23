@@ -121,8 +121,14 @@ pub struct StarknetOsOutput {
     pub messages_to_l1: Vec<Felt252>,
     /// List of messages from L1 handled in this block
     pub messages_to_l2: Vec<Felt252>,
+    /// List of the storage updates.
+    pub state_updates: Vec<Felt252>,
+    /// List of the newly declared contract classes.
+    pub contract_class_diff: Vec<Felt252>,
 }
+
 impl StarknetOsOutput {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         prev_state_root: Felt252,
         new_state_root: Felt252,
@@ -131,8 +137,20 @@ impl StarknetOsOutput {
         config_hash: Felt252,
         messages_to_l1: Vec<Felt252>,
         messages_to_l2: Vec<Felt252>,
+        state_updates: Vec<Felt252>,
+        contract_class_diff: Vec<Felt252>,
     ) -> Self {
-        Self { prev_state_root, new_state_root, block_number, block_hash, config_hash, messages_to_l1, messages_to_l2 }
+        Self {
+            prev_state_root,
+            new_state_root,
+            block_number,
+            block_hash,
+            config_hash,
+            messages_to_l1,
+            messages_to_l2,
+            state_updates,
+            contract_class_diff,
+        }
     }
 }
 
