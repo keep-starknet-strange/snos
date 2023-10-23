@@ -121,6 +121,118 @@ impl SnOsRunner {
             })
             .collect();
 
+        let os_output = vec![
+            Felt252::from_str_radix("5", 10).unwrap(),
+            Felt252::from_str_radix("200681068043714771978294967736222413892373265451181245269365696587346998380", 10)
+                .unwrap(),
+            Felt252::from_str_radix("5", 10).unwrap(),
+            Felt252::from_str_radix("2", 10).unwrap(),
+            Felt252::from_str_radix("2", 10).unwrap(),
+            Felt252::from_str_radix("4", 10).unwrap(),
+            Felt252::from_str_radix("6", 10).unwrap(),
+            Felt252::from_str_radix("5", 10).unwrap(),
+            Felt252::from_str_radix("100516143779279430775707828199600578312537898796928552917232883557759234322", 10)
+                .unwrap(),
+            Felt252::from_str_radix("0", 10).unwrap(),
+            Felt252::from_str_radix("35204018158445673560851558076088854146605956506855338357946372855484348775", 10)
+                .unwrap(),
+            Felt252::from_str_radix("1", 10).unwrap(),
+            Felt252::from_str_radix("2", 10).unwrap(),
+            Felt252::from_str_radix("5", 10).unwrap(),
+            Felt252::from_str_radix("100516143779279430775707828199600578312537898796928552917232883557759234322", 10)
+                .unwrap(),
+            Felt252::from_str_radix("34028236692093846346337460743176821142", 10).unwrap(),
+            Felt252::from_str_radix("69269496341425719426402089224874584819743134075306502400687571826086987209", 10)
+                .unwrap(),
+            Felt252::from_str_radix("13", 10).unwrap(),
+            Felt252::from_str_radix("46", 10).unwrap(),
+            Felt252::from_str_radix("30", 10).unwrap(),
+            Felt252::from_str_radix("221543030371090279154099648482303080997145207855149800960303587058346405278", 10)
+                .unwrap(),
+            Felt252::from_str_radix("31", 10).unwrap(),
+            Felt252::from_str_radix("153672706898142968531", 10).unwrap(),
+            Felt252::from_str_radix("32", 10).unwrap(),
+            Felt252::from_str_radix("9", 10).unwrap(),
+            Felt252::from_str_radix("81567992657121201822719584870756232234855806740606093104123927385410749460", 10)
+                .unwrap(),
+            Felt252::from_str_radix("2", 10).unwrap(),
+            Felt252::from_str_radix("131641924399560670288987069486918367964567650624282359632691221293624835245", 10)
+                .unwrap(),
+            Felt252::from_str_radix("326212205117017662403990886779887590398051155242173007037667265340317986446", 10)
+                .unwrap(),
+            Felt252::from_str_radix("200681068043714771978294967736222413892373265451181245269365696587346998380", 10)
+                .unwrap(),
+            Felt252::from_str_radix("34028236692093846346337460743176821141", 10).unwrap(),
+            Felt252::from_str_radix("208452472809998532760646017254057231099592366165685967544992326891398085023", 10)
+                .unwrap(),
+            Felt252::from_str_radix("5", 10).unwrap(),
+            Felt252::from_str_radix("7", 10).unwrap(),
+            Felt252::from_str_radix("31", 10).unwrap(),
+            Felt252::from_str_radix("53", 10).unwrap(),
+            Felt252::from_str_radix("44", 10).unwrap(),
+            Felt252::from_str_radix("66", 10).unwrap(),
+            Felt252::from_str_radix("171542524625682182385553640995899254084645198956708755167645702779965225616", 10)
+                .unwrap(),
+            Felt252::from_str_radix("10", 10).unwrap(),
+            Felt252::from_str_radix("171542524625682182385553640995899254084645198956708755167645702779965225617", 10)
+                .unwrap(),
+            Felt252::from_str_radix("20", 10).unwrap(),
+            Felt252::from_str_radix("222163306951389421296717391987130197751942633868181938423174889893366401376", 10)
+                .unwrap(),
+            Felt252::from_str_radix("34028236692093846346337460743176821140", 10).unwrap(),
+            Felt252::from_str_radix("326212205117017662403990886779887590398051155242173007037667265340317986446", 10)
+                .unwrap(),
+            Felt252::from_str_radix("5", 10).unwrap(),
+            Felt252::from_str_radix("1", 10).unwrap(),
+            Felt252::from_str_radix("11", 10).unwrap(),
+            Felt252::from_str_radix("97", 10).unwrap(),
+            Felt252::from_str_radix("55", 10).unwrap(),
+            Felt252::from_str_radix("88", 10).unwrap(),
+            Felt252::from_str_radix("66", 10).unwrap(),
+            Felt252::from_str_radix("99", 10).unwrap(),
+            Felt252::from_str_radix("261876760381503837851236634655062773110976680464358301683405235391247340282", 10)
+                .unwrap(),
+            Felt252::from_str_radix("44272185776902923874", 10).unwrap(),
+            Felt252::from_str_radix("330209860549393888721793468867835607193970854666866966631900875791400281196", 10)
+                .unwrap(),
+            Felt252::from_str_radix("34028236692093846346337460743176821146", 10).unwrap(),
+            Felt252::from_str_radix("326212205117017662403990886779887590398051155242173007037667265340317986446", 10)
+                .unwrap(),
+            Felt252::from(0),
+        ];
+        let prev_state_root = os_output[0].clone();
+        let new_state_root = os_output[1].clone();
+        let block_number = os_output[2].clone();
+        let block_hash = os_output[3].clone();
+        let config_hash = os_output[4].clone();
+        let os_output = &os_output[5..];
+        let messages_to_l1_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
+        let messages_to_l1 = os_output[1..1 + messages_to_l1_size].to_vec();
+
+        let os_output = &os_output[messages_to_l1_size + 1..];
+        let messages_to_l2_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
+        let messages_to_l2 = os_output[1..1 + messages_to_l2_size].to_vec();
+        let os_output = &os_output[messages_to_l2_size + 1..];
+
+        let state_updates_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
+        let state_updates = os_output[1..1 + state_updates_size].to_vec();
+        let os_output = &os_output[state_updates_size + 1..];
+
+        let contract_class_diff_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
+        let contract_class_diff = os_output[1..1 + contract_class_diff_size].to_vec();
+        let real_output = StarknetOsOutput::new(
+            prev_state_root,
+            new_state_root,
+            block_number,
+            block_hash,
+            config_hash,
+            messages_to_l1,
+            messages_to_l2,
+            state_updates,
+            contract_class_diff,
+        );
+        println!("{:?}", real_output);
+
         let prev_state_root = os_output[0].clone();
         let new_state_root = os_output[1].clone();
         let block_number = os_output[2].clone();
