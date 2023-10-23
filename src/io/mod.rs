@@ -1,4 +1,5 @@
 pub mod classes;
+pub mod output;
 
 use std::collections::HashMap;
 use std::io::Write;
@@ -30,6 +31,19 @@ pub struct StarknetOsInput {
     pub transactions: Vec<InternalTransaction>,
     #[serde_as(as = "Felt252Num")]
     pub block_hash: Felt252,
+}
+
+impl StarknetOsInput {
+    pub fn load(path: &str) -> Self {
+        let raw_input = fs::read_to_string(path::PathBuf::from(path)).unwrap();
+        serde_json::from_str(&raw_input).unwrap()
+    }
+    pub fn dump(&self, path: &str) -> Result<(), SnOsError> {
+        fs::File::create(path)
+            .unwrap()
+            .write_all(&serde_json::to_vec(&self).unwrap())
+            .map_err(|e| SnOsError::CatchAll(format!("{e}")))
+    }
 }
 
 #[serde_as]
@@ -126,44 +140,4 @@ pub struct StarknetOsOutput {
     pub state_updates: Vec<Felt252>,
     /// List of the newly declared contract classes.
     pub contract_class_diff: Vec<Felt252>,
-}
-
-impl StarknetOsOutput {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        prev_state_root: Felt252,
-        new_state_root: Felt252,
-        block_number: Felt252,
-        block_hash: Felt252,
-        config_hash: Felt252,
-        messages_to_l1: Vec<Felt252>,
-        messages_to_l2: Vec<Felt252>,
-        state_updates: Vec<Felt252>,
-        contract_class_diff: Vec<Felt252>,
-    ) -> Self {
-        Self {
-            prev_state_root,
-            new_state_root,
-            block_number,
-            block_hash,
-            config_hash,
-            messages_to_l1,
-            messages_to_l2,
-            state_updates,
-            contract_class_diff,
-        }
-    }
-}
-
-impl StarknetOsInput {
-    pub fn load(path: &str) -> Self {
-        let raw_input = fs::read_to_string(path::PathBuf::from(path)).unwrap();
-        serde_json::from_str(&raw_input).unwrap()
-    }
-    pub fn dump(&self, path: &str) -> Result<(), SnOsError> {
-        fs::File::create(path)
-            .unwrap()
-            .write_all(&serde_json::to_vec(&self).unwrap())
-            .map_err(|e| SnOsError::CatchAll(format!("{e}")))
-    }
 }

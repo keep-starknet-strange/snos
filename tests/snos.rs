@@ -4,9 +4,11 @@ use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_felt::felt_str;
 use common::{
-    initial_state, load_input, prepare_os_test, EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_BLOCK_HASH,
+    initial_state, load_input, load_output, prepare_os_test, EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT,
+    TESTING_BLOCK_HASH,
 };
-use rstest::*;
+use rstest::rstest;
+use snos::io::output::StarknetOsOutput;
 use snos::io::StarknetOsInput;
 use snos::state::SharedState;
 use snos::SnOsRunner;
@@ -48,4 +50,13 @@ fn parse_os_input(load_input: &StarknetOsInput) {
     assert_eq!(felt_str!(EXPECTED_PREV_ROOT, 16), load_input.contract_state_commitment_info.previous_root);
     assert_eq!(felt_str!(EXPECTED_UPDATED_ROOT, 16), load_input.contract_state_commitment_info.updated_root);
     assert!(!load_input.transactions.is_empty());
+}
+
+#[rstest]
+fn parse_os_output(load_output: StarknetOsOutput) {
+    // assert_eq!(felt_str!(TESTING_BLOCK_HASH, 16), load_input.block_hash);
+    // assert_eq!(felt_str!(EXPECTED_PREV_ROOT, 16),
+    // load_input.contract_state_commitment_info.previous_root); assert_eq!(felt_str!
+    // (EXPECTED_UPDATED_ROOT, 16), load_input.contract_state_commitment_info.updated_root);
+    // assert!(!load_input.transactions.is_empty());
 }
