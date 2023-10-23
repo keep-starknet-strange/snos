@@ -22,6 +22,7 @@ use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use config::StarknetGeneralConfig;
 use error::SnOsError;
+use num_traits::Num;
 use state::SharedState;
 
 use crate::io::StarknetOsOutput;
