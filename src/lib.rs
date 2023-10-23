@@ -80,6 +80,8 @@ impl SnOsRunner {
             .run_until_pc(end, &mut vm, &mut sn_hint_processor)
             .map_err(|err| VmException::from_vm_error(&cairo_runner, &vm, err))
             .map_err(|e| SnOsError::Runner(e.into()))?;
+
+        // End the Cairo VM run
         cairo_runner
             .end_run(cairo_run_config.disable_trace_padding, false, &mut vm, &mut sn_hint_processor)
             .map_err(|e| SnOsError::Runner(e.into()))?;
@@ -118,6 +120,7 @@ impl SnOsRunner {
                 }
             })
             .collect();
+
         let prev_state_root = os_output[0].clone();
         let new_state_root = os_output[1].clone();
         let block_number = os_output[2].clone();
@@ -125,20 +128,20 @@ impl SnOsRunner {
         let config_hash = os_output[4].clone();
         let os_output = &os_output[5..];
         let messages_to_l1_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-        let messages_to_l1 = os_output[1..messages_to_l1_size].to_vec();
+        let messages_to_l1 = os_output[1..1 + messages_to_l1_size].to_vec();
 
         let os_output = &os_output[messages_to_l1_size + 1..];
         let messages_to_l2_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-        let messages_to_l2 = os_output[1..messages_to_l2_size].to_vec();
+        let messages_to_l2 = os_output[1..1 + messages_to_l2_size].to_vec();
         let os_output = &os_output[messages_to_l2_size + 1..];
 
         let state_updates_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-        let state_updates = os_output[1..state_updates_size].to_vec();
+        let state_updates = os_output[1..1 + state_updates_size].to_vec();
         let os_output = &os_output[state_updates_size + 1..];
 
         let contract_class_diff_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-        let contract_class_diff = os_output[1..contract_class_diff_size].to_vec();
-        StarknetOsOutput::new(
+        let contract_class_diff = os_output[1..1 + contract_class_diff_size].to_vec();
+        let real_output = StarknetOsOutput::new(
             prev_state_root,
             new_state_root,
             block_number,
@@ -149,6 +152,7 @@ impl SnOsRunner {
             state_updates,
             contract_class_diff,
         );
+        println!("{:?}", real_output);
 
         vm.verify_auto_deductions().map_err(|e| SnOsError::Runner(e.into()))?;
         cairo_runner.read_return_values(&mut vm).map_err(|e| SnOsError::Runner(e.into()))?;

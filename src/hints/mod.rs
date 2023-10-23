@@ -1,8 +1,11 @@
 pub mod block_context;
 pub mod hints_raw;
+// pub mod transaction_context;
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::slice::Iter;
 
 use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -17,7 +20,7 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
 use crate::config::DEFAULT_INPUT_PATH;
-use crate::io::StarknetOsInput;
+use crate::io::{InternalTransaction, StarknetOsInput};
 
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let mut hint_processor = BuiltinHintProcessor::new_empty();
@@ -233,10 +236,32 @@ pub fn transactions_len(
 /// })
 pub fn enter_syscall_scopes(
     _vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
+    let transactions: Box<dyn Any> = Box::new([os_input.transactions.into_iter()].into_iter());
+    exec_scopes.enter_scope(HashMap::from_iter([(String::from("transactions"), transactions)]));
     Ok(())
+}
+
+/// Implements hint:
+///
+/// tx = next(transactions)
+/// tx_type_bytes = tx.tx_type.name.encode("ascii")
+/// ids.tx_type = int.from_bytes(tx_type_bytes, "big")
+pub fn load_next_tx(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let mut transactions = exec_scopes.get::<Iter<InternalTransaction>>("transactions")?;
+    // Safe to unwrap because the remaining number of txs is checked in the cairo code.
+    let tx = transactions.next().unwrap();
+    exec_scopes.insert_value("transactions", transactions);
+    insert_value_from_var_name("tx_type", Felt252::from_bytes_be(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
 }

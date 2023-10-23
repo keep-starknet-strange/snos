@@ -17,4 +17,4 @@ else
     echo -e "$1 sucessfully recompiled...\n"
 fi
 
-cargo test -q "$1_test" -- --nocapture
+cargo test "$1_test" -- --nocapture

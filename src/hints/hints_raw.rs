@@ -59,3 +59,11 @@ pub const ENTER_SYSCALL_SCOPES: &str =
     "vm_enter_scope({\n    '__deprecated_class_hashes': __deprecated_class_hashes,\n    'transactions': \
      iter(os_input.transactions),\n    'execution_helper': execution_helper,\n    'deprecated_syscall_handler': \
      deprecated_syscall_handler,\n    'syscall_handler': syscall_handler,\n     '__dict_manager': __dict_manager,\n})";
+
+pub const LOAD_NEXT_TX: &str = "tx = next(transactions)\ntx_type_bytes = \
+                                tx.tx_type.name.encode(\"ascii\")\nids.tx_type = int.from_bytes(tx_type_bytes, \
+                                \"big\")";
+
+pub const LOAD_CONTRACT_ADDRESS: &str = "from starkware.starknet.business_logic.transaction.objects import \
+                                         InternalL1Handler\nids.contract_address = (\ntx.contract_address if \
+                                         isinstance(tx, InternalL1Handler) else tx.sender_address\n)";
