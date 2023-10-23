@@ -65,3 +65,7 @@ impl StarknetOsInputUtil {
             .map_err(|e| SnOsError::CatchAll(format!("{e}")))
     }
 }
+
+#[serde_as]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct RawOsOutput(#[serde_as(as = "Felt252Num")] Vec<Felt252>);

@@ -50,32 +50,32 @@ impl StarknetOsOutput {
     }
 }
 
-pub fn decode_output(raw_output: Vec<Felt252>) -> Result<Self, SnOsError> {
-    let os_output = &raw_output[HEADER_SIZE..];
-    let messages_to_l1_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-    let messages_to_l1 = os_output[1..1 + messages_to_l1_size].to_vec();
+pub fn decode_output(os_output: Vec<Felt252>) -> Result<StarknetOsOutput, SnOsError> {
+    let (header, raw_output) = os_output.split_at(HEADER_SIZE);
+    let messages_to_l1_size = <usize>::from_be_bytes(raw_output[0].to_be_bytes()[..8].try_into().unwrap());
+    let messages_to_l1 = raw_output[1..1 + messages_to_l1_size].to_vec();
 
-    let os_output = &os_output[messages_to_l1_size + 1..];
-    let messages_to_l2_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-    let messages_to_l2 = os_output[1..1 + messages_to_l2_size].to_vec();
-    let os_output = &os_output[messages_to_l2_size + 1..];
+    let raw_output = &raw_output[messages_to_l1_size + 1..];
+    let messages_to_l2_size = <usize>::from_be_bytes(raw_output[0].to_be_bytes()[..8].try_into().unwrap());
+    let messages_to_l2 = raw_output[1..1 + messages_to_l2_size].to_vec();
+    let raw_output = &raw_output[messages_to_l2_size + 1..];
 
-    let state_updates_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-    let state_updates = os_output[1..1 + state_updates_size].to_vec();
-    let os_output = &os_output[state_updates_size + 1..];
+    let state_updates_size = <usize>::from_be_bytes(raw_output[0].to_be_bytes()[..8].try_into().unwrap());
+    let state_updates = raw_output[1..1 + state_updates_size].to_vec();
+    let raw_output = &raw_output[state_updates_size + 1..];
 
-    let contract_class_diff_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-    let contract_class_diff = os_output[1..1 + contract_class_diff_size].to_vec();
+    let contract_class_diff_size = <usize>::from_be_bytes(raw_output[0].to_be_bytes()[..8].try_into().unwrap());
+    let contract_class_diff = raw_output[1..1 + contract_class_diff_size].to_vec();
 
-    Ok(Self {
+    Ok(StarknetOsOutput {
         messages_to_l1,
         messages_to_l2,
         state_updates,
         contract_class_diff,
-        prev_state_root: raw_output[PREVIOUS_MERKLE_UPDATE_OFFSET].clone(),
-        new_state_root: raw_output[NEW_MERKLE_UPDATE_OFFSET].clone(),
-        block_number: raw_output[BLOCK_NUMBER_OFFSET].clone(),
-        block_hash: raw_output[BLOCK_HASH_OFFSET].clone(),
-        config_hash: raw_output[CONFIG_HASH_OFFSET].clone(),
+        prev_state_root: header[PREVIOUS_MERKLE_UPDATE_OFFSET].clone(),
+        new_state_root: header[NEW_MERKLE_UPDATE_OFFSET].clone(),
+        block_number: header[BLOCK_NUMBER_OFFSET].clone(),
+        block_hash: header[BLOCK_HASH_OFFSET].clone(),
+        config_hash: header[CONFIG_HASH_OFFSET].clone(),
     })
 }

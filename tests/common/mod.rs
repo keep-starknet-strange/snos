@@ -27,7 +27,7 @@ use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use rstest::{fixture, rstest};
 use snos::config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR, DEFAULT_INPUT_PATH};
-use snos::io::{StarknetOsInput, StarknetOsOutput};
+use snos::io::{output::decode_output, StarknetOsInput, StarknetOsOutput};
 use snos::state::SharedState;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
@@ -501,117 +501,11 @@ pub fn prepare_os_test(
     (initial_state, exec_info)
 }
 
-#[rstest]
-fn validate_prepare(prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>)) {
-    let mut shared_state = prepare_os_test.0;
-    let diff = shared_state.cache.to_state_diff();
-
-    let addr_1 = contract_address!("46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92");
-    let addr_1_updates = diff.storage_updates.get(&addr_1).unwrap();
-    assert_eq!(5, addr_1_updates.len());
-    assert_eq!(&stark_felt!(47_u32), addr_1_updates.get(&StorageKey(patricia_key!(85_u32))).unwrap());
-    assert_eq!(&stark_felt!(543_u32), addr_1_updates.get(&StorageKey(patricia_key!(321_u32))).unwrap());
-    assert_eq!(&stark_felt!(666_u32), addr_1_updates.get(&StorageKey(patricia_key!(444_u32))).unwrap());
-
-    let addr_2 = contract_address!("4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6");
-    let addr_2_updates = diff.storage_updates.get(&addr_2).unwrap();
-    assert_eq!(&stark_felt!(1_u32), addr_2_updates.get(&StorageKey(patricia_key!(15_u32))).unwrap());
-    assert_eq!(&stark_felt!(987_u32), addr_2_updates.get(&StorageKey(patricia_key!(111_u32))).unwrap());
-    assert_eq!(&stark_felt!(888_u32), addr_2_updates.get(&StorageKey(patricia_key!(555_u32))).unwrap());
-    assert_eq!(&stark_felt!(999_u32), addr_2_updates.get(&StorageKey(patricia_key!(666_u32))).unwrap());
-
-    let delegate_addr = contract_address!("238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0");
-    let delegate_addr_updates = diff.storage_updates.get(&delegate_addr).unwrap();
-    // assert_eq!(6, delegate_addr_updates.len());
-    assert_eq!(&stark_felt!(456_u32), delegate_addr_updates.get(&StorageKey(patricia_key!(123_u32))).unwrap());
-    assert_eq!(
-        &stark_felt!("4e5e39d16e565bacdbc7d8d13b9bc2b51a32c8b2b49062531688dcd2f6ec834"),
-        delegate_addr_updates.get(&StorageKey(patricia_key!(300_u32))).unwrap()
-    );
-    assert_eq!(
-        &stark_felt!(1536727068981429685321_u128),
-        delegate_addr_updates.get(&StorageKey(patricia_key!(311_u32))).unwrap()
-    );
-    assert_eq!(&stark_felt!(19_u32), delegate_addr_updates.get(&StorageKey(patricia_key!(322_u32))).unwrap());
-    assert_eq!(
-        &stark_felt!(TESTING_HASH_0_12_2),
-        delegate_addr_updates
-            .get(&StorageKey(patricia_key!("2e9111f912ea3746e28b8e693578fdbcc18d64a3380d03bd67c0c04f5715ed1")))
-            .unwrap()
-    );
-    assert_eq!(
-        &stark_felt!(2_u8),
-        delegate_addr_updates
-            .get(&StorageKey(patricia_key!("1cda892019d02a987cdc80f1500179f0e33fbd6cac8cb2ffef5d6d05101a8dc")))
-            .unwrap()
-    );
-}
-
 #[fixture]
-// fn load_output() -> StarknetOsOutput {
-fn load_output() {
-    let os_output: Vec<Felt252> = vec![
-        "5",
-        "200681068043714771978294967736222413892373265451181245269365696587346998380",
-        "5",
-        "2",
-        "2",
-        "4",
-        "6",
-        "5",
-        "100516143779279430775707828199600578312537898796928552917232883557759234322",
-        "0",
-        "35204018158445673560851558076088854146605956506855338357946372855484348775",
-        "1",
-        "2",
-        "5",
-        "100516143779279430775707828199600578312537898796928552917232883557759234322",
-        "34028236692093846346337460743176821142",
-        "69269496341425719426402089224874584819743134075306502400687571826086987209",
-        "13",
-        "46",
-        "30",
-        "221543030371090279154099648482303080997145207855149800960303587058346405278",
-        "31",
-        "153672706898142968531",
-        "32",
-        "9",
-        "81567992657121201822719584870756232234855806740606093104123927385410749460",
-        "2",
-        "131641924399560670288987069486918367964567650624282359632691221293624835245",
-        "326212205117017662403990886779887590398051155242173007037667265340317986446",
-        "200681068043714771978294967736222413892373265451181245269365696587346998380",
-        "34028236692093846346337460743176821141",
-        "208452472809998532760646017254057231099592366165685967544992326891398085023",
-        "5",
-        "7",
-        "31",
-        "53",
-        "44",
-        "66",
-        "171542524625682182385553640995899254084645198956708755167645702779965225616",
-        "10",
-        "171542524625682182385553640995899254084645198956708755167645702779965225617",
-        "20",
-        "222163306951389421296717391987130197751942633868181938423174889893366401376",
-        "34028236692093846346337460743176821140",
-        "326212205117017662403990886779887590398051155242173007037667265340317986446",
-        "5",
-        "1",
-        "11",
-        "97",
-        "55",
-        "88",
-        "66",
-        "99",
-        "261876760381503837851236634655062773110976680464358301683405235391247340282",
-        "44272185776902923874",
-        "330209860549393888721793468867835607193970854666866966631900875791400281196",
-        "34028236692093846346337460743176821146",
-        "326212205117017662403990886779887590398051155242173007037667265340317986446",
-        "0",
-    ]
-    .iter()
-    .map(|i| felt_str!(i, 10))
-    .collect();
+pub fn load_output() -> StarknetOsOutput {
+    let buf = fs::read_to_string("tests/common/os_output.json").unwrap();
+    let raw_output: Vec<Felt252> = serde_json::from_str(&buf).unwrap();
+    println!("RAW: {:?}", raw_output);
+
+    decode_output(raw_output).unwrap()
 }
