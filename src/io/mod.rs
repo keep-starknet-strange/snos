@@ -106,6 +106,7 @@ pub struct InternalTransaction {
     pub r#type: String,
 }
 
+#[derive(Debug)]
 pub struct StarknetOsOutput {
     /// The state commitment before this block.
     pub prev_state_root: Felt252,
