@@ -117,7 +117,6 @@ fn get_block_mapping_test(mut os_input_hint_processor: BuiltinHintProcessor) {
 }
 
 #[rstest]
-#[ignore]
 fn load_next_tx_test(mut os_input_hint_processor: BuiltinHintProcessor) {
     let program = "build/programs/load_next_tx.json";
 

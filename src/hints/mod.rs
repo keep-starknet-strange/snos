@@ -20,6 +20,7 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
 use crate::config::DEFAULT_INPUT_PATH;
+use crate::hints::hints_raw::LOAD_NEXT_TX;
 use crate::io::{InternalTransaction, StarknetOsInput};
 
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
@@ -70,6 +71,12 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
 
     let transactions_len_hint = HintFunc(Box::new(transactions_len));
     hint_processor.add_hint(String::from(hints_raw::TRANSACTIONS_LEN), Rc::new(transactions_len_hint));
+
+    let enter_syscall_scopes_hint = HintFunc(Box::new(enter_syscall_scopes));
+    hint_processor.add_hint(String::from(hints_raw::ENTER_SYSCALL_SCOPES), Rc::new(enter_syscall_scopes_hint));
+
+    let load_transaction_hint = HintFunc(Box::new(load_next_tx));
+    hint_processor.add_hint(String::from(LOAD_NEXT_TX), Rc::new(load_transaction_hint));
 
     hint_processor
 }
