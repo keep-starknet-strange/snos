@@ -1,4 +1,4 @@
-pub mod serde;
+pub mod serde_utils;
 pub mod utils;
 
 use std::collections::HashMap;
@@ -27,7 +27,8 @@ use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use rstest::{fixture, rstest};
 use snos::config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR, DEFAULT_INPUT_PATH};
-use snos::io::StarknetOsInput;
+use snos::io::output::decode_output;
+use snos::io::{StarknetOsInput, StarknetOsOutput};
 use snos::state::SharedState;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
@@ -71,7 +72,7 @@ pub const EXPECTED_UPDATED_ROOT: &str = "482c9ce8a99afddc9777ff048520fcbfab6c038
 #[fixture]
 #[once]
 pub fn load_and_write_input() {
-    let os_input = serde::StarknetOsInputUtil::load("tests/common/os_input.json");
+    let os_input = serde_utils::StarknetOsInputUtil::load("tests/common/os_input.json");
     os_input.dump(DEFAULT_INPUT_PATH).unwrap();
 }
 
@@ -501,48 +502,10 @@ pub fn prepare_os_test(
     (initial_state, exec_info)
 }
 
-#[rstest]
-fn validate_prepare(prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>)) {
-    let mut shared_state = prepare_os_test.0;
-    let diff = shared_state.cache.to_state_diff();
+#[fixture]
+pub fn load_output() -> StarknetOsOutput {
+    let buf = fs::read_to_string("tests/common/os_output.json").unwrap();
+    let raw_output: serde_utils::RawOsOutput = serde_json::from_str(&buf).unwrap();
 
-    let addr_1 = contract_address!("46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92");
-    let addr_1_updates = diff.storage_updates.get(&addr_1).unwrap();
-    assert_eq!(5, addr_1_updates.len());
-    assert_eq!(&stark_felt!(47_u32), addr_1_updates.get(&StorageKey(patricia_key!(85_u32))).unwrap());
-    assert_eq!(&stark_felt!(543_u32), addr_1_updates.get(&StorageKey(patricia_key!(321_u32))).unwrap());
-    assert_eq!(&stark_felt!(666_u32), addr_1_updates.get(&StorageKey(patricia_key!(444_u32))).unwrap());
-
-    let addr_2 = contract_address!("4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6");
-    let addr_2_updates = diff.storage_updates.get(&addr_2).unwrap();
-    assert_eq!(&stark_felt!(1_u32), addr_2_updates.get(&StorageKey(patricia_key!(15_u32))).unwrap());
-    assert_eq!(&stark_felt!(987_u32), addr_2_updates.get(&StorageKey(patricia_key!(111_u32))).unwrap());
-    assert_eq!(&stark_felt!(888_u32), addr_2_updates.get(&StorageKey(patricia_key!(555_u32))).unwrap());
-    assert_eq!(&stark_felt!(999_u32), addr_2_updates.get(&StorageKey(patricia_key!(666_u32))).unwrap());
-
-    let delegate_addr = contract_address!("238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0");
-    let delegate_addr_updates = diff.storage_updates.get(&delegate_addr).unwrap();
-    // assert_eq!(6, delegate_addr_updates.len());
-    assert_eq!(&stark_felt!(456_u32), delegate_addr_updates.get(&StorageKey(patricia_key!(123_u32))).unwrap());
-    assert_eq!(
-        &stark_felt!("4e5e39d16e565bacdbc7d8d13b9bc2b51a32c8b2b49062531688dcd2f6ec834"),
-        delegate_addr_updates.get(&StorageKey(patricia_key!(300_u32))).unwrap()
-    );
-    assert_eq!(
-        &stark_felt!(1536727068981429685321_u128),
-        delegate_addr_updates.get(&StorageKey(patricia_key!(311_u32))).unwrap()
-    );
-    assert_eq!(&stark_felt!(19_u32), delegate_addr_updates.get(&StorageKey(patricia_key!(322_u32))).unwrap());
-    assert_eq!(
-        &stark_felt!(TESTING_HASH_0_12_2),
-        delegate_addr_updates
-            .get(&StorageKey(patricia_key!("2e9111f912ea3746e28b8e693578fdbcc18d64a3380d03bd67c0c04f5715ed1")))
-            .unwrap()
-    );
-    assert_eq!(
-        &stark_felt!(2_u8),
-        delegate_addr_updates
-            .get(&StorageKey(patricia_key!("1cda892019d02a987cdc80f1500179f0e33fbd6cac8cb2ffef5d6d05101a8dc")))
-            .unwrap()
-    );
+    decode_output(raw_output.0).unwrap()
 }

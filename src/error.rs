@@ -15,6 +15,8 @@ pub enum SnOsError {
     SharpRequest(String),
     #[error("Starknet Os Runner Error: {0}")]
     Runner(CairoRunError),
+    #[error("SnOs Output Error: {0}")]
+    Output(String),
 }
 
 #[derive(thiserror::Error, Clone, Debug)]

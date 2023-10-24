@@ -18,6 +18,7 @@ use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 use starknet_api::stark_felt;
 
 use crate::config::DEFAULT_COMPILER_VERSION;
+use crate::error::SnOsError;
 
 lazy_static! {
     static ref RE: Regex = Regex::new(r"^[A-Fa-f0-9]+$").unwrap();
@@ -58,6 +59,17 @@ pub fn felt_vm2api(felt: Felt252) -> StarkFelt {
 
 pub fn felt_api2vm(felt: StarkFelt) -> Felt252 {
     felt_str!(felt.to_string().trim_start_matches("0x"), 16)
+}
+
+pub fn felt_vm2usize(felt_op: Option<&Felt252>) -> Result<usize, SnOsError> {
+    match felt_op {
+        Some(felt) => {
+            let big_num: u16 = felt.to_bigint().try_into().map_err(|e| SnOsError::Output(format!("{e}")))?;
+
+            Ok(big_num.into())
+        }
+        None => Err(SnOsError::CatchAll("no length available".to_string())),
+    }
 }
 
 pub fn deprecated_class_vm2api(class: ContractClassV0) -> DeprecatedContractClass {

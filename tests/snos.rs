@@ -1,18 +1,22 @@
 mod common;
 
+use blockifier::state::state_api::State;
 use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_felt::felt_str;
+use cairo_felt::{felt_str, Felt252};
 use common::{
-    initial_state, load_input, prepare_os_test, EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_BLOCK_HASH,
+    initial_state, load_input, load_output, prepare_os_test, EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT,
+    TESTING_BLOCK_HASH, TESTING_HASH_0_12_2,
 };
-use rstest::*;
-use snos::io::StarknetOsInput;
+use rstest::rstest;
+use snos::io::{StarknetOsInput, StarknetOsOutput};
 use snos::state::SharedState;
+use snos::utils::felt_api2vm;
 use snos::SnOsRunner;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::state::StorageKey;
 use starknet_api::{contract_address, patricia_key, stark_felt};
 
 #[rstest]
@@ -25,6 +29,48 @@ fn snos_run_test(_load_input: &StarknetOsInput, initial_state: SharedState<DictS
 #[rstest]
 fn prepared_os_test(prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>)) {
     let (mut prepare_os_test, _) = prepare_os_test;
+    let diff = prepare_os_test.cache.to_state_diff();
+
+    let addr_1 = contract_address!("46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92");
+    let addr_1_updates = diff.storage_updates.get(&addr_1).unwrap();
+    assert_eq!(5, addr_1_updates.len());
+    assert_eq!(&stark_felt!(47_u32), addr_1_updates.get(&StorageKey(patricia_key!(85_u32))).unwrap());
+    assert_eq!(&stark_felt!(543_u32), addr_1_updates.get(&StorageKey(patricia_key!(321_u32))).unwrap());
+    assert_eq!(&stark_felt!(666_u32), addr_1_updates.get(&StorageKey(patricia_key!(444_u32))).unwrap());
+
+    let addr_2 = contract_address!("4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6");
+    let addr_2_updates = diff.storage_updates.get(&addr_2).unwrap();
+    assert_eq!(&stark_felt!(1_u32), addr_2_updates.get(&StorageKey(patricia_key!(15_u32))).unwrap());
+    assert_eq!(&stark_felt!(987_u32), addr_2_updates.get(&StorageKey(patricia_key!(111_u32))).unwrap());
+    assert_eq!(&stark_felt!(888_u32), addr_2_updates.get(&StorageKey(patricia_key!(555_u32))).unwrap());
+    assert_eq!(&stark_felt!(999_u32), addr_2_updates.get(&StorageKey(patricia_key!(666_u32))).unwrap());
+
+    let delegate_addr = contract_address!("238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0");
+    let delegate_addr_updates = diff.storage_updates.get(&delegate_addr).unwrap();
+    // assert_eq!(6, delegate_addr_updates.len());
+    assert_eq!(&stark_felt!(456_u32), delegate_addr_updates.get(&StorageKey(patricia_key!(123_u32))).unwrap());
+    assert_eq!(
+        &stark_felt!("4e5e39d16e565bacdbc7d8d13b9bc2b51a32c8b2b49062531688dcd2f6ec834"),
+        delegate_addr_updates.get(&StorageKey(patricia_key!(300_u32))).unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(1536727068981429685321_u128),
+        delegate_addr_updates.get(&StorageKey(patricia_key!(311_u32))).unwrap()
+    );
+    assert_eq!(&stark_felt!(19_u32), delegate_addr_updates.get(&StorageKey(patricia_key!(322_u32))).unwrap());
+    assert_eq!(
+        &stark_felt!(TESTING_HASH_0_12_2),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!("2e9111f912ea3746e28b8e693578fdbcc18d64a3380d03bd67c0c04f5715ed1")))
+            .unwrap()
+    );
+    assert_eq!(
+        &stark_felt!(2_u8),
+        delegate_addr_updates
+            .get(&StorageKey(patricia_key!("1cda892019d02a987cdc80f1500179f0e33fbd6cac8cb2ffef5d6d05101a8dc")))
+            .unwrap()
+    );
+
     let _commitment = prepare_os_test.apply_state();
     assert_eq!(BlockNumber(2), prepare_os_test.get_block_num());
 
@@ -48,4 +94,17 @@ fn parse_os_input(load_input: &StarknetOsInput) {
     assert_eq!(felt_str!(EXPECTED_PREV_ROOT, 16), load_input.contract_state_commitment_info.previous_root);
     assert_eq!(felt_str!(EXPECTED_UPDATED_ROOT, 16), load_input.contract_state_commitment_info.updated_root);
     assert!(!load_input.transactions.is_empty());
+}
+
+#[rstest]
+fn parse_os_output(load_input: &StarknetOsInput, load_output: StarknetOsOutput) {
+    assert_eq!(load_input.contract_state_commitment_info.previous_root, load_output.prev_state_root);
+    assert_eq!(load_input.contract_state_commitment_info.updated_root, load_output.new_state_root);
+    assert_eq!(Felt252::from(1), load_output.block_number);
+    assert_eq!(load_input.block_hash, load_output.block_hash);
+    assert_eq!(felt_api2vm(load_input.general_config.starknet_os_config.hash()), load_output.config_hash);
+    assert_eq!(4, load_output.messages_to_l1.len());
+    assert_eq!(4, load_output.messages_to_l2.len());
+    assert_eq!(4, load_output.state_updates.len());
+    assert_eq!(4, load_output.contract_class_diff.len());
 }

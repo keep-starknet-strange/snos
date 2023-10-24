@@ -3,9 +3,7 @@
     <br>
 </div>
 
-## [Overview](https://hackmd.io/@pragma/ByP-iux1T)
-
-Rust Library for running the Starknet OS via the [Cairo VM](https://github.com/lambdaclass/cairo-vm).
+Rust Library for running the [Starknet OS](https://hackmd.io/@pragma/ByP-iux1T) via the [Cairo VM](https://github.com/lambdaclass/cairo-vm).
 
 ## Test Setup
 
@@ -17,15 +15,14 @@ Rust Library for running the Starknet OS via the [Cairo VM](https://github.com/l
 cargo test
 ```
 
-### Reset Tests
+**Reset Tests**
 
 ```bash
 ./scripts/teardown-tests.sh
 ```
 
-### Debug Single Cairo Program
+**Debug Single Cairo Program**
 
 ```bash
 ./scripts/debug-hint.sh load_deprecated_class
 ```
-    

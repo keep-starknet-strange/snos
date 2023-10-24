@@ -6,25 +6,20 @@ pub mod sharp;
 pub mod state;
 pub mod utils;
 
-use core::panic;
 use std::fs;
 
 use blockifier::block_context::BlockContext;
 use blockifier::state::state_api::StateReader;
-use cairo_felt::Felt252;
 use cairo_vm::cairo_run::CairoRunConfig;
 use cairo_vm::types::program::Program;
-use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::vm_exception::VmException;
-use cairo_vm::vm::runners::builtin_runner::BuiltinRunner;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use config::StarknetGeneralConfig;
 use error::SnOsError;
+use io::StarknetOsOutput;
 use state::SharedState;
-
-use crate::io::StarknetOsOutput;
 
 pub struct SnOsRunner {
     layout: String,
@@ -34,22 +29,6 @@ pub struct SnOsRunner {
 }
 
 impl SnOsRunner {
-    pub fn with_layout(layout: &str) -> Self {
-        Self { layout: layout.to_string(), ..Self::default() }
-    }
-
-    pub fn with_os_path(os_path: &str) -> Self {
-        Self { os_path: os_path.to_string(), ..Self::default() }
-    }
-
-    pub fn with_input_path(input_path: &str) -> Self {
-        Self { input_path: input_path.to_string(), ..Self::default() }
-    }
-
-    pub fn with_block_context(block_context: BlockContext) -> Self {
-        Self { block_context, ..Self::default() }
-    }
-
     pub fn run(&self, shared_state: SharedState<impl StateReader>) -> Result<CairoPie, SnOsError> {
         // Init CairoRunConfig
         let cairo_run_config = CairoRunConfig {
@@ -91,68 +70,9 @@ impl SnOsRunner {
         }
 
         // Prepare and check expected output.
-        // os_output = runner.vm_memory.get_range_as_ints(
-        //     addr=runner.output_builtin.base, size=builtin_end_ptrs[0] - runner.output_builtin.base
-        // )
-        let builtin_end_ptrs = vm.get_return_values(8).map_err(|e| SnOsError::CatchAll(e.to_string()))?;
-        let output_base = vm
-            .get_builtin_runners()
-            .iter()
-            .find(|&elt| matches!(elt, BuiltinRunner::Output(_)))
-            .expect("Os vm should have the output builtin")
-            .base();
-        let size_bound_up = match builtin_end_ptrs.last().unwrap() {
-            MaybeRelocatable::Int(val) => val,
-            _ => panic!("Value should be an int"),
-        };
-        // Get is input and check that everything is an integer.
-        let os_output = vm.get_range(
-            (output_base as isize, 0).into(),
-            <usize>::from_be_bytes((size_bound_up.clone() - output_base).to_be_bytes()[..8].try_into().unwrap()),
-        );
-        let os_output: Vec<Felt252> = os_output
-            .iter()
-            .map(|x| {
-                if let MaybeRelocatable::Int(val) = x.clone().unwrap().into_owned() {
-                    val
-                } else {
-                    panic!("Output should be all integers")
-                }
-            })
-            .collect();
+        let _os_output = StarknetOsOutput::from_run(&vm)?;
 
-        let prev_state_root = os_output[0].clone();
-        let new_state_root = os_output[1].clone();
-        let block_number = os_output[2].clone();
-        let block_hash = os_output[3].clone();
-        let config_hash = os_output[4].clone();
-        let os_output = &os_output[5..];
-        let messages_to_l1_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-        let messages_to_l1 = os_output[1..1 + messages_to_l1_size].to_vec();
-
-        let os_output = &os_output[messages_to_l1_size + 1..];
-        let messages_to_l2_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-        let messages_to_l2 = os_output[1..1 + messages_to_l2_size].to_vec();
-        let os_output = &os_output[messages_to_l2_size + 1..];
-
-        let state_updates_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-        let state_updates = os_output[1..1 + state_updates_size].to_vec();
-        let os_output = &os_output[state_updates_size + 1..];
-
-        let contract_class_diff_size = <usize>::from_be_bytes(os_output[0].to_be_bytes()[..8].try_into().unwrap());
-        let contract_class_diff = os_output[1..1 + contract_class_diff_size].to_vec();
-        let real_output = StarknetOsOutput::new(
-            prev_state_root,
-            new_state_root,
-            block_number,
-            block_hash,
-            config_hash,
-            messages_to_l1,
-            messages_to_l2,
-            state_updates,
-            contract_class_diff,
-        );
-        println!("{:?}", real_output);
+        println!("{:?}", _os_output);
 
         vm.verify_auto_deductions().map_err(|e| SnOsError::Runner(e.into()))?;
         cairo_runner.read_return_values(&mut vm).map_err(|e| SnOsError::Runner(e.into()))?;
@@ -162,6 +82,22 @@ impl SnOsRunner {
         let pie = cairo_runner.get_cairo_pie(&vm).map_err(|e| SnOsError::PieParsing(format!("{e}")))?;
 
         Ok(pie)
+    }
+
+    pub fn with_layout(layout: &str) -> Self {
+        Self { layout: layout.to_string(), ..Self::default() }
+    }
+
+    pub fn with_os_path(os_path: &str) -> Self {
+        Self { os_path: os_path.to_string(), ..Self::default() }
+    }
+
+    pub fn with_input_path(input_path: &str) -> Self {
+        Self { input_path: input_path.to_string(), ..Self::default() }
+    }
+
+    pub fn with_block_context(block_context: BlockContext) -> Self {
+        Self { block_context, ..Self::default() }
     }
 }
 
