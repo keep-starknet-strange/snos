@@ -45,19 +45,25 @@ pub enum InvalidReason {
 
 #[derive(Clone, Default, Debug, PartialEq, Deserialize)]
 pub struct CairoStatusResponse {
-    pub status: CairoJobStatus,
+    #[serde(default)]
     pub version: u64,
+    #[serde(default)]
+    pub status: CairoJobStatus,
     pub validation_done: Option<bool>,
     pub error_log: Option<String>,
     pub invalid_reason: Option<InvalidReason>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct CairoJobResponse {
+    #[serde(default)]
     pub version: u64,
     pub cairo_job_key: Option<Uuid>,
+    #[serde(rename = "errorMessage")]
     pub error_message: Option<String>,
+    #[serde(rename = "errorType")]
     pub error_type: Option<String>,
+    #[serde(rename = "stackTrace")]
     pub stack_trace: Option<Vec<String>>,
 }
 
@@ -69,20 +75,16 @@ pub struct SharpClient {
 
 pub enum SharpPie {
     EncodedPie(String),
-    PieObject(CairoPie),
+    PieObject(Box<CairoPie>),
 }
 
 impl SharpClient {
-    pub fn new(sharp_addr: Option<String>, pie_path: Option<PathBuf>) -> Self {
-        Self { client: Client::new(), sharp_addr: sharp_addr.unwrap_or_default(), pie_path }
-    }
-
     pub fn submit_pie(&self, pie: SharpPie) -> Result<CairoJobResponse, SnOsError> {
         let pie_enc = match pie {
             SharpPie::EncodedPie(encoded_pie) => encoded_pie,
             SharpPie::PieObject(pie_object) => match &self.pie_path {
-                Some(pp) => pie::encode_pie(pie_object, pp.as_path())?,
-                None => pie::encode_pie_mem(pie_object)?,
+                Some(pp) => pie::encode_pie(*pie_object, pp.as_path())?,
+                None => pie::encode_pie_mem(*pie_object)?,
             },
         };
 
@@ -102,7 +104,7 @@ impl SharpClient {
         }
     }
 
-    pub fn get_status(&self, job_key: &str) -> Result<CairoStatusResponse, SnOsError> {
+    pub fn get_status(&self, job_key: &Uuid) -> Result<CairoStatusResponse, SnOsError> {
         let data = serde_json::json!({ "action": "get_status", "request": { "cairo_job_key": job_key } });
 
         let resp = self
@@ -116,6 +118,12 @@ impl SharpClient {
             reqwest::StatusCode::OK => resp.json().map_err(|e| SnOsError::SharpRequest(format!("{e}"))),
             _ => Err(SnOsError::SharpRequest("could not get job status".to_string())),
         }
+    }
+    pub fn with_sharp_addr(sharp_addr: &str) -> Self {
+        Self { sharp_addr: sharp_addr.to_string(), ..Self::default() }
+    }
+    pub fn with_pie_path(pie_path: &str) -> Self {
+        Self { pie_path: Some(PathBuf::from(pie_path)), ..Self::default() }
     }
 }
 

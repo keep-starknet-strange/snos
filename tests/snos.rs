@@ -4,11 +4,12 @@ use blockifier::state::state_api::State;
 use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_felt::{felt_str, Felt252};
-use common::{
-    initial_state, load_input, load_output, prepare_os_test, EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT,
-    TESTING_1_ADDREESS_0_12_2, TESTING_2_ADDREESS_0_12_2, TESTING_BLOCK_HASH, TESTING_DELEGATE_ADDREESS_0_12_2,
-    TESTING_HASH_0_12_2,
+use common::defs::{
+    EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_1_ADDREESS_0_12_2, TESTING_2_ADDREESS_0_12_2,
+    TESTING_BLOCK_HASH, TESTING_DELEGATE_ADDREESS_0_12_2, TESTING_HASH_0_12_2,
 };
+use common::prepared_os_test::{initial_state, prepare_os_test};
+use common::{load_input, load_output};
 use rstest::rstest;
 use snos::io::{StarknetOsInput, StarknetOsOutput};
 use snos::state::SharedState;
