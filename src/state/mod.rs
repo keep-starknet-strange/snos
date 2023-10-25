@@ -116,7 +116,7 @@ impl<S: StateReader> SharedState<S> {
             let mut contract_trie: MerkleTrie<PedersenHash, DEFAULT_STORAGE_TREE_HEIGHT> = MerkleTrie::empty();
 
             for update in updates.clone() {
-                contract_trie.set(&self.contract_storage, felt_to_bits_api(*update.0 .0.key()), update.1).unwrap();
+                contract_trie.set(&self.contract_storage, felt_to_bits_api(*update.0.0.key()), update.1).unwrap();
             }
             self.contract_storage.commit_and_persist(contract_trie, *addr.0.key());
 

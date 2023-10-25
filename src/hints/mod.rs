@@ -353,6 +353,11 @@ pub fn assert_transaction_hash(
     let tx = exec_scopes.get::<InternalTransaction>("tx")?;
     let transaction_hash = get_integer_from_var_name("transaction_hash", vm, ids_data, ap_tracking)?.into_owned();
 
-    assert_eq!(tx.hash_value, transaction_hash, "Computed transaction_hash is inconsistent with the hash in the transaction. Computed hash = {}, Expected hash = {}.", transaction_hash, tx.hash_value);
+    assert_eq!(
+        tx.hash_value, transaction_hash,
+        "Computed transaction_hash is inconsistent with the hash in the transaction. Computed hash = {}, Expected \
+         hash = {}.",
+        transaction_hash, tx.hash_value
+    );
     Ok(())
 }
