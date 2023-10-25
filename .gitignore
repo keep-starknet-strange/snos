@@ -1,6 +1,8 @@
 # Rust artifacts
 Cargo.lock
 target/
+.idea
+.vscode
 
 # Snos artifacts
 build/*
