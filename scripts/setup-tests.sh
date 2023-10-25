@@ -2,14 +2,12 @@
 
 CAIRO_VER="0.12.2"
 
-if ! command -v cairo-compile > /dev/null
-then
+if ! command -v cairo-compile >/dev/null; then
     echo "please start cairo($CAIRO_VER) dev environment"
     exit 1
 fi
 
-if ! command -v starknet-compile-deprecated > /dev/null
-then
+if ! command -v starknet-compile-deprecated >/dev/null; then
     echo "please start cairo($CAIRO_VER) dev environment"
     exit 1
 fi
@@ -19,7 +17,7 @@ git submodule update --init
 
 FETCHED_CAIRO_VER="$(cat cairo-lang/src/starkware/cairo/lang/VERSION)"
 
-if [ "$CAIRO_VER" != "$FETCHED_CAIRO_VER" ]; then 
+if [ "$CAIRO_VER" != "$FETCHED_CAIRO_VER" ]; then
     echo "incorrect cairo ver($FETCHED_CAIRO_VAR) expecting $CAIROVER"
     exit 1
 fi
@@ -29,7 +27,6 @@ echo -e "setting up cairo dependencies...\n"
 cp tests/dependencies/test_contract_interface.cairo cairo-lang/src/starkware/starknet/core/test_contract/
 cp tests/dependencies/deprecated_syscalls.cairo cairo-lang/src/starkware/starknet/core/test_contract/
 
-
 # setup token_for_testing path
 mkdir -p cairo-lang/src/starkware/starknet/std_contracts/ERC20
 cp tests/dependencies/ERC20.cairo cairo-lang/src/starkware/starknet/std_contracts/ERC20/
@@ -37,7 +34,6 @@ cp tests/dependencies/ERC20_base.cairo cairo-lang/src/starkware/starknet/std_con
 cp tests/dependencies/permitted.cairo cairo-lang/src/starkware/starknet/std_contracts/ERC20/
 mkdir -p cairo-lang/src/starkware/starknet/std_contracts/upgradability_proxy
 cp tests/dependencies/initializable.cairo cairo-lang/src/starkware/starknet/std_contracts/upgradability_proxy
-
 
 # compile cairo programs
 echo -e "compmiling cairo programs...\n"
