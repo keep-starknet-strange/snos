@@ -25,6 +25,7 @@ use cairo_vm::vm::runners::builtin_runner::{
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use lazy_static::lazy_static;
 use rstest::{fixture, rstest};
 use snos::config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR, DEFAULT_INPUT_PATH};
 use snos::io::output::decode_output;
@@ -40,26 +41,26 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 pub const TESTING_FEE: u128 = 0x10000000000000000000000000;
 pub const TESTING_TRANSFER_AMOUNT: u128 = 0x01000000000000000000000000000000;
 
-// Contract Addresses - 0.12.2
-pub const _TOKEN_FOR_TESTING_ADDRESS_0_12_2: &str = "572b6542feb4bf285b57a056b588d649e067b9cfab2a88c2b2df9ea6bae6049";
-pub const DUMMY_ACCOUNT_ADDRESS_0_12_2: &str = "5ca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0";
-pub const _DUMMY_TOKEN_ADDRESS_0_12_2: &str = "3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8";
+// -------------------------------Contract Addresses - 0.12.2-------------------------------
+lazy_static! {
+    pub static ref DUMMY_ACCOUNT_ADDRESS_0_12_2: ContractAddress =
+        contract_address!("5ca2b81086d3fbb4f4af2f1deba4b7fd35e8f4b2caee4e056005c51c05c3dd0");
+    pub static ref TESTING_1_ADDREESS_0_12_2: ContractAddress =
+        contract_address!("46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92");
+    pub static ref TESTING_2_ADDREESS_0_12_2: ContractAddress =
+        contract_address!("4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6");
+    pub static ref TESTING_3_ADDREESS_0_12_2: ContractAddress =
+        contract_address!("74cebec93a58b4400af9c082fb3c5adfa0800ff1489f8fc030076491ff86c48");
+    pub static ref TESTING_DELEGATE_ADDREESS_0_12_2: ContractAddress =
+        contract_address!("238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0");
+}
 
-// Class Hashes - 0.12.2
-// int - 1950604961159131904798252922088285101498625538306083185117403934352241550198
+// -------------------------------Class Hashes - 0.12.2-------------------------------
 pub const TOKEN_FOR_TESTING_HASH_0_12_2: &str = "45000d731e6d5ad0023e448dd15cab6f997b04a39120daf56a8816d9f436376";
-
-// int - 646245114977324210659279014519951538684823368221946044944492064370769527799
 pub const DUMMY_ACCOUNT_HASH_0_12_2: &str = "16dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7";
-
-// int - 3531298130119845387864440863187980726515137569165069484670944625223023734186
 pub const DUMMY_TOKEN_HASH_0_12_2: &str = "7cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa";
-
-// int - 3262122051170176624039908867798875903980511552421730070376672653403179864416
 pub const TESTING_HASH_0_12_2: &str = "7364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160";
-
 pub const TESTING_HASH_2_0_12_2: &str = "49bcc976d628b1b238aefc20e77303a251a14ba6c99cd543a86708513414057";
-
 pub const DELEGATE_PROXY_HASH_0_12_2: &str = "1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9";
 
 #[allow(dead_code)]
@@ -182,7 +183,7 @@ pub fn initial_state(
             *deploy_token_tx.contract_address.0.key(),
             tranfer_selector.0,
             stark_felt!(3_u8),
-            stark_felt!(DUMMY_ACCOUNT_ADDRESS_0_12_2),
+            *DUMMY_ACCOUNT_ADDRESS_0_12_2.0.key(),
             stark_felt!(TESTING_TRANSFER_AMOUNT),
             stark_felt!(0_u8)
         ],
@@ -216,11 +217,7 @@ fn shared_state(initial_state: SharedState<DictStateReader>) {
 pub fn prepare_os_test(
     mut initial_state: SharedState<DictStateReader>,
 ) -> (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>) {
-    let contract_addresses = [
-        contract_address!("46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92"),
-        contract_address!("4e9665675ca1ac12820b7aff2f44fec713e272efcd3f20aa0fd8ca277f25dc6"),
-        contract_address!("74cebec93a58b4400af9c082fb3c5adfa0800ff1489f8fc030076491ff86c48"),
-    ];
+    let contract_addresses = [*TESTING_1_ADDREESS_0_12_2, *TESTING_2_ADDREESS_0_12_2, *TESTING_3_ADDREESS_0_12_2];
     let contract_calldata = [
         vec![stark_felt!(321_u32), stark_felt!(543_u32)],
         vec![stark_felt!(111_u32), stark_felt!(987_u32)],
@@ -229,7 +226,7 @@ pub fn prepare_os_test(
     let contract_salts = [stark_felt!(17_u32), stark_felt!(42_u32), stark_felt!(53_u32)];
 
     let mut nonce_manager = NonceManager::default();
-    let sender_addr = contract_address!(DUMMY_ACCOUNT_ADDRESS_0_12_2);
+    let sender_addr = *DUMMY_ACCOUNT_ADDRESS_0_12_2;
     nonce_manager.next(sender_addr);
 
     initial_state
@@ -334,7 +331,7 @@ pub fn prepare_os_test(
         class_hash!(DELEGATE_PROXY_HASH_0_12_2),
     );
 
-    assert_eq!(contract_address!("238e6b5dffc9f0eb2fe476855d0cd1e9e034e5625663c7eda2d871bd4b6eac0"), delegate_addr);
+    assert_eq!(*TESTING_DELEGATE_ADDREESS_0_12_2, delegate_addr);
 
     txs.push(calldata![
         *delegate_addr.0.key(),
@@ -362,7 +359,7 @@ pub fn prepare_os_test(
         *delegate_addr.0.key(),
         selector_from_name("test_get_caller_address").0,
         stark_felt!(1_u32),
-        stark_felt!(DUMMY_ACCOUNT_ADDRESS_0_12_2)
+        *DUMMY_ACCOUNT_ADDRESS_0_12_2.0.key()
     ]);
 
     txs.push(calldata![
@@ -402,7 +399,7 @@ pub fn prepare_os_test(
             *delegate_addr.0.key(),
             selector_from_name("test_get_tx_info").0,
             stark_felt!(1_u8),
-            stark_felt!(DUMMY_ACCOUNT_ADDRESS_0_12_2)
+            *DUMMY_ACCOUNT_ADDRESS_0_12_2.0.key()
         ],
         TransactionSignature(vec![stark_felt!(100_u32)]),
     ));
@@ -508,4 +505,9 @@ pub fn load_output() -> StarknetOsOutput {
     let raw_output: serde_utils::RawOsOutput = serde_json::from_str(&buf).unwrap();
 
     decode_output(raw_output.0).unwrap()
+}
+
+#[fixture]
+pub fn os_pie_string() -> String {
+    std::fs::read_to_string("tests/common/data/output_pie.b64").unwrap()
 }

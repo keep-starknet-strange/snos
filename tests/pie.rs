@@ -5,10 +5,10 @@ use std::path::Path;
 use cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_pie::{BuiltinAdditionalData, CairoPie, OutputBuiltinAdditionalData, SegmentInfo};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use common::setup_pie;
+use common::{os_pie_string, setup_pie};
 use rstest::rstest;
 use serde_json::json;
-use snos::sharp::pie::{decode_base64_to_unzipped, encode_pie, PIE_FILES};
+use snos::sharp::pie::{decode_base64_to_unzipped, PIE_FILES};
 
 #[rstest]
 fn pie_metadata_ok(setup_pie: CairoPie) {
@@ -78,12 +78,14 @@ fn pie_memory_ok(setup_pie: CairoPie) {
 }
 
 #[rstest]
-fn convert_b64_to_raw() {
-    decode_base64_to_unzipped(&std::fs::read_to_string("tests/common/data/output_pie.b64").unwrap()).unwrap();
+fn convert_b64_to_raw(os_pie_string: String) {
+    let dst = "build/pie/";
+
+    decode_base64_to_unzipped(&os_pie_string, dst).unwrap();
 
     for file in PIE_FILES {
         assert!(
-            Path::new(&format!("build/pie/{file:}.{:}", if file != "memory" { "json" } else { "bin" })).exists(),
+            Path::new(&format!("{dst}{file:}.{:}", if file != "memory" { "json" } else { "bin" })).exists(),
             "Missing file {file:}"
         );
     }

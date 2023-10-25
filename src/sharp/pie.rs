@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use base64::engine::general_purpose;
 use base64::Engine as _;
@@ -66,8 +66,12 @@ fn write_to_zip<W: Write + Seek>(pie: CairoPie, mut zip: ZipWriter<W>) -> Result
 }
 
 /// Convert the base64 encoding of the pie to an unzipped folder.
-pub fn decode_base64_to_unzipped(encoded_pie: &str) -> Result<(), SnOsError> {
-    let buffer = general_purpose::STANDARD.decode(encoded_pie.as_bytes()).unwrap();
-    ZipArchive::new(Cursor::new(&buffer)).unwrap().extract(&Path::new("build/pie")).unwrap();
+pub fn decode_base64_to_unzipped(pie_str: &str, dst: &str) -> Result<(), SnOsError> {
+    let buffer =
+        general_purpose::STANDARD.decode(pie_str.as_bytes()).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
+    ZipArchive::new(Cursor::new(&buffer))
+        .unwrap()
+        .extract(&PathBuf::from(dst))
+        .map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
     Ok(())
 }
