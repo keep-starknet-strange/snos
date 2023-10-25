@@ -6,6 +6,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::slice::Iter;
+use std::vec::IntoIter;
 
 use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -18,9 +19,10 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use starknet_crypto::FieldElement;
 
 use crate::config::DEFAULT_INPUT_PATH;
-use crate::hints::hints_raw::LOAD_NEXT_TX;
+use crate::hints::hints_raw::{LOAD_NEXT_TX, PREPARE_CONSTRUCTOR_EXECUTION};
 use crate::io::{InternalTransaction, StarknetOsInput};
 
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
@@ -75,8 +77,11 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let enter_syscall_scopes_hint = HintFunc(Box::new(enter_syscall_scopes));
     hint_processor.add_hint(String::from(hints_raw::ENTER_SYSCALL_SCOPES), Rc::new(enter_syscall_scopes_hint));
 
-    let load_transaction_hint = HintFunc(Box::new(load_next_tx));
-    hint_processor.add_hint(String::from(LOAD_NEXT_TX), Rc::new(load_transaction_hint));
+    let load_next_tx_hint = HintFunc(Box::new(load_next_tx));
+    hint_processor.add_hint(String::from(LOAD_NEXT_TX), Rc::new(load_next_tx_hint));
+
+    let prepare_constructor_execution_hint = HintFunc(Box::new(prepare_constructor_execution));
+    hint_processor.add_hint(String::from(PREPARE_CONSTRUCTOR_EXECUTION), Rc::new(prepare_constructor_execution_hint));
 
     hint_processor
 }
@@ -249,7 +254,7 @@ pub fn enter_syscall_scopes(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
-    let transactions: Box<dyn Any> = Box::new([os_input.transactions.into_iter()].into_iter());
+    let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
     exec_scopes.enter_scope(HashMap::from_iter([(String::from("transactions"), transactions)]));
     Ok(())
 }
@@ -266,9 +271,43 @@ pub fn load_next_tx(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let mut transactions = exec_scopes.get::<Iter<InternalTransaction>>("transactions")?;
+    let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>("transactions")?;
     // Safe to unwrap because the remaining number of txs is checked in the cairo code.
     let tx = transactions.next().unwrap();
     exec_scopes.insert_value("transactions", transactions);
+    exec_scopes.insert_value("tx", tx.clone());
     insert_value_from_var_name("tx_type", Felt252::from_bytes_be(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
+}
+
+/// Implements hint:
+///
+/// ids.contract_address_salt = tx.contract_address_salt
+/// ids.class_hash = tx.class_hash
+/// ids.constructor_calldata_size = len(tx.constructor_calldata)
+/// ids.constructor_calldata = segments.gen_arg(arg=tx.constructor_calldata)
+pub fn prepare_constructor_execution(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // Safe to unwrap because the remaining number of txs is checked in the cairo code.
+    insert_value_from_var_name("contract_address_salt", tx.contract_address_salt.unwrap_or(Felt252::from(0)), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name("class_hash", tx.class_hash.unwrap_or(Felt252::from(0)), vm, ids_data, ap_tracking)?;
+
+    let constructor_calldata_size = match &tx.constructor_calldata {
+        None => 0,
+        Some(calldata) => calldata.len(),
+    };
+    insert_value_from_var_name("constructor_calldata_size", constructor_calldata_size, vm, ids_data, ap_tracking)?;
+
+    let constructor_calldata: Vec<MaybeRelocatable> = match tx.constructor_calldata {
+        None => vec![],
+        Some(calldata) => calldata.iter().map(|felt| felt.into()).collect(),
+    };
+    let constructor_calldata_base = vm.add_memory_segment();
+    vm.load_data(constructor_calldata_base, &constructor_calldata)?;
+    insert_value_from_var_name("constructor_calldata", constructor_calldata_base, vm, ids_data, ap_tracking)
 }

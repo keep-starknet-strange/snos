@@ -67,3 +67,7 @@ pub const LOAD_NEXT_TX: &str = "tx = next(transactions)\ntx_type_bytes = \
 pub const LOAD_CONTRACT_ADDRESS: &str = "from starkware.starknet.business_logic.transaction.objects import \
                                          InternalL1Handler\nids.contract_address = (\ntx.contract_address if \
                                          isinstance(tx, InternalL1Handler) else tx.sender_address\n)";
+
+pub const PREPARE_CONSTRUCTOR_EXECUTION: &str = "ids.contract_address_salt = tx.contract_address_salt\nids.class_hash = \
+                       tx.class_hash\nids.constructor_calldata_size = len(tx.constructor_calldata)\nids.constructor_calldata \
+                       = segments.gen_arg(arg=tx.constructor_calldata)";
