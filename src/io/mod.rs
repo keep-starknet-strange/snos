@@ -75,6 +75,10 @@ pub struct StorageCommitment {
     pub height: usize,
 }
 
+// TODO:
+// evaluate if we can use a more standard top level transaction type
+// - starknet_api::transaction::Transaction -> no deserialization tag information
+// - starknet::types::Transaction -> deserializes `transaction_hash` we have `hash_value`
 #[serde_as]
 #[derive(Deserialize, Clone, Debug, Serialize, Default)]
 pub struct InternalTransaction {

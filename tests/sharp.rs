@@ -27,7 +27,7 @@ fn sharp_client_status() {
 #[rstest]
 fn prove_os_run() {
     let sharp_client = SharpClient::default();
-    let pie = std::fs::read_to_string("./tests/common/output_pie.b64").unwrap();
+    let pie = std::fs::read_to_string("tests/common/data/output_pie.b64").unwrap();
     let submit_resp = sharp_client.submit_pie(snos::sharp::SharPie::EncodedPie(pie)).unwrap();
     println!("{submit_resp:?}");
 }

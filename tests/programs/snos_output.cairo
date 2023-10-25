@@ -29,7 +29,6 @@ func main{output_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
         starknet_os_config_hash=starknet_os_config_hash,
     );
 
-
     return ();
 }
 

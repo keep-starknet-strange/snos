@@ -72,7 +72,7 @@ pub const EXPECTED_UPDATED_ROOT: &str = "482c9ce8a99afddc9777ff048520fcbfab6c038
 #[fixture]
 #[once]
 pub fn load_and_write_input() {
-    let os_input = serde_utils::StarknetOsInputUtil::load("tests/common/os_input.json");
+    let os_input = serde_utils::StarknetOsInputUtil::load("tests/common/data/os_input.json");
     os_input.dump(DEFAULT_INPUT_PATH).unwrap();
 }
 
@@ -504,7 +504,7 @@ pub fn prepare_os_test(
 
 #[fixture]
 pub fn load_output() -> StarknetOsOutput {
-    let buf = fs::read_to_string("tests/common/os_output.json").unwrap();
+    let buf = fs::read_to_string("tests/common/data/os_output.json").unwrap();
     let raw_output: serde_utils::RawOsOutput = serde_json::from_str(&buf).unwrap();
 
     decode_output(raw_output.0).unwrap()

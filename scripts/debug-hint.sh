@@ -5,7 +5,6 @@
 #     --program_input build/input.json \
 #     --layout=small --print_output
 
-
 echo -e "\nrecompiling cairo program($1)...\n"
 cairo-format -i tests/programs/*
 cairo-compile tests/programs/$1.cairo --output build/programs/$1.json --cairo_path cairo-lang/src:~/cairo_venv/lib/python3.9/site-packages/
