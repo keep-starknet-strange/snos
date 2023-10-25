@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use reqwest::blocking::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use uuid::Uuid;
 
@@ -14,7 +14,7 @@ use crate::error::SnOsError;
 pub const DEFUALT_SHARP_URL: &str = "https://testnet.provingservice.io";
 pub const _LAMBDA_MAX_PIE_MB: u64 = 20_971_520;
 
-#[derive(Default, Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Default, Clone, Debug, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum CairoJobStatus {
     #[default]
@@ -27,7 +27,7 @@ pub enum CairoJobStatus {
     FAILED,
 }
 
-#[derive(Default, Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Default, Clone, Debug, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum InvalidReason {
     #[default]
@@ -54,7 +54,7 @@ pub struct CairoStatusResponse {
     pub invalid_reason: Option<InvalidReason>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 pub struct CairoJobResponse {
     #[serde(default)]
     pub version: u64,
