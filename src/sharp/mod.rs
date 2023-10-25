@@ -67,15 +67,23 @@ pub struct SharpClient {
     pie_path: Option<PathBuf>,
 }
 
+pub enum SharPie {
+    EncodedPie(String),
+    PieObject(CairoPie),
+}
+
 impl SharpClient {
     pub fn new(sharp_addr: Option<String>, pie_path: Option<PathBuf>) -> Self {
         Self { client: reqwest::blocking::Client::new(), sharp_addr: sharp_addr.unwrap_or_default(), pie_path }
     }
 
-    pub fn submit_pie(&self, pie_raw: CairoPie) -> Result<CairoJobResponse, SnOsError> {
-        let pie_enc = match &self.pie_path {
-            Some(pp) => pie::encode_pie(pie_raw, pp.as_path())?,
-            None => pie::encode_pie_mem(pie_raw)?,
+    pub fn submit_pie(&self, pie: SharPie) -> Result<CairoJobResponse, SnOsError> {
+        let pie_enc = match pie {
+            SharPie::EncodedPie(encoded_pie) => encoded_pie,
+            SharPie::PieObject(pie_object) => match &self.pie_path {
+                Some(pp) => pie::encode_pie(pie_object, pp.as_path())?,
+                None => pie::encode_pie_mem(pie_object)?,
+            },
         };
 
         let data = json!({ "action": "add_job", "request": { "cairo_pie": pie_enc } });
