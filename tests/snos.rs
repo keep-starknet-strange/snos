@@ -23,6 +23,7 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 fn snos_run_test(_load_input: &StarknetOsInput, initial_state: SharedState<DictStateReader>) {
     let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
     let runner_res = snos_runner.run(initial_state);
+
     println!("{:#?}", runner_res);
 }
 

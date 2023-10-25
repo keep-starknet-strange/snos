@@ -76,7 +76,7 @@ fn pie_memory_ok(setup_pie: CairoPie) {
 
 #[rstest]
 fn convert_b64_to_raw() {
-    decode_base64_to_unzipped(&std::fs::read_to_string("./tests/common/output_pie.b64").unwrap()).unwrap();
+    decode_base64_to_unzipped(&std::fs::read_to_string("tests/common/output_pie.b64").unwrap()).unwrap();
 
     for file in PIE_FILES {
         assert!(

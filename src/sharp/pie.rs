@@ -67,7 +67,7 @@ fn write_to_zip<W: Write + Seek>(pie: CairoPie, mut zip: ZipWriter<W>) -> Result
 
 /// Convert the base64 encoding of the pie to an unzipped folder.
 pub fn decode_base64_to_unzipped(encoded_pie: &str) -> Result<(), SnOsError> {
-    let buffer = general_purpose::STANDARD_NO_PAD.decode(encoded_pie.as_bytes()).unwrap();
+    let buffer = general_purpose::STANDARD.decode(encoded_pie.as_bytes()).unwrap();
     ZipArchive::new(Cursor::new(&buffer)).unwrap().extract(&Path::new("build/pie")).unwrap();
     Ok(())
 }
