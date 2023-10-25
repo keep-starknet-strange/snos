@@ -306,7 +306,15 @@ pub fn prepare_constructor_execution(
         ids_data,
         ap_tracking,
     )?;
-    insert_value_from_var_name("class_hash", tx.class_hash.unwrap_or(Felt252::from(0)), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        "class_hash",
+        // using `contract_hash` instead of `class_hash` as the that's how the
+        // input.json is structured
+        tx.contract_hash.expect("`contract_hash` must be present"),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     let constructor_calldata_size = match &tx.constructor_calldata {
         None => 0,
