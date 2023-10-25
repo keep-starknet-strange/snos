@@ -314,10 +314,7 @@ pub fn prepare_constructor_execution(
     };
     insert_value_from_var_name("constructor_calldata_size", constructor_calldata_size, vm, ids_data, ap_tracking)?;
 
-    let constructor_calldata: Vec<MaybeRelocatable> = match tx.constructor_calldata {
-        None => vec![],
-        Some(calldata) => calldata.iter().map(|felt| felt.into()).collect(),
-    };
+    let constructor_calldata = tx.constructor_calldata.unwrap_or_default().iter().map(|felt| felt.into()).collect();
     let constructor_calldata_base = vm.add_memory_segment();
     vm.load_data(constructor_calldata_base, &constructor_calldata)?;
     insert_value_from_var_name("constructor_calldata", constructor_calldata_base, vm, ids_data, ap_tracking)
