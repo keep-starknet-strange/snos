@@ -1,5 +1,4 @@
-pub const STARKNET_OS_INPUT: &str =
-    "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
+pub const STARKNET_OS_INPUT: &str = "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
      StarknetOsInput.load(data=program_input)\n\nids.initial_carried_outputs.messages_to_l1 = \
      segments.add_temp_segment()\nids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()";
 
@@ -71,3 +70,9 @@ pub const LOAD_CONTRACT_ADDRESS: &str = "from starkware.starknet.business_logic.
 pub const PREPARE_CONSTRUCTOR_EXECUTION: &str = "ids.contract_address_salt = tx.contract_address_salt\nids.class_hash = \
                        tx.class_hash\nids.constructor_calldata_size = len(tx.constructor_calldata)\nids.constructor_calldata \
                        = segments.gen_arg(arg=tx.constructor_calldata)";
+
+pub const TRANSACTION_VERSION: &str = "memory[ap] = to_felt_or_relocatable(tx.version)";
+
+pub const ASSERT_TRANSACTION_HASH: &str = "assert ids.transaction_hash == tx.hash_value, (\n    \"Computed transaction_hash \
+                        is inconsistent with the hash in the transaction. \"\n    f\"Computed hash = {ids.transaction_hash}, \
+                        Expected hash = {tx.hash_value}.\")";

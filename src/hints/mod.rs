@@ -5,7 +5,6 @@ pub mod hints_raw;
 use std::any::Any;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::slice::Iter;
 use std::vec::IntoIter;
 
 use cairo_vm::felt::Felt252;
@@ -19,10 +18,11 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_crypto::FieldElement;
 
 use crate::config::DEFAULT_INPUT_PATH;
-use crate::hints::hints_raw::{LOAD_NEXT_TX, PREPARE_CONSTRUCTOR_EXECUTION};
+use crate::hints::hints_raw::{
+    ASSERT_TRANSACTION_HASH, LOAD_NEXT_TX, PREPARE_CONSTRUCTOR_EXECUTION, TRANSACTION_VERSION,
+};
 use crate::io::{InternalTransaction, StarknetOsInput};
 
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
@@ -82,6 +82,12 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
 
     let prepare_constructor_execution_hint = HintFunc(Box::new(prepare_constructor_execution));
     hint_processor.add_hint(String::from(PREPARE_CONSTRUCTOR_EXECUTION), Rc::new(prepare_constructor_execution_hint));
+
+    let transaction_version_hint = HintFunc(Box::new(transaction_version));
+    hint_processor.add_hint(String::from(TRANSACTION_VERSION), Rc::new(transaction_version_hint));
+
+    let assert_transaction_hash_hint = HintFunc(Box::new(assert_transaction_hash));
+    hint_processor.add_hint(String::from(ASSERT_TRANSACTION_HASH), Rc::new(assert_transaction_hash_hint));
 
     hint_processor
 }
@@ -294,7 +300,13 @@ pub fn prepare_constructor_execution(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>("tx")?;
     // Safe to unwrap because the remaining number of txs is checked in the cairo code.
-    insert_value_from_var_name("contract_address_salt", tx.contract_address_salt.unwrap_or(Felt252::from(0)), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        "contract_address_salt",
+        tx.contract_address_salt.unwrap_or(Felt252::from(0)),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
     insert_value_from_var_name("class_hash", tx.class_hash.unwrap_or(Felt252::from(0)), vm, ids_data, ap_tracking)?;
 
     let constructor_calldata_size = match &tx.constructor_calldata {
@@ -310,4 +322,37 @@ pub fn prepare_constructor_execution(
     let constructor_calldata_base = vm.add_memory_segment();
     vm.load_data(constructor_calldata_base, &constructor_calldata)?;
     insert_value_from_var_name("constructor_calldata", constructor_calldata_base, vm, ids_data, ap_tracking)
+}
+
+/// Implements hint:
+///
+/// memory[ap] = to_felt_or_relocatable(tx.version)
+pub fn transaction_version(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    insert_value_into_ap(vm, tx.version.expect("Transaction version should be set"))
+}
+
+/// Implements hint:
+///
+/// assert ids.transaction_hash == tx.hash_value, (
+/// "Computed transaction_hash is inconsistent with the hash in the transaction. "
+/// f"Computed hash = {ids.transaction_hash}, Expected hash = {tx.hash_value}.")
+pub fn assert_transaction_hash(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let transaction_hash = get_integer_from_var_name("transaction_hash", vm, ids_data, ap_tracking)?.into_owned();
+
+    assert_eq!(tx.hash_value, transaction_hash, "Computed transaction_hash is inconsistent with the hash in the transaction. Computed hash = {}, Expected hash = {}.", transaction_hash, tx.hash_value);
+    Ok(())
 }
