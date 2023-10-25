@@ -299,10 +299,9 @@ pub fn prepare_constructor_execution(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>("tx")?;
-    // Safe to unwrap because the remaining number of txs is checked in the cairo code.
     insert_value_from_var_name(
         "contract_address_salt",
-        tx.contract_address_salt.unwrap_or(Felt252::from(0)),
+        tx.contract_address_salt.expect("`contract_address_salt` must be present"),
         vm,
         ids_data,
         ap_tracking,
