@@ -1,17 +1,18 @@
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use base64::engine::general_purpose;
 use base64::Engine as _;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use zip::write::FileOptions;
-use zip::ZipWriter;
+use zip::{ZipArchive, ZipWriter};
 
 use crate::error::SnOsError;
 
-const PIE_FILES: [&str; 5] = ["metadata", "memory", "additional_data", "execution_resources", "version"];
+pub const PIE_FILES: [&str; 5] = ["metadata", "memory", "additional_data", "execution_resources", "version"];
 
+/// Writes [CairoPie] to zip file and returns the encoded base64 of the pie.
 pub fn encode_pie(pie: CairoPie, dst: &Path) -> Result<String, SnOsError> {
     let output = File::create(dst).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
     let zip = zip::ZipWriter::new(output);
@@ -40,6 +41,7 @@ pub fn encode_pie_mem(pie: CairoPie) -> Result<String, SnOsError> {
     Ok(general_purpose::STANDARD.encode(data))
 }
 
+/// Write [CairoPie] to a zip Writer (either a file or a rust object).
 fn write_to_zip<W: Write + Seek>(pie: CairoPie, mut zip: ZipWriter<W>) -> Result<(), SnOsError> {
     let options = FileOptions::default().compression_method(zip::CompressionMethod::Deflated).unix_permissions(0o755);
 
@@ -60,5 +62,16 @@ fn write_to_zip<W: Write + Seek>(pie: CairoPie, mut zip: ZipWriter<W>) -> Result
 
     zip.finish().map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
 
+    Ok(())
+}
+
+/// Convert the base64 encoding of the pie to an unzipped folder.
+pub fn decode_base64_to_unzipped(pie_str: &str, dst: &str) -> Result<(), SnOsError> {
+    let buffer =
+        general_purpose::STANDARD.decode(pie_str.as_bytes()).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
+    ZipArchive::new(Cursor::new(&buffer))
+        .unwrap()
+        .extract(&PathBuf::from(dst))
+        .map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
     Ok(())
 }

@@ -13,3 +13,5 @@ cairo-lang
 venv
 # Hint Dependency symlink
 starkware
+
+.DS_Store

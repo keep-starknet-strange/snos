@@ -3,6 +3,7 @@ pub mod pie;
 use std::path::PathBuf;
 
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
+use reqwest::blocking::Client;
 use serde::Deserialize;
 use serde_json::json;
 use uuid::Uuid;
@@ -13,46 +14,51 @@ use crate::error::SnOsError;
 pub const DEFUALT_SHARP_URL: &str = "https://testnet.provingservice.io";
 pub const _LAMBDA_MAX_PIE_MB: u64 = 20_971_520;
 
-#[derive(Debug)]
-#[allow(dead_code)]
+#[derive(Default, Clone, Debug, Deserialize, PartialEq)]
+#[allow(non_camel_case_types)]
 pub enum CairoJobStatus {
-    Unknown,
-    NotCreated,
-    InProgress,
-    Processed,
-    Onchain,
-    Invalid,
-    Failed,
+    #[default]
+    UNKNOWN,
+    NOT_CREATED,
+    IN_PROGRESS,
+    PROCESSED,
+    ONCHAIN,
+    INVALID,
+    FAILED,
 }
 
-#[allow(dead_code)]
-impl CairoJobStatus {
-    fn as_str(&self) -> &'static str {
-        match self {
-            CairoJobStatus::Unknown => "UNKNOWN",
-            CairoJobStatus::NotCreated => "NOT_CREATED",
-            CairoJobStatus::InProgress => "IN_PROGRESS",
-            CairoJobStatus::Processed => "PROCESSED",
-            CairoJobStatus::Onchain => "ONCHAIN",
-            CairoJobStatus::Invalid => "INVALID",
-            CairoJobStatus::Failed => "FAILED",
-        }
-    }
+#[derive(Default, Clone, Debug, Deserialize, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum InvalidReason {
+    #[default]
+    CAIRO_PIE_RUN_FAILURE,
+    FAILED_TO_GENERATE_FACT,
+    INCOMPATIBLE_PRIME,
+    NO_COMPATIBLE_LAYOUT,
+    INVALID_BUILTIN_ORDER_DECLERATION,
+    INVALID_BUILTIN_USAGE,
+    INVALID_CAIRO_PIE_FILE_FORMAT,
+    INVALID_CAIRO_PIE_STORAGE_KEY,
+    PAGE_SIZE_EXCEEDS_LIMIT,
+    SECURITY_CHECK_FAILURE,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Default, Debug, PartialEq, Deserialize)]
 pub struct CairoStatusResponse {
-    pub status: Option<String>,
-    #[serde(rename = "validation_done")]
+    #[serde(default)]
+    pub version: u64,
+    #[serde(default)]
+    pub status: CairoJobStatus,
     pub validation_done: Option<bool>,
-    pub version: Option<u64>,
+    pub error_log: Option<String>,
+    pub invalid_reason: Option<InvalidReason>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 pub struct CairoJobResponse {
+    #[serde(default)]
+    pub version: u64,
     pub cairo_job_key: Option<Uuid>,
-    pub version: Option<u64>,
     #[serde(rename = "errorMessage")]
     pub error_message: Option<String>,
     #[serde(rename = "errorType")]
@@ -62,24 +68,27 @@ pub struct CairoJobResponse {
 }
 
 pub struct SharpClient {
-    client: reqwest::blocking::Client,
+    client: Client,
     sharp_addr: String,
     pie_path: Option<PathBuf>,
 }
 
-impl SharpClient {
-    pub fn new(sharp_addr: Option<String>, pie_path: Option<PathBuf>) -> Self {
-        Self { client: reqwest::blocking::Client::new(), sharp_addr: sharp_addr.unwrap_or_default(), pie_path }
-    }
+pub enum SharpPie {
+    EncodedPie(String),
+    PieObject(Box<CairoPie>),
+}
 
-    pub fn submit_pie(&self, pie_raw: CairoPie) -> Result<CairoJobResponse, SnOsError> {
-        let pie_enc = match &self.pie_path {
-            Some(pp) => pie::encode_pie(pie_raw, pp.as_path())?,
-            None => pie::encode_pie_mem(pie_raw)?,
+impl SharpClient {
+    pub fn submit_pie(&self, pie: SharpPie) -> Result<CairoJobResponse, SnOsError> {
+        let pie_enc = match pie {
+            SharpPie::EncodedPie(encoded_pie) => encoded_pie,
+            SharpPie::PieObject(pie_object) => match &self.pie_path {
+                Some(pp) => pie::encode_pie(*pie_object, pp.as_path())?,
+                None => pie::encode_pie_mem(*pie_object)?,
+            },
         };
 
         let data = json!({ "action": "add_job", "request": { "cairo_pie": pie_enc } });
-        println!("DATA: {:?}", data);
 
         // CAREFUL NOT TO OVERWHELM SHARP DUE TO SHORT BLOCK TIMES
         let resp = self
@@ -95,7 +104,7 @@ impl SharpClient {
         }
     }
 
-    pub fn get_status(&self, job_key: &str) -> Result<CairoStatusResponse, SnOsError> {
+    pub fn get_status(&self, job_key: &Uuid) -> Result<CairoStatusResponse, SnOsError> {
         let data = serde_json::json!({ "action": "get_status", "request": { "cairo_job_key": job_key } });
 
         let resp = self
@@ -110,10 +119,16 @@ impl SharpClient {
             _ => Err(SnOsError::SharpRequest("could not get job status".to_string())),
         }
     }
+    pub fn with_sharp_addr(sharp_addr: &str) -> Self {
+        Self { sharp_addr: sharp_addr.to_string(), ..Self::default() }
+    }
+    pub fn with_pie_path(pie_path: &str) -> Self {
+        Self { pie_path: Some(PathBuf::from(pie_path)), ..Self::default() }
+    }
 }
 
 impl Default for SharpClient {
     fn default() -> Self {
-        Self { client: reqwest::blocking::Client::new(), sharp_addr: DEFUALT_SHARP_URL.to_string(), pie_path: None }
+        Self { client: Client::new(), sharp_addr: DEFUALT_SHARP_URL.to_string(), pie_path: None }
     }
 }
