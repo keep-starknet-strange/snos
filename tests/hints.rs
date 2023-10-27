@@ -8,8 +8,8 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
     BuiltinHintProcessor, HintFunc,
 };
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
-use common::load_input;
 use common::utils::check_output_vs_python;
+use common::{load_input, load_output};
 use rstest::{fixture, rstest};
 use snos::hints::block_context::{
     get_block_mapping, load_deprecated_class_facts, load_deprecated_inner, sequencer_address,
@@ -19,7 +19,7 @@ use snos::hints::{
     check_deprecated_class_hash, enter_syscall_scopes, initialize_class_hashes, initialize_state_changes, load_next_tx,
     starknet_os_input,
 };
-use snos::io::StarknetOsInput;
+use snos::io::{StarknetOsInput, StarknetOsOutput};
 
 #[fixture]
 fn os_input_hint_processor(_load_input: &StarknetOsInput) -> BuiltinHintProcessor {
@@ -136,4 +136,25 @@ fn load_next_tx_test(mut os_input_hint_processor: BuiltinHintProcessor) {
         &mut os_input_hint_processor,
     );
     check_output_vs_python(run_output, program, true);
+}
+
+#[rstest]
+fn format_os_output_ptr(mut os_input_hint_processor: BuiltinHintProcessor, load_output: StarknetOsOutput) {
+    let program = "build/programs/snos_output.json";
+
+    let load_os_input = HintFunc(Box::new(starknet_os_input));
+    os_input_hint_processor.add_hint(String::from(STARKNET_OS_INPUT), Rc::new(load_os_input));
+
+    // TODO: FORMAT_OUTPUT_PTR
+    // let format_os_output_hint = HintFunc(Box::new(format_os_output));
+    // os_input_hint_processor.add_hint(String::from(FORMAT_OS_OUTPUT), Rc::new(format_os_output_hint));
+
+    let (_runner, vm) = cairo_run(
+        &fs::read(program).unwrap(),
+        &CairoRunConfig { layout: "starknet", relocate_mem: true, trace_enabled: true, ..Default::default() },
+        &mut os_input_hint_processor,
+    )
+    .unwrap();
+    let os_output = StarknetOsOutput::from_run(&vm).unwrap();
+    assert_eq!(load_output.config_hash, os_output.config_hash);
 }

@@ -1,5 +1,4 @@
-pub const STARKNET_OS_INPUT: &str =
-    "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
+pub const STARKNET_OS_INPUT: &str = "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
      StarknetOsInput.load(data=program_input)\n\nids.initial_carried_outputs.messages_to_l1 = \
      segments.add_temp_segment()\nids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()";
 
@@ -78,3 +77,6 @@ pub const TRANSACTION_VERSION: &str = "memory[ap] = to_felt_or_relocatable(tx.ve
 pub const ASSERT_TRANSACTION_HASH: &str =
     "assert ids.transaction_hash == tx.hash_value, (\n    \"Computed transaction_hash is inconsistent with the hash \
      in the transaction. \"\n    f\"Computed hash = {ids.transaction_hash}, Expected hash = {tx.hash_value}.\")";
+
+pub const FORMAT_OS_OUTPUT: &str =
+     "from starkware.python.math_utils import div_ceil\nonchain_data_start = ids.da_start\nonchain_data_size = ids.output_ptr - onchain_data_start\n\nmax_page_size = 3800\nn_pages = div_ceil(onchain_data_size, max_page_size)\nfor i in range(n_pages):\n    start_offset = i * max_page_size\n    output_builtin.add_page(\n        page_id=1 + i,\n        page_start=onchain_data_start + start_offset,\n        page_size=min(onchain_data_size - start_offset, max_page_size),\n    )\n# Set the tree structure to a root with two children:\n# * A leaf which represents the main part\n# * An inner node for the onchain data part (which contains n_pages children).\n#\n# This is encoded using the following sequence:\noutput_builtin.add_attribute('gps_fact_topology', [\n    # Push 1 + n_pages pages (all of the pages).\n    1 + n_pages,\n    # Create a parent node for the last n_pages.\n    n_pages,\n    # Don't push additional pages.\n    0,\n    # Take the first page (the main part) and the node that was created (onchain data)\n    # and use them to construct the root of the fact tree.\n    2,\n])";
