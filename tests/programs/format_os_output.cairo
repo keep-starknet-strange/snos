@@ -36,6 +36,9 @@ func main{output_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
     //     starknet_os_config_hash=starknet_os_config_hash,
     // );
 
+    relocate_segment(src_ptr=initial_carried_outputs.messages_to_l1, dest_ptr=output_ptr);
+    relocate_segment(src_ptr=initial_carried_outputs.messages_to_l2, dest_ptr=output_ptr);
+
     return ();
 }
 

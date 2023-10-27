@@ -8,7 +8,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
     BuiltinHintProcessor, HintFunc,
 };
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
-use common::utils::check_output_vs_python;
+use common::utils::{check_output_vs_python, deprecated_cairo_python_run};
 use common::{load_input, load_output};
 use rstest::{fixture, rstest};
 use snos::hints::block_context::{
@@ -140,8 +140,8 @@ fn load_next_tx_test(mut os_input_hint_processor: BuiltinHintProcessor) {
 
 #[rstest]
 #[ignore]
-fn format_os_output_ptr(mut os_input_hint_processor: BuiltinHintProcessor, load_output: StarknetOsOutput) {
-    let program = "build/programs/snos_output.json";
+fn format_os_output_test(mut os_input_hint_processor: BuiltinHintProcessor, load_output: StarknetOsOutput) {
+    let program = r#"build/programs/format_os_output.json"#;
 
     let load_os_input = HintFunc(Box::new(starknet_os_input));
     os_input_hint_processor.add_hint(String::from(STARKNET_OS_INPUT), Rc::new(load_os_input));
@@ -156,6 +156,8 @@ fn format_os_output_ptr(mut os_input_hint_processor: BuiltinHintProcessor, load_
         &mut os_input_hint_processor,
     )
     .unwrap();
+    println!("-------- python output ----------------");
+    println!("{:?}\n----------------------------\n", deprecated_cairo_python_run(program, true));
 
     let os_output = StarknetOsOutput::from_run(&vm).unwrap();
     assert_eq!(load_output.config_hash, os_output.config_hash);
