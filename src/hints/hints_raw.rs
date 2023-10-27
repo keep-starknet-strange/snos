@@ -1,4 +1,5 @@
-pub const STARKNET_OS_INPUT: &str = "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
+pub const STARKNET_OS_INPUT: &str =
+    "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
      StarknetOsInput.load(data=program_input)\n\nids.initial_carried_outputs.messages_to_l1 = \
      segments.add_temp_segment()\nids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()";
 
