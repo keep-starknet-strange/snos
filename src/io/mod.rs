@@ -5,6 +5,9 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::{fs, path};
 
+use blockifier::block_context::{self, BlockContext};
+use blockifier::state::cached_state::CommitmentStateDiff;
+use blockifier::state::state_api::StateReader;
 use cairo_felt::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -34,15 +37,17 @@ pub struct StarknetOsInput {
 }
 
 impl StarknetOsInput {
-    pub fn load(path: &str) -> Self {
-        let raw_input = fs::read_to_string(path::PathBuf::from(path)).unwrap();
-        serde_json::from_str(&raw_input).unwrap()
+    pub fn load(path: &path::Path) -> Result<Self, SnOsError> {
+        let raw_input = fs::read_to_string(path)?;
+        let input = serde_json::from_str(&raw_input)?;
+
+        Ok(input)
     }
-    pub fn dump(&self, path: &str) -> Result<(), SnOsError> {
-        fs::File::create(path)
-            .unwrap()
-            .write_all(&serde_json::to_vec(&self).unwrap())
-            .map_err(|e| SnOsError::CatchAll(format!("{e}")))
+
+    pub fn dump(&self, path: &path::Path) -> Result<(), SnOsError> {
+        fs::File::create(path)?.write_all(&serde_json::to_vec(&self)?)?;
+
+        Ok(())
     }
 }
 

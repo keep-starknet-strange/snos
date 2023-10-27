@@ -32,7 +32,7 @@ pub fn load_and_write_input() {
 #[fixture]
 #[once]
 pub fn load_input(_load_and_write_input: ()) -> StarknetOsInput {
-    StarknetOsInput::load(DEFAULT_INPUT_PATH)
+    StarknetOsInput::load(std::path::Path::new(DEFAULT_INPUT_PATH)).unwrap()
 }
 
 #[fixture]

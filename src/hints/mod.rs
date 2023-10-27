@@ -107,7 +107,8 @@ pub fn starknet_os_input(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let input_path = exec_scopes.get::<String>("input_path").unwrap_or(DEFAULT_INPUT_PATH.to_string());
+    let input_path =
+        std::path::PathBuf::from(exec_scopes.get::<String>("input_path").unwrap_or(DEFAULT_INPUT_PATH.to_string()));
 
     let os_input = Box::new(StarknetOsInput::load(&input_path));
     exec_scopes.assign_or_update_variable("os_input", os_input);
