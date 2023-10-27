@@ -17,6 +17,10 @@ pub enum SnOsError {
     Runner(CairoRunError),
     #[error("SnOs Output Error: {0}")]
     Output(String),
+    #[error(transparent)]
+    IO(#[from] std::io::Error),
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
 }
 
 #[derive(thiserror::Error, Clone, Debug)]
