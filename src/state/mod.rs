@@ -60,39 +60,31 @@ impl<S: StateReader> SharedState<S> {
         self.contract_storage.root_map.get(addr.0.key())
     }
 
-    /// Madara Interfacee:
-    /// accessed addressed + commitment info
-    /// I -> commitment info + accessed address 0 -> 3 trees
-    /// Storage trait that allows SNOS to retrieve trie root at previous block
-    /// - + interface to -> Blockifier::StateReader for Madara Client
-    ///
-    /// TODO: Class Commitment Trie
-    // pub fn apply_class_state(&mut self) -> CommitmentInfo {
-    //     let diff = self.cache.to_state_diff();
+    /// Class Commitment Trie
+    pub fn apply_class_state(&mut self) -> CommitmentInfo {
+        let diff = self.cache.to_state_diff();
 
-    //     let mut class_hash_trie: MerkleTrie<PedersenHash, DEFAULT_STORAGE_TREE_HEIGHT> =
-    //         match self.get_class_hash_root(addr) {
-    //             Some((_, idx)) => MerkleTrie::new(*idx),
-    //             None => MerkleTrie::empty(),
-    //         };
+        let mut class_hash_trie: MerkleTrie<PedersenHash, DEFAULT_STORAGE_TREE_HEIGHT> =
+            match self.get_block_num().prev() {
+                Some(block_num) => MerkleTrie::new(self.get_class_hash_root(block_num).1),
+                None => MerkleTrie::empty(),
+            };
 
-    //     for (class_hash, compiled_class_hash) in diff.class_hash_to_compiled_class_hash.clone() {
-    //         class_hash_trie
-    //             .set(&self.contract_storage, felt_to_bits_api(*class_hash.0.key()), compiled_class_hash)
-    //             .unwrap();
-    //     }
+        for (class_hash, compiled_class_hash) in diff.class_hash_to_compiled_class_hash.clone() {
+            class_hash_trie.set(&self.contract_storage, felt_to_bits_api(class_hash.0), compiled_class_hash.0).unwrap();
+        }
 
-    //     let block_num = self.get_block_num();
-    //     let previous_root = self.get_class_hash_root(block_num.prev().unwrap_or(BlockNumber(0)));
-    //     let updated_root = self.class_storage.commit_and_persist(class_hash_trie, stark_felt!(block_num.0));
+        let block_num = self.get_block_num();
+        let previous_root = self.get_class_hash_root(block_num.prev().unwrap_or(BlockNumber(0)));
+        let updated_root = self.class_storage.commit_and_persist(class_hash_trie, stark_felt!(block_num.0));
 
-    //     CommitmentInfo {
-    //         previous_root: Felt252::from_bytes_be(previous_root.0.bytes()),
-    //         updated_root: Felt252::from_bytes_be(updated_root.0.bytes()),
-    //         tree_height: DEFAULT_STORAGE_TREE_HEIGHT,
-    //         commitment_facts: HashMap::new(),
-    //     }
-    // }
+        CommitmentInfo {
+            previous_root: Felt252::from_bytes_be(previous_root.0.bytes()),
+            updated_root: Felt252::from_bytes_be(updated_root.0.bytes()),
+            tree_height: DEFAULT_STORAGE_TREE_HEIGHT,
+            commitment_facts: HashMap::new(),
+        }
+    }
 
     /// State Commitment Trie
     pub fn apply_state(&mut self) -> CommitmentInfo {
@@ -118,15 +110,6 @@ impl<S: StateReader> SharedState<S> {
                 None => self.cache.get_class_hash_at(addr).unwrap(),
             };
 
-            println!(
-                "CLASS HASH({}): \n{:?}\n{:?} \nROOT: {:?} \n{:?}",
-                self.get_block_num(),
-                addr,
-                class_hash,
-                root,
-                nonce
-            );
-            println!("----------------------------------\n");
             let contract_commitment = calculate_contract_state_hash(class_hash, root, nonce);
 
             storage_trie.set(&self.commitment_storage, felt_to_bits_api(*addr.0.key()), contract_commitment).unwrap();

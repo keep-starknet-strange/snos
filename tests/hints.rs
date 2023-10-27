@@ -155,6 +155,7 @@ fn format_os_output_ptr(mut os_input_hint_processor: BuiltinHintProcessor, load_
         &mut os_input_hint_processor,
     )
     .unwrap();
+
     let os_output = StarknetOsOutput::from_run(&vm).unwrap();
     assert_eq!(load_output.config_hash, os_output.config_hash);
 }
