@@ -71,7 +71,6 @@ fn validate_prepared_os_test(prepare_os_test: (SharedState<DictStateReader>, Vec
     );
 
     let commitment = prepare_os_test.apply_state();
-    println!("COMMITMENT: {:?}", commitment);
     assert_eq!(BlockNumber(2), prepare_os_test.get_block_num());
 
     let addr_1_root = prepare_os_test.get_contract_root(*TESTING_1_ADDREESS_0_12_2).unwrap();

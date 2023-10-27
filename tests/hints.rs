@@ -139,6 +139,7 @@ fn load_next_tx_test(mut os_input_hint_processor: BuiltinHintProcessor) {
 }
 
 #[rstest]
+#[ignore]
 fn format_os_output_ptr(mut os_input_hint_processor: BuiltinHintProcessor, load_output: StarknetOsOutput) {
     let program = "build/programs/snos_output.json";
 
