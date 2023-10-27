@@ -5,9 +5,6 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::{fs, path};
 
-use blockifier::block_context::{self, BlockContext};
-use blockifier::state::cached_state::CommitmentStateDiff;
-use blockifier::state::state_api::StateReader;
 use cairo_felt::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
