@@ -18,7 +18,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use crate::io::classes::write_deprecated_class;
-use crate::io::StarknetOsInput;
+use crate::io::input::StarknetOsInput;
 use crate::utils::felt_api2vm;
 
 /// Implements hint:

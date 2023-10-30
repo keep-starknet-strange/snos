@@ -23,7 +23,8 @@ use crate::config::DEFAULT_INPUT_PATH;
 use crate::hints::hints_raw::{
     ASSERT_TRANSACTION_HASH, LOAD_NEXT_TX, PREPARE_CONSTRUCTOR_EXECUTION, TRANSACTION_VERSION,
 };
-use crate::io::{InternalTransaction, StarknetOsInput};
+use crate::io::input::StarknetOsInput;
+use crate::io::InternalTransaction;
 
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let mut hint_processor = BuiltinHintProcessor::new_empty();

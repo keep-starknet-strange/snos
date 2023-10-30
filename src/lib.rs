@@ -18,7 +18,7 @@ use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use config::StarknetGeneralConfig;
 use error::SnOsError;
-use io::StarknetOsOutput;
+use io::output::StarknetOsOutput;
 use state::SharedState;
 
 pub struct SnOsRunner {

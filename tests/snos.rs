@@ -11,7 +11,8 @@ use common::defs::{
 use common::prepared_os_test::{initial_state, prepare_os_test};
 use common::{load_input, load_output};
 use rstest::rstest;
-use snos::io::{StarknetOsInput, StarknetOsOutput};
+use snos::io::input::StarknetOsInput;
+use snos::io::output::StarknetOsOutput;
 use snos::state::SharedState;
 use snos::utils::felt_api2vm;
 use snos::SnOsRunner;
