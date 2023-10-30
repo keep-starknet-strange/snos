@@ -350,6 +350,16 @@ pub fn prepare_os_test(
         ],
         TransactionSignature(vec![]),
     ));
+    // duplicate this tx w/o storage impact to set DUMMY ACCOUNT NONCE TO CORRECT VAL
+    sig_txs.push((
+        calldata![
+            *contract_addresses[0].0.key(),
+            selector_from_name("test_replace_class").0,
+            stark_felt!(1_u32),
+            *test_contract_2_addr.0.key()
+        ],
+        TransactionSignature(vec![]),
+    ));
 
     let mut exec_info: Vec<TransactionExecutionInfo> = Vec::new();
 

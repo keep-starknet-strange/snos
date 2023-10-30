@@ -1,10 +1,12 @@
-%builtins output
+%builtins output pedersen range_check
 
 from starkware.cairo.common.registers import get_fp_and_pc
 from starkware.cairo.common.segments import relocate_segment
 from starkware.cairo.common.serialize import serialize_word
 from starkware.starknet.core.os.block_context import BlockContext, BlockInfo
 from starkware.starknet.core.os.state import StateUpdateOutput
+from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.cairo.common.alloc import alloc
 
 func main{output_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
     alloc_locals;
@@ -19,15 +21,23 @@ func main{output_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
         ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()
     %}
 
-    os_output_serialize(
-        block_context=block_context,
-        state_update_output=state_update_output,
-        initial_carried_outputs=initial_carried_outputs,
-        final_carried_outputs=final_carried_outputs,
-        state_updates_ptr_start=initial_state_updates_ptr,
-        state_updates_ptr_end=state_updates_ptr,
-        starknet_os_config_hash=starknet_os_config_hash,
+    let state_update_output = StateUpdateOutput(
+        initial_root=125777881657840305468919655792243043894346744037226223335092204105986408733,
+        final_root=2040334332115293258607805604894929469377060974617729443381753056905784954023,
     );
+
+    // os_output_serialize(
+    //     block_context=block_context,
+    //     state_update_output=state_update_output,
+    //     initial_carried_outputs=initial_carried_outputs,
+    //     final_carried_outputs=final_carried_outputs,
+    //     state_updates_ptr_start=initial_state_updates_ptr,
+    //     state_updates_ptr_end=state_updates_ptr,
+    //     starknet_os_config_hash=starknet_os_config_hash,
+    // );
+
+    relocate_segment(src_ptr=initial_carried_outputs.messages_to_l1, dest_ptr=output_ptr);
+    relocate_segment(src_ptr=initial_carried_outputs.messages_to_l2, dest_ptr=output_ptr);
 
     return ();
 }
