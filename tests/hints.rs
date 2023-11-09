@@ -15,10 +15,7 @@ use snos::hints::block_context::{
     get_block_mapping, load_deprecated_class_facts, load_deprecated_inner, sequencer_address,
 };
 use snos::hints::hints_raw::*;
-use snos::hints::{
-    check_deprecated_class_hash, enter_syscall_scopes, initialize_class_hashes, initialize_state_changes, load_next_tx,
-    starknet_os_input,
-};
+use snos::hints::{check_deprecated_class_hash, enter_syscall_scopes, format_os_output, initialize_class_hashes, initialize_state_changes, load_next_tx, starknet_os_input};
 use snos::io::{StarknetOsInput, StarknetOsOutput};
 
 #[fixture]
@@ -146,15 +143,15 @@ fn format_os_output_test(mut os_input_hint_processor: BuiltinHintProcessor, load
     os_input_hint_processor.add_hint(String::from(STARKNET_OS_INPUT), Rc::new(load_os_input));
 
     // TODO: FORMAT_OUTPUT_PTR
-    // let format_os_output_hint = HintFunc(Box::new(format_os_output));
-    // os_input_hint_processor.add_hint(String::from(FORMAT_OS_OUTPUT), Rc::new(format_os_output_hint));
+    let format_os_output_hint = HintFunc(Box::new(format_os_output));
+    os_input_hint_processor.add_hint(String::from(FORMAT_OS_OUTPUT), Rc::new(format_os_output_hint));
 
-    // let (_runner, vm) = cairo_run(
-    //     &fs::read(program).unwrap(),
-    //     &CairoRunConfig { layout: "starknet", relocate_mem: true, trace_enabled: true, ..Default::default() },
-    //     &mut os_input_hint_processor,
-    // )
-    // .unwrap();
+    let (_runner, vm) = cairo_run(
+        &fs::read(program).unwrap(),
+        &CairoRunConfig { layout: "starknet", relocate_mem: true, trace_enabled: true, ..Default::default() },
+        &mut os_input_hint_processor,
+    )
+    .unwrap();
     println!("-------- python output ----------------");
     deprecated_cairo_python_run(program, true).split("\n").for_each(|line| println!("{}", line));
     println!("\n----------------------------\n");
