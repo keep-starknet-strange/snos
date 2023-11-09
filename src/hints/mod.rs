@@ -1,4 +1,5 @@
 pub mod block_context;
+mod execution;
 pub mod hints_raw;
 // pub mod transaction_context;
 
@@ -19,12 +20,17 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
+use self::execution::{get_state_entry, start_execute_deploy_transaction};
 use crate::config::DEFAULT_INPUT_PATH;
 use crate::hints::hints_raw::{
-    ASSERT_TRANSACTION_HASH, LOAD_NEXT_TX, PREPARE_CONSTRUCTOR_EXECUTION, TRANSACTION_VERSION,
+    ASSERT_TRANSACTION_HASH, GET_STATE_ENTRY, LOAD_NEXT_TX, PREPARE_CONSTRUCTOR_EXECUTION, START_DEPLOY_TX,
+    TRANSACTION_VERSION,
 };
+use crate::io::execution_helper::OsExecutionHelper;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
+use crate::state::storage::TrieStorage;
+use crate::state::trie::PedersenHash;
 
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let mut hint_processor = BuiltinHintProcessor::new_empty();
@@ -89,6 +95,12 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
 
     let assert_transaction_hash_hint = HintFunc(Box::new(assert_transaction_hash));
     hint_processor.add_hint(String::from(ASSERT_TRANSACTION_HASH), Rc::new(assert_transaction_hash_hint));
+
+    let start_execute_deploy_transaction_hint = HintFunc(Box::new(start_execute_deploy_transaction));
+    hint_processor.add_hint(String::from(START_DEPLOY_TX), Rc::new(start_execute_deploy_transaction_hint));
+
+    let get_state_entry_hint = HintFunc(Box::new(get_state_entry));
+    hint_processor.add_hint(String::from(GET_STATE_ENTRY), Rc::new(get_state_entry_hint));
 
     hint_processor
 }
@@ -265,7 +277,13 @@ pub fn enter_syscall_scopes(
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
-    exec_scopes.enter_scope(HashMap::from_iter([(String::from("transactions"), transactions)]));
+    let execution_helper = Box::<OsExecutionHelper<'_, PedersenHash, TrieStorage>>::default();
+    let dict_manager = Box::new(exec_scopes.get_dict_manager()?);
+    exec_scopes.enter_scope(HashMap::from_iter([
+        (String::from("transactions"), transactions),
+        (String::from("execution_helper"), execution_helper),
+        (String::from("dict_manager"), dict_manager),
+    ]));
     Ok(())
 }
 

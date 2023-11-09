@@ -1,3 +1,4 @@
+#![feature(generators, generator_trait, return_position_impl_trait_in_trait)]
 pub mod config;
 pub mod error;
 pub mod hints;

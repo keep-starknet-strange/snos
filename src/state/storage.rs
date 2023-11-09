@@ -39,7 +39,7 @@ pub enum StoredNode {
     LeafEdge { path: BitVec<u8, Msb0> },
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct TrieStorage {
     nodes: HashMap<u64, (StarkFelt, StoredNode)>,
     leaves: HashMap<StarkFelt, StarkFelt>,
