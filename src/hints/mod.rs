@@ -4,7 +4,7 @@ pub mod hints_raw;
 // pub mod transaction_context;
 
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::vec::IntoIter;
 
@@ -20,12 +20,9 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
-use self::execution::{get_state_entry, start_execute_deploy_transaction};
+use self::execution::{check_is_deprecated, get_state_entry, is_deprecated, start_execute_deploy_transaction};
 use crate::config::DEFAULT_INPUT_PATH;
-use crate::hints::hints_raw::{
-    ASSERT_TRANSACTION_HASH, GET_STATE_ENTRY, LOAD_NEXT_TX, PREPARE_CONSTRUCTOR_EXECUTION, START_DEPLOY_TX,
-    TRANSACTION_VERSION,
-};
+use crate::hints::hints_raw::*;
 use crate::io::execution_helper::OsExecutionHelper;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
@@ -101,6 +98,12 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
 
     let get_state_entry_hint = HintFunc(Box::new(get_state_entry));
     hint_processor.add_hint(String::from(GET_STATE_ENTRY), Rc::new(get_state_entry_hint));
+
+    let check_is_deprecated_hint = HintFunc(Box::new(check_is_deprecated));
+    hint_processor.add_hint(String::from(CHECK_IS_DEPRECATED), Rc::new(check_is_deprecated_hint));
+
+    let is_deprecated_hint = HintFunc(Box::new(is_deprecated));
+    hint_processor.add_hint(String::from(IS_DEPRECATED), Rc::new(is_deprecated_hint));
 
     hint_processor
 }
@@ -279,10 +282,12 @@ pub fn enter_syscall_scopes(
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
     let execution_helper = Box::<OsExecutionHelper<'_, PedersenHash, TrieStorage>>::default();
     let dict_manager = Box::new(exec_scopes.get_dict_manager()?);
+    let deprecated_class_hashes = Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
     exec_scopes.enter_scope(HashMap::from_iter([
         (String::from("transactions"), transactions),
         (String::from("execution_helper"), execution_helper),
         (String::from("dict_manager"), dict_manager),
+        (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
     ]));
     Ok(())
 }

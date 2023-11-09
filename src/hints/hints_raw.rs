@@ -88,3 +88,8 @@ pub const START_DEPLOY_TX: &str =
 pub const GET_STATE_ENTRY: &str = "# Fetch a state_entry in this hint and validate it in the update at the end\n# of \
                                    this function.\nids.state_entry = \
                                    __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]";
+
+pub const CHECK_IS_DEPRECATED: &str =
+    "is_deprecated = 1 if ids.execution_context.class_hash in __deprecated_class_hashes else 0";
+
+pub const IS_DEPRECATED: &str = "memory[ap] = to_felt_or_relocatable(is_deprecated)";
