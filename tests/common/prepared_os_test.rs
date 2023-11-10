@@ -83,7 +83,7 @@ pub fn initial_state(
     token_class_hash: &str,
     mut cache: CachedState<DictStateReader>,
     mut block_context: BlockContext,
-) -> SharedState<DictStateReader> {
+) -> (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>) {
     let mut nonce_manager = NonceManager::default();
 
     let deploy_token_tx = deploy_account_tx(token_class_hash, Fee(TESTING_FEE), None, None, &mut nonce_manager);
@@ -121,7 +121,23 @@ pub fn initial_state(
     // expected root parsed from current os_test.py & test_utils.py(0.12.2)
     assert_eq!(felt_str!(EXPECTED_PREV_ROOT, 16), commitment.updated_root);
 
-    shared_state
+    let mut exec_info: Vec<TransactionExecutionInfo> = Vec::new();
+
+    for tx in txs.clone().into_iter() {
+        let account_tx = invoke_tx(invoke_tx_args! {
+            max_fee: Fee(TESTING_FEE),
+            nonce: nonce_manager.next(sender_addr),
+            sender_address: sender_addr,
+            calldata: tx,
+            version: TransactionVersion::ONE,
+        });
+        let tx_info = AccountTransaction::Invoke(account_tx)
+            .execute(&mut initial_state.cache, &initial_state.block_context, false, true)
+            .unwrap();
+        exec_info.push(tx_info);
+    }
+
+    (shared_state, Vec<TransactionExecutionInfo>)
 }
 
 #[fixture]

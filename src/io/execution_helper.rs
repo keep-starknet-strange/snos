@@ -2,10 +2,11 @@ use std::collections::HashMap;
 use std::vec::IntoIter;
 
 use blockifier::execution::cairo1_execution::CallResult;
-use blockifier::execution::call_info::CallInfo;
+use blockifier::execution::call_info::{CallExecution, CallInfo};
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
+use starknet_api::deprecated_contract_class::EntryPointType;
 
 use crate::state::storage::{Storage, TrieStorage};
 use crate::state::trie::StarkHasher;
@@ -17,7 +18,7 @@ where
     S: Storage,
 {
     call_execution_info_ptr: Option<Relocatable>,
-    call_info_: Option<CallInfo>,
+    call_info_: Option<&'a CallInfo>,
     call_iterator: IntoIter<&'a CallInfo>,
     deployed_contracts_iterator: IntoIter<Felt252>,
     execute_code_read_iterator: IntoIter<Felt252>,
@@ -58,6 +59,55 @@ impl<'a, H: StarkHasher, S: Storage> OsExecutionHelper<'a, H, S> {
         self.tx_execution_info = self.tx_execution_info_iterator.next();
         // TODO: uncomment this when possible
         // self.call_iterator = self.tx_execution_info.as_ref().unwrap().gen_call_iterator();
+    }
+
+    pub fn enter_call(&mut self, execution_info_ptr: Option<Relocatable>) {
+        assert!(self.call_execution_info_ptr.is_none());
+        self.call_execution_info_ptr = execution_info_ptr;
+        self.assert_iterators_exhausted();
+        assert!(self.call_info_.is_none(), "Call info should be none");
+        println!("HERE\n {:?}", self.call_iterator);
+        self.call_info_ = self.call_iterator.next();
+        self.deployed_contracts_iterator = self
+            .call_info_
+            .unwrap()
+            .inner_calls
+            .iter()
+            .filter_map(|call| {
+                if matches!(call.call.entry_point_type, EntryPointType::Constructor) {
+                    Some(Felt252::from_bytes_be(call.call.caller_address.0.key().bytes()))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<Felt252>>()
+            .into_iter();
+        self.result_iterator = self
+            .call_info_
+            .unwrap()
+            .inner_calls
+            .iter()
+            .map(|call| CallResult {
+                failed: call.execution.failed,
+                retdata: call.execution.retdata.clone(),
+                gas_consumed: call.execution.gas_consumed,
+            })
+            .collect::<Vec<CallResult>>()
+            .into_iter();
+        self.execute_code_read_iterator = self
+            .call_info_
+            .unwrap()
+            .storage_read_values
+            .iter()
+            .map(|felt| Felt252::from_bytes_be(felt.bytes()))
+            .collect::<Vec<Felt252>>()
+            .into_iter();
+    }
+
+    pub fn assert_iterators_exhausted(&self) {
+        assert!(self.deployed_contracts_iterator.is_empty(), "Deployed contracts iter isn't exhausted");
+        assert!(self.result_iterator.is_empty(), "Result iterator isn't exhausted");
+        assert!(self.execute_code_read_iterator.is_empty(), "Execute code read iterator isn't exhausted");
     }
 }
 trait GenCallIter {

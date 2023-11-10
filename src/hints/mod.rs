@@ -20,7 +20,10 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
-use self::execution::{check_is_deprecated, get_state_entry, is_deprecated, start_execute_deploy_transaction};
+use self::execution::{
+    check_is_deprecated, enter_call, get_state_entry, is_deprecated, os_context_segments, select_builtin,
+    selected_builtins, start_execute_deploy_transaction,
+};
 use crate::config::DEFAULT_INPUT_PATH;
 use crate::hints::hints_raw::*;
 use crate::io::execution_helper::OsExecutionHelper;
@@ -104,6 +107,18 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
 
     let is_deprecated_hint = HintFunc(Box::new(is_deprecated));
     hint_processor.add_hint(String::from(IS_DEPRECATED), Rc::new(is_deprecated_hint));
+
+    let os_context_segments_hint = HintFunc(Box::new(os_context_segments));
+    hint_processor.add_hint(String::from(OS_CONTEXT_SEGMENTS), Rc::new(os_context_segments_hint));
+
+    let selected_builtins_hint = HintFunc(Box::new(selected_builtins));
+    hint_processor.add_hint(String::from(SELECTED_BUILTINS), Rc::new(selected_builtins_hint));
+
+    let select_builtin_hint = HintFunc(Box::new(select_builtin));
+    hint_processor.add_hint(String::from(SELECT_BUILTIN), Rc::new(select_builtin_hint));
+
+    let enter_call_hint = HintFunc(Box::new(enter_call));
+    hint_processor.add_hint(String::from(ENTER_CALL), Rc::new(enter_call_hint));
 
     hint_processor
 }

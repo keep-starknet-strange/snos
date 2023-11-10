@@ -23,9 +23,12 @@ use starknet_api::state::StorageKey;
 use starknet_api::{patricia_key, stark_felt};
 
 #[rstest]
-fn snos_run_test(_load_input: &StarknetOsInput, initial_state: SharedState<DictStateReader>) {
+fn snos_run_test(
+    _load_input: &StarknetOsInput,
+    initial_state: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),
+) {
     let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
-    let runner_res = snos_runner.run(initial_state);
+    let runner_res = snos_runner.run(initial_state.0, initial_state.1);
 
     println!("{:#?}", runner_res);
 }
