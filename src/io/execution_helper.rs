@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::vec::IntoIter;
 
 use blockifier::execution::cairo1_execution::CallResult;
-use blockifier::execution::call_info::{CallExecution, CallInfo};
+use blockifier::execution::call_info::CallInfo;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
@@ -11,27 +11,26 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use crate::state::storage::{Storage, TrieStorage};
 use crate::state::trie::StarkHasher;
 
-#[derive(Default)]
-pub struct OsExecutionHelper<'a, H, S>
+#[derive(Default, Clone)]
+pub struct OsExecutionHelper<H, S>
 where
     H: StarkHasher,
     S: Storage,
 {
     call_execution_info_ptr: Option<Relocatable>,
-    call_info_: Option<&'a CallInfo>,
-    call_iterator: IntoIter<&'a CallInfo>,
+    call_info_: Option<CallInfo>,
+    call_iterator: IntoIter<CallInfo>,
     deployed_contracts_iterator: IntoIter<Felt252>,
     execute_code_read_iterator: IntoIter<Felt252>,
     old_block_number_and_hash: Option<(Felt252, Felt252)>,
     result_iterator: IntoIter<CallResult>,
     storage_by_address: HashMap<Felt252, OsSingleStarknetStorage<H, S>>,
     tx_execution_info: Option<TransactionExecutionInfo>,
-    // use right type
     tx_execution_info_iterator: IntoIter<TransactionExecutionInfo>,
     pub tx_info_ptr: Option<Relocatable>,
 }
 
-impl<'a, H: StarkHasher, S: Storage> OsExecutionHelper<'a, H, S> {
+impl<H: StarkHasher, S: Storage> OsExecutionHelper<H, S> {
     pub fn new(
         tx_execution_infos: Vec<TransactionExecutionInfo>,
         storage_by_address: HashMap<Felt252, OsSingleStarknetStorage<H, S>>,
@@ -58,7 +57,7 @@ impl<'a, H: StarkHasher, S: Storage> OsExecutionHelper<'a, H, S> {
         assert!(self.tx_execution_info.is_none(), "self.tx_execution_info should be None");
         self.tx_execution_info = self.tx_execution_info_iterator.next();
         // TODO: uncomment this when possible
-        // self.call_iterator = self.tx_execution_info.as_ref().unwrap().gen_call_iterator();
+        self.call_iterator = self.tx_execution_info.as_ref().unwrap().gen_call_iterator();
     }
 
     pub fn enter_call(&mut self, execution_info_ptr: Option<Relocatable>) {
@@ -66,10 +65,10 @@ impl<'a, H: StarkHasher, S: Storage> OsExecutionHelper<'a, H, S> {
         self.call_execution_info_ptr = execution_info_ptr;
         self.assert_iterators_exhausted();
         assert!(self.call_info_.is_none(), "Call info should be none");
-        println!("HERE\n {:?}", self.call_iterator);
         self.call_info_ = self.call_iterator.next();
         self.deployed_contracts_iterator = self
             .call_info_
+            .as_ref()
             .unwrap()
             .inner_calls
             .iter()
@@ -84,6 +83,7 @@ impl<'a, H: StarkHasher, S: Storage> OsExecutionHelper<'a, H, S> {
             .into_iter();
         self.result_iterator = self
             .call_info_
+            .as_ref()
             .unwrap()
             .inner_calls
             .iter()
@@ -96,6 +96,7 @@ impl<'a, H: StarkHasher, S: Storage> OsExecutionHelper<'a, H, S> {
             .into_iter();
         self.execute_code_read_iterator = self
             .call_info_
+            .as_ref()
             .unwrap()
             .storage_read_values
             .iter()
@@ -111,29 +112,29 @@ impl<'a, H: StarkHasher, S: Storage> OsExecutionHelper<'a, H, S> {
     }
 }
 trait GenCallIter {
-    fn gen_call_iterator(&self) -> IntoIter<&CallInfo>;
+    fn gen_call_iterator(&self) -> IntoIter<CallInfo>;
 }
 impl GenCallIter for TransactionExecutionInfo {
-    fn gen_call_iterator(&self) -> IntoIter<&CallInfo> {
+    fn gen_call_iterator(&self) -> IntoIter<CallInfo> {
         let mut call_infos = vec![];
         for call_info in self.non_optional_call_infos() {
-            call_infos.extend(call_info.gen_call_topology());
+            call_infos.extend(call_info.clone().gen_call_topology());
         }
         call_infos.into_iter()
     }
 }
 
 trait GenCallTopology {
-    fn gen_call_topology(&self) -> IntoIter<&CallInfo>;
+    fn gen_call_topology(self) -> IntoIter<CallInfo>;
 }
 
 impl GenCallTopology for CallInfo {
-    fn gen_call_topology(&self) -> IntoIter<&CallInfo> {
+    fn gen_call_topology(self) -> IntoIter<CallInfo> {
         // Create a vector to store the results
-        let mut results = vec![self];
+        let mut results = vec![self.clone()];
 
         // Iterate over internal calls, recursively call gen_call_topology, and collect the results
-        for call in &self.inner_calls {
+        for call in self.inner_calls.into_iter() {
             results.extend(call.gen_call_topology());
         }
 
@@ -141,7 +142,7 @@ impl GenCallTopology for CallInfo {
         results.into_iter()
     }
 }
-
+#[derive(Clone)]
 pub struct OsSingleStarknetStorage<H, S>
 where
     H: StarkHasher,
@@ -152,6 +153,7 @@ where
     ongoing_storage_changes: HashMap<Felt252, Felt252>,
     previous_tree: TrieStorage,
 }
+#[derive(Clone)]
 pub struct FactFetchingContext<H, S>
 where
     H: StarkHasher,

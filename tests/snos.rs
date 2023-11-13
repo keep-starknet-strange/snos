@@ -8,7 +8,7 @@ use common::defs::{
     EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_1_ADDREESS_0_12_2, TESTING_2_ADDREESS_0_12_2,
     TESTING_BLOCK_HASH, TESTING_DELEGATE_ADDREESS_0_12_2, TESTING_HASH_0_12_2,
 };
-use common::prepared_os_test::{initial_state, prepare_os_test};
+use common::prepared_os_test::prepare_os_test;
 use common::{load_input, load_output};
 use rstest::rstest;
 use snos::io::input::StarknetOsInput;
@@ -25,10 +25,10 @@ use starknet_api::{patricia_key, stark_felt};
 #[rstest]
 fn snos_run_test(
     _load_input: &StarknetOsInput,
-    initial_state: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),
+    prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),
 ) {
     let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
-    let runner_res = snos_runner.run(initial_state.0, initial_state.1);
+    let runner_res = snos_runner.run(prepare_os_test.0, prepare_os_test.1);
 
     println!("{:#?}", runner_res);
 }

@@ -1,6 +1,6 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
-use std::ops::{Add, AddAssign};
+use std::ops::AddAssign;
 
 use cairo_felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
@@ -109,7 +109,7 @@ pub fn is_deprecated(
 /// ids.syscall_ptr = segments.add()
 pub fn os_context_segments(
     vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,

@@ -1,6 +1,6 @@
 use core::panic;
 use std::any::Any;
-use std::collections::hash_map::{IntoIter, Keys};
+use std::collections::hash_map::IntoIter;
 use std::collections::{HashMap, HashSet};
 
 use blockifier::block_context::BlockContext;
@@ -16,7 +16,6 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::state::ContractClass;
 
 use crate::io::classes::write_deprecated_class;
 use crate::io::input::StarknetOsInput;

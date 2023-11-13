@@ -295,9 +295,10 @@ pub fn enter_syscall_scopes(
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
-    let execution_helper = Box::<OsExecutionHelper<'_, PedersenHash, TrieStorage>>::default();
     let dict_manager = Box::new(exec_scopes.get_dict_manager()?);
     let deprecated_class_hashes = Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
+    let execution_helper =
+        Box::new(exec_scopes.get::<OsExecutionHelper<PedersenHash, TrieStorage>>("execution_helper")?);
     exec_scopes.enter_scope(HashMap::from_iter([
         (String::from("transactions"), transactions),
         (String::from("execution_helper"), execution_helper),
