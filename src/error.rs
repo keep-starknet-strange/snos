@@ -1,4 +1,4 @@
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 
 #[derive(thiserror::Error, Debug)]

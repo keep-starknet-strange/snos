@@ -4,10 +4,11 @@ use std::vec::IntoIter;
 use blockifier::execution::cairo1_execution::CallResult;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use starknet_api::deprecated_contract_class::EntryPointType;
 
+use super::input::CommitmentInfo;
 use crate::state::storage::{Storage, TrieStorage};
 use crate::state::trie::StarkHasher;
 
@@ -150,7 +151,7 @@ where
 {
     _expected_updated_root: Felt252,
     _ffc: FactFetchingContext<H, S>,
-    _ongoing_storage_changes: HashMap<Felt252, Felt252>,
+    ongoing_storage_changes: HashMap<Felt252, Felt252>,
     _previous_tree: TrieStorage,
 }
 #[derive(Clone)]

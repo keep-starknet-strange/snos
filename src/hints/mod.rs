@@ -16,7 +16,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::MaybeRelocatable;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
@@ -27,6 +27,7 @@ use self::execution::{
 };
 use crate::config::DEFAULT_INPUT_PATH;
 use crate::hints::hints_raw::*;
+use crate::io::deprecated_syscall_handler::DeprecatedSyscallHandler;
 use crate::io::execution_helper::OsExecutionHelper;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
@@ -124,6 +125,12 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let enter_call_hint = HintFunc(Box::new(enter_call));
     hint_processor.add_hint(String::from(ENTER_CALL), Rc::new(enter_call_hint));
 
+    let enter_scope_syscall_handler_hint = HintFunc(Box::new(enter_scope_syscall_handler));
+    hint_processor.add_hint(String::from(ENTER_SCOPE_SYSCALL_HANDLER), Rc::new(enter_scope_syscall_handler_hint));
+
+    let breakpoint_hint = HintFunc(Box::new(breakpoint));
+    hint_processor.add_hint(String::from(BREAKPOIN), Rc::new(breakpoint_hint));
+
     hint_processor
 }
 
@@ -186,14 +193,6 @@ pub fn check_deprecated_class_hash(
 }
 
 /// Implements hint:
-///
-/// from starkware.python.utils import from_bytes
-///
-/// initial_dict = {
-///     address: segments.gen_arg(
-///         (from_bytes(contract.contract_hash), segments.add(), contract.nonce))
-///     for address, contract in os_input.contracts.items()
-/// }
 pub fn initialize_state_changes(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -281,15 +280,6 @@ pub fn transactions_len(
 }
 
 /// Implements hint:
-///
-/// vm_enter_scope({
-///     '__deprecated_class_hashes': __deprecated_class_hashes,
-///     'transactions': iter(os_input.transactions),
-///     'execution_helper': execution_helper,
-///     'deprecated_syscall_handler': deprecated_syscall_handler,
-///     'syscall_handler': syscall_handler,
-///      '__dict_manager': __dict_manager,
-/// })
 pub fn enter_syscall_scopes(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -410,5 +400,42 @@ pub fn assert_transaction_hash(
          hash = {}.",
         transaction_hash, tx.hash_value
     );
+    Ok(())
+}
+
+/// Implements hint:
+///
+/// vm_enter_scope({'syscall_handler': deprecated_syscall_handler})
+pub fn enter_scope_syscall_handler(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let deprecated_syscall_handler: Box<dyn Any> = Box::<DeprecatedSyscallHandler>::default();
+    exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), deprecated_syscall_handler)]));
+    let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
+    println!("jump dest {jump_dest:}");
+    Ok(())
+}
+
+pub fn breakpoint(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let add = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
+    println!("compiled class {add:}");
+    let temp = vm.get_integer(add)?;
+    println!("temp {temp:}");
+    let add = (add + 11usize).unwrap();
+    let add = vm.get_relocatable(add)?;
+    let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
+    println!("jump dest {jump_dest:}");
+    println!("val deref {:}", vm.get_integer(jump_dest)?);
+    println!("add {add:}");
     Ok(())
 }
