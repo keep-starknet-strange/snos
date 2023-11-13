@@ -11,7 +11,7 @@ use blockifier::test_utils::{deploy_account_tx, invoke_tx, DictStateReader, Invo
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transactions::ExecutableTransaction;
-use cairo_felt::felt_str;
+use cairo_vm::felt::felt_str;
 use cairo_vm::vm::runners::builtin_runner::{
     BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME, POSEIDON_BUILTIN_NAME,
     RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,

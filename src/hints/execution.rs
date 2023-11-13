@@ -2,7 +2,7 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::ops::AddAssign;
 
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
@@ -21,10 +21,6 @@ use crate::state::storage::TrieStorage;
 use crate::state::trie::PedersenHash;
 
 /// Implements hint:
-///
-/// execution_helper.start_tx(
-///     tx_info_ptr=ids.constructor_execution_context.deprecated_tx_info.address_
-/// )
 pub fn start_execute_deploy_transaction(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -80,9 +76,10 @@ pub fn check_is_deprecated(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let execution_context = get_ptr_from_var_name("execution_context", vm, ids_data, ap_tracking)?;
-    let class_hash = vm.get_integer((execution_context + 1usize)?).map_err(|_| {
-        HintError::IdentifierHasNoMember(Box::new(("execution_context".to_string(), "class_hash".to_string())))
-    })?;
+    let class_hash =
+        vm.get_integer((execution_context + 1usize)?).map_err(|_| {
+            HintError::IdentifierHasNoMember(Box::new(("execution_context".to_string(), "class_hash".to_string())))
+        })?;
     let is_deprecated_class =
         exec_scopes.get_ref::<HashSet<Felt252>>("__deprecated_class_hashes")?.contains(&class_hash);
     exec_scopes.insert_value("is_deprecated", if is_deprecated_class { 1u8 } else { 0u8 });

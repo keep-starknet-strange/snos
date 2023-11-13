@@ -1,4 +1,4 @@
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;

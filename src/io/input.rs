@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::{fs, path};
 
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
@@ -10,6 +10,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContract
 use super::InternalTransaction;
 use crate::config::StarknetGeneralConfig;
 use crate::error::SnOsError;
+use crate::state::trie::{MerkleTrie, StarkHasher};
 use crate::utils::{Felt252HexNoPrefix, Felt252Num, Felt252Str, Felt252StrDec};
 
 #[serde_as]
@@ -55,6 +56,14 @@ pub struct CommitmentInfo {
     pub tree_height: usize,
     #[serde_as(as = "HashMap<Felt252Str, Vec<Felt252Str>>")]
     pub commitment_facts: HashMap<Felt252, Vec<Felt252>>,
+}
+impl CommitmentInfo {
+    pub fn create_from_modifications<H>(previous_tree: MerkleTrie<H, 64>) -> Self
+    where
+        H: StarkHasher,
+    {
+        CommitmentInfo::default()
+    }
 }
 #[serde_as]
 #[derive(Deserialize, Clone, Debug, Serialize)]
