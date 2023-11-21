@@ -22,9 +22,9 @@ where
     call_iterator: IntoIter<CallInfo>,
     deployed_contracts_iterator: IntoIter<Felt252>,
     execute_code_read_iterator: IntoIter<Felt252>,
-    old_block_number_and_hash: Option<(Felt252, Felt252)>,
+    _old_block_number_and_hash: Option<(Felt252, Felt252)>,
     result_iterator: IntoIter<CallResult>,
-    storage_by_address: HashMap<Felt252, OsSingleStarknetStorage<H, S>>,
+    _storage_by_address: HashMap<Felt252, OsSingleStarknetStorage<H, S>>,
     tx_execution_info: Option<TransactionExecutionInfo>,
     tx_execution_info_iterator: IntoIter<TransactionExecutionInfo>,
     pub tx_info_ptr: Option<Relocatable>,
@@ -42,9 +42,9 @@ impl<H: StarkHasher, S: Storage> OsExecutionHelper<H, S> {
             call_iterator: vec![].into_iter(),
             deployed_contracts_iterator: vec![].into_iter(),
             execute_code_read_iterator: vec![].into_iter(),
-            old_block_number_and_hash,
+            _old_block_number_and_hash: old_block_number_and_hash,
             result_iterator: vec![].into_iter(),
-            storage_by_address,
+            _storage_by_address: storage_by_address,
             tx_execution_info: None,
             tx_execution_info_iterator: tx_execution_infos.into_iter(),
             tx_info_ptr: None,
@@ -148,10 +148,10 @@ where
     H: StarkHasher,
     S: Storage,
 {
-    expected_updated_root: Felt252,
-    ffc: FactFetchingContext<H, S>,
-    ongoing_storage_changes: HashMap<Felt252, Felt252>,
-    previous_tree: TrieStorage,
+    _expected_updated_root: Felt252,
+    _ffc: FactFetchingContext<H, S>,
+    _ongoing_storage_changes: HashMap<Felt252, Felt252>,
+    _previous_tree: TrieStorage,
 }
 #[derive(Clone)]
 pub struct FactFetchingContext<H, S>
@@ -159,8 +159,8 @@ where
     H: StarkHasher,
     S: Storage,
 {
-    hash_func: H,
+    _hash_func: H,
     // Prob useless
-    n_workers: Option<u8>,
-    storage: S,
+    _n_workers: Option<u8>,
+    _storage: S,
 }

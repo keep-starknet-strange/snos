@@ -20,6 +20,7 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
+use self::block_context::get_block_mapping;
 use self::execution::{
     check_is_deprecated, enter_call, get_state_entry, is_deprecated, os_context_segments, select_builtin,
     selected_builtins, start_execute_deploy_transaction,
@@ -95,6 +96,9 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
 
     let assert_transaction_hash_hint = HintFunc(Box::new(assert_transaction_hash));
     hint_processor.add_hint(String::from(ASSERT_TRANSACTION_HASH), Rc::new(assert_transaction_hash_hint));
+
+    let get_block_mapping_hint = HintFunc(Box::new(get_block_mapping));
+    hint_processor.add_hint(String::from(GET_BLOCK_MAPPING), Rc::new(get_block_mapping_hint));
 
     let start_execute_deploy_transaction_hint = HintFunc(Box::new(start_execute_deploy_transaction));
     hint_processor.add_hint(String::from(START_DEPLOY_TX), Rc::new(start_execute_deploy_transaction_hint));
