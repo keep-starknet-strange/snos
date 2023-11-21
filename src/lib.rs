@@ -1,4 +1,4 @@
-#![feature(exact_size_is_empty, generators, generator_trait)]
+#![feature(exact_size_is_empty)]
 pub mod config;
 pub mod error;
 pub mod hints;
