@@ -1,9 +1,10 @@
 pub mod block_context;
+mod execution;
 pub mod hints_raw;
 // pub mod transaction_context;
 
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::vec::IntoIter;
 
@@ -19,11 +20,18 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
-use crate::config::DEFAULT_INPUT_PATH;
-use crate::hints::hints_raw::{
-    ASSERT_TRANSACTION_HASH, LOAD_NEXT_TX, PREPARE_CONSTRUCTOR_EXECUTION, TRANSACTION_VERSION,
+use self::block_context::get_block_mapping;
+use self::execution::{
+    check_is_deprecated, enter_call, get_state_entry, is_deprecated, os_context_segments, select_builtin,
+    selected_builtins, start_execute_deploy_transaction,
 };
-use crate::io::{InternalTransaction, StarknetOsInput};
+use crate::config::DEFAULT_INPUT_PATH;
+use crate::hints::hints_raw::*;
+use crate::io::execution_helper::OsExecutionHelper;
+use crate::io::input::StarknetOsInput;
+use crate::io::InternalTransaction;
+use crate::state::storage::TrieStorage;
+use crate::state::trie::PedersenHash;
 
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
     let mut hint_processor = BuiltinHintProcessor::new_empty();
@@ -88,6 +96,33 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
 
     let assert_transaction_hash_hint = HintFunc(Box::new(assert_transaction_hash));
     hint_processor.add_hint(String::from(ASSERT_TRANSACTION_HASH), Rc::new(assert_transaction_hash_hint));
+
+    let get_block_mapping_hint = HintFunc(Box::new(get_block_mapping));
+    hint_processor.add_hint(String::from(GET_BLOCK_MAPPING), Rc::new(get_block_mapping_hint));
+
+    let start_execute_deploy_transaction_hint = HintFunc(Box::new(start_execute_deploy_transaction));
+    hint_processor.add_hint(String::from(START_DEPLOY_TX), Rc::new(start_execute_deploy_transaction_hint));
+
+    let get_state_entry_hint = HintFunc(Box::new(get_state_entry));
+    hint_processor.add_hint(String::from(GET_STATE_ENTRY), Rc::new(get_state_entry_hint));
+
+    let check_is_deprecated_hint = HintFunc(Box::new(check_is_deprecated));
+    hint_processor.add_hint(String::from(CHECK_IS_DEPRECATED), Rc::new(check_is_deprecated_hint));
+
+    let is_deprecated_hint = HintFunc(Box::new(is_deprecated));
+    hint_processor.add_hint(String::from(IS_DEPRECATED), Rc::new(is_deprecated_hint));
+
+    let os_context_segments_hint = HintFunc(Box::new(os_context_segments));
+    hint_processor.add_hint(String::from(OS_CONTEXT_SEGMENTS), Rc::new(os_context_segments_hint));
+
+    let selected_builtins_hint = HintFunc(Box::new(selected_builtins));
+    hint_processor.add_hint(String::from(SELECTED_BUILTINS), Rc::new(selected_builtins_hint));
+
+    let select_builtin_hint = HintFunc(Box::new(select_builtin));
+    hint_processor.add_hint(String::from(SELECT_BUILTIN), Rc::new(select_builtin_hint));
+
+    let enter_call_hint = HintFunc(Box::new(enter_call));
+    hint_processor.add_hint(String::from(ENTER_CALL), Rc::new(enter_call_hint));
 
     hint_processor
 }
@@ -264,7 +299,16 @@ pub fn enter_syscall_scopes(
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
-    exec_scopes.enter_scope(HashMap::from_iter([(String::from("transactions"), transactions)]));
+    let dict_manager = Box::new(exec_scopes.get_dict_manager()?);
+    let deprecated_class_hashes = Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
+    let execution_helper =
+        Box::new(exec_scopes.get::<OsExecutionHelper<PedersenHash, TrieStorage>>("execution_helper")?);
+    exec_scopes.enter_scope(HashMap::from_iter([
+        (String::from("transactions"), transactions),
+        (String::from("execution_helper"), execution_helper),
+        (String::from("dict_manager"), dict_manager),
+        (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
+    ]));
     Ok(())
 }
 

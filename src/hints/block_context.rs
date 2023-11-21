@@ -1,7 +1,7 @@
 use core::panic;
 use std::any::Any;
 use std::collections::hash_map::IntoIter;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use blockifier::block_context::BlockContext;
 use cairo_felt::Felt252;
@@ -18,7 +18,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use crate::io::classes::write_deprecated_class;
-use crate::io::StarknetOsInput;
+use crate::io::input::StarknetOsInput;
 use crate::utils::felt_api2vm;
 
 /// Implements hint:
@@ -66,6 +66,9 @@ pub fn load_deprecated_class_facts(
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
     let compiled_class_facts_ptr = vm.add_memory_segment();
     insert_value_from_var_name("compiled_class_facts", compiled_class_facts_ptr, vm, ids_data, ap_tracking)?;
+    let deprecated_class_hashes: HashSet<Felt252> =
+        HashSet::from_iter(os_input.deprecated_compiled_classes.keys().cloned());
+    exec_scopes.insert_value("__deprecated_class_hashes", deprecated_class_hashes);
 
     insert_value_from_var_name(
         "n_compiled_class_facts",

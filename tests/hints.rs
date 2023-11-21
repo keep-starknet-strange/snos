@@ -19,7 +19,8 @@ use snos::hints::{
     check_deprecated_class_hash, enter_syscall_scopes, initialize_class_hashes, initialize_state_changes, load_next_tx,
     starknet_os_input,
 };
-use snos::io::{StarknetOsInput, StarknetOsOutput};
+use snos::io::input::StarknetOsInput;
+use snos::io::output::StarknetOsOutput;
 
 #[fixture]
 fn os_input_hint_processor(_load_input: &StarknetOsInput) -> BuiltinHintProcessor {

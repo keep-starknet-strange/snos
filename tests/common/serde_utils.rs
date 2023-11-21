@@ -7,7 +7,8 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::{serde_as, DeserializeAs, SerializeAs};
 use snos::config::StarknetGeneralConfig;
 use snos::error::SnOsError;
-use snos::io::{CommitmentInfo, ContractState, InternalTransaction};
+use snos::io::input::{CommitmentInfo, ContractState};
+use snos::io::InternalTransaction;
 use snos::utils::{Felt252Num, Felt252Str, Felt252StrDec};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 

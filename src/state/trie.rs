@@ -16,8 +16,8 @@ pub trait StarkHasher {
     fn hash(a: &StarkFelt, b: &StarkFelt) -> StarkHash;
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct PedersenHash {}
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PedersenHash;
 
 impl StarkHasher for PedersenHash {
     fn hash(a: &StarkFelt, b: &StarkFelt) -> StarkHash {

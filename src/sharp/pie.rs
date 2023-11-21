@@ -45,7 +45,7 @@ pub fn encode_pie_mem(pie: CairoPie) -> Result<String, SnOsError> {
 fn write_to_zip<W: Write + Seek>(pie: CairoPie, mut zip: ZipWriter<W>) -> Result<(), SnOsError> {
     let options = FileOptions::default().compression_method(zip::CompressionMethod::Deflated).unix_permissions(0o755);
 
-    let pie_s = serde_json::to_value(&pie).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
+    let pie_s = serde_json::to_value(pie).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
 
     for file in PIE_FILES {
         if file == "memory" {

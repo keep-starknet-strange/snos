@@ -15,3 +15,7 @@ venv
 starkware
 
 .DS_Store
+
+hints.py
+run_os.py
+run_bootloader.py
