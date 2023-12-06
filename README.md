@@ -7,7 +7,16 @@ Rust Library for running the [Starknet OS](https://hackmd.io/@pragma/ByP-iux1T) 
 
 ## Test Setup
 
-**Cairo [Env](https://docs.cairo-lang.org/0.12.0/quickstart.html)**
+**Cairo [Env]**
+
+See: (https://docs.cairo-lang.org/0.12.0/quickstart.html)
+
+```bash
+poetry install
+poetry shell
+```
+
+**Run Tests**
 
 ```bash
 ./scripts/setup-tests.sh

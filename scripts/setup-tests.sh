@@ -36,7 +36,7 @@ mkdir -p cairo-lang/src/starkware/starknet/std_contracts/upgradability_proxy
 cp tests/dependencies/initializable.cairo cairo-lang/src/starkware/starknet/std_contracts/upgradability_proxy
 
 # compile cairo programs
-echo -e "compmiling cairo programs...\n"
+echo -e "compiling cairo programs...\n"
 mkdir -p build/programs
 cairo-format -i tests/programs/*
 cairo-compile tests/programs/bad_output.cairo --output build/programs/bad_output.json
@@ -51,7 +51,7 @@ cairo-compile tests/programs/format_os_output.cairo --output build/programs/form
 cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json --cairo_path cairo-lang/src
 
 # compile starknet contract
-echo -e "compiling starknet contrarcts...\n"
+echo -e "compiling starknet contracts...\n"
 mkdir -p build/contracts
 mkdir -p build/pie
 ln -s cairo-lang/src/starkware starkware
