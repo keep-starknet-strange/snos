@@ -5,6 +5,7 @@ pub mod hints_raw;
 
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
+use std::ops::Add;
 use std::rc::Rc;
 use std::vec::IntoIter;
 
@@ -19,6 +20,7 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use self::block_context::get_block_mapping;
 use self::execution::{
@@ -39,6 +41,9 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
 
     let sn_os_input = HintFunc(Box::new(starknet_os_input));
     hint_processor.add_hint(String::from(hints_raw::STARKNET_OS_INPUT), Rc::new(sn_os_input));
+
+    let check_deprecated_class = HintFunc(Box::new(check_deprecated_class_hash));
+    hint_processor.add_hint(String::from(hints_raw::CHECK_DEPRECATED_CLASS_HASH), Rc::new(check_deprecated_class));
 
     let load_class_facts = HintFunc(Box::new(block_context::load_class_facts));
     hint_processor.add_hint(String::from(hints_raw::LOAD_CLASS_FACTS), Rc::new(load_class_facts));
@@ -180,14 +185,29 @@ pub fn starknet_os_input(
 ///
 /// vm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)
 pub fn check_deprecated_class_hash(
-    _vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // TODO: decide if we really need to check this deprecated hash moving forward
     // TODO: check w/ LC for `vm_load_program` impl
+    // let computed_hash_addr = get_relocatable_from_var_name("compiled_class_fact", vm, ids_data,
+    // ap_tracking)?; let computed_hash = vm.get_integer(computed_hash_addr)?;
+
+    // let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
+    // if computed_hash.as_ref() != &expected_hash {
+    //     return Err(HintError::AssertionFailed(
+    //         format!("Computed compiled_class_hash is inconsistent comp={computed_hash}
+    // exp={expected_hash}")             .into_boxed_str(),
+    //     ));
+    // }
+
+    let prog = exec_scopes.get::<DeprecatedContractClass>("compiled_class").unwrap();
+    let compiled_class_ptr = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
+    let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 11)?)?;
+    println!("dep class byte_ptr: {byte_code_ptr:?}");
 
     Ok(())
 }

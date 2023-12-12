@@ -94,6 +94,7 @@ pub fn load_deprecated_inner(
     let (class_hash, deprecated_class) = deprecated_class_iter.next().unwrap();
 
     exec_scopes.insert_value("compiled_class_hash", class_hash);
+    exec_scopes.insert_value("compiled_class", deprecated_class.clone());
 
     let dep_class_base = vm.add_memory_segment();
     write_deprecated_class(vm, dep_class_base, deprecated_class)?;
