@@ -14,8 +14,8 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
     BuiltinHintProcessor, HintFunc,
 };
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
-use cairo_vm::hint_processor::hint_processor_definition::HintReference;
-use cairo_vm::serde::deserialize_program::ApTracking;
+use cairo_vm::hint_processor::hint_processor_definition::{HintExtension, HintProcessorLogic, HintReference};
+use cairo_vm::serde::deserialize_program::{ApTracking, HintParams, Reference, ReferenceManager};
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -41,9 +41,6 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
 
     let sn_os_input = HintFunc(Box::new(starknet_os_input));
     hint_processor.add_hint(String::from(hints_raw::STARKNET_OS_INPUT), Rc::new(sn_os_input));
-
-    let check_deprecated_class = HintFunc(Box::new(check_deprecated_class_hash));
-    hint_processor.add_hint(String::from(hints_raw::CHECK_DEPRECATED_CLASS_HASH), Rc::new(check_deprecated_class));
 
     let load_class_facts = HintFunc(Box::new(block_context::load_class_facts));
     hint_processor.add_hint(String::from(hints_raw::LOAD_CLASS_FACTS), Rc::new(load_class_facts));
@@ -190,7 +187,7 @@ pub fn check_deprecated_class_hash(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<HintExtension, HintError> {
     // TODO: decide if we really need to check this deprecated hash moving forward
     // TODO: check w/ LC for `vm_load_program` impl
     // let computed_hash_addr = get_relocatable_from_var_name("compiled_class_fact", vm, ids_data,
@@ -204,12 +201,30 @@ pub fn check_deprecated_class_hash(
     //     ));
     // }
 
-    let prog = exec_scopes.get::<DeprecatedContractClass>("compiled_class").unwrap();
+    let dep_class = exec_scopes.get::<DeprecatedContractClass>("compiled_class").unwrap();
+    let hints: HashMap<String, Vec<HintParams>> = serde_json::from_value(dep_class.program.hints).unwrap();
+    let ref_manager: ReferenceManager = serde_json::from_value(dep_class.program.reference_manager).unwrap();
+    let refs = ref_manager.references.iter().map(|r| HintReference::from(r.clone())).collect::<Vec<HintReference>>();
+
+    let hint_processor = BuiltinHintProcessor::new_empty();
+    let mut deprecated_compiled_hints: Vec<Box<dyn Any>> = Vec::new();
+    for (_hint_pc, hint_params) in hints.into_iter() {
+        let compiled_hint = hint_processor.compile_hint(
+            &hint_params[0].code,
+            &hint_params[0].flow_tracking_data.ap_tracking,
+            &hint_params[0].flow_tracking_data.reference_ids,
+            &refs,
+        )?;
+
+        deprecated_compiled_hints.push(compiled_hint);
+    }
+
     let compiled_class_ptr = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
     let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 11)?)?;
     println!("dep class byte_ptr: {byte_code_ptr:?}");
+    let hint_extension = HashMap::from([(byte_code_ptr, deprecated_compiled_hints)]);
 
-    Ok(())
+    Ok(hint_extension)
 }
 
 /// Implements hint:
