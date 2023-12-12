@@ -50,13 +50,11 @@ pub fn load_deprecated_class_facts(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
-    let compiled_class_facts_ptr = vm.add_memory_segment();
-    println!("{compiled_class_facts_ptr:}");
-    insert_value_from_var_name("compiled_class_facts", compiled_class_facts_ptr, vm, ids_data, ap_tracking)?;
     let deprecated_class_hashes: HashSet<Felt252> =
         HashSet::from_iter(os_input.deprecated_compiled_classes.keys().cloned());
     exec_scopes.insert_value("__deprecated_class_hashes", deprecated_class_hashes);
 
+    insert_value_from_var_name("compiled_class_facts", vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(
         "n_compiled_class_facts",
         os_input.deprecated_compiled_classes.len(),

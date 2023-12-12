@@ -187,18 +187,17 @@ pub fn check_deprecated_class_hash(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<HintExtension, HintError> {
-    // TODO: decide if we really need to check this deprecated hash moving forward
+) -> Result<(), HintError> {
     // TODO: check w/ LC for `vm_load_program` impl
-    // let computed_hash_addr = get_relocatable_from_var_name("compiled_class_fact", vm, ids_data,
-    // ap_tracking)?; let computed_hash = vm.get_integer(computed_hash_addr)?;
+    let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data, ap_tracking)?;
+    let computed_hash = vm.get_integer(computed_hash_addr)?;
 
-    // let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
+    let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
+    // TODO: fix comp class hash
     // if computed_hash.as_ref() != &expected_hash {
     //     return Err(HintError::AssertionFailed(
-    //         format!("Computed compiled_class_hash is inconsistent comp={computed_hash}
-    // exp={expected_hash}")             .into_boxed_str(),
-    //     ));
+    //         format!("Compiled_class_hash mismatch comp={computed_hash}
+    // exp={expected_hash}").into_boxed_str(),     ));
     // }
 
     let dep_class = exec_scopes.get::<DeprecatedContractClass>("compiled_class").unwrap();
@@ -224,7 +223,7 @@ pub fn check_deprecated_class_hash(
     println!("dep class byte_ptr: {byte_code_ptr:?}");
     let hint_extension = HashMap::from([(byte_code_ptr, deprecated_compiled_hints)]);
 
-    Ok(hint_extension)
+    Ok(())
 }
 
 /// Implements hint:
