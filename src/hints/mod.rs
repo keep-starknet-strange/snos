@@ -20,7 +20,10 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
-use self::block_context::{get_block_mapping, load_class_facts, load_deprecated_inner, load_deprecated_class_facts, block_number, block_timestamp, sequencer_address, chain_id, fee_token_address};
+use self::block_context::{
+    block_number, block_timestamp, chain_id, fee_token_address, get_block_mapping, load_class_facts,
+    load_deprecated_class_facts, load_deprecated_inner, sequencer_address,
+};
 use self::execution::{
     check_is_deprecated, enter_call, get_state_entry, is_deprecated, os_context_segments, select_builtin,
     selected_builtins, start_execute_deploy_transaction,
@@ -34,16 +37,18 @@ use crate::state::storage::TrieStorage;
 use crate::state::trie::PedersenHash;
 
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
-    let hints: Box<[(
-        &str, 
-        fn(
-            &mut VirtualMachine,
-            &mut ExecutionScopes,
-            &HashMap<String, HintReference>,
-            &ApTracking,
-            &HashMap<String, Felt252>,
-        ) -> Result<(), HintError>)]> =
-    Box::new([
+    let hints: Box<
+        [(
+            &str,
+            fn(
+                &mut VirtualMachine,
+                &mut ExecutionScopes,
+                &HashMap<String, HintReference>,
+                &ApTracking,
+                &HashMap<String, Felt252>,
+            ) -> Result<(), HintError>,
+        )],
+    > = Box::new([
         (ASSERT_TRANSACTION_HASH, assert_transaction_hash),
         (CHAIN_ID, chain_id),
         (CHECK_DEPRECATED_CLASS_HASH, check_deprecated_class_hash),
