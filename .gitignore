@@ -4,6 +4,9 @@ target/
 .idea
 .vscode
 
+#poetry lockfile
+poetry.lock
+
 # Snos artifacts
 build/*
 !build/os_latest.json

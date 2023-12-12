@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "snos"
+version = "0"
+description = "Python dependencies configuration"
+authors = ["Maciej Kamiński <maciej@starkware.co>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+ecdsa = "^0.18.0"
+fastecdsa = "^2.3.0"
+sympy = "^1.12"
+cairo-lang = "0.12.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
