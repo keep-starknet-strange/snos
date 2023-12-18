@@ -1,6 +1,6 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::{read_dir, File};
-use std::io::{BufReader, Read};
+use std::io::BufReader;
 
 use serde::Deserialize;
 use serde_json::Value;
@@ -21,8 +21,19 @@ struct Whitelist {
     allowed_hint_expressions: Vec<AllowedHintExpression>,
 }
 
+#[derive(Deserialize)]
+struct Hint {
+    code: Box<str>,
+}
+
+#[derive(Deserialize)]
+struct Os {
+    hints: HashMap<String, Vec<Hint>>,
+}
+
 fn main() -> std::io::Result<()> {
-    let subset = std::env::args().nth(1).expect("choose what you need: all, implemented, unimplemented");
+    let subset =
+        std::env::args().nth(1).expect("choose what you need: all, implemented, unimplemented, whitelisted, snos");
 
     // whitelisted hints implemented by the vm
     let whitelist_paths = read_dir(WHITELISTS_PATH).expect("Failed to read whitelist directory");
@@ -40,27 +51,22 @@ fn main() -> std::io::Result<()> {
 
     let whitelisted_hints =
         whitelists.into_iter().flatten().map(|ahe| ahe.hint_lines.join("\n")).collect::<HashSet<_>>();
-
     let snos_hints = sn_hint_processor().extra_hints.keys().cloned().collect::<HashSet<_>>();
-
     let implemented_hints = whitelisted_hints.union(&snos_hints).collect::<HashSet<_>>();
 
     let mut result = HashSet::new();
 
-    let mut file = File::open("build/os_latest.json")?;
-    let mut data = String::new();
-    let _ = file.read_to_string(&mut data);
-    let json: Value = serde_json::from_str(&data)?;
-    let hints = json.get("hints").unwrap().as_object();
-    for (_, hint_value) in hints.unwrap() {
-        for hint in hint_value.as_array().unwrap() {
-            let code = hint.get("code").unwrap().as_str().unwrap().to_string();
-            if subset == "all"
-                || subset == "implemented" && implemented_hints.contains(&code)
-                || subset == "unimplemented" && !implemented_hints.contains(&code)
-            {
-                result.insert(code);
-            }
+    let os: Os = serde_json::from_reader(BufReader::new(File::open("build/os_latest.json")?))
+        .expect("Failed to parse os_latest.json");
+    let hints = os.hints.into_values().flatten().map(|h| h.code.to_string()).collect::<HashSet<_>>();
+    for code in hints {
+        if subset == "all"
+            || subset == "implemented" && implemented_hints.contains(&code)
+            || subset == "unimplemented" && !implemented_hints.contains(&code)
+            || subset == "whitelisted" && whitelisted_hints.contains(&code)
+            || subset == "snos" && snos_hints.contains(&code)
+        {
+            result.insert(code);
         }
     }
 

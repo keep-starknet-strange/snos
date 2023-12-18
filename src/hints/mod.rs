@@ -36,19 +36,16 @@ use crate::io::InternalTransaction;
 use crate::state::storage::TrieStorage;
 use crate::state::trie::PedersenHash;
 
+type HintImpl = fn(
+    &mut VirtualMachine,
+    &mut ExecutionScopes,
+    &HashMap<String, HintReference>,
+    &ApTracking,
+    &HashMap<String, Felt252>,
+) -> Result<(), HintError>;
+
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
-    let hints: Box<
-        [(
-            &str,
-            fn(
-                &mut VirtualMachine,
-                &mut ExecutionScopes,
-                &HashMap<String, HintReference>,
-                &ApTracking,
-                &HashMap<String, Felt252>,
-            ) -> Result<(), HintError>,
-        )],
-    > = Box::new([
+    let hints: Box<[(&str, HintImpl)]> = Box::new([
         (ASSERT_TRANSACTION_HASH, assert_transaction_hash),
         (CHAIN_ID, chain_id),
         (CHECK_DEPRECATED_CLASS_HASH, check_deprecated_class_hash),
