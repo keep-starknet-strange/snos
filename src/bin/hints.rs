@@ -32,8 +32,9 @@ struct Os {
 }
 
 fn main() -> std::io::Result<()> {
-    let subset =
-        std::env::args().nth(1).expect("choose what you need: all, implemented, unimplemented, whitelisted, snos, orphans");
+    let subset = std::env::args()
+        .nth(1)
+        .expect("choose what you need: all, implemented, unimplemented, whitelisted, snos, orphans");
 
     // whitelisted hints implemented by the vm
     let whitelist_paths = read_dir(WHITELISTS_PATH).expect("Failed to read whitelist directory");
@@ -59,7 +60,6 @@ fn main() -> std::io::Result<()> {
     let os: Os = serde_json::from_reader(BufReader::new(File::open("build/os_latest.json")?))
         .expect("Failed to parse os_latest.json");
     let hints = os.hints.into_values().flatten().map(|h| h.code.to_string()).collect::<HashSet<_>>();
-
 
     if subset == "orphans" {
         for code in snos_hints {
