@@ -64,13 +64,11 @@ impl<S: StateReader> SharedState<S> {
     pub fn apply_class_state(&mut self) -> CommitmentInfo {
         let diff = self.cache.to_state_diff();
 
-        let mut class_hash_trie: MerkleTrie<PedersenHash, DEFAULT_STORAGE_TREE_HEIGHT> = match self
-            .get_block_num()
-            .prev()
-        {
-            Some(block_num) => MerkleTrie::new(self.get_class_hash_root(block_num).1),
-            None => MerkleTrie::empty(),
-        };
+        let mut class_hash_trie: MerkleTrie<PedersenHash, DEFAULT_STORAGE_TREE_HEIGHT> =
+            match self.get_block_num().prev() {
+                Some(block_num) => MerkleTrie::new(self.get_class_hash_root(block_num).1),
+                None => MerkleTrie::empty(),
+            };
 
         for (class_hash, compiled_class_hash) in diff.class_hash_to_compiled_class_hash.clone() {
             class_hash_trie.set(&self.contract_storage, felt_to_bits_api(class_hash.0), compiled_class_hash.0).unwrap();
@@ -146,12 +144,11 @@ impl<S: StateReader> SharedState<S> {
         }
 
         for (addr, updates) in diff.storage_updates.clone() {
-            let mut contract_trie: MerkleTrie<PedersenHash, DEFAULT_STORAGE_TREE_HEIGHT> = match self
-                .get_contract_root(addr)
-            {
-                Some((_, idx)) => MerkleTrie::new(*idx),
-                None => MerkleTrie::empty(),
-            };
+            let mut contract_trie: MerkleTrie<PedersenHash, DEFAULT_STORAGE_TREE_HEIGHT> =
+                match self.get_contract_root(addr) {
+                    Some((_, idx)) => MerkleTrie::new(*idx),
+                    None => MerkleTrie::empty(),
+                };
 
             for (storage_key, storage_val) in updates.clone() {
                 contract_trie.set(&self.contract_storage, felt_to_bits_api(*storage_key.0.key()), storage_val).unwrap();

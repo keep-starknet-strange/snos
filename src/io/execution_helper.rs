@@ -8,7 +8,6 @@ use cairo_vm::felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use starknet_api::deprecated_contract_class::EntryPointType;
 
-use super::input::CommitmentInfo;
 use crate::state::storage::{Storage, TrieStorage};
 use crate::state::trie::StarkHasher;
 

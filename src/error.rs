@@ -21,6 +21,8 @@ pub enum SnOsError {
     IO(#[from] std::io::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+    #[error("SnOs Deprecated Syscall Error: {0}")]
+    InvalidDeprecatedSyscallSelector(Felt252),
 }
 
 #[derive(thiserror::Error, Clone, Debug)]
