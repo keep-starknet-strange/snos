@@ -271,7 +271,6 @@ pub fn check_deprecated_class_hash(
     let ref_manager: ReferenceManager = serde_json::from_value(dep_class.program.reference_manager).unwrap();
     let refs = ref_manager.references.iter().map(|r| HintReference::from(r.clone())).collect::<Vec<HintReference>>();
 
-    let hint_processor = BuiltinHintProcessor::new_empty();
     let mut deprecated_compiled_hints: Vec<Box<dyn Any>> = Vec::new();
     for (_hint_pc, hint_params) in hints.into_iter() {
         let compiled_hint = hint_processor.compile_hint(
