@@ -107,74 +107,70 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
         storage: &impl Storage,
         mut path: BitVec<u8, Msb0>,
     ) -> anyhow::Result<StarkFelt> {
-        let hash =
-            match node {
-                InternalNode::Unresolved(idx) => {
-                    // Unresovlved nodes are already committed, but we need their hash for subsequent
-                    // iterations.
+        let hash = match node {
+            InternalNode::Unresolved(idx) => {
+                // Unresovlved nodes are already committed, but we need their hash for subsequent
+                // iterations.
+                storage.hash(*idx).context("Fetching stored node's hash")?.context("Stored node's hash is missing")?
+            }
+            InternalNode::Leaf => {
+                if let Some(value) = self.leaves.get(&path) {
+                    *value
+                } else {
                     storage
-                        .hash(*idx)
-                        .context("Fetching stored node's hash")?
-                        .context("Stored node's hash is missing")?
+                        .leaf(&path)
+                        .context("Fetching leaf value from storage")?
+                        .context("Leaf value missing from storage")?
                 }
-                InternalNode::Leaf => {
-                    if let Some(value) = self.leaves.get(&path) {
-                        *value
-                    } else {
-                        storage
-                            .leaf(&path)
-                            .context("Fetching leaf value from storage")?
-                            .context("Leaf value missing from storage")?
+            }
+            InternalNode::Binary(binary) => {
+                let mut left_path = path.clone();
+                left_path.push(Direction::Left.into());
+                let left_hash = self.commit_subtree(&mut binary.left.borrow_mut(), added, storage, left_path)?;
+                let mut right_path = path.clone();
+                right_path.push(Direction::Right.into());
+                let right_hash = self.commit_subtree(&mut binary.right.borrow_mut(), added, storage, right_path)?;
+                let hash = BinaryNode::calculate_hash::<H>(&left_hash, &right_hash);
+
+                let persisted_node = match (&*binary.left.borrow(), &*binary.right.borrow()) {
+                    (&InternalNode::Leaf, &InternalNode::Leaf) => Node::LeafBinary,
+                    (InternalNode::Leaf, _non_leaf) | (_non_leaf, InternalNode::Leaf) => {
+                        anyhow::bail!("Inconsistent binary children. Both children must be leaves or not leaves.")
                     }
-                }
-                InternalNode::Binary(binary) => {
-                    let mut left_path = path.clone();
-                    left_path.push(Direction::Left.into());
-                    let left_hash = self.commit_subtree(&mut binary.left.borrow_mut(), added, storage, left_path)?;
-                    let mut right_path = path.clone();
-                    right_path.push(Direction::Right.into());
-                    let right_hash = self.commit_subtree(&mut binary.right.borrow_mut(), added, storage, right_path)?;
-                    let hash = BinaryNode::calculate_hash::<H>(&left_hash, &right_hash);
+                    (left, right) => {
+                        let left = match left {
+                            InternalNode::Unresolved(idx) => Child::Id(*idx),
+                            _ => Child::Hash(left_hash),
+                        };
 
-                    let persisted_node = match (&*binary.left.borrow(), &*binary.right.borrow()) {
-                        (&InternalNode::Leaf, &InternalNode::Leaf) => Node::LeafBinary,
-                        (InternalNode::Leaf, _non_leaf) | (_non_leaf, InternalNode::Leaf) => {
-                            anyhow::bail!("Inconsistent binary children. Both children must be leaves or not leaves.")
-                        }
-                        (left, right) => {
-                            let left = match left {
-                                InternalNode::Unresolved(idx) => Child::Id(*idx),
-                                _ => Child::Hash(left_hash),
-                            };
+                        let right = match right {
+                            InternalNode::Unresolved(idx) => Child::Id(*idx),
+                            _ => Child::Hash(right_hash),
+                        };
 
-                            let right = match right {
-                                InternalNode::Unresolved(idx) => Child::Id(*idx),
-                                _ => Child::Hash(right_hash),
-                            };
+                        Node::Binary { left, right }
+                    }
+                };
 
-                            Node::Binary { left, right }
-                        }
-                    };
+                added.insert(hash, persisted_node);
+                hash
+            }
+            InternalNode::Edge(edge) => {
+                path.extend_from_bitslice(&edge.path);
+                let child_hash = self.commit_subtree(&mut edge.child.borrow_mut(), added, storage, path)?;
 
-                    added.insert(hash, persisted_node);
-                    hash
-                }
-                InternalNode::Edge(edge) => {
-                    path.extend_from_bitslice(&edge.path);
-                    let child_hash = self.commit_subtree(&mut edge.child.borrow_mut(), added, storage, path)?;
+                let hash = EdgeNode::calculate_hash::<H>(&child_hash, &edge.path);
 
-                    let hash = EdgeNode::calculate_hash::<H>(&child_hash, &edge.path);
+                let persisted_node = match *edge.child.borrow() {
+                    InternalNode::Leaf => Node::LeafEdge { path: edge.path.clone() },
+                    InternalNode::Unresolved(idx) => Node::Edge { child: Child::Id(idx), path: edge.path.clone() },
+                    _ => Node::Edge { child: Child::Hash(child_hash), path: edge.path.clone() },
+                };
 
-                    let persisted_node = match *edge.child.borrow() {
-                        InternalNode::Leaf => Node::LeafEdge { path: edge.path.clone() },
-                        InternalNode::Unresolved(idx) => Node::Edge { child: Child::Id(idx), path: edge.path.clone() },
-                        _ => Node::Edge { child: Child::Hash(child_hash), path: edge.path.clone() },
-                    };
-
-                    added.insert(hash, persisted_node);
-                    hash
-                }
-            };
+                added.insert(hash, persisted_node);
+                hash
+            }
+        };
 
         Ok(hash)
     }
@@ -225,10 +221,11 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
                         let old = match old_path.is_empty() {
                             true => edge.child.clone(),
                             false => {
-                                let old_edge =
-                                    InternalNode::Edge(
-                                        EdgeNode { height: child_height, path: old_path, child: edge.child.clone() }
-                                    );
+                                let old_edge = InternalNode::Edge(EdgeNode {
+                                    height: child_height,
+                                    path: old_path,
+                                    child: edge.child.clone(),
+                                });
                                 Rc::new(RefCell::new(old_edge))
                             }
                         };
@@ -374,73 +371,67 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
         while let Some(index) = next.take() {
             let node = storage.get(index).context("Resolving node")?.context("Node is missing from storage")?;
 
-            let node =
-                match node {
-                    StoredNode::Binary { left, right } => {
-                        // Choose the direction to go in.
-                        next = match key.get(height).map(|b| Direction::from(*b)) {
-                            Some(Direction::Left) => Some(left),
-                            Some(Direction::Right) => Some(right),
-                            None => anyhow::bail!("Key path too short for binary node"),
-                        };
-                        height += 1;
+            let node = match node {
+                StoredNode::Binary { left, right } => {
+                    // Choose the direction to go in.
+                    next = match key.get(height).map(|b| Direction::from(*b)) {
+                        Some(Direction::Left) => Some(left),
+                        Some(Direction::Right) => Some(right),
+                        None => anyhow::bail!("Key path too short for binary node"),
+                    };
+                    height += 1;
 
-                        let left = storage
-                            .hash(left)
-                            .context("Querying left child's hash")?
-                            .context("Left child's hash is missing")?;
+                    let left = storage
+                        .hash(left)
+                        .context("Querying left child's hash")?
+                        .context("Left child's hash is missing")?;
 
-                        let right = storage
-                            .hash(right)
-                            .context("Querying right child's hash")?
-                            .context("Right child's hash is missing")?;
+                    let right = storage
+                        .hash(right)
+                        .context("Querying right child's hash")?
+                        .context("Right child's hash is missing")?;
 
-                        TrieNode::Binary { left, right }
+                    TrieNode::Binary { left, right }
+                }
+                StoredNode::Edge { child, path } => {
+                    let key = key.get(height..height + path.len()).context("Key path is too short for edge node")?;
+                    height += path.len();
+
+                    // If the path matches then we continue otherwise the proof is complete.
+                    if key == path {
+                        next = Some(child);
                     }
-                    StoredNode::Edge { child, path } => {
-                        let key =
-                            key.get(height..height + path.len()).context("Key path is too short for edge node")?;
-                        height += path.len();
 
-                        // If the path matches then we continue otherwise the proof is complete.
-                        if key == path {
-                            next = Some(child);
-                        }
+                    let child = storage
+                        .hash(child)
+                        .context("Querying child child's hash")?
+                        .context("Child's hash is missing")?;
 
-                        let child = storage
-                            .hash(child)
-                            .context("Querying child child's hash")?
-                            .context("Child's hash is missing")?;
+                    TrieNode::Edge { child, path }
+                }
+                StoredNode::LeafBinary => {
+                    // End of the line, get child hashes.
+                    let mut path = key[..height].to_bitvec();
+                    path.push(Direction::Left.into());
+                    let left =
+                        storage.leaf(&path).context("Querying left leaf hash")?.context("Left leaf is missing")?;
+                    path.pop();
+                    path.push(Direction::Right.into());
+                    let right =
+                        storage.leaf(&path).context("Querying right leaf hash")?.context("Right leaf is missing")?;
 
-                        TrieNode::Edge { child, path }
-                    }
-                    StoredNode::LeafBinary => {
-                        // End of the line, get child hashes.
-                        let mut path = key[..height].to_bitvec();
-                        path.push(Direction::Left.into());
-                        let left =
-                            storage.leaf(&path).context("Querying left leaf hash")?.context("Left leaf is missing")?;
-                        path.pop();
-                        path.push(Direction::Right.into());
-                        let right = storage
-                            .leaf(&path)
-                            .context("Querying right leaf hash")?
-                            .context("Right leaf is missing")?;
+                    TrieNode::Binary { left, right }
+                }
+                StoredNode::LeafEdge { path } => {
+                    let mut current_path = key[..height].to_bitvec();
+                    // End of the line, get hash of the child.
+                    current_path.extend_from_bitslice(&path);
+                    let child =
+                        storage.leaf(&current_path).context("Querying leaf hash")?.context("Child leaf is missing")?;
 
-                        TrieNode::Binary { left, right }
-                    }
-                    StoredNode::LeafEdge { path } => {
-                        let mut current_path = key[..height].to_bitvec();
-                        // End of the line, get hash of the child.
-                        current_path.extend_from_bitslice(&path);
-                        let child = storage
-                            .leaf(&current_path)
-                            .context("Querying leaf hash")?
-                            .context("Child leaf is missing")?;
-
-                        TrieNode::Edge { child, path }
-                    }
-                };
+                    TrieNode::Edge { child, path }
+                }
+            };
 
             nodes.push(node);
         }
@@ -520,9 +511,11 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
                 left: Rc::new(RefCell::new(InternalNode::Unresolved(left))),
                 right: Rc::new(RefCell::new(InternalNode::Unresolved(right))),
             }),
-            StoredNode::Edge { child, path } => InternalNode::Edge(
-                EdgeNode { height, path, child: Rc::new(RefCell::new(InternalNode::Unresolved(child))) }
-            ),
+            StoredNode::Edge { child, path } => InternalNode::Edge(EdgeNode {
+                height,
+                path,
+                child: Rc::new(RefCell::new(InternalNode::Unresolved(child))),
+            }),
             StoredNode::LeafBinary => InternalNode::Binary(BinaryNode {
                 height,
                 left: Rc::new(RefCell::new(InternalNode::Leaf)),
@@ -544,11 +537,10 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     /// This can occur when mutating the tree (e.g. deleting a child of a binary node), and is an
     /// illegal state (since edge nodes __must be__ maximal subtrees).
     fn merge_edges(&self, storage: &impl Storage, parent: &mut EdgeNode) -> anyhow::Result<()> {
-        let resolved_child =
-            match &*parent.child.borrow() {
-                InternalNode::Unresolved(hash) => self.resolve(storage, *hash, parent.height + parent.path.len())?,
-                other => other.clone(),
-            };
+        let resolved_child = match &*parent.child.borrow() {
+            InternalNode::Unresolved(hash) => self.resolve(storage, *hash, parent.height + parent.path.len())?,
+            other => other.clone(),
+        };
 
         if let Some(child_edge) = resolved_child.as_edge().cloned() {
             parent.path.extend_from_bitslice(&child_edge.path);

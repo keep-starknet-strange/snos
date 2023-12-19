@@ -55,17 +55,16 @@ impl StarknetOsOutput {
         // Get is input and check that everything is an integer.
         let raw_output = vm
             .get_range((output_base as isize, 0).into(), felt_vm2usize(Some(&(size_bound_up.clone() - output_base)))?);
-        let raw_output: Vec<Felt252> =
-            raw_output
-                .iter()
-                .map(|x| {
-                    if let MaybeRelocatable::Int(val) = x.clone().unwrap().into_owned() {
-                        val
-                    } else {
-                        panic!("Output should be all integers")
-                    }
-                })
-                .collect();
+        let raw_output: Vec<Felt252> = raw_output
+            .iter()
+            .map(|x| {
+                if let MaybeRelocatable::Int(val) = x.clone().unwrap().into_owned() {
+                    val
+                } else {
+                    panic!("Output should be all integers")
+                }
+            })
+            .collect();
 
         decode_output(raw_output)
     }

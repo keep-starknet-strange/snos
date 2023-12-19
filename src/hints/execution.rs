@@ -76,10 +76,9 @@ pub fn check_is_deprecated(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let execution_context = get_ptr_from_var_name("execution_context", vm, ids_data, ap_tracking)?;
-    let class_hash =
-        vm.get_integer((execution_context + 1usize)?).map_err(|_| {
-            HintError::IdentifierHasNoMember(Box::new(("execution_context".to_string(), "class_hash".to_string())))
-        })?;
+    let class_hash = vm.get_integer((execution_context + 1usize)?).map_err(|_| {
+        HintError::IdentifierHasNoMember(Box::new(("execution_context".to_string(), "class_hash".to_string())))
+    })?;
     let is_deprecated_class =
         exec_scopes.get_ref::<HashSet<Felt252>>("__deprecated_class_hashes")?.contains(&class_hash);
     exec_scopes.insert_value("is_deprecated", if is_deprecated_class { 1u8 } else { 0u8 });

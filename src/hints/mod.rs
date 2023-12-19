@@ -5,24 +5,25 @@ pub mod hints_raw;
 
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
-use std::ops::Add;
-use std::rc::Rc;
 use std::vec::IntoIter;
 
 use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
-    BuiltinHintProcessor, HintFunc,
+    BuiltinHintProcessor, HintProcessorData,
 };
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
-use cairo_vm::hint_processor::hint_processor_definition::{HintExtension, HintProcessorLogic, HintReference};
-use cairo_vm::serde::deserialize_program::{ApTracking, HintParams, Reference, ReferenceManager};
+use cairo_vm::hint_processor::hint_processor_definition::{
+    HintExtension, HintProcessor, HintProcessorLogic, HintReference,
+};
+use cairo_vm::serde::deserialize_program::{ApTracking, HintParams, ReferenceManager};
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
-use self::block_context::get_block_mapping;
+use self::block_context::{get_block_mapping, load_class_facts};
 use self::execution::{
     check_is_deprecated, enter_call, get_state_entry, is_deprecated, os_context_segments, select_builtin,
     selected_builtins, start_execute_deploy_transaction,
@@ -36,104 +37,169 @@ use crate::io::InternalTransaction;
 use crate::state::storage::TrieStorage;
 use crate::state::trie::PedersenHash;
 
-pub fn sn_hint_processor() -> BuiltinHintProcessor {
-    let mut hint_processor = BuiltinHintProcessor::new_empty();
+pub struct SnosHintProcessor {
+    sn_hint_processor: BuiltinHintProcessor,
+    run_resources: RunResources,
+}
 
-    let sn_os_input = HintFunc(Box::new(starknet_os_input));
-    hint_processor.add_hint(String::from(hints_raw::STARKNET_OS_INPUT), Rc::new(sn_os_input));
+impl ResourceTracker for SnosHintProcessor {
+    fn consumed(&self) -> bool {
+        self.run_resources.consumed()
+    }
 
-    let load_class_facts = HintFunc(Box::new(block_context::load_class_facts));
-    hint_processor.add_hint(String::from(hints_raw::LOAD_CLASS_FACTS), Rc::new(load_class_facts));
+    fn consume_step(&mut self) {
+        self.run_resources.consume_step()
+    }
 
-    let load_deprecated_class_facts = HintFunc(Box::new(block_context::load_deprecated_class_facts));
-    hint_processor.add_hint(String::from(hints_raw::LOAD_DEPRECATED_CLASS_FACTS), Rc::new(load_deprecated_class_facts));
+    fn get_n_steps(&self) -> Option<usize> {
+        self.run_resources.get_n_steps()
+    }
 
-    let load_deprecated_class_inner = HintFunc(Box::new(block_context::load_deprecated_inner));
-    hint_processor.add_hint(String::from(hints_raw::LOAD_DEPRECATED_CLASS_INNER), Rc::new(load_deprecated_class_inner));
+    fn run_resources(&self) -> &RunResources {
+        &self.run_resources
+    }
+}
 
-    let check_deprecated_class_hash_hint = HintFunc(Box::new(check_deprecated_class_hash));
-    hint_processor
-        .add_hint(String::from(hints_raw::CHECK_DEPRECATED_CLASS_HASH), Rc::new(check_deprecated_class_hash_hint));
+impl Default for SnosHintProcessor {
+    fn default() -> Self {
+        Self { sn_hint_processor: BuiltinHintProcessor::new_empty(), run_resources: Default::default() }
+    }
+}
 
-    let block_number_hint = HintFunc(Box::new(block_context::block_number));
-    hint_processor.add_hint(String::from(hints_raw::DEPRECATED_BLOCK_NUMBER), Rc::new(block_number_hint));
+impl HintProcessorLogic for SnosHintProcessor {
+    fn execute_hint(
+        &mut self,
+        vm: &mut VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
+        hint_data: &Box<dyn core::any::Any>,
+        constants: &HashMap<String, Felt252>,
+    ) -> Result<(), HintError> {
+        let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
 
-    let block_timestamp_hint = HintFunc(Box::new(block_context::block_timestamp));
-    hint_processor.add_hint(String::from(hints_raw::DEPRECATED_BLOCK_TIMESTAMP), Rc::new(block_timestamp_hint));
+        match &*hint_data.code {
+            STARKNET_OS_INPUT => {
+                starknet_os_input(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            LOAD_CLASS_FACTS => {
+                block_context::load_class_facts(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            LOAD_DEPRECATED_CLASS_FACTS => block_context::load_deprecated_class_facts(
+                vm,
+                exec_scopes,
+                &hint_data.ids_data,
+                &hint_data.ap_tracking,
+                constants,
+            ),
+            LOAD_DEPRECATED_CLASS_INNER => block_context::load_deprecated_inner(
+                vm,
+                exec_scopes,
+                &hint_data.ids_data,
+                &hint_data.ap_tracking,
+                constants,
+            ),
+            DEPRECATED_BLOCK_NUMBER => {
+                block_context::block_number(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            DEPRECATED_BLOCK_TIMESTAMP => {
+                block_context::block_timestamp(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            SEQUENCER_ADDRESS => block_context::sequencer_address(
+                vm,
+                exec_scopes,
+                &hint_data.ids_data,
+                &hint_data.ap_tracking,
+                constants,
+            ),
+            CHAIN_ID => {
+                block_context::chain_id(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            FEE_TOKEN_ADDRESS => block_context::fee_token_address(
+                vm,
+                exec_scopes,
+                &hint_data.ids_data,
+                &hint_data.ap_tracking,
+                constants,
+            ),
+            INITIALIZE_STATE_CHANGES => {
+                initialize_state_changes(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            INITIALIZE_CLASS_HASHES => {
+                initialize_class_hashes(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            SEGMENTS_ADD => segments_add(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
+            SEGMENTS_ADD_TEMP => {
+                segments_add_temp(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            TRANSACTIONS_LEN => {
+                transactions_len(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            ENTER_SYSCALL_SCOPES => {
+                enter_syscall_scopes(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            LOAD_NEXT_TX => load_next_tx(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
+            PREPARE_CONSTRUCTOR_EXECUTION => {
+                prepare_constructor_execution(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            TRANSACTION_VERSION => {
+                transaction_version(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            ASSERT_TRANSACTION_HASH => {
+                assert_transaction_hash(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            GET_BLOCK_MAPPING => {
+                get_block_mapping(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            START_DEPLOY_TX => start_execute_deploy_transaction(
+                vm,
+                exec_scopes,
+                &hint_data.ids_data,
+                &hint_data.ap_tracking,
+                constants,
+            ),
+            GET_STATE_ENTRY => get_state_entry(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
+            CHECK_IS_DEPRECATED => {
+                check_is_deprecated(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            IS_DEPRECATED => is_deprecated(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
+            OS_CONTEXT_SEGMENTS => {
+                os_context_segments(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            SELECTED_BUILTINS => {
+                selected_builtins(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            SELECT_BUILTIN => select_builtin(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
+            ENTER_CALL => enter_call(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
+            ENTER_SCOPE_SYSCALL_HANDLER => {
+                enter_scope_syscall_handler(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            ENTER_SCOPE_SYSCALL_HANDLER => {
+                enter_scope_syscall_handler(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+            }
+            code => Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
+        }
+    }
 
-    let sequencer_address_hint = HintFunc(Box::new(block_context::sequencer_address));
-    hint_processor.add_hint(String::from(hints_raw::SEQUENCER_ADDRESS), Rc::new(sequencer_address_hint));
-
-    let chain_id_hint = HintFunc(Box::new(block_context::chain_id));
-    hint_processor.add_hint(String::from(hints_raw::CHAIN_ID), Rc::new(chain_id_hint));
-
-    let fee_token_address_hint = HintFunc(Box::new(block_context::fee_token_address));
-    hint_processor.add_hint(String::from(hints_raw::FEE_TOKEN_ADDRESS), Rc::new(fee_token_address_hint));
-
-    let initialize_state_changes_hint = HintFunc(Box::new(initialize_state_changes));
-    hint_processor.add_hint(String::from(hints_raw::INITIALIZE_STATE_CHANGES), Rc::new(initialize_state_changes_hint));
-
-    let initialize_class_hashes_hint = HintFunc(Box::new(initialize_class_hashes));
-    hint_processor.add_hint(String::from(hints_raw::INITIALIZE_CLASS_HASHES), Rc::new(initialize_class_hashes_hint));
-
-    let segments_add_hint = HintFunc(Box::new(segments_add));
-    hint_processor.add_hint(String::from(hints_raw::SEGMENTS_ADD), Rc::new(segments_add_hint));
-
-    let segments_add_temp_hint = HintFunc(Box::new(segments_add_temp));
-    hint_processor.add_hint(String::from(hints_raw::SEGMENTS_ADD_TEMP), Rc::new(segments_add_temp_hint));
-
-    let transactions_len_hint = HintFunc(Box::new(transactions_len));
-    hint_processor.add_hint(String::from(hints_raw::TRANSACTIONS_LEN), Rc::new(transactions_len_hint));
-
-    let enter_syscall_scopes_hint = HintFunc(Box::new(enter_syscall_scopes));
-    hint_processor.add_hint(String::from(hints_raw::ENTER_SYSCALL_SCOPES), Rc::new(enter_syscall_scopes_hint));
-
-    let load_next_tx_hint = HintFunc(Box::new(load_next_tx));
-    hint_processor.add_hint(String::from(LOAD_NEXT_TX), Rc::new(load_next_tx_hint));
-
-    let prepare_constructor_execution_hint = HintFunc(Box::new(prepare_constructor_execution));
-    hint_processor.add_hint(String::from(PREPARE_CONSTRUCTOR_EXECUTION), Rc::new(prepare_constructor_execution_hint));
-
-    let transaction_version_hint = HintFunc(Box::new(transaction_version));
-    hint_processor.add_hint(String::from(TRANSACTION_VERSION), Rc::new(transaction_version_hint));
-
-    let assert_transaction_hash_hint = HintFunc(Box::new(assert_transaction_hash));
-    hint_processor.add_hint(String::from(ASSERT_TRANSACTION_HASH), Rc::new(assert_transaction_hash_hint));
-
-    let get_block_mapping_hint = HintFunc(Box::new(get_block_mapping));
-    hint_processor.add_hint(String::from(GET_BLOCK_MAPPING), Rc::new(get_block_mapping_hint));
-
-    let start_execute_deploy_transaction_hint = HintFunc(Box::new(start_execute_deploy_transaction));
-    hint_processor.add_hint(String::from(START_DEPLOY_TX), Rc::new(start_execute_deploy_transaction_hint));
-
-    let get_state_entry_hint = HintFunc(Box::new(get_state_entry));
-    hint_processor.add_hint(String::from(GET_STATE_ENTRY), Rc::new(get_state_entry_hint));
-
-    let check_is_deprecated_hint = HintFunc(Box::new(check_is_deprecated));
-    hint_processor.add_hint(String::from(CHECK_IS_DEPRECATED), Rc::new(check_is_deprecated_hint));
-
-    let is_deprecated_hint = HintFunc(Box::new(is_deprecated));
-    hint_processor.add_hint(String::from(IS_DEPRECATED), Rc::new(is_deprecated_hint));
-
-    let os_context_segments_hint = HintFunc(Box::new(os_context_segments));
-    hint_processor.add_hint(String::from(OS_CONTEXT_SEGMENTS), Rc::new(os_context_segments_hint));
-
-    let selected_builtins_hint = HintFunc(Box::new(selected_builtins));
-    hint_processor.add_hint(String::from(SELECTED_BUILTINS), Rc::new(selected_builtins_hint));
-
-    let select_builtin_hint = HintFunc(Box::new(select_builtin));
-    hint_processor.add_hint(String::from(SELECT_BUILTIN), Rc::new(select_builtin_hint));
-
-    let enter_call_hint = HintFunc(Box::new(enter_call));
-    hint_processor.add_hint(String::from(ENTER_CALL), Rc::new(enter_call_hint));
-
-    let enter_scope_syscall_handler_hint = HintFunc(Box::new(enter_scope_syscall_handler));
-    hint_processor.add_hint(String::from(ENTER_SCOPE_SYSCALL_HANDLER), Rc::new(enter_scope_syscall_handler_hint));
-
-    let breakpoint_hint = HintFunc(Box::new(breakpoint));
-    hint_processor.add_hint(String::from(BREAKPOIN), Rc::new(breakpoint_hint));
-
-    hint_processor
+    fn execute_hint_extensive(
+        &mut self,
+        vm: &mut VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
+        hint_data: &Box<dyn core::any::Any>,
+        constants: &HashMap<String, Felt252>,
+    ) -> Result<HintExtension, HintError> {
+        // First attempt to execute with builtin hint processor
+        match self.sn_hint_processor.execute_hint_extensive(vm, exec_scopes, hint_data, constants) {
+            Err(HintError::UnknownHint(_)) => {}
+            res => return res,
+        }
+        // Execute os-specific hints
+        let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
+        match &*hint_data.code {
+            CHECK_DEPRECATED_CLASS_HASH => {
+                check_deprecated_class_hash(self, vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking)
+            }
+            code => Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
+        }
+    }
 }
 
 /// Implements hint:
@@ -182,12 +248,12 @@ pub fn starknet_os_input(
 ///
 /// vm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)
 pub fn check_deprecated_class_hash(
+    hint_processor: &dyn HintProcessor,
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<HintExtension, HintError> {
     // TODO: check w/ LC for `vm_load_program` impl
     let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data, ap_tracking)?;
     let computed_hash = vm.get_integer(computed_hash_addr)?;
@@ -223,7 +289,7 @@ pub fn check_deprecated_class_hash(
     println!("dep class byte_ptr: {byte_code_ptr:?}");
     let hint_extension = HashMap::from([(byte_code_ptr, deprecated_compiled_hints)]);
 
-    Ok(())
+    Ok(hint_extension)
 }
 
 /// Implements hint:

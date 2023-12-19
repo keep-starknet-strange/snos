@@ -70,7 +70,7 @@ impl SnOsRunner {
         // shared_state, )
 
         // Run the Cairo VM
-        let mut sn_hint_processor = hints::sn_hint_processor();
+        let mut sn_hint_processor = hints::SnosHintProcessor::default();
         cairo_runner
             .run_until_pc(end, &mut vm, &mut sn_hint_processor)
             .map_err(|err| VmException::from_vm_error(&cairo_runner, &vm, err))
