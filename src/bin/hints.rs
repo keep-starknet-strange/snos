@@ -33,7 +33,7 @@ struct Os {
 
 fn main() -> std::io::Result<()> {
     let subset =
-        std::env::args().nth(1).expect("choose what you need: all, implemented, unimplemented, whitelisted, snos");
+        std::env::args().nth(1).expect("choose what you need: all, implemented, unimplemented, whitelisted, snos, orphans");
 
     // whitelisted hints implemented by the vm
     let whitelist_paths = read_dir(WHITELISTS_PATH).expect("Failed to read whitelist directory");
@@ -59,14 +59,24 @@ fn main() -> std::io::Result<()> {
     let os: Os = serde_json::from_reader(BufReader::new(File::open("build/os_latest.json")?))
         .expect("Failed to parse os_latest.json");
     let hints = os.hints.into_values().flatten().map(|h| h.code.to_string()).collect::<HashSet<_>>();
-    for code in hints {
-        if subset == "all"
-            || subset == "implemented" && implemented_hints.contains(&code)
-            || subset == "unimplemented" && !implemented_hints.contains(&code)
-            || subset == "whitelisted" && whitelisted_hints.contains(&code)
-            || subset == "snos" && snos_hints.contains(&code)
-        {
-            result.insert(code);
+
+
+    if subset == "orphans" {
+        for code in snos_hints {
+            if !hints.contains(&code) {
+                result.insert(code);
+            }
+        }
+    } else {
+        for code in hints {
+            if subset == "all"
+                || subset == "implemented" && implemented_hints.contains(&code)
+                || subset == "unimplemented" && !implemented_hints.contains(&code)
+                || subset == "whitelisted" && whitelisted_hints.contains(&code)
+                || subset == "snos" && snos_hints.contains(&code)
+            {
+                result.insert(code);
+            }
         }
     }
 
