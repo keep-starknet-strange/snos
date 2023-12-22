@@ -1,6 +1,7 @@
 #![feature(exact_size_is_empty)]
 pub mod config;
 pub mod error;
+pub mod execution;
 pub mod hints;
 pub mod io;
 pub mod sharp;
@@ -24,7 +25,7 @@ use error::SnOsError;
 use io::output::StarknetOsOutput;
 use state::SharedState;
 
-use crate::io::execution_helper::OsExecutionHelper;
+use crate::execution::execution_helper::OsExecutionHelper;
 use crate::state::storage::TrieStorage;
 use crate::state::trie::PedersenHash;
 

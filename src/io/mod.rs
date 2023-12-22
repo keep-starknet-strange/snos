@@ -1,6 +1,4 @@
 pub mod classes;
-pub mod deprecated_syscall_handler;
-pub mod execution_helper;
 pub mod input;
 pub mod output;
 
