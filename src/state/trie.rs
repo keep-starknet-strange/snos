@@ -11,7 +11,7 @@ use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 
 use super::node::{BinaryNode, Direction, EdgeNode, InternalNode, TrieNode};
 use super::storage::{Child, Node, Storage, StoredNode};
-use crate::io::execution_helper::FactFetchingContext;
+use crate::execution::execution_helper::FactFetchingContext;
 
 pub trait StarkHasher {
     fn hash(a: &StarkFelt, b: &StarkFelt) -> StarkHash;

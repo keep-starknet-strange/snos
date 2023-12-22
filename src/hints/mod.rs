@@ -29,9 +29,9 @@ use self::execution::{
     selected_builtins, start_execute_deploy_transaction,
 };
 use crate::config::DEFAULT_INPUT_PATH;
+use crate::execution::deprecated_syscall_handler::DeprecatedSyscallHandler;
+use crate::execution::execution_helper::OsExecutionHelper;
 use crate::hints::hints_raw::*;
-use crate::io::deprecated_syscall_handler::DeprecatedSyscallHandler;
-use crate::io::execution_helper::OsExecutionHelper;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 use crate::state::storage::TrieStorage;

@@ -16,7 +16,7 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::{One, Zero};
 
-use crate::io::execution_helper::OsExecutionHelper;
+use crate::execution::execution_helper::OsExecutionHelper;
 use crate::state::storage::TrieStorage;
 use crate::state::trie::PedersenHash;
 
