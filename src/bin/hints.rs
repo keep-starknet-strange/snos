@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{read_dir, File};
 use std::io::BufReader;
 
+use blockifier::execution::hint_code;
 use serde::Deserialize;
 use serde_json::Value;
 use snos::hints::sn_hint_processor;
@@ -32,11 +33,11 @@ struct Os {
 }
 
 fn main() -> std::io::Result<()> {
-    let subset = std::env::args()
-        .nth(1)
-        .expect("choose what you need: all, implemented, unimplemented, whitelisted, snos, orphans");
+    let subset = std::env::args().nth(1).expect(
+        "choose what you need: all, implemented, unimplemented, implemented_externally, implemented_in_snos, orphans",
+    );
 
-    // whitelisted hints implemented by the vm
+    // whitelisted hints
     let whitelist_paths = read_dir(WHITELISTS_PATH).expect("Failed to read whitelist directory");
     let mut whitelists = Vec::new();
     for path in whitelist_paths {
@@ -53,27 +54,30 @@ fn main() -> std::io::Result<()> {
     let whitelisted_hints =
         whitelists.into_iter().flatten().map(|ahe| ahe.hint_lines.join("\n")).collect::<HashSet<_>>();
     let snos_hints = sn_hint_processor().extra_hints.keys().cloned().collect::<HashSet<_>>();
-    let implemented_hints = whitelisted_hints.union(&snos_hints).collect::<HashSet<_>>();
+    // let implemented_hints = whitelisted_hints.union(&snos_hints).collect::<HashSet<_>>();
 
     let mut result = HashSet::new();
 
     let os: Os = serde_json::from_reader(BufReader::new(File::open("build/os_latest.json")?))
         .expect("Failed to parse os_latest.json");
-    let hints = os.hints.into_values().flatten().map(|h| h.code.to_string()).collect::<HashSet<_>>();
+    let os_hints = os.hints.into_values().flatten().map(|h| h.code.to_string()).collect::<HashSet<_>>();
+    let syscall_hints = hint_code::SYSCALL_HINTS.iter().map(|h| (**h).to_string()).collect::<HashSet<_>>();
+
+    let externally_implemented = |code| whitelisted_hints.contains(code) && !syscall_hints.contains(code);
 
     if subset == "orphans" {
-        for code in snos_hints {
-            if !hints.contains(&code) {
+        for code in snos_hints.iter() {
+            if !os_hints.contains(code) && !syscall_hints.contains(code) {
                 result.insert(code);
             }
         }
     } else {
-        for code in hints {
+        for code in os_hints.union(&syscall_hints).collect::<HashSet<_>>() {
             if subset == "all"
-                || subset == "implemented" && implemented_hints.contains(&code)
-                || subset == "unimplemented" && !implemented_hints.contains(&code)
-                || subset == "whitelisted" && whitelisted_hints.contains(&code)
-                || subset == "snos" && snos_hints.contains(&code)
+                || subset == "implemented" && (snos_hints.contains(code) || externally_implemented(code))
+                || subset == "unimplemented" && !(snos_hints.contains(code) || externally_implemented(code))
+                || subset == "implemented_externally" && externally_implemented(code)
+                || subset == "implemented_in_snos" && snos_hints.contains(code)
             {
                 result.insert(code);
             }
