@@ -1,5 +1,4 @@
 //! pathfinder/crates/merkle-tree
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::ControlFlow;
@@ -11,7 +10,6 @@ use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 
 use super::node::{BinaryNode, Direction, EdgeNode, InternalNode, TrieNode};
 use super::storage::{Child, Node, Storage, StoredNode};
-use crate::execution::execution_helper::FactFetchingContext;
 
 pub trait StarkHasher {
     fn hash(a: &StarkFelt, b: &StarkFelt) -> StarkHash;
@@ -53,7 +51,7 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
         Self { root, _hasher: std::marker::PhantomData, verify_hashes: false, leaves: Default::default() }
     }
 
-    pub fn update<S>(&mut self, ffc: FactFetchingContext<H, S>)
+    pub fn update<S>(&mut self)
     where
         S: Storage,
     {

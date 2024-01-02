@@ -82,9 +82,6 @@ pub const ASSERT_TRANSACTION_HASH: &str =
 pub const FORMAT_OS_OUTPUT: &str =
      "from starkware.python.math_utils import div_ceil\nonchain_data_start = ids.da_start\nonchain_data_size = ids.output_ptr - onchain_data_start\n\nmax_page_size = 3800\nn_pages = div_ceil(onchain_data_size, max_page_size)\nfor i in range(n_pages):\n    start_offset = i * max_page_size\n    output_builtin.add_page(\n        page_id=1 + i,\n        page_start=onchain_data_start + start_offset,\n        page_size=min(onchain_data_size - start_offset, max_page_size),\n    )\n# Set the tree structure to a root with two children:\n# * A leaf which represents the main part\n# * An inner node for the onchain data part (which contains n_pages children).\n#\n# This is encoded using the following sequence:\noutput_builtin.add_attribute('gps_fact_topology', [\n    # Push 1 + n_pages pages (all of the pages).\n    1 + n_pages,\n    # Create a parent node for the last n_pages.\n    n_pages,\n    # Don't push additional pages.\n    0,\n    # Take the first page (the main part) and the node that was created (onchain data)\n    # and use them to construct the root of the fact tree.\n    2,\n])";
 
-pub const START_DEPLOY_TX: &str =
-    "execution_helper.start_tx(\n    tx_info_ptr=ids.constructor_execution_context.deprecated_tx_info.address_\n)";
-
 pub const GET_STATE_ENTRY: &str = "# Fetch a state_entry in this hint and validate it in the update at the end\n# of \
                                    this function.\nids.state_entry = \
                                    __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]";
@@ -103,9 +100,6 @@ pub const SELECT_BUILTIN: &str =
      exhausted.\n# Note that testing inclusion by a single comparison is possible since the lists are \
      sorted.\nids.select_builtin = int(\n  n_selected_builtins > 0 and memory[ids.selected_encodings] == \
      memory[ids.all_encodings])\nif ids.select_builtin:\n  n_selected_builtins = n_selected_builtins - 1";
-
-pub const ENTER_CALL: &str =
-    "execution_helper.enter_call(\n    execution_info_ptr=ids.execution_context.execution_info.address_)";
 
 pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': deprecated_syscall_handler})";
 pub const BREAKPOIN: &str = "breakpoint()";

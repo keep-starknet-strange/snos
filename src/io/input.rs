@@ -58,7 +58,7 @@ pub struct CommitmentInfo {
     pub commitment_facts: HashMap<Felt252, Vec<Felt252>>,
 }
 impl CommitmentInfo {
-    pub fn create_from_modifications<H>(previous_tree: MerkleTrie<H, 64>) -> Self
+    pub fn create_from_modifications<H>(_previous_tree: MerkleTrie<H, 64>) -> Self
     where
         H: StarkHasher,
     {

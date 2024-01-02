@@ -1,16 +1,13 @@
 pub mod block_context;
 mod execution;
 pub mod hints_raw;
-// pub mod transaction_context;
 
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
 
 use cairo_vm::felt::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
-    BuiltinHintProcessor, HintProcessorData,
-};
+use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
 use cairo_vm::hint_processor::hint_processor_definition::{
     HintExtension, HintProcessor, HintProcessorLogic, HintReference,
@@ -23,22 +20,20 @@ use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
-use self::block_context::{get_block_mapping, load_class_facts};
+use self::block_context::get_block_mapping;
 use self::execution::{
-    check_is_deprecated, enter_call, get_state_entry, is_deprecated, os_context_segments, select_builtin,
-    selected_builtins, start_execute_deploy_transaction,
+    check_is_deprecated, get_state_entry, is_deprecated, os_context_segments, select_builtin, selected_builtins,
 };
 use crate::config::DEFAULT_INPUT_PATH;
-use crate::execution::deprecated_syscall_handler::DeprecatedSyscallHandler;
-use crate::execution::execution_helper::OsExecutionHelper;
 use crate::hints::hints_raw::*;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
-use crate::state::storage::TrieStorage;
-use crate::state::trie::PedersenHash;
 
+/// Hint Extensions extend the current map of hints used by the VM.
+/// This behaviour achieves what the `vm_load_data` primitive does for cairo-lang
+/// and is needed to implement os hints like `vm_load_program`.
 pub struct SnosHintProcessor {
-    sn_hint_processor: BuiltinHintProcessor,
+    sn_hint_processor: SnosSimpleHintProcessor,
     run_resources: RunResources,
 }
 
@@ -62,11 +57,74 @@ impl ResourceTracker for SnosHintProcessor {
 
 impl Default for SnosHintProcessor {
     fn default() -> Self {
-        Self { sn_hint_processor: BuiltinHintProcessor::new_empty(), run_resources: Default::default() }
+        Self { sn_hint_processor: SnosSimpleHintProcessor::default(), run_resources: Default::default() }
     }
 }
 
 impl HintProcessorLogic for SnosHintProcessor {
+    // stub for trait impl
+    fn execute_hint(
+        &mut self,
+        _vm: &mut VirtualMachine,
+        _exec_scopes: &mut ExecutionScopes,
+        _hint_data: &Box<dyn core::any::Any>,
+        _constants: &HashMap<String, Felt252>,
+    ) -> Result<(), HintError> {
+        Ok(())
+    }
+
+    fn execute_hint_extensive(
+        &mut self,
+        vm: &mut VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
+        hint_data: &Box<dyn core::any::Any>,
+        constants: &HashMap<String, Felt252>,
+    ) -> Result<HintExtension, HintError> {
+        // First attempt to execute with builtin hint processor
+        match self.sn_hint_processor.execute_hint(vm, exec_scopes, hint_data, constants) {
+            Err(HintError::UnknownHint(_)) => {}
+            res => return res.map(|_| HintExtension::default()),
+        }
+        // Execute os-specific hints
+        let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
+        match &*hint_data.code {
+            CHECK_DEPRECATED_CLASS_HASH => {
+                check_deprecated_class_hash(self, vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking)
+            }
+            code => Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
+        }
+    }
+}
+
+pub struct SnosSimpleHintProcessor {
+    run_resources: RunResources,
+}
+
+impl ResourceTracker for SnosSimpleHintProcessor {
+    fn consumed(&self) -> bool {
+        self.run_resources.consumed()
+    }
+
+    fn consume_step(&mut self) {
+        self.run_resources.consume_step()
+    }
+
+    fn get_n_steps(&self) -> Option<usize> {
+        self.run_resources.get_n_steps()
+    }
+
+    fn run_resources(&self) -> &RunResources {
+        &self.run_resources
+    }
+}
+
+impl Default for SnosSimpleHintProcessor {
+    fn default() -> Self {
+        Self { run_resources: Default::default() }
+    }
+}
+
+impl HintProcessorLogic for SnosSimpleHintProcessor {
     fn execute_hint(
         &mut self,
         vm: &mut VirtualMachine,
@@ -149,13 +207,6 @@ impl HintProcessorLogic for SnosHintProcessor {
             GET_BLOCK_MAPPING => {
                 get_block_mapping(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
             }
-            START_DEPLOY_TX => start_execute_deploy_transaction(
-                vm,
-                exec_scopes,
-                &hint_data.ids_data,
-                &hint_data.ap_tracking,
-                constants,
-            ),
             GET_STATE_ENTRY => get_state_entry(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
             CHECK_IS_DEPRECATED => {
                 check_is_deprecated(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
@@ -168,34 +219,8 @@ impl HintProcessorLogic for SnosHintProcessor {
                 selected_builtins(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
             }
             SELECT_BUILTIN => select_builtin(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
-            ENTER_CALL => enter_call(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
             ENTER_SCOPE_SYSCALL_HANDLER => {
                 enter_scope_syscall_handler(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            ENTER_SCOPE_SYSCALL_HANDLER => {
-                enter_scope_syscall_handler(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            code => Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
-        }
-    }
-
-    fn execute_hint_extensive(
-        &mut self,
-        vm: &mut VirtualMachine,
-        exec_scopes: &mut ExecutionScopes,
-        hint_data: &Box<dyn core::any::Any>,
-        constants: &HashMap<String, Felt252>,
-    ) -> Result<HintExtension, HintError> {
-        // First attempt to execute with builtin hint processor
-        match self.sn_hint_processor.execute_hint_extensive(vm, exec_scopes, hint_data, constants) {
-            Err(HintError::UnknownHint(_)) => {}
-            res => return res,
-        }
-        // Execute os-specific hints
-        let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
-        match &*hint_data.code {
-            CHECK_DEPRECATED_CLASS_HASH => {
-                check_deprecated_class_hash(self, vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking)
             }
             code => Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
         }
@@ -254,12 +279,10 @@ pub fn check_deprecated_class_hash(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<HintExtension, HintError> {
-    // TODO: check w/ LC for `vm_load_program` impl
-    let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data, ap_tracking)?;
-    let computed_hash = vm.get_integer(computed_hash_addr)?;
-
-    let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
     // TODO: fix comp class hash
+    // let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data,
+    // ap_tracking)?; let computed_hash = vm.get_integer(computed_hash_addr)?;
+    // let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
     // if computed_hash.as_ref() != &expected_hash {
     //     return Err(HintError::AssertionFailed(
     //         format!("Compiled_class_hash mismatch comp={computed_hash}
@@ -390,11 +413,9 @@ pub fn enter_syscall_scopes(
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
     let dict_manager = Box::new(exec_scopes.get_dict_manager()?);
     let deprecated_class_hashes = Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
-    let execution_helper =
-        Box::new(exec_scopes.get::<OsExecutionHelper<PedersenHash, TrieStorage>>("execution_helper")?);
+
     exec_scopes.enter_scope(HashMap::from_iter([
         (String::from("transactions"), transactions),
-        (String::from("execution_helper"), execution_helper),
         (String::from("dict_manager"), dict_manager),
         (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
     ]));
@@ -507,13 +528,11 @@ pub fn assert_transaction_hash(
 /// vm_enter_scope({'syscall_handler': deprecated_syscall_handler})
 pub fn enter_scope_syscall_handler(
     vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let deprecated_syscall_handler: Box<dyn Any> = Box::<DeprecatedSyscallHandler>::default();
-    exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), deprecated_syscall_handler)]));
     let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
     println!("jump dest {jump_dest:}");
     Ok(())
@@ -521,7 +540,7 @@ pub fn enter_scope_syscall_handler(
 
 pub fn breakpoint(
     vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,

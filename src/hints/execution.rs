@@ -5,8 +5,7 @@ use std::ops::AddAssign;
 use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
-    insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -15,28 +14,6 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::{One, Zero};
-
-use crate::execution::execution_helper::OsExecutionHelper;
-use crate::state::storage::TrieStorage;
-use crate::state::trie::PedersenHash;
-
-/// Implements hint:
-pub fn start_execute_deploy_transaction(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let execution_helper =
-        exec_scopes.get_mut_ref::<OsExecutionHelper<PedersenHash, TrieStorage>>("execution_helper").unwrap();
-    let constructor_execution_context =
-        get_relocatable_from_var_name("constructor_execution_context", vm, ids_data, ap_tracking)?;
-    let deprecated_tx_info_ptr = (constructor_execution_context + 5usize).unwrap();
-
-    execution_helper.start_tx(Some(deprecated_tx_info_ptr));
-    Ok(())
-}
 
 /// Implements hint:
 ///
@@ -163,24 +140,5 @@ pub fn select_builtin(
         n_selected_builtins.add_assign(-Felt252::one());
     }
 
-    Ok(())
-}
-
-/// Implements hint:
-///
-/// execution_helper.enter_call(
-///    execution_info_ptr=ids.execution_context.execution_info.address_)
-pub fn enter_call(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let execution_info_ptr =
-        vm.get_relocatable((get_ptr_from_var_name("execution_context", vm, ids_data, ap_tracking)? + 4i32).unwrap())?;
-    exec_scopes
-        .get_mut_ref::<OsExecutionHelper<PedersenHash, TrieStorage>>("execution_helper")?
-        .enter_call(Some(execution_info_ptr));
     Ok(())
 }
