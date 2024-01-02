@@ -32,6 +32,7 @@ use crate::io::InternalTransaction;
 /// Hint Extensions extend the current map of hints used by the VM.
 /// This behaviour achieves what the `vm_load_data` primitive does for cairo-lang
 /// and is needed to implement os hints like `vm_load_program`.
+#[derive(Default)]
 pub struct SnosHintProcessor {
     sn_hint_processor: SnosSimpleHintProcessor,
     run_resources: RunResources,
@@ -52,12 +53,6 @@ impl ResourceTracker for SnosHintProcessor {
 
     fn run_resources(&self) -> &RunResources {
         &self.run_resources
-    }
-}
-
-impl Default for SnosHintProcessor {
-    fn default() -> Self {
-        Self { sn_hint_processor: SnosSimpleHintProcessor::default(), run_resources: Default::default() }
     }
 }
 
@@ -96,6 +91,7 @@ impl HintProcessorLogic for SnosHintProcessor {
     }
 }
 
+#[derive(Default)]
 pub struct SnosSimpleHintProcessor {
     run_resources: RunResources,
 }
@@ -115,12 +111,6 @@ impl ResourceTracker for SnosSimpleHintProcessor {
 
     fn run_resources(&self) -> &RunResources {
         &self.run_resources
-    }
-}
-
-impl Default for SnosSimpleHintProcessor {
-    fn default() -> Self {
-        Self { run_resources: Default::default() }
     }
 }
 
