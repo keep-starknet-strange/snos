@@ -106,3 +106,6 @@ pub const SELECT_BUILTIN: &str =
 
 pub const ENTER_CALL: &str =
     "execution_helper.enter_call(\n    execution_info_ptr=ids.execution_context.execution_info.address_)";
+
+pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': deprecated_syscall_handler})";
+pub const BREAKPOIN: &str = "breakpoint()";

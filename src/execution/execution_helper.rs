@@ -4,7 +4,7 @@ use std::vec::IntoIter;
 use blockifier::execution::cairo1_execution::CallResult;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use starknet_api::deprecated_contract_class::EntryPointType;
 
@@ -63,7 +63,8 @@ impl<H: StarkHasher, S: Storage> OsExecutionHelper<H, S> {
     pub fn enter_call(&mut self, execution_info_ptr: Option<Relocatable>) {
         assert!(self.call_execution_info_ptr.is_none());
         self.call_execution_info_ptr = execution_info_ptr;
-        self.assert_iterators_exhausted();
+        // TODO: can we get the same benefit from something in stable Rust?
+        // self.assert_iterators_exhausted();
         assert!(self.call_info_.is_none(), "Call info should be none");
         self.call_info_ = self.call_iterator.next();
         self.deployed_contracts_iterator = self
@@ -105,11 +106,11 @@ impl<H: StarkHasher, S: Storage> OsExecutionHelper<H, S> {
             .into_iter();
     }
 
-    pub fn assert_iterators_exhausted(&self) {
-        assert!(self.deployed_contracts_iterator.is_empty(), "Deployed contracts iter isn't exhausted");
-        assert!(self.result_iterator.is_empty(), "Result iterator isn't exhausted");
-        assert!(self.execute_code_read_iterator.is_empty(), "Execute code read iterator isn't exhausted");
-    }
+    // pub fn assert_iterators_exhausted(&self) {
+    //     assert!(self.deployed_contracts_iterator.is_empty(), "Deployed contracts iter isn't
+    // exhausted");     assert!(self.result_iterator.is_empty(), "Result iterator isn't exhausted");
+    //     assert!(self.execute_code_read_iterator.is_empty(), "Execute code read iterator isn't
+    // exhausted"); }
 }
 trait GenCallIter {
     fn gen_call_iterator(&self) -> IntoIter<CallInfo>;
@@ -150,7 +151,7 @@ where
 {
     _expected_updated_root: Felt252,
     _ffc: FactFetchingContext<H, S>,
-    _ongoing_storage_changes: HashMap<Felt252, Felt252>,
+    ongoing_storage_changes: HashMap<Felt252, Felt252>,
     _previous_tree: TrieStorage,
 }
 #[derive(Clone)]

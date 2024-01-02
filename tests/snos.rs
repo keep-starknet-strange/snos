@@ -3,7 +3,7 @@ mod common;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_felt::{felt_str, Felt252};
+use cairo_vm::felt::{felt_str, Felt252};
 use common::defs::{
     EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_1_ADDREESS_0_12_2, TESTING_2_ADDREESS_0_12_2,
     TESTING_BLOCK_HASH, TESTING_DELEGATE_ADDREESS_0_12_2, TESTING_HASH_0_12_2,
@@ -27,7 +27,7 @@ fn snos_run_test(
     _load_input: &StarknetOsInput,
     prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),
 ) {
-    let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
+    let snos_runner = SnOsRunner::with_os_path("build/os_latest.json");
     let runner_res = snos_runner.run(prepare_os_test.0, prepare_os_test.1);
 
     println!("{:#?}", runner_res);

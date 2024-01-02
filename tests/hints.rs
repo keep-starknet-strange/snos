@@ -52,7 +52,7 @@ fn bad_output_test() {
 }
 
 #[rstest]
-fn block_context_test(mut os_input_hint_processor: BuiltinHintProcessor) {
+fn load_deprecated_class_test(mut os_input_hint_processor: BuiltinHintProcessor) {
     let program = "build/programs/load_deprecated_class.json";
 
     let load_deprecated_class_facts_hint = HintFunc(Box::new(load_deprecated_class_facts));

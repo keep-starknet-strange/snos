@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use bitvec::prelude::{BitSlice, BitVec, Msb0};
 use bitvec::view::BitView;
 use blockifier::execution::contract_class::ContractClassV0;
-use cairo_felt::{felt_str, Felt252};
+use cairo_vm::felt::{felt_str, Felt252};
 use cairo_vm_blockifier::types::program::Program;
 use lazy_static::lazy_static;
 use num_traits::Num;

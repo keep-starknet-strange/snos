@@ -54,7 +54,7 @@ cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/
 echo -e "compiling starknet contracts...\n"
 mkdir -p build/contracts
 mkdir -p build/pie
-ln -s cairo-lang/src/starkware starkware
+ln -sf cairo-lang/src/starkware starkware
 starknet-compile-deprecated --no_debug_info tests/contracts/token_for_testing.cairo --output build/contracts/token_for_testing.json --cairo_path cairo-lang/src --account_contract
 starknet-compile-deprecated --no_debug_info tests/contracts/dummy_account.cairo --output build/contracts/dummy_account.json --cairo_path cairo-lang/src --account_contract
 starknet-compile-deprecated --no_debug_info tests/contracts/dummy_token.cairo --output build/contracts/dummy_token.json --cairo_path cairo-lang/src --account_contract

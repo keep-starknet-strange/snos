@@ -2,7 +2,7 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::ops::AddAssign;
 
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
@@ -16,15 +16,11 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::{One, Zero};
 
-use crate::io::execution_helper::OsExecutionHelper;
+use crate::execution::execution_helper::OsExecutionHelper;
 use crate::state::storage::TrieStorage;
 use crate::state::trie::PedersenHash;
 
 /// Implements hint:
-///
-/// execution_helper.start_tx(
-///     tx_info_ptr=ids.constructor_execution_context.deprecated_tx_info.address_
-/// )
 pub fn start_execute_deploy_transaction(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
