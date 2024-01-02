@@ -1,4 +1,3 @@
-#![feature(exact_size_is_empty)]
 pub mod config;
 pub mod error;
 pub mod execution;
