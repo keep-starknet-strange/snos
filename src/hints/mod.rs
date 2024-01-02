@@ -1,7 +1,6 @@
 pub mod block_context;
 mod execution;
 pub mod hints_raw;
-mod state_update;
 // pub mod transaction_context;
 
 use std::any::Any;
@@ -31,8 +30,6 @@ use self::execution::{
 };
 use crate::config::DEFAULT_INPUT_PATH;
 use crate::hints::hints_raw::*;
-use crate::hints::state_update::os::{commitment_info_by_address, COMMITMENT_INFO_BY_ADDRESS};
-use crate::hints::state_update::state::{commitment_info, COMMITMENT_INFO};
 use crate::io::execution_helper::OsExecutionHelper;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
@@ -53,8 +50,6 @@ pub fn sn_hint_processor() -> BuiltinHintProcessor {
         (CHAIN_ID, chain_id),
         (CHECK_DEPRECATED_CLASS_HASH, check_deprecated_class_hash),
         (CHECK_IS_DEPRECATED, check_is_deprecated),
-        (COMMITMENT_INFO, commitment_info),
-        (COMMITMENT_INFO_BY_ADDRESS, commitment_info_by_address),
         (DEPRECATED_BLOCK_NUMBER, block_number),
         (DEPRECATED_BLOCK_TIMESTAMP, block_timestamp),
         (ENTER_CALL, enter_call),
