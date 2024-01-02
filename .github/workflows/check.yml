@@ -33,8 +33,11 @@ jobs:
           submodules: "true"
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
       - run: |
-          pip install cairo-lang
+          pip install cairo-lang==0.12.2
           cairo-format -c tests/programs/*
           bash ./scripts/reset-tests.sh
           cargo test
