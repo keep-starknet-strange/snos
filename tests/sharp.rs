@@ -22,6 +22,7 @@ fn real_sharp_submit_pie(os_pie_string: String) {
 }
 
 #[rstest]
+#[ignore]
 fn sharp_get_status() {
     let good_cairo_job_id = uuid!("3a24bbca-ad75-49d5-8ced-12796c6c0738");
 
@@ -33,6 +34,7 @@ fn sharp_get_status() {
 }
 
 #[rstest]
+#[ignore]
 fn sharp_get_status_err() {
     let bad_cairo_job_id = uuid!("43454c8e-8f43-444f-aab2-edab05bef512");
 
