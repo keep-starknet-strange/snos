@@ -1,4 +1,6 @@
 #![feature(exact_size_is_empty)]
+#![feature(assert_matches)]
+
 pub mod config;
 pub mod error;
 pub mod hints;
