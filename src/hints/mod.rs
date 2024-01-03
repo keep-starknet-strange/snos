@@ -163,10 +163,13 @@ impl HintProcessorLogic for SnosSimpleHintProcessor {
     }
 }
 
-pub const STARKNET_OS_INPUT: &str = indoc! {
-"from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
-StarknetOsInput.load(data=program_input)\n\nids.initial_carried_outputs.messages_to_l1 = \
-segments.add_temp_segment()\nids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()"
+pub const STARKNET_OS_INPUT: &str = indoc! {r#"
+    from starkware.starknet.core.os.os_input import StarknetOsInput
+
+    os_input = StarknetOsInput.load(data=program_input)
+
+    ids.initial_carried_outputs.messages_to_l1 = segments.add_temp_segment()
+    ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()"#
 };
 pub fn starknet_os_input(
     vm: &mut VirtualMachine,
@@ -194,11 +197,16 @@ pub fn starknet_os_input(
     vm.insert_value(messages_to_l2, temp_segment).map_err(|e| e.into())
 }
 
-pub const CHECK_DEPRECATED_CLASS_HASH: &str = indoc! {
-"from starkware.python.utils import from_bytes\n\ncomputed_hash = ids.compiled_class_fact.hash\nexpected_hash = \
-compiled_class_hash\nassert computed_hash == expected_hash, (\n    \"Computed compiled_class_hash is \
-inconsistent with the hash in the os_input. \"\n    f\"Computed hash = {computed_hash}, Expected hash = \
-{expected_hash}.\")\n\nvm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)"
+pub const CHECK_DEPRECATED_CLASS_HASH: &str = indoc! {r#"
+    from starkware.python.utils import from_bytes
+
+    computed_hash = ids.compiled_class_fact.hash
+    expected_hash = compiled_class_hash
+    assert computed_hash == expected_hash, (
+        "Computed compiled_class_hash is inconsistent with the hash in the os_input. "
+        f"Computed hash = {computed_hash}, Expected hash = {expected_hash}.")
+
+    vm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)"#
 };
 pub fn check_deprecated_class_hash(
     hint_processor: &dyn HintProcessor,
@@ -207,7 +215,7 @@ pub fn check_deprecated_class_hash(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<HintExtension, HintError> {
-    // TODO: fix comp class hash
+    // TODO(#61): fix comp class hash
     // let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data,
     // ap_tracking)?; let computed_hash = vm.get_integer(computed_hash_addr)?;
     // let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
@@ -241,11 +249,14 @@ pub fn check_deprecated_class_hash(
     Ok(hint_extension)
 }
 
-pub const INITIALIZE_STATE_CHANGES: &str = indoc! {
-"from starkware.python.utils import from_bytes\n\ninitial_dict = {\n    \
-address: segments.gen_arg(\n        (from_bytes(contract.contract_hash), \
-segments.add(), contract.nonce))\n    for address, contract in \
-os_input.contracts.items()\n}"
+pub const INITIALIZE_STATE_CHANGES: &str = indoc! {r#"
+    from starkware.python.utils import from_bytes
+
+    initial_dict = {
+        address: segments.gen_arg(
+            (from_bytes(contract.contract_hash), segments.add(), contract.nonce))
+        for address, contract in os_input.contracts.items()
+    }"#
 };
 pub fn initialize_state_changes(
     vm: &mut VirtualMachine,
@@ -270,7 +281,7 @@ pub fn initialize_state_changes(
     Ok(())
 }
 
-pub const INITIALIZE_CLASS_HASHES: &str = indoc! {"initial_dict = os_input.class_hash_to_compiled_class_hash"};
+pub const INITIALIZE_CLASS_HASHES: &str = "initial_dict = os_input.class_hash_to_compiled_class_hash";
 pub fn initialize_class_hashes(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -288,7 +299,7 @@ pub fn initialize_class_hashes(
     Ok(())
 }
 
-pub const SEGMENTS_ADD: &str = indoc! {"memory[ap] = to_felt_or_relocatable(segments.add())"};
+pub const SEGMENTS_ADD: &str = "memory[ap] = to_felt_or_relocatable(segments.add())";
 pub fn segments_add(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -300,7 +311,7 @@ pub fn segments_add(
     insert_value_into_ap(vm, segment)
 }
 
-pub const SEGMENTS_ADD_TEMP: &str = indoc! {"memory[ap] = to_felt_or_relocatable(segments.add_temp_segment())"};
+pub const SEGMENTS_ADD_TEMP: &str = "memory[ap] = to_felt_or_relocatable(segments.add_temp_segment())";
 pub fn segments_add_temp(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -312,7 +323,7 @@ pub fn segments_add_temp(
     insert_value_into_ap(vm, temp_segment)
 }
 
-pub const TRANSACTIONS_LEN: &str = indoc! {"memory[ap] = to_felt_or_relocatable(len(os_input.transactions))"};
+pub const TRANSACTIONS_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(os_input.transactions))";
 pub fn transactions_len(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -325,7 +336,7 @@ pub fn transactions_len(
     insert_value_into_ap(vm, os_input.transactions.len())
 }
 
-pub const BREAKPOINT: &str = indoc! {"breakpoint()"};
+pub const BREAKPOINT: &str = "breakpoint()";
 pub fn breakpoint(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,

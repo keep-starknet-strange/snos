@@ -20,10 +20,10 @@ use num_traits::{One, Zero};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 
-pub const LOAD_NEXT_TX: &str = indoc! {
-"tx = next(transactions)\ntx_type_bytes = \
-tx.tx_type.name.encode(\"ascii\")\nids.tx_type = int.from_bytes(tx_type_bytes, \
-\"big\")"
+pub const LOAD_NEXT_TX: &str = indoc! {r#"
+    tx = next(transactions)
+    tx_type_bytes = tx.tx_type.name.encode("ascii")
+    ids.tx_type = int.from_bytes(tx_type_bytes, "big")"#
 };
 pub fn load_next_tx(
     vm: &mut VirtualMachine,
@@ -40,11 +40,11 @@ pub fn load_next_tx(
     insert_value_from_var_name("tx_type", Felt252::from_bytes_be(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
 }
 
-pub const PREPARE_CONSTRUCTOR_EXECUTION: &str = indoc! {
-"ids.contract_address_salt = tx.contract_address_salt\nids.class_hash \
-= tx.class_hash\nids.constructor_calldata_size = \
-len(tx.constructor_calldata)\nids.constructor_calldata = \
-segments.gen_arg(arg=tx.constructor_calldata)"
+pub const PREPARE_CONSTRUCTOR_EXECUTION: &str = indoc! {r#"
+    ids.contract_address_salt = tx.contract_address_salt
+    ids.class_hash = tx.class_hash
+    ids.constructor_calldata_size = len(tx.constructor_calldata)
+    ids.constructor_calldata = segments.gen_arg(arg=tx.constructor_calldata)"#
 };
 pub fn prepare_constructor_execution(
     vm: &mut VirtualMachine,
@@ -83,7 +83,7 @@ pub fn prepare_constructor_execution(
     insert_value_from_var_name("constructor_calldata", constructor_calldata_base, vm, ids_data, ap_tracking)
 }
 
-pub const TRANSACTION_VERSION: &str = indoc! {"memory[ap] = to_felt_or_relocatable(tx.version)"};
+pub const TRANSACTION_VERSION: &str = "memory[ap] = to_felt_or_relocatable(tx.version)";
 pub fn transaction_version(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -95,9 +95,10 @@ pub fn transaction_version(
     insert_value_into_ap(vm, tx.version.expect("Transaction version should be set"))
 }
 
-pub const ASSERT_TRANSACTION_HASH: &str = indoc! {
-"assert ids.transaction_hash == tx.hash_value, (\n    \"Computed transaction_hash is inconsistent with the hash \
-in the transaction. \"\n    f\"Computed hash = {ids.transaction_hash}, Expected hash = {tx.hash_value}.\")"
+pub const ASSERT_TRANSACTION_HASH: &str = indoc! {r#"
+    assert ids.transaction_hash == tx.hash_value, (
+    "Computed transaction_hash is inconsistent with the hash in the transaction. "
+    f"Computed hash = {ids.transaction_hash}, Expected hash = {tx.hash_value}.")"#
 };
 pub fn assert_transaction_hash(
     vm: &mut VirtualMachine,
@@ -118,8 +119,7 @@ pub fn assert_transaction_hash(
     Ok(())
 }
 
-pub const ENTER_SCOPE_SYSCALL_HANDLER: &str =
-    indoc! {"vm_enter_scope({'syscall_handler': deprecated_syscall_handler})"};
+pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': deprecated_syscall_handler})";
 pub fn enter_scope_syscall_handler(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -131,10 +131,10 @@ pub fn enter_scope_syscall_handler(
     Ok(())
 }
 
-pub const GET_STATE_ENTRY: &str = indoc! {
-"# Fetch a state_entry in this hint and validate it in the update at the end\n# of \
-this function.\nids.state_entry = \
-__dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"
+pub const GET_STATE_ENTRY: &str = indoc! {r##"
+    # Fetch a state_entry in this hint and validate it in the update at the end
+    # of this function.
+    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"##
 };
 pub fn get_state_entry(
     vm: &mut VirtualMachine,
@@ -158,8 +158,8 @@ pub fn get_state_entry(
     Ok(())
 }
 
-pub const CHECK_IS_DEPRECATED: &str = indoc! {
-"is_deprecated = 1 if ids.execution_context.class_hash in __deprecated_class_hashes else 0"};
+pub const CHECK_IS_DEPRECATED: &str =
+    "is_deprecated = 1 if ids.execution_context.class_hash in __deprecated_class_hashes else 0";
 pub fn check_is_deprecated(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -177,7 +177,7 @@ pub fn check_is_deprecated(
     Ok(())
 }
 
-pub const IS_DEPRECATED: &str = indoc! {"memory[ap] = to_felt_or_relocatable(is_deprecated)"};
+pub const IS_DEPRECATED: &str = "memory[ap] = to_felt_or_relocatable(is_deprecated)";
 pub fn is_deprecated(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -189,7 +189,7 @@ pub fn is_deprecated(
     Ok(())
 }
 
-pub const OS_CONTEXT_SEGMENTS: &str = indoc! {"ids.os_context = segments.add()\nids.syscall_ptr = segments.add()"};
+pub const OS_CONTEXT_SEGMENTS: &str = "ids.os_context = segments.add()\nids.syscall_ptr = segments.add()";
 pub fn os_context_segments(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -202,7 +202,7 @@ pub fn os_context_segments(
     Ok(())
 }
 
-pub const SELECTED_BUILTINS: &str = indoc! {"vm_enter_scope({'n_selected_builtins': ids.n_selected_builtins})"};
+pub const SELECTED_BUILTINS: &str = "vm_enter_scope({'n_selected_builtins': ids.n_selected_builtins})";
 pub fn selected_builtins(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -216,11 +216,14 @@ pub fn selected_builtins(
     Ok(())
 }
 
-pub const SELECT_BUILTIN: &str = indoc! {
-"# A builtin should be selected iff its encoding appears in the selected encodings list\n# and the list wasn't \
-exhausted.\n# Note that testing inclusion by a single comparison is possible since the lists are \
-sorted.\nids.select_builtin = int(\n  n_selected_builtins > 0 and memory[ids.selected_encodings] == \
-memory[ids.all_encodings])\nif ids.select_builtin:\n  n_selected_builtins = n_selected_builtins - 1"
+pub const SELECT_BUILTIN: &str = indoc! {r##"
+    # A builtin should be selected iff its encoding appears in the selected encodings list
+    # and the list wasn't exhausted.
+    # Note that testing inclusion by a single comparison is possible since the lists are sorted.
+    ids.select_builtin = int(
+      n_selected_builtins > 0 and memory[ids.selected_encodings] == memory[ids.all_encodings])
+    if ids.select_builtin:
+      n_selected_builtins = n_selected_builtins - 1"##
 };
 pub fn select_builtin(
     vm: &mut VirtualMachine,
@@ -248,10 +251,15 @@ pub fn select_builtin(
     Ok(())
 }
 
-pub const ENTER_SYSCALL_SCOPES: &str = indoc! {
-"vm_enter_scope({\n    '__deprecated_class_hashes': __deprecated_class_hashes,\n    'transactions': \
-iter(os_input.transactions),\n    'execution_helper': execution_helper,\n    'deprecated_syscall_handler': \
-deprecated_syscall_handler,\n    'syscall_handler': syscall_handler,\n     '__dict_manager': __dict_manager,\n})"
+pub const ENTER_SYSCALL_SCOPES: &str = indoc! {r#"
+    vm_enter_scope({
+        '__deprecated_class_hashes': __deprecated_class_hashes,
+        'transactions': iter(os_input.transactions),
+        'execution_helper': execution_helper,
+        'deprecated_syscall_handler': deprecated_syscall_handler,
+        'syscall_handler': syscall_handler,
+         '__dict_manager': __dict_manager,
+    })"#
 };
 pub fn enter_syscall_scopes(
     _vm: &mut VirtualMachine,
