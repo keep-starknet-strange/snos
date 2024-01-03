@@ -1,8 +1,8 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::ops::AddAssign;
+use std::vec::IntoIter;
 
-use crate::io::InternalTransaction;
 use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
@@ -16,7 +16,9 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use indoc::indoc;
 use num_traits::{One, Zero};
-use std::vec::IntoIter;
+
+use crate::io::input::StarknetOsInput;
+use crate::io::InternalTransaction;
 
 pub const LOAD_NEXT_TX: &str = indoc! {
 "tx = next(transactions)\ntx_type_bytes = \
@@ -110,7 +112,7 @@ pub fn assert_transaction_hash(
     assert_eq!(
         tx.hash_value, transaction_hash,
         "Computed transaction_hash is inconsistent with the hash in the transaction. Computed hash = {}, Expected \
-             hash = {}.",
+         hash = {}.",
         transaction_hash, tx.hash_value
     );
     Ok(())
@@ -156,9 +158,8 @@ pub fn get_state_entry(
     Ok(())
 }
 
-/// Implements hint:
-///
-/// is_deprecated = 1 if ids.execution_context.class_hash in __deprecated_class_hashes else 0
+pub const CHECK_IS_DEPRECATED: &str = indoc! {
+"is_deprecated = 1 if ids.execution_context.class_hash in __deprecated_class_hashes else 0"};
 pub fn check_is_deprecated(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -176,9 +177,7 @@ pub fn check_is_deprecated(
     Ok(())
 }
 
-/// Implements hint:
-///
-/// memory[ap] = to_felt_or_relocatable(is_deprecated)
+pub const IS_DEPRECATED: &str = indoc! {"memory[ap] = to_felt_or_relocatable(is_deprecated)"};
 pub fn is_deprecated(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -190,10 +189,7 @@ pub fn is_deprecated(
     Ok(())
 }
 
-/// Implement hint:
-///
-/// ids.os_context = segments.add()
-/// ids.syscall_ptr = segments.add()
+pub const OS_CONTEXT_SEGMENTS: &str = indoc! {"ids.os_context = segments.add()\nids.syscall_ptr = segments.add()"};
 pub fn os_context_segments(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -206,9 +202,7 @@ pub fn os_context_segments(
     Ok(())
 }
 
-/// Implements hint:
-///
-/// vm_enter_scope({'n_selected_builtins': ids.n_selected_builtins})
+pub const SELECTED_BUILTINS: &str = indoc! {"vm_enter_scope({'n_selected_builtins': ids.n_selected_builtins})"};
 pub fn selected_builtins(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -222,15 +216,12 @@ pub fn selected_builtins(
     Ok(())
 }
 
-/// Implements hint:
-///
-/// # A builtin should be selected iff its encoding appears in the selected encodings list
-/// # and the list wasn't exhausted.
-/// # Note that testing inclusion by a single comparison is possible since the lists are sorted.
-/// ids.select_builtin = int(
-///   n_selected_builtins > 0 and memory[ids.selected_encodings] == memory[ids.all_encodings])
-/// if ids.select_builtin:
-///   n_selected_builtins = n_selected_builtins - 1
+pub const SELECT_BUILTIN: &str = indoc! {
+"# A builtin should be selected iff its encoding appears in the selected encodings list\n# and the list wasn't \
+exhausted.\n# Note that testing inclusion by a single comparison is possible since the lists are \
+sorted.\nids.select_builtin = int(\n  n_selected_builtins > 0 and memory[ids.selected_encodings] == \
+memory[ids.all_encodings])\nif ids.select_builtin:\n  n_selected_builtins = n_selected_builtins - 1"
+};
 pub fn select_builtin(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -254,5 +245,30 @@ pub fn select_builtin(
         n_selected_builtins.add_assign(-Felt252::one());
     }
 
+    Ok(())
+}
+
+pub const ENTER_SYSCALL_SCOPES: &str = indoc! {
+"vm_enter_scope({\n    '__deprecated_class_hashes': __deprecated_class_hashes,\n    'transactions': \
+iter(os_input.transactions),\n    'execution_helper': execution_helper,\n    'deprecated_syscall_handler': \
+deprecated_syscall_handler,\n    'syscall_handler': syscall_handler,\n     '__dict_manager': __dict_manager,\n})"
+};
+pub fn enter_syscall_scopes(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
+    let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
+    let dict_manager = Box::new(exec_scopes.get_dict_manager()?);
+    let deprecated_class_hashes = Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
+
+    exec_scopes.enter_scope(HashMap::from_iter([
+        (String::from("transactions"), transactions),
+        (String::from("dict_manager"), dict_manager),
+        (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
+    ]));
     Ok(())
 }

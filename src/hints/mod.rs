@@ -1,10 +1,9 @@
 pub mod block_context;
-mod execution;
-pub mod hints_raw;
+pub mod execution;
 
-use crate::config::DEFAULT_INPUT_PATH;
-use crate::hints::hints_raw::*;
-use crate::io::input::StarknetOsInput;
+use std::any::Any;
+use std::collections::HashMap;
+
 use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
@@ -21,8 +20,9 @@ use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use indoc::indoc;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use std::any::Any;
-use std::collections::{HashMap, HashSet};
+
+use crate::config::DEFAULT_INPUT_PATH;
+use crate::io::input::StarknetOsInput;
 
 /// Hint Extensions extend the current map of hints used by the VM.
 /// This behaviour achieves what the `vm_load_data` primitive does for cairo-lang
@@ -136,13 +136,6 @@ impl HintProcessorLogic for SnosSimpleHintProcessor {
             SEGMENTS_ADD => segments_add,
             SEGMENTS_ADD_TEMP => segments_add_temp,
             TRANSACTIONS_LEN => transactions_len,
-            ENTER_SYSCALL_SCOPES => enter_syscall_scopes,
-            GET_STATE_ENTRY => get_state_entry,
-            CHECK_IS_DEPRECATED => check_is_deprecated,
-            IS_DEPRECATED => is_deprecated,
-            OS_CONTEXT_SEGMENTS => os_context_segments,
-            SELECTED_BUILTINS => selected_builtins,
-            SELECT_BUILTIN => select_builtin,
             block_context::LOAD_CLASS_FACTS => block_context::load_class_facts,
             block_context::LOAD_DEPRECATED_CLASS_FACTS => block_context::load_deprecated_class_facts,
             block_context::LOAD_DEPRECATED_CLASS_INNER => block_context::load_deprecated_inner,
@@ -152,6 +145,13 @@ impl HintProcessorLogic for SnosSimpleHintProcessor {
             block_context::CHAIN_ID => block_context::chain_id,
             block_context::FEE_TOKEN_ADDRESS => block_context::fee_token_address,
             block_context::GET_BLOCK_MAPPING => block_context::get_block_mapping,
+            execution::ENTER_SYSCALL_SCOPES => execution::enter_syscall_scopes,
+            execution::GET_STATE_ENTRY => execution::get_state_entry,
+            execution::CHECK_IS_DEPRECATED => execution::check_is_deprecated,
+            execution::IS_DEPRECATED => execution::is_deprecated,
+            execution::OS_CONTEXT_SEGMENTS => execution::os_context_segments,
+            execution::SELECTED_BUILTINS => execution::selected_builtins,
+            execution::SELECT_BUILTIN => execution::select_builtin,
             execution::LOAD_NEXT_TX => execution::load_next_tx,
             execution::PREPARE_CONSTRUCTOR_EXECUTION => execution::prepare_constructor_execution,
             execution::TRANSACTION_VERSION => execution::transaction_version,
@@ -325,31 +325,7 @@ pub fn transactions_len(
     insert_value_into_ap(vm, os_input.transactions.len())
 }
 
-pub const ENTER_SYSCALL_SCOPES: &str = indoc! {
-"vm_enter_scope({\n    '__deprecated_class_hashes': __deprecated_class_hashes,\n    'transactions': \
-iter(os_input.transactions),\n    'execution_helper': execution_helper,\n    'deprecated_syscall_handler': \
-deprecated_syscall_handler,\n    'syscall_handler': syscall_handler,\n     '__dict_manager': __dict_manager,\n})"
-};
-pub fn enter_syscall_scopes(
-    _vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
-    let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
-    let dict_manager = Box::new(exec_scopes.get_dict_manager()?);
-    let deprecated_class_hashes = Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
-
-    exec_scopes.enter_scope(HashMap::from_iter([
-        (String::from("transactions"), transactions),
-        (String::from("dict_manager"), dict_manager),
-        (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
-    ]));
-    Ok(())
-}
-
+pub const BREAKPOINT: &str = indoc! {"breakpoint()"};
 pub fn breakpoint(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
