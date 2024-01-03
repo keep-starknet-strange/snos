@@ -1,5 +1,4 @@
-pub const STARKNET_OS_INPUT: &str =
-    "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
+pub const STARKNET_OS_INPUT: &str = "from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
      StarknetOsInput.load(data=program_input)\n\nids.initial_carried_outputs.messages_to_l1 = \
      segments.add_temp_segment()\nids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()";
 
@@ -102,4 +101,5 @@ pub const SELECT_BUILTIN: &str =
      memory[ids.all_encodings])\nif ids.select_builtin:\n  n_selected_builtins = n_selected_builtins - 1";
 
 pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': deprecated_syscall_handler})";
-pub const BREAKPOIN: &str = "breakpoint()";
+
+pub const BREAKPOINT: &str = "breakpoint()";

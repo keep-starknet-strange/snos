@@ -7,7 +7,9 @@ use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
 
 use cairo_vm::felt::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData;
+use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
+    BuiltinHintProcessor, HintProcessorData,
+};
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
 use cairo_vm::hint_processor::hint_processor_definition::{
     HintExtension, HintProcessor, HintProcessorLogic, HintReference,
@@ -91,8 +93,8 @@ impl HintProcessorLogic for SnosHintProcessor {
     }
 }
 
-#[derive(Default)]
 pub struct SnosSimpleHintProcessor {
+    builtin_hint_proc: BuiltinHintProcessor,
     run_resources: RunResources,
 }
 
@@ -114,6 +116,12 @@ impl ResourceTracker for SnosSimpleHintProcessor {
     }
 }
 
+impl Default for SnosSimpleHintProcessor {
+    fn default() -> Self {
+        Self { builtin_hint_proc: BuiltinHintProcessor::new_empty(), run_resources: Default::default() }
+    }
+}
+
 impl HintProcessorLogic for SnosSimpleHintProcessor {
     fn execute_hint(
         &mut self,
@@ -122,6 +130,10 @@ impl HintProcessorLogic for SnosSimpleHintProcessor {
         hint_data: &Box<dyn core::any::Any>,
         constants: &HashMap<String, Felt252>,
     ) -> Result<(), HintError> {
+        match self.builtin_hint_proc.execute_hint(vm, exec_scopes, hint_data, constants) {
+            Err(HintError::UnknownHint(_)) => {}
+            res => return res,
+        }
         let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
 
         match &*hint_data.code {
@@ -283,7 +295,6 @@ pub fn check_deprecated_class_hash(
     let hints: HashMap<String, Vec<HintParams>> = serde_json::from_value(dep_class.program.hints).unwrap();
     let ref_manager: ReferenceManager = serde_json::from_value(dep_class.program.reference_manager).unwrap();
     let refs = ref_manager.references.iter().map(|r| HintReference::from(r.clone())).collect::<Vec<HintReference>>();
-
     let mut deprecated_compiled_hints: Vec<Box<dyn Any>> = Vec::new();
     for (_hint_pc, hint_params) in hints.into_iter() {
         let compiled_hint = hint_processor.compile_hint(

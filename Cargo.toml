@@ -11,7 +11,7 @@ blockifier = { git = "https://github.com/keep-starknet-strange/blockifier.git", 
   "testing",
   "clone",
 ] }
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm" , features = ["extensive_hints"] }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = ["extensive_hints"] }
 cairo-vm-blockifier = { package = "cairo-vm", version = "0.8.7" }
 hex = "0.4.3"
 indexmap = "1.9.2"
