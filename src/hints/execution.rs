@@ -127,7 +127,7 @@ pub fn enter_scope_syscall_handler(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
+    let _jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
     Ok(())
 }
 
