@@ -15,6 +15,7 @@ use snos::hints::block_context::get_block_mapping;
 use snos::hints::hints_raw::*;
 use snos::hints::{
     enter_syscall_scopes, initialize_class_hashes, initialize_state_changes, load_next_tx, starknet_os_input,
+    STARKNET_OS_INPUT,
 };
 use snos::io::input::StarknetOsInput;
 use snos::io::output::StarknetOsOutput;

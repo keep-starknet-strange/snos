@@ -2,10 +2,9 @@ pub mod block_context;
 mod execution;
 pub mod hints_raw;
 
-use std::any::Any;
-use std::collections::{HashMap, HashSet};
-use std::vec::IntoIter;
-
+use crate::config::DEFAULT_INPUT_PATH;
+use crate::hints::hints_raw::*;
+use crate::io::input::StarknetOsInput;
 use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
@@ -20,16 +19,10 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
+use indoc::indoc;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-
-use self::block_context::get_block_mapping;
-use self::execution::{
-    check_is_deprecated, get_state_entry, is_deprecated, os_context_segments, select_builtin, selected_builtins,
-};
-use crate::config::DEFAULT_INPUT_PATH;
-use crate::hints::hints_raw::*;
-use crate::io::input::StarknetOsInput;
-use crate::io::InternalTransaction;
+use std::any::Any;
+use std::collections::{HashMap, HashSet};
 
 /// Hint Extensions extend the current map of hints used by the VM.
 /// This behaviour achieves what the `vm_load_data` primitive does for cairo-lang
@@ -136,107 +129,45 @@ impl HintProcessorLogic for SnosSimpleHintProcessor {
         }
         let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
 
-        match &*hint_data.code {
-            STARKNET_OS_INPUT => {
-                starknet_os_input(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            LOAD_CLASS_FACTS => {
-                block_context::load_class_facts(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            LOAD_DEPRECATED_CLASS_FACTS => block_context::load_deprecated_class_facts(
-                vm,
-                exec_scopes,
-                &hint_data.ids_data,
-                &hint_data.ap_tracking,
-                constants,
-            ),
-            LOAD_DEPRECATED_CLASS_INNER => block_context::load_deprecated_inner(
-                vm,
-                exec_scopes,
-                &hint_data.ids_data,
-                &hint_data.ap_tracking,
-                constants,
-            ),
-            DEPRECATED_BLOCK_NUMBER => {
-                block_context::block_number(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            DEPRECATED_BLOCK_TIMESTAMP => {
-                block_context::block_timestamp(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            SEQUENCER_ADDRESS => block_context::sequencer_address(
-                vm,
-                exec_scopes,
-                &hint_data.ids_data,
-                &hint_data.ap_tracking,
-                constants,
-            ),
-            CHAIN_ID => {
-                block_context::chain_id(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            FEE_TOKEN_ADDRESS => block_context::fee_token_address(
-                vm,
-                exec_scopes,
-                &hint_data.ids_data,
-                &hint_data.ap_tracking,
-                constants,
-            ),
-            INITIALIZE_STATE_CHANGES => {
-                initialize_state_changes(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            INITIALIZE_CLASS_HASHES => {
-                initialize_class_hashes(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            SEGMENTS_ADD => segments_add(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
-            SEGMENTS_ADD_TEMP => {
-                segments_add_temp(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            TRANSACTIONS_LEN => {
-                transactions_len(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            ENTER_SYSCALL_SCOPES => {
-                enter_syscall_scopes(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            LOAD_NEXT_TX => load_next_tx(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
-            PREPARE_CONSTRUCTOR_EXECUTION => {
-                prepare_constructor_execution(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            TRANSACTION_VERSION => {
-                transaction_version(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            ASSERT_TRANSACTION_HASH => {
-                assert_transaction_hash(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            GET_BLOCK_MAPPING => {
-                get_block_mapping(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            GET_STATE_ENTRY => get_state_entry(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
-            CHECK_IS_DEPRECATED => {
-                check_is_deprecated(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            IS_DEPRECATED => is_deprecated(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
-            OS_CONTEXT_SEGMENTS => {
-                os_context_segments(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            SELECTED_BUILTINS => {
-                selected_builtins(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            SELECT_BUILTIN => select_builtin(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants),
-            ENTER_SCOPE_SYSCALL_HANDLER => {
-                enter_scope_syscall_handler(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            code => Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
-        }
+        let hint_func = match &*hint_data.code {
+            STARKNET_OS_INPUT => starknet_os_input,
+            INITIALIZE_STATE_CHANGES => initialize_state_changes,
+            INITIALIZE_CLASS_HASHES => initialize_class_hashes,
+            SEGMENTS_ADD => segments_add,
+            SEGMENTS_ADD_TEMP => segments_add_temp,
+            TRANSACTIONS_LEN => transactions_len,
+            ENTER_SYSCALL_SCOPES => enter_syscall_scopes,
+            GET_STATE_ENTRY => get_state_entry,
+            CHECK_IS_DEPRECATED => check_is_deprecated,
+            IS_DEPRECATED => is_deprecated,
+            OS_CONTEXT_SEGMENTS => os_context_segments,
+            SELECTED_BUILTINS => selected_builtins,
+            SELECT_BUILTIN => select_builtin,
+            block_context::LOAD_CLASS_FACTS => block_context::load_class_facts,
+            block_context::LOAD_DEPRECATED_CLASS_FACTS => block_context::load_deprecated_class_facts,
+            block_context::LOAD_DEPRECATED_CLASS_INNER => block_context::load_deprecated_inner,
+            block_context::DEPRECATED_BLOCK_NUMBER => block_context::block_number,
+            block_context::DEPRECATED_BLOCK_TIMESTAMP => block_context::block_timestamp,
+            block_context::SEQUENCER_ADDRESS => block_context::sequencer_address,
+            block_context::CHAIN_ID => block_context::chain_id,
+            block_context::FEE_TOKEN_ADDRESS => block_context::fee_token_address,
+            block_context::GET_BLOCK_MAPPING => block_context::get_block_mapping,
+            execution::LOAD_NEXT_TX => execution::load_next_tx,
+            execution::PREPARE_CONSTRUCTOR_EXECUTION => execution::prepare_constructor_execution,
+            execution::TRANSACTION_VERSION => execution::transaction_version,
+            execution::ASSERT_TRANSACTION_HASH => execution::assert_transaction_hash,
+            execution::ENTER_SCOPE_SYSCALL_HANDLER => execution::enter_scope_syscall_handler,
+            code => return Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
+        };
+        hint_func(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
     }
 }
 
-/// Implements hint:
-///
-/// from starkware.starknet.core.os.os_input import StarknetOsInput
-///
-/// os_input = StarknetOsInput.load(data=program_input)
-///
-/// ids.initial_carried_outputs.messages_to_l1 = segments.add_temp_segment()
-/// ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()
+pub const STARKNET_OS_INPUT: &str = indoc! {
+"from starkware.starknet.core.os.os_input import StarknetOsInput\n\nos_input = \
+StarknetOsInput.load(data=program_input)\n\nids.initial_carried_outputs.messages_to_l1 = \
+segments.add_temp_segment()\nids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()"
+};
 pub fn starknet_os_input(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -263,17 +194,12 @@ pub fn starknet_os_input(
     vm.insert_value(messages_to_l2, temp_segment).map_err(|e| e.into())
 }
 
-/// Implements hint:
-///
-/// from starkware.python.utils import from_bytes
-///
-/// computed_hash = ids.compiled_class_fact.hash
-/// expected_hash = compiled_class_hash
-/// assert computed_hash == expected_hash, (
-/// "Computed compiled_class_hash is inconsistent with the hash in the os_input. "
-/// f"Computed hash = {computed_hash}, Expected hash = {expected_hash}.")
-///
-/// vm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)
+pub const CHECK_DEPRECATED_CLASS_HASH: &str = indoc! {
+"from starkware.python.utils import from_bytes\n\ncomputed_hash = ids.compiled_class_fact.hash\nexpected_hash = \
+compiled_class_hash\nassert computed_hash == expected_hash, (\n    \"Computed compiled_class_hash is \
+inconsistent with the hash in the os_input. \"\n    f\"Computed hash = {computed_hash}, Expected hash = \
+{expected_hash}.\")\n\nvm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)"
+};
 pub fn check_deprecated_class_hash(
     hint_processor: &dyn HintProcessor,
     vm: &mut VirtualMachine,
@@ -315,7 +241,12 @@ pub fn check_deprecated_class_hash(
     Ok(hint_extension)
 }
 
-/// Implements hint:
+pub const INITIALIZE_STATE_CHANGES: &str = indoc! {
+"from starkware.python.utils import from_bytes\n\ninitial_dict = {\n    \
+address: segments.gen_arg(\n        (from_bytes(contract.contract_hash), \
+segments.add(), contract.nonce))\n    for address, contract in \
+os_input.contracts.items()\n}"
+};
 pub fn initialize_state_changes(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -339,9 +270,7 @@ pub fn initialize_state_changes(
     Ok(())
 }
 
-/// Implements hint:
-///
-/// initial_dict = os_input.class_hash_to_compiled_class_hash
+pub const INITIALIZE_CLASS_HASHES: &str = indoc! {"initial_dict = os_input.class_hash_to_compiled_class_hash"};
 pub fn initialize_class_hashes(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -359,9 +288,7 @@ pub fn initialize_class_hashes(
     Ok(())
 }
 
-/// Implements hint:
-///
-/// memory[ap] = to_felt_or_relocatable(segments.add())
+pub const SEGMENTS_ADD: &str = indoc! {"memory[ap] = to_felt_or_relocatable(segments.add())"};
 pub fn segments_add(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -373,9 +300,7 @@ pub fn segments_add(
     insert_value_into_ap(vm, segment)
 }
 
-/// Implements hint:
-///
-/// memory[ap] = to_felt_or_relocatable(segments.add_temp_segment())
+pub const SEGMENTS_ADD_TEMP: &str = indoc! {"memory[ap] = to_felt_or_relocatable(segments.add_temp_segment())"};
 pub fn segments_add_temp(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -387,9 +312,7 @@ pub fn segments_add_temp(
     insert_value_into_ap(vm, temp_segment)
 }
 
-/// Implements hint:
-///
-/// memory[ap] = to_felt_or_relocatable(len(os_input.transactions))
+pub const TRANSACTIONS_LEN: &str = indoc! {"memory[ap] = to_felt_or_relocatable(len(os_input.transactions))"};
 pub fn transactions_len(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -402,7 +325,11 @@ pub fn transactions_len(
     insert_value_into_ap(vm, os_input.transactions.len())
 }
 
-/// Implements hint:
+pub const ENTER_SYSCALL_SCOPES: &str = indoc! {
+"vm_enter_scope({\n    '__deprecated_class_hashes': __deprecated_class_hashes,\n    'transactions': \
+iter(os_input.transactions),\n    'execution_helper': execution_helper,\n    'deprecated_syscall_handler': \
+deprecated_syscall_handler,\n    'syscall_handler': syscall_handler,\n     '__dict_manager': __dict_manager,\n})"
+};
 pub fn enter_syscall_scopes(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -420,122 +347,6 @@ pub fn enter_syscall_scopes(
         (String::from("dict_manager"), dict_manager),
         (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
     ]));
-    Ok(())
-}
-
-/// Implements hint:
-///
-/// tx = next(transactions)
-/// tx_type_bytes = tx.tx_type.name.encode("ascii")
-/// ids.tx_type = int.from_bytes(tx_type_bytes, "big")
-pub fn load_next_tx(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>("transactions")?;
-    // Safe to unwrap because the remaining number of txs is checked in the cairo code.
-    let tx = transactions.next().unwrap();
-    exec_scopes.insert_value("transactions", transactions);
-    exec_scopes.insert_value("tx", tx.clone());
-    insert_value_from_var_name("tx_type", Felt252::from_bytes_be(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
-}
-
-/// Implements hint:
-///
-/// ids.contract_address_salt = tx.contract_address_salt
-/// ids.class_hash = tx.class_hash
-/// ids.constructor_calldata_size = len(tx.constructor_calldata)
-/// ids.constructor_calldata = segments.gen_arg(arg=tx.constructor_calldata)
-pub fn prepare_constructor_execution(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
-    insert_value_from_var_name(
-        "contract_address_salt",
-        tx.contract_address_salt.expect("`contract_address_salt` must be present"),
-        vm,
-        ids_data,
-        ap_tracking,
-    )?;
-    insert_value_from_var_name(
-        "class_hash",
-        // using `contract_hash` instead of `class_hash` as the that's how the
-        // input.json is structured
-        tx.contract_hash.expect("`contract_hash` must be present"),
-        vm,
-        ids_data,
-        ap_tracking,
-    )?;
-
-    let constructor_calldata_size = match &tx.constructor_calldata {
-        None => 0,
-        Some(calldata) => calldata.len(),
-    };
-    insert_value_from_var_name("constructor_calldata_size", constructor_calldata_size, vm, ids_data, ap_tracking)?;
-
-    let constructor_calldata = tx.constructor_calldata.unwrap_or_default().iter().map(|felt| felt.into()).collect();
-    let constructor_calldata_base = vm.add_memory_segment();
-    vm.load_data(constructor_calldata_base, &constructor_calldata)?;
-    insert_value_from_var_name("constructor_calldata", constructor_calldata_base, vm, ids_data, ap_tracking)
-}
-
-/// Implements hint:
-///
-/// memory[ap] = to_felt_or_relocatable(tx.version)
-pub fn transaction_version(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
-    insert_value_into_ap(vm, tx.version.expect("Transaction version should be set"))
-}
-
-/// Implements hint:
-///
-/// assert ids.transaction_hash == tx.hash_value, (
-/// "Computed transaction_hash is inconsistent with the hash in the transaction. "
-/// f"Computed hash = {ids.transaction_hash}, Expected hash = {tx.hash_value}.")
-pub fn assert_transaction_hash(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
-    let transaction_hash = get_integer_from_var_name("transaction_hash", vm, ids_data, ap_tracking)?.into_owned();
-
-    assert_eq!(
-        tx.hash_value, transaction_hash,
-        "Computed transaction_hash is inconsistent with the hash in the transaction. Computed hash = {}, Expected \
-         hash = {}.",
-        transaction_hash, tx.hash_value
-    );
-    Ok(())
-}
-
-/// Implements hint:
-///
-/// vm_enter_scope({'syscall_handler': deprecated_syscall_handler})
-pub fn enter_scope_syscall_handler(
-    vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
-    println!("jump dest {jump_dest:}");
     Ok(())
 }
 

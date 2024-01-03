@@ -3076,6 +3076,7 @@ dependencies = [
  "cairo-vm 0.9.1",
  "hex",
  "indexmap 1.9.3",
+ "indoc",
  "lazy_static",
  "log",
  "num-integer",

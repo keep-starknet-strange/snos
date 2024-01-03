@@ -15,13 +15,18 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use indoc::indoc;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use crate::io::classes::write_deprecated_class;
 use crate::io::input::StarknetOsInput;
 use crate::utils::felt_api2vm;
 
-/// Implements hint:
+pub const LOAD_CLASS_FACTS: &str = indoc! {
+"ids.compiled_class_facts = segments.add()\nids.n_compiled_class_facts = \
+len(os_input.compiled_classes)\nvm_enter_scope({\n    'compiled_class_facts': \
+iter(os_input.compiled_classes.items()),\n})"
+};
 pub fn load_class_facts(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -41,7 +46,12 @@ pub fn load_class_facts(
     Ok(())
 }
 
-/// Implements hint:
+pub const LOAD_DEPRECATED_CLASS_FACTS: &str = indoc! {
+"# Creates a set of deprecated class hashes to distinguish calls to deprecated entry \
+points.\n__deprecated_class_hashes=set(os_input.deprecated_compiled_classes.keys())\nids.compiled_class_facts = \
+segments.add()\nids.n_compiled_class_facts = len(os_input.deprecated_compiled_classes)\nvm_enter_scope({\n    \
+'compiled_class_facts': iter(os_input.deprecated_compiled_classes.items()),\n})"
+};
 pub fn load_deprecated_class_facts(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -68,17 +78,13 @@ pub fn load_deprecated_class_facts(
     Ok(())
 }
 
-/// Implements hint:
-///
-/// from starkware.starknet.core.os.contract_class.deprecated_class_hash import (
-/// get_deprecated_contract_class_struct,
-/// )
-///
-/// compiled_class_hash, compiled_class = next(compiled_class_facts)
-///
-/// cairo_contract = get_deprecated_contract_class_struct(
-/// identifiers=ids._context.identifiers, contract_class=compiled_class)
-/// ids.compiled_class = segments.gen_arg(cairo_contract)
+pub const LOAD_DEPRECATED_CLASS_INNER: &str = indoc! {
+"from starkware.starknet.core.os.contract_class.deprecated_class_hash import (\n    \
+get_deprecated_contract_class_struct,\n)\n\ncompiled_class_hash, compiled_class = \
+next(compiled_class_facts)\n\ncairo_contract = get_deprecated_contract_class_struct(\n    \
+identifiers=ids._context.identifiers, contract_class=compiled_class)\nids.compiled_class = \
+segments.gen_arg(cairo_contract)"
+};
 pub fn load_deprecated_inner(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -101,9 +107,8 @@ pub fn load_deprecated_inner(
     insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)
 }
 
-/// Implements hint:
-///
-/// memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_number)
+pub const DEPRECATED_BLOCK_NUMBER: &str =
+    indoc! {"memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_number)"};
 pub fn block_number(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -116,9 +121,8 @@ pub fn block_number(
     insert_value_into_ap(vm, Felt252::from(block_context.block_number.0))
 }
 
-/// Implements hint:
-///
-/// memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_timestamp)
+pub const DEPRECATED_BLOCK_TIMESTAMP: &str =
+    indoc! {"memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_timestamp)"};
 pub fn block_timestamp(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -130,9 +134,7 @@ pub fn block_timestamp(
     insert_value_into_ap(vm, Felt252::from(block_context.block_timestamp.0))
 }
 
-/// Implements hint:
-///
-/// memory[ap] = to_felt_or_relocatable(os_input.general_config.chain_id.value)
+pub const CHAIN_ID: &str = indoc! {"memory[ap] = to_felt_or_relocatable(os_input.general_config.chain_id.value)"};
 pub fn chain_id(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -146,9 +148,8 @@ pub fn chain_id(
     insert_value_into_ap(vm, chain_id)
 }
 
-/// Implements hint:
-///
-/// memory[ap] = to_felt_or_relocatable(os_input.general_config.fee_token_address)
+pub const FEE_TOKEN_ADDRESS: &str =
+    indoc! {"memory[ap] = to_felt_or_relocatable(os_input.general_config.fee_token_address)"};
 pub fn fee_token_address(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -160,9 +161,8 @@ pub fn fee_token_address(
     insert_value_into_ap(vm, felt_api2vm(*os_input.general_config.starknet_os_config.fee_token_address.0.key()))
 }
 
-/// Implements hint:
-///
-/// os_input.general_config.sequencer_address
+pub const SEQUENCER_ADDRESS: &str =
+    indoc! {"memory[ap] = to_felt_or_relocatable(os_input.general_config.sequencer_address)"};
 pub fn sequencer_address(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -178,7 +178,8 @@ pub fn sequencer_address(
     )
 }
 
-/// Implements hint:
+pub const GET_BLOCK_MAPPING: &str = indoc! {
+"ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[\n    ids.BLOCK_HASH_CONTRACT_ADDRESS\n]"};
 pub fn get_block_mapping(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
