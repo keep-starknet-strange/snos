@@ -61,7 +61,7 @@ impl SnOsRunner {
         // Setup Execution Helper
         cairo_runner.exec_scopes.insert_value("input_path", self.input_path.clone());
         cairo_runner.exec_scopes.insert_box(
-            "execution_infos",
+            "execution_helper",
             Box::new(ExecutionHelper::new(execution_infos, &shared_state.block_context)),
         );
         cairo_runner.exec_scopes.insert_box("block_context", Box::new(shared_state.block_context));
