@@ -59,14 +59,12 @@ pub fn write_deprecated_class(
     // TODO: comput actual class hash
     vm.insert_value(
         (class_base + 9)?,
-        Felt252::from_hex("1ba5aa88eff644fa696f90d9346993614a974afad2612bd0074e8f5884fd66d").unwrap(),
+        Felt252::from_hex("0x1ba5aa88eff644fa696f90d9346993614a974afad2612bd0074e8f5884fd66d").unwrap(),
     )?;
 
     let data: Vec<String> = serde_json::from_value(deprecated_class.program.data).unwrap();
-    let data: Vec<MaybeRelocatable> = data
-        .into_iter()
-        .map(|datum| MaybeRelocatable::from(Felt252::from_hex(datum.trim_start_matches("0x")).unwrap()))
-        .collect();
+    let data: Vec<MaybeRelocatable> =
+        data.into_iter().map(|datum| MaybeRelocatable::from(Felt252::from_hex(&datum).unwrap())).collect();
     vm.insert_value((class_base + 10)?, Felt252::from(data.len()))?;
     let data_base = vm.add_memory_segment();
     vm.load_data(data_base, &data)?;
