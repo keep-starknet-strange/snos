@@ -1,7 +1,7 @@
-use cairo_vm::felt::Felt252;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::BuiltinRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 
 use crate::error::SnOsError;
 use crate::utils::felt_vm2usize;
@@ -53,8 +53,8 @@ impl StarknetOsOutput {
         };
 
         // Get is input and check that everything is an integer.
-        let raw_output = vm
-            .get_range((output_base as isize, 0).into(), felt_vm2usize(Some(&(size_bound_up.clone() - output_base)))?);
+        let size = felt_vm2usize(Some(&(size_bound_up.clone() - Felt252::from(output_base))))?;
+        let raw_output = vm.get_range((output_base as isize, 0).into(), size);
         let raw_output: Vec<Felt252> = raw_output
             .iter()
             .map(|x| {

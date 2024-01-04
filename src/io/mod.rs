@@ -2,7 +2,7 @@ pub mod classes;
 pub mod input;
 pub mod output;
 
-use cairo_vm::felt::Felt252;
+use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 

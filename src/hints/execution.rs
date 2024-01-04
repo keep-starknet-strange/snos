@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use std::ops::AddAssign;
 use std::vec::IntoIter;
 
-use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
@@ -14,8 +13,9 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
-use num_traits::{One, Zero};
+use num_traits::Zero;
 
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
@@ -37,7 +37,7 @@ pub fn load_next_tx(
     let tx = transactions.next().unwrap();
     exec_scopes.insert_value("transactions", transactions);
     exec_scopes.insert_value("tx", tx.clone());
-    insert_value_from_var_name("tx_type", Felt252::from_bytes_be(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
+    insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
 }
 
 pub const PREPARE_CONSTRUCTOR_EXECUTION: &str = indoc! {r#"
@@ -239,13 +239,13 @@ pub fn select_builtin(
         && vm.get_maybe(&selected_encodings).unwrap() == vm.get_maybe(&all_encodings).unwrap();
     insert_value_from_var_name(
         "select_builtin",
-        if select_builtin { Felt252::one() } else { Felt252::zero() },
+        if select_builtin { Felt252::ONE } else { Felt252::ZERO },
         vm,
         ids_data,
         ap_tracking,
     )?;
     if select_builtin {
-        n_selected_builtins.add_assign(-Felt252::one());
+        n_selected_builtins.add_assign(-Felt252::ONE);
     }
 
     Ok(())
