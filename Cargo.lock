@@ -340,22 +340,24 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.3.0-rc0"
-source = "git+https://github.com/keep-starknet-strange/blockifier.git?branch=lucas/clone#0f17e6dd89827af4ade53ec3664acf9412e734ab"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d02e0f1f86ab509b53cc2dabc2918a0239c2920898527f4583c4466b1853e011"
 dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-secp256k1",
  "ark-secp256r1",
  "cached",
- "cairo-felt 0.8.7",
+ "cairo-felt 0.8.3",
  "cairo-lang-casm",
  "cairo-lang-runner",
  "cairo-lang-starknet",
- "cairo-vm 0.8.7",
+ "cairo-lang-utils",
+ "cairo-vm 0.8.3",
  "ctor",
  "derive_more",
- "indexmap 1.9.3",
+ "indexmap 2.1.0",
  "itertools 0.10.5",
  "keccak",
  "log",
@@ -456,9 +458,9 @@ checksum = "3a4f925191b4367301851c6d99b09890311d74b0d43f274c0b34c86d308a3663"
 
 [[package]]
 name = "cairo-felt"
-version = "0.8.7"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5972097b8800ca5dffb458040e74c724a2ac4fa4b5b480b50f5b96c7e67d6427"
+checksum = "9ce04b099042dc52ad1579cfa54aca08a1049b0026c4c62d0f64944621c05de2"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -681,7 +683,7 @@ dependencies = [
  "ark-secp256k1",
  "ark-secp256r1",
  "ark-std",
- "cairo-felt 0.8.7",
+ "cairo-felt 0.8.3",
  "cairo-lang-casm",
  "cairo-lang-sierra",
  "cairo-lang-sierra-ap-change",
@@ -689,7 +691,7 @@ dependencies = [
  "cairo-lang-sierra-type-size",
  "cairo-lang-starknet",
  "cairo-lang-utils",
- "cairo-vm 0.8.7",
+ "cairo-vm 0.8.3",
  "itertools 0.11.0",
  "keccak",
  "num-bigint",
@@ -807,7 +809,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc16661a7a78f885f6b5a4fdb3c7463d9ee3f6bca83266b4f2b956e65579ec72"
 dependencies = [
  "assert_matches",
- "cairo-felt 0.8.7",
+ "cairo-felt 0.8.3",
  "cairo-lang-casm",
  "cairo-lang-sierra",
  "cairo-lang-sierra-ap-change",
@@ -838,7 +840,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac5523d9c5b8e7c98afb2907c2cf4821a251d94fc42d37940063a9f2adbea05f"
 dependencies = [
  "anyhow",
- "cairo-felt 0.8.7",
+ "cairo-felt 0.8.3",
  "cairo-lang-casm",
  "cairo-lang-compiler",
  "cairo-lang-defs",
@@ -911,14 +913,14 @@ dependencies = [
 
 [[package]]
 name = "cairo-vm"
-version = "0.8.7"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00d9bf139b0fe845627cf09d11af43eec9575dba702033bf6b08050c776b8553"
+checksum = "1881cf12c80a09c0e04673e7830119f15796ad929aeb05ebb97e3bad626f75d3"
 dependencies = [
  "anyhow",
  "bincode",
  "bitvec",
- "cairo-felt 0.8.7",
+ "cairo-felt 0.8.3",
  "generic-array",
  "hashbrown 0.14.3",
  "hex",
@@ -3072,7 +3074,6 @@ dependencies = [
  "base64",
  "bitvec",
  "blockifier",
- "cairo-vm 0.8.7",
  "cairo-vm 0.9.1",
  "hex",
  "indexmap 1.9.3",
@@ -3217,18 +3218,21 @@ dependencies = [
 
 [[package]]
 name = "starknet_api"
-version = "0.5.0-rc1"
-source = "git+https://github.com/starkware-libs/starknet-api?rev=1526a40921762641a39872643c53305c3e959ab2#1526a40921762641a39872643c53305c3e959ab2"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f9d0c42ef835df4cb8fc0468825aa5ad2825da927a89d5346ec0ef74573f158"
 dependencies = [
  "cairo-lang-starknet",
  "derive_more",
  "hex",
- "indexmap 1.9.3",
+ "indexmap 2.1.0",
  "once_cell",
  "primitive-types",
  "serde",
  "serde_json",
  "starknet-crypto 0.5.2",
+ "strum",
+ "strum_macros",
  "thiserror",
 ]
 

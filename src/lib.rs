@@ -1,5 +1,6 @@
 pub mod config;
 pub mod error;
+pub mod execution;
 pub mod hints;
 pub mod io;
 pub mod sharp;
@@ -19,6 +20,7 @@ use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use config::StarknetGeneralConfig;
 use error::SnOsError;
+use execution::helper::ExecutionHelper;
 use io::output::StarknetOsOutput;
 use state::SharedState;
 
@@ -33,7 +35,7 @@ impl SnOsRunner {
     pub fn run(
         &self,
         shared_state: SharedState<impl StateReader>,
-        _execution_infos: Vec<TransactionExecutionInfo>,
+        execution_infos: Vec<TransactionExecutionInfo>,
     ) -> Result<CairoPie, SnOsError> {
         // Init CairoRunConfig
         let cairo_run_config = CairoRunConfig {
@@ -55,7 +57,13 @@ impl SnOsRunner {
         // Init the Cairo VM
         let mut vm = VirtualMachine::new(cairo_run_config.trace_enabled);
         let end = cairo_runner.initialize(&mut vm).map_err(|e| SnOsError::Runner(e.into()))?;
+
+        // Setup Execution Helper
         cairo_runner.exec_scopes.insert_value("input_path", self.input_path.clone());
+        cairo_runner.exec_scopes.insert_box(
+            "execution_infos",
+            Box::new(ExecutionHelper::new(execution_infos, &shared_state.block_context)),
+        );
         cairo_runner.exec_scopes.insert_box("block_context", Box::new(shared_state.block_context));
 
         // Run the Cairo VM

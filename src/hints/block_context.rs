@@ -111,7 +111,6 @@ pub fn load_deprecated_inner(
 
     let dep_class_base = vm.add_memory_segment();
     write_deprecated_class(vm, dep_class_base, deprecated_class)?;
-    println!("{dep_class_base:}");
 
     insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)
 }

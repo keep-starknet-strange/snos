@@ -1,12 +1,16 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Deref};
 use std::vec::IntoIter;
 
+use blockifier::block_context::BlockContext;
+use blockifier::execution::call_info::CallInfoIter;
+use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -17,6 +21,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use indoc::indoc;
 use num_traits::{One, Zero};
 
+use crate::execution::helper::ExecutionHelper;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 
@@ -97,8 +102,8 @@ pub fn transaction_version(
 
 pub const ASSERT_TRANSACTION_HASH: &str = indoc! {r#"
     assert ids.transaction_hash == tx.hash_value, (
-    "Computed transaction_hash is inconsistent with the hash in the transaction. "
-    f"Computed hash = {ids.transaction_hash}, Expected hash = {tx.hash_value}.")"#
+        "Computed transaction_hash is inconsistent with the hash in the transaction. "
+        f"Computed hash = {ids.transaction_hash}, Expected hash = {tx.hash_value}.")"#
 };
 pub fn assert_transaction_hash(
     vm: &mut VirtualMachine,
@@ -270,13 +275,37 @@ pub fn enter_syscall_scopes(
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
-    let dict_manager = Box::new(exec_scopes.get_dict_manager()?);
     let deprecated_class_hashes = Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
-
+    let execution_helper: Box<dyn Any> = Box::new(exec_scopes.get_mut_ref::<ExecutionHelper>("execution_helper")?);
+    // TODO: add syscall handlers
+    let dict_manager = Box::new(exec_scopes.get_dict_manager()?);
     exec_scopes.enter_scope(HashMap::from_iter([
         (String::from("transactions"), transactions),
         (String::from("dict_manager"), dict_manager),
+        (String::from("execution_helper"), execution_helper),
         (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
     ]));
+    Ok(())
+}
+
+pub const START_DEPLOY_TRANSACTION: &str = indoc! {r#"
+    execution_helper.start_tx(
+        tx_info_ptr=ids.constructor_execution_context.deprecated_tx_info.address_
+    )"#
+};
+pub fn start_deploy_transaction(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    print!("SCOPES: {:?}", exec_scopes);
+    let execution_helper = exec_scopes.get_mut_ref::<ExecutionHelper>("execution_helper").unwrap();
+    let constructor_execution_context =
+        get_relocatable_from_var_name("constructor_execution_context", vm, ids_data, ap_tracking)?;
+    let deprecated_tx_info_ptr = (constructor_execution_context + 5usize).unwrap();
+
+    execution_helper.start_tx(Some(deprecated_tx_info_ptr));
     Ok(())
 }

@@ -146,6 +146,7 @@ impl HintProcessorLogic for SnosSimpleHintProcessor {
             block_context::FEE_TOKEN_ADDRESS => block_context::fee_token_address,
             block_context::GET_BLOCK_MAPPING => block_context::get_block_mapping,
             execution::ENTER_SYSCALL_SCOPES => execution::enter_syscall_scopes,
+            execution::ENTER_SCOPE_SYSCALL_HANDLER => execution::enter_scope_syscall_handler,
             execution::GET_STATE_ENTRY => execution::get_state_entry,
             execution::CHECK_IS_DEPRECATED => execution::check_is_deprecated,
             execution::IS_DEPRECATED => execution::is_deprecated,
@@ -156,7 +157,7 @@ impl HintProcessorLogic for SnosSimpleHintProcessor {
             execution::PREPARE_CONSTRUCTOR_EXECUTION => execution::prepare_constructor_execution,
             execution::TRANSACTION_VERSION => execution::transaction_version,
             execution::ASSERT_TRANSACTION_HASH => execution::assert_transaction_hash,
-            execution::ENTER_SCOPE_SYSCALL_HANDLER => execution::enter_scope_syscall_handler,
+            execution::START_DEPLOY_TRANSACTION => execution::start_deploy_transaction,
             code => return Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
         };
         hint_func(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
@@ -243,7 +244,6 @@ pub fn check_deprecated_class_hash(
 
     let compiled_class_ptr = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
     let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 11)?)?;
-    println!("dep class byte_ptr: {byte_code_ptr:?}");
     let hint_extension = HashMap::from([(byte_code_ptr, deprecated_compiled_hints)]);
 
     Ok(hint_extension)

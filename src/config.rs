@@ -18,6 +18,7 @@ use crate::error::SnOsError;
 
 const DEFAULT_CONFIG_PATH: &str = "cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 
+pub const STORED_BLOCK_HASH_BUFFER: u64 = 10;
 pub const STARKNET_OS_CONFIG_HASH_VERSION: &str = "StarknetOsConfig1";
 pub const DEFAULT_LAYOUT: &str = "starknet_with_keccak";
 pub const DEFAULT_COMPILED_OS: &str = "build/os_latest.json";
