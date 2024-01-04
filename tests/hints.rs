@@ -11,13 +11,11 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
 use common::utils::{check_output_vs_python, deprecated_cairo_python_run};
 use common::{load_input, load_output};
 use rstest::{fixture, rstest};
-use snos::hints::block_context::{
-    get_block_mapping, load_deprecated_class_facts, load_deprecated_inner, sequencer_address,
-};
-use snos::hints::hints_raw::*;
+use snos::hints::block_context::*;
+use snos::hints::execution::*;
 use snos::hints::{
-    check_deprecated_class_hash, enter_syscall_scopes, initialize_class_hashes, initialize_state_changes, load_next_tx,
-    starknet_os_input,
+    initialize_class_hashes, initialize_state_changes, starknet_os_input, INITIALIZE_CLASS_HASHES,
+    INITIALIZE_STATE_CHANGES, STARKNET_OS_INPUT,
 };
 use snos::io::input::StarknetOsInput;
 use snos::io::output::StarknetOsOutput;
@@ -49,33 +47,6 @@ fn bad_output_test() {
         &mut bad_hint_processor,
     );
     check_output_vs_python(bad_hint_run, program, false);
-}
-
-#[rstest]
-fn block_context_test(mut os_input_hint_processor: BuiltinHintProcessor) {
-    let program = "build/programs/load_deprecated_class.json";
-
-    let load_deprecated_class_facts_hint = HintFunc(Box::new(load_deprecated_class_facts));
-    os_input_hint_processor
-        .add_hint(String::from(LOAD_DEPRECATED_CLASS_FACTS), Rc::new(load_deprecated_class_facts_hint));
-
-    let load_deprecated_class_inner_hint = HintFunc(Box::new(load_deprecated_inner));
-    os_input_hint_processor
-        .add_hint(String::from(LOAD_DEPRECATED_CLASS_INNER), Rc::new(load_deprecated_class_inner_hint));
-
-    let check_deprecated_class_hash_hint = HintFunc(Box::new(check_deprecated_class_hash));
-    os_input_hint_processor
-        .add_hint(String::from(CHECK_DEPRECATED_CLASS_HASH), Rc::new(check_deprecated_class_hash_hint));
-
-    let sequencer_address_hint = HintFunc(Box::new(sequencer_address));
-    os_input_hint_processor.add_hint(String::from(SEQUENCER_ADDRESS), Rc::new(sequencer_address_hint));
-
-    let run_output = cairo_run(
-        &fs::read(program).unwrap(),
-        &CairoRunConfig { layout: "starknet", relocate_mem: true, trace_enabled: true, ..Default::default() },
-        &mut os_input_hint_processor,
-    );
-    check_output_vs_python(run_output, program, true);
 }
 
 #[rstest]

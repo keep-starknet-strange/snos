@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::{serde_as, DeserializeAs, SerializeAs};
 use snos::config::StarknetGeneralConfig;

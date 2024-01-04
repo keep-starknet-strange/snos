@@ -1,4 +1,3 @@
-#![feature(exact_size_is_empty)]
 pub mod config;
 pub mod error;
 pub mod hints;
@@ -7,7 +6,6 @@ pub mod sharp;
 pub mod state;
 pub mod utils;
 
-use std::collections::HashMap;
 use std::fs;
 
 use blockifier::block_context::BlockContext;
@@ -24,10 +22,6 @@ use error::SnOsError;
 use io::output::StarknetOsOutput;
 use state::SharedState;
 
-use crate::io::execution_helper::OsExecutionHelper;
-use crate::state::storage::TrieStorage;
-use crate::state::trie::PedersenHash;
-
 pub struct SnOsRunner {
     layout: String,
     os_path: String,
@@ -39,7 +33,7 @@ impl SnOsRunner {
     pub fn run(
         &self,
         shared_state: SharedState<impl StateReader>,
-        execution_infos: Vec<TransactionExecutionInfo>,
+        _execution_infos: Vec<TransactionExecutionInfo>,
     ) -> Result<CairoPie, SnOsError> {
         // Init CairoRunConfig
         let cairo_run_config = CairoRunConfig {
@@ -61,16 +55,11 @@ impl SnOsRunner {
         // Init the Cairo VM
         let mut vm = VirtualMachine::new(cairo_run_config.trace_enabled);
         let end = cairo_runner.initialize(&mut vm).map_err(|e| SnOsError::Runner(e.into()))?;
-        let execution_helper =
-            OsExecutionHelper::<PedersenHash, TrieStorage>::new(execution_infos, HashMap::new(), None);
-        cairo_runner.exec_scopes.insert_value("execution_helper", execution_helper);
         cairo_runner.exec_scopes.insert_value("input_path", self.input_path.clone());
         cairo_runner.exec_scopes.insert_box("block_context", Box::new(shared_state.block_context));
-        // let execution_helper = OsExecutionHelper::<'a, PedersenHash, TrieStorage>::new(execution_infos,
-        // shared_state, )
 
         // Run the Cairo VM
-        let mut sn_hint_processor = hints::sn_hint_processor();
+        let mut sn_hint_processor = hints::SnosHintProcessor::default();
         cairo_runner
             .run_until_pc(end, &mut vm, &mut sn_hint_processor)
             .map_err(|err| VmException::from_vm_error(&cairo_runner, &vm, err))

@@ -1,4 +1,4 @@
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 
 #[derive(thiserror::Error, Debug)]
@@ -21,6 +21,8 @@ pub enum SnOsError {
     IO(#[from] std::io::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+    #[error("SnOs Deprecated Syscall Error: {0}")]
+    InvalidDeprecatedSyscallSelector(Felt252),
 }
 
 #[derive(thiserror::Error, Clone, Debug)]
