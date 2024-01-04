@@ -180,7 +180,7 @@ impl SerializeAs<Felt252> for Felt252HexNoPrefix {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&format!("0{}", value.to_hex_string().trim_start_matches("0x")))
+        serializer.serialize_str(&value.to_hex_string())
     }
 }
 
