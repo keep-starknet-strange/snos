@@ -276,6 +276,7 @@ pub fn enter_syscall_scopes(
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
     let deprecated_class_hashes = Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
+    // TODO: pass as RC(?)
     let execution_helper: Box<dyn Any> = Box::new(exec_scopes.get_mut_ref::<ExecutionHelper>("execution_helper")?);
     // TODO: add syscall handlers
     let dict_manager = Box::new(exec_scopes.get_dict_manager()?);
