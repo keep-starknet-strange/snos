@@ -206,7 +206,7 @@ pub fn get_block_mapping(
     //     return self.get_tracker(dict_ptr).data
     let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
         Dictionary::SimpleDictionary(dict) => {
-            dict.get(&MaybeRelocatable::Int(key.clone())).expect("State changes dictionnary shouldn't be None").clone()
+            dict.get(&MaybeRelocatable::Int(*key)).expect("State changes dictionnary shouldn't be None").clone()
         }
         Dictionary::DefaultDictionary { dict: _d, default_value: _v } => {
             panic!("State changes dict shouldn't be a default dict")
