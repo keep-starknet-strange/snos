@@ -136,7 +136,7 @@ impl<S: StateReader> SharedState<S> {
         for (addr, class_hash) in diff.address_to_class_hash.clone().into_iter() {
             match self.cache.get_compiled_contract_class(&class_hash).unwrap() {
                 ContractClass::V0(class_inner) => {
-                    deprecated_declared_classes.insert(class_hash, deprecated_class_vm2api(class_inner));
+                    deprecated_declared_classes.insert(class_hash, deprecated_class_vm2api(&class_inner));
                 }
                 ContractClass::V1(_) => todo!("handle v1"),
             }

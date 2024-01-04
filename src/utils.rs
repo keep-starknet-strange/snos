@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use bitvec::prelude::{BitSlice, BitVec, Msb0};
 use bitvec::view::BitView;
-use blockifier::execution::contract_class::ContractClassV0;
+use blockifier::execution::contract_class::ContractClassV0Inner;
 use cairo_vm::felt::{felt_str, Felt252};
-use cairo_vm_blockifier::types::program::Program;
 use lazy_static::lazy_static;
 use num_traits::Num;
 use regex::Regex;
@@ -72,31 +71,25 @@ pub fn felt_vm2usize(felt_op: Option<&Felt252>) -> Result<usize, SnOsError> {
     }
 }
 
-pub fn deprecated_class_vm2api(class: ContractClassV0) -> DeprecatedContractClass {
-    DeprecatedContractClass {
-        abi: None,
-        program: deprecated_program_vm2api(&class.program),
-        entry_points_by_type: class.entry_points_by_type.clone(),
-    }
-}
-
-pub fn deprecated_program_vm2api(program: &Program) -> DeprecatedProgram {
-    let builtins = program.iter_builtins().cloned().collect::<Vec<_>>();
-    let data = program.iter_data().cloned().collect::<Vec<_>>();
-    let identifiers: HashMap<_, _> = program
+pub fn deprecated_class_vm2api(class: &ContractClassV0Inner) -> DeprecatedContractClass {
+    let builtins = class.program.iter_builtins().cloned().collect::<Vec<_>>();
+    let data = class.program.iter_data().cloned().collect::<Vec<_>>();
+    let identifiers: HashMap<_, _> = class
+        .program
         .iter_identifiers()
         .map(|(cairo_type, identifier)| (cairo_type.to_string(), identifier.clone()))
         .collect();
 
-    // TODO: parse references
-    DeprecatedProgram {
+    let program = DeprecatedProgram {
         builtins: serde_json::to_value(builtins).unwrap(),
         compiler_version: serde_json::to_value(DEFAULT_COMPILER_VERSION).unwrap(),
         data: serde_json::to_value(data).unwrap(),
         identifiers: serde_json::to_value(identifiers).unwrap(),
-        prime: serde_json::to_value(program.prime()).unwrap(),
+        prime: serde_json::to_value(class.program.prime()).unwrap(),
         ..DeprecatedProgram::default()
-    }
+    };
+
+    DeprecatedContractClass { abi: None, program, entry_points_by_type: class.entry_points_by_type.clone() }
 }
 
 pub struct Felt252Str;
