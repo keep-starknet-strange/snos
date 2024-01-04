@@ -11,11 +11,11 @@ use blockifier::test_utils::{deploy_account_tx, invoke_tx, DictStateReader, Invo
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transactions::ExecutableTransaction;
-use cairo_vm::felt::felt_str;
 use cairo_vm::vm::runners::builtin_runner::{
     BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME, POSEIDON_BUILTIN_NAME,
     RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
 };
+use cairo_vm::Felt252;
 use rstest::fixture;
 use snos::config::{StarknetGeneralConfig, DEFAULT_FEE_TOKEN_ADDR};
 use snos::state::SharedState;
@@ -119,7 +119,7 @@ pub fn initial_state(
     let commitment = shared_state.apply_state();
 
     // expected root parsed from current os_test.py & test_utils.py(0.12.2)
-    assert_eq!(felt_str!(EXPECTED_PREV_ROOT, 16), commitment.updated_root);
+    assert_eq!(Felt252::from_hex(EXPECTED_PREV_ROOT).unwrap(), commitment.updated_root);
 
     shared_state
 }
