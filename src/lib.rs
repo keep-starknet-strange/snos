@@ -58,13 +58,15 @@ impl SnOsRunner {
         let mut vm = VirtualMachine::new(cairo_run_config.trace_enabled);
         let end = cairo_runner.initialize(&mut vm).map_err(|e| SnOsError::Runner(e.into()))?;
 
-        // Setup Execution Helper
+        // Setup Globals
         cairo_runner.exec_scopes.insert_value("input_path", self.input_path.clone());
+        cairo_runner.exec_scopes.insert_box("block_context", Box::new(shared_state.block_context));
+
+        // Setup Execution Helper
         cairo_runner.exec_scopes.insert_box(
             "execution_helper",
             Box::new(ExecutionHelper::new(execution_infos, &shared_state.block_context)),
         );
-        cairo_runner.exec_scopes.insert_box("block_context", Box::new(shared_state.block_context));
 
         // Run the Cairo VM
         let mut sn_hint_processor = hints::SnosHintProcessor::default();

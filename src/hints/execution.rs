@@ -256,7 +256,7 @@ pub fn select_builtin(
     Ok(())
 }
 
-// CHEATING HERE EXPLAIN IT
+// TODO(#66): fix syscall entry
 // DROP THE ADDED VARIABLES
 pub const ENTER_SYSCALL_SCOPES: &str = indoc! {r#"
     vm_enter_scope({

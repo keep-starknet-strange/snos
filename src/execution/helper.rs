@@ -119,7 +119,7 @@ impl ExecutionHelper {
     pub fn assert_iterators_exhausted(&self) {
         assert!(self.deployed_contracts_iter.clone().peekable().peek().is_some());
         // TODO: request call info structs be made Clonable
-        assert!(self.result_iter.peekable().peek().is_some());
+        // assert!(self.result_iter.peekable().peek().is_some());
         assert!(self.execute_code_read_iter.clone().peekable().peek().is_some());
     }
 }
