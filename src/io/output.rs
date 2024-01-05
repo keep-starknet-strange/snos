@@ -1,4 +1,4 @@
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::BuiltinRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;

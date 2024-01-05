@@ -22,3 +22,5 @@ starkware
 hints.py
 run_os.py
 run_bootloader.py
+prover
+prover.zip

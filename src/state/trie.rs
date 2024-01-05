@@ -1,5 +1,4 @@
 //! pathfinder/crates/merkle-tree
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::ControlFlow;
@@ -50,6 +49,12 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     pub fn new(root: u64) -> Self {
         let root = Some(Rc::new(RefCell::new(InternalNode::Unresolved(root))));
         Self { root, _hasher: std::marker::PhantomData, verify_hashes: false, leaves: Default::default() }
+    }
+
+    pub fn update<S>(&mut self)
+    where
+        S: Storage,
+    {
     }
 
     pub fn with_verify_hashes(mut self, verify_hashes: bool) -> Self {
@@ -179,21 +184,6 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
         let path = self.traverse(storage, &key)?;
 
         // There are three possibilities.
-        //
-        // 1. The leaf exists, in which case we simply change its value.
-        //
-        // 2. The tree is empty, we insert the new leaf and the root becomes an edge node connecting to it.
-        //
-        // 3. The leaf does not exist, and the tree is not empty. The final node in the traversal will be an
-        //    edge node who's path diverges from our new leaf node's.
-        //
-        //    This edge must be split into a new subtree containing both the existing edge's child and the
-        //    new leaf. This requires an edge followed by a binary node and then further edges to both the
-        //    current child and the new leaf. Any of these new edges may also end with an empty path in
-        //    which case they should be elided. It depends on the common path length of the current edge
-        //    and the new leaf i.e. the split may be at the first bit (in which case there is no leading
-        //    edge), or the split may be in the middle (requires both leading and post edges), or the
-        //    split may be the final bit (no post edge).
         use InternalNode::*;
         match path.last() {
             Some(node) => {
@@ -286,23 +276,8 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     }
 
     /// Deletes a leaf node from the tree.
-    ///
-    /// This is not an external facing API; the functionality is instead accessed by calling
-    /// [`Trie::set`] with value set to [`StarkFelt::ZERO`].
     fn delete_leaf(&mut self, storage: &impl Storage, key: &BitSlice<u8, Msb0>) -> anyhow::Result<()> {
         // Algorithm explanation:
-        //
-        // The leaf's parent node is either an edge, or a binary node.
-        // If it's an edge node, then it must also be deleted. And its parent
-        // must be a binary node. In either case we end up with a binary node
-        // who's one child is deleted. This changes the binary to an edge node.
-        //
-        // Note that its possible that there is no binary node -- if the resulting tree would be empty.
-        //
-        // This new edge node may need to merge with the old binary node's parent node
-        // and other remaining child node -- if they're also edges.
-        //
-        // Then we are done.
         let path = self.traverse(storage, key)?;
 
         // Do nothing if the leaf does not exist.
@@ -520,9 +495,6 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
     }
 
     /// Retrieves the requested node from storage.
-    ///
-    /// Result will be either a [Binary](InternalNode::Binary), [Edge](InternalNode::Edge) or
-    /// [Leaf](InternalNode::Leaf) node.
     fn resolve(&self, storage: &impl Storage, index: u64, height: usize) -> anyhow::Result<InternalNode> {
         anyhow::ensure!(
             height < HEIGHT,

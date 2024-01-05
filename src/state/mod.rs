@@ -8,7 +8,7 @@ use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::{CachedState, CommitmentStateDiff};
 use blockifier::state::state_api::{State, StateReader};
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use indexmap::{IndexMap, IndexSet};
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
