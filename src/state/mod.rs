@@ -9,7 +9,7 @@ use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::{CachedState, CommitmentStateDiff};
 use blockifier::state::state_api::{State, StateReader};
-use cairo_vm::felt::Felt252;
+use cairo_vm::Felt252;
 use indexmap::{IndexMap, IndexSet};
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
@@ -80,8 +80,8 @@ impl<S: StateReader> SharedState<S> {
         let updated_root = self.class_storage.commit_and_persist(class_hash_trie, stark_felt!(block_num.0));
 
         CommitmentInfo {
-            previous_root: Felt252::from_bytes_be(previous_root.0.bytes()),
-            updated_root: Felt252::from_bytes_be(updated_root.0.bytes()),
+            previous_root: Felt252::from_bytes_be_slice(previous_root.0.bytes()),
+            updated_root: Felt252::from_bytes_be_slice(updated_root.0.bytes()),
             tree_height: DEFAULT_STORAGE_TREE_HEIGHT,
             commitment_facts: HashMap::new(),
         }
@@ -121,8 +121,8 @@ impl<S: StateReader> SharedState<S> {
         self.increment_block();
 
         CommitmentInfo {
-            previous_root: Felt252::from_bytes_be(previous_root.0.bytes()),
-            updated_root: Felt252::from_bytes_be(updated_root.0.bytes()),
+            previous_root: Felt252::from_bytes_be_slice(previous_root.0.bytes()),
+            updated_root: Felt252::from_bytes_be_slice(updated_root.0.bytes()),
             tree_height: DEFAULT_STORAGE_TREE_HEIGHT,
             commitment_facts: HashMap::new(),
         }
@@ -137,7 +137,7 @@ impl<S: StateReader> SharedState<S> {
         for (addr, class_hash) in diff.address_to_class_hash.clone().into_iter() {
             match self.cache.get_compiled_contract_class(&class_hash).unwrap() {
                 ContractClass::V0(class_inner) => {
-                    deprecated_declared_classes.insert(class_hash, deprecated_class_vm2api(class_inner.deref()));
+                    deprecated_declared_classes.insert(class_hash, deprecated_class_vm2api(&class_inner));
                 }
                 ContractClass::V1(_) => todo!("handle v1"),
             }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::{fs, path};
 
-use cairo_vm::felt::Felt252;
+use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
