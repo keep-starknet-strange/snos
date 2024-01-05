@@ -157,7 +157,8 @@ impl HintProcessorLogic for SnosSimpleHintProcessor {
             execution::PREPARE_CONSTRUCTOR_EXECUTION => execution::prepare_constructor_execution,
             execution::TRANSACTION_VERSION => execution::transaction_version,
             execution::ASSERT_TRANSACTION_HASH => execution::assert_transaction_hash,
-            execution::START_DEPLOY_TRANSACTION => execution::start_deploy_transaction,
+            execution::START_DEPLOY_TX => execution::start_deploy_tx,
+            execution::ENTER_CALL => execution::enter_call,
             code => return Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
         };
         hint_func(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
