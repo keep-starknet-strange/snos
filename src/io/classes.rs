@@ -1,8 +1,7 @@
-use cairo_vm::felt::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use num_traits::Num;
+use cairo_vm::Felt252;
 use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, EntryPointType};
 
 use crate::utils::felt_api2vm;
@@ -50,7 +49,7 @@ pub fn write_deprecated_class(
 
     let builtins: Vec<String> = serde_json::from_value(deprecated_class.clone().program.builtins).unwrap();
     let builtins: Vec<MaybeRelocatable> =
-        builtins.into_iter().map(|bi| MaybeRelocatable::from(Felt252::from_bytes_be(bi.as_bytes()))).collect();
+        builtins.into_iter().map(|bi| MaybeRelocatable::from(Felt252::from_bytes_be_slice(bi.as_bytes()))).collect();
 
     vm.insert_value((class_base + 7)?, Felt252::from(builtins.len()))?;
     let builtins_base = vm.add_memory_segment();
@@ -60,14 +59,12 @@ pub fn write_deprecated_class(
     // TODO: comput actual class hash
     vm.insert_value(
         (class_base + 9)?,
-        Felt252::from_str_radix("1ba5aa88eff644fa696f90d9346993614a974afad2612bd0074e8f5884fd66d", 16).unwrap(),
+        Felt252::from_hex("0x1ba5aa88eff644fa696f90d9346993614a974afad2612bd0074e8f5884fd66d").unwrap(),
     )?;
 
     let data: Vec<String> = serde_json::from_value(deprecated_class.program.data).unwrap();
-    let data: Vec<MaybeRelocatable> = data
-        .into_iter()
-        .map(|datum| MaybeRelocatable::from(Felt252::from_str_radix(datum.trim_start_matches("0x"), 16).unwrap()))
-        .collect();
+    let data: Vec<MaybeRelocatable> =
+        data.into_iter().map(|datum| MaybeRelocatable::from(Felt252::from_hex(&datum).unwrap())).collect();
     vm.insert_value((class_base + 10)?, Felt252::from(data.len()))?;
     let data_base = vm.add_memory_segment();
     vm.load_data(data_base, &data)?;

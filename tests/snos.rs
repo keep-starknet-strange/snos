@@ -3,7 +3,7 @@ mod common;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_vm::felt::{felt_str, Felt252};
+use cairo_vm::Felt252;
 use common::defs::{
     EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_1_ADDREESS_0_12_2, TESTING_2_ADDREESS_0_12_2,
     TESTING_BLOCK_HASH, TESTING_DELEGATE_ADDREESS_0_12_2, TESTING_HASH_0_12_2,
@@ -87,9 +87,12 @@ fn validate_prepared_os_test(prepare_os_test: (SharedState<DictStateReader>, Vec
 
 #[rstest]
 fn parse_os_input(load_input: &StarknetOsInput) {
-    assert_eq!(felt_str!(TESTING_BLOCK_HASH, 16), load_input.block_hash);
-    assert_eq!(felt_str!(EXPECTED_PREV_ROOT, 16), load_input.contract_state_commitment_info.previous_root);
-    assert_eq!(felt_str!(EXPECTED_UPDATED_ROOT, 16), load_input.contract_state_commitment_info.updated_root);
+    assert_eq!(Felt252::from_hex(TESTING_BLOCK_HASH).unwrap(), load_input.block_hash);
+    assert_eq!(Felt252::from_hex(EXPECTED_PREV_ROOT).unwrap(), load_input.contract_state_commitment_info.previous_root);
+    assert_eq!(
+        Felt252::from_hex(EXPECTED_UPDATED_ROOT).unwrap(),
+        load_input.contract_state_commitment_info.updated_root
+    );
     assert!(!load_input.transactions.is_empty());
 }
 
