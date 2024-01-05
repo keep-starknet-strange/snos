@@ -20,10 +20,7 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
-use self::block_context::{
-    block_number, block_timestamp, chain_id, fee_token_address, get_block_mapping, load_class_facts,
-    load_deprecated_class_facts, load_deprecated_inner, sequencer_address,
-};
+use self::block_context::get_block_mapping;
 use self::execution::{
     check_is_deprecated, enter_call, get_state_entry, is_deprecated, os_context_segments, select_builtin,
     selected_builtins, start_execute_deploy_transaction,
@@ -36,53 +33,96 @@ use crate::io::InternalTransaction;
 use crate::state::storage::TrieStorage;
 use crate::state::trie::PedersenHash;
 
-type HintImpl = fn(
-    &mut VirtualMachine,
-    &mut ExecutionScopes,
-    &HashMap<String, HintReference>,
-    &ApTracking,
-    &HashMap<String, Felt252>,
-) -> Result<(), HintError>;
-
 pub fn sn_hint_processor() -> BuiltinHintProcessor {
-    let hints: Box<[(&str, HintImpl)]> = Box::new([
-        (ASSERT_TRANSACTION_HASH, assert_transaction_hash),
-        (CHAIN_ID, chain_id),
-        (CHECK_DEPRECATED_CLASS_HASH, check_deprecated_class_hash),
-        (CHECK_IS_DEPRECATED, check_is_deprecated),
-        (DEPRECATED_BLOCK_NUMBER, block_number),
-        (DEPRECATED_BLOCK_TIMESTAMP, block_timestamp),
-        (ENTER_CALL, enter_call),
-        (ENTER_SYSCALL_SCOPES, enter_syscall_scopes),
-        (FEE_TOKEN_ADDRESS, fee_token_address),
-        (GET_BLOCK_MAPPING, get_block_mapping),
-        (GET_STATE_ENTRY, get_state_entry),
-        (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
-        (INITIALIZE_STATE_CHANGES, initialize_state_changes),
-        (IS_DEPRECATED, is_deprecated),
-        (LOAD_CLASS_FACTS, load_class_facts),
-        (LOAD_DEPRECATED_CLASS_FACTS, load_deprecated_class_facts),
-        (LOAD_DEPRECATED_CLASS_INNER, load_deprecated_inner),
-        (LOAD_NEXT_TX, load_next_tx),
-        (OS_CONTEXT_SEGMENTS, os_context_segments),
-        (PREPARE_CONSTRUCTOR_EXECUTION, prepare_constructor_execution),
-        (SEGMENTS_ADD_TEMP, segments_add_temp),
-        (SEGMENTS_ADD, segments_add),
-        (SELECT_BUILTIN, select_builtin),
-        (SELECTED_BUILTINS, selected_builtins),
-        (SEQUENCER_ADDRESS, sequencer_address),
-        (STARKNET_OS_INPUT, starknet_os_input),
-        (START_DEPLOY_TX, start_execute_deploy_transaction),
-        (TRANSACTION_VERSION, transaction_version),
-        (TRANSACTIONS_LEN, transactions_len),
-    ]);
-
     let mut hint_processor = BuiltinHintProcessor::new_empty();
 
-    for (hint_name, hint_func) in hints.iter() {
-        let sn_hint = HintFunc(Box::new(*hint_func));
-        hint_processor.add_hint(String::from(*hint_name), Rc::new(sn_hint));
-    }
+    let sn_os_input = HintFunc(Box::new(starknet_os_input));
+    hint_processor.add_hint(String::from(hints_raw::STARKNET_OS_INPUT), Rc::new(sn_os_input));
+
+    let load_class_facts = HintFunc(Box::new(block_context::load_class_facts));
+    hint_processor.add_hint(String::from(hints_raw::LOAD_CLASS_FACTS), Rc::new(load_class_facts));
+
+    let load_deprecated_class_facts = HintFunc(Box::new(block_context::load_deprecated_class_facts));
+    hint_processor.add_hint(String::from(hints_raw::LOAD_DEPRECATED_CLASS_FACTS), Rc::new(load_deprecated_class_facts));
+
+    let load_deprecated_class_inner = HintFunc(Box::new(block_context::load_deprecated_inner));
+    hint_processor.add_hint(String::from(hints_raw::LOAD_DEPRECATED_CLASS_INNER), Rc::new(load_deprecated_class_inner));
+
+    let check_deprecated_class_hash_hint = HintFunc(Box::new(check_deprecated_class_hash));
+    hint_processor
+        .add_hint(String::from(hints_raw::CHECK_DEPRECATED_CLASS_HASH), Rc::new(check_deprecated_class_hash_hint));
+
+    let block_number_hint = HintFunc(Box::new(block_context::block_number));
+    hint_processor.add_hint(String::from(hints_raw::DEPRECATED_BLOCK_NUMBER), Rc::new(block_number_hint));
+
+    let block_timestamp_hint = HintFunc(Box::new(block_context::block_timestamp));
+    hint_processor.add_hint(String::from(hints_raw::DEPRECATED_BLOCK_TIMESTAMP), Rc::new(block_timestamp_hint));
+
+    let sequencer_address_hint = HintFunc(Box::new(block_context::sequencer_address));
+    hint_processor.add_hint(String::from(hints_raw::SEQUENCER_ADDRESS), Rc::new(sequencer_address_hint));
+
+    let chain_id_hint = HintFunc(Box::new(block_context::chain_id));
+    hint_processor.add_hint(String::from(hints_raw::CHAIN_ID), Rc::new(chain_id_hint));
+
+    let fee_token_address_hint = HintFunc(Box::new(block_context::fee_token_address));
+    hint_processor.add_hint(String::from(hints_raw::FEE_TOKEN_ADDRESS), Rc::new(fee_token_address_hint));
+
+    let initialize_state_changes_hint = HintFunc(Box::new(initialize_state_changes));
+    hint_processor.add_hint(String::from(hints_raw::INITIALIZE_STATE_CHANGES), Rc::new(initialize_state_changes_hint));
+
+    let initialize_class_hashes_hint = HintFunc(Box::new(initialize_class_hashes));
+    hint_processor.add_hint(String::from(hints_raw::INITIALIZE_CLASS_HASHES), Rc::new(initialize_class_hashes_hint));
+
+    let segments_add_hint = HintFunc(Box::new(segments_add));
+    hint_processor.add_hint(String::from(hints_raw::SEGMENTS_ADD), Rc::new(segments_add_hint));
+
+    let segments_add_temp_hint = HintFunc(Box::new(segments_add_temp));
+    hint_processor.add_hint(String::from(hints_raw::SEGMENTS_ADD_TEMP), Rc::new(segments_add_temp_hint));
+
+    let transactions_len_hint = HintFunc(Box::new(transactions_len));
+    hint_processor.add_hint(String::from(hints_raw::TRANSACTIONS_LEN), Rc::new(transactions_len_hint));
+
+    let enter_syscall_scopes_hint = HintFunc(Box::new(enter_syscall_scopes));
+    hint_processor.add_hint(String::from(hints_raw::ENTER_SYSCALL_SCOPES), Rc::new(enter_syscall_scopes_hint));
+
+    let load_next_tx_hint = HintFunc(Box::new(load_next_tx));
+    hint_processor.add_hint(String::from(LOAD_NEXT_TX), Rc::new(load_next_tx_hint));
+
+    let prepare_constructor_execution_hint = HintFunc(Box::new(prepare_constructor_execution));
+    hint_processor.add_hint(String::from(PREPARE_CONSTRUCTOR_EXECUTION), Rc::new(prepare_constructor_execution_hint));
+
+    let transaction_version_hint = HintFunc(Box::new(transaction_version));
+    hint_processor.add_hint(String::from(TRANSACTION_VERSION), Rc::new(transaction_version_hint));
+
+    let assert_transaction_hash_hint = HintFunc(Box::new(assert_transaction_hash));
+    hint_processor.add_hint(String::from(ASSERT_TRANSACTION_HASH), Rc::new(assert_transaction_hash_hint));
+
+    let get_block_mapping_hint = HintFunc(Box::new(get_block_mapping));
+    hint_processor.add_hint(String::from(GET_BLOCK_MAPPING), Rc::new(get_block_mapping_hint));
+
+    let start_execute_deploy_transaction_hint = HintFunc(Box::new(start_execute_deploy_transaction));
+    hint_processor.add_hint(String::from(START_DEPLOY_TX), Rc::new(start_execute_deploy_transaction_hint));
+
+    let get_state_entry_hint = HintFunc(Box::new(get_state_entry));
+    hint_processor.add_hint(String::from(GET_STATE_ENTRY), Rc::new(get_state_entry_hint));
+
+    let check_is_deprecated_hint = HintFunc(Box::new(check_is_deprecated));
+    hint_processor.add_hint(String::from(CHECK_IS_DEPRECATED), Rc::new(check_is_deprecated_hint));
+
+    let is_deprecated_hint = HintFunc(Box::new(is_deprecated));
+    hint_processor.add_hint(String::from(IS_DEPRECATED), Rc::new(is_deprecated_hint));
+
+    let os_context_segments_hint = HintFunc(Box::new(os_context_segments));
+    hint_processor.add_hint(String::from(OS_CONTEXT_SEGMENTS), Rc::new(os_context_segments_hint));
+
+    let selected_builtins_hint = HintFunc(Box::new(selected_builtins));
+    hint_processor.add_hint(String::from(SELECTED_BUILTINS), Rc::new(selected_builtins_hint));
+
+    let select_builtin_hint = HintFunc(Box::new(select_builtin));
+    hint_processor.add_hint(String::from(SELECT_BUILTIN), Rc::new(select_builtin_hint));
+
+    let enter_call_hint = HintFunc(Box::new(enter_call));
+    hint_processor.add_hint(String::from(ENTER_CALL), Rc::new(enter_call_hint));
 
     hint_processor
 }
