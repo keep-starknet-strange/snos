@@ -148,7 +148,7 @@ impl HintProcessorLogic for SnosHintProcessor<'_> {
         }
         // First attempt to execute with builtin hint processor
         let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
-        let hint_code = &*hint_data.code.as_str();
+        let hint_code = hint_data.code.as_str();
         if let Some(hint_impl) = self.hints.get(hint_code) {
             return hint_impl(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
                 .map(|_| HintExtension::default());
