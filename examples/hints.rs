@@ -5,7 +5,7 @@ use std::io::BufReader;
 use blockifier::execution::hint_code;
 use serde::Deserialize;
 use serde_json::Value;
-use snos::hints::sn_hint_processor;
+use snos::hints::SnosHintProcessor;
 
 const WHITELISTS_PATH: &str = "cairo-lang/src/starkware/starknet/security/whitelists";
 
@@ -53,7 +53,7 @@ fn main() -> std::io::Result<()> {
 
     let whitelisted_hints =
         whitelists.into_iter().flatten().map(|ahe| ahe.hint_lines.join("\n")).collect::<HashSet<_>>();
-    let snos_hints = sn_hint_processor().extra_hints.keys().cloned().collect::<HashSet<_>>();
+    let snos_hints = SnosHintProcessor::default().hints().iter().map(|h| h.to_string()).collect::<HashSet<_>>();
     // let implemented_hints = whitelisted_hints.union(&snos_hints).collect::<HashSet<_>>();
 
     let mut result = HashSet::new();
