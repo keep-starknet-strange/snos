@@ -61,6 +61,7 @@ jobs:
       - run: rustup toolchain install nightly
       - run: rustup component add rustfmt --toolchain nightly
       - uses: Swatinem/rust-cache@v2
+      - run: git submodule update --init
       - run: cargo run --quiet --example hints orphans | jq .
       - run: cargo run --quiet --example hints orphans | jq -e 'if length == 0 then . else empty end'
 
