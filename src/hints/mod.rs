@@ -73,9 +73,7 @@ type ExtensiveHintImpl = fn(
     &ApTracking,
 ) -> Result<HintExtension, HintError>;
 
-static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 1] = [
-    (CHECK_DEPRECATED_CLASS_HASH, check_deprecated_class_hash)
-];
+static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 1] = [(CHECK_DEPRECATED_CLASS_HASH, check_deprecated_class_hash)];
 
 pub struct SnosHintProcessor<'a> {
     builtin_hint_proc: BuiltinHintProcessor,
@@ -108,15 +106,20 @@ impl Default for SnosHintProcessor<'_> {
             builtin_hint_proc: BuiltinHintProcessor::new_empty(),
             hints: HashMap::from(HINTS),
             extensive_hints: HashMap::from(EXTENSIVE_HINTS),
-            run_resources: Default::default()
+            run_resources: Default::default(),
         }
     }
 }
 
 impl SnosHintProcessor<'_> {
     pub fn hints(&self) -> HashSet<&str> {
-        self.hints.keys().cloned().collect::<HashSet<_>>()
-            .union(&self.extensive_hints.keys().cloned().collect::<HashSet<_>>()).cloned().collect::<HashSet<_>>()
+        self.hints
+            .keys()
+            .cloned()
+            .collect::<HashSet<_>>()
+            .union(&self.extensive_hints.keys().cloned().collect::<HashSet<_>>())
+            .cloned()
+            .collect::<HashSet<_>>()
     }
 }
 
@@ -139,21 +142,20 @@ impl HintProcessorLogic for SnosHintProcessor<'_> {
         hint_data: &Box<dyn core::any::Any>,
         constants: &HashMap<String, Felt252>,
     ) -> Result<HintExtension, HintError> {
-
         match self.builtin_hint_proc.execute_hint(vm, exec_scopes, hint_data, constants) {
             Err(HintError::UnknownHint(_)) => {}
-            res => return res.map(|_| HintExtension::default())
+            res => return res.map(|_| HintExtension::default()),
         }
         // First attempt to execute with builtin hint processor
         let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         let hint_code = &*hint_data.code.as_str();
         if let Some(hint_impl) = self.hints.get(hint_code) {
-            return hint_impl(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants).map(|_| HintExtension::default());
+            return hint_impl(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+                .map(|_| HintExtension::default());
         }
 
         match self.extensive_hints.get(hint_code) {
-            Some(hint_impl) =>
-                hint_impl(self, vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking),
+            Some(hint_impl) => hint_impl(self, vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking),
             None => Err(HintError::UnknownHint(hint_code.to_string().into_boxed_str())),
         }
     }
@@ -352,4 +354,3 @@ pub fn breakpoint(
     println!("add {add:}");
     Ok(())
 }
-

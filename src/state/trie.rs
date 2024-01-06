@@ -343,7 +343,11 @@ impl<H: StarkHasher, const HEIGHT: usize> MerkleTrie<H, HEIGHT> {
         };
 
         if *node.borrow() == InternalNode::Leaf {
-            if let Some(value) = self.leaves.get(&key) { Ok(Some(*value)) } else { storage.leaf(&key) }
+            if let Some(value) = self.leaves.get(&key) {
+                Ok(Some(*value))
+            } else {
+                storage.leaf(&key)
+            }
         } else {
             Ok(None)
         }
