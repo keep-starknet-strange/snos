@@ -52,3 +52,15 @@ jobs:
           cache-on-failure: true
       - run: cargo install cargo-udeps --locked
       - run: cargo +nightly udeps --all-targets
+
+  orphans:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: rustup show
+      - run: rustup toolchain install nightly
+      - run: rustup component add rustfmt --toolchain nightly
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo run --quiet --example hints orphans | jq .
+      - run: cargo run --quiet --example hints orphans | jq -e 'if length == 0 then . else empty end'
+

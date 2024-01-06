@@ -163,9 +163,7 @@ impl HintProcessorLogic for SnosHintProcessor<'_> {
 
 pub const STARKNET_OS_INPUT: &str = indoc! {r#"
     from starkware.starknet.core.os.os_input import StarknetOsInput
-
     os_input = StarknetOsInput.load(data=program_input)
-
     ids.initial_carried_outputs.messages_to_l1 = segments.add_temp_segment()
     ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()"#
 };
