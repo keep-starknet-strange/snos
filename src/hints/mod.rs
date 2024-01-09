@@ -75,14 +75,14 @@ type ExtensiveHintImpl = fn(
 
 static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 1] = [(CHECK_DEPRECATED_CLASS_HASH, check_deprecated_class_hash)];
 
-pub struct SnosHintProcessor<'a> {
+pub struct SnosHintProcessor {
     builtin_hint_proc: BuiltinHintProcessor,
-    hints: HashMap<&'a str, HintImpl>,
-    extensive_hints: HashMap<&'a str, ExtensiveHintImpl>,
+    hints: HashMap<String, HintImpl>,
+    extensive_hints: HashMap<String, ExtensiveHintImpl>,
     run_resources: RunResources,
 }
 
-impl ResourceTracker for SnosHintProcessor<'_> {
+impl ResourceTracker for SnosHintProcessor {
     fn consumed(&self) -> bool {
         self.run_resources.consumed()
     }
@@ -100,19 +100,53 @@ impl ResourceTracker for SnosHintProcessor<'_> {
     }
 }
 
-impl Default for SnosHintProcessor<'_> {
+
+// value of type
+//     `HashMap<std::string::String,
+//     for<'a, 'b, 'c, 'd, 'e> fn(
+//         &'a (dyn cairo_vm::hint_processor::hint_processor_definition::HintProcessor + 'a),
+//         &'b mut cairo_vm::vm::vm_core::VirtualMachine,
+//         &'c mut cairo_vm::types::exec_scope::ExecutionScopes,
+//         &'d HashMap<std::string::String, cairo_vm::hint_processor::hint_processor_definition::HintReference>,
+//         &'e cairo_vm::serde::deserialize_program::ApTracking
+//     ) -> Result<
+//         HashMap<cairo_vm::types::relocatable::Relocatable, Vec<Box<dyn Any>>>,
+//         cairo_vm::vm::errors::hint_errors::HintError
+//     >>
+// ` cannot be built from `
+//     std::iter::Iterator<
+//         Item=(
+//             std::string::String,
+//             &for<'a, 'b, 'c, 'd, 'e> fn(
+//                 &'a (dyn cairo_vm::hint_processor::hint_processor_definition::HintProcessor + 'a),
+//                 &'b mut cairo_vm::vm::vm_core::VirtualMachine,
+//                 &'c mut cairo_vm::types::exec_scope::ExecutionScopes,
+//                 &'d HashMap<std::string::String, cairo_vm::hint_processor::hint_processor_definition::HintReference>,
+//                 &'e cairo_vm::serde::deserialize_program::ApTracking
+//             ) -> Result<
+//                 HashMap<cairo_vm::types::relocatable::Relocatable, Vec<Box<dyn Any>>>,
+//                 cairo_vm::vm::errors::hint_errors::HintError
+//             >
+//         )
+//     >`
+
+
+
+impl Default for SnosHintProcessor {
     fn default() -> Self {
+        let hints = HINTS.iter().map(|(h, i)| (h.to_string(), i)).collect();
+        let extensive_hints = EXTENSIVE_HINTS.iter().map(|(h, i)| (h, i)).collect();
         Self {
             builtin_hint_proc: BuiltinHintProcessor::new_empty(),
-            hints: HashMap::from(HINTS),
-            extensive_hints: HashMap::from(EXTENSIVE_HINTS),
+            hints,
+            extensive_hints,
             run_resources: Default::default(),
         }
     }
 }
 
-impl SnosHintProcessor<'_> {
-    pub fn hints(&self) -> HashSet<&str> {
+impl SnosHintProcessor {
+    pub fn hints(&self) -> HashSet<String> {
         self.hints
             .keys()
             .cloned()
@@ -123,7 +157,7 @@ impl SnosHintProcessor<'_> {
     }
 }
 
-impl HintProcessorLogic for SnosHintProcessor<'_> {
+impl HintProcessorLogic for SnosHintProcessor {
     // stub for trait impl
     fn execute_hint(
         &mut self,

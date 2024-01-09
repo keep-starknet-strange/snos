@@ -53,7 +53,7 @@ fn main() -> std::io::Result<()> {
 
     let whitelisted_hints =
         whitelists.into_iter().flatten().map(|ahe| ahe.hint_lines.join("\n")).collect::<HashSet<_>>();
-    let snos_hints = SnosHintProcessor::default().hints().iter().map(|h| h.to_string()).collect::<HashSet<_>>();
+    let snos_hints = SnosHintProcessor::default().hints().iter().collect::<HashSet<_>>();
     // let implemented_hints = whitelisted_hints.union(&snos_hints).collect::<HashSet<_>>();
 
     let mut result = HashSet::new();
