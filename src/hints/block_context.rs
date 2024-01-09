@@ -125,7 +125,7 @@ pub fn block_number(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // TODO: replace w/ block context from syscall handler
-    let block_context = exec_scopes.get::<BlockContext>("block_context")?;
+    let block_context = exec_scopes.get_ref::<BlockContext>("block_context")?;
     insert_value_into_ap(vm, Felt252::from(block_context.block_number.0))
 }
 
@@ -138,7 +138,7 @@ pub fn block_timestamp(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let block_context = exec_scopes.get::<BlockContext>("block_context")?;
+    let block_context = exec_scopes.get_ref::<BlockContext>("block_context")?;
     insert_value_into_ap(vm, Felt252::from(block_context.block_timestamp.0))
 }
 

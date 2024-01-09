@@ -71,7 +71,7 @@ pub fn raw_deploy(
     class_hash: ClassHash,
 ) -> ContractAddress {
     let contract_class = load_class_v0(class_path);
-    shared_state.cache.set_contract_class(&class_hash, contract_class).unwrap();
+    shared_state.cache.set_contract_class(class_hash, contract_class).unwrap();
 
     let contract_addr =
         calculate_contract_address(ContractAddressSalt::default(), class_hash, &calldata![], contract_address!(0_u32))

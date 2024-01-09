@@ -1,11 +1,8 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
-use std::ops::{AddAssign, Deref};
+use std::ops::AddAssign;
 use std::vec::IntoIter;
 
-use blockifier::block_context::BlockContext;
-use blockifier::execution::call_info::CallInfoIter;
-use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
@@ -21,7 +18,7 @@ use cairo_vm::Felt252;
 use indoc::indoc;
 use num_traits::Zero;
 
-use crate::execution::helper::ExecutionHelper;
+use crate::execution::helper::ExecutionHelperManager;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 
@@ -301,8 +298,8 @@ pub fn start_deploy_tx(
         get_relocatable_from_var_name("constructor_execution_context", vm, ids_data, ap_tracking)?;
     let deprecated_tx_info_ptr = (constructor_execution_context + 5usize).unwrap();
 
-    let eh = exec_scopes.get_mut_ref::<ExecutionHelper>("execution_helper").unwrap();
-    eh.start_tx(Some(deprecated_tx_info_ptr));
+    let execution_helper = exec_scopes.get::<ExecutionHelperManager>("execution_helper").unwrap();
+    execution_helper.start_tx(Some(deprecated_tx_info_ptr));
     Ok(())
 }
 
@@ -320,20 +317,20 @@ pub fn enter_call(
     let execution_info_ptr =
         vm.get_relocatable((get_ptr_from_var_name("execution_context", vm, ids_data, ap_tracking)? + 4i32).unwrap())?;
 
-    let eh = exec_scopes.get_mut_ref::<ExecutionHelper>("execution_helper")?;
-    eh.enter_call(Some(execution_info_ptr));
+    let execution_helper = exec_scopes.get::<ExecutionHelperManager>("execution_helper")?;
+    execution_helper.enter_call(Some(execution_info_ptr));
     Ok(())
 }
 
 pub const END_TX: &str = "execution_helper.end_tx()";
 pub fn end_tx(
-    vm: &mut VirtualMachine,
+    _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let eh = exec_scopes.get_mut_ref::<ExecutionHelper>("execution_helper")?;
-    eh.end_tx();
+    let execution_helper = exec_scopes.get::<ExecutionHelperManager>("execution_helper")?;
+    execution_helper.end_tx();
     Ok(())
 }

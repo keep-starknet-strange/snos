@@ -20,7 +20,7 @@ use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use config::StarknetGeneralConfig;
 use error::SnOsError;
-use execution::helper::ExecutionHelper;
+use execution::helper::ExecutionHelperManager;
 use io::output::StarknetOsOutput;
 use state::SharedState;
 
@@ -58,15 +58,15 @@ impl SnOsRunner {
         let mut vm = VirtualMachine::new(cairo_run_config.trace_enabled);
         let end = cairo_runner.initialize(&mut vm).map_err(|e| SnOsError::Runner(e.into()))?;
 
+        // Setup Execution Helper
+        cairo_runner.exec_scopes.insert_value(
+            "execution_helper",
+            ExecutionHelperManager::new(execution_infos, &shared_state.block_context),
+        );
+
         // Setup Globals
         cairo_runner.exec_scopes.insert_value("input_path", self.input_path.clone());
         cairo_runner.exec_scopes.insert_box("block_context", Box::new(shared_state.block_context));
-
-        // Setup Execution Helper
-        cairo_runner.exec_scopes.insert_box(
-            "execution_helper",
-            Box::new(ExecutionHelper::new(execution_infos, &shared_state.block_context)),
-        );
 
         // Run the Cairo VM
         let mut sn_hint_processor = hints::SnosHintProcessor::default();

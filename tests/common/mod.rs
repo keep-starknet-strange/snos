@@ -6,7 +6,7 @@ pub mod utils;
 use std::fs;
 
 use blockifier::state::state_api::State;
-use blockifier::test_utils::DictStateReader;
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;

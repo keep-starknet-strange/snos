@@ -1,7 +1,7 @@
 mod common;
 
 use blockifier::state::state_api::State;
-use blockifier::test_utils::DictStateReader;
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use common::defs::{
