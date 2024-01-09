@@ -54,7 +54,7 @@ impl ExecutionHelperManager {
         }
     }
     pub fn start_tx(&self, tx_info_ptr: Option<Relocatable>) {
-        println!("Started");
+        println!("start tx...");
         let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
         assert!(eh_ref.tx_info_ptr.is_none());
         eh_ref.tx_info_ptr = tx_info_ptr;
@@ -63,7 +63,7 @@ impl ExecutionHelperManager {
         eh_ref.call_iter = eh_ref.tx_execution_info.as_ref().unwrap().gen_call_iterator();
     }
     pub fn end_tx(&self) {
-        println!("Ended");
+        println!("end tx...");
         let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
         assert!(eh_ref.call_iter.clone().peekable().peek().is_none());
         eh_ref.tx_info_ptr = None;
@@ -75,7 +75,7 @@ impl ExecutionHelperManager {
         self.end_tx()
     }
     pub fn enter_call(&self, execution_info_ptr: Option<Relocatable>) {
-        println!("Entered");
+        println!("entered call...");
         let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
         assert!(eh_ref.call_execution_info_ptr.is_none());
         eh_ref.call_execution_info_ptr = execution_info_ptr;
@@ -122,6 +122,7 @@ impl ExecutionHelperManager {
         eh_ref.call_info = Some(call_info);
     }
     pub fn exit_call(&mut self) {
+        println!("exit call...");
         let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
         eh_ref.call_execution_info_ptr = None;
         assert_iterators_exhausted(&eh_ref);
@@ -129,6 +130,7 @@ impl ExecutionHelperManager {
         eh_ref.call_info = None;
     }
     pub fn skip_call(&mut self) {
+        println!("skip call...");
         self.enter_call(None);
         self.exit_call();
     }

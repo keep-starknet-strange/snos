@@ -272,13 +272,18 @@ pub fn enter_syscall_scopes(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // TODO: double check that `__deprecated_class_hash is okay to use`
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
-    exec_scopes.insert_value("transactions", os_input.transactions.into_iter());
-    // execution_helper already in global scope
-    // TODO: add syscall handlers
-    // TODO: check that this dict manager is empty and clean to use
-    exec_scopes.insert_value("__dict_manager", exec_scopes.get_dict_manager()?);
+    let deprecated_class_hashes: Box<dyn Any> =
+        Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
+    let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
+    let execution_helper: Box<dyn Any> = Box::new(exec_scopes.get::<ExecutionHelperManager>("execution_helper")?);
+    let dict_manager: Box<dyn Any> = Box::new(exec_scopes.get_dict_manager()?);
+    exec_scopes.enter_scope(HashMap::from_iter([
+        (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
+        (String::from("transactions"), transactions),
+        (String::from("execution_helper"), execution_helper),
+        (String::from("dict_manager"), dict_manager),
+    ]));
     Ok(())
 }
 
