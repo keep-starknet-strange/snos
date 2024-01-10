@@ -53,7 +53,7 @@ fn main() -> std::io::Result<()> {
 
     let whitelisted_hints =
         whitelists.into_iter().flatten().map(|ahe| ahe.hint_lines.join("\n")).collect::<HashSet<_>>();
-    let snos_hints = SnosHintProcessor::default().hints().iter().collect::<HashSet<_>>();
+    let snos_hints = SnosHintProcessor::default().hints();
     // let implemented_hints = whitelisted_hints.union(&snos_hints).collect::<HashSet<_>>();
 
     let mut result = HashSet::new();
@@ -61,7 +61,7 @@ fn main() -> std::io::Result<()> {
     let os: Os = serde_json::from_reader(BufReader::new(File::open("build/os_latest.json")?))
         .expect("Failed to parse os_latest.json");
     let os_hints = os.hints.into_values().flatten().map(|h| h.code.to_string()).collect::<HashSet<_>>();
-    let syscall_hints = hint_code::SYSCALL_HINTS.iter().map(|h| (**h).to_string()).collect::<HashSet<_>>();
+    let syscall_hints = hint_code::SYSCALL_HINTS.into_iter().map(|h| h.to_string()).collect::<HashSet<_>>();
 
     let externally_implemented = |code| whitelisted_hints.contains(code) && !syscall_hints.contains(code);
 

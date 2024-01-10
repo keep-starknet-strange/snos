@@ -100,42 +100,10 @@ impl ResourceTracker for SnosHintProcessor {
     }
 }
 
-
-// value of type
-//     `HashMap<std::string::String,
-//     for<'a, 'b, 'c, 'd, 'e> fn(
-//         &'a (dyn cairo_vm::hint_processor::hint_processor_definition::HintProcessor + 'a),
-//         &'b mut cairo_vm::vm::vm_core::VirtualMachine,
-//         &'c mut cairo_vm::types::exec_scope::ExecutionScopes,
-//         &'d HashMap<std::string::String, cairo_vm::hint_processor::hint_processor_definition::HintReference>,
-//         &'e cairo_vm::serde::deserialize_program::ApTracking
-//     ) -> Result<
-//         HashMap<cairo_vm::types::relocatable::Relocatable, Vec<Box<dyn Any>>>,
-//         cairo_vm::vm::errors::hint_errors::HintError
-//     >>
-// ` cannot be built from `
-//     std::iter::Iterator<
-//         Item=(
-//             std::string::String,
-//             &for<'a, 'b, 'c, 'd, 'e> fn(
-//                 &'a (dyn cairo_vm::hint_processor::hint_processor_definition::HintProcessor + 'a),
-//                 &'b mut cairo_vm::vm::vm_core::VirtualMachine,
-//                 &'c mut cairo_vm::types::exec_scope::ExecutionScopes,
-//                 &'d HashMap<std::string::String, cairo_vm::hint_processor::hint_processor_definition::HintReference>,
-//                 &'e cairo_vm::serde::deserialize_program::ApTracking
-//             ) -> Result<
-//                 HashMap<cairo_vm::types::relocatable::Relocatable, Vec<Box<dyn Any>>>,
-//                 cairo_vm::vm::errors::hint_errors::HintError
-//             >
-//         )
-//     >`
-
-
-
 impl Default for SnosHintProcessor {
     fn default() -> Self {
-        let hints = HINTS.iter().map(|(h, i)| (h.to_string(), i)).collect();
-        let extensive_hints = EXTENSIVE_HINTS.iter().map(|(h, i)| (h, i)).collect();
+        let hints = HINTS.into_iter().map(|(h, i)| (h.to_string(), i)).collect();
+        let extensive_hints = EXTENSIVE_HINTS.into_iter().map(|(h, i)| (h.to_string(), i)).collect();
         Self {
             builtin_hint_proc: BuiltinHintProcessor::new_empty(),
             hints,
