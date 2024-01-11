@@ -97,8 +97,8 @@ pub fn transaction_version(
 
 pub const ASSERT_TRANSACTION_HASH: &str = indoc! {r#"
     assert ids.transaction_hash == tx.hash_value, (
-    "Computed transaction_hash is inconsistent with the hash in the transaction. "
-    f"Computed hash = {ids.transaction_hash}, Expected hash = {tx.hash_value}.")"#
+        "Computed transaction_hash is inconsistent with the hash in the transaction. "
+        f"Computed hash = {ids.transaction_hash}, Expected hash = {tx.hash_value}.")"#
 };
 pub fn assert_transaction_hash(
     vm: &mut VirtualMachine,
