@@ -8,8 +8,8 @@ use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
 };
-use cairo_vm::hint_processor::hint_processor_definition::HintReference;
-use cairo_vm::serde::deserialize_program::ApTracking;
+use cairo_vm::hint_processor::hint_processor_definition::{HintExtension, HintProcessor, HintReference};
+use cairo_vm::serde::deserialize_program::{ApTracking, HintParams, ReferenceManager};
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -94,7 +94,7 @@ pub const LOAD_DEPRECATED_CLASS_INNER: &str = indoc! {r#"
         identifiers=ids._context.identifiers, contract_class=compiled_class)
     ids.compiled_class = segments.gen_arg(cairo_contract)"#
 };
-pub fn load_deprecated_inner(
+pub fn load_deprecated_class_inner(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -113,6 +113,57 @@ pub fn load_deprecated_inner(
     write_deprecated_class(vm, dep_class_base, deprecated_class)?;
 
     insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)
+}
+
+pub const LOAD_DEPRECATED_CLASS: &str = indoc! {r#"
+    from starkware.python.utils import from_bytes
+
+    computed_hash = ids.compiled_class_fact.hash
+    expected_hash = compiled_class_hash
+    assert computed_hash == expected_hash, (
+        "Computed compiled_class_hash is inconsistent with the hash in the os_input. "
+        f"Computed hash = {computed_hash}, Expected hash = {expected_hash}.")
+
+    vm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)"#
+};
+pub fn load_deprecated_class(
+    hint_processor: &dyn HintProcessor,
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+) -> Result<HintExtension, HintError> {
+    // TODO(#61): fix comp class hash
+    // let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data,
+    // ap_tracking)?; let computed_hash = vm.get_integer(computed_hash_addr)?;
+    // let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
+    // if computed_hash.as_ref() != &expected_hash {
+    //     return Err(HintError::AssertionFailed(
+    //         format!("Compiled_class_hash mismatch comp={computed_hash}
+    // exp={expected_hash}").into_boxed_str(),     ));
+    // }
+
+    let dep_class = exec_scopes.get::<DeprecatedContractClass>("compiled_class").unwrap();
+    let hints: HashMap<String, Vec<HintParams>> = serde_json::from_value(dep_class.program.hints).unwrap();
+    let ref_manager: ReferenceManager = serde_json::from_value(dep_class.program.reference_manager).unwrap();
+    let refs = ref_manager.references.iter().map(|r| HintReference::from(r.clone())).collect::<Vec<HintReference>>();
+    let mut deprecated_compiled_hints: Vec<Box<dyn Any>> = Vec::new();
+    for (_hint_pc, hint_params) in hints.into_iter() {
+        let compiled_hint = hint_processor.compile_hint(
+            &hint_params[0].code,
+            &hint_params[0].flow_tracking_data.ap_tracking,
+            &hint_params[0].flow_tracking_data.reference_ids,
+            &refs,
+        )?;
+
+        deprecated_compiled_hints.push(compiled_hint);
+    }
+
+    let compiled_class_ptr = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
+    let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 11)?)?;
+    let hint_extension = HashMap::from([(byte_code_ptr, deprecated_compiled_hints)]);
+
+    Ok(hint_extension)
 }
 
 pub const DEPRECATED_BLOCK_NUMBER: &str =

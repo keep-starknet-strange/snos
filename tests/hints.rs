@@ -12,7 +12,6 @@ use common::utils::{check_output_vs_python, deprecated_cairo_python_run};
 use common::{load_input, load_output};
 use rstest::{fixture, rstest};
 use snos::hints::block_context::*;
-use snos::hints::execution::*;
 use snos::hints::{
     initialize_class_hashes, initialize_state_changes, starknet_os_input, INITIALIZE_CLASS_HASHES,
     INITIALIZE_STATE_CHANGES, STARKNET_OS_INPUT,
@@ -116,6 +115,21 @@ fn format_os_output_test(mut os_input_hint_processor: BuiltinHintProcessor, load
 #[rstest]
 fn block_context_test(mut os_input_hint_processor: BuiltinHintProcessor) {
     let program = "build/programs/block_context.json";
+
+    let load_class_facts_hint = HintFunc(Box::new(load_class_facts));
+    os_input_hint_processor.add_hint(String::from(LOAD_CLASS_FACTS), Rc::new(load_class_facts_hint));
+
+    let load_deprecated_class_facts_hint = HintFunc(Box::new(load_deprecated_class_facts));
+    os_input_hint_processor
+        .add_hint(String::from(LOAD_DEPRECATED_CLASS_FACTS), Rc::new(load_deprecated_class_facts_hint));
+
+    let load_deprecated_class_inner_hint = HintFunc(Box::new(load_deprecated_class_inner));
+    os_input_hint_processor
+        .add_hint(String::from(LOAD_DEPRECATED_CLASS_INNER), Rc::new(load_deprecated_class_inner_hint));
+
+    // let load_deprecated_class_hint = HintFunc(Box::new(load_deprecated_class));
+    // os_input_hint_processor.add_hint(String::from(LOAD_DEPRECATED_CLASS),
+    // Rc::new(load_deprecated_class_hint));
 
     let run_output = cairo_run(
         &fs::read(program).unwrap(),

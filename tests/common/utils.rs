@@ -52,7 +52,7 @@ pub fn check_output_vs_python(
 pub fn deprecated_cairo_python_run(program: &str, with_input: bool) -> String {
     env::set_var("PYTHONPATH", "cairo-lang/src");
     let mut run_cmd = std::process::Command::new("cairo-run");
-    run_cmd.arg(format!("--program={program}")).arg("--layout=small").arg("--print_output");
+    run_cmd.arg(format!("--program={program}")).arg("--layout=starknet").arg("--print_output");
 
     if with_input {
         run_cmd.arg("--program_input=build/input.json");

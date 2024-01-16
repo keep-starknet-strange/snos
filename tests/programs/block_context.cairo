@@ -12,7 +12,7 @@ from starkware.starknet.core.os.execution.deprecated_execute_syscalls import (
 from starkware.starknet.core.os.block_context import BlockContext, get_block_context
 
 func main{
-    output_ptr: felt*, pedersen_ptr: HashBuiltin*, poseidon_ptr: PoseidonBuiltin*, range_check_ptr
+    output_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, poseidon_ptr: PoseidonBuiltin*
 }() {
     alloc_locals;
 

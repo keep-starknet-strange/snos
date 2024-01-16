@@ -1,4 +1,4 @@
-%builtins output pedersen range_check poseidon
+%builtins output pedersen poseidon range_check
 
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.segments import relocate_segment
@@ -67,6 +67,16 @@ func main{
     // TODO: check if we need to populate
     local contract_state_changes: DictAccess*;
     local contract_class_changes: DictAccess*;
+    // Pre-process block.
+    with contract_state_changes {
+        write_block_number_to_block_hash_mapping(block_context=block_context);
+    }
+
+    // Execute transactions.
+    let outputs = initial_carried_outputs;
+    with contract_state_changes, contract_class_changes, outputs {
+        let (local reserved_range_checks_end) = execute_transactions(block_context=block_context);
+    }
 
     let (local tx_execution_context: ExecutionContext*) = get_invoke_tx_execution_context(
         block_context=block_context, entry_point_type=ENTRY_POINT_TYPE_EXTERNAL

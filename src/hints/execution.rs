@@ -343,7 +343,7 @@ pub fn end_tx(
 pub const BREAKPOINT: &str = "breakpoint()";
 pub fn breakpoint(
     vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,

@@ -1,17 +1,15 @@
 pub mod block_context;
 pub mod execution;
 
-use std::any::Any;
 use std::collections::HashMap;
+use std::ops::Sub;
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
-use cairo_vm::hint_processor::hint_processor_definition::{
-    HintExtension, HintProcessor, HintProcessorLogic, HintReference,
-};
-use cairo_vm::serde::deserialize_program::{ApTracking, HintParams, ReferenceManager};
+use cairo_vm::hint_processor::hint_processor_definition::{HintExtension, HintProcessorLogic, HintReference};
+use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -19,7 +17,6 @@ use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use crate::config::DEFAULT_INPUT_PATH;
 use crate::io::input::StarknetOsInput;
@@ -78,8 +75,8 @@ impl HintProcessorLogic for SnosHintProcessor {
         // Execute os-specific hints
         let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         match &*hint_data.code {
-            CHECK_DEPRECATED_CLASS_HASH => {
-                check_deprecated_class_hash(self, vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking)
+            block_context::LOAD_DEPRECATED_CLASS => {
+                block_context::load_deprecated_class(self, vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking)
             }
             code => Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
         }
@@ -138,7 +135,7 @@ impl HintProcessorLogic for SnosSimpleHintProcessor {
             TRANSACTIONS_LEN => transactions_len,
             block_context::LOAD_CLASS_FACTS => block_context::load_class_facts,
             block_context::LOAD_DEPRECATED_CLASS_FACTS => block_context::load_deprecated_class_facts,
-            block_context::LOAD_DEPRECATED_CLASS_INNER => block_context::load_deprecated_inner,
+            block_context::LOAD_DEPRECATED_CLASS_INNER => block_context::load_deprecated_class_inner,
             block_context::DEPRECATED_BLOCK_NUMBER => block_context::block_number,
             block_context::DEPRECATED_BLOCK_TIMESTAMP => block_context::block_timestamp,
             block_context::SEQUENCER_ADDRESS => block_context::sequencer_address,
@@ -197,57 +194,6 @@ pub fn starknet_os_input(
     let messages_to_l2 = (initial_carried_outputs_ptr + 1_i32)?;
     let temp_segment = vm.add_temporary_segment();
     vm.insert_value(messages_to_l2, temp_segment).map_err(|e| e.into())
-}
-
-pub const CHECK_DEPRECATED_CLASS_HASH: &str = indoc! {r#"
-    from starkware.python.utils import from_bytes
-
-    computed_hash = ids.compiled_class_fact.hash
-    expected_hash = compiled_class_hash
-    assert computed_hash == expected_hash, (
-        "Computed compiled_class_hash is inconsistent with the hash in the os_input. "
-        f"Computed hash = {computed_hash}, Expected hash = {expected_hash}.")
-
-    vm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)"#
-};
-pub fn check_deprecated_class_hash(
-    hint_processor: &dyn HintProcessor,
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-) -> Result<HintExtension, HintError> {
-    // TODO(#61): fix comp class hash
-    // let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data,
-    // ap_tracking)?; let computed_hash = vm.get_integer(computed_hash_addr)?;
-    // let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
-    // if computed_hash.as_ref() != &expected_hash {
-    //     return Err(HintError::AssertionFailed(
-    //         format!("Compiled_class_hash mismatch comp={computed_hash}
-    // exp={expected_hash}").into_boxed_str(),     ));
-    // }
-
-    let dep_class = exec_scopes.get::<DeprecatedContractClass>("compiled_class").unwrap();
-    let hints: HashMap<String, Vec<HintParams>> = serde_json::from_value(dep_class.program.hints).unwrap();
-    let ref_manager: ReferenceManager = serde_json::from_value(dep_class.program.reference_manager).unwrap();
-    let refs = ref_manager.references.iter().map(|r| HintReference::from(r.clone())).collect::<Vec<HintReference>>();
-    let mut deprecated_compiled_hints: Vec<Box<dyn Any>> = Vec::new();
-    for (_hint_pc, hint_params) in hints.into_iter() {
-        let compiled_hint = hint_processor.compile_hint(
-            &hint_params[0].code,
-            &hint_params[0].flow_tracking_data.ap_tracking,
-            &hint_params[0].flow_tracking_data.reference_ids,
-            &refs,
-        )?;
-
-        deprecated_compiled_hints.push(compiled_hint);
-    }
-
-    let compiled_class_ptr = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
-    let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 11)?)?;
-    let hint_extension = HashMap::from([(byte_code_ptr, deprecated_compiled_hints)]);
-
-    Ok(hint_extension)
 }
 
 pub const INITIALIZE_STATE_CHANGES: &str = indoc! {r#"
@@ -345,6 +291,34 @@ pub fn breakpoint(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let contract_entry_point = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
+
+    // println!(
+    //     "ap-2: {}, [ap-2]: {}",
+    //     vm.get_ap().sub(2).unwrap(),
+    //     vm.get_relocatable(vm.get_ap().sub(2).unwrap()).unwrap()
+    // );
+    let ap = vm.get_ap();
+    let ap_minus_1 = ap.sub(1).unwrap();
+    let ap_minus_2 = ap.sub(2).unwrap();
+    let ap_minus_3 = ap.sub(3).unwrap();
+    let ap_minus_4 = ap.sub(4).unwrap();
+
+    println!("calldata - ap-1: {}, [ap-1]: {}", ap_minus_1, vm.get_relocatable(ap_minus_1).unwrap());
+    println!("calldata_size - ap-2: {}, [ap-2]: {}", ap_minus_2, vm.get_integer(ap_minus_2).unwrap());
+    println!("context - ap-3: {}, [ap-3]: {}", ap_minus_3, vm.get_relocatable(ap_minus_3).unwrap());
+    println!("selector - ap-4: {}, [ap-4]: {}", ap_minus_4, vm.get_integer(ap_minus_4).unwrap());
+
+    println!("contract_entry_point: {}", contract_entry_point);
+    println!(
+        "vm.get_relocatable(contract_entry_point): {:?}",
+        vm.get_continuous_range(contract_entry_point, 30).unwrap()
+    );
+    println!(
+        "vm.get_relocatable(contract_entry_point + 19): {:?}",
+        vm.get_continuous_range((contract_entry_point + 19)?, 5).unwrap()
+    );
+
     let add = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
     println!("compiled class {add:}");
     let temp = vm.get_integer(add)?;
