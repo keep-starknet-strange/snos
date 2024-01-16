@@ -2,7 +2,8 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
-use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, EntryPointType};
+use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, EntryPointType, EventAbiEntry, FunctionAbiEntry, StructAbiEntry};
+use starknet_api::deprecated_contract_class::ContractClassAbiEntry::{Constructor, Event, Function, L1Handler, Struct};
 
 use crate::utils::felt_api2vm;
 
@@ -66,9 +67,27 @@ pub fn write_deprecated_class(
         data.into_iter().map(|datum| MaybeRelocatable::from(Felt252::from_hex(&datum).unwrap())).collect();
     vm.insert_value((class_base + 10)?, Felt252::from(data.len()))?;
     let data_base = vm.add_memory_segment();
+
+    let abi_names = deprecated_class.abi.ok_or(HintError::WrongHintData)?.iter().map(|e| match e {
+        Event(ee) => ee.name.clone(),
+        Function(ee) => ee.name.clone(),
+        Constructor(ee) => ee.name.clone(),
+        L1Handler(ee) => ee.name.clone(),
+        Struct(ee) => ee.name.clone(),
+    }).collect::<Vec<String>>();
+
+    println!("class_base: {}", class_base);
+    println!("data_base: {}", data_base);
+    println!("names: {:?}", abi_names);
+
     vm.load_data(data_base, &data)?;
 
     vm.insert_value((class_base + 11)?, data_base)?;
+
+
+    // println!("dep_class_base: {}", dep_class_base);
+    // let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 11)?)?;
+
 
     Ok(())
 }

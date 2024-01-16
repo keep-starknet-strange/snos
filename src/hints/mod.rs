@@ -2,6 +2,8 @@ pub mod block_context;
 pub mod execution;
 
 use std::collections::{HashMap, HashSet};
+use std::any::Any;
+use std::ops::Sub;
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
@@ -30,7 +32,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 30] = [
+static HINTS: [(&str, HintImpl); 32] = [
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
@@ -61,6 +63,8 @@ static HINTS: [(&str, HintImpl); 30] = [
     (execution::START_DEPLOY_TX, execution::start_deploy_tx),
     (execution::ENTER_CALL, execution::enter_call),
     (BREAKPOINT, breakpoint),
+    (JUST_PRINT, just_print),
+    (PRINT_CONTRACT_ENTRY_POINT, debug_print_contract_entry_point)
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
@@ -163,6 +167,56 @@ impl HintProcessorLogic for SnosHintProcessor {
             None => Err(HintError::UnknownHint(hint_code.to_string().into_boxed_str())),
         }
     }
+}
+
+pub const JUST_PRINT: &str = "just print";
+pub fn just_print(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    println!("just print");
+    Ok(())
+}
+
+pub const PRINT_CONTRACT_ENTRY_POINT: &str = "print(ids.contract_entry_point)";
+pub fn debug_print_contract_entry_point(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let contract_entry_point = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
+
+    // println!(
+    //     "ap-2: {}, [ap-2]: {}",
+    //     vm.get_ap().sub(2).unwrap(),
+    //     vm.get_relocatable(vm.get_ap().sub(2).unwrap()).unwrap()
+    // );
+    let ap = vm.get_ap();
+    let ap_minus_1 = ap.sub(1).unwrap();
+    let ap_minus_2 = ap.sub(2).unwrap();
+    let ap_minus_3 = ap.sub(3).unwrap();
+    let ap_minus_4 = ap.sub(4).unwrap();
+
+    println!("calldata - ap-1: {}, [ap-1]: {}", ap_minus_1, vm.get_relocatable(ap_minus_1).unwrap());
+    println!("calldata_size - ap-2: {}, [ap-2]: {}", ap_minus_2, vm.get_integer(ap_minus_2).unwrap());
+    println!("context - ap-3: {}, [ap-3]: {}", ap_minus_3, vm.get_relocatable(ap_minus_3).unwrap());
+    println!("selector - ap-4: {}, [ap-4]: {}", ap_minus_4, vm.get_integer(ap_minus_4).unwrap());
+
+    println!("contract_entry_point: {}", contract_entry_point);
+    println!(
+        "vm.get_relocatable(contract_entry_point): {:?}",
+        vm.get_continuous_range(contract_entry_point, 30).unwrap()
+    );
+    println!(
+        "vm.get_relocatable(contract_entry_point + 19): {:?}",
+        vm.get_continuous_range((contract_entry_point + 19)?, 5).unwrap()
+    );
+    Ok(())
 }
 
 pub const STARKNET_OS_INPUT: &str = indoc! {r#"

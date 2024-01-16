@@ -12,8 +12,8 @@ if ! command -v starknet-compile-deprecated >/dev/null; then
     exit 1
 fi
 
-echo -e "\ninitializing cairo-lang($CAIRO_VER)...\n"
-git submodule update --init
+# echo -e "\ninitializing cairo-lang($CAIRO_VER)...\n"
+# git submodule update --init
 
 FETCHED_CAIRO_VER="$(cat cairo-lang/src/starkware/cairo/lang/VERSION)"
 
@@ -49,7 +49,7 @@ cairo-compile tests/programs/block_context.cairo --output build/programs/block_c
 cairo-compile --debug_info_with_source tests/programs/exec_deploy_tx.cairo --output build/programs/exec_deploy_tx.json --cairo_path cairo-lang/src
 
 # compile os with debug info
-cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json --cairo_path cairo-lang/src
+cairo-compile  --debug_info_with_source cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json --cairo_path cairo-lang/src
 
 # compile starknet contract
 echo -e "compiling starknet contracts...\n"
@@ -60,5 +60,5 @@ starknet-compile-deprecated tests/contracts/token_for_testing.cairo --output bui
 starknet-compile-deprecated tests/contracts/dummy_account.cairo --output build/contracts/dummy_account.json --cairo_path cairo-lang/src --account_contract
 starknet-compile-deprecated tests/contracts/dummy_token.cairo --output build/contracts/dummy_token.json --cairo_path cairo-lang/src --account_contract
 starknet-compile-deprecated tests/contracts/delegate_proxy.cairo --output build/contracts/delegate_proxy.json --cairo_path cairo-lang/src
-starknet-compile-deprecated tests/contracts/test_contract.cairo --output build/contracts/test_contract.json --cairo_path cairo-lang/src
+starknet-compile-deprecated --debug_info_with_source --disable_hint_validation  tests/contracts/test_contract.cairo --output build/contracts/test_contract.json --cairo_path cairo-lang/src
 starknet-compile-deprecated tests/contracts/test_contract2.cairo --output build/contracts/test_contract2.json --cairo_path cairo-lang/src

@@ -60,6 +60,7 @@ struct IndexAndValues {
 func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     address: felt, value: felt
 ) {
+    %{ just print %}
     storage_write(address=address, value=value);
     return ();
 }

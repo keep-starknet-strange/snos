@@ -4,6 +4,7 @@ use blockifier::state::state_api::State;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use common::defs::{
     EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_1_ADDREESS_0_12_2, TESTING_2_ADDREESS_0_12_2,
     TESTING_BLOCK_HASH, TESTING_DELEGATE_ADDREESS_0_12_2, TESTING_HASH_0_12_2,
@@ -21,6 +22,7 @@ use starknet_api::core::PatriciaKey;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::{patricia_key, stark_felt};
+use snos::error::SnOsError::Runner;
 
 #[rstest]
 fn snos_run_test(
@@ -29,6 +31,14 @@ fn snos_run_test(
 ) {
     let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
     let runner_res = snos_runner.run(prepare_os_test.0, prepare_os_test.1);
+
+    if let Err(ref e) = runner_res {
+        if let Runner(ref r) = e {
+            if let VmException(ref vme) = r {
+                println!("{}", vme.traceback.as_ref().unwrap());
+            }
+        }
+    }
 
     println!("{:#?}", runner_res);
 }
