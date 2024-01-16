@@ -20,3 +20,31 @@ fn load_deprecated_class_test() {
     );
     check_output_vs_python(run_output, program, true);
 }
+
+#[rstest]
+fn dep_exec_entry_point_test() {
+    let program = "build/programs/dep_exec_entry_point.json";
+
+    let mut sn_hint_processor = SnosHintProcessor::default();
+
+    let run_output = cairo_run(
+        &fs::read(program).unwrap(),
+        &CairoRunConfig { layout: "starknet", relocate_mem: true, trace_enabled: true, ..Default::default() },
+        &mut sn_hint_processor,
+    );
+    check_output_vs_python(run_output, program, true);
+}
+
+#[rstest]
+fn exec_invoke_tx_test() {
+    let program = "build/programs/exec_invoke_tx.json";
+
+    let mut sn_hint_processor = SnosHintProcessor::default();
+
+    let run_output = cairo_run(
+        &fs::read(program).unwrap(),
+        &CairoRunConfig { layout: "starknet", relocate_mem: true, trace_enabled: true, ..Default::default() },
+        &mut sn_hint_processor,
+    );
+    check_output_vs_python(run_output, program, true);
+}

@@ -339,3 +339,24 @@ pub fn end_tx(
     execution_helper.end_tx();
     Ok(())
 }
+
+pub const BREAKPOINT: &str = "breakpoint()";
+pub fn breakpoint(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let add = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
+    println!("compiled class {add:}");
+    let temp = vm.get_integer(add)?;
+    println!("temp {temp:}");
+    let add = (add + 11usize).unwrap();
+    let add = vm.get_relocatable(add)?;
+    let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
+    println!("jump dest {jump_dest:}");
+    println!("val deref {:}", vm.get_integer(jump_dest)?);
+    println!("add {add:}");
+    Ok(())
+}
