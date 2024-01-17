@@ -101,6 +101,7 @@ func deprecated_load_compiled_class_facts_inner{
             "Computed compiled_class_hash is inconsistent with the hash in the os_input. "
             f"Computed hash = {computed_hash}, Expected hash = {expected_hash}.")
 
+        print(ids.compiled_class.n_contructors)
         vm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)
     %}
 

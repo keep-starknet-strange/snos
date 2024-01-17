@@ -167,7 +167,7 @@
       "entry_point_selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad",
       "entry_point_type": "EXTERNAL",
       "calldata": [
-        "0x46fd0893101585e0c7ebd3caf8097b179f774102d6373760c8f60b1a5ef8c92",
+        "0x46fd0893101585e0c7ebd3caf8097b179",
         "0x3d7905601c217734671143d457f0db37f7f8883112abd34b92c4abfeafde0c3",
         "0x2",
         "0x51",

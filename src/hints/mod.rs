@@ -1,14 +1,15 @@
 pub mod block_context;
 pub mod execution;
 
-use std::collections::HashMap;
-use std::ops::Sub;
+use std::collections::{HashMap, HashSet};
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
-use cairo_vm::hint_processor::hint_processor_definition::{HintExtension, HintProcessorLogic, HintReference};
+use cairo_vm::hint_processor::hint_processor_definition::{
+    HintExtension, HintProcessor, HintProcessorLogic, HintReference,
+};
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
@@ -21,12 +22,65 @@ use indoc::indoc;
 use crate::config::DEFAULT_INPUT_PATH;
 use crate::io::input::StarknetOsInput;
 
+type HintImpl = fn(
+    &mut VirtualMachine,
+    &mut ExecutionScopes,
+    &HashMap<String, HintReference>,
+    &ApTracking,
+    &HashMap<String, Felt252>,
+) -> Result<(), HintError>;
+
+static HINTS: [(&str, HintImpl); 30] = [
+    (STARKNET_OS_INPUT, starknet_os_input),
+    (INITIALIZE_STATE_CHANGES, initialize_state_changes),
+    (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
+    (SEGMENTS_ADD, segments_add),
+    (SEGMENTS_ADD_TEMP, segments_add_temp),
+    (TRANSACTIONS_LEN, transactions_len),
+    (block_context::LOAD_CLASS_FACTS, block_context::load_class_facts),
+    (block_context::LOAD_DEPRECATED_CLASS_FACTS, block_context::load_deprecated_class_facts),
+    (block_context::LOAD_DEPRECATED_CLASS_INNER, block_context::load_deprecated_class_inner),
+    (block_context::DEPRECATED_BLOCK_NUMBER, block_context::block_number),
+    (block_context::DEPRECATED_BLOCK_TIMESTAMP, block_context::block_timestamp),
+    (block_context::SEQUENCER_ADDRESS, block_context::sequencer_address),
+    (block_context::CHAIN_ID, block_context::chain_id),
+    (block_context::FEE_TOKEN_ADDRESS, block_context::fee_token_address),
+    (block_context::GET_BLOCK_MAPPING, block_context::get_block_mapping),
+    (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
+    (execution::GET_STATE_ENTRY, execution::get_state_entry),
+    (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
+    (execution::IS_DEPRECATED, execution::is_deprecated),
+    (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
+    (execution::SELECTED_BUILTINS, execution::selected_builtins),
+    (execution::SELECT_BUILTIN, execution::select_builtin),
+    (execution::LOAD_NEXT_TX, execution::load_next_tx),
+    (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
+    (execution::TRANSACTION_VERSION, execution::transaction_version),
+    (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
+    (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
+    (execution::START_DEPLOY_TX, execution::start_deploy_tx),
+    (execution::ENTER_CALL, execution::enter_call),
+    (BREAKPOINT, breakpoint),
+];
+
 /// Hint Extensions extend the current map of hints used by the VM.
 /// This behaviour achieves what the `vm_load_data` primitive does for cairo-lang
 /// and is needed to implement os hints like `vm_load_program`.
-#[derive(Default)]
+type ExtensiveHintImpl = fn(
+    &dyn HintProcessor,
+    &mut VirtualMachine,
+    &mut ExecutionScopes,
+    &HashMap<String, HintReference>,
+    &ApTracking,
+) -> Result<HintExtension, HintError>;
+
+static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 1] =
+    [(block_context::LOAD_DEPRECATED_CLASS, block_context::load_deprecated_class)];
+
 pub struct SnosHintProcessor {
-    sn_hint_processor: SnosSimpleHintProcessor,
+    builtin_hint_proc: BuiltinHintProcessor,
+    hints: HashMap<String, HintImpl>,
+    extensive_hints: HashMap<String, ExtensiveHintImpl>,
     run_resources: RunResources,
 }
 
@@ -45,6 +99,31 @@ impl ResourceTracker for SnosHintProcessor {
 
     fn run_resources(&self) -> &RunResources {
         &self.run_resources
+    }
+}
+
+impl Default for SnosHintProcessor {
+    fn default() -> Self {
+        let hints = HINTS.into_iter().map(|(h, i)| (h.to_string(), i)).collect();
+        let extensive_hints = EXTENSIVE_HINTS.into_iter().map(|(h, i)| (h.to_string(), i)).collect();
+        Self {
+            builtin_hint_proc: BuiltinHintProcessor::new_empty(),
+            hints,
+            extensive_hints,
+            run_resources: Default::default(),
+        }
+    }
+}
+
+impl SnosHintProcessor {
+    pub fn hints(&self) -> HashSet<String> {
+        self.hints
+            .keys()
+            .cloned()
+            .collect::<HashSet<_>>()
+            .union(&self.extensive_hints.keys().cloned().collect::<HashSet<_>>())
+            .cloned()
+            .collect::<HashSet<_>>()
     }
 }
 
@@ -67,98 +146,22 @@ impl HintProcessorLogic for SnosHintProcessor {
         hint_data: &Box<dyn core::any::Any>,
         constants: &HashMap<String, Felt252>,
     ) -> Result<HintExtension, HintError> {
-        // First attempt to execute with builtin hint processor
-        match self.sn_hint_processor.execute_hint(vm, exec_scopes, hint_data, constants) {
+        match self.builtin_hint_proc.execute_hint(vm, exec_scopes, hint_data, constants) {
             Err(HintError::UnknownHint(_)) => {}
             res => return res.map(|_| HintExtension::default()),
         }
-        // Execute os-specific hints
+        // First attempt to execute with builtin hint processor
         let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
-        match &*hint_data.code {
-            block_context::LOAD_DEPRECATED_CLASS => {
-                block_context::load_deprecated_class(self, vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking)
-            }
-            code => Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
+        let hint_code = hint_data.code.as_str();
+        if let Some(hint_impl) = self.hints.get(hint_code) {
+            return hint_impl(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+                .map(|_| HintExtension::default());
         }
-    }
-}
 
-pub struct SnosSimpleHintProcessor {
-    builtin_hint_proc: BuiltinHintProcessor,
-    run_resources: RunResources,
-}
-
-impl ResourceTracker for SnosSimpleHintProcessor {
-    fn consumed(&self) -> bool {
-        self.run_resources.consumed()
-    }
-
-    fn consume_step(&mut self) {
-        self.run_resources.consume_step()
-    }
-
-    fn get_n_steps(&self) -> Option<usize> {
-        self.run_resources.get_n_steps()
-    }
-
-    fn run_resources(&self) -> &RunResources {
-        &self.run_resources
-    }
-}
-
-impl Default for SnosSimpleHintProcessor {
-    fn default() -> Self {
-        Self { builtin_hint_proc: BuiltinHintProcessor::new_empty(), run_resources: Default::default() }
-    }
-}
-
-impl HintProcessorLogic for SnosSimpleHintProcessor {
-    fn execute_hint(
-        &mut self,
-        vm: &mut VirtualMachine,
-        exec_scopes: &mut ExecutionScopes,
-        hint_data: &Box<dyn core::any::Any>,
-        constants: &HashMap<String, Felt252>,
-    ) -> Result<(), HintError> {
-        match self.builtin_hint_proc.execute_hint(vm, exec_scopes, hint_data, constants) {
-            Err(HintError::UnknownHint(_)) => {}
-            res => return res,
+        match self.extensive_hints.get(hint_code) {
+            Some(hint_impl) => hint_impl(self, vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking),
+            None => Err(HintError::UnknownHint(hint_code.to_string().into_boxed_str())),
         }
-        let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
-
-        let hint_func = match &*hint_data.code {
-            STARKNET_OS_INPUT => starknet_os_input,
-            INITIALIZE_STATE_CHANGES => initialize_state_changes,
-            INITIALIZE_CLASS_HASHES => initialize_class_hashes,
-            SEGMENTS_ADD => segments_add,
-            SEGMENTS_ADD_TEMP => segments_add_temp,
-            TRANSACTIONS_LEN => transactions_len,
-            block_context::LOAD_CLASS_FACTS => block_context::load_class_facts,
-            block_context::LOAD_DEPRECATED_CLASS_FACTS => block_context::load_deprecated_class_facts,
-            block_context::LOAD_DEPRECATED_CLASS_INNER => block_context::load_deprecated_class_inner,
-            block_context::DEPRECATED_BLOCK_NUMBER => block_context::block_number,
-            block_context::DEPRECATED_BLOCK_TIMESTAMP => block_context::block_timestamp,
-            block_context::SEQUENCER_ADDRESS => block_context::sequencer_address,
-            block_context::CHAIN_ID => block_context::chain_id,
-            block_context::FEE_TOKEN_ADDRESS => block_context::fee_token_address,
-            block_context::GET_BLOCK_MAPPING => block_context::get_block_mapping,
-            execution::ENTER_SYSCALL_SCOPES => execution::enter_syscall_scopes,
-            execution::ENTER_SCOPE_SYSCALL_HANDLER => execution::enter_scope_syscall_handler,
-            execution::GET_STATE_ENTRY => execution::get_state_entry,
-            execution::CHECK_IS_DEPRECATED => execution::check_is_deprecated,
-            execution::IS_DEPRECATED => execution::is_deprecated,
-            execution::OS_CONTEXT_SEGMENTS => execution::os_context_segments,
-            execution::SELECTED_BUILTINS => execution::selected_builtins,
-            execution::SELECT_BUILTIN => execution::select_builtin,
-            execution::LOAD_NEXT_TX => execution::load_next_tx,
-            execution::PREPARE_CONSTRUCTOR_EXECUTION => execution::prepare_constructor_execution,
-            execution::TRANSACTION_VERSION => execution::transaction_version,
-            execution::ASSERT_TRANSACTION_HASH => execution::assert_transaction_hash,
-            execution::START_DEPLOY_TX => execution::start_deploy_tx,
-            execution::ENTER_CALL => execution::enter_call,
-            code => return Err(HintError::UnknownHint(code.to_string().into_boxed_str())),
-        };
-        hint_func(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
     }
 }
 
@@ -291,43 +294,61 @@ pub fn breakpoint(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let contract_entry_point = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
+    let constructor_execution_context =
+        get_ptr_from_var_name("constructor_execution_context", vm, ids_data, ap_tracking)?;
+    let exec_info_ptr = vm.get_relocatable((constructor_execution_context + 4)?)?;
+    let exec_info = vm.get_integer((exec_info_ptr + 3)?)?;
+    println!("constructor_execution_context {exec_info:}");
 
+    // let execution_context = get_ptr_from_var_name("execution_context", vm, ids_data, ap_tracking)?;
+    // println!("execution_context {execution_context:}");
+    // let first = vm.get_integer(execution_context)?;
+    // println!("entry point type {first:}");
+    // let second = vm.get_integer((execution_context + 1)?)?;
+    // println!("class hash {second:}");
+    // let cd_size = vm.get_integer((execution_context + 2)?)?;
+    // println!("calldata_size {cd_size:}");
+    // let cd_ptr = vm.get_relocatable((execution_context + 3)?)?;
+    // println!("cd ptr {cd_ptr:}");
+    // let cd_1 = vm.get_integer(cd_ptr)?;
+    // println!("first cd {cd_1:}");
+    // let cd_2 = vm.get_integer((cd_ptr + 1)?)?;
+    // println!("first cd {cd_2:}");
+
+    // // println!(
+    // //     "ap-2: {}, [ap-2]: {}",
+    // //     vm.get_ap().sub(2).unwrap(),
+    // //     vm.get_relocatable(vm.get_ap().sub(2).unwrap()).unwrap()
+    // // );
+    // let ap = vm.get_ap();
+    // let ap_minus_1 = ap.sub(1).unwrap();
+    // let ap_minus_2 = ap.sub(2).unwrap();
+    // let ap_minus_3 = ap.sub(3).unwrap();
+    // let ap_minus_4 = ap.sub(4).unwrap();
+
+    // println!("calldata - ap-1: {}, [ap-1]: {}", ap_minus_1, vm.get_relocatable(ap_minus_1).unwrap());
+    // println!("calldata_size - ap-2: {}, [ap-2]: {}", ap_minus_2,
+    // vm.get_integer(ap_minus_2).unwrap()); println!("context - ap-3: {}, [ap-3]: {}", ap_minus_3,
+    // vm.get_relocatable(ap_minus_3).unwrap()); println!("selector - ap-4: {}, [ap-4]: {}",
+    // ap_minus_4, vm.get_integer(ap_minus_4).unwrap());
+
+    // println!("contract_entry_point: {}", contract_entry_point);
     // println!(
-    //     "ap-2: {}, [ap-2]: {}",
-    //     vm.get_ap().sub(2).unwrap(),
-    //     vm.get_relocatable(vm.get_ap().sub(2).unwrap()).unwrap()
+    //     "vm.get_relocatable(contract_entry_point): {:?}",
+    //     vm.get_continuous_range(contract_entry_point, 30).unwrap()
     // );
-    let ap = vm.get_ap();
-    let ap_minus_1 = ap.sub(1).unwrap();
-    let ap_minus_2 = ap.sub(2).unwrap();
-    let ap_minus_3 = ap.sub(3).unwrap();
-    let ap_minus_4 = ap.sub(4).unwrap();
+    // println!(
+    //     "vm.get_relocatable(contract_entry_point + 19): {:?}",
+    //     vm.get_continuous_range((contract_entry_point + 19)?, 5).unwrap()
+    // );
 
-    println!("calldata - ap-1: {}, [ap-1]: {}", ap_minus_1, vm.get_relocatable(ap_minus_1).unwrap());
-    println!("calldata_size - ap-2: {}, [ap-2]: {}", ap_minus_2, vm.get_integer(ap_minus_2).unwrap());
-    println!("context - ap-3: {}, [ap-3]: {}", ap_minus_3, vm.get_relocatable(ap_minus_3).unwrap());
-    println!("selector - ap-4: {}, [ap-4]: {}", ap_minus_4, vm.get_integer(ap_minus_4).unwrap());
-
-    println!("contract_entry_point: {}", contract_entry_point);
-    println!(
-        "vm.get_relocatable(contract_entry_point): {:?}",
-        vm.get_continuous_range(contract_entry_point, 30).unwrap()
-    );
-    println!(
-        "vm.get_relocatable(contract_entry_point + 19): {:?}",
-        vm.get_continuous_range((contract_entry_point + 19)?, 5).unwrap()
-    );
-
-    let add = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
-    println!("compiled class {add:}");
-    let temp = vm.get_integer(add)?;
-    println!("temp {temp:}");
-    let add = (add + 11usize).unwrap();
-    let add = vm.get_relocatable(add)?;
-    let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
-    println!("jump dest {jump_dest:}");
-    println!("val deref {:}", vm.get_integer(jump_dest)?);
-    println!("add {add:}");
+    // let temp = vm.get_integer(add)?;
+    // println!("temp {temp:}");
+    // let add = (add + 11usize).unwrap();
+    // let add = vm.get_relocatable(add)?;
+    // let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
+    // println!("jump dest {jump_dest:}");
+    // println!("val deref {:}", vm.get_integer(jump_dest)?);
+    // println!("add {add:}");
     Ok(())
 }

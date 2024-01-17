@@ -56,6 +56,7 @@ pub fn prepare_constructor_execution(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    println!("TX: {:?}", tx);
     insert_value_from_var_name(
         "contract_address_salt",
         tx.contract_address_salt.expect("`contract_address_salt` must be present"),
@@ -124,12 +125,16 @@ pub fn assert_transaction_hash(
 pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': deprecated_syscall_handler})";
 pub fn enter_scope_syscall_handler(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let _jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
+    let dep_sys: Box<dyn Any> = Box::new(Felt252::ZERO);
+
+    exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), dep_sys)]));
+    let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
+    println!("jump dest {jump_dest:}");
     Ok(())
 }
 
@@ -282,6 +287,7 @@ pub fn enter_syscall_scopes(
         (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
         (String::from("transactions"), transactions),
         (String::from("execution_helper"), execution_helper),
+        (String::from("deprecated_syscall_handler"), Box::new(Felt252::ONE)),
         (String::from("dict_manager"), dict_manager),
     ]));
     Ok(())
@@ -337,26 +343,5 @@ pub fn end_tx(
 ) -> Result<(), HintError> {
     let execution_helper = exec_scopes.get::<ExecutionHelperManager>("execution_helper")?;
     execution_helper.end_tx();
-    Ok(())
-}
-
-pub const BREAKPOINT: &str = "breakpoint()";
-pub fn breakpoint(
-    vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let add = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
-    println!("compiled class {add:}");
-    let temp = vm.get_integer(add)?;
-    println!("temp {temp:}");
-    let add = (add + 11usize).unwrap();
-    let add = vm.get_relocatable(add)?;
-    let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
-    println!("jump dest {jump_dest:}");
-    println!("val deref {:}", vm.get_integer(jump_dest)?);
-    println!("add {add:}");
     Ok(())
 }
