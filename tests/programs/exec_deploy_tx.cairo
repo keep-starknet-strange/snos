@@ -3,6 +3,7 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.math import assert_not_zero
 from starkware.cairo.common.segments import relocate_segment
+from starkware.cairo.common.default_dict import default_dict_new
 from starkware.cairo.common.cairo_builtins import (
     BitwiseBuiltin,
     HashBuiltin,
@@ -100,6 +101,28 @@ func main{
         ),
         non_selectable=NonSelectableBuiltins(keccak=keccak_ptr),
     );
+
+    // Dummy dict
+    let (local my_dict: DictAccess*) = default_dict_new(17);
+
+    %{
+        vm_enter_scope({
+            '__deprecated_class_hashes': __deprecated_class_hashes,
+            'transactions': iter(os_input.transactions),
+            'execution_helper': execution_helper,
+            'deprecated_syscall_handler': deprecated_syscall_handler,
+            'syscall_handler': syscall_handler,
+             '__dict_manager': __dict_manager,
+        })
+    %}
+
+    local tx_type;
+    // Guess the current transaction's type.
+    %{
+        tx = next(transactions)
+        tx_type_bytes = tx.tx_type.name.encode("ascii")
+        ids.tx_type = int.from_bytes(tx_type_bytes, "big")
+    %}
 
     let builtin_ptrs = &local_builtin_ptrs;
     with builtin_ptrs {

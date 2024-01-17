@@ -10,12 +10,11 @@ use cairo_vm::types::program::Program;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use common::load_input;
 use common::prepared_os_test::{block_context, prepare_os_test};
 use common::utils::check_output_vs_python;
 use rstest::rstest;
+use snos::execution::helper::ExecutionHelperManager;
 use snos::hints::SnosHintProcessor;
-use snos::io::input::StarknetOsInput;
 use snos::state::SharedState;
 
 #[rstest]
@@ -47,7 +46,10 @@ fn dep_exec_entry_point_test() {
 }
 
 #[rstest]
-fn exec_deploy_tx_test(block_context: BlockContext, load_input: &StarknetOsInput) {
+fn exec_deploy_tx_test(
+    block_context: BlockContext,
+    prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),
+) {
     let cairo_run_config = CairoRunConfig {
         layout: "starknet_with_keccak",
         relocate_mem: true,
@@ -65,8 +67,12 @@ fn exec_deploy_tx_test(block_context: BlockContext, load_input: &StarknetOsInput
     let mut vm = VirtualMachine::new(cairo_run_config.trace_enabled);
     let end = cairo_runner.initialize(&mut vm).unwrap();
     cairo_runner.exec_scopes.insert_value("input_path", "build/input.json");
-    cairo_runner.exec_scopes.insert_value("tx", load_input.transactions[0].clone());
-    cairo_runner.exec_scopes.insert_box("block_context", Box::new(block_context));
+    cairo_runner.exec_scopes.insert_box("block_context", Box::new(block_context.clone()));
+
+    // Setup Execution Helper
+    cairo_runner
+        .exec_scopes
+        .insert_value("execution_helper", ExecutionHelperManager::new(prepare_os_test.1, &block_context));
 
     let mut sn_hint_processor = SnosHintProcessor::default();
 

@@ -46,7 +46,7 @@ cairo-compile tests/programs/initialize_state_changes.cairo --output build/progr
 cairo-compile tests/programs/get_block_mapping.cairo --output build/programs/get_block_mapping.json --cairo_path cairo-lang/src
 cairo-compile tests/programs/format_os_output.cairo --output build/programs/format_os_output.json --cairo_path cairo-lang/src
 cairo-compile tests/programs/block_context.cairo --output build/programs/block_context.json --cairo_path cairo-lang/src
-cairo-compile tests/programs/exec_deploy_tx.cairo --output build/programs/exec_deploy_tx.json --cairo_path cairo-lang/src
+cairo-compile --debug_info_with_source tests/programs/exec_deploy_tx.cairo --output build/programs/exec_deploy_tx.json --cairo_path cairo-lang/src
 
 # compile os with debug info
 cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json --cairo_path cairo-lang/src
