@@ -74,8 +74,6 @@ func main{
         ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()
     %}
 
-    // -------------------------- START TEST LOGIC --------------------------
-
     // Build block context:
     let (execute_syscalls_ptr) = get_label_location(label_value=execute_syscalls);
     let (execute_deprecated_syscalls_ptr) = get_label_location(
@@ -85,6 +83,10 @@ func main{
         execute_syscalls_ptr=execute_syscalls_ptr,
         execute_deprecated_syscalls_ptr=execute_deprecated_syscalls_ptr,
     );
+
+    let (
+        contract_state_changes: DictAccess*, contract_class_changes: DictAccess*
+    ) = initialize_state_changes();
 
     let segment_arena_ptr = new_arena();
 
@@ -129,17 +131,13 @@ func main{
         let (
             local constructor_execution_context: ExecutionContext*, _
         ) = prepare_constructor_execution_context(block_context=block_context);
-    }
+        // Guess tx version and make sure it's valid.
+        local tx_version = nondet %{ tx.version %};
+        validate_transaction_version(tx_version=tx_version);
 
-    // Guess tx version and make sure it's valid.
-    local tx_version = nondet %{ tx.version %};
-    validate_transaction_version(tx_version=tx_version);
+        let nullptr = cast(0, felt*);
+        local chain_id = block_context.starknet_os_config.chain_id;
 
-    let nullptr = cast(0, felt*);
-    local chain_id = block_context.starknet_os_config.chain_id;
-
-    let builtin_ptrs = &local_builtin_ptrs;
-    with builtin_ptrs {
         let (transaction_hash) = compute_transaction_hash(
             tx_hash_prefix=DEPLOY_HASH_PREFIX,
             version=tx_version,
@@ -172,13 +170,7 @@ func main{
         )
     %}
 
-    let (
-        contract_state_changes: DictAccess*, contract_class_changes: DictAccess*
-    ) = initialize_state_changes();
-
     // // Keep a reference to the start of contract_state_changes and contract_class_changes.
-    // let contract_state_changes_start = contract_state_changes;
-    // let contract_class_changes_start = contract_class_changes;
     let builtin_ptrs = &local_builtin_ptrs;
     let outputs = initial_carried_outputs;
     let remaining_gas = INITIAL_GAS_COST - TRANSACTION_GAS_COST;
@@ -197,11 +189,6 @@ func main{
 
 // Deploys a contract and invokes its constructor.
 // Returns the constructor's return data.
-//
-// Arguments:
-// block_context - A global context that is fixed throughout the block.
-// constructor_execution_context - The ExecutionContext of the constructor.
-// TODO(Yoni, 1/7/2023): move to another location and handle failures.
 func deploy_contract{
     range_check_ptr,
     remaining_gas: felt,
@@ -243,9 +230,6 @@ func deploy_contract{
         new_value=cast(new_state_entry, felt),
     );
 
-    // Invoke the contract constructor.
-    // TODO(Yoni, 1/4/2023): invoke the constructor before marking the contract as deployed.
-    //   Do that in the BL as well.
     let (retdata_size, retdata, _is_deprecated) = select_execute_entry_point_func(
         block_context=block_context, execution_context=constructor_execution_context
     );

@@ -76,10 +76,12 @@ fn exec_deploy_tx_test(
 
     let mut sn_hint_processor = SnosHintProcessor::default();
 
-    cairo_runner
+    if let Err(e) = cairo_runner
         .run_until_pc(end, &mut vm, &mut sn_hint_processor)
         .map_err(|err| VmException::from_vm_error(&cairo_runner, &vm, err))
-        .unwrap();
+    {
+        panic!("{e:#?}");
+    };
     cairo_runner.end_run(cairo_run_config.disable_trace_padding, false, &mut vm, &mut sn_hint_processor).unwrap();
 
     vm.verify_auto_deductions().unwrap();
