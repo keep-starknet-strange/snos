@@ -13,6 +13,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use common::prepared_os_test::{block_context, prepare_os_test};
 use common::utils::check_output_vs_python;
 use rstest::rstest;
+use snos::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerManager;
 use snos::execution::helper::ExecutionHelperManager;
 use snos::hints::SnosHintProcessor;
 use snos::state::SharedState;
@@ -73,6 +74,12 @@ fn exec_deploy_tx_test(
     cairo_runner
         .exec_scopes
         .insert_value("execution_helper", ExecutionHelperManager::new(prepare_os_test.1, &block_context));
+
+    // Setup Depsyscall Handler
+    let dep_syscall_segment = vm.add_memory_segment();
+    cairo_runner
+        .exec_scopes
+        .insert_value("deprecated_syscall_handler", DeprecatedOsSyscallHandlerManager::new(dep_syscall_segment));
 
     let mut sn_hint_processor = SnosHintProcessor::default();
 
