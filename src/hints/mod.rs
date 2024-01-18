@@ -207,15 +207,27 @@ pub fn debug_print_contract_entry_point(
     println!("context - ap-3: {}, [ap-3]: {}", ap_minus_3, vm.get_relocatable(ap_minus_3).unwrap());
     println!("selector - ap-4: {}, [ap-4]: {}", ap_minus_4, vm.get_integer(ap_minus_4).unwrap());
 
-    println!("contract_entry_point: {}", contract_entry_point);
+    println!("calldata: {}", get_ptr_from_var_name("calldata", vm, ids_data, ap_tracking)?);
+    println!("calldata_size: {}", get_integer_from_var_name("calldata_size", vm, ids_data, ap_tracking)?);
+
     println!(
-        "vm.get_relocatable(contract_entry_point): {:?}",
-        vm.get_continuous_range(contract_entry_point, 30).unwrap()
+        "calldata content: {:?}",
+        vm.get_continuous_range(get_ptr_from_var_name("calldata", vm, ids_data, ap_tracking)?, 2).unwrap()
     );
+
+    println!("contract_entry_point: {}", contract_entry_point);
+    // println!(
+    //     "vm.get_relocatable(contract_entry_point): {:?}",
+    //     vm.get_continuous_range(contract_entry_point, 30).unwrap()
+    // );
+
+    println!("vm.get_ap(): {}", vm.get_ap());
+
     println!(
         "vm.get_relocatable(contract_entry_point + 19): {:?}",
         vm.get_continuous_range((contract_entry_point + 19)?, 5).unwrap()
     );
+
     Ok(())
 }
 

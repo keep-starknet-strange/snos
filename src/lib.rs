@@ -77,10 +77,26 @@ impl SnOsRunner {
 
         // Run the Cairo VM
         let mut sn_hint_processor = hints::SnosHintProcessor::default();
-        cairo_runner
+        let r = cairo_runner
             .run_until_pc(end, &mut vm, &mut sn_hint_processor)
             .map_err(|err| VmException::from_vm_error(&cairo_runner, &vm, err))
-            .map_err(|e| SnOsError::Runner(e.into()))?;
+            .map_err(|e| SnOsError::Runner(e.into()));
+
+        if let Err(ref e) = r {
+
+            for i in 0..40 {
+                println!(
+                    "ap - {: >2}: {:?} = {:?}",
+                    i,
+                    vm.get_ap() - i,
+                    vm.get_maybe(&(vm.get_ap() - i).unwrap())
+                );
+            }
+        }
+
+        r?;
+
+        cairo_runner.get_cairo_pie()
 
         // End the Cairo VM run
         cairo_runner
