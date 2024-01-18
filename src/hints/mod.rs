@@ -1,7 +1,8 @@
 pub mod block_context;
+pub mod builtins;
 pub mod execution;
+pub mod syscalls;
 
-use std::any::Any;
 use std::collections::{HashMap, HashSet};
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -11,7 +12,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
 use cairo_vm::hint_processor::hint_processor_definition::{
     HintExtension, HintProcessor, HintProcessorLogic, HintReference,
 };
-use cairo_vm::serde::deserialize_program::{ApTracking, HintParams, ReferenceManager};
+use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -19,7 +20,6 @@ use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use crate::config::DEFAULT_INPUT_PATH;
 use crate::io::input::StarknetOsInput;
@@ -32,16 +32,20 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 27] = [
+static HINTS: [(&str, HintImpl); 50] = [
+    (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (SEGMENTS_ADD, segments_add),
     (SEGMENTS_ADD_TEMP, segments_add_temp),
     (TRANSACTIONS_LEN, transactions_len),
+    (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
+    (builtins::SELECT_BUILTIN, builtins::select_builtin),
+    (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
     (block_context::LOAD_CLASS_FACTS, block_context::load_class_facts),
     (block_context::LOAD_DEPRECATED_CLASS_FACTS, block_context::load_deprecated_class_facts),
-    (block_context::LOAD_DEPRECATED_CLASS_INNER, block_context::load_deprecated_inner),
+    (block_context::LOAD_DEPRECATED_CLASS_INNER, block_context::load_deprecated_class_inner),
     (block_context::DEPRECATED_BLOCK_NUMBER, block_context::block_number),
     (block_context::DEPRECATED_BLOCK_TIMESTAMP, block_context::block_timestamp),
     (block_context::SEQUENCER_ADDRESS, block_context::sequencer_address),
@@ -53,13 +57,32 @@ static HINTS: [(&str, HintImpl); 27] = [
     (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
     (execution::IS_DEPRECATED, execution::is_deprecated),
     (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
-    (execution::SELECTED_BUILTINS, execution::selected_builtins),
-    (execution::SELECT_BUILTIN, execution::select_builtin),
     (execution::LOAD_NEXT_TX, execution::load_next_tx),
     (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
     (execution::TRANSACTION_VERSION, execution::transaction_version),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
+    (execution::START_DEPLOY_TX, execution::start_deploy_tx),
+    (execution::END_TX, execution::end_tx),
+    (execution::ENTER_CALL, execution::enter_call),
+    (execution::EXIT_CALL, execution::exit_call),
+    (syscalls::CALL_CONTRACT, syscalls::call_contract),
+    (syscalls::DELEGATE_CALL, syscalls::delegate_call),
+    (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),
+    (syscalls::DEPLOY, syscalls::deploy),
+    (syscalls::EMIT_EVENT, syscalls::emit_event),
+    (syscalls::GET_BLOCK_NUMBER, syscalls::get_block_number),
+    (syscalls::GET_BLOCK_TIMESTAMP, syscalls::get_block_timestamp),
+    (syscalls::GET_CALLER_ADDRESS, syscalls::get_caller_address),
+    (syscalls::GET_CONTRACT_ADDRESS, syscalls::get_contract_address),
+    (syscalls::GET_TX_INFO, syscalls::get_tx_info),
+    (syscalls::GET_TX_SIGNATURE, syscalls::get_tx_signature),
+    (syscalls::LIBRARY, syscalls::library_call),
+    (syscalls::LIBRARY_CALL_L1_HANDLER, syscalls::library_call_l1_handler),
+    (syscalls::REPLACE_CLASS, syscalls::replace_class),
+    (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
+    (syscalls::STORAGE_READ, syscalls::storage_read),
+    (syscalls::STORAGE_WRITE, syscalls::storage_write),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
@@ -73,7 +96,8 @@ type ExtensiveHintImpl = fn(
     &ApTracking,
 ) -> Result<HintExtension, HintError>;
 
-static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 1] = [(CHECK_DEPRECATED_CLASS_HASH, check_deprecated_class_hash)];
+static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 1] =
+    [(block_context::LOAD_DEPRECATED_CLASS, block_context::load_deprecated_class)];
 
 pub struct SnosHintProcessor {
     builtin_hint_proc: BuiltinHintProcessor,
@@ -197,58 +221,6 @@ pub fn starknet_os_input(
     vm.insert_value(messages_to_l2, temp_segment).map_err(|e| e.into())
 }
 
-pub const CHECK_DEPRECATED_CLASS_HASH: &str = indoc! {r#"
-    from starkware.python.utils import from_bytes
-
-    computed_hash = ids.compiled_class_fact.hash
-    expected_hash = compiled_class_hash
-    assert computed_hash == expected_hash, (
-        "Computed compiled_class_hash is inconsistent with the hash in the os_input. "
-        f"Computed hash = {computed_hash}, Expected hash = {expected_hash}.")
-
-    vm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)"#
-};
-pub fn check_deprecated_class_hash(
-    hint_processor: &dyn HintProcessor,
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-) -> Result<HintExtension, HintError> {
-    // TODO(#61): fix comp class hash
-    // let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data,
-    // ap_tracking)?; let computed_hash = vm.get_integer(computed_hash_addr)?;
-    // let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
-    // if computed_hash.as_ref() != &expected_hash {
-    //     return Err(HintError::AssertionFailed(
-    //         format!("Compiled_class_hash mismatch comp={computed_hash}
-    // exp={expected_hash}").into_boxed_str(),     ));
-    // }
-
-    let dep_class = exec_scopes.get::<DeprecatedContractClass>("compiled_class").unwrap();
-    let hints: HashMap<String, Vec<HintParams>> = serde_json::from_value(dep_class.program.hints).unwrap();
-    let ref_manager: ReferenceManager = serde_json::from_value(dep_class.program.reference_manager).unwrap();
-    let refs = ref_manager.references.iter().map(|r| HintReference::from(r.clone())).collect::<Vec<HintReference>>();
-    let mut deprecated_compiled_hints: Vec<Box<dyn Any>> = Vec::new();
-    for (_hint_pc, hint_params) in hints.into_iter() {
-        let compiled_hint = hint_processor.compile_hint(
-            &hint_params[0].code,
-            &hint_params[0].flow_tracking_data.ap_tracking,
-            &hint_params[0].flow_tracking_data.reference_ids,
-            &refs,
-        )?;
-
-        deprecated_compiled_hints.push(compiled_hint);
-    }
-
-    let compiled_class_ptr = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
-    let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 11)?)?;
-    println!("dep class byte_ptr: {byte_code_ptr:?}");
-    let hint_extension = HashMap::from([(byte_code_ptr, deprecated_compiled_hints)]);
-
-    Ok(hint_extension)
-}
-
 pub const INITIALIZE_STATE_CHANGES: &str = indoc! {r#"
     from starkware.python.utils import from_bytes
 
@@ -339,20 +311,27 @@ pub fn transactions_len(
 pub const BREAKPOINT: &str = "breakpoint()";
 pub fn breakpoint(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
+    constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let add = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
-    println!("compiled class {add:}");
-    let temp = vm.get_integer(add)?;
-    println!("temp {temp:}");
-    let add = (add + 11usize).unwrap();
-    let add = vm.get_relocatable(add)?;
-    let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
-    println!("jump dest {jump_dest:}");
-    println!("val deref {:}", vm.get_integer(jump_dest)?);
-    println!("add {add:}");
+    let pc = vm.get_pc();
+    let fp = vm.get_fp();
+    let ap = vm.get_ap();
+    println!("-----------BEGIN BREAKPOINT(pc-{}, fp-{}, ap-{})-----------\n", pc, fp, ap);
+    println!("\n\tnum_constants -> {:?}", constants.len());
+    print!("\tbuiltins -> ");
+    vm.get_builtin_runners().iter().for_each(|builtin| print!("{}(base {:?}), ", builtin.name(), builtin.base()));
+
+    println!("\n\tpc -> {}", pc);
+    println!("\tfp -> {}", fp);
+    println!("\tap -> {}", ap);
+
+    println!("\tap_tracking -> {ap_tracking:?}");
+    println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
+    println!("\tids -> {:?}", _ids_data);
+
+    println!("\n-----------END BREAKPOINT-----------\n");
     Ok(())
 }

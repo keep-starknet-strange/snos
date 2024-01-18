@@ -11,8 +11,7 @@ pub fn write_deprecated_class(
     class_base: Relocatable,
     deprecated_class: DeprecatedContractClass,
 ) -> Result<(), HintError> {
-    // DEPRECATED_COMPILED_CLASS_VERSION = 0
-    vm.insert_value(class_base, Felt252::from(0))?;
+    vm.insert_value(class_base, Felt252::from(0))?; // DEPRECATED_COMPILED_CLASS_VERSION = 0
 
     let mut externals: Vec<MaybeRelocatable> = Vec::new();
     for elem in deprecated_class.entry_points_by_type.get(&EntryPointType::External).unwrap().iter() {

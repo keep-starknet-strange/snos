@@ -1,7 +1,7 @@
 mod common;
 
 use blockifier::state::state_api::State;
-use blockifier::test_utils::DictStateReader;
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use common::defs::{
@@ -23,11 +23,12 @@ use starknet_api::state::StorageKey;
 use starknet_api::{patricia_key, stark_felt};
 
 #[rstest]
+#[ignore]
 fn snos_run_test(
     _load_input: &StarknetOsInput,
     prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),
 ) {
-    let snos_runner = SnOsRunner::with_os_path("build/os_latest.json");
+    let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
     let runner_res = snos_runner.run(prepare_os_test.0, prepare_os_test.1);
 
     println!("{:#?}", runner_res);

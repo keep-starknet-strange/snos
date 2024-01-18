@@ -1,12 +1,12 @@
 ---
 name: Bug Report
-about: Create a report to help Beerus to improve
+about: Create a report to help SNOS to improve
 title: "bug: "
 labels: "bug"
 assignees: ""
 ---
 
-**Beerus version:**
+**SNOS version:**
 
 **Current behavior:**
 

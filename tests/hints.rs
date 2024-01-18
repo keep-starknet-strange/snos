@@ -12,7 +12,6 @@ use common::utils::{check_output_vs_python, deprecated_cairo_python_run};
 use common::{load_input, load_output};
 use rstest::{fixture, rstest};
 use snos::hints::block_context::*;
-use snos::hints::execution::*;
 use snos::hints::{
     initialize_class_hashes, initialize_state_changes, starknet_os_input, INITIALIZE_CLASS_HASHES,
     INITIALIZE_STATE_CHANGES, STARKNET_OS_INPUT,
@@ -79,28 +78,6 @@ fn get_block_mapping_test(mut os_input_hint_processor: BuiltinHintProcessor) {
 
     let get_block_mapping_hint = HintFunc(Box::new(get_block_mapping));
     os_input_hint_processor.add_hint(String::from(GET_BLOCK_MAPPING), Rc::new(get_block_mapping_hint));
-
-    let run_output = cairo_run(
-        &fs::read(program).unwrap(),
-        &CairoRunConfig { layout: "starknet", relocate_mem: true, trace_enabled: true, ..Default::default() },
-        &mut os_input_hint_processor,
-    );
-    check_output_vs_python(run_output, program, true);
-}
-
-#[rstest]
-#[ignore]
-fn load_next_tx_test(mut os_input_hint_processor: BuiltinHintProcessor) {
-    let program = "build/programs/load_next_tx.json";
-
-    let load_os_input = HintFunc(Box::new(starknet_os_input));
-    os_input_hint_processor.add_hint(String::from(STARKNET_OS_INPUT), Rc::new(load_os_input));
-
-    let load_scopes = HintFunc(Box::new(enter_syscall_scopes));
-    os_input_hint_processor.add_hint(String::from(ENTER_SYSCALL_SCOPES), Rc::new(load_scopes));
-
-    let load_transaction = HintFunc(Box::new(load_next_tx));
-    os_input_hint_processor.add_hint(String::from(LOAD_NEXT_TX), Rc::new(load_transaction));
 
     let run_output = cairo_run(
         &fs::read(program).unwrap(),

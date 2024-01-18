@@ -4,13 +4,17 @@ use std::sync::Arc;
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::abi::constants::N_STEPS_RESOURCE;
 use blockifier::block_context::BlockContext;
-use blockifier::invoke_tx_args;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
-use blockifier::test_utils::{deploy_account_tx, invoke_tx, DictStateReader, InvokeTxArgs, NonceManager};
+use blockifier::test_utils::deploy_account::deploy_account_tx;
+use blockifier::test_utils::dict_state_reader::DictStateReader;
+use blockifier::test_utils::invoke::invoke_tx;
+use blockifier::test_utils::{NonceManager, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::TransactionExecutionInfo;
+use blockifier::transaction::test_utils::l1_resource_bounds;
 use blockifier::transaction::transactions::ExecutableTransaction;
+use blockifier::{deploy_account_tx_args, invoke_tx_args};
 use cairo_vm::vm::runners::builtin_runner::{
     BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME, POSEIDON_BUILTIN_NAME,
     RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
@@ -60,17 +64,14 @@ pub fn cache() -> CachedState<DictStateReader> {
     let mut cached_state = CachedState::from(DictStateReader::default());
 
     cached_state
-        .set_contract_class(&class_hash!(DUMMY_TOKEN_HASH_0_12_2), load_class_v0("build/contracts/dummy_token.json"))
+        .set_contract_class(class_hash!(DUMMY_TOKEN_HASH_0_12_2), load_class_v0("build/contracts/dummy_token.json"))
+        .unwrap();
+    cached_state
+        .set_contract_class(class_hash!(DUMMY_ACCOUNT_HASH_0_12_2), load_class_v0("build/contracts/dummy_account.json"))
         .unwrap();
     cached_state
         .set_contract_class(
-            &class_hash!(DUMMY_ACCOUNT_HASH_0_12_2),
-            load_class_v0("build/contracts/dummy_account.json"),
-        )
-        .unwrap();
-    cached_state
-        .set_contract_class(
-            &class_hash!(TOKEN_FOR_TESTING_HASH_0_12_2),
+            class_hash!(TOKEN_FOR_TESTING_HASH_0_12_2),
             load_class_v0("build/contracts/token_for_testing.json"),
         )
         .unwrap();
@@ -86,7 +87,15 @@ pub fn initial_state(
 ) -> SharedState<DictStateReader> {
     let mut nonce_manager = NonceManager::default();
 
-    let deploy_token_tx = deploy_account_tx(token_class_hash, Fee(TESTING_FEE), None, None, &mut nonce_manager);
+    let deploy_token_tx = deploy_account_tx(
+        deploy_account_tx_args! {
+            class_hash: class_hash!(token_class_hash),
+            max_fee: Fee(TESTING_FEE),
+            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+            version: TransactionVersion::ONE,
+        },
+        &mut nonce_manager,
+    );
     AccountTransaction::DeployAccount(deploy_token_tx.clone())
         .execute(&mut cache, &block_context, false, true)
         .unwrap();
@@ -108,8 +117,15 @@ pub fn initial_state(
     });
     AccountTransaction::Invoke(fund_account).execute(&mut cache, &block_context, false, true).unwrap();
 
-    let deploy_account_tx =
-        deploy_account_tx(DUMMY_ACCOUNT_HASH_0_12_2, Fee(TESTING_FEE), None, None, &mut nonce_manager);
+    let deploy_account_tx = deploy_account_tx(
+        deploy_account_tx_args! {
+            class_hash: class_hash!(DUMMY_ACCOUNT_HASH_0_12_2),
+            max_fee: Fee(TESTING_FEE),
+            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+            version: TransactionVersion::ONE,
+        },
+        &mut nonce_manager,
+    );
     AccountTransaction::DeployAccount(deploy_account_tx).execute(&mut cache, &block_context, false, true).unwrap();
 
     block_context.block_number = BlockNumber(0);
@@ -142,7 +158,7 @@ pub fn prepare_os_test(
 
     initial_state
         .cache
-        .set_contract_class(&class_hash!(TESTING_HASH_0_12_2), load_class_v0("build/contracts/test_contract.json"))
+        .set_contract_class(class_hash!(TESTING_HASH_0_12_2), load_class_v0("build/contracts/test_contract.json"))
         .unwrap();
     for (i, expected_addr) in contract_addresses.into_iter().enumerate() {
         let contract_addr = calculate_contract_address(
@@ -153,7 +169,7 @@ pub fn prepare_os_test(
         )
         .unwrap();
         initial_state.cache.set_class_hash_at(contract_addr, class_hash!(TESTING_HASH_0_12_2)).unwrap();
-        initial_state.cache.set_storage_at(
+        let _ = initial_state.cache.set_storage_at(
             contract_addr,
             StorageKey(patricia_key!(*contract_calldata[i].first().unwrap())),
             *contract_calldata[i].last().unwrap(),
@@ -392,17 +408,17 @@ pub fn prepare_os_test(
         exec_info.push(tx_info);
     }
 
-    initial_state.cache.set_storage_at(
+    let _ = initial_state.cache.set_storage_at(
         delegate_addr,
         StorageKey(patricia_key!(300_u32)),
         stark_felt!("4e5e39d16e565bacdbc7d8d13b9bc2b51a32c8b2b49062531688dcd2f6ec834"),
     );
-    initial_state.cache.set_storage_at(
+    let _ = initial_state.cache.set_storage_at(
         delegate_addr,
         StorageKey(patricia_key!(311_u32)),
         stark_felt!(1536727068981429685321_u128),
     );
-    initial_state.cache.set_storage_at(
+    let _ = initial_state.cache.set_storage_at(
         delegate_addr,
         StorageKey(patricia_key!("1cda892019d02a987cdc80f1500179f0e33fbd6cac8cb2ffef5d6d05101a8dc")),
         stark_felt!(2_u8),
