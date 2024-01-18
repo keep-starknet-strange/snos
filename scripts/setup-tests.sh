@@ -56,9 +56,9 @@ echo -e "compiling starknet contracts...\n"
 mkdir -p build/contracts
 mkdir -p build/pie
 ln -sf cairo-lang/src/starkware starkware
-starknet-compile-deprecated tests/contracts/token_for_testing.cairo --output build/contracts/token_for_testing.json --cairo_path cairo-lang/src --account_contract
-starknet-compile-deprecated tests/contracts/dummy_account.cairo --output build/contracts/dummy_account.json --cairo_path cairo-lang/src --account_contract
-starknet-compile-deprecated tests/contracts/dummy_token.cairo --output build/contracts/dummy_token.json --cairo_path cairo-lang/src --account_contract
-starknet-compile-deprecated tests/contracts/delegate_proxy.cairo --output build/contracts/delegate_proxy.json --cairo_path cairo-lang/src
+starknet-compile-deprecated --disable_hint_validation tests/contracts/token_for_testing.cairo --output build/contracts/token_for_testing.json --cairo_path cairo-lang/src --account_contract
+starknet-compile-deprecated --disable_hint_validation tests/contracts/dummy_account.cairo --output build/contracts/dummy_account.json --cairo_path cairo-lang/src --account_contract
+starknet-compile-deprecated --disable_hint_validation tests/contracts/dummy_token.cairo --output build/contracts/dummy_token.json --cairo_path cairo-lang/src --account_contract
+starknet-compile-deprecated --disable_hint_validation tests/contracts/delegate_proxy.cairo --output build/contracts/delegate_proxy.json --cairo_path cairo-lang/src
 starknet-compile-deprecated --debug_info_with_source --disable_hint_validation  tests/contracts/test_contract.cairo --output build/contracts/test_contract.json --cairo_path cairo-lang/src
-starknet-compile-deprecated tests/contracts/test_contract2.cairo --output build/contracts/test_contract2.json --cairo_path cairo-lang/src
+starknet-compile-deprecated --disable_hint_validation tests/contracts/test_contract2.cairo --output build/contracts/test_contract2.json --cairo_path cairo-lang/src

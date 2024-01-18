@@ -96,8 +96,6 @@ impl SnOsRunner {
 
         r?;
 
-        cairo_runner.get_cairo_pie()
-
         // End the Cairo VM run
         cairo_runner
             .end_run(cairo_run_config.disable_trace_padding, false, &mut vm, &mut sn_hint_processor)
