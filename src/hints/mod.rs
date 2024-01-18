@@ -3,6 +3,7 @@ pub mod builtins;
 pub mod execution;
 pub mod syscalls;
 
+use std::any::Any;
 use std::collections::{HashMap, HashSet};
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -175,7 +176,6 @@ impl HintProcessorLogic for SnosHintProcessor {
         // First attempt to execute with builtin hint processor
         let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         let hint_code = hint_data.code.as_str();
-
         if let Some(hint_impl) = self.hints.get(hint_code) {
             return hint_impl(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
                 .map(|_| HintExtension::default());
