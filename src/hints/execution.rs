@@ -1,6 +1,5 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
-use std::ops::AddAssign;
 use std::vec::IntoIter;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
@@ -16,7 +15,6 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
-use num_traits::Zero;
 
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
@@ -124,18 +122,15 @@ pub fn assert_transaction_hash(
 
 pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': deprecated_syscall_handler})";
 pub fn enter_scope_syscall_handler(
-    vm: &mut VirtualMachine,
+    _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let dep_sys = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("deprecated_syscall_handler")?;
     let deprecated_syscall_handler: Box<dyn Any> = Box::new(dep_sys);
     exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), deprecated_syscall_handler)]));
-
-    let syscall_ptr = get_relocatable_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
-    println!("SYS PTR: {:?}", syscall_ptr);
     Ok(())
 }
 
@@ -210,55 +205,6 @@ pub fn os_context_segments(
     Ok(())
 }
 
-pub const SELECTED_BUILTINS: &str = "vm_enter_scope({'n_selected_builtins': ids.n_selected_builtins})";
-pub fn selected_builtins(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let n_selected_builtins: Box<dyn Any> =
-        Box::new(get_integer_from_var_name("n_selected_builtins", vm, ids_data, ap_tracking)?.into_owned());
-    exec_scopes.enter_scope(HashMap::from_iter([(String::from("n_selected_builtins"), n_selected_builtins)]));
-    Ok(())
-}
-
-pub const SELECT_BUILTIN: &str = indoc! {r##"
-    # A builtin should be selected iff its encoding appears in the selected encodings list
-    # and the list wasn't exhausted.
-    # Note that testing inclusion by a single comparison is possible since the lists are sorted.
-    ids.select_builtin = int(
-      n_selected_builtins > 0 and memory[ids.selected_encodings] == memory[ids.all_encodings])
-    if ids.select_builtin:
-      n_selected_builtins = n_selected_builtins - 1"##
-};
-pub fn select_builtin(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let selected_encodings = get_ptr_from_var_name("selected_encodings", vm, ids_data, ap_tracking)?;
-    let all_encodings = get_ptr_from_var_name("all_encodings", vm, ids_data, ap_tracking)?;
-    let n_selected_builtins = exec_scopes.get_mut_ref::<Felt252>("n_selected_builtins")?;
-    let select_builtin = n_selected_builtins > &mut Felt252::zero()
-        && vm.get_maybe(&selected_encodings).unwrap() == vm.get_maybe(&all_encodings).unwrap();
-    insert_value_from_var_name(
-        "select_builtin",
-        if select_builtin { Felt252::ONE } else { Felt252::ZERO },
-        vm,
-        ids_data,
-        ap_tracking,
-    )?;
-    if select_builtin {
-        n_selected_builtins.add_assign(-Felt252::ONE);
-    }
-
-    Ok(())
-}
-
 // TODO(#66): fix syscall entry
 // DROP THE ADDED VARIABLES
 pub const ENTER_SYSCALL_SCOPES: &str = indoc! {r#"
@@ -317,6 +263,19 @@ pub fn start_deploy_tx(
     Ok(())
 }
 
+pub const END_TX: &str = "execution_helper.end_tx()";
+pub fn end_tx(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+    execution_helper.end_tx();
+    Ok(())
+}
+
 pub const ENTER_CALL: &str = indoc! {r#"
     execution_helper.enter_call(
         execution_info_ptr=ids.execution_context.execution_info.address_)"#
@@ -336,15 +295,15 @@ pub fn enter_call(
     Ok(())
 }
 
-pub const END_TX: &str = "execution_helper.end_tx()";
-pub fn end_tx(
+pub const EXIT_CALL: &str = "execution_helper.exit_call()";
+pub fn exit_call(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
-    execution_helper.end_tx();
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+    execution_helper.exit_call();
     Ok(())
 }

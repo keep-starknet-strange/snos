@@ -4,7 +4,6 @@ use std::collections::hash_map::IntoIter;
 use std::collections::{HashMap, HashSet};
 
 use blockifier::block_context::BlockContext;
-use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
@@ -124,7 +123,7 @@ pub const LOAD_DEPRECATED_CLASS: &str = indoc! {r#"
     assert computed_hash == expected_hash, (
         "Computed compiled_class_hash is inconsistent with the hash in the os_input. "
         f"Computed hash = {computed_hash}, Expected hash = {expected_hash}.")
-
+    
     vm_load_program(compiled_class.program, ids.compiled_class.bytecode_ptr)"#
 };
 pub fn load_deprecated_class(
@@ -148,25 +147,28 @@ pub fn load_deprecated_class(
     let hints: HashMap<String, Vec<HintParams>> = serde_json::from_value(dep_class.program.hints).unwrap();
     let ref_manager: ReferenceManager = serde_json::from_value(dep_class.program.reference_manager).unwrap();
     let refs = ref_manager.references.iter().map(|r| HintReference::from(r.clone())).collect::<Vec<HintReference>>();
-    let mut deprecated_compiled_hints: Vec<Box<dyn Any>> = Vec::new();
+    let mut hint_extension: HashMap<cairo_vm::types::relocatable::Relocatable, Vec<Box<dyn Any>>> = HashMap::new();
+
     for (_hint_pc, hint_params) in hints.into_iter() {
-        let compiled_hint = hint_processor.compile_hint(
-            &hint_params[0].code,
-            &hint_params[0].flow_tracking_data.ap_tracking,
-            &hint_params[0].flow_tracking_data.reference_ids,
-            &refs,
-        )?;
+        let dep_compiled_hints = hint_params
+            .into_iter()
+            .map(|param| {
+                hint_processor
+                    .compile_hint(
+                        &param.code,
+                        &param.flow_tracking_data.ap_tracking,
+                        &param.flow_tracking_data.reference_ids,
+                        &refs,
+                    )
+                    .unwrap()
+            })
+            .collect::<Vec<Box<dyn Any>>>();
 
-        let compiled_hints = compiled_hint.downcast_ref::<HintProcessorData>().unwrap();
-        println!("DEPRECATED AP TRACKING: {:?}", compiled_hints.ap_tracking);
-        println!("DEPRECATED CODE: {}", compiled_hints.code);
-        println!("DEPRECATED IDS DATA: {:?}", compiled_hints.ids_data);
-        deprecated_compiled_hints.push(compiled_hint);
+        let compiled_class_ptr = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
+        let mut byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 11)?)?;
+        byte_code_ptr.offset = _hint_pc.parse::<usize>().unwrap();
+        hint_extension.insert(byte_code_ptr, dep_compiled_hints);
     }
-
-    let compiled_class_ptr = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
-    let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 11)?)?;
-    let hint_extension = HashMap::from([(byte_code_ptr, deprecated_compiled_hints)]);
 
     Ok(hint_extension)
 }

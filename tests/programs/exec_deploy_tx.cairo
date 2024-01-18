@@ -1,7 +1,7 @@
 %builtins output pedersen range_check ecdsa bitwise ec_op keccak poseidon
 
 from starkware.cairo.common.alloc import alloc
-from starkware.cairo.common.math import assert_not_zero
+from starkware.cairo.common.math import assert_not_zero, assert_nn, assert_nn_le
 from starkware.cairo.common.segments import relocate_segment
 from starkware.cairo.common.default_dict import default_dict_new
 from starkware.cairo.common.cairo_builtins import (
@@ -10,7 +10,7 @@ from starkware.cairo.common.cairo_builtins import (
     KeccakBuiltin,
     PoseidonBuiltin,
 )
-from starkware.cairo.common.dict import dict_read, dict_update, dict_new
+from starkware.cairo.common.dict import dict_update, dict_new
 from starkware.cairo.common.dict_access import DictAccess
 from starkware.cairo.common.registers import get_label_location, get_ap
 from starkware.starknet.core.os.output import OsCarriedOutputs
@@ -32,39 +32,31 @@ from starkware.starknet.core.os.execution.execute_transactions import (
     validate_transaction_version,
     compute_transaction_hash,
     fill_deprecated_tx_info,
+    prepare_constructor_execution_context,
 )
 from starkware.starknet.core.os.execution.deprecated_execute_syscalls import (
     execute_deprecated_syscalls,
 )
 from starkware.starknet.core.os.execution.deprecated_execute_entry_point import (
     get_entry_point_offset,
+    select_execute_entry_point_func,
 )
 from starkware.starknet.core.os.constants import (
-    ENTRY_POINT_TYPE_EXTERNAL,
-    VALIDATE_ENTRY_POINT_SELECTOR,
-    VALIDATED,
-    SIERRA_ARRAY_LEN_BOUND,
     BLOCK_HASH_CONTRACT_ADDRESS,
-    ENTRY_POINT_TYPE_CONSTRUCTOR,
     INITIAL_GAS_COST,
     TRANSACTION_GAS_COST,
-    DEFAULT_ENTRY_POINT_SELECTOR,
     NOP_ENTRY_POINT_OFFSET,
 )
 from starkware.starknet.common.constants import ORIGIN_ADDRESS
 from starkware.starknet.common.new_syscalls import ExecutionInfo, TxInfo
-from starkware.cairo.common.math import assert_nn, assert_nn_le
 from starkware.starknet.core.os.state import StateEntry, UNINITIALIZED_CLASS_HASH
-from starkware.starknet.common.syscalls import TxInfo as DeprecatedTxInfo
 from starkware.starknet.common.constants import DEPLOY_HASH_PREFIX
 from starkware.starknet.core.os.constants import CONSTRUCTOR_ENTRY_POINT_SELECTOR
-from starkware.starknet.core.os.contract_address.contract_address import get_contract_address
 from starkware.starknet.builtins.segment_arena.segment_arena import new_arena
 from starkware.cairo.common.registers import get_fp_and_pc
 from starkware.starknet.core.os.contract_class.deprecated_compiled_class import (
     DeprecatedCompiledClass,
     DeprecatedCompiledClassFact,
-    DeprecatedContractEntryPoint,
 )
 from starkware.cairo.common.find_element import find_element
 from starkware.cairo.builtin_selection.select_builtins import select_builtins
@@ -370,70 +362,6 @@ func deprecated_execute_entry_point{
     return (retdata_size=retdata_size, retdata=retdata);
 }
 
-// Prepares a constructor execution context based on the 'tx' hint variable.
-// Leaves 'execution_info.tx_info' and 'deprecated_tx_info' empty - should be filled later on.
-func prepare_constructor_execution_context{range_check_ptr, builtin_ptrs: BuiltinPointers*}(
-    block_context: BlockContext*
-) -> (constructor_execution_context: ExecutionContext*, salt: felt) {
-    alloc_locals;
-
-    local contract_address_salt;
-    local class_hash;
-    local constructor_calldata_size;
-    local constructor_calldata: felt*;
-    %{
-        ids.contract_address_salt = tx.contract_address_salt
-        ids.class_hash = tx.class_hash
-        ids.constructor_calldata_size = len(tx.constructor_calldata)
-        ids.constructor_calldata = segments.gen_arg(arg=tx.constructor_calldata)
-    %}
-    assert_nn_le(constructor_calldata_size, SIERRA_ARRAY_LEN_BOUND - 1);
-
-    let selectable_builtins = &builtin_ptrs.selectable;
-    let hash_ptr = selectable_builtins.pedersen;
-    with hash_ptr {
-        let (contract_address) = get_contract_address(
-            salt=contract_address_salt,
-            class_hash=class_hash,
-            constructor_calldata_size=constructor_calldata_size,
-            constructor_calldata=constructor_calldata,
-            deployer_address=0,
-        );
-    }
-    tempvar builtin_ptrs = new BuiltinPointers(
-        selectable=SelectableBuiltins(
-            pedersen=hash_ptr,
-            range_check=selectable_builtins.range_check,
-            ecdsa=selectable_builtins.ecdsa,
-            bitwise=selectable_builtins.bitwise,
-            ec_op=selectable_builtins.ec_op,
-            poseidon=selectable_builtins.poseidon,
-            segment_arena=selectable_builtins.segment_arena,
-        ),
-        non_selectable=builtin_ptrs.non_selectable,
-    );
-
-    tempvar constructor_execution_context = new ExecutionContext(
-        entry_point_type=ENTRY_POINT_TYPE_CONSTRUCTOR,
-        class_hash=class_hash,
-        calldata_size=constructor_calldata_size,
-        calldata=constructor_calldata,
-        execution_info=new ExecutionInfo(
-            block_info=block_context.block_info,
-            tx_info=cast(nondet %{ segments.add() %}, TxInfo*),
-            caller_address=ORIGIN_ADDRESS,
-            contract_address=contract_address,
-            selector=CONSTRUCTOR_ENTRY_POINT_SELECTOR,
-        ),
-        deprecated_tx_info=cast(nondet %{ segments.add() %}, DeprecatedTxInfo*),
-    );
-
-    return (
-        constructor_execution_context=constructor_execution_context, salt=contract_address_salt
-    );
-}
-
-// Initializes state changes dictionaries.
 func initialize_state_changes() -> (
     contract_state_changes: DictAccess*, contract_class_changes: DictAccess*
 ) {
@@ -456,31 +384,4 @@ func initialize_state_changes() -> (
     return (
         contract_state_changes=contract_state_changes, contract_class_changes=contract_class_changes
     );
-}
-
-// Selects execute_entry_point function according to the Cairo version of the entry point.
-func select_execute_entry_point_func{
-    range_check_ptr,
-    remaining_gas: felt,
-    builtin_ptrs: BuiltinPointers*,
-    contract_state_changes: DictAccess*,
-    contract_class_changes: DictAccess*,
-    outputs: OsCarriedOutputs*,
-}(block_context: BlockContext*, execution_context: ExecutionContext*) -> (
-    retdata_size: felt, retdata: felt*, is_deprecated: felt
-) {
-    %{ is_deprecated = 1 if ids.execution_context.class_hash in __deprecated_class_hashes else 0 %}
-    // Note that the class_hash is validated in both the `if` and `else` cases, so a malicious
-    // prover won't be able to produce a proof if guesses the wrong case.
-    if (nondet %{ is_deprecated %} != 0) {
-        let (retdata_size, retdata: felt*) = deprecated_execute_entry_point(
-            block_context=block_context, execution_context=execution_context
-        );
-        return (retdata_size=retdata_size, retdata=retdata, is_deprecated=1);
-    }
-
-    let (retdata_size, retdata) = execute_entry_point(
-        block_context=block_context, execution_context=execution_context
-    );
-    return (retdata_size=retdata_size, retdata=retdata, is_deprecated=0);
 }

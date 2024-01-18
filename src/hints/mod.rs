@@ -1,9 +1,10 @@
 pub mod block_context;
+pub mod builtins;
 pub mod execution;
+pub mod syscalls;
 
 use std::collections::{HashMap, HashSet};
 
-use blockifier::execution::hint_code::SYSCALL_HINTS;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
@@ -31,13 +32,16 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 31] = [
+static HINTS: [(&str, HintImpl); 50] = [
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (SEGMENTS_ADD, segments_add),
     (SEGMENTS_ADD_TEMP, segments_add_temp),
     (TRANSACTIONS_LEN, transactions_len),
+    (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
+    (builtins::SELECT_BUILTIN, builtins::select_builtin),
+    (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
     (block_context::LOAD_CLASS_FACTS, block_context::load_class_facts),
     (block_context::LOAD_DEPRECATED_CLASS_FACTS, block_context::load_deprecated_class_facts),
     (block_context::LOAD_DEPRECATED_CLASS_INNER, block_context::load_deprecated_class_inner),
@@ -52,16 +56,32 @@ static HINTS: [(&str, HintImpl); 31] = [
     (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
     (execution::IS_DEPRECATED, execution::is_deprecated),
     (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
-    (execution::SELECTED_BUILTINS, execution::selected_builtins),
-    (execution::SELECT_BUILTIN, execution::select_builtin),
     (execution::LOAD_NEXT_TX, execution::load_next_tx),
     (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
     (execution::TRANSACTION_VERSION, execution::transaction_version),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
     (execution::START_DEPLOY_TX, execution::start_deploy_tx),
+    (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
-    (STORAGE_WRITE, storage_write),
+    (execution::EXIT_CALL, execution::exit_call),
+    (syscalls::CALL_CONTRACT, syscalls::call_contract),
+    (syscalls::DELEGATE_CALL, syscalls::delegate_call),
+    (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),
+    (syscalls::DEPLOY, syscalls::deploy),
+    (syscalls::EMIT_EVENT, syscalls::emit_event),
+    (syscalls::GET_BLOCK_NUMBER, syscalls::get_block_number),
+    (syscalls::GET_BLOCK_TIMESTAMP, syscalls::get_block_timestamp),
+    (syscalls::GET_CALLER_ADDRESS, syscalls::get_caller_address),
+    (syscalls::GET_CONTRACT_ADDRESS, syscalls::get_contract_address),
+    (syscalls::GET_TX_INFO, syscalls::get_tx_info),
+    (syscalls::GET_TX_SIGNATURE, syscalls::get_tx_signature),
+    (syscalls::LIBRARY, syscalls::library_call),
+    (syscalls::LIBRARY_CALL_L1_HANDLER, syscalls::library_call_l1_handler),
+    (syscalls::REPLACE_CLASS, syscalls::replace_class),
+    (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
+    (syscalls::STORAGE_READ, syscalls::storage_read),
+    (syscalls::STORAGE_WRITE, syscalls::storage_write),
     (BREAKPOINT, breakpoint),
 ];
 
@@ -166,18 +186,6 @@ impl HintProcessorLogic for SnosHintProcessor {
             None => Err(HintError::UnknownHint(hint_code.to_string().into_boxed_str())),
         }
     }
-}
-
-pub const STORAGE_WRITE: &str = "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)";
-pub fn storage_write(
-    vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    println!("WE IN HERE BITCHHHHHHHH.....");
-    Ok(())
 }
 
 pub const STARKNET_OS_INPUT: &str = indoc! {r#"

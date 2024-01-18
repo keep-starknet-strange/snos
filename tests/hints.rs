@@ -3,28 +3,21 @@ mod common;
 use std::fs;
 use std::rc::Rc;
 
-use blockifier::block_context::BlockContext;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
 };
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
-use cairo_vm::types::program::Program;
-use cairo_vm::vm::errors::vm_exception::VmException;
-use cairo_vm::vm::runners::cairo_runner::CairoRunner;
-use cairo_vm::vm::vm_core::VirtualMachine;
-use common::prepared_os_test::block_context;
 use common::utils::{check_output_vs_python, deprecated_cairo_python_run};
 use common::{load_input, load_output};
 use rstest::{fixture, rstest};
 use snos::hints::block_context::*;
 use snos::hints::{
-    initialize_class_hashes, initialize_state_changes, starknet_os_input, SnosHintProcessor, INITIALIZE_CLASS_HASHES,
+    initialize_class_hashes, initialize_state_changes, starknet_os_input, INITIALIZE_CLASS_HASHES,
     INITIALIZE_STATE_CHANGES, STARKNET_OS_INPUT,
 };
 use snos::io::input::StarknetOsInput;
 use snos::io::output::StarknetOsOutput;
-use starknet_api::block::{BlockNumber, BlockTimestamp};
 
 #[fixture]
 fn os_input_hint_processor(_load_input: &StarknetOsInput) -> BuiltinHintProcessor {
@@ -117,50 +110,4 @@ fn format_os_output_test(mut os_input_hint_processor: BuiltinHintProcessor, load
 
     let os_output = StarknetOsOutput::from_run(&vm).unwrap();
     assert_eq!(load_output.config_hash, os_output.config_hash);
-}
-
-#[rstest]
-fn block_context_test(mut block_context: BlockContext) {
-    let cairo_run_config = CairoRunConfig {
-        layout: "starknet_with_keccak",
-        relocate_mem: true,
-        trace_enabled: true,
-        ..Default::default()
-    };
-
-    let program =
-        Program::from_bytes(&fs::read("build/programs/block_context.json").unwrap(), Some(cairo_run_config.entrypoint))
-            .unwrap();
-
-    let mut cairo_runner = CairoRunner::new(&program, cairo_run_config.layout, cairo_run_config.proof_mode).unwrap();
-    let mut vm = VirtualMachine::new(cairo_run_config.trace_enabled);
-    let end = cairo_runner.initialize(&mut vm).unwrap();
-
-    // Setup Block Context
-    block_context.block_number = BlockNumber(2);
-    block_context.block_timestamp = BlockTimestamp(3);
-    cairo_runner.exec_scopes.insert_box("block_context", Box::new(block_context));
-
-    let mut sn_hint_processor = SnosHintProcessor::default();
-
-    cairo_runner
-        .run_until_pc(end, &mut vm, &mut sn_hint_processor)
-        .map_err(|err| VmException::from_vm_error(&cairo_runner, &vm, err))
-        .unwrap();
-    cairo_runner.end_run(cairo_run_config.disable_trace_padding, false, &mut vm, &mut sn_hint_processor).unwrap();
-
-    vm.verify_auto_deductions().unwrap();
-    cairo_runner.read_return_values(&mut vm).unwrap();
-    if cairo_run_config.proof_mode {
-        cairo_runner.finalize_segments(&mut vm).unwrap();
-    }
-
-    cairo_runner.relocate(&mut vm, cairo_run_config.relocate_mem).unwrap();
-
-    let mut rs_output = String::new();
-    let _ = vm.write_output(&mut rs_output);
-
-    println!("\n-------------------------------RUST PROGRAM OUTPUT-------------------------------\n");
-    println!("Program output:");
-    println!("{rs_output}");
 }

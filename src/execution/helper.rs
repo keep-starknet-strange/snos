@@ -23,8 +23,8 @@ pub struct ExecutionHelper {
     pub call_iter: IntoIter<CallInfo>,
     pub call_info: Option<CallInfo>,
     pub result_iter: IntoIter<CallResult>,
-    deployed_contracts_iter: IntoIter<Felt252>,
-    execute_code_read_iter: IntoIter<Felt252>,
+    pub deployed_contracts_iter: IntoIter<Felt252>,
+    pub execute_code_read_iter: IntoIter<Felt252>,
 }
 
 #[derive(Clone, Debug)]
