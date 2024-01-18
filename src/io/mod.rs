@@ -8,7 +8,7 @@ use serde_with::serde_as;
 
 use crate::utils::{Felt252HexNoPrefix, Felt252Str};
 
-// TODO:
+// TODO(#70):
 // evaluate if we can use a more standard top level transaction type
 // - starknet_api::transaction::Transaction -> no deserialization tag information
 // - starknet::types::Transaction -> deserializes `transaction_hash` we have `hash_value`

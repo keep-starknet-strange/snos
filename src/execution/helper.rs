@@ -153,6 +153,7 @@ fn assert_iterators_exhausted(eh_ref: &RefMut<'_, ExecutionHelper>) {
     assert!(eh_ref.execute_code_read_iter.clone().peekable().peek().is_none());
 }
 
+/// Required for recursive interation on 'inner_calls'
 trait GenCallIter {
     fn gen_call_iterator(&self) -> IntoIter<CallInfo>;
 }

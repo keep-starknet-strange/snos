@@ -26,9 +26,13 @@ use io::output::StarknetOsOutput;
 use state::SharedState;
 
 pub struct SnOsRunner {
+    // CairoVM layout type(default `starknet_with_keccak`)
     layout: String,
+    // Path to compiled os program (default `build/os_latest.json`)
     os_path: String,
+    // Path to StarknetOsInput JSON (default `build/input.json`)
     input_path: String,
+    // Block context to run against
     pub block_context: BlockContext,
 }
 

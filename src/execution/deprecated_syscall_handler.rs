@@ -6,6 +6,7 @@ use cairo_vm::types::relocatable::Relocatable;
 
 use super::helper::ExecutionHelperWrapper;
 
+/// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
 pub struct DeprecatedOsSyscallHandler {
     pub exec_wrapper: ExecutionHelperWrapper,
@@ -13,12 +14,15 @@ pub struct DeprecatedOsSyscallHandler {
     pub segments: ReadOnlySegments,
 }
 
+/// DeprecatedOsSyscallHandler is wrapped in Rc<RefCell<_>> in order
+/// to clone the refrence when entering and exiting vm scopes
 #[derive(Clone, Debug)]
 pub struct DeprecatedOsSyscallHandlerWrapper {
     pub deprecated_syscall_handler: Rc<RefCell<DeprecatedOsSyscallHandler>>,
 }
 
 impl DeprecatedOsSyscallHandlerWrapper {
+    // TODO(#69): implement the syscalls
     pub fn new(exec_wrapper: ExecutionHelperWrapper, syscall_ptr: Relocatable) -> Self {
         Self {
             deprecated_syscall_handler: Rc::new(RefCell::new(DeprecatedOsSyscallHandler {

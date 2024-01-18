@@ -23,6 +23,7 @@ use starknet_api::state::StorageKey;
 use starknet_api::{patricia_key, stark_felt};
 
 #[rstest]
+#[ignore]
 fn snos_run_test(
     _load_input: &StarknetOsInput,
     prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),

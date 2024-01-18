@@ -37,9 +37,6 @@ pub struct StarknetOsOutput {
 
 impl StarknetOsOutput {
     pub fn from_run(vm: &VirtualMachine) -> Result<Self, SnOsError> {
-        // os_output = runner.vm_memory.get_range_as_ints(
-        //     addr=runner.output_builtin.base, size=builtin_end_ptrs[0] - runner.output_builtin.base
-        // )
         let builtin_end_ptrs = vm.get_return_values(8).map_err(|e| SnOsError::CatchAll(e.to_string()))?;
         let output_base = vm
             .get_builtin_runners()
