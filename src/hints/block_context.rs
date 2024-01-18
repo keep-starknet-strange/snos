@@ -11,7 +11,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
 use cairo_vm::hint_processor::hint_processor_definition::{HintExtension, HintProcessor, HintReference};
 use cairo_vm::serde::deserialize_program::{ApTracking, HintParams, ReferenceManager};
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::MaybeRelocatable;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
@@ -147,21 +147,27 @@ pub fn load_deprecated_class(
     let hints: HashMap<String, Vec<HintParams>> = serde_json::from_value(dep_class.program.hints).unwrap();
     let ref_manager: ReferenceManager = serde_json::from_value(dep_class.program.reference_manager).unwrap();
     let refs = ref_manager.references.iter().map(|r| HintReference::from(r.clone())).collect::<Vec<HintReference>>();
-    let mut deprecated_compiled_hints: Vec<Box<dyn Any>> = Vec::new();
-    for (_hint_pc, hint_params) in hints.into_iter() {
-        let compiled_hint = hint_processor.compile_hint(
-            &hint_params[0].code,
-            &hint_params[0].flow_tracking_data.ap_tracking,
-            &hint_params[0].flow_tracking_data.reference_ids,
-            &refs,
-        )?;
-
-        deprecated_compiled_hints.push(compiled_hint);
-    }
 
     let compiled_class_ptr = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
-    let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 11)?)?;
-    let hint_extension = HashMap::from([(byte_code_ptr, deprecated_compiled_hints)]);
+    let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 11)?)?; //TODO: manage offset in a better way
+
+    let mut hint_extension = HintExtension::new();
+
+    for (pc, hints_params) in hints.into_iter() {
+        let rel_pc = pc.parse().map_err(|_| HintError::WrongHintData)?;
+        let abs_pc = Relocatable::from((byte_code_ptr.segment_index, rel_pc));
+        let mut compiled_hints = Vec::new();
+        for params in hints_params.into_iter() {
+            let compiled_hint = hint_processor.compile_hint(
+                &params.code,
+                &params.flow_tracking_data.ap_tracking,
+                &params.flow_tracking_data.reference_ids,
+                &refs,
+            )?;
+            compiled_hints.push(compiled_hint);
+        }
+        hint_extension.insert(abs_pc, compiled_hints);
+    }
 
     Ok(hint_extension)
 }
