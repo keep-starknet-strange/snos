@@ -27,7 +27,7 @@ cargo test
 **Reset Tests**
 
 ```bash
-./scripts/teardown-tests.sh
+./scripts/reset-tests.sh
 ```
 
 **Debug Single Cairo Program**

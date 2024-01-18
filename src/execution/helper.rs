@@ -12,21 +12,36 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 
 use crate::config::STORED_BLOCK_HASH_BUFFER;
 
+/// Maintains the info for executing txns in the OS
 #[derive(Clone, Debug)]
 pub struct ExecutionHelper {
-    // _storage_by_address: HashMap<Felt252, OsSingleStarknetStorage<H, S>>,
     pub prev_block_context: Option<BlockContext>,
+    // Pointer tx execution info
     pub tx_execution_info_iter: IntoIter<TransactionExecutionInfo>,
+    // Tx info for transaction currently being executed
     pub tx_execution_info: Option<TransactionExecutionInfo>,
+    // Pointer to the Cairo (deprecated) TxInfo struct
+    // Must match the DeprecatedTxInfo pointer for system call validation in 'enter_tx'
     pub tx_info_ptr: Option<Relocatable>,
+    // Pointer to the Cairo ExecutionInfo struct of the current call.
+    // Must match the ExecutionInfo pointer for system call validation in 'enter_call'
     pub call_execution_info_ptr: Option<Relocatable>,
+    // Iter for CallInfo
     pub call_iter: IntoIter<CallInfo>,
+    // CallInfo for the call currently being executed
     pub call_info: Option<CallInfo>,
+    // Iter to the results of the current call's internal calls
     pub result_iter: IntoIter<CallResult>,
+    // Iter over contract addresses that were deployed during that call
     pub deployed_contracts_iter: IntoIter<Felt252>,
+    // Iter to the read_values array consumed when tx code is executed
     pub execute_code_read_iter: IntoIter<Felt252>,
+    // TODO: starknet storage-related members.
+    // pub storage_by_address: HashMap<Felt252, OsSingleStarknetStorage>,
 }
 
+/// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
+/// to clone the refrence when entering and exiting vm scopes  
 #[derive(Clone, Debug)]
 pub struct ExecutionHelperWrapper {
     pub execution_helper: Rc<RefCell<ExecutionHelper>>,
@@ -34,7 +49,8 @@ pub struct ExecutionHelperWrapper {
 
 impl ExecutionHelperWrapper {
     pub fn new(tx_execution_infos: Vec<TransactionExecutionInfo>, block_context: &BlockContext) -> Self {
-        // TODO: look this up in storage_commitment_tree
+        // Block number and block hash (current_block_number - buffer) block buffer=STORED_BLOCK_HASH_BUFFER
+        // Hash that is going to be written by this OS run
         let prev_block_context =
             block_context.block_number.0.checked_sub(STORED_BLOCK_HASH_BUFFER).map(|_| block_context.clone());
 
@@ -54,7 +70,6 @@ impl ExecutionHelperWrapper {
         }
     }
     pub fn start_tx(&self, tx_info_ptr: Option<Relocatable>) {
-        println!("start tx...");
         let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
         assert!(eh_ref.tx_info_ptr.is_none());
         eh_ref.tx_info_ptr = tx_info_ptr;
@@ -63,7 +78,6 @@ impl ExecutionHelperWrapper {
         eh_ref.call_iter = eh_ref.tx_execution_info.as_ref().unwrap().gen_call_iterator();
     }
     pub fn end_tx(&self) {
-        println!("end tx...");
         let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
         assert!(eh_ref.call_iter.clone().peekable().peek().is_none());
         eh_ref.tx_info_ptr = None;
@@ -119,10 +133,8 @@ impl ExecutionHelperWrapper {
             .into_iter();
 
         eh_ref.call_info = Some(call_info);
-        println!("done entered call...");
     }
     pub fn exit_call(&mut self) {
-        println!("exit call...");
         let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
         eh_ref.call_execution_info_ptr = None;
         assert_iterators_exhausted(&eh_ref);
@@ -130,7 +142,6 @@ impl ExecutionHelperWrapper {
         eh_ref.call_info = None;
     }
     pub fn skip_call(&mut self) {
-        println!("skip call...");
         self.enter_call(None);
         self.exit_call();
     }

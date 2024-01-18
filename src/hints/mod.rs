@@ -3,7 +3,6 @@ pub mod builtins;
 pub mod execution;
 pub mod syscalls;
 
-use std::any::Any;
 use std::collections::{HashMap, HashSet};
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -34,6 +33,7 @@ type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 static HINTS: [(&str, HintImpl); 50] = [
+    (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
@@ -83,7 +83,6 @@ static HINTS: [(&str, HintImpl); 50] = [
     (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
-    (BREAKPOINT, breakpoint),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
@@ -312,66 +311,27 @@ pub fn transactions_len(
 pub const BREAKPOINT: &str = "breakpoint()";
 pub fn breakpoint(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
+    constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let constructor_execution_context =
-        get_ptr_from_var_name("constructor_execution_context", vm, ids_data, ap_tracking)?;
-    let exec_info_ptr = vm.get_relocatable((constructor_execution_context + 4)?)?;
-    let exec_info = vm.get_integer((exec_info_ptr + 3)?)?;
-    println!("constructor_execution_context {exec_info:}");
+    let pc = vm.get_pc();
+    let fp = vm.get_fp();
+    let ap = vm.get_ap();
+    println!("-----------BEGIN BREAKPOINT(pc-{}, fp-{}, ap-{})-----------\n", pc, fp, ap);
+    println!("\n\tnum_constants -> {:?}", constants.len());
+    print!("\tbuiltins -> ");
+    vm.get_builtin_runners().iter().for_each(|builtin| print!("{}(base {:?}), ", builtin.name(), builtin.base()));
 
-    // let execution_context = get_ptr_from_var_name("execution_context", vm, ids_data, ap_tracking)?;
-    // println!("execution_context {execution_context:}");
-    // let first = vm.get_integer(execution_context)?;
-    // println!("entry point type {first:}");
-    // let second = vm.get_integer((execution_context + 1)?)?;
-    // println!("class hash {second:}");
-    // let cd_size = vm.get_integer((execution_context + 2)?)?;
-    // println!("calldata_size {cd_size:}");
-    // let cd_ptr = vm.get_relocatable((execution_context + 3)?)?;
-    // println!("cd ptr {cd_ptr:}");
-    // let cd_1 = vm.get_integer(cd_ptr)?;
-    // println!("first cd {cd_1:}");
-    // let cd_2 = vm.get_integer((cd_ptr + 1)?)?;
-    // println!("first cd {cd_2:}");
+    println!("\n\tpc -> {}", pc);
+    println!("\tfp -> {}", fp);
+    println!("\tap -> {}", ap);
 
-    // // println!(
-    // //     "ap-2: {}, [ap-2]: {}",
-    // //     vm.get_ap().sub(2).unwrap(),
-    // //     vm.get_relocatable(vm.get_ap().sub(2).unwrap()).unwrap()
-    // // );
-    // let ap = vm.get_ap();
-    // let ap_minus_1 = ap.sub(1).unwrap();
-    // let ap_minus_2 = ap.sub(2).unwrap();
-    // let ap_minus_3 = ap.sub(3).unwrap();
-    // let ap_minus_4 = ap.sub(4).unwrap();
+    println!("\tap_tracking -> {ap_tracking:?}");
+    println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
+    println!("\tids -> {:?}", _ids_data);
 
-    // println!("calldata - ap-1: {}, [ap-1]: {}", ap_minus_1, vm.get_relocatable(ap_minus_1).unwrap());
-    // println!("calldata_size - ap-2: {}, [ap-2]: {}", ap_minus_2,
-    // vm.get_integer(ap_minus_2).unwrap()); println!("context - ap-3: {}, [ap-3]: {}", ap_minus_3,
-    // vm.get_relocatable(ap_minus_3).unwrap()); println!("selector - ap-4: {}, [ap-4]: {}",
-    // ap_minus_4, vm.get_integer(ap_minus_4).unwrap());
-
-    // println!("contract_entry_point: {}", contract_entry_point);
-    // println!(
-    //     "vm.get_relocatable(contract_entry_point): {:?}",
-    //     vm.get_continuous_range(contract_entry_point, 30).unwrap()
-    // );
-    // println!(
-    //     "vm.get_relocatable(contract_entry_point + 19): {:?}",
-    //     vm.get_continuous_range((contract_entry_point + 19)?, 5).unwrap()
-    // );
-
-    // let temp = vm.get_integer(add)?;
-    // println!("temp {temp:}");
-    // let add = (add + 11usize).unwrap();
-    // let add = vm.get_relocatable(add)?;
-    // let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
-    // println!("jump dest {jump_dest:}");
-    // println!("val deref {:}", vm.get_integer(jump_dest)?);
-    // println!("add {add:}");
+    println!("\n-----------END BREAKPOINT-----------\n");
     Ok(())
 }

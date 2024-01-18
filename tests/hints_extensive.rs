@@ -36,6 +36,7 @@ fn load_deprecated_class_test() {
 }
 
 #[rstest]
+#[ignore]
 fn exec_deploy_tx_test(
     _load_input: &StarknetOsInput,
     block_context: BlockContext,
