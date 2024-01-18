@@ -4,6 +4,7 @@ use std::collections::hash_map::IntoIter;
 use std::collections::{HashMap, HashSet};
 
 use blockifier::block_context::BlockContext;
+use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
@@ -156,6 +157,10 @@ pub fn load_deprecated_class(
             &refs,
         )?;
 
+        let compiled_hints = compiled_hint.downcast_ref::<HintProcessorData>().unwrap();
+        println!("DEPRECATED AP TRACKING: {:?}", compiled_hints.ap_tracking);
+        println!("DEPRECATED CODE: {}", compiled_hints.code);
+        println!("DEPRECATED IDS DATA: {:?}", compiled_hints.ids_data);
         deprecated_compiled_hints.push(compiled_hint);
     }
 

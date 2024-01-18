@@ -12,7 +12,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 
 use crate::config::STORED_BLOCK_HASH_BUFFER;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ExecutionHelper {
     // _storage_by_address: HashMap<Felt252, OsSingleStarknetStorage<H, S>>,
     pub prev_block_context: Option<BlockContext>,
@@ -27,12 +27,12 @@ pub struct ExecutionHelper {
     execute_code_read_iter: IntoIter<Felt252>,
 }
 
-#[derive(Clone)]
-pub struct ExecutionHelperManager {
+#[derive(Clone, Debug)]
+pub struct ExecutionHelperWrapper {
     pub execution_helper: Rc<RefCell<ExecutionHelper>>,
 }
 
-impl ExecutionHelperManager {
+impl ExecutionHelperWrapper {
     pub fn new(tx_execution_infos: Vec<TransactionExecutionInfo>, block_context: &BlockContext) -> Self {
         // TODO: look this up in storage_commitment_tree
         let prev_block_context =
@@ -75,7 +75,6 @@ impl ExecutionHelperManager {
         self.end_tx()
     }
     pub fn enter_call(&self, execution_info_ptr: Option<Relocatable>) {
-        println!("entered call...");
         let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
         assert!(eh_ref.call_execution_info_ptr.is_none());
         eh_ref.call_execution_info_ptr = execution_info_ptr;
@@ -120,6 +119,7 @@ impl ExecutionHelperManager {
             .into_iter();
 
         eh_ref.call_info = Some(call_info);
+        println!("done entered call...");
     }
     pub fn exit_call(&mut self) {
         println!("exit call...");

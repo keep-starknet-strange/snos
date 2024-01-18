@@ -18,7 +18,8 @@ use cairo_vm::Felt252;
 use indoc::indoc;
 use num_traits::Zero;
 
-use crate::execution::helper::ExecutionHelperManager;
+use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
+use crate::execution::helper::ExecutionHelperWrapper;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 
@@ -56,7 +57,6 @@ pub fn prepare_constructor_execution(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>("tx")?;
-    println!("TX: {:?}", tx);
     insert_value_from_var_name(
         "contract_address_salt",
         tx.contract_address_salt.expect("`contract_address_salt` must be present"),
@@ -130,11 +130,12 @@ pub fn enter_scope_syscall_handler(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let dep_sys: Box<dyn Any> = Box::new(Felt252::ZERO);
+    let dep_sys = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("deprecated_syscall_handler")?;
+    let deprecated_syscall_handler: Box<dyn Any> = Box::new(dep_sys);
+    exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), deprecated_syscall_handler)]));
 
-    exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), dep_sys)]));
-    let jump_dest = get_ptr_from_var_name("contract_entry_point", vm, ids_data, ap_tracking)?;
-    println!("jump dest {jump_dest:}");
+    let syscall_ptr = get_relocatable_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
+    println!("SYS PTR: {:?}", syscall_ptr);
     Ok(())
 }
 
@@ -281,13 +282,15 @@ pub fn enter_syscall_scopes(
     let deprecated_class_hashes: Box<dyn Any> =
         Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
-    let execution_helper: Box<dyn Any> = Box::new(exec_scopes.get::<ExecutionHelperManager>("execution_helper")?);
+    let execution_helper: Box<dyn Any> = Box::new(exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?);
+    let deprecated_syscall_handler: Box<dyn Any> =
+        Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("deprecated_syscall_handler")?);
     let dict_manager: Box<dyn Any> = Box::new(exec_scopes.get_dict_manager()?);
     exec_scopes.enter_scope(HashMap::from_iter([
         (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
         (String::from("transactions"), transactions),
         (String::from("execution_helper"), execution_helper),
-        (String::from("deprecated_syscall_handler"), Box::new(Felt252::ONE)),
+        (String::from("deprecated_syscall_handler"), deprecated_syscall_handler),
         (String::from("dict_manager"), dict_manager),
     ]));
     Ok(())
@@ -309,7 +312,7 @@ pub fn start_deploy_tx(
         get_relocatable_from_var_name("constructor_execution_context", vm, ids_data, ap_tracking)?;
     let deprecated_tx_info_ptr = (constructor_execution_context + 5usize).unwrap();
 
-    let execution_helper = exec_scopes.get::<ExecutionHelperManager>("execution_helper").unwrap();
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper").unwrap();
     execution_helper.start_tx(Some(deprecated_tx_info_ptr));
     Ok(())
 }
@@ -328,7 +331,7 @@ pub fn enter_call(
     let execution_info_ptr =
         vm.get_relocatable((get_ptr_from_var_name("execution_context", vm, ids_data, ap_tracking)? + 4i32).unwrap())?;
 
-    let execution_helper = exec_scopes.get::<ExecutionHelperManager>("execution_helper")?;
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
     execution_helper.enter_call(Some(execution_info_ptr));
     Ok(())
 }
@@ -341,7 +344,7 @@ pub fn end_tx(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let execution_helper = exec_scopes.get::<ExecutionHelperManager>("execution_helper")?;
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
     execution_helper.end_tx();
     Ok(())
 }

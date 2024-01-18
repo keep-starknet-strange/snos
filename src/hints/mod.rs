@@ -3,6 +3,7 @@ pub mod execution;
 
 use std::collections::{HashMap, HashSet};
 
+use blockifier::execution::hint_code::SYSCALL_HINTS;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
@@ -30,7 +31,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 30] = [
+static HINTS: [(&str, HintImpl); 31] = [
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
@@ -60,6 +61,7 @@ static HINTS: [(&str, HintImpl); 30] = [
     (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
     (execution::START_DEPLOY_TX, execution::start_deploy_tx),
     (execution::ENTER_CALL, execution::enter_call),
+    (STORAGE_WRITE, storage_write),
     (BREAKPOINT, breakpoint),
 ];
 
@@ -153,6 +155,7 @@ impl HintProcessorLogic for SnosHintProcessor {
         // First attempt to execute with builtin hint processor
         let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         let hint_code = hint_data.code.as_str();
+
         if let Some(hint_impl) = self.hints.get(hint_code) {
             return hint_impl(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
                 .map(|_| HintExtension::default());
@@ -163,6 +166,18 @@ impl HintProcessorLogic for SnosHintProcessor {
             None => Err(HintError::UnknownHint(hint_code.to_string().into_boxed_str())),
         }
     }
+}
+
+pub const STORAGE_WRITE: &str = "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)";
+pub fn storage_write(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    println!("WE IN HERE BITCHHHHHHHH.....");
+    Ok(())
 }
 
 pub const STARKNET_OS_INPUT: &str = indoc! {r#"
