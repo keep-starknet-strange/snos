@@ -233,7 +233,7 @@ func deploy_contract{
         (contract_address - ORIGIN_ADDRESS) * (contract_address - BLOCK_HASH_CONTRACT_ADDRESS)
     );
 
-    %{ breakpoint() %}
+    // %{ breakpoint() %}
 
     local state_entry: StateEntry*;
     %{
