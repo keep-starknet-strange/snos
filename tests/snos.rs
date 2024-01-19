@@ -3,6 +3,7 @@ mod common;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use common::defs::{
     EXPECTED_PREV_ROOT, EXPECTED_UPDATED_ROOT, TESTING_1_ADDREESS_0_12_2, TESTING_2_ADDREESS_0_12_2,
@@ -11,6 +12,7 @@ use common::defs::{
 use common::prepared_os_test::prepare_os_test;
 use common::{load_input, load_output};
 use rstest::rstest;
+use snos::error::SnOsError::Runner;
 use snos::io::input::StarknetOsInput;
 use snos::io::output::StarknetOsOutput;
 use snos::state::SharedState;
@@ -30,6 +32,15 @@ fn snos_run_test(
 ) {
     let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
     let runner_res = snos_runner.run(prepare_os_test.0, prepare_os_test.1);
+
+    // TODO: remove this once we are stable
+    if let Err(ref e) = runner_res {
+        if let Runner(ref r) = e {
+            if let VmException(ref vme) = r {
+                println!("{}", vme.traceback.as_ref().unwrap());
+            }
+        }
+    }
 
     println!("{:#?}", runner_res);
 }
