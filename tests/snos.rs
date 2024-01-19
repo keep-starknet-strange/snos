@@ -37,9 +37,7 @@ fn snos_run_test(
     if let Err(ref e) = runner_res {
         if let Runner(ref r) = e {
             if let VmException(ref vme) = r {
-                println!("{:#?}", runner_res);
                 println!("{}", vme.traceback.as_ref().unwrap());
-                return;
             }
         }
     }
