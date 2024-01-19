@@ -89,11 +89,11 @@ pub fn update_builtin_ptrs(
 ) -> Result<(), HintError> {
     let n_builtins = get_integer_from_var_name("n_builtins", vm, ids_data, ap_tracking)?;
     let builtin_params = get_relocatable_from_var_name("builtin_params", vm, ids_data, ap_tracking)?;
-    let builtins_encoding_addr = vm.get_relocatable(vm.get_relocatable(builtin_params).unwrap()).unwrap();
+    let builtins_encoding_addr = vm.get_relocatable(builtin_params).unwrap();
     let n_selected_builtins = get_integer_from_var_name("n_selected_builtins", vm, ids_data, ap_tracking)?;
     let selected_encodings = get_relocatable_from_var_name("selected_encodings", vm, ids_data, ap_tracking)?;
     let builtin_ptrs = get_relocatable_from_var_name("builtin_ptrs", vm, ids_data, ap_tracking)?;
-    let orig_builtin_ptrs = vm.get_relocatable(vm.get_relocatable(builtin_ptrs).unwrap()).unwrap();
+    let orig_builtin_ptrs = vm.get_relocatable(builtin_ptrs).unwrap();
     let selected_ptrs = get_relocatable_from_var_name("selected_ptrs", vm, ids_data, ap_tracking)?;
 
     let all_builtins = vm.get_continuous_range(builtins_encoding_addr, n_builtins.deref().to_usize().unwrap()).unwrap();
