@@ -16,6 +16,7 @@ lazy_static = "1.4.0"
 log = "0.4.19"
 num-integer = "0.1.45"
 num-traits = "0.2.16"
+num-bigint = "0.4"
 regex = "1.10.0"
 reqwest = { version = "0.11.18", features = ["blocking", "json"] }
 serde = { version = "1.0.188", features = ["derive"] }
