@@ -2,6 +2,7 @@ pub mod block_context;
 pub mod builtins;
 pub mod execution;
 pub mod syscalls;
+mod unimplemented;
 
 use std::collections::{HashMap, HashSet};
 
