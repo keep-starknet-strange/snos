@@ -46,11 +46,11 @@ fn main() -> std::io::Result<()> {
             &mut vm,
             &mut ExecutionScopes::new(),
             &any_box!(HintProcessorData::new_default(code.clone(), HashMap::new())),
-            &HashMap::new()
+            &HashMap::new(),
         );
         if let Err(e) = r {
             if let HintError::UnknownHint(_) = e {
-                return false
+                return false;
             }
         }
         true
