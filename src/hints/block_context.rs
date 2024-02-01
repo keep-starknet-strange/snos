@@ -102,7 +102,7 @@ pub fn load_deprecated_class_inner(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let deprecated_class_iter =
-        exec_scopes.get_mut_ref::<IntoIter<Felt252, DeprecatedContractClass>>("compiled_class_facts").unwrap();
+        exec_scopes.get_mut_ref::<IntoIter<Felt252, DeprecatedContractClass>>("compiled_class_facts")?;
 
     let (class_hash, deprecated_class) = deprecated_class_iter.next().unwrap();
 
@@ -143,7 +143,7 @@ pub fn load_deprecated_class(
     // exp={expected_hash}").into_boxed_str(),     ));
     // }
 
-    let dep_class = exec_scopes.get::<DeprecatedContractClass>("compiled_class").unwrap();
+    let dep_class = exec_scopes.get::<DeprecatedContractClass>("compiled_class")?;
     let hints: HashMap<String, Vec<HintParams>> = serde_json::from_value(dep_class.program.hints).unwrap();
     let ref_manager: ReferenceManager = serde_json::from_value(dep_class.program.reference_manager).unwrap();
     let refs = ref_manager.references.iter().map(|r| HintReference::from(r.clone())).collect::<Vec<HintReference>>();
@@ -246,6 +246,8 @@ pub const GET_BLOCK_MAPPING: &str = indoc! {r#"
         ids.BLOCK_HASH_CONTRACT_ADDRESS
     ]"#
 };
+
+const BLOCK_HASH_CONTRACT_ADDRESS: &str = "starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS";
 pub fn get_block_mapping(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -254,8 +256,8 @@ pub fn get_block_mapping(
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let key = constants
-        .get("starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS")
-        .expect("BLOCK_HASH_CONTRACT_ADDRESS should be in the context");
+        .get(BLOCK_HASH_CONTRACT_ADDRESS)
+        .ok_or_else(|| HintError::MissingConstant(Box::new(BLOCK_HASH_CONTRACT_ADDRESS)))?;
     let dict_ptr = get_ptr_from_var_name("contract_state_changes", vm, ids_data, ap_tracking)?;
     // def get_dict(self, dict_ptr) -> dict:
     //     Gets the python dict that corresponds to dict_ptr.
