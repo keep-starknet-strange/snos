@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use cairo_felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_ptr_from_var_name, insert_value_from_var_name};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
 
 // state related hints
@@ -53,18 +53,16 @@ mod tests {
     use cairo_vm::vm::vm_core::VirtualMachineBuilder;
 
     use super::*;
-    use crate::hints::sn_hint_processor;
     use crate::hints::state_update::utils::test_utils::*;
+    use crate::hints::SnosHintProcessor;
 
     #[test]
     fn commitment_info_test() {
         let segments = segments![((1, 0), (2, 0)), ((2, 0), 123)];
-
         let mut vm = VirtualMachineBuilder::default().segments(segments).build();
-
         vm.set_fp(2);
         let ids_data = ids_data!["state_changes", "address"];
-        assert_matches!(run_sn_hint!(vm, ids_data, COMMITMENT_INFO), Ok(()));
+        assert_matches!(run_sn_hint!(vm, ids_data, COMMITMENT_INFO), Ok(_));
         assert_eq!(vm.get_integer((1, 1).into()).unwrap().into_owned(), 123.into());
     }
 }

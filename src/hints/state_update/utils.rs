@@ -136,7 +136,7 @@ pub mod test_utils {
             cairo_vm::types::relocatable::MaybeRelocatable::from(($val1, $val2))
         };
         ($val1:expr) => {
-            cairo_vm::types::relocatable::MaybeRelocatable::from(cairo_vm::felt::Felt252::new($val1 as i128))
+            cairo_vm::types::relocatable::MaybeRelocatable::from(cairo_vm::Felt252::from($val1 as i128))
         };
     }
     pub(crate) use mayberelocatable;
@@ -368,19 +368,19 @@ pub mod test_utils {
     macro_rules! run_sn_hint {
         ($vm:expr, $ids_data:expr, $hint_code:expr, $exec_scopes:expr, $constants:expr) => {{
             let hint_data = HintProcessorData::new_default($hint_code.to_string(), $ids_data);
-            let mut hint_processor = sn_hint_processor();
-            hint_processor.execute_hint(&mut $vm, $exec_scopes, &any_box!(hint_data), $constants)
+            let mut hint_processor = SnosHintProcessor::default();
+            hint_processor.execute_hint_extensive(&mut $vm, $exec_scopes, &any_box!(hint_data), $constants)
         }};
         ($vm:expr, $ids_data:expr, $hint_code:expr, $exec_scopes:expr) => {{
             let hint_data =
                 HintProcessorData::new_default(crate::stdlib::string::ToString::to_string($hint_code), $ids_data);
-            let mut hint_processor = sn_hint_processor();
-            hint_processor.execute_hint(&mut $vm, $exec_scopes, &any_box!(hint_data), &HashMap::new())
+            let mut hint_processor = SnosHintProcessor::default();
+            hint_processor.execute_hint_extensive(&mut $vm, $exec_scopes, &any_box!(hint_data), &HashMap::new())
         }};
         ($vm:expr, $ids_data:expr, $hint_code:expr) => {{
             let hint_data = HintProcessorData::new_default(ToString::to_string($hint_code), $ids_data);
-            let mut hint_processor = sn_hint_processor();
-            hint_processor.execute_hint(&mut $vm, exec_scopes_ref!(), &any_box!(hint_data), &HashMap::new())
+            let mut hint_processor = SnosHintProcessor::default();
+            hint_processor.execute_hint_extensive(&mut $vm, exec_scopes_ref!(), &any_box!(hint_data), &HashMap::new())
         }};
     }
     pub(crate) use run_sn_hint;

@@ -3,6 +3,8 @@ pub mod builtins;
 pub mod execution;
 pub mod syscalls;
 
+pub mod state_update;
+
 use std::collections::{HashMap, HashSet};
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -22,6 +24,7 @@ use cairo_vm::Felt252;
 use indoc::indoc;
 
 use crate::config::DEFAULT_INPUT_PATH;
+use crate::hints::state_update::state;
 use crate::io::input::StarknetOsInput;
 
 type HintImpl = fn(
@@ -32,7 +35,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 49] = [
+static HINTS: [(&str, HintImpl); 50] = [
     // (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -83,6 +86,7 @@ static HINTS: [(&str, HintImpl); 49] = [
     (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
+    (state::COMMITMENT_INFO, state::commitment_info),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
