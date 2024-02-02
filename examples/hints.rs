@@ -1,26 +1,17 @@
 use std::collections::{HashMap, HashSet};
-use std::fs::{read_dir, File};
+use std::fs::File;
 use std::io::BufReader;
 
 use blockifier::execution::hint_code;
+use cairo_vm::any_box;
+use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::HintProcessorData;
+use cairo_vm::hint_processor::hint_processor_definition::HintProcessorLogic;
+use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::vm_core::VirtualMachineBuilder;
+use cairo_vm::vm::vm_memory::memory_segments::MemorySegmentManager;
 use serde::Deserialize;
-use serde_json::Value;
 use snos::hints::SnosHintProcessor;
-
-const WHITELISTS_PATH: &str = "cairo-lang/src/starkware/starknet/security/whitelists";
-
-#[derive(Deserialize)]
-struct AllowedHintExpression {
-    #[serde(rename(deserialize = "allowed_expressions"))]
-    _allowed_expressions: Option<Value>,
-    hint_lines: Vec<Box<str>>,
-}
-
-#[derive(Deserialize)]
-struct Whitelist {
-    #[serde(rename(deserialize = "allowed_reference_expressions_for_hint"))]
-    allowed_hint_expressions: Vec<AllowedHintExpression>,
-}
 
 #[derive(Deserialize)]
 struct Hint {
@@ -37,24 +28,8 @@ fn main() -> std::io::Result<()> {
         "choose what you need: all, implemented, unimplemented, implemented_externally, implemented_in_snos, orphans",
     );
 
-    // whitelisted hints
-    let whitelist_paths = read_dir(WHITELISTS_PATH).expect("Failed to read whitelist directory");
-    let mut whitelists = Vec::new();
-    for path in whitelist_paths {
-        let path = path.expect("Failed to get path").path();
-        if path.to_str().unwrap_or_default().ends_with(".json") {
-            let file = File::open(path).expect("Failed to open whitelist file");
-            let mut reader = BufReader::new(file);
-
-            let whitelist_file: Whitelist = serde_json::from_reader(&mut reader).expect("Failed to parse whitelist");
-            whitelists.push(whitelist_file.allowed_hint_expressions);
-        }
-    }
-
-    let whitelisted_hints =
-        whitelists.into_iter().flatten().map(|ahe| ahe.hint_lines.join("\n")).collect::<HashSet<_>>();
-    let snos_hints = SnosHintProcessor::default().hints();
-    // let implemented_hints = whitelisted_hints.union(&snos_hints).collect::<HashSet<_>>();
+    let mut hint_processor = SnosHintProcessor::default();
+    let snos_hints = hint_processor.hints();
 
     let mut result = HashSet::new();
 
@@ -63,7 +38,23 @@ fn main() -> std::io::Result<()> {
     let os_hints = os.hints.into_values().flatten().map(|h| h.code.to_string()).collect::<HashSet<_>>();
     let syscall_hints = hint_code::SYSCALL_HINTS.into_iter().map(|h| h.to_string()).collect::<HashSet<_>>();
 
-    let externally_implemented = |code| whitelisted_hints.contains(code) && !syscall_hints.contains(code);
+    let segments = MemorySegmentManager::new();
+    let mut vm = VirtualMachineBuilder::default().segments(segments).build();
+
+    let mut known_to_hint_processor = |code: &String| {
+        let r = hint_processor.execute_hint_extensive(
+            &mut vm,
+            &mut ExecutionScopes::new(),
+            &any_box!(HintProcessorData::new_default(code.clone(), HashMap::new())),
+            &HashMap::new(),
+        );
+        if let Err(e) = r {
+            if let HintError::UnknownHint(_) = e {
+                return false;
+            }
+        }
+        true
+    };
 
     if subset == "orphans" {
         for code in snos_hints.iter() {
@@ -74,9 +65,9 @@ fn main() -> std::io::Result<()> {
     } else {
         for code in os_hints.union(&syscall_hints).collect::<HashSet<_>>() {
             if subset == "all"
-                || subset == "implemented" && (snos_hints.contains(code) || externally_implemented(code))
-                || subset == "unimplemented" && !(snos_hints.contains(code) || externally_implemented(code))
-                || subset == "implemented_externally" && externally_implemented(code)
+                || subset == "implemented" && known_to_hint_processor(code)
+                || subset == "unimplemented" && !known_to_hint_processor(code)
+                || subset == "implemented_externally" && (known_to_hint_processor(code) && !snos_hints.contains(code))
                 || subset == "implemented_in_snos" && snos_hints.contains(code)
             {
                 result.insert(code);

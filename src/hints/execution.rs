@@ -224,7 +224,7 @@ pub fn enter_syscall_scopes(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input").unwrap();
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
     let deprecated_class_hashes: Box<dyn Any> =
         Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
