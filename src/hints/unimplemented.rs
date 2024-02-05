@@ -7,14 +7,6 @@ const IS_N_GE_TWO: &str = "memory[ap] = to_felt_or_relocatable(ids.n >= 2)";
 const IS_ON_CURVE: &str = "ids.is_on_curve = (y * y) % SECP_P == y_square_int";
 
 #[allow(unused)]
-const SET_SYSCALL_PTR: &str = indoc! {r#"
-	ids.os_context = segments.add()
-	ids.syscall_ptr = segments.add()
-
-	syscall_handler.set_syscall_ptr(syscall_ptr=ids.syscall_ptr)"#
-};
-
-#[allow(unused)]
 const CACHE_CONTRACT_STORAGE: &str = indoc! {r#"
 	# Make sure the value is cached (by reading it), to be used later on for the
 	# commitment computation.

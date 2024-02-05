@@ -3,6 +3,7 @@ pub mod builtins;
 pub mod execution;
 pub mod syscalls;
 mod unimplemented;
+mod vars;
 
 use std::collections::{HashMap, HashSet};
 use std::ops::Add;
