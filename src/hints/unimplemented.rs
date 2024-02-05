@@ -1,9 +1,6 @@
 use indoc::indoc;
 
 #[allow(unused)]
-const IS_N_GE_TWO: &str = "memory[ap] = to_felt_or_relocatable(ids.n >= 2)";
-
-#[allow(unused)]
 const IS_ON_CURVE: &str = "ids.is_on_curve = (y * y) % SECP_P == y_square_int";
 
 #[allow(unused)]
