@@ -38,7 +38,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 49] = [
+static HINTS: [(&str, HintImpl); 50] = [
     // (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -90,6 +90,7 @@ static HINTS: [(&str, HintImpl); 49] = [
     (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
+    (IS_N_GE_TWO, is_n_ge_two),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
@@ -343,8 +344,7 @@ pub fn breakpoint(
     Ok(())
 }
 
-#[allow(unused)]
-const IS_N_GE_TWO: &str = "memory[ap] = to_felt_or_relocatable(ids.n >= 2)";
+pub const IS_N_GE_TWO: &str = "memory[ap] = to_felt_or_relocatable(ids.n >= 2)";
 pub fn is_n_ge_two(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -352,7 +352,7 @@ pub fn is_n_ge_two(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let n = get_integer_from_var_name("n", vm, ids_data, ap_tracking)?.into_owned();
+    let n = get_integer_from_var_name(vars::ids::N, vm, ids_data, ap_tracking)?.into_owned();
     let value = if n >= Felt252::TWO { Felt252::ONE } else { Felt252::ZERO };
     insert_value_into_ap(vm, value)?;
     Ok(())

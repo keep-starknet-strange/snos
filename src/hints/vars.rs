@@ -5,4 +5,5 @@ pub mod scopes {
 pub mod ids {
     pub const OS_CONTEXT: &str = "os_context";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
+    pub const N: &str = "n";
 }
