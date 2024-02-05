@@ -2,11 +2,10 @@ pub mod block_context;
 pub mod builtins;
 pub mod execution;
 pub mod syscalls;
-mod unimplemented;
-mod vars;
-
 #[cfg(test)]
 mod tests;
+mod unimplemented;
+mod vars;
 
 use std::collections::{HashMap, HashSet};
 use std::ops::Add;
@@ -26,6 +25,7 @@ use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
+use num_bigint::BigInt;
 
 use crate::config::DEFAULT_INPUT_PATH;
 use crate::io::input::StarknetOsInput;
@@ -38,7 +38,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 50] = [
+static HINTS: [(&str, HintImpl); 51] = [
     // (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -90,6 +90,7 @@ static HINTS: [(&str, HintImpl); 50] = [
     (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
+    (IS_ON_CURVE, is_on_curve),
     (IS_N_GE_TWO, is_n_ge_two),
 ];
 
@@ -355,5 +356,24 @@ pub fn is_n_ge_two(
     let n = get_integer_from_var_name(vars::ids::N, vm, ids_data, ap_tracking)?.into_owned();
     let value = if n >= Felt252::TWO { Felt252::ONE } else { Felt252::ZERO };
     insert_value_into_ap(vm, value)?;
+    Ok(())
+}
+
+pub const IS_ON_CURVE: &str = "ids.is_on_curve = (y * y) % SECP_P == y_square_int";
+pub fn is_on_curve(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let y: BigInt = exec_scopes.get(vars::ids::Y)?;
+    let y_square_int: BigInt = exec_scopes.get(vars::ids::Y_SQUARE_INT)?;
+    let sec_p: BigInt = exec_scopes.get(vars::ids::SECP_P)?;
+
+    let is_on_curve = (y.clone() * y) % sec_p == y_square_int;
+    let is_on_curve: Felt252 = if is_on_curve { Felt252::ONE } else { Felt252::ZERO };
+    insert_value_from_var_name(vars::ids::IS_ON_CURVE, is_on_curve, vm, ids_data, ap_tracking)?;
+
     Ok(())
 }

@@ -3120,6 +3120,7 @@ dependencies = [
  "indoc",
  "lazy_static",
  "log",
+ "num-bigint",
  "num-integer",
  "num-traits 0.2.18",
  "pretty_assertions",

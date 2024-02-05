@@ -1,9 +1,6 @@
 use indoc::indoc;
 
 #[allow(unused)]
-const IS_ON_CURVE: &str = "ids.is_on_curve = (y * y) % SECP_P == y_square_int";
-
-#[allow(unused)]
 const CACHE_CONTRACT_STORAGE: &str = indoc! {r#"
 	# Make sure the value is cached (by reading it), to be used later on for the
 	# commitment computation.
