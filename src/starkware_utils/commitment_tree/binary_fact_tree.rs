@@ -1,0 +1,49 @@
+use std::collections::HashMap;
+
+use num_bigint::BigUint;
+
+use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
+use crate::starkware_utils::commitment_tree::errors::TreeError;
+use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
+use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
+
+pub trait Leaf: Clone {}
+
+pub type BinaryFactDict = HashMap<BigUint, Vec<BigUint>>;
+
+#[allow(async_fn_in_trait)]
+pub trait BinaryFactTree<S, H, L>: Sized
+where
+    S: Storage,
+    H: HashFunctionType,
+    L: LeafFact<S, H>,
+{
+    /// Initializes an empty BinaryFactTree of the given height.
+    async fn empty_tree(ffc: &mut FactFetchingContext<S, H>, height: Height, leaf_fact: L) -> Result<Self, TreeError>;
+
+    /// Returns the values of the leaves whose indices are given.
+    async fn get_leaves(
+        &self,
+        ffc: &mut FactFetchingContext<S, H>,
+        indices: &[TreeIndex],
+        facts: &mut Option<BinaryFactDict>,
+    ) -> Result<HashMap<TreeIndex, L>, TreeError>;
+
+    async fn get_leaf(&self, ffc: &mut FactFetchingContext<S, H>, index: TreeIndex) -> Result<Option<L>, TreeError> {
+        let mut facts = None;
+        let leaves = self.get_leaves(ffc, vec![index.clone()].as_ref(), &mut facts).await?;
+        Ok(leaves.get(&index).cloned())
+    }
+
+    /// Updates the tree with the given list of modifications, writes all the new facts to the
+    /// storage and returns a new BinaryFactTree representing the fact of the root of the new tree.
+    ///
+    /// If facts argument is not None, this dictionary is filled during traversal through the tree
+    /// by the facts of their paths from the leaves up.
+    async fn update(
+        &mut self,
+        ffc: &mut FactFetchingContext<S, H>,
+        modifications: Vec<(TreeIndex, L)>,
+        facts: &mut Option<BinaryFactDict>,
+    ) -> Result<Self, TreeError>;
+}

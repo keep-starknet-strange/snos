@@ -1,4 +1,5 @@
 use std::cell::{RefCell, RefMut};
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::vec::IntoIter;
 
@@ -11,11 +12,27 @@ use cairo_vm::Felt252;
 use starknet_api::deprecated_contract_class::EntryPointType;
 
 use crate::config::STORED_BLOCK_HASH_BUFFER;
+use crate::starknet::starknet_storage::OsSingleStarknetStorage;
+use crate::storage::dict_storage::DictStorage;
+use crate::storage::storage::HashFunctionType;
+
+// This struct is a placeholder until we know exactly how to implement storage + hashing for
+// `ExecutionHelper.storage_by_address`.
+#[derive(Clone, Debug)]
+pub struct ExecutionHelperHashFunction;
+
+impl HashFunctionType for ExecutionHelperHashFunction {
+    fn hash(_x: &[u8], _y: &[u8]) -> Vec<u8> {
+        todo!()
+    }
+}
+
+type StorageByAddress = HashMap<Felt252, OsSingleStarknetStorage<DictStorage, ExecutionHelperHashFunction>>;
 
 /// Maintains the info for executing txns in the OS
 #[derive(Clone, Debug)]
 pub struct ExecutionHelper {
-    pub prev_block_context: Option<BlockContext>,
+    pub _prev_block_context: Option<BlockContext>,
     // Pointer tx execution info
     pub tx_execution_info_iter: IntoIter<TransactionExecutionInfo>,
     // Tx info for transaction currently being executed
@@ -36,8 +53,7 @@ pub struct ExecutionHelper {
     pub deployed_contracts_iter: IntoIter<Felt252>,
     // Iter to the read_values array consumed when tx code is executed
     pub execute_code_read_iter: IntoIter<Felt252>,
-    // TODO: starknet storage-related members.
-    // pub storage_by_address: HashMap<Felt252, OsSingleStarknetStorage>,
+    pub storage_by_address: StorageByAddress,
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
@@ -56,7 +72,7 @@ impl ExecutionHelperWrapper {
 
         Self {
             execution_helper: Rc::new(RefCell::new(ExecutionHelper {
-                prev_block_context,
+                _prev_block_context: prev_block_context,
                 tx_execution_info_iter: tx_execution_infos.into_iter(),
                 tx_execution_info: None,
                 tx_info_ptr: None,
@@ -66,6 +82,7 @@ impl ExecutionHelperWrapper {
                 result_iter: vec![].into_iter(),
                 deployed_contracts_iter: vec![].into_iter(),
                 execute_code_read_iter: vec![].into_iter(),
+                storage_by_address: StorageByAddress::default(),
             })),
         }
     }
@@ -145,6 +162,15 @@ impl ExecutionHelperWrapper {
         self.enter_call(None);
         self.exit_call();
     }
+
+    pub fn read_storage_by_address(&mut self, address: Felt252, key: Felt252) -> Option<Felt252> {
+        let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
+        if let Some(storage) = storage_by_address.get_mut(&address) {
+            return storage.read(key);
+        }
+
+        None
+    }
 }
 
 fn assert_iterators_exhausted(eh_ref: &RefMut<'_, ExecutionHelper>) {
@@ -157,6 +183,7 @@ fn assert_iterators_exhausted(eh_ref: &RefMut<'_, ExecutionHelper>) {
 trait GenCallIter {
     fn gen_call_iterator(&self) -> IntoIter<CallInfo>;
 }
+
 impl GenCallIter for TransactionExecutionInfo {
     fn gen_call_iterator(&self) -> IntoIter<CallInfo> {
         let mut call_infos = vec![];

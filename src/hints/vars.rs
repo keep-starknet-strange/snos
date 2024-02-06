@@ -5,12 +5,14 @@ pub mod scopes {
     pub const OS_INPUT: &str = "os_input";
     pub const PREIMAGE: &str = "preimage";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";
+    pub const VALUE: &str = "value";
 }
 
 pub mod ids {
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACT: &str = "compiled_class_fact";
     pub const CONTRACT_STATE_CHANGES: &str = "contract_state_changes";
+    pub const CONTRACT_ADDRESS: &str = "contract_address";
     pub const DEPRECATED_TX_INFO: &str = "deprecated_tx_info";
     pub const EDGE: &str = "edge";
     pub const FINAL_ROOT: &str = "final_root";
@@ -21,11 +23,13 @@ pub mod ids {
     pub const N: &str = "n";
     pub const NODE: &str = "node";
     pub const OS_CONTEXT: &str = "os_context";
+    pub const REQUEST: &str = "request";
     pub const SECP_P: &str = "SECP_P";
     pub const SIGNATURE_LEN: &str = "signature_len";
     pub const SIGNATURE_START: &str = "signature_start";
     pub const STATE_ENTRY: &str = "state_entry";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
+    pub const VALUE: &str = "value";
     pub const Y: &str = "y";
     pub const Y_SQUARE_INT: &str = "y_square_int";
 }

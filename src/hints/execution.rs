@@ -20,6 +20,7 @@ use crate::cairo_types::structs::ExecutionContext;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
+use crate::hints::vars;
 use crate::hints::vars::ids::{SIGNATURE_LEN, SIGNATURE_START};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
@@ -754,4 +755,39 @@ pub fn is_reverted(
     // let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
     // insert_value_into_ap(vm, Felt252::from(execution_helper. tx_execution_info.is_reverted))
     insert_value_into_ap(vm, Felt252::ZERO)
+}
+
+pub const CACHE_CONTRACT_STORAGE: &str = indoc! {r#"
+	# Make sure the value is cached (by reading it), to be used later on for the
+	# commitment computation.
+	value = execution_helper.storage_by_address[ids.contract_address].read(key=ids.request.key)
+	assert ids.value == value, "Inconsistent storage value.""#
+};
+
+pub fn cache_contract_storage(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
+
+    let contract_address =
+        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+    let request_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
+    let key = vm.get_integer(&request_ptr + 1)?.into_owned();
+
+    let value = execution_helper
+        .read_storage_by_address(contract_address, key)
+        .ok_or(HintError::CustomHint(format!("No storage found for contract {}", contract_address).into_boxed_str()))?;
+
+    let ids_value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?.into_owned();
+    if ids_value != value {
+        return Err(HintError::AssertionFailed("Inconsistent storage value".to_string().into_boxed_str()));
+    }
+
+    exec_scopes.insert_value(vars::scopes::VALUE, value);
+
+    Ok(())
 }

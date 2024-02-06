@@ -1,5 +1,5 @@
 #[cfg(test)]
-pub(crate) mod tests {
+pub mod tests {
     use std::sync::Arc;
 
     use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};

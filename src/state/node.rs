@@ -134,7 +134,7 @@ impl BinaryNode {
         }
     }
 
-    pub(crate) fn calculate_hash<H: StarkHasher>(left: &StarkFelt, right: &StarkFelt) -> StarkHash {
+    pub fn calculate_hash<H: StarkHasher>(left: &StarkFelt, right: &StarkFelt) -> StarkHash {
         H::hash(left, right)
     }
 }
@@ -179,7 +179,7 @@ impl EdgeNode {
         &self.path[..common_length]
     }
 
-    pub(crate) fn calculate_hash<H: StarkHasher>(child: &StarkFelt, path: &BitSlice<u8, Msb0>) -> StarkHash {
+    pub fn calculate_hash<H: StarkHasher>(child: &StarkFelt, path: &BitSlice<u8, Msb0>) -> StarkHash {
         let mut length = [0; 32];
         // Safe as len() is guaranteed to be <= 251
         length[31] = path.len() as u8;
