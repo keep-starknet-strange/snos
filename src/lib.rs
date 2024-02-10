@@ -152,5 +152,10 @@ mod tests {
         assert_eq!(r.layout, "my_layout");
         assert_eq!(r.os_path, "/os_path");
         assert_eq!(r.input_path, config::DEFAULT_INPUT_PATH);
+
+        let r = SnOsRunner::default().with_layout("my_layout").with_os_path("/os_path").with_input_path("/input_path");
+        assert_eq!(r.layout, "my_layout");
+        assert_eq!(r.os_path, "/os_path");
+        assert_eq!(r.input_path, "/input_path");
     }
 }
