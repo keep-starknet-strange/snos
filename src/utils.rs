@@ -208,8 +208,16 @@ impl SerializeAs<ChainId> for ChainIdNum {
 #[cfg(test)]
 mod tests {
     use bitvec::prelude::*;
+    use serde_with::serde_as;
 
     use super::*;
+
+    #[serde_as]
+    #[derive(Serialize)]
+    struct ChainIdOnly {
+        #[serde_as(as = "ChainIdNum")]
+        chain_id: ChainId,
+    }
 
     #[test]
     fn felt_conversions() {
@@ -230,5 +238,20 @@ mod tests {
 
         assert_eq!(bv, felt_to_bits_api(api_felt));
         assert_eq!(api_felt, felt_from_bits_api(&bv).unwrap());
+    }
+
+    #[test]
+    fn chain_id_num_ok() {
+        let c = ChainIdOnly { chain_id: ChainId("534e5f474f45524c49".to_string()) };
+
+        serde_json::to_string(&c).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn chain_id_num_fail() {
+        let c = ChainIdOnly { chain_id: ChainId("SN_GOERLI".to_string()) };
+
+        serde_json::to_string(&c).unwrap();
     }
 }
