@@ -30,7 +30,7 @@ fn snos_run_test(
     _load_input: &StarknetOsInput,
     prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>),
 ) {
-    let snos_runner = SnOsRunner::with_os_path("build/os_debug.json");
+    let snos_runner = SnOsRunner::default().with_os_path("build/os_debug.json");
     let runner_res = snos_runner.run(prepare_os_test.0, prepare_os_test.1);
 
     // TODO: remove this once we are stable

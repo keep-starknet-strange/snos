@@ -26,13 +26,13 @@ use io::output::StarknetOsOutput;
 use state::SharedState;
 
 pub struct SnOsRunner {
-    // CairoVM layout type(default `starknet_with_keccak`)
-    layout: String,
-    // Path to compiled os program (default `build/os_latest.json`)
-    os_path: String,
-    // Path to StarknetOsInput JSON (default `build/input.json`)
-    input_path: String,
-    // Block context to run against
+    /// CairoVM layout type(default `starknet_with_keccak`)
+    pub layout: String,
+    /// Path to compiled os program (default `build/os_latest.json`)
+    pub os_path: String,
+    /// Path to StarknetOsInput JSON (default `build/input.json`)
+    pub input_path: String,
+    /// Block context to run against
     pub block_context: BlockContext,
 }
 
@@ -109,20 +109,20 @@ impl SnOsRunner {
         Ok(pie)
     }
 
-    pub fn with_layout(layout: &str) -> Self {
-        Self { layout: layout.to_string(), ..Self::default() }
+    pub fn with_layout(self, layout: &str) -> Self {
+        Self { layout: layout.to_string(), ..self }
     }
 
-    pub fn with_os_path(os_path: &str) -> Self {
-        Self { os_path: os_path.to_string(), ..Self::default() }
+    pub fn with_os_path(self, os_path: &str) -> Self {
+        Self { os_path: os_path.to_string(), ..self }
     }
 
-    pub fn with_input_path(input_path: &str) -> Self {
-        Self { input_path: input_path.to_string(), ..Self::default() }
+    pub fn with_input_path(self, input_path: &str) -> Self {
+        Self { input_path: input_path.to_string(), ..self }
     }
 
-    pub fn with_block_context(block_context: BlockContext) -> Self {
-        Self { block_context, ..Self::default() }
+    pub fn with_block_context(self, block_context: BlockContext) -> Self {
+        Self { block_context, ..self }
     }
 }
 
@@ -134,5 +134,23 @@ impl Default for SnOsRunner {
             input_path: config::DEFAULT_INPUT_PATH.to_string(),
             block_context: StarknetGeneralConfig::default().empty_block_context(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn snos_runner_init() {
+        let r = SnOsRunner::default().with_layout("my_layout");
+        assert_eq!(r.layout, "my_layout");
+        assert_eq!(r.os_path, config::DEFAULT_COMPILED_OS);
+        assert_eq!(r.input_path, config::DEFAULT_INPUT_PATH);
+
+        let r = SnOsRunner::default().with_layout("my_layout").with_os_path("/os_path");
+        assert_eq!(r.layout, "my_layout");
+        assert_eq!(r.os_path, "/os_path");
+        assert_eq!(r.input_path, config::DEFAULT_INPUT_PATH);
     }
 }
