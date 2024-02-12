@@ -296,8 +296,8 @@ pub fn segments_add_temp(
     insert_value_into_ap(vm, temp_segment)
 }
 
-// pub const TRANSACTIONS_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(os_input.transactions))";
-// pub fn transactions_len(
+// pub const TRANSACTIONS_LEN: &str = "memory[ap] =
+// to_felt_or_relocatable(len(os_input.transactions))"; pub fn transactions_len(
 //     vm: &mut VirtualMachine,
 //     exec_scopes: &mut ExecutionScopes,
 //     _ids_data: &HashMap<String, HintReference>,

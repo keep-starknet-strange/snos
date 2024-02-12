@@ -26,7 +26,7 @@ pub const DEFAULT_INPUT_PATH: &str = "build/input.json";
 pub const DEFAULT_COMPILER_VERSION: &str = "0.12.2";
 pub const DEFAULT_STORAGE_TREE_HEIGHT: usize = 251;
 pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
-//TODO: update with relevant address
+// TODO: update with relevant address
 pub const DEFAULT_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const DEFAULT_DEPRECATED_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const SEQUENCER_ADDR_0_13_0: &str = "0x1b7c57a9323f1b11656d289df9241d795c1622ffdd6c6661660944557042dd8";
@@ -119,7 +119,10 @@ impl StarknetGeneralConfig {
                 strk_fee_token_address: contract_address!("0x0"),
             },
             vm_resource_fee_cost: self.cairo_resource_fee_weights.clone(),
-            gas_prices: GasPrices { eth_l1_gas_price: self.min_eth_l1_gas_price, strk_l1_gas_price: self.min_strk_l1_gas_price },
+            gas_prices: GasPrices {
+                eth_l1_gas_price: self.min_eth_l1_gas_price,
+                strk_l1_gas_price: self.min_strk_l1_gas_price,
+            },
             invoke_tx_max_n_steps: self.invoke_tx_max_n_steps,
             validate_max_n_steps: self.validate_max_n_steps,
             max_recursion_depth: 50,
