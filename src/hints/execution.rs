@@ -21,25 +21,25 @@ use crate::execution::helper::ExecutionHelperWrapper;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 
-pub const LOAD_NEXT_TX: &str = indoc! {r#"
-    tx = next(transactions)
-    tx_type_bytes = tx.tx_type.name.encode("ascii")
-    ids.tx_type = int.from_bytes(tx_type_bytes, "big")"#
-};
-pub fn load_next_tx(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>("transactions")?;
-    // Safe to unwrap because the remaining number of txs is checked in the cairo code.
-    let tx = transactions.next().unwrap();
-    exec_scopes.insert_value("transactions", transactions);
-    exec_scopes.insert_value("tx", tx.clone());
-    insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
-}
+// pub const LOAD_NEXT_TX: &str = indoc! {r#"
+//     tx = next(transactions)
+//     tx_type_bytes = tx.tx_type.name.encode("ascii")
+//     ids.tx_type = int.from_bytes(tx_type_bytes, "big")"#
+// };
+// pub fn load_next_tx(
+//     vm: &mut VirtualMachine,
+//     exec_scopes: &mut ExecutionScopes,
+//     ids_data: &HashMap<String, HintReference>,
+//     ap_tracking: &ApTracking,
+//     _constants: &HashMap<String, Felt252>,
+// ) -> Result<(), HintError> {
+//     let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>("transactions")?;
+//     // Safe to unwrap because the remaining number of txs is checked in the cairo code.
+//     let tx = transactions.next().unwrap();
+//     exec_scopes.insert_value("transactions", transactions);
+//     exec_scopes.insert_value("tx", tx.clone());
+//     insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
+// }
 
 pub const PREPARE_CONSTRUCTOR_EXECUTION: &str = indoc! {r#"
     ids.contract_address_salt = tx.contract_address_salt
@@ -242,11 +242,11 @@ pub fn enter_syscall_scopes(
     Ok(())
 }
 
-pub const START_DEPLOY_TX: &str = indoc! {r#"
-    execution_helper.start_tx(
-        tx_info_ptr=ids.constructor_execution_context.deprecated_tx_info.address_
-    )"#
-};
+// pub const START_DEPLOY_TX: &str = indoc! {r#"
+//     execution_helper.start_tx(
+//         tx_info_ptr=ids.constructor_execution_context.deprecated_tx_info.address_
+//     )"#
+// };
 pub fn start_deploy_tx(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,

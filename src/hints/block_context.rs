@@ -225,6 +225,19 @@ pub fn fee_token_address(
     insert_value_into_ap(vm, felt_api2vm(*os_input.general_config.starknet_os_config.fee_token_address.0.key()))
 }
 
+pub const DEPRECATED_FEE_TOKEN_ADDRESS: &str = "memory[ap] = to_felt_or_relocatable(os_input.general_config.deprecated_fee_token_address)";
+pub fn deprecated_fee_token_address(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    insert_value_into_ap(vm, felt_api2vm(*os_input.general_config.starknet_os_config.deprecated_fee_token_address.0.key()))
+}
+
+
 pub const SEQUENCER_ADDRESS: &str = "memory[ap] = to_felt_or_relocatable(os_input.general_config.sequencer_address)";
 pub fn sequencer_address(
     vm: &mut VirtualMachine,

@@ -1,10 +1,10 @@
 {
   "deprecated_compiled_classes": {
-    "0x1880d2c303f26b658392a2c92a0677f3939f5fdfb960ecf5912afa06ad0b9d9": "build/contracts/delegate_proxy.json",
-    "0x49bcc976d628b1b238aefc20e77303a251a14ba6c99cd543a86708513414057": "build/contracts/test_contract2.json",
-    "0x16dc3038da22dde8ad61a786ab9930699cc496c8bccb90d77cc8abee89803f7": "build/contracts/dummy_account.json",
-    "0x7364bafc3d2c56bc84404a6d8be799f533e518b8808bce86395a9442e1e5160": "build/contracts/test_contract.json",
-    "0x7cea4d7710723fa9e33472b6ceb71587a0ce4997ef486638dd0156bdb6c2daa": "build/contracts/dummy_token.json"
+    "0x07f4cc5d304b0f2524610fb629d64025c0d270c4f10a39931902513c351c412f": "build/contracts/delegate_proxy.json",
+    "0x027b4c1fb6c767a817922b33678eea599e2c3e7254cb6fd00987982df6e98e9e": "build/contracts/test_contract2.json",
+    "0x0420f2d247b1a71b886199d77f437baec77f16115fcf94aff221e7f5d8c84c82": "build/contracts/dummy_account.json",
+    "0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3": "build/contracts/test_contract.json",
+    "0x06b1a684039d90927628155ab406e0ece95c78863f2582bbb505e92ec74de861": "build/contracts/dummy_token.json"
   },
   "compiled_classes": {},
   "contracts": {
@@ -77,14 +77,18 @@
   "general_config": {
     "starknet_os_config": {
       "chain_id": 1536727068981429685321,
-      "fee_token_address": "0x3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8"
+      "fee_token_address": "0x3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8",
+      "deprecated_fee_token_address": "0x3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8"
     },
     "contract_storage_commitment_tree_height": 251,
     "compiled_class_hash_commitment_tree_height": 251,
     "global_state_commitment_tree_height": 251,
     "invoke_tx_max_n_steps": 3000000,
     "validate_max_n_steps": 1000000,
-    "min_gas_price": 100000000,
+    "min_eth_l1_gas_price": 100000000000,
+    "min_strk_l1_gas_price": 1000000000000,
+    "max_strk_l1_gas_price": 100000000000000,
+    "default_eth_price_in_strk_wei": 1000000000000000000000,
     "constant_gas_price": false,
     "sequencer_address": "0x6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa",
     "tx_commitment_tree_height": 64,
