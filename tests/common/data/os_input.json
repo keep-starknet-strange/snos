@@ -6,6 +6,7 @@
     "0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3": "build/contracts/test_contract.json",
     "0x06b1a684039d90927628155ab406e0ece95c78863f2582bbb505e92ec74de861": "build/contracts/dummy_token.json"
   },
+  "compiled_class_visited_pcs": {},
   "compiled_classes": {},
   "contracts": {
     "0": {
@@ -80,19 +81,19 @@
       "fee_token_address": "0x3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8",
       "deprecated_fee_token_address": "0x3400a86fdc294a70fac1cf84f81a2127419359096b846be9814786d4fc056b8"
     },
-    "contract_storage_commitment_tree_height": 251,
-    "compiled_class_hash_commitment_tree_height": 251,
-    "global_state_commitment_tree_height": 251,
+    "gas_price_bounds": {
+      "min_wei_l1_gas_price": 10000000000,
+      "min_fri_l1_gas_price": 100000000000000,
+      "max_fri_l1_gas_price": 10,
+      "min_wei_l1_data_gas_price": 100000000000,
+      "min_fri_l1_data_gas_price": 100000,
+      "max_fri_l1_data_gas_price": 10000000000
+    },
     "invoke_tx_max_n_steps": 3000000,
     "validate_max_n_steps": 1000000,
-    "min_eth_l1_gas_price": 100000000000,
-    "min_strk_l1_gas_price": 1000000000000,
-    "max_strk_l1_gas_price": 100000000000000,
-    "default_eth_price_in_strk_wei": 1000000000000000000000,
+    "default_eth_price_in_fri": 1000000000000000000000,
     "constant_gas_price": false,
     "sequencer_address": "0x6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa",
-    "tx_commitment_tree_height": 64,
-    "event_commitment_tree_height": 64,
     "cairo_resource_fee_weights": {
       "n_steps": 1.0,
       "output_builtin": 0.0,
@@ -104,7 +105,8 @@
       "keccak_builtin": 0.0,
       "poseidon_builtin": 0.0
     },
-    "enforce_l1_handler_fee": true
+    "enforce_l1_handler_fee": true,
+    "use_kzg_da": true
   },
   "transactions": [
     {

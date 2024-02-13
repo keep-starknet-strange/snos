@@ -32,14 +32,14 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 47] = [
+static HINTS: [(&str, HintImpl); 49] = [
     // (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (SEGMENTS_ADD, segments_add),
     (SEGMENTS_ADD_TEMP, segments_add_temp),
-    // (TRANSACTIONS_LEN, transactions_len),
+    (TRANSACTIONS_LEN, transactions_len),
     (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
     (builtins::SELECT_BUILTIN, builtins::select_builtin),
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
@@ -58,7 +58,7 @@ static HINTS: [(&str, HintImpl); 47] = [
     (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
     (execution::IS_DEPRECATED, execution::is_deprecated),
     (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
-    // (execution::LOAD_NEXT_TX, execution::load_next_tx),
+    (execution::LOAD_NEXT_TX, execution::load_next_tx),
     (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
     (execution::TRANSACTION_VERSION, execution::transaction_version),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
@@ -296,18 +296,17 @@ pub fn segments_add_temp(
     insert_value_into_ap(vm, temp_segment)
 }
 
-// pub const TRANSACTIONS_LEN: &str = "memory[ap] =
-// to_felt_or_relocatable(len(os_input.transactions))"; pub fn transactions_len(
-//     vm: &mut VirtualMachine,
-//     exec_scopes: &mut ExecutionScopes,
-//     _ids_data: &HashMap<String, HintReference>,
-//     _ap_tracking: &ApTracking,
-//     _constants: &HashMap<String, Felt252>,
-// ) -> Result<(), HintError> {
-//     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
-//
-//     insert_value_into_ap(vm, os_input.transactions.len())
-// }
+pub const TRANSACTIONS_LEN: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))"; pub fn transactions_len(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+
+    insert_value_into_ap(vm, os_input.transactions.len())
+}
 
 pub const BREAKPOINT: &str = "breakpoint()";
 pub fn breakpoint(

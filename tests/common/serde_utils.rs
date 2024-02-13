@@ -44,6 +44,12 @@ pub struct StarknetOsInputUtil {
     pub deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass>,
     #[serde_as(as = "HashMap<Felt252Str, Felt252Str>")]
     pub compiled_classes: HashMap<Felt252, Felt252>,
+    #[serde_as(as = "HashMap<Felt252Str, Vec<Felt252Str>>")]
+    pub compiled_class_visited_pcs: HashMap<Felt252, Vec<Felt252>>,
+    // compiled_class_visited_pcs = {
+    //     compiled_class_hash: list(range(len(compiled_class.bytecode)))
+    //     for compiled_class_hash, compiled_class in compiled_classes.items()
+    // }
     #[serde_as(as = "HashMap<Felt252StrDec, _>")]
     pub contracts: HashMap<Felt252, ContractState>,
     #[serde_as(as = "HashMap<Felt252Str, Felt252Str>")]

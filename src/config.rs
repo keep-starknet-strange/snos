@@ -53,23 +53,27 @@ impl StarknetOsConfig {
 }
 
 #[derive(Debug, Serialize, Clone, Deserialize)]
+pub struct GasPriceBounds {
+    pub min_wei_l1_gas_price: u128,
+    pub min_fri_l1_gas_price: u128,
+    pub max_fri_l1_gas_price: u128,
+    pub min_wei_l1_data_gas_price: u128,
+    pub min_fri_l1_data_gas_price: u128,
+    pub max_fri_l1_data_gas_price: u128,
+}
+
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct StarknetGeneralConfig {
     pub starknet_os_config: StarknetOsConfig,
-    pub contract_storage_commitment_tree_height: u64,
-    pub compiled_class_hash_commitment_tree_height: u64,
-    pub global_state_commitment_tree_height: u64,
+    pub gas_price_bounds: GasPriceBounds,
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
-    pub min_eth_l1_gas_price: u128,
-    pub min_strk_l1_gas_price: u128,
-    pub max_strk_l1_gas_price: u128,
-    pub default_eth_price_in_strk_wei: u128,
+    pub default_eth_price_in_fri: u128,
     pub constant_gas_price: bool,
     pub sequencer_address: ContractAddress,
-    pub tx_commitment_tree_height: u64,
-    pub event_commitment_tree_height: u64,
     pub cairo_resource_fee_weights: Arc<HashMap<String, f64>>,
     pub enforce_l1_handler_fee: bool,
+    pub use_kzg_da: bool,
 }
 
 impl Default for StarknetGeneralConfig {
@@ -82,22 +86,25 @@ impl Default for StarknetGeneralConfig {
                     fee_token_address: contract_address!(DEFAULT_FEE_TOKEN_ADDR),
                     deprecated_fee_token_address: contract_address!(DEFAULT_DEPRECATED_FEE_TOKEN_ADDR),
                 },
-                contract_storage_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
-                compiled_class_hash_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
-                global_state_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
+                gas_price_bounds: GasPriceBounds {
+                    max_fri_l1_data_gas_price: 10000000000,
+                    max_fri_l1_gas_price: 100000000000000,
+                    min_fri_l1_data_gas_price: 10,
+                    min_fri_l1_gas_price: 100000000000,
+                    min_wei_l1_data_gas_price: 100000,
+                    min_wei_l1_gas_price: 10000000000,
+                },
+                // contract_storage_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
+                // compiled_class_hash_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
+                // global_state_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
                 invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
                 validate_max_n_steps: MAX_STEPS_PER_TX as u32,
-                // TODO: where to get below values from?
-                min_eth_l1_gas_price: 100000000000,
-                min_strk_l1_gas_price: 1000000000000,
-                max_strk_l1_gas_price: 100000000000000,
-                default_eth_price_in_strk_wei: 1000000000000000000000,
+                default_eth_price_in_fri: 1_000_000000_000000_000000,
                 constant_gas_price: false,
                 sequencer_address: contract_address!(SEQUENCER_ADDR_0_13_0),
-                tx_commitment_tree_height: DEFAULT_INNER_TREE_HEIGHT,
-                event_commitment_tree_height: DEFAULT_INNER_TREE_HEIGHT,
                 cairo_resource_fee_weights: Arc::new(HashMap::from([(N_STEPS_RESOURCE.to_string(), 1.0)])),
                 enforce_l1_handler_fee: true,
+                use_kzg_da: false,
             },
         }
     }
@@ -120,8 +127,8 @@ impl StarknetGeneralConfig {
             },
             vm_resource_fee_cost: self.cairo_resource_fee_weights.clone(),
             gas_prices: GasPrices {
-                eth_l1_gas_price: self.min_eth_l1_gas_price,
-                strk_l1_gas_price: self.min_strk_l1_gas_price,
+                eth_l1_gas_price: 1, // TODO: update with 4844
+                strk_l1_gas_price: 1,
             },
             invoke_tx_max_n_steps: self.invoke_tx_max_n_steps,
             validate_max_n_steps: self.validate_max_n_steps,
@@ -142,8 +149,6 @@ impl TryFrom<BlockContext> for StarknetGeneralConfig {
             },
             sequencer_address: block_context.sequencer_address,
             cairo_resource_fee_weights: block_context.vm_resource_fee_cost,
-            min_eth_l1_gas_price: block_context.gas_prices.get_by_fee_type(&FeeType::Eth),
-            min_strk_l1_gas_price: block_context.gas_prices.get_by_fee_type(&FeeType::Strk),
             ..Default::default()
         })
     }
@@ -159,19 +164,12 @@ mod tests {
 
         let conf = StarknetGeneralConfig::default();
 
-        assert_eq!(251, conf.compiled_class_hash_commitment_tree_height);
-        assert_eq!(251, conf.contract_storage_commitment_tree_height);
-        assert_eq!(251, conf.global_state_commitment_tree_height);
-
         assert!(!conf.constant_gas_price);
         assert!(conf.enforce_l1_handler_fee);
 
-        assert_eq!(64, conf.event_commitment_tree_height);
-        assert_eq!(64, conf.tx_commitment_tree_height);
-
-        assert_eq!(1000000, conf.invoke_tx_max_n_steps);
-        assert_eq!(100000000000, conf.min_eth_l1_gas_price);
-        assert_eq!(1000000, conf.validate_max_n_steps);
+        assert_eq!(4000000, conf.invoke_tx_max_n_steps);
+        assert_eq!(1000000000000000000000, conf.default_eth_price_in_fri);
+        assert_eq!(4000000, conf.validate_max_n_steps);
 
         assert_eq!(expected_seq_addr, conf.sequencer_address);
     }

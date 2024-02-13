@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CAIRO_VER="0.13.0"
+CAIRO_VER="0.13.1a0"
 
 if ! command -v cairo-compile >/dev/null; then
     echo "please start cairo($CAIRO_VER) dev environment"
