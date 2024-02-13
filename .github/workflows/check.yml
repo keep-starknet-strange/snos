@@ -12,10 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: rustup show
-      - run: rustup toolchain install nightly
-      - run: rustup component add rustfmt --toolchain nightly
+      - run: rustup component add rustfmt
       - uses: Swatinem/rust-cache@v2
-      - run: cargo +nightly fmt --all -- --check
+      - run: cargo fmt --all -- --check
 
   clippy:
     runs-on: ubuntu-latest
@@ -46,20 +45,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@nightly
+      - run: rustup show
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
       - run: cargo install cargo-udeps --locked
-      - run: cargo +nightly udeps --all-targets
+      - run: cargo udeps --all-targets
 
   orphans:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - run: rustup show
-      - run: rustup toolchain install nightly
-      - run: rustup component add rustfmt --toolchain nightly
+      - run: rustup component add rustfmt
       - uses: Swatinem/rust-cache@v2
       - run: git submodule update --init
       - run: ./scripts/check-orphans.sh
