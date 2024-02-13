@@ -1,6 +1,5 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
-use std::vec::IntoIter;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
