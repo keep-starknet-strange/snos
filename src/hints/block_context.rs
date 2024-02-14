@@ -27,6 +27,7 @@ pub const LOAD_CLASS_FACTS: &str = indoc! {r#"
     ids.n_compiled_class_facts = len(os_input.compiled_classes)
     vm_enter_scope({
         'compiled_class_facts': iter(os_input.compiled_classes.items()),
+        'compiled_class_visited_pcs': os_input.compiled_class_visited_pcs,
     })"#
 };
 pub fn load_class_facts(
@@ -42,9 +43,12 @@ pub fn load_class_facts(
 
     insert_value_from_var_name("n_compiled_class_facts", os_input.compiled_classes.len(), vm, ids_data, ap_tracking)?;
 
-    let scoped_classes: Box<dyn Any> = Box::new(os_input.compiled_classes.into_iter());
-    exec_scopes.enter_scope(HashMap::from([(String::from("compiled_class_facts"), scoped_classes)]));
-
+    let compiled_class_facts: Box<dyn Any> = Box::new(os_input.compiled_classes.into_iter());
+    let compiled_class_visited_pcs: Box<dyn Any> = Box::new(os_input.compiled_class_visited_pcs);
+    exec_scopes.enter_scope(HashMap::from([
+        (String::from("compiled_class_facts"), compiled_class_facts),
+        (String::from("compiled_class_visited_pcs"), compiled_class_visited_pcs)
+    ]));
     Ok(())
 }
 

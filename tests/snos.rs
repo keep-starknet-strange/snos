@@ -42,7 +42,7 @@ fn snos_run_test(
         }
     }
 
-    // println!("{:#?}", runner_res);
+    println!("{:#?}", runner_res);
 }
 
 #[rstest]
