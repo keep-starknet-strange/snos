@@ -96,7 +96,7 @@ impl Default for StarknetGeneralConfig {
                 },
                 invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
                 validate_max_n_steps: MAX_STEPS_PER_TX as u32,
-                default_eth_price_in_fri: 1_000_000000_000000_000000,
+                default_eth_price_in_fri: 1_000_000_000_000_000_000_000,
                 constant_gas_price: false,
                 sequencer_address: contract_address!(SEQUENCER_ADDR_0_13_0),
                 cairo_resource_fee_weights: Arc::new(HashMap::from([(N_STEPS_RESOURCE.to_string(), 1.0)])),
