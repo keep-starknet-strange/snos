@@ -177,8 +177,6 @@ pub fn load_deprecated_class(
 }
 
 pub const BLOCK_NUMBER: &str = "memory[ap] = to_felt_or_relocatable(syscall_handler.block_info.block_number)";
-pub const DEPRECATED_BLOCK_NUMBER: &str =
-    "memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_number)";
 pub fn block_number(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -192,8 +190,6 @@ pub fn block_number(
 }
 
 pub const BLOCK_TIMESTAMP: &str = "memory[ap] = to_felt_or_relocatable(syscall_handler.block_info.block_timestamp)";
-pub const DEPRECATED_BLOCK_TIMESTAMP: &str =
-    "memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_timestamp)";
 pub fn block_timestamp(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
