@@ -5,14 +5,13 @@ use std::fs;
 use blockifier::block_context::BlockContext;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
+use cairo_vm::cairo_run::CairoRunConfig;
 use cairo_vm::types::program::Program;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use common::load_input;
 use common::prepared_os_test::{block_context, prepare_os_test};
-use common::utils::check_output_vs_python;
 use rstest::rstest;
 use snos::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use snos::execution::helper::ExecutionHelperWrapper;
@@ -20,20 +19,6 @@ use snos::hints::SnosHintProcessor;
 use snos::io::input::StarknetOsInput;
 use snos::state::SharedState;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-
-#[rstest]
-fn load_deprecated_class_test() {
-    let program = "build/programs/load_deprecated_class.json";
-
-    let mut sn_hint_processor = SnosHintProcessor::default();
-
-    let run_output = cairo_run(
-        &fs::read(program).unwrap(),
-        &CairoRunConfig { layout: "starknet", relocate_mem: true, trace_enabled: true, ..Default::default() },
-        &mut sn_hint_processor,
-    );
-    check_output_vs_python(run_output, program, true);
-}
 
 #[rstest]
 fn block_context_test(

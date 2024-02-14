@@ -38,8 +38,8 @@ pub fn load_next_tx(
     let tx = transactions.next().unwrap();
     exec_scopes.insert_value("transactions", transactions);
     exec_scopes.insert_value("tx", tx.clone());
-    insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm,
-ids_data, ap_tracking) }
+    insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
+}
 
 pub const PREPARE_CONSTRUCTOR_EXECUTION: &str = indoc! {r#"
     ids.contract_address_salt = tx.contract_address_salt

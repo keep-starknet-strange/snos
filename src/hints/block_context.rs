@@ -47,7 +47,7 @@ pub fn load_class_facts(
     let compiled_class_visited_pcs: Box<dyn Any> = Box::new(os_input.compiled_class_visited_pcs);
     exec_scopes.enter_scope(HashMap::from([
         (String::from("compiled_class_facts"), compiled_class_facts),
-        (String::from("compiled_class_visited_pcs"), compiled_class_visited_pcs)
+        (String::from("compiled_class_visited_pcs"), compiled_class_visited_pcs),
     ]));
     Ok(())
 }
@@ -176,6 +176,7 @@ pub fn load_deprecated_class(
     Ok(hint_extension)
 }
 
+pub const BLOCK_NUMBER: &str = "memory[ap] = to_felt_or_relocatable(syscall_handler.block_info.block_number)";
 pub const DEPRECATED_BLOCK_NUMBER: &str =
     "memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_number)";
 pub fn block_number(
@@ -190,6 +191,7 @@ pub fn block_number(
     insert_value_into_ap(vm, Felt252::from(block_context.block_number.0))
 }
 
+pub const BLOCK_TIMESTAMP: &str = "memory[ap] = to_felt_or_relocatable(syscall_handler.block_info.block_timestamp)";
 pub const DEPRECATED_BLOCK_TIMESTAMP: &str =
     "memory[ap] = to_felt_or_relocatable(deprecated_syscall_handler.block_info.block_timestamp)";
 pub fn block_timestamp(
@@ -245,7 +247,7 @@ pub fn deprecated_fee_token_address(
     )
 }
 
-pub const SEQUENCER_ADDRESS: &str = "memory[ap] = to_felt_or_relocatable(os_input.general_config.sequencer_address)";
+pub const SEQUENCER_ADDRESS: &str = "memory[ap] = to_felt_or_relocatable(syscall_handler.block_info.sequencer_address)";
 pub fn sequencer_address(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -253,12 +255,8 @@ pub fn sequencer_address(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
-
-    insert_value_into_ap(
-        vm,
-        MaybeRelocatable::Int(Felt252::from_bytes_be_slice(os_input.general_config.sequencer_address.0.key().bytes())),
-    )
+    let block_context = exec_scopes.get_ref::<BlockContext>("block_context")?;
+    insert_value_into_ap(vm, felt_api2vm(*block_context.sequencer_address.0.key()))
 }
 
 pub const GET_BLOCK_MAPPING: &str = indoc! {r#"

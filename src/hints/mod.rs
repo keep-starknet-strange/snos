@@ -32,7 +32,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 49] = [
+static HINTS: [(&str, HintImpl); 51] = [
     // (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -47,6 +47,8 @@ static HINTS: [(&str, HintImpl); 49] = [
     (block_context::LOAD_DEPRECATED_CLASS_FACTS, block_context::load_deprecated_class_facts),
     (block_context::LOAD_DEPRECATED_CLASS_INNER, block_context::load_deprecated_class_inner),
     (block_context::DEPRECATED_BLOCK_NUMBER, block_context::block_number),
+    (block_context::BLOCK_NUMBER, block_context::block_number),
+    (block_context::BLOCK_TIMESTAMP, block_context::block_timestamp),
     (block_context::DEPRECATED_BLOCK_TIMESTAMP, block_context::block_timestamp),
     (block_context::SEQUENCER_ADDRESS, block_context::sequencer_address),
     (block_context::CHAIN_ID, block_context::chain_id),
@@ -296,7 +298,8 @@ pub fn segments_add_temp(
     insert_value_into_ap(vm, temp_segment)
 }
 
-pub const TRANSACTIONS_LEN: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))"; pub fn transactions_len(
+pub const TRANSACTIONS_LEN: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";
+pub fn transactions_len(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,

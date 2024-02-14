@@ -42,9 +42,6 @@ cairo-format -i tests/programs/*
 cairo-compile tests/programs/bad_output.cairo --output build/programs/bad_output.json
 cairo-compile tests/programs/fact.cairo --output build/programs/fact.json
 cairo-compile tests/programs/load_deprecated_class.cairo --output build/programs/load_deprecated_class.json --cairo_path cairo-lang/src
-cairo-compile tests/programs/initialize_state_changes.cairo --output build/programs/initialize_state_changes.json --cairo_path cairo-lang/src
-cairo-compile tests/programs/get_block_mapping.cairo --output build/programs/get_block_mapping.json --cairo_path cairo-lang/src
-cairo-compile tests/programs/format_os_output.cairo --output build/programs/format_os_output.json --cairo_path cairo-lang/src
 cairo-compile tests/programs/block_context.cairo --output build/programs/block_context.json --cairo_path cairo-lang/src
 
 # compile os with debug info

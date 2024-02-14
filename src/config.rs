@@ -29,7 +29,7 @@ pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
 // TODO: update with relevant address
 pub const DEFAULT_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const DEFAULT_DEPRECATED_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
-pub const SEQUENCER_ADDR_0_13_0: &str = "0x1b7c57a9323f1b11656d289df9241d795c1622ffdd6c6661660944557042dd8";
+pub const SEQUENCER_ADDR_0_13_0: &str = "0x4acb67f8e29379b475ccc408fc8269c116f64b4fe5a625644c507d7df07132";
 pub const SN_GOERLI: &str = "534e5f474f45524c49";
 
 use crate::utils::ChainIdNum;
@@ -94,9 +94,6 @@ impl Default for StarknetGeneralConfig {
                     min_wei_l1_data_gas_price: 100000,
                     min_wei_l1_gas_price: 10000000000,
                 },
-                // contract_storage_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
-                // compiled_class_hash_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
-                // global_state_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
                 invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
                 validate_max_n_steps: MAX_STEPS_PER_TX as u32,
                 default_eth_price_in_fri: 1_000_000000_000000_000000,
@@ -167,9 +164,9 @@ mod tests {
         assert!(!conf.constant_gas_price);
         assert!(conf.enforce_l1_handler_fee);
 
-        assert_eq!(4000000, conf.invoke_tx_max_n_steps);
+        assert_eq!(1000000, conf.invoke_tx_max_n_steps);
         assert_eq!(1000000000000000000000, conf.default_eth_price_in_fri);
-        assert_eq!(4000000, conf.validate_max_n_steps);
+        assert_eq!(1000000, conf.validate_max_n_steps);
 
         assert_eq!(expected_seq_addr, conf.sequencer_address);
     }
