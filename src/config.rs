@@ -28,6 +28,7 @@ pub const DEFAULT_STORAGE_TREE_HEIGHT: usize = 251;
 pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
 pub const DEFAULT_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const SEQUENCER_ADDR_0_12_2: &str = "6c95526293b61fa708c6cba66fd015afee89309666246952456ab970e9650aa";
+pub const SN_GOERLI: &str = "534e5f474f45524c49";
 
 use crate::utils::ChainIdNum;
 #[serde_as]
@@ -71,7 +72,7 @@ impl Default for StarknetGeneralConfig {
             Ok(conf) => conf,
             Err(_) => Self {
                 starknet_os_config: StarknetOsConfig {
-                    chain_id: ChainId("SN_GOERLI".to_string()),
+                    chain_id: ChainId(SN_GOERLI.to_string()),
                     fee_token_address: contract_address!(DEFAULT_FEE_TOKEN_ADDR),
                 },
                 contract_storage_commitment_tree_height: DEFAULT_STORAGE_TREE_HEIGHT as u64,
