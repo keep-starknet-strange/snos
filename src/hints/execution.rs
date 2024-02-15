@@ -21,12 +21,6 @@ use crate::execution::helper::ExecutionHelperWrapper;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 
-pub const LOAD_NEXT_TX_OLD: &str = indoc! {r#"
-    tx = next(transactions)
-    tx_type_bytes = tx.tx_type.name.encode("ascii")
-    ids.tx_type = int.from_bytes(tx_type_bytes, "big")"#
-};
-
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
         tx = next(transactions)
         assert tx.tx_type.name in ('INVOKE_FUNCTION', 'L1_HANDLER', 'DEPLOY_ACCOUNT', 'DECLARE'), (
@@ -49,7 +43,6 @@ pub const LOAD_NEXT_TX: &str = indoc! {r#"
             range_check_ptr=ids.range_check_ptr,
         )"#
 };
-
 pub fn load_next_tx(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -62,6 +55,7 @@ pub fn load_next_tx(
     let tx = transactions.next().unwrap();
     exec_scopes.insert_value("transactions", transactions);
     exec_scopes.insert_value("tx", tx.clone());
+    println!("tx.type: {}", tx.r#type);
     insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
     // TODO: add logger
 }

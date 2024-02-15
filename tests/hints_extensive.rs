@@ -39,7 +39,7 @@ fn block_context_test(
 
     let mut cairo_runner = CairoRunner::new(&program, cairo_run_config.layout, cairo_run_config.proof_mode).unwrap();
     let mut vm = VirtualMachine::new(cairo_run_config.trace_enabled);
-    let end = cairo_runner.initialize(&mut vm).unwrap();
+    let end = cairo_runner.initialize(&mut vm, false).unwrap();
     // Setup Block Context
     block_context.block_number = BlockNumber(2);
     block_context.block_timestamp = BlockTimestamp(3);
