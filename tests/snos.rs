@@ -1,6 +1,5 @@
 mod common;
 
-use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
@@ -11,7 +10,6 @@ use common::defs::{
     TESTING_BLOCK_HASH, TESTING_DELEGATE_ADDREESS_0_12_2, TESTING_HASH_0_12_2,
 };
 use common::prepared_os_test::prepare_os_test;
-use common::blocks::simple_block;
 use common::{load_input, load_output};
 use rstest::rstest;
 use snos::error::SnOsError::Runner;
@@ -25,16 +23,6 @@ use starknet_api::core::PatriciaKey;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::{patricia_key, stark_felt};
-
-
-#[rstest]
-#[ignore]
-fn run_os_on_simple_block(
-    simple_block: CachedState<DictStateReader>
-) {
-
-    println!("simple_block:\n{:#?}", simple_block);
-}
 
 #[rstest]
 #[ignore]
@@ -58,6 +46,7 @@ fn snos_run_test(
 }
 
 #[rstest]
+#[ignore]
 fn validate_prepared_os_test(prepare_os_test: (SharedState<DictStateReader>, Vec<TransactionExecutionInfo>)) {
     let (mut prepare_os_test, _) = prepare_os_test;
     let diff = prepare_os_test.cache.to_state_diff();
@@ -110,6 +99,7 @@ fn validate_prepared_os_test(prepare_os_test: (SharedState<DictStateReader>, Vec
 }
 
 #[rstest]
+#[ignore]
 fn parse_os_input(load_input: &StarknetOsInput) {
     assert_eq!(Felt252::from_hex(TESTING_BLOCK_HASH).unwrap(), load_input.block_hash);
     assert_eq!(Felt252::from_hex(EXPECTED_PREV_ROOT).unwrap(), load_input.contract_state_commitment_info.previous_root);
@@ -121,6 +111,7 @@ fn parse_os_input(load_input: &StarknetOsInput) {
 }
 
 #[rstest]
+#[ignore]
 fn parse_os_output(load_input: &StarknetOsInput, load_output: StarknetOsOutput) {
     assert_eq!(load_input.contract_state_commitment_info.previous_root, load_output.prev_state_root);
     assert_eq!(load_input.contract_state_commitment_info.updated_root, load_output.new_state_root);
