@@ -1,5 +1,6 @@
 mod common;
 
+use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
@@ -10,6 +11,7 @@ use common::defs::{
     TESTING_BLOCK_HASH, TESTING_DELEGATE_ADDREESS_0_12_2, TESTING_HASH_0_12_2,
 };
 use common::prepared_os_test::prepare_os_test;
+use common::blocks::simple_block;
 use common::{load_input, load_output};
 use rstest::rstest;
 use snos::error::SnOsError::Runner;
@@ -23,6 +25,16 @@ use starknet_api::core::PatriciaKey;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::{patricia_key, stark_felt};
+
+
+#[rstest]
+#[ignore]
+fn run_os_on_simple_block(
+    simple_block: CachedState<DictStateReader>
+) {
+
+    println!("simple_block:\n{:#?}", simple_block);
+}
 
 #[rstest]
 #[ignore]
