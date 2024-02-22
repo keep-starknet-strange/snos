@@ -4,6 +4,7 @@ pub mod execution;
 pub mod syscalls;
 
 use std::collections::{HashMap, HashSet};
+use std::ops::Add;
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
@@ -46,11 +47,12 @@ static HINTS: [(&str, HintImpl); 49] = [
     (block_context::LOAD_CLASS_FACTS, block_context::load_class_facts),
     (block_context::LOAD_DEPRECATED_CLASS_FACTS, block_context::load_deprecated_class_facts),
     (block_context::LOAD_DEPRECATED_CLASS_INNER, block_context::load_deprecated_class_inner),
-    (block_context::DEPRECATED_BLOCK_NUMBER, block_context::block_number),
-    (block_context::DEPRECATED_BLOCK_TIMESTAMP, block_context::block_timestamp),
+    (block_context::BLOCK_NUMBER, block_context::block_number),
+    (block_context::BLOCK_TIMESTAMP, block_context::block_timestamp),
     (block_context::SEQUENCER_ADDRESS, block_context::sequencer_address),
     (block_context::CHAIN_ID, block_context::chain_id),
     (block_context::FEE_TOKEN_ADDRESS, block_context::fee_token_address),
+    (block_context::DEPRECATED_FEE_TOKEN_ADDRESS, block_context::deprecated_fee_token_address),
     (block_context::GET_BLOCK_MAPPING, block_context::get_block_mapping),
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::GET_STATE_ENTRY, execution::get_state_entry),
@@ -62,7 +64,7 @@ static HINTS: [(&str, HintImpl); 49] = [
     (execution::TRANSACTION_VERSION, execution::transaction_version),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
-    (execution::START_DEPLOY_TX, execution::start_deploy_tx),
+    // (execution::START_DEPLOY_TX, execution::start_deploy_tx),
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
     (execution::EXIT_CALL, execution::exit_call),
@@ -295,7 +297,7 @@ pub fn segments_add_temp(
     insert_value_into_ap(vm, temp_segment)
 }
 
-pub const TRANSACTIONS_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(os_input.transactions))";
+pub const TRANSACTIONS_LEN: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";
 pub fn transactions_len(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -304,34 +306,34 @@ pub fn transactions_len(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
-
-    insert_value_into_ap(vm, os_input.transactions.len())
+    vm.insert_value(vm.get_fp().add(8)?, os_input.transactions.len()).map_err(HintError::Memory)
 }
 
 pub const BREAKPOINT: &str = "breakpoint()";
 pub fn breakpoint(
     vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    constants: &HashMap<String, Felt252>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let pc = vm.get_pc();
     let fp = vm.get_fp();
     let ap = vm.get_ap();
-    println!("-----------BEGIN BREAKPOINT(pc-{}, fp-{}, ap-{})-----------\n", pc, fp, ap);
-    println!("\n\tnum_constants -> {:?}", constants.len());
-    print!("\tbuiltins -> ");
-    vm.get_builtin_runners().iter().for_each(|builtin| print!("{}(base {:?}), ", builtin.name(), builtin.base()));
+    println!("-----------BEGIN BREAKPOINT-----------");
+    println!("\tpc -> {}, fp -> {}, ap -> {}", pc, fp, ap);
+    // println!("\tnum_constants -> {:?}", constants.len());
 
-    println!("\n\tpc -> {}", pc);
-    println!("\tfp -> {}", fp);
-    println!("\tap -> {}", ap);
+    // print!("\tbuiltins -> ");
+    // vm.get_builtin_runners().iter().for_each(|builtin| print!("{}(base {:?}), ", builtin.name(),
+    // builtin.base()));
 
-    println!("\tap_tracking -> {ap_tracking:?}");
-    println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
-    println!("\tids -> {:?}", _ids_data);
+    // let range_check_ptr = get_maybe_relocatable_from_var_name("range_check_ptr", vm, ids_data,
+    // ap_tracking)?; println!("range_check_ptr -> {:?} ", range_check_ptr);
 
-    println!("\n-----------END BREAKPOINT-----------\n");
+    // println!("\tap_tracking -> {ap_tracking:?}");
+    // println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
+    // println!("\tids -> {:?}", ids_data);
+    println!("-----------END BREAKPOINT-----------");
     Ok(())
 }

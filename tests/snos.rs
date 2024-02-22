@@ -37,12 +37,12 @@ fn snos_run_test(
     if let Err(ref e) = runner_res {
         if let Runner(ref r) = e {
             if let VmException(ref vme) = r {
-                println!("{}", vme.traceback.as_ref().unwrap());
+                println!("traceback:\n{}", vme.traceback.as_ref().unwrap());
             }
         }
     }
 
-    println!("{:#?}", runner_res);
+    println!("exception:\n{:#?}", runner_res);
 }
 
 #[rstest]

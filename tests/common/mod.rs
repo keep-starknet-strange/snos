@@ -52,6 +52,7 @@ pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
             proof_mode: false,
             secure_run: Some(true),
             disable_trace_padding: false,
+            allow_missing_builtins: None,
         },
         &mut hint_processor,
     )

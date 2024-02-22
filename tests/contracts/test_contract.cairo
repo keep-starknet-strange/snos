@@ -28,7 +28,7 @@ from starkware.starknet.common.syscalls import (
     storage_read,
     storage_write,
 )
-from starkware.starknet.core.os.constants import TRANSACTION_VERSION
+
 from starkware.starknet.core.test_contract.deprecated_syscalls import delegate_call
 from starkware.starknet.core.test_contract.test_contract_interface import StorageCell, TestContract
 
@@ -427,7 +427,7 @@ func test_get_tx_info{syscall_ptr: felt*, range_check_ptr}(expected_account_cont
     tempvar tx_info = [tx_info_ptr];
     tempvar signature0 = tx_info.signature[0];
 
-    assert tx_info.version = TRANSACTION_VERSION;
+    assert tx_info.version = 1;
     assert tx_info.account_contract_address = expected_account_contract_address;
     assert tx_info.max_fee = 2 ** 100;
     assert tx_info.signature_len = 1;

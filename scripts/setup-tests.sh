@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CAIRO_VER="0.12.2"
+CAIRO_VER="0.13.1a0"
 
 if ! command -v cairo-compile >/dev/null; then
     echo "please start cairo($CAIRO_VER) dev environment"
@@ -18,7 +18,7 @@ git submodule update --init
 FETCHED_CAIRO_VER="$(cat cairo-lang/src/starkware/cairo/lang/VERSION)"
 
 if [ "$CAIRO_VER" != "$FETCHED_CAIRO_VER" ]; then
-    echo "incorrect cairo ver($FETCHED_CAIRO_VAR) expecting $CAIROVER"
+    echo "incorrect cairo ver($FETCHED_CAIRO_VER) expecting $CAIRO_VER"
     exit 1
 fi
 
@@ -41,15 +41,11 @@ mkdir -p build/programs
 cairo-format -i tests/programs/*
 cairo-compile tests/programs/bad_output.cairo --output build/programs/bad_output.json
 cairo-compile tests/programs/fact.cairo --output build/programs/fact.json
-cairo-compile tests/programs/load_deprecated_class.cairo --output build/programs/load_deprecated_class.json --cairo_path cairo-lang/src
-cairo-compile tests/programs/initialize_state_changes.cairo --output build/programs/initialize_state_changes.json --cairo_path cairo-lang/src
-cairo-compile tests/programs/get_block_mapping.cairo --output build/programs/get_block_mapping.json --cairo_path cairo-lang/src
-cairo-compile tests/programs/format_os_output.cairo --output build/programs/format_os_output.json --cairo_path cairo-lang/src
 cairo-compile tests/programs/block_context.cairo --output build/programs/block_context.json --cairo_path cairo-lang/src
-cairo-compile --debug_info_with_source tests/programs/exec_deploy_tx.cairo --output build/programs/exec_deploy_tx.json --cairo_path cairo-lang/src
 
 # compile os with debug info
-cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json --cairo_path cairo-lang/src
+cairo-compile --debug_info_with_source cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json --cairo_path cairo-lang/src
+cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
 
 # compile starknet contract
 echo -e "compiling starknet contracts...\n"

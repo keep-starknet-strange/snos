@@ -22,9 +22,26 @@ use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
-    tx = next(transactions)
-    tx_type_bytes = tx.tx_type.name.encode("ascii")
-    ids.tx_type = int.from_bytes(tx_type_bytes, "big")"#
+        tx = next(transactions)
+        assert tx.tx_type.name in ('INVOKE_FUNCTION', 'L1_HANDLER', 'DEPLOY_ACCOUNT', 'DECLARE'), (
+            f"Unexpected transaction type: {tx.type.name}."
+        )
+
+        tx_type_bytes = tx.tx_type.name.encode("ascii")
+        ids.tx_type = int.from_bytes(tx_type_bytes, "big")
+        execution_helper.os_logger.enter_tx(
+            tx=tx,
+            n_steps=current_step,
+            builtin_ptrs=ids.builtin_ptrs,
+            range_check_ptr=ids.range_check_ptr,
+        )
+
+        # Prepare a short callable to save code duplication.
+        exit_tx = lambda: execution_helper.os_logger.exit_tx(
+            n_steps=current_step,
+            builtin_ptrs=ids.builtin_ptrs,
+            range_check_ptr=ids.range_check_ptr,
+        )"#
 };
 pub fn load_next_tx(
     vm: &mut VirtualMachine,
@@ -38,7 +55,9 @@ pub fn load_next_tx(
     let tx = transactions.next().unwrap();
     exec_scopes.insert_value("transactions", transactions);
     exec_scopes.insert_value("tx", tx.clone());
+    println!("tx.type: {}", tx.r#type);
     insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
+    // TODO: add logger
 }
 
 pub const PREPARE_CONSTRUCTOR_EXECUTION: &str = indoc! {r#"
@@ -242,11 +261,11 @@ pub fn enter_syscall_scopes(
     Ok(())
 }
 
-pub const START_DEPLOY_TX: &str = indoc! {r#"
-    execution_helper.start_tx(
-        tx_info_ptr=ids.constructor_execution_context.deprecated_tx_info.address_
-    )"#
-};
+// pub const START_DEPLOY_TX: &str = indoc! {r#"
+//     execution_helper.start_tx(
+//         tx_info_ptr=ids.constructor_execution_context.deprecated_tx_info.address_
+//     )"#
+// };
 pub fn start_deploy_tx(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,

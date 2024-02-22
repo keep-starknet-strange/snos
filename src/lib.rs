@@ -64,7 +64,7 @@ impl SnOsRunner {
 
         // Init the Cairo VM
         let mut vm = VirtualMachine::new(cairo_run_config.trace_enabled);
-        let end = cairo_runner.initialize(&mut vm).map_err(|e| SnOsError::Runner(e.into()))?;
+        let end = cairo_runner.initialize(&mut vm, false).map_err(|e| SnOsError::Runner(e.into()))?;
 
         // Setup Depsyscall Handler
         let dep_syscall_ptr = vm.add_memory_segment();
