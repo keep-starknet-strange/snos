@@ -95,9 +95,6 @@ const SET_TREE_STRUCTURE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_AP_TO_ACTUAL_FEE: &str = "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.actual_fee)";
-
-#[allow(unused)]
 const SPLIT_OUTPUT1: &str = indoc! {r#"
 	tmp, ids.output1_low = divmod(ids.output1, 256 ** 7)
 	ids.output1_high, ids.output1_mid = divmod(tmp, 2 ** 128)"#

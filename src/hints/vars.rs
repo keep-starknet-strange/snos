@@ -1,4 +1,5 @@
 pub mod scopes {
+    pub const EXECUTION_HELPER: &str = "execution_helper";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";
 }
 

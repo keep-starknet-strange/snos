@@ -13,6 +13,7 @@ use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrap
 use crate::hints::vars;
 
 pub const CALL_CONTRACT: &str = "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn call_contract(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -29,6 +30,7 @@ pub fn call_contract(
 }
 
 pub const DELEGATE_CALL: &str = "syscall_handler.delegate_call(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn delegate_call(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -46,6 +48,7 @@ pub fn delegate_call(
 
 pub const DELEGATE_L1_HANDLER: &str =
     "syscall_handler.delegate_l1_handler(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn delegate_l1_handler(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -62,6 +65,7 @@ pub fn delegate_l1_handler(
 }
 
 pub const DEPLOY: &str = "syscall_handler.deploy(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn deploy(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -78,6 +82,7 @@ pub fn deploy(
 }
 
 pub const EMIT_EVENT: &str = "syscall_handler.emit_event(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn emit_event(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -94,6 +99,7 @@ pub fn emit_event(
 }
 
 pub const GET_BLOCK_NUMBER: &str = "syscall_handler.get_block_number(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn get_block_number(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -111,6 +117,7 @@ pub fn get_block_number(
 
 pub const GET_BLOCK_TIMESTAMP: &str =
     "syscall_handler.get_block_timestamp(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn get_block_timestamp(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -128,6 +135,7 @@ pub fn get_block_timestamp(
 
 pub const GET_CALLER_ADDRESS: &str =
     "syscall_handler.get_caller_address(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn get_caller_address(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -145,6 +153,7 @@ pub fn get_caller_address(
 
 pub const GET_CONTRACT_ADDRESS: &str =
     "syscall_handler.get_contract_address(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn get_contract_address(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -162,6 +171,7 @@ pub fn get_contract_address(
 
 pub const GET_SEQUENCER_ADDRESS: &str =
     "syscall_handler.get_sequencer_address(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn get_sequencer_address(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -178,6 +188,7 @@ pub fn get_sequencer_address(
 }
 
 pub const GET_TX_INFO: &str = "syscall_handler.get_tx_info(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn get_tx_info(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -194,6 +205,7 @@ pub fn get_tx_info(
 }
 
 pub const GET_TX_SIGNATURE: &str = "syscall_handler.get_tx_signature(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn get_tx_signature(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -210,6 +222,7 @@ pub fn get_tx_signature(
 }
 
 pub const LIBRARY: &str = "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn library_call(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -227,6 +240,7 @@ pub fn library_call(
 
 pub const LIBRARY_CALL_L1_HANDLER: &str =
     "syscall_handler.library_call_l1_handler(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn library_call_l1_handler(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -243,6 +257,7 @@ pub fn library_call_l1_handler(
 }
 
 pub const REPLACE_CLASS: &str = "syscall_handler.replace_class(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn replace_class(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -260,6 +275,7 @@ pub fn replace_class(
 
 pub const SEND_MESSAGE_TO_L1: &str =
     "syscall_handler.send_message_to_l1(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn send_message_to_l1(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -276,6 +292,7 @@ pub fn send_message_to_l1(
 }
 
 pub const STORAGE_READ: &str = "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn storage_read(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -292,6 +309,7 @@ pub fn storage_read(
 }
 
 pub const STORAGE_WRITE: &str = "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)";
+
 pub fn storage_write(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -336,38 +354,13 @@ pub fn set_syscall_ptr(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
-    use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
-    use cairo_vm::types::exec_scope::ExecutionScopes;
+    use blockifier::block_context::BlockContext;
     use cairo_vm::types::relocatable::Relocatable;
     use rstest::{fixture, rstest};
-    use starknet_api::block::{BlockNumber, BlockTimestamp};
-    use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
-    use starknet_api::hash::StarkHash;
-    use starknet_api::{contract_address, patricia_key};
 
     use super::*;
+    use crate::hints::tests::tests::block_context;
     use crate::ExecutionHelperWrapper;
-
-    #[fixture]
-    fn block_context() -> BlockContext {
-        BlockContext {
-            chain_id: ChainId("SN_GOERLI".to_string()),
-            block_number: BlockNumber(1_000_000),
-            block_timestamp: BlockTimestamp(1_704_067_200),
-            sequencer_address: contract_address!("0x0"),
-            fee_token_addresses: FeeTokenAddresses {
-                eth_fee_token_address: contract_address!("0x1"),
-                strk_fee_token_address: contract_address!("0x2"),
-            },
-            vm_resource_fee_cost: Arc::new(HashMap::new()),
-            gas_prices: GasPrices { eth_l1_gas_price: 1, strk_l1_gas_price: 1 },
-            invoke_tx_max_n_steps: 1,
-            validate_max_n_steps: 1,
-            max_recursion_depth: 50,
-        }
-    }
 
     #[fixture]
     fn exec_scopes(block_context: BlockContext) -> ExecutionScopes {
