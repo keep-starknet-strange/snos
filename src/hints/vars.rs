@@ -11,4 +11,5 @@ pub mod ids {
     pub const Y: &str = "y";
     pub const Y_SQUARE_INT: &str = "y_square_int";
     pub const N: &str = "n";
+    pub const DEPRECATED_TX_INFO: &str = "deprecated_tx_info";
 }

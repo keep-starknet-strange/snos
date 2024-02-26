@@ -175,9 +175,6 @@ const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SKIP_CALL: &str = "execution_helper.skip_call()";
-
-#[allow(unused)]
 const SET_BIT: &str = "ids.bit = (ids.edge.path >> ids.new_length) & 1";
 
 #[allow(unused)]
@@ -225,9 +222,6 @@ const SET_TX_INFO_PTR: &str = indoc! {r#"
 const SPLIT_INPUTS_12: &str = "ids.high12, ids.low12 = divmod(memory[ids.inputs + 12], 256 ** 4)";
 
 #[allow(unused)]
-const SKIP_TX: &str = "execution_helper.skip_tx()";
-
-#[allow(unused)]
 const SET_AP_TO_IS_REVERTED: &str =
     "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.is_reverted)";
 
@@ -236,9 +230,6 @@ const ENTER_SCOPE_NEXT_NODE_2: &str = indoc! {r#"
 	new_node = left_child if ids.bit == 1 else right_child
 	vm_enter_scope(dict(node=new_node, **common_args))"#
 };
-
-#[allow(unused)]
-const START_TX: &str = "execution_helper.start_tx(tx_info_ptr=ids.deprecated_tx_info.address_)";
 
 #[allow(unused)]
 const WRITE_OLD_BLOCK_TO_STORAGE: &str = indoc! {r#"

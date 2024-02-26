@@ -38,7 +38,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 52] = [
+static HINTS: [(&str, HintImpl); 55] = [
     // (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -93,6 +93,9 @@ static HINTS: [(&str, HintImpl); 52] = [
     (SET_AP_TO_ACTUAL_FEE, set_ap_to_actual_fee),
     (IS_ON_CURVE, is_on_curve),
     (IS_N_GE_TWO, is_n_ge_two),
+    (START_TX, start_tx),
+    (SKIP_TX, skip_tx),
+    (SKIP_CALL, skip_call),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
@@ -407,6 +410,54 @@ pub fn is_on_curve(
     let is_on_curve = (y.clone() * y) % sec_p == y_square_int;
     let is_on_curve: Felt252 = if is_on_curve { Felt252::ONE } else { Felt252::ZERO };
     insert_value_from_var_name(vars::ids::IS_ON_CURVE, is_on_curve, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+const START_TX: &str = "execution_helper.start_tx(tx_info_ptr=ids.deprecated_tx_info.address_)";
+
+pub fn start_tx(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let deprecated_tx_info_ptr =
+        get_relocatable_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
+
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER).unwrap();
+    execution_helper.start_tx(Some(deprecated_tx_info_ptr));
+
+    Ok(())
+}
+
+const SKIP_TX: &str = "execution_helper.skip_tx()";
+
+pub fn skip_tx(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER).unwrap();
+    execution_helper.skip_tx();
+
+    Ok(())
+}
+
+const SKIP_CALL: &str = "execution_helper.skip_call()";
+
+pub fn skip_call(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER).unwrap();
+    execution_helper.skip_call();
 
     Ok(())
 }
