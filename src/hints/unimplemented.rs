@@ -150,18 +150,6 @@ const HAS_ENOUGH_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_ga
 const IS_CASE_RIGHT: &str = "memory[ap] = int(case == 'right') ^ ids.bit";
 
 #[allow(unused)]
-const PREPARE_PREIMAGE_VALIDATION: &str = indoc! {r#"
-	ids.edge = segments.add()
-	ids.edge.length, ids.edge.path, ids.edge.bottom = preimage[ids.node]
-	ids.hash_ptr.result = ids.node - ids.edge.length
-	if __patricia_skip_validation_runner is not None:
-	    # Skip validation of the preimage dict to speed up the VM. When this flag is set,
-	    # mistakes in the preimage dict will be discovered only in the prover.
-	    __patricia_skip_validation_runner.verified_addresses.add(
-	        ids.hash_ptr + ids.HashBuiltin.result)"#
-};
-
-#[allow(unused)]
 const SPLIT_INPUTS_3: &str = "ids.high3, ids.low3 = divmod(memory[ids.inputs + 3], 256)";
 
 #[allow(unused)]
@@ -309,29 +297,6 @@ const ENTER_SCOPE_NEW_TREE: &str = indoc! {r#"
 const SPLIT_INPUTS_15: &str = "ids.high15, ids.low15 = divmod(memory[ids.inputs + 15], 256 ** 5)";
 
 #[allow(unused)]
-const SET_PREIMAGE: &str = indoc! {r#"
-	ids.initial_root = os_input.contract_class_commitment_info.previous_root
-	ids.final_root = os_input.contract_class_commitment_info.updated_root
-	preimage = {
-	    int(root): children
-	    for root, children in os_input.contract_class_commitment_info.commitment_facts.items()
-	}
-	assert os_input.contract_class_commitment_info.tree_height == ids.MERKLE_HEIGHT"#
-};
-
-#[allow(unused)]
-const SET_PREIMAGE_COMMITMENT_INFO: &str = indoc! {r#"
-	commitment_info = commitment_info_by_address[ids.state_changes.key]
-	ids.initial_contract_state_root = commitment_info.previous_root
-	ids.final_contract_state_root = commitment_info.updated_root
-	preimage = {
-	    int(root): children
-	    for root, children in commitment_info.commitment_facts.items()
-	}
-	assert commitment_info.tree_height == ids.MERKLE_HEIGHT"#
-};
-
-#[allow(unused)]
 const SPLIT_INPUTS_9: &str = "ids.high9, ids.low9 = divmod(memory[ids.inputs + 9], 256 ** 3)";
 
 #[allow(unused)]
@@ -419,17 +384,6 @@ const BUILD_DESCENT_MAP: &str = indoc! {r#"
 	    preimage=preimage, descent_map=descent_map,
 	    __patricia_skip_validation_runner=__patricia_skip_validation_runner)
 	common_args['common_args'] = common_args"#
-};
-
-#[allow(unused)]
-const SET_PREIMAGE_2: &str = indoc! {r#"
-	ids.initial_root = os_input.contract_state_commitment_info.previous_root
-	ids.final_root = os_input.contract_state_commitment_info.updated_root
-	preimage = {
-	    int(root): children
-	    for root, children in os_input.contract_state_commitment_info.commitment_facts.items()
-	}
-	assert os_input.contract_state_commitment_info.tree_height == ids.MERKLE_HEIGHT"#
 };
 
 #[allow(unused)]

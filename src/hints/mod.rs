@@ -1,6 +1,7 @@
 pub mod block_context;
 pub mod builtins;
 pub mod execution;
+pub mod state;
 pub mod syscalls;
 #[cfg(test)]
 mod tests;
@@ -38,7 +39,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 55] = [
+static HINTS: [(&str, HintImpl); 59] = [
     // (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -73,6 +74,10 @@ static HINTS: [(&str, HintImpl); 55] = [
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
     (execution::EXIT_CALL, execution::exit_call),
+    (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
+    (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
+    (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
+    (state::PREPARE_PREIMAGE_VALIDATION, state::prepare_preimage_validation),
     (syscalls::CALL_CONTRACT, syscalls::call_contract),
     (syscalls::DELEGATE_CALL, syscalls::delegate_call),
     (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),
