@@ -12,6 +12,9 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 
+use crate::cairo_types::builtins::SpongeHashBuiltin;
+use crate::cairo_types::traits::CairoType;
+use crate::cairo_types::trie::NodeEdge;
 use crate::hints::vars;
 use crate::io::input::{CommitmentInfo, StarknetOsInput};
 
@@ -175,24 +178,17 @@ pub fn prepare_preimage_validation(
             "preimage value does not appear to be a NodeEdge".to_string().into_boxed_str(),
         ));
     }
-
-    let length_addr = new_segment_base;
-    let path_addr: Relocatable = (new_segment_base + 1)?;
-    let bottom_addr: Relocatable = (new_segment_base + 2)?;
-
-    vm.insert_value(length_addr, node_values[0])?;
-    vm.insert_value(path_addr, node_values[1])?;
-    vm.insert_value(bottom_addr, node_values[2])?;
+    let edge = NodeEdge { length: node_values[0], path: node_values[1], bottom: node_values[2] };
+    edge.to_memory(vm, new_segment_base)?;
 
     // TODO: prevent underflow (original hint doesn't appear to care)?
     // compute `ids.hash_ptr.result = ids.node - ids.edge.length`
-    let res = node - node_values[0];
+    let res = node - edge.length;
 
     // ids.hash_ptr refers to SpongeHashBuiltin (see cairo-lang's sponge_as_hash.cairo)
-    // it is a struct with 6 felts and `result` is the 4th
     let hash_ptr = get_relocatable_from_var_name(vars::ids::HASH_PTR, vm, ids_data, ap_tracking)?;
-    let hash_ptr_result: Relocatable = (hash_ptr + 3)?;
-    vm.insert_value(hash_ptr_result, res)?;
+    let hash_result_ptr: Relocatable = (hash_ptr + SpongeHashBuiltin::result_offset())?;
+    vm.insert_value(hash_result_ptr, res)?;
 
     // TODO: __patricia_skip_validation_runner
 

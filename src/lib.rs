@@ -1,3 +1,4 @@
+mod cairo_types;
 pub mod config;
 pub mod error;
 pub mod execution;

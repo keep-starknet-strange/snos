@@ -901,6 +901,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cairo-type-derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.48",
+]
+
+[[package]]
 name = "cairo-vm"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3114,6 +3122,7 @@ dependencies = [
  "base64",
  "bitvec",
  "blockifier",
+ "cairo-type-derive",
  "cairo-vm 1.0.0-rc0",
  "hex",
  "indexmap 1.9.3",
