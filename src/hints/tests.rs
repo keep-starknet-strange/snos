@@ -8,7 +8,7 @@ pub(crate) mod tests {
     use cairo_vm::types::exec_scope::ExecutionScopes;
     use num_bigint::BigInt;
     use rstest::{fixture, rstest};
-    use starknet_api::block::{BlockNumber, BlockTimestamp};
+    use starknet_api::block::{Block, BlockNumber, BlockTimestamp};
     use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
     use starknet_api::hash::StarkHash;
     use starknet_api::transaction::Fee;
@@ -247,5 +247,51 @@ pub(crate) mod tests {
 
         // our only call should have been consumed
         assert!(exec_helper_box.execution_helper.borrow().call_iter.clone().peekable().peek().is_none());
+    }
+
+    #[rstest]
+    fn test_get_old_block_number_and_hash(
+        block_context: BlockContext,
+        transaction_execution_info: TransactionExecutionInfo,
+    ) {
+        let mut vm = VirtualMachine::new(false);
+        vm.set_fp(2);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+
+        let ids_data = ids_data![vars::ids::OLD_BLOCK_NUMBER, vars::ids::OLD_BLOCK_HASH];
+        let ap_tracking = ApTracking::default();
+
+        let mut exec_scopes = ExecutionScopes::new();
+
+        let execution_infos = vec![transaction_execution_info];
+        let exec_helper = ExecutionHelperWrapper::new(execution_infos, &block_context);
+        let exec_helper_box = Box::new(exec_helper);
+        exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
+
+        let old_block_number = 1_000_000;
+        insert_value_from_var_name(vars::ids::OLD_BLOCK_NUMBER, old_block_number, &mut vm, &ids_data, &ap_tracking)
+            .expect("Failed to insert old_block_number");
+
+        crate::hints::block_context::get_old_block_number_and_hash(
+            &mut vm,
+            &mut exec_scopes,
+            &ids_data,
+            &ap_tracking,
+            &Default::default()
+        ).expect("get_old_block_number_and_hash");
+
+        let ids_old_block_hash = get_integer_from_var_name(
+            vars::ids::OLD_BLOCK_HASH,
+            &vm,
+            &ids_data,
+            &ap_tracking
+        )
+        .expect("fn didn't insert old_block_hash")
+        .into_owned();
+
+        assert_eq!(ids_old_block_hash, 42.into());
+
     }
 }

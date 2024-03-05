@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use blockifier::block_context::BlockContext;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap
 };
 use cairo_vm::hint_processor::hint_processor_definition::{HintExtension, HintProcessor, HintReference};
 use cairo_vm::serde::deserialize_program::{ApTracking, HintParams, ReferenceManager};
@@ -18,6 +18,8 @@ use cairo_vm::Felt252;
 use indoc::indoc;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
+use crate::execution::helper::ExecutionHelperWrapper;
+use crate::hints::vars;
 use crate::io::classes::write_deprecated_class;
 use crate::io::input::StarknetOsInput;
 use crate::utils::felt_api2vm;
@@ -286,3 +288,50 @@ pub fn get_block_mapping(
     };
     insert_value_from_var_name("state_entry", val, vm, ids_data, ap_tracking)
 }
+
+pub const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
+	(
+	    old_block_number, old_block_hash
+	) = execution_helper.get_old_block_number_and_hash()
+	assert old_block_number == ids.old_block_number,(
+	    "Inconsistent block number. "
+	    "The constant STORED_BLOCK_HASH_BUFFER is probably out of sync."
+	)
+	ids.old_block_hash = old_block_hash"#
+};
+pub fn get_old_block_number_and_hash(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
+    let old_block_number = execution_helper
+        .execution_helper
+        .borrow()
+        .prev_block_context
+        .as_ref()
+        .ok_or(HintError::CustomHint("ExecutionHelper should have prev_block_context".to_owned().into_boxed_str()))?
+        .block_number;
+
+    let ids_old_block_number = get_integer_from_var_name(
+        vars::ids::OLD_BLOCK_NUMBER,
+        vm,
+        ids_data,
+        ap_tracking
+    )?.into_owned();
+
+    assert_eq!(
+        Felt252::from(old_block_number.0),
+        ids_old_block_number,
+        "Inconsistent block number. The constant STORED_BLOCK_HASH_BUFFER is probably out of sync."
+    );
+
+    // TODO: block_hash -- doesn't exist on BlockContext or ExceutionHelper
+    let old_block_hash = 42;
+    insert_value_from_var_name(vars::ids::OLD_BLOCK_HASH, old_block_hash, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+

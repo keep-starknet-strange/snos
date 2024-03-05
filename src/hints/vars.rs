@@ -14,6 +14,8 @@ pub mod ids {
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const MERKLE_HEIGHT: &str = "MERKLE_HEIGHT";
     pub const NODE: &str = "node";
+    pub const OLD_BLOCK_HASH: &str = "old_block_hash";
+    pub const OLD_BLOCK_NUMBER: &str = "old_block_number";
     pub const OS_CONTEXT: &str = "os_context";
     pub const SECP_P: &str = "SECP_P";
     pub const SYSCALL_PTR: &str = "syscall_ptr";

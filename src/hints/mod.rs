@@ -39,7 +39,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 59] = [
+static HINTS: [(&str, HintImpl); 60] = [
     // (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -60,6 +60,7 @@ static HINTS: [(&str, HintImpl); 59] = [
     (block_context::FEE_TOKEN_ADDRESS, block_context::fee_token_address),
     (block_context::DEPRECATED_FEE_TOKEN_ADDRESS, block_context::deprecated_fee_token_address),
     (block_context::GET_BLOCK_MAPPING, block_context::get_block_mapping),
+    (block_context::GET_OLD_BLOCK_NUMBER_AND_HASH, block_context::get_old_block_number_and_hash),
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::GET_STATE_ENTRY, execution::get_state_entry),
     (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
