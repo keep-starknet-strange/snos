@@ -47,22 +47,22 @@ pub fn to_felt252(stark_felt: &StarkFelt) -> Felt252 {
 }
 
 fn internal_account_invoke_tx(invoke_args: InvokeTxArgs) -> InternalTransaction {
-    let mut hash_value: Felt252 = Felt252::default();
-    let mut version: Option<Felt252> = Some(to_felt252(&invoke_args.version.0));
-    let mut contract_address: Option<Felt252> = None;
-    let mut contract_address_salt: Option<Felt252> = None;
-    let mut contract_hash: Option<Felt252> = None;
-    let mut constructor_calldata: Option<Vec<Felt252>> = None;
-    let mut nonce: Option<Felt252> = Some(to_felt252(&invoke_args.nonce.0));
-    let mut sender_address: Option<Felt252> = Some(to_felt252(invoke_args.sender_address.0.key()));
-    let mut entry_point_selector: Option<Felt252> = None;
-    let mut entry_point_type: Option<String> = Some("EXTERNAL".to_string());
-    let mut signature: Option<Vec<Felt252>> = Some(invoke_args.signature.0.iter().map(|x| to_felt252(x)).collect());
-    let mut class_hash: Option<Felt252> = None;
-    let mut calldata: Option<Vec<Felt252>> =
+    let hash_value: Felt252 = Felt252::default();
+    let version: Option<Felt252> = Some(to_felt252(&invoke_args.version.0));
+    let contract_address: Option<Felt252>;
+    let contract_address_salt: Option<Felt252> = None;
+    let contract_hash: Option<Felt252> = None;
+    let constructor_calldata: Option<Vec<Felt252>> = None;
+    let nonce: Option<Felt252> = Some(to_felt252(&invoke_args.nonce.0));
+    let sender_address: Option<Felt252> = Some(to_felt252(invoke_args.sender_address.0.key()));
+    let entry_point_selector: Option<Felt252>;
+    let entry_point_type: Option<String> = Some("EXTERNAL".to_string());
+    let signature: Option<Vec<Felt252>> = Some(invoke_args.signature.0.iter().map(|x| to_felt252(x)).collect());
+    let class_hash: Option<Felt252> = None;
+    let calldata: Option<Vec<Felt252>> =
         Some(invoke_args.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
-    let mut paid_on_l1: Option<bool> = None;
-    let mut r#type: String = "INVOKE_FUNCTION".to_string();
+    let paid_on_l1: Option<bool> = None;
+    let r#type: String = "INVOKE_FUNCTION".to_string();
 
     match invoke_args.version {
         TransactionVersion::ZERO => {

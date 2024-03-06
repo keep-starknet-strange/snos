@@ -39,7 +39,7 @@ pub fn run_os(
         CairoRunConfig { layout: layout.as_str(), relocate_mem: true, trace_enabled: true, ..Default::default() };
 
     // Load the Starknet OS Program
-    let starknet_os = fs::read(&os_path).map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
+    let starknet_os = fs::read(os_path).map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
     let program = Program::from_bytes(&starknet_os, Some(cairo_run_config.entrypoint))
         .map_err(|e| SnOsError::Runner(e.into()))?;
 

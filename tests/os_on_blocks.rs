@@ -1,10 +1,8 @@
 mod common;
 
 use blockifier::block_context::BlockContext;
-use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use common::blocks::{block_context, simple_block};
 use rstest::rstest;
-use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::{config, run_os};
