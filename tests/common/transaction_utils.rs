@@ -59,8 +59,7 @@ fn internal_account_invoke_tx(invoke_args: InvokeTxArgs) -> InternalTransaction 
     let entry_point_type: Option<String> = Some("EXTERNAL".to_string());
     let signature: Option<Vec<Felt252>> = Some(invoke_args.signature.0.iter().map(|x| to_felt252(x)).collect());
     let class_hash: Option<Felt252> = None;
-    let calldata: Option<Vec<Felt252>> =
-        Some(invoke_args.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
+    let calldata: Option<Vec<Felt252>> = Some(invoke_args.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
     let paid_on_l1: Option<bool> = None;
     let r#type: String = "INVOKE_FUNCTION".to_string();
 

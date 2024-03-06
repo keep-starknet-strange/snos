@@ -211,7 +211,10 @@ pub fn is_deprecated(
     Ok(())
 }
 
-pub const OS_CONTEXT_SEGMENTS: &str = "ids.os_context = segments.add()\nids.syscall_ptr = segments.add()";
+pub const OS_CONTEXT_SEGMENTS: &str = indoc! {r#"
+    ids.os_context = segments.add()
+    ids.syscall_ptr = segments.add()"#
+};
 pub fn os_context_segments(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -325,4 +328,33 @@ pub fn exit_call(
     let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
     execution_helper.exit_call();
     Ok(())
+}
+
+pub const CONTRACT_ADDRESS: &str = indoc! {r#"
+    from starkware.starknet.business_logic.transaction.deprecated_objects import (
+        InternalL1Handler,
+    )
+    ids.contract_address = (
+        tx.contract_address if isinstance(tx, InternalL1Handler) else tx.sender_address
+    )"#
+};
+
+pub fn contract_address(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let contract_address = if tx.r#type == "L1_HANDLER" {
+        tx.contract_address
+            .ok_or(HintError::CustomHint("tx.contract_address is None".to_string().into_boxed_str()))
+            .unwrap()
+    } else {
+        tx.sender_address
+            .ok_or(HintError::CustomHint("tx.sender_address is None".to_string().into_boxed_str()))
+            .unwrap()
+    };
+    insert_value_from_var_name("contract_address", contract_address, vm, ids_data, ap_tracking)
 }

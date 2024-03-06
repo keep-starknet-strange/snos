@@ -32,7 +32,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 49] = [
+static HINTS: [(&str, HintImpl); 50] = [
     // (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -56,6 +56,7 @@ static HINTS: [(&str, HintImpl); 49] = [
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::GET_STATE_ENTRY, execution::get_state_entry),
     (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
+    (execution::CONTRACT_ADDRESS, execution::contract_address),
     (execution::IS_DEPRECATED, execution::is_deprecated),
     (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
     (execution::LOAD_NEXT_TX, execution::load_next_tx),
