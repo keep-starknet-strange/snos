@@ -3,11 +3,10 @@ use std::collections::HashMap;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::V0;
 use blockifier::invoke_tx_args;
-use blockifier::state::state_api::StateReader;
+use blockifier::state::state_api::{StateReader};
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::initial_test_state::test_state;
 use blockifier::test_utils::{create_calldata, CairoVersion, NonceManager, BALANCE};
-use blockifier::transaction::objects::FeeType;
 use blockifier::transaction::test_utils::max_fee;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
@@ -15,9 +14,10 @@ use rstest::fixture;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput};
 use starknet_api::block::BlockNumber;
+use starknet_api::core::{ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::{stark_felt};
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::transaction_utils::{account_invoke_tx, deprecated_class, to_felt252};
@@ -58,32 +58,62 @@ pub fn simple_block(
         only_query,
     });
 
-    let changes =
-        state.get_actual_state_changes_for_fee_charge(block_context.fee_token_address(&FeeType::Eth), None).unwrap();
+    let mut contracts: HashMap<Felt252, ContractState> = state.state.address_to_class_hash
+        .keys()
+        .map(|address| (to_felt252(address.0.key()), ContractState::default()))
+        .collect();
 
-    let mut deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass> = HashMap::default();
+    // Invoke a function from the newly deployed contract.
+    let tx_execution_info = account_tx.execute(
+        &mut state, &block_context, true, true
+    ).unwrap();
 
-    for h in changes.class_hash_updates.values() {
-        let blockifier_class = state.get_compiled_contract_class(h.clone()).unwrap();
+    // TODO: update contracts map
+
+    // let changes =
+    //     state.get_actual_state_changes_for_fee_charge(block_context.fee_token_address(&FeeType::Eth), None).unwrap();
+    //
+    // for h in changes.class_hash_updates.values() {
+    //     let blockifier_class = state.get_compiled_contract_class(h.clone()).unwrap();
+    //     if let V0(_) = blockifier_class {
+    //         deprecated_compiled_classes.insert(to_felt252(&h.0), deprecated_class(h));
+    //     }
+    // }
+
+    // let mut contracts: HashMap<Felt252, ContractState> = tx_execution_info
+    //     .execute_call_info
+    //     .clone()
+    //     .unwrap()
+    //     .get_visited_storage_entries()
+    //     .iter()
+    //     .map(|(address, _)| (to_felt252(address.0.key()), ContractState::default()))
+    //     .collect();
+
+    let mut deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass> = Default::default();
+
+    for c in contracts.keys() {
+        let h = state.get_class_hash_at(
+            ContractAddress::try_from(
+                StarkHash::try_from(c.to_hex_string().as_str()).unwrap()
+            ).unwrap()
+        ).unwrap();
+        let blockifier_class = state.get_compiled_contract_class(h).unwrap();
         if let V0(_) = blockifier_class {
-            deprecated_compiled_classes.insert(to_felt252(&h.0), deprecated_class(h));
+            deprecated_compiled_classes.insert(
+                to_felt252(&h.0),
+                deprecated_class(&h)
+            );
         }
     }
 
-    // Invoke a function from the newly deployed contract.
-    let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
-
-    let mut contracts: HashMap<Felt252, ContractState> = tx_execution_info
-        .execute_call_info
-        .clone()
-        .unwrap()
-        .get_visited_storage_entries()
-        .iter()
-        .map(|(address, _)| (to_felt252(address.0.key()), ContractState::default()))
-        .collect();
-
     contracts.insert(Felt252::from(0), ContractState::default());
     contracts.insert(Felt252::from(1), ContractState::default());
+
+    println!(
+        "contracts: {:?}\ndeprecated_compiled_classes: {:?}",
+        contracts.len(),
+        deprecated_compiled_classes.len()
+    );
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info: Default::default(),
