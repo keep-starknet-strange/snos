@@ -358,3 +358,325 @@ pub fn contract_address(
     };
     insert_value_from_var_name("contract_address", contract_address, vm, ids_data, ap_tracking)
 }
+
+pub const TX_CALLDATA_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(tx.calldata))";
+
+pub fn tx_calldata_len(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let len = tx.calldata.unwrap_or_default().len();
+    insert_value_into_ap(vm, Felt252::from(len))
+}
+
+pub const TX_CALLDATA: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg(tx.calldata))";
+
+pub fn tx_calldata(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let calldata = tx.calldata.unwrap_or_default().iter().map(|felt| felt.into()).collect();
+    let calldata_base = vm.add_memory_segment();
+    vm.load_data(calldata_base, &calldata)?;
+    insert_value_into_ap(vm, calldata_base)
+}
+
+pub const TX_ENTRY_POINT_SELECTOR: &str = "memory[ap] = to_felt_or_relocatable(tx.entry_point_selector)";
+pub fn tx_entry_point_selector(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let entry_point_selector = tx
+        .entry_point_selector
+        .ok_or(HintError::CustomHint("tx.entry_point_selector is None".to_string().into_boxed_str()))
+        .unwrap_or_default();
+    insert_value_into_ap(vm, entry_point_selector)
+}
+
+pub const RESOURCE_BOUNDS: &str = indoc! {r#"
+    from src.starkware.starknet.core.os.transaction_hash.transaction_hash import (
+        create_resource_bounds_list,
+    )
+
+    ids.resource_bounds = (
+        0
+        if tx.version < 3
+        else segments.gen_arg(create_resource_bounds_list(tx.resource_bounds))
+    )"#
+};
+
+pub fn resource_bounds(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let version = tx.version.unwrap_or_default();
+    assert!(version < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // TODO: implement resource_bounds for tx.version >= 3
+    // let resource_bounds = if tx.version < 3 {
+    //     0
+    // } else {
+    //     let resource_bounds = tx.resource_bounds.unwrap_or_default().iter().map(|felt|
+    // felt.into()).collect();     let resource_bounds_base = vm.add_memory_segment();
+    //     vm.load_data(resource_bounds_base, &resource_bounds)?;
+    //     resource_bounds_base
+    // };
+
+    let resource_bounds = 0;
+    insert_value_from_var_name("resource_bounds", resource_bounds, vm, ids_data, ap_tracking)
+}
+
+// copilot prompt:
+// implement rust hints for the following python hints:
+// - %{ tx.max_fee if tx.version < 3 else 0 %},
+// - %{ 0 if tx.nonce is None else tx.nonce %},
+// - %{ 0 if tx.version < 3 else tx.tip %},
+// - %{ 0 if tx.version < 3 else len(tx.resource_bounds) %},
+// - %{ 0 if tx.version < 3 else len(tx.paymaster_data) %},
+// - %{ 0 if tx.version < 3 else segments.gen_arg(tx.paymaster_data) %}, felt*
+// - %{ 0 if tx.version < 3 else tx.nonce_data_availability_mode %}
+// - %{ 0 if tx.version < 3 else tx.fee_data_availability_mode %}
+// - %{ 0 if tx.version < 3 else len(tx.account_deployment_data) %}
+// use exact same logic as in the python hints
+
+pub const TX_MAX_FEE: &str = "memory[ap] = to_felt_or_relocatable(tx.max_fee if tx.version < 3 else 0)";
+pub fn tx_max_fee(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let max_fee = if tx.version.unwrap_or_default() < 3.into() {
+    //     tx.max_fee.unwrap_or_default()
+    // } else {
+    //     0
+    // };
+
+    let max_fee = Felt252::ZERO;
+
+    insert_value_into_ap(vm, max_fee)
+}
+
+pub const TX_NONCE: &str = "memory[ap] = to_felt_or_relocatable(0 if tx.nonce is None else tx.nonce)";
+pub fn tx_nonce(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let nonce = if tx.nonce.is_none() { 0.into() } else { tx.nonce.unwrap() };
+    insert_value_into_ap(vm, nonce)
+}
+
+pub const TX_TIP: &str = "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else tx.tip)";
+pub fn tx_tip(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let tip = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.tip.unwrap_or_default()
+    // };
+
+    let tip = Felt252::ZERO;
+
+    insert_value_into_ap(vm, tip)
+}
+
+pub const TX_RESOURCE_BOUNDS_LEN: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else len(tx.resource_bounds))";
+pub fn tx_resource_bounds_len(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let len = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.resource_bounds.unwrap_or_default().len().into()
+    // };
+
+    let len = Felt252::ZERO;
+    insert_value_into_ap(vm, len)
+}
+
+pub const TX_PAYMASTER_DATA_LEN: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else len(tx.paymaster_data))";
+pub fn tx_paymaster_data_len(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let len = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.paymaster_data.unwrap_or_default().len().into()
+    // };
+
+    let len = Felt252::ZERO;
+    insert_value_into_ap(vm, len)
+}
+
+pub const TX_PAYMASTER_DATA: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else segments.gen_arg(tx.paymaster_data))";
+pub fn tx_paymaster_data(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let paymaster_data = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     let paymaster_data = tx.paymaster_data.unwrap_or_default().iter().map(|felt|
+    // felt.into()).collect();     let paymaster_data_base = vm.add_memory_segment();
+    //     vm.load_data(paymaster_data_base, &paymaster_data)?;
+    //     paymaster_data_base
+    // };
+    let paymaster_data = Felt252::ZERO;
+    insert_value_into_ap(vm, paymaster_data)
+}
+
+pub const TX_NONCE_DATA_AVAILABILITY_MODE: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else tx.nonce_data_availability_mode)";
+pub fn tx_nonce_data_availability_mode(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let nonce_data_availability_mode = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.nonce_data_availability_mode.unwrap_or_default()
+    // };
+
+    let nonce_data_availability_mode = Felt252::ZERO;
+    insert_value_into_ap(vm, nonce_data_availability_mode)
+}
+
+pub const TX_FEE_DATA_AVAILABILITY_MODE: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else tx.fee_data_availability_mode)";
+pub fn tx_fee_data_availability_mode(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let fee_data_availability_mode = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.fee_data_availability_mode.unwrap_or_default()
+    // };
+
+    let fee_data_availability_mode = Felt252::ZERO;
+    insert_value_into_ap(vm, fee_data_availability_mode)
+}
+
+pub const TX_ACCOUNT_DEPLOYMENT_DATA_LEN: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else len(tx.account_deployment_data))";
+pub fn tx_account_deployment_data_len(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let len = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.account_deployment_data.unwrap_or_default().len().into()
+    // };
+
+    let len = Felt252::ZERO;
+    insert_value_into_ap(vm, len)
+}
+
+pub const TX_ACCOUNT_DEPLOYMENT_DATA: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else segments.gen_arg(tx.account_deployment_data))";
+pub fn tx_account_deployment_data(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let account_deployment_data = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     let account_deployment_data =
+    // tx.account_deployment_data.unwrap_or_default().iter().map(|felt| felt.into()).collect();
+    //     let account_deployment_data_base = vm.add_memory_segment();
+    //     vm.load_data(account_deployment_data_base, &account_deployment_data)?;
+    //     account_deployment_data_base
+    // };
+
+    let account_deployment_data = Felt252::ZERO;
+    insert_value_into_ap(vm, account_deployment_data)
+}
