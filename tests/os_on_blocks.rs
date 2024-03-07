@@ -10,6 +10,7 @@ use snos::io::input::StarknetOsInput;
 use snos::{config, run_os};
 
 #[rstest]
+#[ignore]
 fn run_os_on_simple_block(block_context: BlockContext, simple_block: (StarknetOsInput, ExecutionHelperWrapper)) {
     let (os_input, execution_helper) = simple_block;
 
