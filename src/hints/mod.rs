@@ -39,7 +39,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 64] = [
+static HINTS: [(&str, HintImpl); 78] = [
     // (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -90,6 +90,7 @@ static HINTS: [(&str, HintImpl); 64] = [
     (execution::TX_PAYMASTER_DATA_LEN, execution::tx_paymaster_data_len),
     (execution::TX_RESOURCE_BOUNDS_LEN, execution::tx_resource_bounds_len),
     (execution::TX_TIP, execution::tx_tip),
+    (execution::GEN_SIGNATURE_ARG, execution::gen_signature_arg),
     (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
     (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
     (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
@@ -120,6 +121,7 @@ static HINTS: [(&str, HintImpl); 64] = [
     (START_TX, start_tx),
     (SKIP_TX, skip_tx),
     (SKIP_CALL, skip_call),
+    (OS_INPUT_TRANSACTIONS, os_input_transactions),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
@@ -485,4 +487,19 @@ pub fn skip_call(
     execution_helper.skip_call();
 
     Ok(())
+}
+
+const OS_INPUT_TRANSACTIONS: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";
+
+pub fn os_input_transactions(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let num_txns = os_input.transactions.len();
+    vm.insert_value((vm.get_fp() + 8)?, num_txns)
+        .map_err(HintError::Memory)
 }

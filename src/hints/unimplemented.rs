@@ -50,12 +50,6 @@ const DECODE_NODE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const GEN_SIGNATURE_ARG: &str = indoc! {r#"
-	ids.signature_start = segments.gen_arg(arg=tx.signature)
-	ids.signature_len = len(tx.signature)"#
-};
-
-#[allow(unused)]
 const GEN_CALLDATA_ARG: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg(tx.calldata))";
 
 #[allow(unused)]
