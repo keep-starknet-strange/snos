@@ -1,8 +1,7 @@
-use std::{env, fs, path};
+use std::{env, path};
 
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
-use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 

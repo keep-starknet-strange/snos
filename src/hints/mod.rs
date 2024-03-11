@@ -1,10 +1,14 @@
 pub mod block_context;
 pub mod builtins;
 pub mod execution;
+pub mod state;
 pub mod syscalls;
+#[cfg(test)]
+mod tests;
+mod unimplemented;
+mod vars;
 
 use std::collections::{HashMap, HashSet};
-use std::ops::Add;
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
@@ -21,8 +25,10 @@ use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
+use num_bigint::BigInt;
 
 use crate::config::DEFAULT_INPUT_PATH;
+use crate::execution::helper::ExecutionHelperWrapper;
 use crate::io::input::StarknetOsInput;
 
 type HintImpl = fn(
@@ -33,7 +39,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 49] = [
+static HINTS: [(&str, HintImpl); 59] = [
     // (BREAKPOINT, breakpoint),
     (STARKNET_OS_INPUT, starknet_os_input),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -68,6 +74,10 @@ static HINTS: [(&str, HintImpl); 49] = [
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
     (execution::EXIT_CALL, execution::exit_call),
+    (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
+    (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
+    (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
+    (state::LOAD_EDGE, state::prepare_preimage_validation),
     (syscalls::CALL_CONTRACT, syscalls::call_contract),
     (syscalls::DELEGATE_CALL, syscalls::delegate_call),
     (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),
@@ -85,6 +95,12 @@ static HINTS: [(&str, HintImpl); 49] = [
     (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
+    (SET_AP_TO_ACTUAL_FEE, set_ap_to_actual_fee),
+    (IS_ON_CURVE, is_on_curve),
+    (IS_N_GE_TWO, is_n_ge_two),
+    (START_TX, start_tx),
+    (SKIP_TX, skip_tx),
+    (SKIP_CALL, skip_call),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
@@ -197,6 +213,7 @@ pub const STARKNET_OS_INPUT: &str = indoc! {r#"
     ids.initial_carried_outputs.messages_to_l1 = segments.add_temp_segment()
     ids.initial_carried_outputs.messages_to_l2 = segments.add_temp_segment()"#
 };
+
 pub fn starknet_os_input(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -232,6 +249,7 @@ pub const INITIALIZE_STATE_CHANGES: &str = indoc! {r#"
         for address, contract in os_input.contracts.items()
     }"#
 };
+
 pub fn initialize_state_changes(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -256,6 +274,7 @@ pub fn initialize_state_changes(
 }
 
 pub const INITIALIZE_CLASS_HASHES: &str = "initial_dict = os_input.class_hash_to_compiled_class_hash";
+
 pub fn initialize_class_hashes(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -274,6 +293,7 @@ pub fn initialize_class_hashes(
 }
 
 pub const SEGMENTS_ADD: &str = "memory[ap] = to_felt_or_relocatable(segments.add())";
+
 pub fn segments_add(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -286,6 +306,7 @@ pub fn segments_add(
 }
 
 pub const SEGMENTS_ADD_TEMP: &str = "memory[ap] = to_felt_or_relocatable(segments.add_temp_segment())";
+
 pub fn segments_add_temp(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -297,7 +318,8 @@ pub fn segments_add_temp(
     insert_value_into_ap(vm, temp_segment)
 }
 
-pub const TRANSACTIONS_LEN: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";
+pub const TRANSACTIONS_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(os_input.transactions))";
+
 pub fn transactions_len(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -306,10 +328,12 @@ pub fn transactions_len(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
-    vm.insert_value(vm.get_fp().add(8)?, os_input.transactions.len()).map_err(HintError::Memory)
+
+    insert_value_into_ap(vm, os_input.transactions.len())
 }
 
 pub const BREAKPOINT: &str = "breakpoint()";
+
 pub fn breakpoint(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -335,5 +359,110 @@ pub fn breakpoint(
     // println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
     // println!("\tids -> {:?}", ids_data);
     println!("-----------END BREAKPOINT-----------");
+    Ok(())
+}
+
+pub const IS_N_GE_TWO: &str = "memory[ap] = to_felt_or_relocatable(ids.n >= 2)";
+
+pub fn is_n_ge_two(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let n = get_integer_from_var_name(vars::ids::N, vm, ids_data, ap_tracking)?.into_owned();
+    let value = if n >= Felt252::TWO { Felt252::ONE } else { Felt252::ZERO };
+    insert_value_into_ap(vm, value)?;
+    Ok(())
+}
+
+pub const SET_AP_TO_ACTUAL_FEE: &str =
+    "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.actual_fee)";
+
+pub fn set_ap_to_actual_fee(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
+    let actual_fee = execution_helper
+        .execution_helper
+        .borrow()
+        .tx_execution_info
+        .as_ref()
+        .ok_or(HintError::CustomHint("ExecutionHelper should have tx_execution_info".to_owned().into_boxed_str()))?
+        .actual_fee;
+
+    insert_value_into_ap(vm, Felt252::from(actual_fee.0))
+}
+
+pub const IS_ON_CURVE: &str = "ids.is_on_curve = (y * y) % SECP_P == y_square_int";
+
+pub fn is_on_curve(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let y: BigInt = exec_scopes.get(vars::ids::Y)?;
+    let y_square_int: BigInt = exec_scopes.get(vars::ids::Y_SQUARE_INT)?;
+    let sec_p: BigInt = exec_scopes.get(vars::ids::SECP_P)?;
+
+    let is_on_curve = (y.clone() * y) % sec_p == y_square_int;
+    let is_on_curve: Felt252 = if is_on_curve { Felt252::ONE } else { Felt252::ZERO };
+    insert_value_from_var_name(vars::ids::IS_ON_CURVE, is_on_curve, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+const START_TX: &str = "execution_helper.start_tx(tx_info_ptr=ids.deprecated_tx_info.address_)";
+
+pub fn start_tx(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let deprecated_tx_info_ptr =
+        get_relocatable_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
+
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER).unwrap();
+    execution_helper.start_tx(Some(deprecated_tx_info_ptr));
+
+    Ok(())
+}
+
+const SKIP_TX: &str = "execution_helper.skip_tx()";
+
+pub fn skip_tx(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER).unwrap();
+    execution_helper.skip_tx();
+
+    Ok(())
+}
+
+const SKIP_CALL: &str = "execution_helper.skip_call()";
+
+pub fn skip_call(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER).unwrap();
+    execution_helper.skip_call();
+
     Ok(())
 }
