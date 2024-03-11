@@ -146,7 +146,7 @@ pub fn set_preimage_for_current_commitment_info(
     Ok(())
 }
 
-pub const PREPARE_PREIMAGE_VALIDATION: &str = indoc! {r#"
+pub const LOAD_EDGE: &str = indoc! {r#"
 	ids.edge = segments.add()
 	ids.edge.length, ids.edge.path, ids.edge.bottom = preimage[ids.node]
 	ids.hash_ptr.result = ids.node - ids.edge.length
