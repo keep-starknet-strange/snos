@@ -55,7 +55,6 @@ pub fn load_next_tx(
     let tx = transactions.next().unwrap();
     exec_scopes.insert_value("transactions", transactions);
     exec_scopes.insert_value("tx", tx.clone());
-    println!("tx.type: {}", tx.r#type);
     insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
     // TODO: add logger
 }
@@ -134,7 +133,7 @@ pub fn assert_transaction_hash(
         tx.hash_value, transaction_hash,
         "Computed transaction_hash is inconsistent with the hash in the transaction. Computed hash = {}, Expected \
          hash = {}.",
-        transaction_hash, tx.hash_value
+        transaction_hash.to_hex_string(), tx.hash_value.to_hex_string()
     );
     Ok(())
 }
@@ -473,7 +472,7 @@ pub fn tx_max_fee(
     //     0
     // };
 
-    let max_fee = Felt252::ZERO;
+    let max_fee = tx.max_fee.unwrap();
 
     insert_value_into_ap(vm, max_fee)
 }

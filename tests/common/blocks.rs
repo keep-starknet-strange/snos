@@ -7,6 +7,7 @@ use blockifier::state::state_api::StateReader;
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::initial_test_state::test_state;
 use blockifier::test_utils::{create_calldata, CairoVersion, NonceManager, BALANCE};
+use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
@@ -20,7 +21,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
-use crate::common::transaction_utils::{account_invoke_tx, deprecated_class, to_felt252};
+use crate::common::transaction_utils::{deprecated_class, to_felt252, to_internal_tx};
 
 #[fixture]
 pub fn block_context() -> BlockContext {
@@ -45,7 +46,7 @@ pub fn simple_block(
     let contract_address = test_contract.get_instance_address(0);
     let mut nonce_manager = NonceManager::default();
 
-    let (account_tx, account_tx_internal) = account_invoke_tx(invoke_tx_args! {
+    let account_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: account_address,
         calldata: create_calldata(
@@ -58,9 +59,7 @@ pub fn simple_block(
         only_query,
     });
 
-    // if let Invoke(invoke_tx) = &account_tx {
-    //     println!("tx.hash: {} <-> {}", invoke_tx.tx_hash, account_tx_internal.hash_value);
-    // }
+    let account_tx_intenal = to_internal_tx(&account_tx);
 
     let mut contracts: HashMap<Felt252, ContractState> = state
         .state
@@ -122,7 +121,7 @@ pub fn simple_block(
         contracts,
         class_hash_to_compiled_class_hash: Default::default(),
         general_config: Default::default(),
-        transactions: vec![account_tx_internal],
+        transactions: vec![account_tx_intenal],
         block_hash: Default::default(),
     };
 
