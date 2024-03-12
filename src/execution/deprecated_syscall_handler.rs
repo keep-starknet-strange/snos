@@ -89,4 +89,13 @@ impl DeprecatedOsSyscallHandlerWrapper {
         let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
         sys_hand.exec_wrapper.execution_helper.as_ref().borrow_mut().execute_code_read_iter.next();
     }
+
+    pub fn set_syscall_ptr(&self, syscall_ptr: Relocatable) {
+        let mut syscall_handler = self.deprecated_syscall_handler.as_ref().borrow_mut();
+        syscall_handler.syscall_ptr = syscall_ptr;
+    }
+
+    pub fn syscall_ptr(&self) -> Relocatable {
+        self.deprecated_syscall_handler.as_ref().borrow().syscall_ptr
+    }
 }
