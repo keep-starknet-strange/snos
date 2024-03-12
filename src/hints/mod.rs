@@ -9,6 +9,7 @@ mod unimplemented;
 mod vars;
 
 use std::collections::{HashMap, HashSet};
+use std::ops::Add;
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
@@ -337,7 +338,7 @@ pub fn segments_add_temp(
     insert_value_into_ap(vm, temp_segment)
 }
 
-pub const TRANSACTIONS_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(os_input.transactions))";
+pub const TRANSACTIONS_LEN: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";
 
 pub fn transactions_len(
     vm: &mut VirtualMachine,
@@ -348,7 +349,10 @@ pub fn transactions_len(
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
 
-    insert_value_into_ap(vm, os_input.transactions.len())
+    vm.insert_value(
+        vm.get_fp().add(8)?,
+        os_input.transactions.len()
+    ).map_err(HintError::Memory)
 }
 
 pub const BREAKPOINT: &str = "breakpoint()";
