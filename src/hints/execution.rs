@@ -700,7 +700,6 @@ pub fn gen_signature_arg(
     let signature_start_base = vm.add_memory_segment();
     let signature = signature.iter().map(|f| MaybeRelocatable::Int(*f)).collect();
     vm.load_data(signature_start_base, &signature)?;
-    insert_value_into_ap(vm, signature_start_base)?;
 
     insert_value_from_var_name("signature_start", signature_start_base, vm, &ids_data, &ap_tracking)?;
     insert_value_from_var_name("signature_len", signature.len(), vm, &ids_data, &ap_tracking)?;
