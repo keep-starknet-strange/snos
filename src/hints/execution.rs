@@ -15,7 +15,7 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
-use starknet_crypto::sign;
+use crate::cairo_types::structs::ExecutionContext;
 
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
@@ -705,3 +705,35 @@ pub fn gen_signature_arg(
 
     Ok(())
 }
+
+pub const START_TX: &str = indoc! {r#"
+    tx_info_ptr = ids.tx_execution_context.deprecated_tx_info.address_
+    execution_helper.start_tx(tx_info_ptr=tx_info_ptr)"#
+};
+
+pub fn start_tx(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx_execution_context = get_relocatable_from_var_name("tx_execution_context", _vm, ids_data, _ap_tracking)?;
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+    let tx_info_ptr = (tx_execution_context + ExecutionContext::deprecated_tx_info_offset())?;
+    execution_helper.start_tx(Some(tx_info_ptr));
+    Ok(())
+}
+
+// pub const IS_REVERTED: &str = "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.is_reverted)";
+//
+// pub fn is_reverted(
+//     vm: &mut VirtualMachine,
+//     exec_scopes: &mut ExecutionScopes,
+//     _ids_data: &HashMap<String, HintReference>,
+//     _ap_tracking: &ApTracking,
+//     _constants: &HashMap<String, Felt252>,
+// ) -> Result<(), HintError> {
+//     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+//     insert_value_into_ap(vm, Felt252::from(execution_helper. tx_execution_info.is_reverted))
+// }
