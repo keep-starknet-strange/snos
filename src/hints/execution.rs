@@ -710,7 +710,6 @@ pub const START_TX: &str = indoc! {r#"
     tx_info_ptr = ids.tx_execution_context.deprecated_tx_info.address_
     execution_helper.start_tx(tx_info_ptr=tx_info_ptr)"#
 };
-
 pub fn start_tx(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -725,15 +724,16 @@ pub fn start_tx(
     Ok(())
 }
 
-// pub const IS_REVERTED: &str = "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.is_reverted)";
-//
-// pub fn is_reverted(
-//     vm: &mut VirtualMachine,
-//     exec_scopes: &mut ExecutionScopes,
-//     _ids_data: &HashMap<String, HintReference>,
-//     _ap_tracking: &ApTracking,
-//     _constants: &HashMap<String, Felt252>,
-// ) -> Result<(), HintError> {
-//     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
-//     insert_value_into_ap(vm, Felt252::from(execution_helper. tx_execution_info.is_reverted))
-// }
+pub const IS_REVERTED: &str = "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.is_reverted)";
+pub fn is_reverted(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // TODO: implement is_reverted when tx_execution_info abstraction is ready
+    // let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+    // insert_value_into_ap(vm, Felt252::from(execution_helper. tx_execution_info.is_reverted))
+    insert_value_into_ap(vm, Felt252::ZERO)
+}
