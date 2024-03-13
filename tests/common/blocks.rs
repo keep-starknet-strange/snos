@@ -78,7 +78,7 @@ pub fn simple_block(
         let blockifier_class = state.get_compiled_contract_class(class_hash).unwrap();
         if let V0(_) = blockifier_class {
             let compiled_class_hash = state.get_compiled_class_hash(class_hash).unwrap();
-            println!("{} -> {:?}", class_hash, compiled_class_hash);
+            println!(" V0 {} -> {:?}", class_hash, compiled_class_hash);
             deprecated_compiled_classes.insert(to_felt252(&class_hash.0), deprecated_class(&class_hash));
         }
     }

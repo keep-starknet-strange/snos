@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use blockifier::block_context::BlockContext;
+use blockifier::execution::contract_class;
+use blockifier::{block_context::BlockContext, execution::contract_class::ContractClass};
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
@@ -7,7 +8,11 @@ use blockifier::test_utils::initial_test_state::fund_account;
 use blockifier::transaction::objects::FeeType;
 use cairo_vm::Felt252;
 use starknet_api::core::{ClassHash, CompiledClassHash};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::state::EntryPointType;
+use starknet_crypto::poseidon_hash_many;
 use snos::io::input::{ContractState, StorageCommitment};
+use crate::common;
 use crate::common::transaction_utils::to_felt252;
 
 pub fn test_state(
@@ -30,11 +35,25 @@ pub fn test_state(
     // Set up the rest of the requested contracts.
     for (contract, n_instances) in contract_instances.iter() {
         let class_hash = contract.get_class_hash();
+        // assert!(!class_hash_to_class.contains_key(&class_hash));
         class_hash_to_class.insert(class_hash, contract.get_class());
         for instance in 0..*n_instances {
             let instance_address = contract.get_instance_address(instance);
             address_to_class_hash.insert(instance_address, class_hash);
         }
+
+        // TODO: convert our FeatureContract into a ContractClass
+        // (notice that this is a different ContractClass than used elsewhere)
+        let contract_class = common::deprecated_hash_utils::ContractClass {
+            program: Default::default(),
+            hinted_class_hash: Default::default(),
+            entry_points_by_type: Default::default(),
+            abi: None,
+        };
+
+        let compiled_class_hash = crate::common::deprecated_hash_utils::compute_deprecated_class_hash(&contract_class)
+            .unwrap();
+        class_hash_to_compiled_class_hash.insert(class_hash, CompiledClassHash(StarkFelt::new(compiled_class_hash.to_bytes_be()).unwrap()));
     }
 
     let mut state = CachedState::from(DictStateReader {
