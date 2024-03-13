@@ -138,8 +138,11 @@ pub fn load_deprecated_class(
     ap_tracking: &ApTracking,
 ) -> Result<HintExtension, HintError> {
     // TODO(#61): fix comp class hash
-    // let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data,
-    // ap_tracking)?; let computed_hash = vm.get_integer(computed_hash_addr)?;
+    let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data, ap_tracking)?;
+    let computed_hash = vm.get_integer(computed_hash_addr)?;
+
+    println!("loading class for class_hash: {}", computed_hash);
+
     // let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
     // if computed_hash.as_ref() != &expected_hash {
     //     return Err(HintError::AssertionFailed(

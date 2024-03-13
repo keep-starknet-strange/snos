@@ -13,6 +13,7 @@ pub mod blocks;
 pub mod serde_utils;
 mod transaction_utils;
 pub mod utils;
+mod block_utils;
 
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {

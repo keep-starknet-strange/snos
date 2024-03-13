@@ -279,6 +279,7 @@ pub fn initialize_state_changes(
     for (addr, contract_state) in os_input.contracts {
         let change_base = vm.add_memory_segment();
         vm.insert_value(change_base, contract_state.contract_hash)?;
+        println!("contract_hash:{} -> {}", addr, contract_state.contract_hash);
         let storage_commitment_base = vm.add_memory_segment();
         vm.insert_value((change_base + 1)?, storage_commitment_base)?;
         vm.insert_value((change_base + 2)?, contract_state.nonce)?;
