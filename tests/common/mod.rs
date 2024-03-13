@@ -1,41 +1,18 @@
-pub mod blocks;
-pub mod defs;
-pub mod prepared_os_test;
-pub mod serde_utils;
-mod transaction_utils;
-pub mod utils;
-
 use std::fs;
 
-use blockifier::state::state_api::State;
-use blockifier::test_utils::dict_state_reader::DictStateReader;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use rstest::fixture;
-use snos::config::DEFAULT_INPUT_PATH;
-use snos::io::input::StarknetOsInput;
+
 use snos::io::output::{decode_output, StarknetOsOutput};
-use snos::state::SharedState;
-use starknet_api::core::{calculate_contract_address, ClassHash, PatriciaKey};
-use starknet_api::hash::StarkHash;
-use starknet_api::transaction::{Calldata, ContractAddressSalt};
-use starknet_api::{calldata, contract_address, patricia_key};
 
-#[fixture]
-#[once]
-pub fn load_and_write_input() {
-    let os_input = serde_utils::StarknetOsInputUtil::load("tests/common/data/os_input.json");
-    os_input.dump(DEFAULT_INPUT_PATH).unwrap();
-}
-
-#[fixture]
-#[once]
-pub fn load_input(_load_and_write_input: ()) -> StarknetOsInput {
-    StarknetOsInput::load(std::path::Path::new(DEFAULT_INPUT_PATH)).unwrap()
-}
+pub mod blocks;
+pub mod serde_utils;
+mod transaction_utils;
+pub mod utils;
 
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
