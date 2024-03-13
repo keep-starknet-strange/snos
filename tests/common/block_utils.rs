@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use blockifier::execution::contract_class;
 use blockifier::{block_context::BlockContext, execution::contract_class::ContractClass};
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::contracts::FeatureContract;
@@ -42,14 +41,19 @@ pub fn test_state(
             address_to_class_hash.insert(instance_address, class_hash);
         }
 
-        // TODO: convert our FeatureContract into a ContractClass
-        // (notice that this is a different ContractClass than used elsewhere)
-        let contract_class = common::deprecated_hash_utils::ContractClass {
-            program: Default::default(),
-            hinted_class_hash: Default::default(),
-            entry_points_by_type: Default::default(),
-            abi: None,
-        };
+        // convert our FeatureContract into a deprecated_hash_utils::ContractClass
+        let contract_class = match contract.get_class() {
+            blockifier::execution::contract_class::ContractClass::V0(class) => {
+                let contract_class = common::deprecated_hash_utils::ContractClass {
+                    program: class.program,
+                    hinted_class_hash: Default::default(),
+                    entry_points_by_type: class.entry_points_by_type,
+                    abi: None,
+                };
+                contract_class
+            },
+            _ => panic!("only deprecated class supported"),
+        }
 
         let compiled_class_hash = crate::common::deprecated_hash_utils::compute_deprecated_class_hash(&contract_class)
             .unwrap();
