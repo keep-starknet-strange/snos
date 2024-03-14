@@ -140,15 +140,12 @@ pub fn load_deprecated_class(
     // TODO(#61): fix comp class hash
     let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data, ap_tracking)?;
     let computed_hash = vm.get_integer(computed_hash_addr)?;
+    let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
 
-    println!("loading class for class_hash: {}", computed_hash);
-
-    // let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
-    // if computed_hash.as_ref() != &expected_hash {
-    //     return Err(HintError::AssertionFailed(
-    //         format!("Compiled_class_hash mismatch comp={computed_hash}
-    // exp={expected_hash}").into_boxed_str(),     ));
-    // }
+    if computed_hash.as_ref() != &expected_hash {
+        return Err(HintError::AssertionFailed(
+            format!("Compiled_class_hash mismatch comp={computed_hash} exp={expected_hash}").into_boxed_str()));
+    }
 
     let dep_class = exec_scopes.get::<DeprecatedContractClass>("compiled_class")?;
     let hints: HashMap<String, Vec<HintParams>> = serde_json::from_value(dep_class.program.hints).unwrap();

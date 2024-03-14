@@ -1,51 +1,15 @@
-use blockifier::test_utils::CairoVersion;
-use blockifier::test_utils::contracts::FeatureContract::{
-    AccountWithLongValidate, AccountWithoutValidations, Empty, ERC20, FaultyAccount, LegacyTestContract,
-    SecurityTests, TestContract,
-};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::account_transaction::AccountTransaction::{Declare, DeployAccount, Invoke};
 use cairo_vm::Felt252;
-use starknet_api::core::{ClassHash};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkFelt;
 use starknet_crypto::{FieldElement, pedersen_hash};
 
 use snos::config::SN_GOERLI;
 use snos::io::InternalTransaction;
 
-pub fn deprecated_class(class_hash: &ClassHash) -> DeprecatedContractClass {
-    let variants = vec![
-        AccountWithLongValidate(CairoVersion::Cairo0),
-        AccountWithLongValidate(CairoVersion::Cairo1),
-        AccountWithoutValidations(CairoVersion::Cairo0),
-        AccountWithoutValidations(CairoVersion::Cairo1),
-        ERC20,
-        Empty(CairoVersion::Cairo0),
-        Empty(CairoVersion::Cairo1),
-        FaultyAccount(CairoVersion::Cairo0),
-        FaultyAccount(CairoVersion::Cairo1),
-        LegacyTestContract,
-        SecurityTests,
-        TestContract(CairoVersion::Cairo0),
-        TestContract(CairoVersion::Cairo1),
-    ];
-
-    for c in variants {
-        if &c.get_class_hash() == class_hash {
-            let result: Result<DeprecatedContractClass, serde_json::Error> =
-                serde_json::from_str(c.get_raw_class().as_str());
-            return result.unwrap();
-        }
-    }
-    panic!("No class found for hash: {:?}", class_hash);
-}
-
 pub fn to_felt252(stark_felt: &StarkFelt) -> Felt252 {
     Felt252::from_hex(&stark_felt.to_string()).expect("Couldn't parse bytes")
 }
-
-
 
 // const DECLARE_PREFIX: &[u8] = b"declare";
 // const DEPLOY_ACCOUNT_PREFIX: &[u8] = b"deploy_account";

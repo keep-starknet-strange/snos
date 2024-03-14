@@ -54,6 +54,7 @@ pub fn load_next_tx(
     let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>("transactions")?;
     // Safe to unwrap because the remaining number of txs is checked in the cairo code.
     let tx = transactions.next().unwrap();
+    println!("executing {} on: {}", tx.r#type, tx.sender_address.unwrap());
     exec_scopes.insert_value("transactions", transactions);
     exec_scopes.insert_value("tx", tx.clone());
     insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
@@ -196,6 +197,12 @@ pub fn check_is_deprecated(
     let is_deprecated_class =
         exec_scopes.get_ref::<HashSet<Felt252>>("__deprecated_class_hashes")?.contains(&class_hash);
     exec_scopes.insert_value("is_deprecated", if is_deprecated_class { 1u8 } else { 0u8 });
+
+    let execution_into_ptr =  vm.get_relocatable((execution_context + 4usize)?).unwrap();
+    let contract_address = vm.get_integer((execution_into_ptr + 3usize)?).unwrap();
+
+    println!("about to call contract_address: {}, class_hash: {}", contract_address, class_hash);
+
     Ok(())
 }
 

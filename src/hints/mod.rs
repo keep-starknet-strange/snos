@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::ops::Add;
 
 use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -38,7 +39,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 78] = [
+static HINTS: [(&str, HintImpl); 79] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -117,6 +118,7 @@ static HINTS: [(&str, HintImpl); 78] = [
     (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
+    (BREAKPOINT, breakpoint),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.

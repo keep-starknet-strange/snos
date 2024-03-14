@@ -99,6 +99,7 @@ pub struct ContractClass {
 ///     }
 /// }
 /// ```
+#[allow(unused)]
 pub fn compute_hash_on_elements(vec: &[Felt252]) -> Result<Felt252, HashError> {
     let mut felt_vec = vec
         .iter()
@@ -123,9 +124,11 @@ pub fn compute_hash_on_elements(vec: &[Felt252]) -> Result<Felt252, HashError> {
 }
 
 /// Instead of doing a Mask with 250 bits, we are only masking the most significant byte.
+#[allow(unused)]
 pub const MASK_3: u8 = 0x03;
 
 /// Returns the contract entry points.
+#[allow(unused)]
 fn get_contract_entry_points(
     contract_class: &ContractClass,
     entry_point_type: &EntryPointType,
@@ -146,6 +149,7 @@ fn get_contract_entry_points(
 }
 
 /// Returns the hashed entry points of a contract class.
+#[allow(unused)]
 fn get_contract_entry_points_hashed(
     contract_class: &ContractClass,
     entry_point_type: &EntryPointType,
@@ -164,6 +168,7 @@ fn get_contract_entry_points_hashed(
 }
 
 /// Compute the hash for a deprecated contract class.
+#[allow(unused)]
 pub fn compute_deprecated_class_hash(
     contract_class: &ContractClass,
 ) -> Result<Felt252, ContractAddressError> {
