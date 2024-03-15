@@ -15,8 +15,8 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
-use crate::cairo_types::structs::ExecutionContext;
 
+use crate::cairo_types::structs::ExecutionContext;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::io::input::StarknetOsInput;
@@ -132,10 +132,12 @@ pub fn assert_transaction_hash(
     let transaction_hash = get_integer_from_var_name("transaction_hash", vm, ids_data, ap_tracking)?.into_owned();
 
     assert_eq!(
-        tx.hash_value, transaction_hash,
+        tx.hash_value,
+        transaction_hash,
         "Computed transaction_hash is inconsistent with the hash in the transaction. Computed hash = {}, Expected \
          hash = {}.",
-        transaction_hash.to_hex_string(), tx.hash_value.to_hex_string()
+        transaction_hash.to_hex_string(),
+        tx.hash_value.to_hex_string()
     );
     Ok(())
 }
@@ -198,7 +200,7 @@ pub fn check_is_deprecated(
         exec_scopes.get_ref::<HashSet<Felt252>>("__deprecated_class_hashes")?.contains(&class_hash);
     exec_scopes.insert_value("is_deprecated", if is_deprecated_class { 1u8 } else { 0u8 });
 
-    let execution_into_ptr =  vm.get_relocatable((execution_context + 4usize)?).unwrap();
+    let execution_into_ptr = vm.get_relocatable((execution_context + 4usize)?).unwrap();
     let contract_address = vm.get_integer((execution_into_ptr + 3usize)?).unwrap();
 
     println!("about to call contract_address: {}, class_hash: {}", contract_address, class_hash);
@@ -700,9 +702,7 @@ pub fn gen_signature_arg(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>("tx")?;
-    let signature = tx.signature.ok_or(
-        HintError::CustomHint("tx.signature is none".to_owned().into_boxed_str())
-    )?;
+    let signature = tx.signature.ok_or(HintError::CustomHint("tx.signature is none".to_owned().into_boxed_str()))?;
     let signature_start_base = vm.add_memory_segment();
     let signature = signature.iter().map(|f| MaybeRelocatable::Int(*f)).collect();
     vm.load_data(signature_start_base, &signature)?;

@@ -6,15 +6,14 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use rstest::fixture;
-
 use snos::io::output::{decode_output, StarknetOsOutput};
 
+mod block_utils;
 pub mod blocks;
+mod deprecated_hash_utils;
 pub mod serde_utils;
 mod transaction_utils;
 pub mod utils;
-mod block_utils;
-mod deprecated_hash_utils;
 
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {

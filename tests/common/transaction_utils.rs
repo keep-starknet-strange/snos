@@ -1,11 +1,10 @@
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::account_transaction::AccountTransaction::{Declare, DeployAccount, Invoke};
 use cairo_vm::Felt252;
-use starknet_api::hash::StarkFelt;
-use starknet_crypto::{FieldElement, pedersen_hash};
-
 use snos::config::SN_GOERLI;
 use snos::io::InternalTransaction;
+use starknet_api::hash::StarkFelt;
+use starknet_crypto::{pedersen_hash, FieldElement};
 
 pub fn to_felt252(stark_felt: &StarkFelt) -> Felt252 {
     Felt252::from_hex(&stark_felt.to_string()).expect("Couldn't parse bytes")
@@ -33,33 +32,30 @@ pub fn hash_on_elements(data: Vec<Felt252>) -> Felt252 {
 pub fn hash(a: &Felt252, b: &Felt252) -> Felt252 {
     let a_be_bytes = a.to_bytes_be();
     let b_be_bytes = b.to_bytes_be();
-    let (x, y) = (
-        FieldElement::from_bytes_be(&a_be_bytes).unwrap(),
-        FieldElement::from_bytes_be(&b_be_bytes).unwrap(),
-    );
+    let (x, y) = (FieldElement::from_bytes_be(&a_be_bytes).unwrap(), FieldElement::from_bytes_be(&b_be_bytes).unwrap());
 
     let result = pedersen_hash(&x, &y);
     Felt252::from_bytes_be(&result.to_bytes_be())
 }
 
-fn tx_hash_invoke_v0(contract_address: Felt252,
-           entry_point_selector: Felt252,
-           calldata: Vec<Felt252>,
-            max_fee: Felt252
+fn tx_hash_invoke_v0(
+    contract_address: Felt252,
+    entry_point_selector: Felt252,
+    calldata: Vec<Felt252>,
+    max_fee: Felt252,
 ) -> Felt252 {
-    hash_on_elements(vec!(
+    hash_on_elements(vec![
         Felt252::from_bytes_be_slice(INVOKE_PREFIX),
         Felt252::ZERO,
         contract_address,
         entry_point_selector,
         hash_on_elements(calldata),
         Felt252::from(max_fee),
-        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap())
-    ))
+        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+    ])
 }
 
 pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
-
     let hash_value: Felt252;
     let version: Option<Felt252>;
     let contract_address: Option<Felt252>;
@@ -93,10 +89,9 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     contract_address.unwrap(),
                     entry_point_selector.unwrap(),
                     calldata.clone().unwrap(),
-                    max_fee.unwrap()
+                    max_fee.unwrap(),
                 );
-
-            },
+            }
             starknet_api::transaction::InvokeTransaction::V1(_) => panic!("Not implemented"),
             starknet_api::transaction::InvokeTransaction::V3(_) => panic!("Not implemented"),
         },
@@ -118,6 +113,6 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
         calldata,
         paid_on_l1,
         r#type,
-        max_fee
+        max_fee,
     };
 }

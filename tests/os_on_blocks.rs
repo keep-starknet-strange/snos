@@ -35,7 +35,10 @@ fn run_os_on_simple_block(block_context: BlockContext, simple_block: (StarknetOs
 
 #[rstest]
 #[ignore]
-fn run_os_on_simple_block_cairo1(block_context: BlockContext, simple_block_cairo1: (StarknetOsInput, ExecutionHelperWrapper)) {
+fn run_os_on_simple_block_cairo1(
+    block_context: BlockContext,
+    simple_block_cairo1: (StarknetOsInput, ExecutionHelperWrapper),
+) {
     let (os_input, execution_helper) = simple_block_cairo1;
 
     let result = run_os(

@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
@@ -14,6 +13,7 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::BigInt;
 
@@ -38,7 +38,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 79] = [
+static HINTS: [(&str, HintImpl); 81] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -60,6 +60,8 @@ static HINTS: [(&str, HintImpl); 79] = [
     (block_context::LOAD_CLASS_FACTS, block_context::load_class_facts),
     (block_context::LOAD_DEPRECATED_CLASS_FACTS, block_context::load_deprecated_class_facts),
     (block_context::LOAD_DEPRECATED_CLASS_INNER, block_context::load_deprecated_class_inner),
+    (block_context::LOAD_CLASS_INNER, block_context::load_class_inner),
+    (block_context::BYTECODE_SEGMENT_STRUCTURE, block_context::bytecode_segment_structure),
     (block_context::SEQUENCER_ADDRESS, block_context::sequencer_address),
     (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
     (builtins::SELECT_BUILTIN, builtins::select_builtin),
@@ -131,8 +133,10 @@ type ExtensiveHintImpl = fn(
     &ApTracking,
 ) -> Result<HintExtension, HintError>;
 
-static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 1] =
-    [(block_context::LOAD_DEPRECATED_CLASS, block_context::load_deprecated_class)];
+static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 2] = [
+    (block_context::LOAD_DEPRECATED_CLASS, block_context::load_deprecated_class),
+    (block_context::LOAD_CLASS, block_context::load_class),
+];
 
 pub struct SnosHintProcessor {
     builtin_hint_proc: BuiltinHintProcessor,
@@ -482,6 +486,5 @@ pub fn os_input_transactions(
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
     let num_txns = os_input.transactions.len();
-    vm.insert_value((vm.get_fp() + 8)?, num_txns)
-        .map_err(HintError::Memory)
+    vm.insert_value((vm.get_fp() + 8)?, num_txns).map_err(HintError::Memory)
 }

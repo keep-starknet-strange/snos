@@ -2,10 +2,9 @@ use std::fs;
 
 use cairo_vm::Felt252;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use serde_with::{DeserializeAs, serde_as, SerializeAs};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-
+use serde_with::{serde_as, DeserializeAs, SerializeAs};
 use snos::utils::Felt252Num;
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 pub struct DeprecatedContractClassStr;
 

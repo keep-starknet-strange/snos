@@ -4,22 +4,23 @@ use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::StateReader;
-use blockifier::test_utils::CairoVersion;
 use blockifier::test_utils::contracts::FeatureContract;
-use blockifier::test_utils::contracts::FeatureContract::{AccountWithLongValidate, AccountWithoutValidations, Empty, ERC20, FaultyAccount, SecurityTests, TestContract};
+use blockifier::test_utils::contracts::FeatureContract::{
+    AccountWithLongValidate, AccountWithoutValidations, Empty, FaultyAccount, SecurityTests, TestContract, ERC20,
+};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::initial_test_state::fund_account;
+use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
+use snos::execution::helper::ExecutionHelperWrapper;
+use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
+use snos::io::InternalTransaction;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_crypto::FieldElement;
-use snos::execution::helper::ExecutionHelperWrapper;
-
-use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
-use snos::io::InternalTransaction;
 
 use crate::common::transaction_utils::to_felt252;
 
@@ -56,8 +57,7 @@ pub fn compiled_class(class_hash: ClassHash) -> CasmContractClass {
 
     for c in variants {
         if c.get_class_hash() == class_hash {
-            let result: Result<CasmContractClass, serde_json::Error> =
-                serde_json::from_str(c.get_raw_class().as_str());
+            let result: Result<CasmContractClass, serde_json::Error> = serde_json::from_str(c.get_raw_class().as_str());
             return result.unwrap();
         }
     }
@@ -68,29 +68,34 @@ fn override_class_hash(contract: &FeatureContract) -> StarkHash {
     match contract {
         // FeatureContract::AccountWithLongValidate(_) => ACCOUNT_LONG_VALIDATE_BASE,
         FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0) => {
-            let fe = FieldElement::from_dec_str("3043522133089536593636086481152606703984151542874851197328605892177919922063").unwrap();
+            let fe = FieldElement::from_dec_str(
+                "3043522133089536593636086481152606703984151542874851197328605892177919922063",
+            )
+            .unwrap();
             StarkHash::from(fe)
         }
         // FeatureContract::Empty(_) => EMPTY_CONTRACT_BASE,
         FeatureContract::ERC20 => {
-            let fe = FieldElement::from_dec_str("2553874082637258309275750418379019378586603706497644242041372159420778949015").unwrap();
+            let fe = FieldElement::from_dec_str(
+                "2553874082637258309275750418379019378586603706497644242041372159420778949015",
+            )
+            .unwrap();
             StarkHash::from(fe)
-        },
+        }
         // FeatureContract::FaultyAccount(_) => FAULTY_ACCOUNT_BASE,
         // FeatureContract::LegacyTestContract => LEGACY_CONTRACT_BASE,
         // FeatureContract::SecurityTests => SECURITY_TEST_CONTRACT_BASE,
         FeatureContract::TestContract(CairoVersion::Cairo0) => {
-            let fe = FieldElement::from_dec_str("2847229557799212240700619257444410593768590640938595411219122975663286400357").unwrap();
+            let fe = FieldElement::from_dec_str(
+                "2847229557799212240700619257444410593768590640938595411219122975663286400357",
+            )
+            .unwrap();
             StarkHash::from(fe)
-        },
+        }
 
         _ => contract.get_class_hash().0,
     }
-
-
 }
-
-
 
 pub fn test_state(
     block_context: &BlockContext,
@@ -105,10 +110,8 @@ pub fn test_state(
     let erc20 = FeatureContract::ERC20;
     let erc20_class_hash: ClassHash = ClassHash(override_class_hash(&erc20));
     class_hash_to_class.insert(erc20_class_hash, erc20.get_class());
-    address_to_class_hash
-        .insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
-    address_to_class_hash
-        .insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
+    address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
+    address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
 
     // Set up the rest of the requested contracts.
     for (contract, n_instances) in contract_instances.iter() {
@@ -146,8 +149,11 @@ pub fn test_state(
     state
 }
 
-pub fn os_hints(block_context: &BlockContext, mut state: CachedState<DictStateReader>,
-                transactions: Vec<InternalTransaction>, tx_execution_infos: Vec<TransactionExecutionInfo>
+pub fn os_hints(
+    block_context: &BlockContext,
+    mut state: CachedState<DictStateReader>,
+    transactions: Vec<InternalTransaction>,
+    tx_execution_infos: Vec<TransactionExecutionInfo>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
     let mut contracts: HashMap<Felt252, ContractState> = state
         .state
@@ -157,7 +163,7 @@ pub fn os_hints(block_context: &BlockContext, mut state: CachedState<DictStateRe
             let contract_state = ContractState {
                 contract_hash: to_felt252(&state.state.address_to_class_hash.get(address).unwrap().0),
                 storage_commitment_tree: StorageCommitment::default(), // TODO
-                nonce: 0.into(), // TODO
+                nonce: 0.into(),                                       // TODO
             };
             (to_felt252(address.0.key()), contract_state)
         })
@@ -174,8 +180,12 @@ pub fn os_hints(block_context: &BlockContext, mut state: CachedState<DictStateRe
             .unwrap();
         let blockifier_class = state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
-            V0(_) => { deprecated_compiled_classes.insert(to_felt252(&class_hash.0), deprecated_compiled_class(class_hash));},
-            V1(_) => { compiled_classes.insert(to_felt252(&class_hash.0), compiled_class(class_hash)); },
+            V0(_) => {
+                deprecated_compiled_classes.insert(to_felt252(&class_hash.0), deprecated_compiled_class(class_hash));
+            }
+            V1(_) => {
+                compiled_classes.insert(to_felt252(&class_hash.0), compiled_class(class_hash));
+            }
         };
     }
 
@@ -206,7 +216,8 @@ pub fn os_hints(block_context: &BlockContext, mut state: CachedState<DictStateRe
     }
 
     for (h, c) in compiled_classes.iter() {
-        class_hash_to_compiled_class_hash.insert(h.clone(), Felt252::from_bytes_be(&c.compiled_class_hash().to_be_bytes()));
+        class_hash_to_compiled_class_hash
+            .insert(h.clone(), Felt252::from_bytes_be(&c.compiled_class_hash().to_be_bytes()));
     }
 
     println!("class_hash to compiled_class_hash");

@@ -1,21 +1,20 @@
 use blockifier::block_context::BlockContext;
 use blockifier::invoke_tx_args;
-use blockifier::test_utils::{BALANCE, CairoVersion, create_calldata, NonceManager};
 use blockifier::test_utils::contracts::FeatureContract;
+use blockifier::test_utils::{create_calldata, CairoVersion, NonceManager, BALANCE};
 use blockifier::transaction::objects::FeeType;
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use rstest::fixture;
+use snos::execution::helper::ExecutionHelperWrapper;
+use snos::io::input::StarknetOsInput;
 use starknet_api::block::BlockNumber;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
-use snos::execution::helper::ExecutionHelperWrapper;
-use snos::io::input::StarknetOsInput;
-
-use crate::common::block_utils::{test_state, os_hints};
+use crate::common::block_utils::{os_hints, test_state};
 use crate::common::transaction_utils::{to_felt252, to_internal_tx};
 
 #[fixture]
