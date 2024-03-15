@@ -1,19 +1,19 @@
+use std::{fs, path};
 use std::collections::HashMap;
 use std::io::Write;
-use std::{fs, path};
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 
+use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use starknet_api::core::ClassHash;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
-use super::InternalTransaction;
 use crate::config::StarknetGeneralConfig;
 use crate::error::SnOsError;
 use crate::state::trie::{MerkleTrie, StarkHasher};
 use crate::utils::{Felt252HexNoPrefix, Felt252Num, Felt252Str};
+
+use super::InternalTransaction;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct StarknetOsInput {

@@ -4,6 +4,7 @@ use std::collections::hash_map::IntoIter;
 use std::collections::{HashMap, HashSet};
 
 use blockifier::block_context::BlockContext;
+use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
@@ -174,6 +175,61 @@ pub fn load_deprecated_class(
     }
 
     Ok(hint_extension)
+}
+
+pub const LOAD_CLASS_INNER: &str = indoc! {r#"
+    from starkware.starknet.core.os.contract_class.compiled_class_hash import (
+        create_bytecode_segment_structure,
+        get_compiled_class_struct,
+    )
+
+    compiled_class_hash, compiled_class = next(compiled_class_facts)
+
+    bytecode_segment_structure = create_bytecode_segment_structure(
+        bytecode=compiled_class.bytecode,
+        bytecode_segment_lengths=compiled_class.bytecode_segment_lengths,
+        visited_pcs=compiled_class_visited_pcs[compiled_class_hash],
+    )
+
+    cairo_contract = get_compiled_class_struct(
+        identifiers=ids._context.identifiers,
+        compiled_class=compiled_class,
+        bytecode=bytecode_segment_structure.bytecode_with_skipped_segments()
+    )
+    ids.compiled_class = segments.gen_arg(cairo_contract)"#
+};
+pub fn load_class_inner(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let class_iter =
+        exec_scopes.get_mut_ref::<IntoIter<Felt252, CasmContractClass>>("compiled_class_facts")?;
+
+    let (class_hash, deprecated_class) = class_iter.next().unwrap();
+
+    exec_scopes.insert_value("compiled_class_hash", class_hash);
+    exec_scopes.insert_value("compiled_class", deprecated_class.clone()); //TODO: is this clone necessary?
+
+    // bytecode_segment_structure = create_bytecode_segment_structure(
+    //     bytecode=compiled_class.bytecode,
+    //     bytecode_segment_lengths=compiled_class.bytecode_segment_lengths,
+    //     visited_pcs=compiled_class_visited_pcs[compiled_class_hash],
+    // )
+    //
+    // cairo_contract = get_compiled_class_struct(
+    //     identifiers=ids._context.identifiers,
+    //     compiled_class=compiled_class,
+    //     bytecode=bytecode_segment_structure.bytecode_with_skipped_segments()
+    // )
+    // ids.compiled_class = segments.gen_arg(cairo_contract)"#
+    
+    // let dep_class_base = vm.add_memory_segment();
+    // write_deprecated_class(vm, dep_class_base, deprecated_class)?;
+    //
+    // insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)
 }
 
 pub const BLOCK_NUMBER: &str = "memory[ap] = to_felt_or_relocatable(syscall_handler.block_info.block_number)";
