@@ -1,15 +1,10 @@
-use cairo_vm::Felt252;
-use cairo_vm::types::{errors::program_errors::ProgramError, program::Program};
+use std::collections::HashMap;
 
+use cairo_vm::Felt252;
+use cairo_vm::types::program::Program;
 use getset::{CopyGetters, Getters};
-use serde::Serialize;
-use starknet_api::deprecated_contract_class::{ContractClassAbiEntry, EntryPoint};
-use starknet_crypto::{pedersen_hash, FieldElement};
-use std::{
-    borrow::Cow,
-    collections::{BTreeMap, HashMap},
-    io,
-};
+use starknet_api::deprecated_contract_class::ContractClassAbiEntry;
+use starknet_crypto::{FieldElement, pedersen_hash};
 use thiserror::Error;
 
 pub type AbiType = Vec<ContractClassAbiEntry>;
