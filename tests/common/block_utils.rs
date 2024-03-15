@@ -9,12 +9,14 @@ use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::contracts::FeatureContract::{AccountWithLongValidate, AccountWithoutValidations, Empty, ERC20, FaultyAccount, SecurityTests, TestContract};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::initial_test_state::fund_account;
-use blockifier::transaction::objects::FeeType;
+use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
+use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_crypto::FieldElement;
+use snos::execution::helper::ExecutionHelperWrapper;
 
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
@@ -24,22 +26,17 @@ use crate::common::transaction_utils::to_felt252;
 pub fn deprecated_compiled_class(class_hash: ClassHash) -> DeprecatedContractClass {
     let variants = vec![
         AccountWithLongValidate(CairoVersion::Cairo0),
-        // AccountWithLongValidate(CairoVersion::Cairo1),
         AccountWithoutValidations(CairoVersion::Cairo0),
-        // AccountWithoutValidations(CairoVersion::Cairo1),
         ERC20,
         Empty(CairoVersion::Cairo0),
-        // Empty(CairoVersion::Cairo1),
         FaultyAccount(CairoVersion::Cairo0),
-        // FaultyAccount(CairoVersion::Cairo1),
         // LegacyTestContract,
         SecurityTests,
         TestContract(CairoVersion::Cairo0),
-        // TestContract(CairoVersion::Cairo1),
     ];
 
     for c in variants {
-        if ClassHash(compute_deprecated_class_hash(&c)) == class_hash {
+        if ClassHash(override_class_hash(&c)) == class_hash {
             let result: Result<DeprecatedContractClass, serde_json::Error> =
                 serde_json::from_str(c.get_raw_class().as_str());
             return result.unwrap();
@@ -58,7 +55,7 @@ pub fn compiled_class(class_hash: ClassHash) -> CasmContractClass {
     ];
 
     for c in variants {
-        if ClassHash(compute_class_hash(&c)) == class_hash {
+        if c.get_class_hash() == class_hash {
             let result: Result<CasmContractClass, serde_json::Error> =
                 serde_json::from_str(c.get_raw_class().as_str());
             return result.unwrap();
@@ -67,10 +64,10 @@ pub fn compiled_class(class_hash: ClassHash) -> CasmContractClass {
     panic!("No class found for hash: {:?}", class_hash);
 }
 
-fn compute_deprecated_class_hash(contract: &FeatureContract) -> StarkHash {
+fn override_class_hash(contract: &FeatureContract) -> StarkHash {
     match contract {
         // FeatureContract::AccountWithLongValidate(_) => ACCOUNT_LONG_VALIDATE_BASE,
-        FeatureContract::AccountWithoutValidations(_) => {
+        FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0) => {
             let fe = FieldElement::from_dec_str("3043522133089536593636086481152606703984151542874851197328605892177919922063").unwrap();
             StarkHash::from(fe)
         }
@@ -82,7 +79,7 @@ fn compute_deprecated_class_hash(contract: &FeatureContract) -> StarkHash {
         // FeatureContract::FaultyAccount(_) => FAULTY_ACCOUNT_BASE,
         // FeatureContract::LegacyTestContract => LEGACY_CONTRACT_BASE,
         // FeatureContract::SecurityTests => SECURITY_TEST_CONTRACT_BASE,
-        FeatureContract::TestContract(_) => {
+        FeatureContract::TestContract(CairoVersion::Cairo0) => {
             let fe = FieldElement::from_dec_str("2847229557799212240700619257444410593768590640938595411219122975663286400357").unwrap();
             StarkHash::from(fe)
         },
@@ -106,7 +103,7 @@ pub fn test_state(
 
     // Declare and deploy account and ERC20 contracts.
     let erc20 = FeatureContract::ERC20;
-    let erc20_class_hash: ClassHash = ClassHash(compute_deprecated_class_hash(&erc20));
+    let erc20_class_hash: ClassHash = ClassHash(override_class_hash(&erc20));
     class_hash_to_class.insert(erc20_class_hash, erc20.get_class());
     address_to_class_hash
         .insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
@@ -115,7 +112,7 @@ pub fn test_state(
 
     // Set up the rest of the requested contracts.
     for (contract, n_instances) in contract_instances.iter() {
-        let class_hash = ClassHash(compute_deprecated_class_hash(contract));
+        let class_hash = ClassHash(override_class_hash(contract));
         // assert!(!class_hash_to_class.contains_key(&class_hash));
         class_hash_to_class.insert(class_hash, contract.get_class());
         for instance in 0..*n_instances {
@@ -149,8 +146,10 @@ pub fn test_state(
     state
 }
 
-pub fn os_input(mut state: CachedState<DictStateReader>, transactions: Vec<InternalTransaction>) -> StarknetOsInput {
-    let mut contracts = state
+pub fn os_hints(block_context: &BlockContext, mut state: CachedState<DictStateReader>,
+                transactions: Vec<InternalTransaction>, tx_execution_infos: Vec<TransactionExecutionInfo>
+) -> (StarknetOsInput, ExecutionHelperWrapper) {
+    let mut contracts: HashMap<Felt252, ContractState> = state
         .state
         .address_to_class_hash
         .keys()
@@ -165,7 +164,7 @@ pub fn os_input(mut state: CachedState<DictStateReader>, transactions: Vec<Inter
         .collect();
 
     let mut deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass> = Default::default();
-    let mut compiled_classes: HashMap<CompiledClassHash, DeprecatedContractClass> = Default::default();
+    let mut compiled_classes: HashMap<Felt252, CasmContractClass> = Default::default();
 
     for c in contracts.keys() {
         let class_hash = state
@@ -175,9 +174,9 @@ pub fn os_input(mut state: CachedState<DictStateReader>, transactions: Vec<Inter
             .unwrap();
         let blockifier_class = state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
-            V0(_) => deprecated_compiled_classes.insert(to_felt252(&class_hash.0), deprecated_compiled_class(class_hash)),
-            V1(_) => compiled_classes.insert(class_hash, compiled_class(class_hash)),
-        }
+            V0(_) => { deprecated_compiled_classes.insert(to_felt252(&class_hash.0), deprecated_compiled_class(class_hash));},
+            V1(_) => { compiled_classes.insert(to_felt252(&class_hash.0), compiled_class(class_hash)); },
+        };
     }
 
     contracts.insert(Felt252::from(0), ContractState::default());
@@ -195,9 +194,19 @@ pub fn os_input(mut state: CachedState<DictStateReader>, transactions: Vec<Inter
         println!("\t{}", c);
     }
 
+    println!("classes");
+    for (c, _) in &compiled_classes {
+        println!("\t{}", c);
+    }
+
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
+
     for h in deprecated_compiled_classes.keys() {
         class_hash_to_compiled_class_hash.insert(h.clone(), h.clone());
+    }
+
+    for (h, c) in compiled_classes.iter() {
+        class_hash_to_compiled_class_hash.insert(h.clone(), Felt252::from_bytes_be(&c.compiled_class_hash().to_be_bytes()));
     }
 
     println!("class_hash to compiled_class_hash");
@@ -205,16 +214,20 @@ pub fn os_input(mut state: CachedState<DictStateReader>, transactions: Vec<Inter
         println!("\t{} -> {} class", ch, cch);
     }
 
-    StarknetOsInput {
+    let os_input = StarknetOsInput {
         contract_state_commitment_info: Default::default(),
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes,
-        compiled_classes: Default::default(),
+        compiled_classes,
         compiled_class_visited_pcs: Default::default(),
         contracts,
         class_hash_to_compiled_class_hash,
         general_config: Default::default(),
         transactions,
         block_hash: Default::default(),
-    }
+    };
+
+    let execution_helper = ExecutionHelperWrapper::new(tx_execution_infos, &block_context);
+
+    (os_input, execution_helper)
 }

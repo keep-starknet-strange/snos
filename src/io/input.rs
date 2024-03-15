@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::Write;
 use std::{fs, path};
+use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
@@ -19,7 +20,7 @@ pub struct StarknetOsInput {
     pub contract_state_commitment_info: CommitmentInfo,
     pub contract_class_commitment_info: CommitmentInfo,
     pub deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass>,
-    pub compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
+    pub compiled_classes: HashMap<Felt252, CasmContractClass>,
     pub compiled_class_visited_pcs: HashMap<Felt252, Vec<Felt252>>,
     pub contracts: HashMap<Felt252, ContractState>,
     pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,

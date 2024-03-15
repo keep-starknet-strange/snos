@@ -3158,6 +3158,7 @@ dependencies = [
  "base64",
  "bitvec",
  "blockifier",
+ "cairo-lang-starknet",
  "cairo-type-derive",
  "cairo-vm 1.0.0-rc0",
  "getset",

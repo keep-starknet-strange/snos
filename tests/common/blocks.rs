@@ -15,7 +15,7 @@ use starknet_api::transaction::{Fee, TransactionVersion};
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 
-use crate::common::block_utils::{test_state, os_input};
+use crate::common::block_utils::{test_state, os_hints};
 use crate::common::transaction_utils::{to_felt252, to_internal_tx};
 
 #[fixture]
@@ -64,10 +64,7 @@ pub fn simple_block(
 
     let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
-    let os_input = os_input(state, vec![account_tx_intenal]);
-
-    let execution_helper = ExecutionHelperWrapper::new(vec![tx_execution_info], &block_context);
-    (os_input, execution_helper)
+    os_hints(&block_context, state, vec![account_tx_intenal], vec![tx_execution_info])
 }
 
 #[fixture]
@@ -111,8 +108,5 @@ pub fn simple_block_cairo1(
 
     let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
-    let os_input = os_input(state, vec![account_tx_intenal]);
-
-    let execution_helper = ExecutionHelperWrapper::new(vec![tx_execution_info], &block_context);
-    (os_input, execution_helper)
+    os_hints(&block_context, state, vec![account_tx_intenal], vec![tx_execution_info])
 }
