@@ -171,6 +171,7 @@ pub fn os_hints(
 
     let mut deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass> = Default::default();
     let mut compiled_classes: HashMap<Felt252, CasmContractClass> = Default::default();
+    let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
     for c in contracts.keys() {
         let class_hash = state
@@ -184,7 +185,11 @@ pub fn os_hints(
                 deprecated_compiled_classes.insert(to_felt252(&class_hash.0), deprecated_compiled_class(class_hash));
             }
             V1(_) => {
-                compiled_classes.insert(to_felt252(&class_hash.0), compiled_class(class_hash));
+                let class = compiled_class(class_hash);
+                let compiled_class_hash = class.compiled_class_hash();
+                compiled_classes.insert(Felt252::from_bytes_be(&class.compiled_class_hash().to_be_bytes()), class);
+                class_hash_to_compiled_class_hash
+                    .insert(to_felt252(&class_hash.0), Felt252::from_bytes_be(&compiled_class_hash.to_be_bytes()));
             }
         };
     }
@@ -209,20 +214,18 @@ pub fn os_hints(
         println!("\t{}", c);
     }
 
-    let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
+    // for h in deprecated_compiled_classes.keys() {
+    //     class_hash_to_compiled_class_hash.insert(h.clone(), h.clone());
+    // }
 
-    for h in deprecated_compiled_classes.keys() {
-        class_hash_to_compiled_class_hash.insert(h.clone(), h.clone());
-    }
-
-    for (h, c) in compiled_classes.iter() {
-        class_hash_to_compiled_class_hash
-            .insert(h.clone(), Felt252::from_bytes_be(&c.compiled_class_hash().to_be_bytes()));
-    }
+    // for (h, c) in compiled_classes.iter() {
+    //     class_hash_to_compiled_class_hash
+    //         .insert(h.clone(), Felt252::from_bytes_be(&c.compiled_class_hash().to_be_bytes()));
+    // }
 
     println!("class_hash to compiled_class_hash");
     for (ch, cch) in &class_hash_to_compiled_class_hash {
-        println!("\t{} -> {} class", ch, cch);
+        println!("\t{} -> {}", ch, cch);
     }
 
     let os_input = StarknetOsInput {

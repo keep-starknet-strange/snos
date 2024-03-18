@@ -11,7 +11,8 @@ bitvec = { version = "1.0.1", features = ["serde"] }
 blockifier = { git = "https://github.com/keep-starknet-strange/blockifier", branch = "snos/callinfo-clone", features = ["clone", "testing"] }
 cairo-type-derive = { version = "0.1.0", path = "cairo-type-derive" }
 cairo-lang-starknet = { version = "2.5.4" }
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = ["extensive_hints"] }
+cairo-lang-casm = { version = "2.5.4" }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = ["extensive_hints", "cairo-1-hints"] }
 getset = "0.1.2"
 hex = "0.4.3"
 indexmap = "1.9.2"

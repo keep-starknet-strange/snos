@@ -142,8 +142,9 @@ pub fn assert_transaction_hash(
     Ok(())
 }
 
-pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': deprecated_syscall_handler})";
-pub fn enter_scope_syscall_handler(
+pub const ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER: &str =
+    "vm_enter_scope({'syscall_handler': deprecated_syscall_handler})";
+pub fn enter_scope_deprecated_syscall_handler(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
@@ -151,6 +152,20 @@ pub fn enter_scope_syscall_handler(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let dep_sys = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("deprecated_syscall_handler")?;
+    let deprecated_syscall_handler: Box<dyn Any> = Box::new(dep_sys);
+    exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), deprecated_syscall_handler)]));
+    Ok(())
+}
+
+pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': syscall_handler})";
+pub fn enter_scope_syscall_handler(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let dep_sys = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("syscall_handler")?;
     let deprecated_syscall_handler: Box<dyn Any> = Box::new(dep_sys);
     exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), deprecated_syscall_handler)]));
     Ok(())
@@ -203,7 +218,12 @@ pub fn check_is_deprecated(
     let execution_into_ptr = vm.get_relocatable((execution_context + 4usize)?).unwrap();
     let contract_address = vm.get_integer((execution_into_ptr + 3usize)?).unwrap();
 
-    println!("about to call contract_address: {}, class_hash: {}", contract_address, class_hash);
+    println!(
+        "about to call contract_address: {}, class_hash: {}, is_deprecated: {}",
+        contract_address,
+        class_hash,
+        if is_deprecated_class { 1u8 } else { 0u8 }
+    );
 
     Ok(())
 }
@@ -262,12 +282,15 @@ pub fn enter_syscall_scopes(
     let execution_helper: Box<dyn Any> = Box::new(exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?);
     let deprecated_syscall_handler: Box<dyn Any> =
         Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("deprecated_syscall_handler")?);
+    let syscall_handler: Box<dyn Any> =
+        Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("syscall_handler")?);
     let dict_manager: Box<dyn Any> = Box::new(exec_scopes.get_dict_manager()?);
     exec_scopes.enter_scope(HashMap::from_iter([
         (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
         (String::from("transactions"), transactions),
         (String::from("execution_helper"), execution_helper),
         (String::from("deprecated_syscall_handler"), deprecated_syscall_handler),
+        (String::from("syscall_handler"), syscall_handler),
         (String::from("dict_manager"), dict_manager),
     ]));
     Ok(())

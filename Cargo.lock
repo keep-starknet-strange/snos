@@ -945,8 +945,12 @@ version = "1.0.0-rc0"
 source = "git+https://github.com/lambdaclass/cairo-vm#1f98feff566dd2da016e439f5e8db912c6e39872"
 dependencies = [
  "anyhow",
+ "ark-ff",
+ "ark-std",
  "bincode",
  "bitvec",
+ "cairo-lang-casm",
+ "cairo-lang-starknet",
  "generic-array",
  "hashbrown 0.14.3",
  "hex",
@@ -3158,6 +3162,7 @@ dependencies = [
  "base64",
  "bitvec",
  "blockifier",
+ "cairo-lang-casm",
  "cairo-lang-starknet",
  "cairo-type-derive",
  "cairo-vm 1.0.0-rc0",

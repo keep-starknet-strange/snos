@@ -7,7 +7,7 @@ use blockifier::block_context::BlockContext;
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
+    get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name, insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::{HintExtension, HintProcessor, HintReference};
 use cairo_vm::serde::deserialize_program::{ApTracking, HintParams, ReferenceManager};
@@ -108,7 +108,6 @@ pub fn load_deprecated_class(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<HintExtension, HintError> {
-    // TODO(#61): fix comp class hash
     let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data, ap_tracking)?;
     let computed_hash = vm.get_integer(computed_hash_addr)?;
     let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
@@ -209,15 +208,15 @@ pub fn load_class_inner(
 ) -> Result<(), HintError> {
     let class_iter = exec_scopes.get_mut_ref::<IntoIter<Felt252, CasmContractClass>>("compiled_class_facts")?;
 
-    let (class_hash, class) = class_iter.next().unwrap();
+    let (compiled_class_hash, class) = class_iter.next().unwrap();
 
-    exec_scopes.insert_value("compiled_class_hash", class_hash);
+    exec_scopes.insert_value("compiled_class_hash", compiled_class_hash);
     exec_scopes.insert_value("compiled_class", class.clone()); //TODO: is this clone necessary?
 
     // TODO: implement create_bytecode_segment_structure (for partial code loading)
 
     let class_base = vm.add_memory_segment();
-    write_class(vm, class_base, class)?;
+    write_class(vm, class_base, class.clone())?; //TODO: clone unnecessary
 
     insert_value_from_var_name("compiled_class", class_base, vm, ids_data, ap_tracking)
 }
@@ -228,27 +227,28 @@ pub const BYTECODE_SEGMENT_STRUCTURE: &str = indoc! {r#"
     })"#
 };
 pub fn bytecode_segment_structure(
-    vm: &mut VirtualMachine,
+    _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let bytecode_segment_structure = exec_scopes.get::<Relocatable>("bytecode_segment_structure")?;
-    insert_value_from_var_name("bytecode_segment_structure", bytecode_segment_structure, vm, ids_data, ap_tracking)
+    // TODO: implemente when partial code loading is implemented
+    exec_scopes.enter_scope(HashMap::default());
+    return Ok(());
 }
 
 pub const LOAD_CLASS: &str = indoc! {r#"
-        computed_hash = ids.compiled_class_fact.hash
-        expected_hash = compiled_class_hash
-        assert computed_hash == expected_hash, (
-            "Computed compiled_class_hash is inconsistent with the hash in the os_input. "
-            f"Computed hash = {computed_hash}, Expected hash = {expected_hash}.")
+    computed_hash = ids.compiled_class_fact.hash
+    expected_hash = compiled_class_hash
+    assert computed_hash == expected_hash, (
+        "Computed compiled_class_hash is inconsistent with the hash in the os_input. "
+        f"Computed hash = {computed_hash}, Expected hash = {expected_hash}.")
 
-        vm_load_program(
-            compiled_class.get_runnable_program(entrypoint_builtins=[]),
-            ids.compiled_class.bytecode_ptr
-        )"#
+    vm_load_program(
+        compiled_class.get_runnable_program(entrypoint_builtins=[]),
+        ids.compiled_class.bytecode_ptr
+    )"#
 };
 pub fn load_class(
     _hint_processor: &dyn HintProcessor,
@@ -257,8 +257,8 @@ pub fn load_class(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<HintExtension, HintError> {
-    let computed_hash_addr = get_ptr_from_var_name("compiled_class_fact", vm, ids_data, ap_tracking)?;
-    let computed_hash = vm.get_integer(computed_hash_addr)?;
+    let compiled_class_fact_addr = get_relocatable_from_var_name("compiled_class_fact", vm, ids_data, ap_tracking)?;
+    let computed_hash = vm.get_integer(compiled_class_fact_addr)?; //TODO: calculate .hash explicitly
     let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
 
     if computed_hash.as_ref() != &expected_hash {
@@ -391,4 +391,48 @@ pub fn get_block_mapping(
         }
     };
     insert_value_from_var_name("state_entry", val, vm, ids_data, ap_tracking)
+}
+
+pub const ELEMENTS_GE_10: &str = "memory[ap] = to_felt_or_relocatable(ids.elements_end - ids.elements >= 10)";
+pub fn elements_ge_10(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let elements_end = get_ptr_from_var_name("elements_end", vm, ids_data, _ap_tracking)?;
+    let elements = get_ptr_from_var_name("elements", vm, ids_data, _ap_tracking)?;
+    insert_value_into_ap(vm, if (elements_end - elements)? >= 10 { Felt252::ONE } else { Felt252::ZERO })
+}
+
+pub const ELEMENTS_GE_2: &str = "memory[ap] = to_felt_or_relocatable(ids.elements_end - ids.elements >= 2)";
+pub fn elements_ge_2(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let elements_end = get_ptr_from_var_name("elements_end", vm, ids_data, _ap_tracking)?;
+    let elements = get_ptr_from_var_name("elements", vm, ids_data, _ap_tracking)?;
+    insert_value_into_ap(vm, if (elements_end - elements)? >= 2 { Felt252::ONE } else { Felt252::ZERO })
+}
+
+pub const IS_LEAF: &str = indoc! {r#"
+    from starkware.starknet.core.os.contract_class.compiled_class_hash_objects import (
+        BytecodeLeaf,
+    )
+    ids.is_leaf = 1 if isinstance(bytecode_segment_structure, BytecodeLeaf) else 0"#
+};
+pub fn is_leaf(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // let bytecode_segment_structure = get_ptr_from_var_name("bytecode_segment_structure", vm,
+    // ids_data, ap_tracking)?; TODO: complete when bytecode_segment_structure is implemented
+    insert_value_from_var_name("is_leaf", 1, vm, ids_data, ap_tracking)
 }

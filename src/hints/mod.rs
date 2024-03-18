@@ -18,6 +18,7 @@ use indoc::indoc;
 use num_bigint::BigInt;
 
 use crate::execution::helper::ExecutionHelperWrapper;
+use crate::hints::block_context::is_leaf;
 use crate::io::input::StarknetOsInput;
 
 pub mod block_context;
@@ -38,7 +39,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 81] = [
+static HINTS: [(&str, HintImpl); 86] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -63,6 +64,9 @@ static HINTS: [(&str, HintImpl); 81] = [
     (block_context::LOAD_CLASS_INNER, block_context::load_class_inner),
     (block_context::BYTECODE_SEGMENT_STRUCTURE, block_context::bytecode_segment_structure),
     (block_context::SEQUENCER_ADDRESS, block_context::sequencer_address),
+    (block_context::ELEMENTS_GE_10, block_context::elements_ge_10),
+    (block_context::ELEMENTS_GE_2, block_context::elements_ge_2),
+    (block_context::IS_LEAF, is_leaf),
     (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
     (builtins::SELECT_BUILTIN, builtins::select_builtin),
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
@@ -72,6 +76,7 @@ static HINTS: [(&str, HintImpl); 81] = [
     (execution::CONTRACT_ADDRESS, execution::contract_address),
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
+    (execution::ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER, execution::enter_scope_deprecated_syscall_handler),
     (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::EXIT_CALL, execution::exit_call),
@@ -119,6 +124,7 @@ static HINTS: [(&str, HintImpl); 81] = [
     (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
+    (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
     (BREAKPOINT, breakpoint),
 ];
 
