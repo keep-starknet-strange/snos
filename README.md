@@ -36,9 +36,3 @@ cargo test
 ```bash
 ./scripts/reset-tests.sh
 ```
-
-**Debug Single Cairo Program**
-
-```bash
-./scripts/debug-hint.sh load_deprecated_class
-```

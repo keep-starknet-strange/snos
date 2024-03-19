@@ -235,7 +235,7 @@ pub fn bytecode_segment_structure(
 ) -> Result<(), HintError> {
     // TODO: implemente when partial code loading is implemented
     exec_scopes.enter_scope(HashMap::default());
-    return Ok(());
+    Ok(())
 }
 
 pub const LOAD_CLASS: &str = indoc! {r#"

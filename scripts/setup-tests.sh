@@ -35,6 +35,12 @@ cp tests/dependencies/permitted.cairo cairo-lang/src/starkware/starknet/std_cont
 mkdir -p cairo-lang/src/starkware/starknet/std_contracts/upgradability_proxy
 cp tests/dependencies/initializable.cairo cairo-lang/src/starkware/starknet/std_contracts/upgradability_proxy
 
+# compile cairo programs
+echo -e "compiling cairo programs...\n"
+mkdir -p build/programs
+cairo-format -i tests/programs/*
+cairo-compile tests/programs/fact.cairo --output build/programs/fact.json
+
 # compile os with debug info
 cairo-compile --debug_info_with_source cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json --cairo_path cairo-lang/src
 cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src

@@ -77,7 +77,7 @@ pub fn write_deprecated_class(
 fn load_casm_entrypoints(
     vm: &mut VirtualMachine,
     base: Relocatable,
-    entry_points: &Vec<CasmContractEntryPoint>,
+    entry_points: &[CasmContractEntryPoint],
 ) -> Result<(), HintError> {
     let mut b: Vec<MaybeRelocatable> = Vec::new();
     for ep in entry_points.iter() {
