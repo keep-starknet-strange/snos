@@ -730,8 +730,8 @@ pub fn gen_signature_arg(
     let signature = signature.iter().map(|f| MaybeRelocatable::Int(*f)).collect();
     vm.load_data(signature_start_base, &signature)?;
 
-    insert_value_from_var_name("signature_start", signature_start_base, vm, ids_data, &ap_tracking)?;
-    insert_value_from_var_name("signature_len", signature.len(), vm, ids_data, &ap_tracking)?;
+    insert_value_from_var_name("signature_start", signature_start_base, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name("signature_len", signature.len(), vm, ids_data, ap_tracking)?;
 
     Ok(())
 }
