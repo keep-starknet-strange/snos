@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
-use cairo_lang_casm::hints::Hint;
+use blockifier::execution::common_hints::HintExecutionResult;
+use cairo_lang_casm::hints::{Hint, StarknetHint};
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
@@ -196,6 +197,14 @@ impl SnosHintProcessor {
             .cloned()
             .collect::<HashSet<_>>()
     }
+    fn execute_syscall_hint(
+        &mut self,
+        vm: &mut VirtualMachine,
+        hint: &StarknetHint,
+    ) -> Result<HintExtension, HintError> {
+        println!("TODO: execute syscall hint: {:?}", hint);
+        Ok(HintExtension::default())
+    }
 }
 
 impl HintProcessorLogic for SnosHintProcessor {
@@ -235,8 +244,12 @@ impl HintProcessorLogic for SnosHintProcessor {
         }
 
         if let Some(hint) = hint_data.downcast_ref::<Hint>() {
-            return self.cairo1_builtin_hint_proc.execute(vm, exec_scopes, hint)
-                .map(|_| HintExtension::default());
+            if let Hint::Starknet(starknet_hint) = hint {
+                return self.execute_syscall_hint(vm, starknet_hint);
+            } else {
+                return self.cairo1_builtin_hint_proc.execute(vm, exec_scopes, hint)
+                    .map(|_| HintExtension::default());
+            }
         }
 
         return Err(HintError::WrongHintData);
