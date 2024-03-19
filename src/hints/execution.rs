@@ -19,6 +19,7 @@ use indoc::indoc;
 use crate::cairo_types::structs::ExecutionContext;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
+use crate::hints::vars::ids::{SIGNATURE_LEN, SIGNATURE_START};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 
@@ -474,19 +475,6 @@ pub fn resource_bounds(
     insert_value_from_var_name("resource_bounds", resource_bounds, vm, ids_data, ap_tracking)
 }
 
-// copilot prompt:
-// implement rust hints for the following python hints:
-// - %{ tx.max_fee if tx.version < 3 else 0 %},
-// - %{ 0 if tx.nonce is None else tx.nonce %},
-// - %{ 0 if tx.version < 3 else tx.tip %},
-// - %{ 0 if tx.version < 3 else len(tx.resource_bounds) %},
-// - %{ 0 if tx.version < 3 else len(tx.paymaster_data) %},
-// - %{ 0 if tx.version < 3 else segments.gen_arg(tx.paymaster_data) %}, felt*
-// - %{ 0 if tx.version < 3 else tx.nonce_data_availability_mode %}
-// - %{ 0 if tx.version < 3 else tx.fee_data_availability_mode %}
-// - %{ 0 if tx.version < 3 else len(tx.account_deployment_data) %}
-// use exact same logic as in the python hints
-
 pub const TX_MAX_FEE: &str = "memory[ap] = to_felt_or_relocatable(tx.max_fee if tx.version < 3 else 0)";
 pub fn tx_max_fee(
     vm: &mut VirtualMachine,
@@ -730,8 +718,8 @@ pub fn gen_signature_arg(
     let signature = signature.iter().map(|f| MaybeRelocatable::Int(*f)).collect();
     vm.load_data(signature_start_base, &signature)?;
 
-    insert_value_from_var_name("signature_start", signature_start_base, vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name("signature_len", signature.len(), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(SIGNATURE_START, signature_start_base, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(SIGNATURE_LEN, signature.len(), vm, ids_data, ap_tracking)?;
 
     Ok(())
 }

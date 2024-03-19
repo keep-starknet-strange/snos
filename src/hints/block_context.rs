@@ -19,6 +19,9 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
+use crate::cairo_types::structs::{CompiledClass, CompiledClassFact};
+use crate::hints::vars::ids::{COMPILED_CLASS, COMPILED_CLASS_FACT, CONTRACT_STATE_CHANGES, STATE_ENTRY};
+use crate::hints::vars::scopes::COMPILED_CLASS_HASH;
 use crate::io::classes::{write_class, write_deprecated_class};
 use crate::io::input::StarknetOsInput;
 use crate::utils::felt_api2vm;
@@ -114,7 +117,11 @@ pub fn load_deprecated_class(
 
     if computed_hash.as_ref() != &expected_hash {
         return Err(HintError::AssertionFailed(
-            format!("Compiled_class_hash mismatch comp={computed_hash} exp={expected_hash}").into_boxed_str(),
+            format!(
+                "Computed compiled_class_hash is inconsistent with the hash in the os_input. Computed hash = \
+                 {computed_hash}, Expected hash = {expected_hash}."
+            )
+            .into_boxed_str(),
         ));
     }
 
@@ -208,7 +215,9 @@ pub fn load_class_inner(
 ) -> Result<(), HintError> {
     let class_iter = exec_scopes.get_mut_ref::<IntoIter<Felt252, CasmContractClass>>("compiled_class_facts")?;
 
-    let (compiled_class_hash, class) = class_iter.next().unwrap();
+    let (compiled_class_hash, class) = class_iter
+        .next()
+        .ok_or(HintError::CustomHint("Compiled class iterator exhausted".to_string().into_boxed_str()))?;
 
     exec_scopes.insert_value("compiled_class_hash", compiled_class_hash);
     exec_scopes.insert_value("compiled_class", class.clone()); //TODO: is this clone necessary?
@@ -257,20 +266,24 @@ pub fn load_class(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<HintExtension, HintError> {
-    let compiled_class_fact_addr = get_relocatable_from_var_name("compiled_class_fact", vm, ids_data, ap_tracking)?;
-    let computed_hash = vm.get_integer(compiled_class_fact_addr)?; //TODO: calculate .hash explicitly
-    let expected_hash = exec_scopes.get::<Felt252>("compiled_class_hash").unwrap();
+    let compiled_class_fact_addr = get_relocatable_from_var_name(COMPILED_CLASS_FACT, vm, ids_data, ap_tracking)?;
+    let computed_hash = vm.get_integer((compiled_class_fact_addr + CompiledClassFact::hash_offset())?)?;
+    let expected_hash = exec_scopes.get::<Felt252>(COMPILED_CLASS_HASH).unwrap();
 
     if computed_hash.as_ref() != &expected_hash {
         return Err(HintError::AssertionFailed(
-            format!("Compiled_class_hash mismatch comp={computed_hash} exp={expected_hash}").into_boxed_str(),
+            format!(
+                "Computed compiled_class_hash is inconsistent with the hash in the os_input. Computed hash \
+                 ={computed_hash}, Expected hash = {expected_hash}"
+            )
+            .into_boxed_str(),
         ));
     }
 
-    let class = exec_scopes.get::<CasmContractClass>("compiled_class")?;
+    let class = exec_scopes.get::<CasmContractClass>(COMPILED_CLASS)?;
 
-    let compiled_class_ptr = get_ptr_from_var_name("compiled_class", vm, ids_data, ap_tracking)?;
-    let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + 8)?)?; //TODO: manage offset in a better way
+    let compiled_class_ptr = get_ptr_from_var_name(COMPILED_CLASS, vm, ids_data, ap_tracking)?;
+    let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + CompiledClass::bytecode_ptr_offset())?)?;
 
     let mut hint_extension = HintExtension::new();
 
@@ -378,10 +391,7 @@ pub fn get_block_mapping(
     let key = constants
         .get(BLOCK_HASH_CONTRACT_ADDRESS)
         .ok_or_else(|| HintError::MissingConstant(Box::new(BLOCK_HASH_CONTRACT_ADDRESS)))?;
-    let dict_ptr = get_ptr_from_var_name("contract_state_changes", vm, ids_data, ap_tracking)?;
-    // def get_dict(self, dict_ptr) -> dict:
-    //     Gets the python dict that corresponds to dict_ptr.
-    //     return self.get_tracker(dict_ptr).data
+    let dict_ptr = get_ptr_from_var_name(CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
         Dictionary::SimpleDictionary(dict) => {
             dict.get(&MaybeRelocatable::Int(*key)).expect("State changes dictionnary shouldn't be None").clone()
@@ -390,7 +400,7 @@ pub fn get_block_mapping(
             panic!("State changes dict shouldn't be a default dict")
         }
     };
-    insert_value_from_var_name("state_entry", val, vm, ids_data, ap_tracking)
+    insert_value_from_var_name(STATE_ENTRY, val, vm, ids_data, ap_tracking)
 }
 
 pub const ELEMENTS_GE_10: &str = "memory[ap] = to_felt_or_relocatable(ids.elements_end - ids.elements >= 10)";
