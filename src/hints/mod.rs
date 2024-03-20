@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use cairo_lang_casm::hints::{Hint, StarknetHint};
-use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
@@ -16,6 +15,7 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::BigInt;
 
@@ -225,7 +225,6 @@ impl HintProcessorLogic for SnosHintProcessor {
         hint_data: &Box<dyn core::any::Any>,
         constants: &HashMap<String, Felt252>,
     ) -> Result<HintExtension, HintError> {
-
         if let Some(hpd) = hint_data.downcast_ref::<HintProcessorData>() {
             let hint_code = hpd.code.as_str();
             if let Some(hint_impl) = self.hints.get(hint_code) {
@@ -235,23 +234,24 @@ impl HintProcessorLogic for SnosHintProcessor {
 
             match self.extensive_hints.get(hint_code) {
                 Some(hint_impl) => return hint_impl(self, vm, exec_scopes, &hpd.ids_data, &hpd.ap_tracking),
-                None => {},
+                None => {}
             }
 
-            return self.builtin_hint_proc.execute_hint(vm, exec_scopes, hint_data, constants)
-                .map(|_| HintExtension::default())
+            return self
+                .builtin_hint_proc
+                .execute_hint(vm, exec_scopes, hint_data, constants)
+                .map(|_| HintExtension::default());
         }
 
         if let Some(hint) = hint_data.downcast_ref::<Hint>() {
             if let Hint::Starknet(starknet_hint) = hint {
                 return self.execute_syscall_hint(vm, starknet_hint);
             } else {
-                return self.cairo1_builtin_hint_proc.execute(vm, exec_scopes, hint)
-                    .map(|_| HintExtension::default());
+                return self.cairo1_builtin_hint_proc.execute(vm, exec_scopes, hint).map(|_| HintExtension::default());
             }
         }
 
-        return Err(HintError::WrongHintData);
+        Err(HintError::WrongHintData)
     }
 }
 
