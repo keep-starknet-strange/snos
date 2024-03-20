@@ -39,9 +39,7 @@ cp tests/dependencies/initializable.cairo cairo-lang/src/starkware/starknet/std_
 echo -e "compiling cairo programs...\n"
 mkdir -p build/programs
 cairo-format -i tests/programs/*
-cairo-compile tests/programs/bad_output.cairo --output build/programs/bad_output.json
 cairo-compile tests/programs/fact.cairo --output build/programs/fact.json
-cairo-compile tests/programs/block_context.cairo --output build/programs/block_context.json --cairo_path cairo-lang/src
 
 # compile os with debug info
 cairo-compile --debug_info_with_source cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json --cairo_path cairo-lang/src

@@ -37,7 +37,6 @@ jobs:
           python-version: '3.9'
       - run: |
           pip install cairo-lang==0.13.1a0
-          cairo-format -c tests/programs/*
           bash ./scripts/reset-tests.sh
           cargo test
 

@@ -55,6 +55,8 @@ pub struct InternalTransaction {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub paid_on_l1: Option<bool>,
     pub r#type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_fee: Option<Felt252>,
 }
 
 #[derive(Debug)]

@@ -1,3 +1,4 @@
+use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
@@ -69,6 +70,57 @@ pub fn write_deprecated_class(
     vm.load_data(data_base, &data)?;
 
     vm.insert_value((class_base + 11)?, data_base)?;
+
+    Ok(())
+}
+
+fn load_casm_entrypoints(
+    vm: &mut VirtualMachine,
+    base: Relocatable,
+    entry_points: &[CasmContractEntryPoint],
+) -> Result<(), HintError> {
+    let mut b: Vec<MaybeRelocatable> = Vec::new();
+    for ep in entry_points.iter() {
+        b.push(MaybeRelocatable::from(Felt252::from(&ep.selector)));
+        b.push(MaybeRelocatable::from(ep.offset));
+        b.push(MaybeRelocatable::from(ep.builtins.len()));
+        let builtins: Vec<MaybeRelocatable> =
+            ep.builtins.iter().map(|bi| MaybeRelocatable::from(Felt252::from_bytes_be_slice(bi.as_bytes()))).collect();
+        let builtins_base = vm.add_memory_segment();
+        vm.load_data(builtins_base, &builtins)?;
+        b.push(builtins_base.into());
+    }
+    vm.insert_value(base, Felt252::from(entry_points.len()))?;
+    let externals_base = vm.add_memory_segment();
+    vm.load_data(externals_base, &b)?;
+    vm.insert_value((base + 1)?, externals_base)?;
+
+    Ok(())
+}
+pub fn write_class(
+    vm: &mut VirtualMachine,
+    class_base: Relocatable,
+    class: CasmContractClass,
+) -> Result<(), HintError> {
+    let version = Felt252::from_hex("0x434f4d50494c45445f434c4153535f5631").unwrap();
+    vm.insert_value(class_base, version)?; // COMPILED_CLASS_V1
+
+    load_casm_entrypoints(vm, (class_base + 1)?, &class.entry_points_by_type.external)?;
+    load_casm_entrypoints(vm, (class_base + 3)?, &class.entry_points_by_type.l1_handler)?;
+    load_casm_entrypoints(vm, (class_base + 5)?, &class.entry_points_by_type.constructor)?;
+
+    let data: Vec<MaybeRelocatable> =
+        class.bytecode
+            .into_iter()
+            .map(
+                |d| MaybeRelocatable::from(
+                    Felt252::from_bytes_be_slice(&d.value.to_bytes_be()[..])
+                ) // TODO: fix conversion
+            ).collect();
+    vm.insert_value((class_base + 7)?, Felt252::from(data.len()))?;
+    let data_base = vm.add_memory_segment();
+    vm.load_data(data_base, &data)?;
+    vm.insert_value((class_base + 8)?, data_base)?;
 
     Ok(())
 }

@@ -157,7 +157,7 @@ pub const LOAD_EDGE: &str = indoc! {r#"
 	        ids.hash_ptr + ids.HashBuiltin.result)"#
 };
 
-pub fn prepare_preimage_validation(
+pub fn load_edge(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -359,7 +359,7 @@ mod tests {
         preimage.insert(1_usize.into(), vec![2_usize.into(), 3_usize.into(), 4_usize.into()]);
         exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
-        prepare_preimage_validation(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+        load_edge(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 
         // TODO: test post-conditions:
         // * edge (edge.length, edge.path, edge.bottom)

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::{fs, path};
 
+use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -11,31 +12,19 @@ use super::InternalTransaction;
 use crate::config::StarknetGeneralConfig;
 use crate::error::SnOsError;
 use crate::state::trie::{MerkleTrie, StarkHasher};
-use crate::utils::{Felt252HexNoPrefix, Felt252Num, Felt252Str, Felt252StrDec};
+use crate::utils::{Felt252HexNoPrefix, Felt252Num, Felt252Str};
 
-#[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct StarknetOsInput {
     pub contract_state_commitment_info: CommitmentInfo,
     pub contract_class_commitment_info: CommitmentInfo,
-    #[serde_as(as = "HashMap<Felt252Str, _>")]
     pub deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass>,
-    #[serde_as(as = "HashMap<Felt252Str, Felt252Str>")]
-    pub compiled_classes: HashMap<Felt252, Felt252>,
-
-    // compiled_class_visited_pcs = {
-    //     compiled_class_hash: list(range(len(compiled_class.bytecode)))
-    //     for compiled_class_hash, compiled_class in compiled_classes.items()
-    // }
-    #[serde_as(as = "HashMap<Felt252Str, Vec<Felt252Str>>")]
+    pub compiled_classes: HashMap<Felt252, CasmContractClass>,
     pub compiled_class_visited_pcs: HashMap<Felt252, Vec<Felt252>>,
-    #[serde_as(as = "HashMap<Felt252StrDec, _>")]
     pub contracts: HashMap<Felt252, ContractState>,
-    #[serde_as(as = "HashMap<Felt252Str, Felt252Str>")]
     pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
     pub general_config: StarknetGeneralConfig,
     pub transactions: Vec<InternalTransaction>,
-    #[serde_as(as = "Felt252Num")]
     pub block_hash: Felt252,
 }
 
@@ -73,7 +62,7 @@ impl CommitmentInfo {
     }
 }
 #[serde_as]
-#[derive(Deserialize, Clone, Debug, Serialize)]
+#[derive(Deserialize, Clone, Default, Debug, Serialize)]
 pub struct ContractState {
     #[serde_as(as = "Felt252HexNoPrefix")]
     pub contract_hash: Felt252,
@@ -83,7 +72,7 @@ pub struct ContractState {
 }
 
 #[serde_as]
-#[derive(Deserialize, Clone, Debug, Serialize)]
+#[derive(Deserialize, Clone, Default, Debug, Serialize)]
 pub struct StorageCommitment {
     #[serde_as(as = "Felt252HexNoPrefix")]
     pub root: Felt252,

@@ -2,11 +2,11 @@ use std::{env, path};
 
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
-use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use super::*;
 
+#[allow(unused)]
 pub fn load_class_v0(path: &str) -> ContractClass {
     ContractClassV0::try_from_json_string(&load_class_raw(path)).unwrap().into()
 }
@@ -62,20 +62,4 @@ pub fn deprecated_cairo_python_run(program: &str, with_input: bool) -> String {
     raw.push_str(&String::from_utf8(cmd_out.stderr).unwrap());
 
     raw.trim_start_matches("Program output:").trim_start_matches("\n  ").trim_end_matches("\n\n").replace(' ', "")
-}
-
-pub fn raw_deploy(
-    shared_state: &mut SharedState<DictStateReader>,
-    class_path: &str,
-    class_hash: ClassHash,
-) -> ContractAddress {
-    let contract_class = load_class_v0(class_path);
-    shared_state.cache.set_contract_class(class_hash, contract_class).unwrap();
-
-    let contract_addr =
-        calculate_contract_address(ContractAddressSalt::default(), class_hash, &calldata![], contract_address!(0_u32))
-            .unwrap();
-    shared_state.cache.set_class_hash_at(contract_addr, class_hash).unwrap();
-
-    contract_addr
 }

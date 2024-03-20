@@ -16,8 +16,10 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 
+use crate::cairo_types::structs::ExecutionContext;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
+use crate::hints::vars::ids::{SIGNATURE_LEN, SIGNATURE_START};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 
@@ -53,9 +55,9 @@ pub fn load_next_tx(
     let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>("transactions")?;
     // Safe to unwrap because the remaining number of txs is checked in the cairo code.
     let tx = transactions.next().unwrap();
+    println!("executing {} on: {}", tx.r#type, tx.sender_address.unwrap());
     exec_scopes.insert_value("transactions", transactions);
     exec_scopes.insert_value("tx", tx.clone());
-    println!("tx.type: {}", tx.r#type);
     insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
     // TODO: add logger
 }
@@ -131,16 +133,19 @@ pub fn assert_transaction_hash(
     let transaction_hash = get_integer_from_var_name("transaction_hash", vm, ids_data, ap_tracking)?.into_owned();
 
     assert_eq!(
-        tx.hash_value, transaction_hash,
+        tx.hash_value,
+        transaction_hash,
         "Computed transaction_hash is inconsistent with the hash in the transaction. Computed hash = {}, Expected \
          hash = {}.",
-        transaction_hash, tx.hash_value
+        transaction_hash.to_hex_string(),
+        tx.hash_value.to_hex_string()
     );
     Ok(())
 }
 
-pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': deprecated_syscall_handler})";
-pub fn enter_scope_syscall_handler(
+pub const ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER: &str =
+    "vm_enter_scope({'syscall_handler': deprecated_syscall_handler})";
+pub fn enter_scope_deprecated_syscall_handler(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
@@ -148,6 +153,20 @@ pub fn enter_scope_syscall_handler(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let dep_sys = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("deprecated_syscall_handler")?;
+    let deprecated_syscall_handler: Box<dyn Any> = Box::new(dep_sys);
+    exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), deprecated_syscall_handler)]));
+    Ok(())
+}
+
+pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': syscall_handler})";
+pub fn enter_scope_syscall_handler(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let dep_sys = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("syscall_handler")?;
     let deprecated_syscall_handler: Box<dyn Any> = Box::new(dep_sys);
     exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), deprecated_syscall_handler)]));
     Ok(())
@@ -196,6 +215,17 @@ pub fn check_is_deprecated(
     let is_deprecated_class =
         exec_scopes.get_ref::<HashSet<Felt252>>("__deprecated_class_hashes")?.contains(&class_hash);
     exec_scopes.insert_value("is_deprecated", if is_deprecated_class { 1u8 } else { 0u8 });
+
+    let execution_into_ptr = vm.get_relocatable((execution_context + 4usize)?).unwrap();
+    let contract_address = vm.get_integer((execution_into_ptr + 3usize)?).unwrap();
+
+    println!(
+        "about to call contract_address: {}, class_hash: {}, is_deprecated: {}",
+        contract_address,
+        class_hash,
+        if is_deprecated_class { 1u8 } else { 0u8 }
+    );
+
     Ok(())
 }
 
@@ -211,7 +241,10 @@ pub fn is_deprecated(
     Ok(())
 }
 
-pub const OS_CONTEXT_SEGMENTS: &str = "ids.os_context = segments.add()\nids.syscall_ptr = segments.add()";
+pub const OS_CONTEXT_SEGMENTS: &str = indoc! {r#"
+    ids.os_context = segments.add()
+    ids.syscall_ptr = segments.add()"#
+};
 pub fn os_context_segments(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -250,12 +283,15 @@ pub fn enter_syscall_scopes(
     let execution_helper: Box<dyn Any> = Box::new(exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?);
     let deprecated_syscall_handler: Box<dyn Any> =
         Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("deprecated_syscall_handler")?);
+    let syscall_handler: Box<dyn Any> =
+        Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("syscall_handler")?);
     let dict_manager: Box<dyn Any> = Box::new(exec_scopes.get_dict_manager()?);
     exec_scopes.enter_scope(HashMap::from_iter([
         (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
         (String::from("transactions"), transactions),
         (String::from("execution_helper"), execution_helper),
         (String::from("deprecated_syscall_handler"), deprecated_syscall_handler),
+        (String::from("syscall_handler"), syscall_handler),
         (String::from("dict_manager"), dict_manager),
     ]));
     Ok(())
@@ -325,4 +361,397 @@ pub fn exit_call(
     let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
     execution_helper.exit_call();
     Ok(())
+}
+
+pub const CONTRACT_ADDRESS: &str = indoc! {r#"
+    from starkware.starknet.business_logic.transaction.deprecated_objects import (
+        InternalL1Handler,
+    )
+    ids.contract_address = (
+        tx.contract_address if isinstance(tx, InternalL1Handler) else tx.sender_address
+    )"#
+};
+
+pub fn contract_address(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let contract_address = if tx.r#type == "L1_HANDLER" {
+        tx.contract_address
+            .ok_or(HintError::CustomHint("tx.contract_address is None".to_string().into_boxed_str()))
+            .unwrap()
+    } else {
+        tx.sender_address
+            .ok_or(HintError::CustomHint("tx.sender_address is None".to_string().into_boxed_str()))
+            .unwrap()
+    };
+    insert_value_from_var_name("contract_address", contract_address, vm, ids_data, ap_tracking)
+}
+
+pub const TX_CALLDATA_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(tx.calldata))";
+
+pub fn tx_calldata_len(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let len = tx.calldata.unwrap_or_default().len();
+    insert_value_into_ap(vm, Felt252::from(len))
+}
+
+pub const TX_CALLDATA: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg(tx.calldata))";
+
+pub fn tx_calldata(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let calldata = tx.calldata.unwrap_or_default().iter().map(|felt| felt.into()).collect();
+    let calldata_base = vm.add_memory_segment();
+    vm.load_data(calldata_base, &calldata)?;
+    insert_value_into_ap(vm, calldata_base)
+}
+
+pub const TX_ENTRY_POINT_SELECTOR: &str = "memory[ap] = to_felt_or_relocatable(tx.entry_point_selector)";
+pub fn tx_entry_point_selector(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let entry_point_selector = tx
+        .entry_point_selector
+        .ok_or(HintError::CustomHint("tx.entry_point_selector is None".to_string().into_boxed_str()))
+        .unwrap_or_default();
+    insert_value_into_ap(vm, entry_point_selector)
+}
+
+pub const RESOURCE_BOUNDS: &str = indoc! {r#"
+    from src.starkware.starknet.core.os.transaction_hash.transaction_hash import (
+        create_resource_bounds_list,
+    )
+
+    ids.resource_bounds = (
+        0
+        if tx.version < 3
+        else segments.gen_arg(create_resource_bounds_list(tx.resource_bounds))
+    )"#
+};
+
+pub fn resource_bounds(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let version = tx.version.unwrap_or_default();
+    assert!(version < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // TODO: implement resource_bounds for tx.version >= 3
+    // let resource_bounds = if tx.version < 3 {
+    //     0
+    // } else {
+    //     let resource_bounds = tx.resource_bounds.unwrap_or_default().iter().map(|felt|
+    // felt.into()).collect();     let resource_bounds_base = vm.add_memory_segment();
+    //     vm.load_data(resource_bounds_base, &resource_bounds)?;
+    //     resource_bounds_base
+    // };
+
+    let resource_bounds = 0;
+    insert_value_from_var_name("resource_bounds", resource_bounds, vm, ids_data, ap_tracking)
+}
+
+pub const TX_MAX_FEE: &str = "memory[ap] = to_felt_or_relocatable(tx.max_fee if tx.version < 3 else 0)";
+pub fn tx_max_fee(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let max_fee = if tx.version.unwrap_or_default() < 3.into() {
+    //     tx.max_fee.unwrap_or_default()
+    // } else {
+    //     0
+    // };
+
+    let max_fee = tx.max_fee.unwrap();
+
+    insert_value_into_ap(vm, max_fee)
+}
+
+pub const TX_NONCE: &str = "memory[ap] = to_felt_or_relocatable(0 if tx.nonce is None else tx.nonce)";
+pub fn tx_nonce(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let nonce = if tx.nonce.is_none() { 0.into() } else { tx.nonce.unwrap() };
+    insert_value_into_ap(vm, nonce)
+}
+
+pub const TX_TIP: &str = "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else tx.tip)";
+pub fn tx_tip(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let tip = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.tip.unwrap_or_default()
+    // };
+
+    let tip = Felt252::ZERO;
+
+    insert_value_into_ap(vm, tip)
+}
+
+pub const TX_RESOURCE_BOUNDS_LEN: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else len(tx.resource_bounds))";
+pub fn tx_resource_bounds_len(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let len = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.resource_bounds.unwrap_or_default().len().into()
+    // };
+
+    let len = Felt252::ZERO;
+    insert_value_into_ap(vm, len)
+}
+
+pub const TX_PAYMASTER_DATA_LEN: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else len(tx.paymaster_data))";
+pub fn tx_paymaster_data_len(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let len = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.paymaster_data.unwrap_or_default().len().into()
+    // };
+
+    let len = Felt252::ZERO;
+    insert_value_into_ap(vm, len)
+}
+
+pub const TX_PAYMASTER_DATA: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else segments.gen_arg(tx.paymaster_data))";
+pub fn tx_paymaster_data(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let paymaster_data = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     let paymaster_data = tx.paymaster_data.unwrap_or_default().iter().map(|felt|
+    // felt.into()).collect();     let paymaster_data_base = vm.add_memory_segment();
+    //     vm.load_data(paymaster_data_base, &paymaster_data)?;
+    //     paymaster_data_base
+    // };
+    let paymaster_data = Felt252::ZERO;
+    insert_value_into_ap(vm, paymaster_data)
+}
+
+pub const TX_NONCE_DATA_AVAILABILITY_MODE: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else tx.nonce_data_availability_mode)";
+pub fn tx_nonce_data_availability_mode(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let nonce_data_availability_mode = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.nonce_data_availability_mode.unwrap_or_default()
+    // };
+
+    let nonce_data_availability_mode = Felt252::ZERO;
+    insert_value_into_ap(vm, nonce_data_availability_mode)
+}
+
+pub const TX_FEE_DATA_AVAILABILITY_MODE: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else tx.fee_data_availability_mode)";
+pub fn tx_fee_data_availability_mode(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let fee_data_availability_mode = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.fee_data_availability_mode.unwrap_or_default()
+    // };
+
+    let fee_data_availability_mode = Felt252::ZERO;
+    insert_value_into_ap(vm, fee_data_availability_mode)
+}
+
+pub const TX_ACCOUNT_DEPLOYMENT_DATA_LEN: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else len(tx.account_deployment_data))";
+pub fn tx_account_deployment_data_len(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let len = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     tx.account_deployment_data.unwrap_or_default().len().into()
+    // };
+
+    let len = Felt252::ZERO;
+    insert_value_into_ap(vm, len)
+}
+
+pub const TX_ACCOUNT_DEPLOYMENT_DATA: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else segments.gen_arg(tx.account_deployment_data))";
+pub fn tx_account_deployment_data(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    // TODO: implement tx.version >= 3
+    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+
+    // let account_deployment_data = if tx.version.unwrap_or_default() < 3.into() {
+    //     0.into()
+    // } else {
+    //     let account_deployment_data =
+    // tx.account_deployment_data.unwrap_or_default().iter().map(|felt| felt.into()).collect();
+    //     let account_deployment_data_base = vm.add_memory_segment();
+    //     vm.load_data(account_deployment_data_base, &account_deployment_data)?;
+    //     account_deployment_data_base
+    // };
+
+    let account_deployment_data = Felt252::ZERO;
+    insert_value_into_ap(vm, account_deployment_data)
+}
+
+pub const GEN_SIGNATURE_ARG: &str = indoc! {r#"
+	ids.signature_start = segments.gen_arg(arg=tx.signature)
+	ids.signature_len = len(tx.signature)"#
+};
+pub fn gen_signature_arg(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let signature = tx.signature.ok_or(HintError::CustomHint("tx.signature is none".to_owned().into_boxed_str()))?;
+    let signature_start_base = vm.add_memory_segment();
+    let signature = signature.iter().map(|f| MaybeRelocatable::Int(*f)).collect();
+    vm.load_data(signature_start_base, &signature)?;
+
+    insert_value_from_var_name(SIGNATURE_START, signature_start_base, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(SIGNATURE_LEN, signature.len(), vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+pub const START_TX: &str = indoc! {r#"
+    tx_info_ptr = ids.tx_execution_context.deprecated_tx_info.address_
+    execution_helper.start_tx(tx_info_ptr=tx_info_ptr)"#
+};
+pub fn start_tx(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx_execution_context = get_relocatable_from_var_name("tx_execution_context", _vm, ids_data, _ap_tracking)?;
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+    let tx_info_ptr = (tx_execution_context + ExecutionContext::deprecated_tx_info_offset())?;
+    execution_helper.start_tx(Some(tx_info_ptr));
+    Ok(())
+}
+
+pub const IS_REVERTED: &str = "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.is_reverted)";
+pub fn is_reverted(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // TODO: implement is_reverted when tx_execution_info abstraction is ready
+    // let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+    // insert_value_into_ap(vm, Felt252::from(execution_helper. tx_execution_info.is_reverted))
+    insert_value_into_ap(vm, Felt252::ZERO)
 }

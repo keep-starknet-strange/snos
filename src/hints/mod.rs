@@ -1,13 +1,3 @@
-pub mod block_context;
-pub mod builtins;
-pub mod execution;
-pub mod state;
-pub mod syscalls;
-#[cfg(test)]
-mod tests;
-mod unimplemented;
-mod vars;
-
 use std::collections::{HashMap, HashSet};
 
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -27,9 +17,19 @@ use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::BigInt;
 
-use crate::config::DEFAULT_INPUT_PATH;
 use crate::execution::helper::ExecutionHelperWrapper;
+use crate::hints::block_context::is_leaf;
 use crate::io::input::StarknetOsInput;
+
+pub mod block_context;
+pub mod builtins;
+pub mod execution;
+pub mod state;
+pub mod syscalls;
+#[cfg(test)]
+mod tests;
+mod unimplemented;
+mod vars;
 
 type HintImpl = fn(
     &mut VirtualMachine,
@@ -39,45 +39,74 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 59] = [
-    // (BREAKPOINT, breakpoint),
-    (STARKNET_OS_INPUT, starknet_os_input),
-    (INITIALIZE_STATE_CHANGES, initialize_state_changes),
+static HINTS: [(&str, HintImpl); 86] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
+    (INITIALIZE_STATE_CHANGES, initialize_state_changes),
+    (IS_N_GE_TWO, is_n_ge_two),
+    (IS_ON_CURVE, is_on_curve),
+    (OS_INPUT_TRANSACTIONS, os_input_transactions),
     (SEGMENTS_ADD, segments_add),
     (SEGMENTS_ADD_TEMP, segments_add_temp),
-    (TRANSACTIONS_LEN, transactions_len),
-    (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
-    (builtins::SELECT_BUILTIN, builtins::select_builtin),
-    (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
+    (SET_AP_TO_ACTUAL_FEE, set_ap_to_actual_fee),
+    (SKIP_CALL, skip_call),
+    (SKIP_TX, skip_tx),
+    (STARKNET_OS_INPUT, starknet_os_input),
+    (START_TX, start_tx),
+    (block_context::BLOCK_NUMBER, block_context::block_number),
+    (block_context::BLOCK_TIMESTAMP, block_context::block_timestamp),
+    (block_context::CHAIN_ID, block_context::chain_id),
+    (block_context::DEPRECATED_FEE_TOKEN_ADDRESS, block_context::deprecated_fee_token_address),
+    (block_context::FEE_TOKEN_ADDRESS, block_context::fee_token_address),
+    (block_context::GET_BLOCK_MAPPING, block_context::get_block_mapping),
     (block_context::LOAD_CLASS_FACTS, block_context::load_class_facts),
     (block_context::LOAD_DEPRECATED_CLASS_FACTS, block_context::load_deprecated_class_facts),
     (block_context::LOAD_DEPRECATED_CLASS_INNER, block_context::load_deprecated_class_inner),
-    (block_context::BLOCK_NUMBER, block_context::block_number),
-    (block_context::BLOCK_TIMESTAMP, block_context::block_timestamp),
+    (block_context::LOAD_CLASS_INNER, block_context::load_class_inner),
+    (block_context::BYTECODE_SEGMENT_STRUCTURE, block_context::bytecode_segment_structure),
     (block_context::SEQUENCER_ADDRESS, block_context::sequencer_address),
-    (block_context::CHAIN_ID, block_context::chain_id),
-    (block_context::FEE_TOKEN_ADDRESS, block_context::fee_token_address),
-    (block_context::DEPRECATED_FEE_TOKEN_ADDRESS, block_context::deprecated_fee_token_address),
-    (block_context::GET_BLOCK_MAPPING, block_context::get_block_mapping),
-    (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
-    (execution::GET_STATE_ENTRY, execution::get_state_entry),
-    (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
-    (execution::IS_DEPRECATED, execution::is_deprecated),
-    (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
-    (execution::LOAD_NEXT_TX, execution::load_next_tx),
-    (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
-    (execution::TRANSACTION_VERSION, execution::transaction_version),
+    (block_context::ELEMENTS_GE_10, block_context::elements_ge_10),
+    (block_context::ELEMENTS_GE_2, block_context::elements_ge_2),
+    (block_context::IS_LEAF, is_leaf),
+    (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
+    (builtins::SELECT_BUILTIN, builtins::select_builtin),
+    (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
-    (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
-    // (execution::START_DEPLOY_TX, execution::start_deploy_tx),
+    (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
+    (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
+    (execution::CONTRACT_ADDRESS, execution::contract_address),
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
+    (execution::ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER, execution::enter_scope_deprecated_syscall_handler),
+    (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
+    (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::EXIT_CALL, execution::exit_call),
+    (execution::GEN_SIGNATURE_ARG, execution::gen_signature_arg),
+    (execution::GET_STATE_ENTRY, execution::get_state_entry),
+    (execution::IS_DEPRECATED, execution::is_deprecated),
+    (execution::IS_REVERTED, execution::is_reverted),
+    (execution::LOAD_NEXT_TX, execution::load_next_tx),
+    (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
+    (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
+    (execution::RESOURCE_BOUNDS, execution::resource_bounds),
+    (execution::START_TX, execution::start_tx),
+    (execution::TRANSACTION_VERSION, execution::transaction_version),
+    (execution::TX_ACCOUNT_DEPLOYMENT_DATA, execution::tx_account_deployment_data),
+    (execution::TX_ACCOUNT_DEPLOYMENT_DATA_LEN, execution::tx_account_deployment_data_len),
+    (execution::TX_CALLDATA, execution::tx_calldata),
+    (execution::TX_CALLDATA_LEN, execution::tx_calldata_len),
+    (execution::TX_ENTRY_POINT_SELECTOR, execution::tx_entry_point_selector),
+    (execution::TX_FEE_DATA_AVAILABILITY_MODE, execution::tx_fee_data_availability_mode),
+    (execution::TX_MAX_FEE, execution::tx_max_fee),
+    (execution::TX_NONCE, execution::tx_nonce),
+    (execution::TX_NONCE_DATA_AVAILABILITY_MODE, execution::tx_nonce_data_availability_mode),
+    (execution::TX_PAYMASTER_DATA, execution::tx_paymaster_data),
+    (execution::TX_PAYMASTER_DATA_LEN, execution::tx_paymaster_data_len),
+    (execution::TX_RESOURCE_BOUNDS_LEN, execution::tx_resource_bounds_len),
+    (execution::TX_TIP, execution::tx_tip),
+    (state::LOAD_EDGE, state::load_edge),
     (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
     (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
     (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
-    (state::LOAD_EDGE, state::prepare_preimage_validation),
     (syscalls::CALL_CONTRACT, syscalls::call_contract),
     (syscalls::DELEGATE_CALL, syscalls::delegate_call),
     (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),
@@ -95,12 +124,8 @@ static HINTS: [(&str, HintImpl); 59] = [
     (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
-    (SET_AP_TO_ACTUAL_FEE, set_ap_to_actual_fee),
-    (IS_ON_CURVE, is_on_curve),
-    (IS_N_GE_TWO, is_n_ge_two),
-    (START_TX, start_tx),
-    (SKIP_TX, skip_tx),
-    (SKIP_CALL, skip_call),
+    (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
+    (BREAKPOINT, breakpoint),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
@@ -114,8 +139,10 @@ type ExtensiveHintImpl = fn(
     &ApTracking,
 ) -> Result<HintExtension, HintError>;
 
-static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 1] =
-    [(block_context::LOAD_DEPRECATED_CLASS, block_context::load_deprecated_class)];
+static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 2] = [
+    (block_context::LOAD_DEPRECATED_CLASS, block_context::load_deprecated_class),
+    (block_context::LOAD_CLASS, block_context::load_class),
+];
 
 pub struct SnosHintProcessor {
     builtin_hint_proc: BuiltinHintProcessor,
@@ -216,19 +243,11 @@ pub const STARKNET_OS_INPUT: &str = indoc! {r#"
 
 pub fn starknet_os_input(
     vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let input_path =
-        std::path::PathBuf::from(exec_scopes.get::<String>("input_path").unwrap_or(DEFAULT_INPUT_PATH.to_string()));
-
-    let os_input = Box::new(
-        StarknetOsInput::load(&input_path).map_err(|e| HintError::CustomHint(e.to_string().into_boxed_str()))?,
-    );
-    exec_scopes.assign_or_update_variable("os_input", os_input);
-
     let initial_carried_outputs_ptr = get_ptr_from_var_name("initial_carried_outputs", vm, ids_data, ap_tracking)?;
 
     let messages_to_l1 = initial_carried_outputs_ptr;
@@ -316,20 +335,6 @@ pub fn segments_add_temp(
 ) -> Result<(), HintError> {
     let temp_segment = vm.add_temporary_segment();
     insert_value_into_ap(vm, temp_segment)
-}
-
-pub const TRANSACTIONS_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(os_input.transactions))";
-
-pub fn transactions_len(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
-
-    insert_value_into_ap(vm, os_input.transactions.len())
 }
 
 pub const BREAKPOINT: &str = "breakpoint()";
@@ -431,7 +436,7 @@ pub fn start_tx(
     let deprecated_tx_info_ptr =
         get_relocatable_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
 
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER).unwrap();
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.start_tx(Some(deprecated_tx_info_ptr));
 
     Ok(())
@@ -446,7 +451,7 @@ pub fn skip_tx(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER).unwrap();
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.skip_tx();
 
     Ok(())
@@ -461,8 +466,22 @@ pub fn skip_call(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER).unwrap();
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.skip_call();
 
     Ok(())
+}
+
+const OS_INPUT_TRANSACTIONS: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";
+
+pub fn os_input_transactions(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let num_txns = os_input.transactions.len();
+    vm.insert_value((vm.get_fp() + 8)?, num_txns).map_err(HintError::Memory)
 }

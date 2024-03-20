@@ -345,8 +345,8 @@ pub fn set_syscall_ptr(
     insert_value_from_var_name(vars::ids::OS_CONTEXT, os_context, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::SYSCALL_PTR, syscall_ptr, vm, ids_data, ap_tracking)?;
 
+    // TODO: it should not be a deprecated syscall handler!
     let syscall_handler: DeprecatedOsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
-
     syscall_handler.set_syscall_ptr(syscall_ptr);
 
     Ok(())
