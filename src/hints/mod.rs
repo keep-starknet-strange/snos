@@ -1,9 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
+use cairo_lang_casm::hints::{Hint, StarknetHint};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
+use cairo_vm::hint_processor::cairo_1_hint_processor::hint_processor::Cairo1HintProcessor;
 use cairo_vm::hint_processor::hint_processor_definition::{
     HintExtension, HintProcessor, HintProcessorLogic, HintReference,
 };
@@ -146,6 +148,7 @@ static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 2] = [
 
 pub struct SnosHintProcessor {
     builtin_hint_proc: BuiltinHintProcessor,
+    cairo1_builtin_hint_proc: Cairo1HintProcessor,
     hints: HashMap<String, HintImpl>,
     extensive_hints: HashMap<String, ExtensiveHintImpl>,
     run_resources: RunResources,
@@ -175,6 +178,7 @@ impl Default for SnosHintProcessor {
         let extensive_hints = EXTENSIVE_HINTS.into_iter().map(|(h, i)| (h.to_string(), i)).collect();
         Self {
             builtin_hint_proc: BuiltinHintProcessor::new_empty(),
+            cairo1_builtin_hint_proc: Cairo1HintProcessor::new(Default::default(), RunResources::default()),
             hints,
             extensive_hints,
             run_resources: Default::default(),
@@ -191,6 +195,14 @@ impl SnosHintProcessor {
             .union(&self.extensive_hints.keys().cloned().collect::<HashSet<_>>())
             .cloned()
             .collect::<HashSet<_>>()
+    }
+    fn execute_syscall_hint(
+        &mut self,
+        _vm: &mut VirtualMachine,
+        hint: &StarknetHint,
+    ) -> Result<HintExtension, HintError> {
+        println!("TODO: execute syscall hint: {:?}", hint);
+        Ok(HintExtension::default())
     }
 }
 
@@ -213,22 +225,32 @@ impl HintProcessorLogic for SnosHintProcessor {
         hint_data: &Box<dyn core::any::Any>,
         constants: &HashMap<String, Felt252>,
     ) -> Result<HintExtension, HintError> {
-        match self.builtin_hint_proc.execute_hint(vm, exec_scopes, hint_data, constants) {
-            Err(HintError::UnknownHint(_)) => {}
-            res => return res.map(|_| HintExtension::default()),
-        }
-        // First attempt to execute with builtin hint processor
-        let hint_data = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
-        let hint_code = hint_data.code.as_str();
-        if let Some(hint_impl) = self.hints.get(hint_code) {
-            return hint_impl(vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking, constants)
+        if let Some(hpd) = hint_data.downcast_ref::<HintProcessorData>() {
+            let hint_code = hpd.code.as_str();
+            if let Some(hint_impl) = self.hints.get(hint_code) {
+                return hint_impl(vm, exec_scopes, &hpd.ids_data, &hpd.ap_tracking, constants)
+                    .map(|_| HintExtension::default());
+            }
+
+            if let Some(hint_impl) = self.extensive_hints.get(hint_code) {
+                return hint_impl(self, vm, exec_scopes, &hpd.ids_data, &hpd.ap_tracking);
+            }
+
+            return self
+                .builtin_hint_proc
+                .execute_hint(vm, exec_scopes, hint_data, constants)
                 .map(|_| HintExtension::default());
         }
 
-        match self.extensive_hints.get(hint_code) {
-            Some(hint_impl) => hint_impl(self, vm, exec_scopes, &hint_data.ids_data, &hint_data.ap_tracking),
-            None => Err(HintError::UnknownHint(hint_code.to_string().into_boxed_str())),
+        if let Some(hint) = hint_data.downcast_ref::<Hint>() {
+            if let Hint::Starknet(starknet_hint) = hint {
+                return self.execute_syscall_hint(vm, starknet_hint);
+            } else {
+                return self.cairo1_builtin_hint_proc.execute(vm, exec_scopes, hint).map(|_| HintExtension::default());
+            }
         }
+
+        Err(HintError::WrongHintData)
     }
 }
 
