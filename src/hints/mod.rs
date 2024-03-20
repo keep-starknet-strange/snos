@@ -232,9 +232,8 @@ impl HintProcessorLogic for SnosHintProcessor {
                     .map(|_| HintExtension::default());
             }
 
-            match self.extensive_hints.get(hint_code) {
-                Some(hint_impl) => return hint_impl(self, vm, exec_scopes, &hpd.ids_data, &hpd.ap_tracking),
-                None => {}
+            if let Some(hint_impl) = self.extensive_hints.get(hint_code) {
+                return hint_impl(self, vm, exec_scopes, &hpd.ids_data, &hpd.ap_tracking)
             }
 
             return self
