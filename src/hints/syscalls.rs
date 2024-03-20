@@ -10,6 +10,7 @@ use cairo_vm::Felt252;
 use indoc::indoc;
 
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
+use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::vars;
 
 pub const CALL_CONTRACT: &str = "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)";
@@ -345,8 +346,7 @@ pub fn set_syscall_ptr(
     insert_value_from_var_name(vars::ids::OS_CONTEXT, os_context, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::SYSCALL_PTR, syscall_ptr, vm, ids_data, ap_tracking)?;
 
-    // TODO: it should not be a deprecated syscall handler!
-    let syscall_handler: DeprecatedOsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler: OsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
     syscall_handler.set_syscall_ptr(syscall_ptr);
 
     Ok(())
