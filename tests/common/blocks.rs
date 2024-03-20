@@ -59,11 +59,11 @@ pub fn simple_block(
         only_query,
     });
 
-    let account_tx_intenal = to_internal_tx(&account_tx);
+    let account_tx_internal = to_internal_tx(&account_tx);
 
     let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
-    os_hints(&block_context, state, vec![account_tx_intenal], vec![tx_execution_info])
+    os_hints(&block_context, state, vec![account_tx_internal], vec![tx_execution_info])
 }
 
 #[fixture]
