@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
-use blockifier::execution::common_hints::HintExecutionResult;
-use cairo_lang_casm::hints::{Hint, StarknetHint};
 
+use cairo_lang_casm::hints::{Hint, StarknetHint};
+use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::*;
+use cairo_vm::hint_processor::cairo_1_hint_processor::hint_processor::Cairo1HintProcessor;
 use cairo_vm::hint_processor::hint_processor_definition::{
     HintExtension, HintProcessor, HintProcessorLogic, HintReference,
 };
@@ -15,8 +16,6 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
-use cairo_vm::hint_processor::cairo_1_hint_processor::hint_processor::Cairo1HintProcessor;
 use indoc::indoc;
 use num_bigint::BigInt;
 
@@ -199,7 +198,7 @@ impl SnosHintProcessor {
     }
     fn execute_syscall_hint(
         &mut self,
-        vm: &mut VirtualMachine,
+        _vm: &mut VirtualMachine,
         hint: &StarknetHint,
     ) -> Result<HintExtension, HintError> {
         println!("TODO: execute syscall hint: {:?}", hint);
