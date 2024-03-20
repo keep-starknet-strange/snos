@@ -233,7 +233,7 @@ impl HintProcessorLogic for SnosHintProcessor {
             }
 
             if let Some(hint_impl) = self.extensive_hints.get(hint_code) {
-                return hint_impl(self, vm, exec_scopes, &hpd.ids_data, &hpd.ap_tracking)
+                return hint_impl(self, vm, exec_scopes, &hpd.ids_data, &hpd.ap_tracking);
             }
 
             return self
