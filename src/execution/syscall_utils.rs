@@ -1,12 +1,10 @@
-use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
-use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
-use starknet_api::StarknetApiError;
 use thiserror::Error;
+
 use crate::execution::helper::ExecutionHelperWrapper;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -90,6 +88,7 @@ impl TryFrom<Felt252> for SyscallSelector {
 
 pub fn felt_from_ptr(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Felt252, MemoryError> {
     let felt = vm.get_integer(*ptr)?.into_owned();
+    println!("reading syscall_ptr: {}", ptr);
     *ptr = (*ptr + 1)?;
     Ok(felt)
 }
@@ -103,7 +102,9 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
     ptr: &mut Relocatable,
     value: T,
 ) -> Result<(), MemoryError> {
-    vm.insert_value(*ptr, value)?;
+    let r: MaybeRelocatable = value.into();
+    println!("writing: {} to syscall_ptr: {}", r, ptr);
+    vm.insert_value(*ptr, r)?;
     *ptr = (*ptr + 1)?;
     Ok(())
 }

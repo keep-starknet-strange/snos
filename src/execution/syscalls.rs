@@ -1,13 +1,10 @@
-use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::Relocatable;
-use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
-use num_traits::ToPrimitive;
+use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::vm::vm_core::VirtualMachine;
 
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_utils::{
-    write_maybe_relocatable, EmptyRequest, SyscallResponse, SyscallResult, WriteResponseResult,
+    EmptyRequest, SyscallResponse, SyscallResult, write_maybe_relocatable, WriteResponseResult,
 };
 
 // TODO: what is this for?

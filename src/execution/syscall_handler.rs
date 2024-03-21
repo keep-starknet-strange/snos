@@ -3,15 +3,14 @@ use std::rc::Rc;
 
 use blockifier::execution::execution_utils::ReadOnlySegments;
 use cairo_vm::Felt252;
-use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use num_traits::Zero;
+
+use crate::execution::syscall_utils::{execute_syscall, felt_from_ptr, SyscallSelector};
+use crate::execution::syscalls::get_execution_info;
 
 use super::helper::ExecutionHelperWrapper;
-use crate::execution::syscall_utils::{execute_syscall, SyscallSelector};
-use crate::execution::syscalls::get_execution_info;
 
 /// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
@@ -55,7 +54,7 @@ impl OsSyscallHandlerWrapper {
         let mut syscall_handler = self.syscall_handler.as_ref().borrow_mut();
         assert_eq!(syscall_handler.syscall_ptr, syscall_ptr);
 
-        let selector = SyscallSelector::try_from(vm.get_integer(syscall_ptr)?.into_owned())?;
+        let selector = SyscallSelector::try_from(felt_from_ptr(vm, &mut syscall_handler.syscall_ptr)?)?;
 
         println!("about to execute syscall: {:?}", selector);
 
