@@ -1,8 +1,8 @@
-use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use thiserror::Error;
 
 use crate::execution::helper::ExecutionHelperWrapper;
@@ -88,7 +88,6 @@ impl TryFrom<Felt252> for SyscallSelector {
 
 pub fn felt_from_ptr(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Felt252, MemoryError> {
     let felt = vm.get_integer(*ptr)?.into_owned();
-    println!("reading syscall_ptr: {}", ptr);
     *ptr = (*ptr + 1)?;
     Ok(felt)
 }
@@ -102,9 +101,7 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
     ptr: &mut Relocatable,
     value: T,
 ) -> Result<(), MemoryError> {
-    let r: MaybeRelocatable = value.into();
-    println!("writing: {} to syscall_ptr: {}", r, ptr);
-    vm.insert_value(*ptr, r)?;
+    vm.insert_value(*ptr, value.into())?;
     *ptr = (*ptr + 1)?;
     Ok(())
 }
@@ -135,14 +132,15 @@ impl From<HintError> for SyscallExecutionError {
     }
 }
 
-
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type WriteResponseResult = SyscallResult<()>;
 
 // type SyscallSelector = DeprecatedSyscallSelector;
 
 pub trait SyscallRequest: Sized {
-    fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<Self> where Self: Sized;
+    fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<Self>
+    where
+        Self: Sized;
 }
 
 pub trait SyscallResponse {
@@ -170,13 +168,13 @@ impl<T: SyscallResponse> SyscallResponse for SyscallResponseWrapper<T> {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
         match self {
             Self::Success { gas_counter, response } => {
-                write_felt(vm, ptr, Felt252::from(gas_counter))?;
+                write_felt(vm, ptr, gas_counter)?;
                 // 0 to indicate success.
                 write_felt(vm, ptr, Felt252::ZERO)?;
                 response.write(vm, ptr)
             }
             Self::Failure { gas_counter, error_data } => {
-                write_felt(vm, ptr, Felt252::from(gas_counter))?;
+                write_felt(vm, ptr, gas_counter)?;
                 // 1 to indicate failure.
                 write_felt(vm, ptr, Felt252::ONE)?;
 

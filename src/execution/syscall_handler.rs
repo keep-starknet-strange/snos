@@ -2,15 +2,14 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use blockifier::execution::execution_utils::ReadOnlySegments;
-use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-
-use crate::execution::syscall_utils::{execute_syscall, felt_from_ptr, SyscallSelector};
-use crate::execution::syscalls::get_execution_info;
+use cairo_vm::Felt252;
 
 use super::helper::ExecutionHelperWrapper;
+use crate::execution::syscall_utils::{execute_syscall, felt_from_ptr, SyscallSelector};
+use crate::execution::syscalls::get_execution_info;
 
 /// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
@@ -46,11 +45,7 @@ impl OsSyscallHandlerWrapper {
         self.syscall_handler.as_ref().borrow().syscall_ptr
     }
 
-    pub fn syscall(
-        &self,
-        vm: &mut VirtualMachine,
-        syscall_ptr: Relocatable,
-    ) -> Result<(), HintError> {
+    pub fn syscall(&self, vm: &mut VirtualMachine, syscall_ptr: Relocatable) -> Result<(), HintError> {
         let mut syscall_handler = self.syscall_handler.as_ref().borrow_mut();
         assert_eq!(syscall_handler.syscall_ptr, syscall_ptr);
 
