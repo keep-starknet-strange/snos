@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 
 use cairo_lang_casm::hints::{Hint, StarknetHint};
 use cairo_lang_casm::operand::{BinOpOperand, DerefOrImmediate, Operation, Register, ResOperand};
-use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
@@ -17,6 +16,7 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::BigInt;
 
@@ -192,14 +192,16 @@ impl Default for SnosHintProcessor {
 fn get_ptr_from_res_operand(vm: &mut VirtualMachine, res: &ResOperand) -> Result<Relocatable, HintError> {
     let (cell, base_offset) = match res {
         ResOperand::Deref(cell) => (cell, Felt252::ZERO),
-        ResOperand::BinOp(BinOpOperand {
-                              op: Operation::Add,
-                              a,
-                              b: DerefOrImmediate::Immediate(b),
-                          }) => (a, Felt252::from(&b.value)),
-        _ => return Err(HintError::CustomHint(
-            "Failed to extract buffer, expected ResOperand of BinOp type to have Inmediate b value".to_owned().into_boxed_str()
-        ))
+        ResOperand::BinOp(BinOpOperand { op: Operation::Add, a, b: DerefOrImmediate::Immediate(b) }) => {
+            (a, Felt252::from(&b.value))
+        }
+        _ => {
+            return Err(HintError::CustomHint(
+                "Failed to extract buffer, expected ResOperand of BinOp type to have Inmediate b value"
+                    .to_owned()
+                    .into_boxed_str(),
+            ));
+        }
     };
     let base = match cell.register {
         Register::AP => vm.get_ap(),
@@ -260,9 +262,8 @@ impl HintProcessorLogic for SnosHintProcessor {
         if let Some(hint) = hint_data.downcast_ref::<Hint>() {
             if let Hint::Starknet(StarknetHint::SystemCall { system }) = hint {
                 let syscall_ptr = get_ptr_from_res_operand(vm, system)?;
-                let syscall_handler =
-                    exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?;
-                return syscall_handler.syscall(vm, exec_scopes, syscall_ptr).map(|_| HintExtension::default());
+                let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?;
+                return syscall_handler.syscall(vm, syscall_ptr).map(|_| HintExtension::default());
             } else {
                 return self.cairo1_builtin_hint_proc.execute(vm, exec_scopes, hint).map(|_| HintExtension::default());
             }

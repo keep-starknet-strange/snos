@@ -284,8 +284,7 @@ pub fn enter_syscall_scopes(
     let execution_helper: Box<dyn Any> = Box::new(exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?);
     let deprecated_syscall_handler: Box<dyn Any> =
         Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("deprecated_syscall_handler")?);
-    let syscall_handler: Box<dyn Any> =
-        Box::new(exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?);
+    let syscall_handler: Box<dyn Any> = Box::new(exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?);
     let dict_manager: Box<dyn Any> = Box::new(exec_scopes.get_dict_manager()?);
     exec_scopes.enter_scope(HashMap::from_iter([
         (String::from("__deprecated_class_hashes"), deprecated_class_hashes),

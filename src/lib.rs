@@ -11,8 +11,8 @@ use error::SnOsError;
 use execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use execution::helper::ExecutionHelperWrapper;
 use io::output::StarknetOsOutput;
-use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 
+use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::io::input::StarknetOsInput;
 
 mod cairo_types;

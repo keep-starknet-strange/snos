@@ -2,12 +2,16 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use blockifier::execution::execution_utils::ReadOnlySegments;
+use cairo_vm::Felt252;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_traits::Zero;
 
 use super::helper::ExecutionHelperWrapper;
+use crate::execution::syscall_utils::{execute_syscall, SyscallSelector};
+use crate::execution::syscalls::get_execution_info;
 
 /// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
@@ -43,13 +47,25 @@ impl OsSyscallHandlerWrapper {
         self.syscall_handler.as_ref().borrow().syscall_ptr
     }
 
-    pub fn syscall(&self,
-                   vm: &mut VirtualMachine,
-                   _exec_scopes: &mut ExecutionScopes,
-                   syscall_ptr: Relocatable
+    pub fn syscall(
+        &self,
+        vm: &mut VirtualMachine,
+        syscall_ptr: Relocatable,
     ) -> Result<(), HintError> {
-        let selector = vm.get_integer(syscall_ptr)?;
-        println!("syscall selector: {}", selector);
-        Ok(())
+        let mut syscall_handler = self.syscall_handler.as_ref().borrow_mut();
+        assert_eq!(syscall_handler.syscall_ptr, syscall_ptr);
+
+        let selector = SyscallSelector::try_from(vm.get_integer(syscall_ptr)?.into_owned())?;
+
+        println!("about to execute syscall: {:?}", selector);
+
+        let ehw = syscall_handler.exec_wrapper.clone();
+
+        match selector {
+            SyscallSelector::GetExecutionInfo => {
+                execute_syscall(&mut syscall_handler.syscall_ptr, vm, ehw, get_execution_info, Felt252::ZERO)
+            }
+            _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
+        }
     }
 }
