@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_ptr_from_var_name, insert_value_from_var_name};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
+use cairo_vm::hint_processor::hint_processor_utils::get_integer_from_reference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
+use num_traits::ToPrimitive;
+
 
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::hints::vars;
@@ -368,8 +371,21 @@ pub fn compare_return_value(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // let call_response = get_ptr_from_var_name("call_response", vm, ids_data, ap_tracking)?;
-    // let expected = vm.get_continuous_range(addr, size) 
+    // call_response is a struct like so:
+    // struct CallContractResponse {
+    //     retdata_size: Felt,
+    //     retdata: Relocatable,
+    // }
+
+    let call_response_ptr = get_ptr_from_var_name("call_response", vm, ids_data, ap_tracking)?;
+    let call_response_size = vm.get_integer(call_response_ptr)?.into_owned();
+    let expected = vm.get_continuous_range(call_response_ptr, call_response_size.to_usize().unwrap())?;
+
+    let retdata = get_ptr_from_var_name("retdata", vm, ids_data, ap_tracking)?;
+    let retdata_size = get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?.to_owned();
+    let actual = vm.get_continuous_range(retdata, retdata_size.to_usize().unwrap())?;
+
+    assert_eq!(expected, actual, "Return value mismatch");
 
     Ok(())
 }

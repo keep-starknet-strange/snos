@@ -74,7 +74,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
             MaybeRelocatable::Int(felt)
         }).collect();
         vm.load_data(new_segment, &retdata)?;
-        vm.insert_value((syscall_ptr + retdata_offset).unwrap(), new_segment).unwrap();
+        vm.insert_value((syscall_ptr + retdata_offset).unwrap(), new_segment)?;
 
         Ok(())
     }
