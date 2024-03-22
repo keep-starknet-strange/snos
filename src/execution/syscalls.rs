@@ -1,6 +1,5 @@
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_utils::{
@@ -192,7 +191,7 @@ pub fn get_execution_info(
     _request: GetExecutionInfoRequest,
     _vm: &mut VirtualMachine,
     exec_wrapper: ExecutionHelperWrapper,
-    _remaining_gas: &mut Felt252,
+    _remaining_gas: &mut u64,
 ) -> SyscallResult<GetExecutionInfoResponse> {
     let eh_ref = exec_wrapper.execution_helper.as_ref().borrow();
     let execution_info_ptr = eh_ref.call_execution_info_ptr.unwrap();

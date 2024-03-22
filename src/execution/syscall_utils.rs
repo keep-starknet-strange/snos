@@ -3,8 +3,10 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
+use num_traits::ToPrimitive;
 use thiserror::Error;
 
+use crate::execution::gas_constants::SYSCALL_BASE_GAS_COST;
 use crate::execution::helper::ExecutionHelperWrapper;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -110,6 +112,8 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
 pub enum SyscallExecutionError {
     #[error("Internal Error: {0}")]
     InternalError(Box<str>),
+    #[error("Invalid syscall input: {input:?}; {info}")]
+    InvalidSyscallInput { input: Felt252, info: String },
     #[error("Syscall error.")]
     SyscallError { error_data: Vec<Felt252> },
 }
@@ -149,32 +153,36 @@ pub trait SyscallResponse {
 
 // Syscall header structs.
 pub struct SyscallRequestWrapper<T: SyscallRequest> {
-    pub gas_counter: Felt252,
+    pub gas_counter: u64,
     pub request: T,
 }
 impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self> {
         let gas_counter = felt_from_ptr(vm, ptr)?;
+        let gas_counter = gas_counter.to_u64().ok_or_else(|| SyscallExecutionError::InvalidSyscallInput {
+            input: gas_counter,
+            info: String::from("Unexpected gas."),
+        })?;
         let request = T::read(vm, ptr)?;
         Ok(Self { gas_counter, request })
     }
 }
 
 pub enum SyscallResponseWrapper<T: SyscallResponse> {
-    Success { gas_counter: Felt252, response: T },
-    Failure { gas_counter: Felt252, error_data: Vec<Felt252> },
+    Success { gas_counter: u64, response: T },
+    Failure { gas_counter: u64, error_data: Vec<Felt252> },
 }
 impl<T: SyscallResponse> SyscallResponse for SyscallResponseWrapper<T> {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
         match self {
             Self::Success { gas_counter, response } => {
-                write_felt(vm, ptr, gas_counter)?;
+                write_felt(vm, ptr, Felt252::from(gas_counter))?;
                 // 0 to indicate success.
                 write_felt(vm, ptr, Felt252::ZERO)?;
                 response.write(vm, ptr)
             }
             Self::Failure { gas_counter, error_data } => {
-                write_felt(vm, ptr, gas_counter)?;
+                write_felt(vm, ptr, Felt252::from(gas_counter))?;
                 // 1 to indicate failure.
                 write_felt(vm, ptr, Felt252::ONE)?;
 
@@ -212,40 +220,37 @@ impl SyscallResponse for EmptyResponse {
     }
 }
 
+pub const OUT_OF_GAS_ERROR: &str = "0x000000000000000000000000000000000000000000004f7574206f6620676173";
+
 pub fn execute_syscall<Request, Response, ExecuteCallback>(
     syscall_ptr: &mut Relocatable,
     vm: &mut VirtualMachine,
     exec_wrapper: ExecutionHelperWrapper,
     execute_callback: ExecuteCallback,
-    _syscall_gas_cost: Felt252,
+    syscall_gas_cost: u64,
 ) -> Result<(), HintError>
 where
     Request: SyscallRequest + std::fmt::Debug,
     Response: SyscallResponse + std::fmt::Debug,
-    ExecuteCallback:
-        FnOnce(Request, &mut VirtualMachine, ExecutionHelperWrapper, &mut Felt252) -> SyscallResult<Response>,
+    ExecuteCallback: FnOnce(Request, &mut VirtualMachine, ExecutionHelperWrapper, &mut u64) -> SyscallResult<Response>,
 {
     // Refund `SYSCALL_BASE_GAS_COST` as it was pre-charged.
-    // TODO: Uncomment once we we know what to do
-    // let required_gas = syscall_gas_cost - self.context.get_gas_cost("syscall_base_gas_cost");
+    let required_gas = syscall_gas_cost - SYSCALL_BASE_GAS_COST;
 
     let SyscallRequestWrapper { gas_counter, request } = SyscallRequestWrapper::<Request>::read(vm, syscall_ptr)?;
 
-    // TODO: Uncomment once we we know what to do
-    // if gas_counter < required_gas {
-    //     //  Out of gas failure.
-    //     let out_of_gas_error =
-    //         StarkFelt::try_from(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;
-    //     let response: SyscallResponseWrapper<Response> =
-    //         SyscallResponseWrapper::Failure { gas_counter, error_data: vec![out_of_gas_error] };
-    //     response.write(vm, &mut self.syscall_ptr)?;
-    //
-    //     return Ok(());
-    // }
+    if gas_counter < required_gas {
+        //  Out of gas failure.
+        let out_of_gas_error = Felt252::from_hex(OUT_OF_GAS_ERROR).unwrap();
+        let response: SyscallResponseWrapper<Response> =
+            SyscallResponseWrapper::Failure { gas_counter, error_data: vec![out_of_gas_error] };
+        response.write(vm, syscall_ptr)?;
+
+        return Ok(());
+    }
 
     // Execute.
-    // let mut remaining_gas = gas_counter - required_gas;
-    let mut remaining_gas = gas_counter;
+    let mut remaining_gas = gas_counter - required_gas;
     let original_response = execute_callback(request, vm, exec_wrapper, &mut remaining_gas);
     let response = match original_response {
         Ok(response) => SyscallResponseWrapper::Success { gas_counter: remaining_gas, response },

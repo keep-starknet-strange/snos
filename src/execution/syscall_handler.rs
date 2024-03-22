@@ -5,9 +5,9 @@ use blockifier::execution::execution_utils::ReadOnlySegments;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 
 use super::helper::ExecutionHelperWrapper;
+use crate::execution::gas_constants::GET_EXECUTION_INFO_GAS_COST;
 use crate::execution::syscall_utils::{execute_syscall, felt_from_ptr, SyscallSelector};
 use crate::execution::syscalls::get_execution_info;
 
@@ -56,9 +56,13 @@ impl OsSyscallHandlerWrapper {
         let ehw = syscall_handler.exec_wrapper.clone();
 
         match selector {
-            SyscallSelector::GetExecutionInfo => {
-                execute_syscall(&mut syscall_handler.syscall_ptr, vm, ehw, get_execution_info, Felt252::ZERO)
-            }
+            SyscallSelector::GetExecutionInfo => execute_syscall(
+                &mut syscall_handler.syscall_ptr,
+                vm,
+                ehw,
+                get_execution_info,
+                GET_EXECUTION_INFO_GAS_COST,
+            ),
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }
     }
