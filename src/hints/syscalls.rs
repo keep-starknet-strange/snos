@@ -352,6 +352,28 @@ pub fn set_syscall_ptr(
     Ok(())
 }
 
+pub const COMPARE_RETURN_VALUE: &str = indoc! {r#"
+	# Check that the actual return value matches the expected one.
+	expected = memory.get_range(
+	    addr=ids.call_response.retdata, size=ids.call_response.retdata_size
+	)
+	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
+
+	assert expected == actual, f'Return value mismatch expected={expected}, actual={actual}.'"#
+};
+pub fn compare_return_value(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // let call_response = get_ptr_from_var_name("call_response", vm, ids_data, ap_tracking)?;
+    // let expected = vm.get_continuous_range(addr, size) 
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use blockifier::block_context::BlockContext;

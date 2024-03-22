@@ -39,7 +39,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 86] = [
+static HINTS: [(&str, HintImpl); 88] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -85,6 +85,7 @@ static HINTS: [(&str, HintImpl); 86] = [
     (execution::IS_DEPRECATED, execution::is_deprecated),
     (execution::IS_REVERTED, execution::is_reverted),
     (execution::LOAD_NEXT_TX, execution::load_next_tx),
+    (execution::OS_LOGGER_ENTER_SYSCALL_PREPRARE_EXIT_SYSCALL, execution::os_logger_enter_syscall_preprare_exit_syscall),
     (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
     (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
     (execution::RESOURCE_BOUNDS, execution::resource_bounds),
@@ -108,6 +109,7 @@ static HINTS: [(&str, HintImpl); 86] = [
     (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
     (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
     (syscalls::CALL_CONTRACT, syscalls::call_contract),
+    (syscalls::COMPARE_RETURN_VALUE, syscalls::compare_return_value),
     (syscalls::DELEGATE_CALL, syscalls::delegate_call),
     (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),
     (syscalls::DEPLOY, syscalls::deploy),

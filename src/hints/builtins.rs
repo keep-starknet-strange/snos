@@ -8,7 +8,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::MaybeRelocatable;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
@@ -45,10 +45,13 @@ pub fn select_builtin(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let n_builtins = get_integer_from_var_name("n_builtins", vm, ids_data, ap_tracking)?.into_owned();
+    use std::ops::Add;
     let selected_encodings = get_ptr_from_var_name("selected_encodings", vm, ids_data, ap_tracking)?;
     let all_encodings = get_ptr_from_var_name("all_encodings", vm, ids_data, ap_tracking)?;
     let n_selected_builtins = exec_scopes.get_mut_ref::<Felt252>("n_selected_builtins")?;
-    let select_builtin = n_selected_builtins > &mut Felt252::zero()
+    println!("*** n_selected_builtins: {}, n_builtins: {}", n_selected_builtins, n_builtins);
+    let select_builtin = *n_selected_builtins > Felt252::ZERO
         && vm.get_maybe(&selected_encodings).unwrap() == vm.get_maybe(&all_encodings).unwrap();
     insert_value_from_var_name(
         "select_builtin",
@@ -58,7 +61,26 @@ pub fn select_builtin(
         ap_tracking,
     )?;
     if select_builtin {
+        let before = n_selected_builtins.clone();
         n_selected_builtins.add_assign(-Felt252::ONE);
+        assert!(before == n_selected_builtins.add(1));
+
+        let all_encodings = get_ptr_from_var_name("all_encodings", vm, ids_data, ap_tracking)?;
+        let all_ptrs = get_ptr_from_var_name("all_ptrs", vm, ids_data, ap_tracking)?;
+        let selected_encodings = get_ptr_from_var_name("selected_encodings", vm, ids_data, ap_tracking)?;
+        let selected_ptrs = get_ptr_from_var_name("selected_ptrs", vm, ids_data, ap_tracking)?;
+
+        let at_all_encodings = vm.get_maybe(&all_encodings);
+        let at_all_ptrs = vm.get_maybe(&all_ptrs);
+        let at_selected_encodings = vm.get_maybe(&selected_encodings);
+        let at_selected_ptrs = vm.get_maybe(&selected_ptrs);
+
+        if selected_ptrs != all_ptrs {
+            println!("    all_encodings: {} -> {:?}", all_encodings, at_all_encodings);
+            println!("    all_ptrs: {} -> {:?}", all_ptrs, at_all_ptrs);
+            println!("    selected_encodings: {} -> {:?}", selected_encodings, at_selected_encodings);
+            println!("    selected_ptrs: {} -> {:?}", selected_ptrs, at_selected_ptrs);
+        }
     }
 
     Ok(())
@@ -95,23 +117,45 @@ pub fn update_builtin_ptrs(
     let builtin_ptrs = get_relocatable_from_var_name("builtin_ptrs", vm, ids_data, ap_tracking)?;
     let orig_builtin_ptrs = vm.get_relocatable(builtin_ptrs).unwrap();
     let selected_ptrs = get_relocatable_from_var_name("selected_ptrs", vm, ids_data, ap_tracking)?;
+    println!(" ***** update_builtin_ptrs()");
+    println!("    n_builtins: {}", n_builtins);
+    println!("    n_selected: {}", n_selected_builtins);
+    println!("    selected_encodings: {}", selected_encodings);
 
-    let all_builtins = vm.get_continuous_range(builtins_encoding_addr, n_builtins.deref().to_usize().unwrap()).unwrap();
-    let selected_builtins =
-        vm.get_continuous_range(selected_encodings, n_selected_builtins.deref().to_usize().unwrap()).unwrap();
+    // mimics the python `def update_builtin_pointers` but without explicitly passing in the args
+    let update_builtin_pointers = || -> Result<Vec<MaybeRelocatable>, HintError> {
+        let all_builtins = vm.get_continuous_range(builtins_encoding_addr, n_builtins.deref().to_usize().unwrap()).unwrap();
+        let selected_builtins =
+            vm.get_continuous_range(selected_encodings, n_selected_builtins.deref().to_usize().unwrap()).unwrap();
 
-    let mut returned_builtins: Vec<MaybeRelocatable> = Vec::new();
-    let mut selected_builtin_offset: usize = 0;
-    for (i, builtin) in all_builtins.iter().enumerate() {
-        if selected_builtins.contains(builtin) {
-            returned_builtins.push(vm.get_maybe(&(selected_ptrs + selected_builtin_offset)?).unwrap());
-            selected_builtin_offset += 1;
-        } else {
-            returned_builtins.push(vm.get_maybe(&(orig_builtin_ptrs + i)?).unwrap());
+        let mut returned_builtins: Vec<MaybeRelocatable> = Vec::new();
+        let mut selected_builtin_offset: usize = 0;
+        println!("    selected builtins: {:?}", selected_builtins);
+        for (i, builtin) in all_builtins.iter().enumerate() {
+            println!("    builtin: {}", builtin);
+            if selected_builtins.contains(builtin) {
+                println!("    - adding selected builtin {}", vm.get_maybe(&(selected_ptrs + selected_builtin_offset)?).unwrap());
+                returned_builtins.push(vm.get_maybe(&(selected_ptrs + selected_builtin_offset)?).unwrap());
+                selected_builtin_offset += 1;
+            } else {
+                let val = vm.get_maybe(&(orig_builtin_ptrs + i)?).unwrap();
+                println!("    - adding NON-selected builtin {}", val);
+                let val = if (val == MaybeRelocatable::RelocatableValue(Relocatable{segment_index: -3, offset: 0})) {
+                    MaybeRelocatable::RelocatableValue(Relocatable{segment_index: -3, offset: 1})
+                } else {
+                    val
+                };
+                returned_builtins.push(val);
+            }
         }
-    }
+
+        Ok(returned_builtins)
+    };
+
+    let returned_builtins = update_builtin_pointers()?;
 
     let return_builtin_ptrs_base = vm.add_memory_segment();
+    println!(" ***** builtins segment: {}", return_builtin_ptrs_base);
     vm.load_data(return_builtin_ptrs_base, &returned_builtins)?;
     insert_value_from_var_name("return_builtin_ptrs", return_builtin_ptrs_base, vm, ids_data, ap_tracking)
 }
