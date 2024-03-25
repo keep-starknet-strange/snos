@@ -11,7 +11,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::types::relocatable::{MaybeRelocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use indoc::indoc;
@@ -796,20 +796,6 @@ pub fn check_execution(
 ) -> Result<(), HintError> {
     let return_values_ptr =
         get_ptr_from_var_name(ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
-
-    let x0 = return_values_ptr;
-    let x1: Relocatable = (x0 + 1)?;
-    let x2: Relocatable = (x0 + 2)?;
-    let x3: Relocatable = (x0 + 3)?;
-    let x4: Relocatable = (x0 + 4)?;
-
-    println!("entry_point_return_valuesss:\n\t[0]: {:?}\n\t[1]: {:?}\n\t[2]: {:?}\n\t[3]: {:?}\n\t[4]: {:?}",
-             vm.get_maybe(&x0),
-             vm.get_maybe(&x1),
-             vm.get_maybe(&x2),
-             vm.get_maybe(&x3),
-             vm.get_maybe(&x4)
-    );
 
     let failure_flag = vm.get_integer((return_values_ptr + EntryPointReturnValues::failure_flag_offset())?)?;
     if failure_flag.into_owned() != Felt252::ZERO {

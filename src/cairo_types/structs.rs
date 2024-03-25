@@ -42,3 +42,24 @@ pub struct EntryPointReturnValues {
     retdata_start: Felt252,
     retdata_end: Felt252,
 }
+
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct BuiltinParams {
+    builtin_encodings: Felt252,
+    builtin_instance_sizes: Felt252,
+}
+
+// TODO: how to handle this?
+// struct BuiltinPointers {
+//     selectable: SelectableBuiltins,
+//     non_selectable: NonSelectableBuiltins,
+// }
+
+// #[allow(unused)]
+// #[derive(FieldOffsetGetters)]
+// pub struct BuiltinPointers {
+//     selectable: Felt252,
+//     non_selectable: Felt252,
+// }
+
