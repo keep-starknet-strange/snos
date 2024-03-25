@@ -355,37 +355,31 @@ pub fn set_syscall_ptr(
     Ok(())
 }
 
-pub const COMPARE_RETURN_VALUE: &str = indoc! {r#"
-	# Check that the actual return value matches the expected one.
-	expected = memory.get_range(
-	    addr=ids.call_response.retdata, size=ids.call_response.retdata_size
-	)
-	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
+pub const OS_LOGGER_ENTER_SYSCALL_PREPRARE_EXIT_SYSCALL: &str = indoc! {r#"
+        execution_helper.os_logger.enter_syscall(
+            n_steps=current_step,
+            builtin_ptrs=ids.builtin_ptrs,
+            deprecated=True,
+            selector=ids.selector,
+            range_check_ptr=ids.range_check_ptr,
+        )
 
-	assert expected == actual, f'Return value mismatch expected={expected}, actual={actual}.'"#
+        # Prepare a short callable to save code duplication.
+        exit_syscall = lambda selector: execution_helper.os_logger.exit_syscall(
+            n_steps=current_step,
+            builtin_ptrs=ids.builtin_ptrs,
+            range_check_ptr=ids.range_check_ptr,
+            selector=selector,
+        )"#
 };
-pub fn compare_return_value(
+pub fn os_logger_enter_syscall_preprare_exit_syscall(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // call_response is a struct like so:
-    // struct CallContractResponse {
-    //     retdata_size: Felt,
-    //     retdata: Relocatable,
-    // }
-
-    let call_response_ptr = get_ptr_from_var_name("call_response", vm, ids_data, ap_tracking)?;
-    let call_response_size = vm.get_integer(call_response_ptr)?.into_owned();
-    let expected = vm.get_continuous_range(call_response_ptr, call_response_size.to_usize().unwrap())?;
-
-    let retdata = get_ptr_from_var_name("retdata", vm, ids_data, ap_tracking)?;
-    let retdata_size = get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?.to_owned();
-    let actual = vm.get_continuous_range(retdata, retdata_size.to_usize().unwrap())?;
-
-    assert_eq!(expected, actual, "Return value mismatch");
+    println!("TODO: os_logger enter/exit calls");
 
     Ok(())
 }

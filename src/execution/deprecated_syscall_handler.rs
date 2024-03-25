@@ -26,7 +26,7 @@ pub struct DeprecatedOsSyscallHandlerWrapper {
 }
 
 #[derive(FieldOffsetGetters)]
-struct CallContractRequest {
+pub struct CallContractRequest {
     selector: Felt252,
     contract_address: Felt252,
     function_selector: Felt252,
@@ -34,12 +34,12 @@ struct CallContractRequest {
     calldata: Relocatable,
 }
 #[derive(FieldOffsetGetters)]
-struct CallContractResponse {
+pub struct CallContractResponse {
     retdata_size: Felt252,
     retdata: Relocatable,
 }
 #[derive(FieldOffsetGetters)]
-struct CallContract {
+pub struct CallContract {
     request: CallContractRequest,
     response: CallContractResponse,
 }

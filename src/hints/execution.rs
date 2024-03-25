@@ -2,6 +2,7 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
 
+use blockifier::execution::deprecated_syscalls::CallContractResponse;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
@@ -24,6 +25,7 @@ use crate::hints::vars::ids::{ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, SIGN
 use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
+use num_traits::ToPrimitive;
 
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
         tx = next(transactions)
@@ -833,5 +835,43 @@ pub fn check_execution(
     syscall_handler.validate_and_discard_syscall_ptr(syscall_ptr_end)?;
     execution_helper.exit_call();
 
+    Ok(())
+}
+
+pub const COMPARE_RETURN_VALUE: &str = indoc! {r#"
+	# Check that the actual return value matches the expected one.
+	expected = memory.get_range(
+	    addr=ids.call_response.retdata, size=ids.call_response.retdata_size
+	)
+	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
+
+	assert expected == actual, f'Return value mismatch expected={expected}, actual={actual}.'"#
+};
+
+pub fn compare_return_value(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let call_response = get_ptr_from_var_name("call_response", vm, ids_data, ap_tracking)?;
+    // the first field in call_data is the size
+    let size = vm.get_integer(call_response)?.into_owned().to_usize().unwrap();
+    let expected = vm.get_range(call_response, size);
+
+    let ids_retdata = get_ptr_from_var_name("retdata", vm, ids_data, ap_tracking)?;
+    let ids_retdata_size = get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?.into_owned().to_usize().unwrap();
+
+    let actual = vm.get_range(ids_retdata, ids_retdata_size);
+
+    if expected != actual {
+        println!("expected: {:?}", expected);
+        println!("actual: {:?}", actual);
+
+        assert_eq!(expected, actual, "Return value mismatch");
+    }
+
+    assert_eq!(expected, actual, "Return value mismatch");
     Ok(())
 }
