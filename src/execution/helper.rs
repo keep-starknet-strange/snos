@@ -12,22 +12,12 @@ use cairo_vm::Felt252;
 use starknet_api::deprecated_contract_class::EntryPointType;
 
 use crate::config::STORED_BLOCK_HASH_BUFFER;
+use crate::crypto::pedersen::PedersenHash;
 use crate::starknet::starknet_storage::OsSingleStarknetStorage;
 use crate::storage::dict_storage::DictStorage;
-use crate::storage::storage::HashFunctionType;
 
-// This struct is a placeholder until we know exactly how to implement storage + hashing for
-// `ExecutionHelper.storage_by_address`.
-#[derive(Clone, Debug)]
-pub struct ExecutionHelperHashFunction;
-
-impl HashFunctionType for ExecutionHelperHashFunction {
-    fn hash(_x: &[u8], _y: &[u8]) -> Vec<u8> {
-        todo!()
-    }
-}
-
-type StorageByAddress = HashMap<Felt252, OsSingleStarknetStorage<DictStorage, ExecutionHelperHashFunction>>;
+// TODO: make the execution helper generic over the storage and hash function types.
+type StorageByAddress = HashMap<Felt252, OsSingleStarknetStorage<DictStorage, PedersenHash>>;
 
 /// Maintains the info for executing txns in the OS
 #[derive(Clone, Debug)]

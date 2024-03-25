@@ -2,7 +2,7 @@ use starknet_crypto::{pedersen_hash, FieldElement};
 
 use crate::storage::storage::HashFunctionType;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PedersenHash;
 
 impl HashFunctionType for PedersenHash {

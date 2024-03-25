@@ -65,6 +65,7 @@ where
 mod tests {
     use std::collections::{HashSet, VecDeque};
 
+    use assert_matches::assert_matches;
     use cairo_vm::Felt252;
     use num_bigint::BigUint;
     use num_traits::ToPrimitive;
@@ -74,6 +75,7 @@ mod tests {
 
     use super::*;
     use crate::crypto::pedersen::PedersenHash;
+    use crate::starknet::starknet_storage::StorageLeaf;
     use crate::starkware_utils::commitment_tree::base_types::{Length, NodePath};
     use crate::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
     use crate::storage::dict_storage::DictStorage;
@@ -189,5 +191,21 @@ mod tests {
 
         // Verify that the root can be reached using the preimages, from every leaf.
         verify_leaves_are_reachable_from_root(root, &leaf_hashes, preimages);
+    }
+
+    /// A basic test to see if a leaf can be set and retrieved inside a tree.
+    #[rstest]
+    #[tokio::test]
+    async fn test_update_and_get_leaf(mut ffc: FFC) {
+        let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+
+        let index = BigUint::from(1000u64);
+        let leaf = StorageLeaf::new(Felt252::from(2000));
+        let modifications = vec![(index.clone(), leaf.clone())];
+        let mut facts = None;
+        let tree = tree.update(&mut ffc, modifications, &mut facts).await.unwrap();
+
+        let leaf_from_tree: Option<StorageLeaf> = tree.get_leaf(&mut ffc, index).await.unwrap();
+        assert_matches!(leaf_from_tree, Some(l) if l == leaf);
     }
 }

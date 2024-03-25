@@ -13,6 +13,16 @@ pub struct StorageLeaf {
     pub value: Felt252,
 }
 
+impl StorageLeaf {
+    pub fn new(value: Felt252) -> Self {
+        Self { value }
+    }
+
+    pub fn empty() -> Self {
+        Self::new(Felt252::ZERO)
+    }
+}
+
 impl<S, H> Fact<S, H> for StorageLeaf
 where
     H: HashFunctionType,
@@ -64,7 +74,25 @@ where
     ffc: FactFetchingContext<S, H>,
 }
 
-fn execute_coroutine_threadsafe<F, T>(coroutine: F) -> T
+impl<S, H> OsSingleStarknetStorage<S, H>
+where
+    S: Storage,
+    H: HashFunctionType,
+{
+    pub fn new<LF>(patricia_tree: PatriciaTree, ffc: FactFetchingContext<S, H>) -> Self
+    where
+        LF: LeafFact<S, H>,
+    {
+        Self {
+            previous_tree: patricia_tree,
+            _expected_updated_root: Default::default(),
+            ongoing_storage_changes: Default::default(),
+            ffc,
+        }
+    }
+}
+
+pub fn execute_coroutine_threadsafe<F, T>(coroutine: F) -> T
 where
     F: std::future::Future<Output = T>,
 {
@@ -81,7 +109,8 @@ where
         let mut value = self.ongoing_storage_changes.get(&key).cloned();
 
         if value.is_none() {
-            let value_from_storage = self.fetch_storage_leaf(key).value;
+            let leaf = self.fetch_storage_leaf(key);
+            let value_from_storage = leaf.value;
             self.ongoing_storage_changes.insert(key, value_from_storage);
             value = Some(value_from_storage);
         }

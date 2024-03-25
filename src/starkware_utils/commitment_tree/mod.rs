@@ -1,4 +1,4 @@
-mod base_types;
+pub mod base_types;
 pub mod binary_fact_tree;
 mod binary_fact_tree_node;
 mod calculation;
