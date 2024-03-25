@@ -1,9 +1,12 @@
-use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 
 use crate::execution::helper::ExecutionHelperWrapper;
-use crate::execution::syscall_utils::{write_maybe_relocatable, EmptyRequest, SyscallResponse, SyscallResult, WriteResponseResult, felt_from_ptr, SyscallRequest, SingleSegmentResponse, ReadOnlySegment, read_call_params};
+use crate::execution::syscall_utils::{
+    felt_from_ptr, read_call_params, write_maybe_relocatable, EmptyRequest, ReadOnlySegment, SingleSegmentResponse,
+    SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
+};
 
 // CallContract syscall.
 #[derive(Debug, Eq, PartialEq)]
@@ -35,7 +38,6 @@ pub fn call_contract(
     vm.insert_value(start_ptr, 2)?;
     Ok(CallContractResponse { segment: ReadOnlySegment { start_ptr, length: 1 } })
 }
-
 
 // TODO: Deploy syscall.
 // #[derive(Debug, Eq, PartialEq)]

@@ -62,4 +62,3 @@ pub struct BuiltinParams {
 //     selectable: Felt252,
 //     non_selectable: Felt252,
 // }
-

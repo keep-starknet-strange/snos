@@ -2,7 +2,6 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
 
-use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
@@ -11,9 +10,10 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::{MaybeRelocatable};
+use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
 
 use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
@@ -786,7 +786,8 @@ pub const CHECK_EXECUTION: &str = indoc! {r#"
     execution_helper.exit_call()"#
 };
 
-//implement check_execution according to the pythonic version given in the CHECK_EXECUTION const above
+// implement check_execution according to the pythonic version given in the CHECK_EXECUTION const
+// above
 pub fn check_execution(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -794,13 +795,13 @@ pub fn check_execution(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let return_values_ptr =
-        get_ptr_from_var_name(ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
+    let return_values_ptr = get_ptr_from_var_name(ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
 
     let failure_flag = vm.get_integer((return_values_ptr + EntryPointReturnValues::failure_flag_offset())?)?;
     if failure_flag.into_owned() != Felt252::ZERO {
         let retdata_end = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_end_offset())?)?;
-        let retdata_start = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_start_offset())?)?;
+        let retdata_start =
+            vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_start_offset())?)?;
         let retdata_size = (retdata_end - retdata_start)?;
         let error = vm.get_range(retdata_start, std::cmp::min(100, retdata_size as usize));
         let execution_context = get_relocatable_from_var_name(EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
@@ -821,8 +822,8 @@ pub fn check_execution(
     //     assert_eq!(
     //         actual,
     //         predicted,
-    //         "Predicted gas costs are inconsistent with the actual execution; predicted={}, actual={}.",
-    //         predicted,
+    //         "Predicted gas costs are inconsistent with the actual execution; predicted={},
+    // actual={}.",         predicted,
     //         actual
     //     );
     // }

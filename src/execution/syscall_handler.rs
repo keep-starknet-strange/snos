@@ -61,28 +61,19 @@ impl OsSyscallHandlerWrapper {
         println!("about to execute syscall syscall_ptr: {:?}", syscall_handler_syscall_ptr);
         assert_eq!(*syscall_handler_syscall_ptr, syscall_ptr);
 
-        let selector =
-            SyscallSelector::try_from(felt_from_ptr(vm, syscall_handler_syscall_ptr)?)?;
+        let selector = SyscallSelector::try_from(felt_from_ptr(vm, syscall_handler_syscall_ptr)?)?;
 
         println!("about to execute, syscall_ptr: {:?}", selector);
 
         let ehw = syscall_handler.exec_wrapper.clone();
 
         match selector {
-            SyscallSelector::GetExecutionInfo => execute_syscall(
-                syscall_handler_syscall_ptr,
-                vm,
-                ehw,
-                get_execution_info,
-                GET_EXECUTION_INFO_GAS_COST,
-            ),
-            SyscallSelector::CallContract => execute_syscall(
-                syscall_handler_syscall_ptr,
-                vm,
-                ehw,
-                call_contract,
-                CALL_CONTRACT_GAS_COST,
-            ),
+            SyscallSelector::GetExecutionInfo => {
+                execute_syscall(syscall_handler_syscall_ptr, vm, ehw, get_execution_info, GET_EXECUTION_INFO_GAS_COST)
+            }
+            SyscallSelector::CallContract => {
+                execute_syscall(syscall_handler_syscall_ptr, vm, ehw, call_contract, CALL_CONTRACT_GAS_COST)
+            }
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;
 

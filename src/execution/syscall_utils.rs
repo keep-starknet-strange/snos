@@ -1,10 +1,10 @@
+use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
-use cairo_vm::types::errors::math_errors::MathError;
-use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use num_traits::ToPrimitive;
 use thiserror::Error;
 
@@ -96,10 +96,7 @@ pub fn felt_from_ptr(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Felt2
     Ok(felt)
 }
 
-pub fn read_felt_array<TErr>(
-    vm: &VirtualMachine,
-    ptr: &mut Relocatable,
-) -> Result<Vec<Felt252>, TErr>
+pub fn read_felt_array<TErr>(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Vec<Felt252>, TErr>
 where
     TErr: From<VirtualMachineError> + From<MemoryError> + From<MathError>,
 {
@@ -117,10 +114,7 @@ pub fn read_calldata(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResul
     Ok(read_felt_array::<SyscallExecutionError>(vm, ptr)?)
 }
 
-pub fn read_call_params(
-    vm: &VirtualMachine,
-    ptr: &mut Relocatable,
-) -> SyscallResult<(Felt252, Vec<Felt252>)> {
+pub fn read_call_params(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<(Felt252, Vec<Felt252>)> {
     let function_selector = felt_from_ptr(vm, ptr)?;
     let calldata = read_calldata(vm, ptr)?;
 
@@ -277,11 +271,7 @@ pub struct SingleSegmentResponse {
     pub segment: ReadOnlySegment,
 }
 
-fn write_segment(
-    vm: &mut VirtualMachine,
-    ptr: &mut Relocatable,
-    segment: ReadOnlySegment,
-) -> SyscallResult<()> {
+fn write_segment(vm: &mut VirtualMachine, ptr: &mut Relocatable, segment: ReadOnlySegment) -> SyscallResult<()> {
     write_maybe_relocatable(vm, ptr, segment.start_ptr)?;
     let segment_end_ptr = (segment.start_ptr + segment.length)?;
     write_maybe_relocatable(vm, ptr, segment_end_ptr)?;

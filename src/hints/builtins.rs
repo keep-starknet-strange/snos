@@ -2,14 +2,16 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::ops::{AddAssign, Deref};
 
-use cairo_vm::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
 use num_traits::{ToPrimitive, Zero};
 
@@ -90,14 +92,11 @@ pub fn update_builtin_ptrs(
     let n_builtins = get_integer_from_var_name("n_builtins", vm, ids_data, ap_tracking)?;
 
     let builtin_params = get_ptr_from_var_name("builtin_params", vm, ids_data, ap_tracking)?;
-    let builtins_encoding_addr =
-        vm.get_relocatable((builtin_params + BuiltinParams::builtin_encodings_offset())?)?;
+    let builtins_encoding_addr = vm.get_relocatable((builtin_params + BuiltinParams::builtin_encodings_offset())?)?;
 
-    let n_selected_builtins =
-        get_integer_from_var_name("n_selected_builtins", vm, ids_data, ap_tracking)?;
+    let n_selected_builtins = get_integer_from_var_name("n_selected_builtins", vm, ids_data, ap_tracking)?;
 
-    let selected_encodings =
-        get_ptr_from_var_name("selected_encodings", vm, ids_data, ap_tracking)?;
+    let selected_encodings = get_ptr_from_var_name("selected_encodings", vm, ids_data, ap_tracking)?;
 
     let builtin_ptrs = get_ptr_from_var_name("builtin_ptrs", vm, ids_data, ap_tracking)?;
     // TODO: line below is not right!
@@ -106,11 +105,13 @@ pub fn update_builtin_ptrs(
 
     let selected_ptrs = get_ptr_from_var_name("selected_ptrs", vm, ids_data, ap_tracking)?;
 
-    let all_builtins =
-        vm.get_continuous_range(builtins_encoding_addr, n_builtins.deref().to_usize().ok_or(HintError::WrongHintData)?)?;
+    let all_builtins = vm
+        .get_continuous_range(builtins_encoding_addr, n_builtins.deref().to_usize().ok_or(HintError::WrongHintData)?)?;
 
-    let selected_builtins =
-        vm.get_continuous_range(selected_encodings, n_selected_builtins.deref().to_usize().ok_or(HintError::WrongHintData)?)?;
+    let selected_builtins = vm.get_continuous_range(
+        selected_encodings,
+        n_selected_builtins.deref().to_usize().ok_or(HintError::WrongHintData)?,
+    )?;
 
     let mut returned_builtins: Vec<MaybeRelocatable> = Vec::new();
     let mut selected_builtin_offset: usize = 0;

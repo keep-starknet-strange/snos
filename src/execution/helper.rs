@@ -137,7 +137,7 @@ impl ExecutionHelperWrapper {
     pub fn exit_call(&mut self) {
         let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
         eh_ref.call_execution_info_ptr = None;
-        //TODO: uncomment
+        // TODO: uncomment
         println!("don't forget to uncomment!");
         // assert_iterators_exhausted(&eh_ref);
         assert!(eh_ref.call_info.is_some());
