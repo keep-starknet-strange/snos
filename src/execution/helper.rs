@@ -13,7 +13,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 
 use crate::config::STORED_BLOCK_HASH_BUFFER;
 use crate::crypto::pedersen::PedersenHash;
-use crate::starknet::starknet_storage::OsSingleStarknetStorage;
+use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage};
 use crate::storage::dict_storage::DictStorage;
 
 // TODO: make the execution helper generic over the storage and hash function types.
@@ -160,6 +160,19 @@ impl ExecutionHelperWrapper {
         }
 
         None
+    }
+
+    #[allow(clippy::await_holding_refcell_ref)]
+    pub async fn compute_storage_commitments(&self) -> Result<HashMap<Felt252, CommitmentInfo>, CommitmentInfoError> {
+        let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
+
+        let mut commitments = HashMap::new();
+        for (key, storage) in storage_by_address.iter_mut() {
+            let commitment_info = storage.compute_commitment().await?;
+            commitments.insert(*key, commitment_info);
+        }
+
+        Ok(commitments)
     }
 }
 

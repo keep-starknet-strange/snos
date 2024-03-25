@@ -9,16 +9,6 @@ const CACHE_CONTRACT_STORAGE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_INITIAL_STATE_UPDATES_PTR: &str = indoc! {r#"
-	# This hint shouldn't be whitelisted.
-	vm_enter_scope(dict(
-	    commitment_info_by_address=execution_helper.compute_storage_commitments(),
-	    os_input=os_input,
-	))
-	ids.initial_state_updates_ptr = segments.add_temp_segment()"#
-};
-
-#[allow(unused)]
 const ENTER_SCOPE_NEW_NODE: &str = indoc! {r#"
 	ids.child_bit = 0 if case == 'left' else 1
 	new_node = left_child if case == 'left' else right_child
