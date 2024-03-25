@@ -37,7 +37,7 @@ where
     let mut stack = VecDeque::new();
     stack.push_back(root);
 
-    while let Some(node) = stack.pop_back() {
+    while let Some(node) = stack.pop_front() {
         let children = traverser.get_children(&node).await?;
         for child in children {
             stack.push_back(child);

@@ -632,13 +632,10 @@ mod tests {
             BinaryFactTreeNodeDiff::new(58, SimpleLeafFact::empty(), SimpleLeafFact::new(Felt252::from(81))),
         ];
         let diff_result = {
-            let mut diff = virtual_empty_tree_node
+            let diff = virtual_empty_tree_node
                 .get_diff_between_trees(virtual_two_change_node.clone(), &mut ffc, &mut facts)
                 .await
                 .unwrap();
-            // The diff order is unpredictable given the way the tree is traversed.
-            // Sort it before comparing it to the expected result.
-            diff.sort_by(|a, b| a.path.cmp(&b.path));
             diff
         };
         assert_eq!(diff_result, expected_diff);
