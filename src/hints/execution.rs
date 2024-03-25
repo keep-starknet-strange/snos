@@ -2,6 +2,7 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
 
+use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
@@ -10,17 +11,17 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::MaybeRelocatable;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use indoc::indoc;
 
-use crate::cairo_types::structs::ExecutionContext;
+use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
-use crate::hints::vars::ids::{SIGNATURE_LEN, SIGNATURE_START};
+use crate::hints::vars::ids::{ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, SIGNATURE_LEN, SIGNATURE_START};
+use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 
@@ -754,4 +755,96 @@ pub fn is_reverted(
     // let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
     // insert_value_into_ap(vm, Felt252::from(execution_helper. tx_execution_info.is_reverted))
     insert_value_into_ap(vm, Felt252::ZERO)
+}
+
+pub const CHECK_EXECUTION: &str = indoc! {r#"
+    return_values = ids.entry_point_return_values
+    if return_values.failure_flag != 0:
+        # Fetch the error, up to 100 elements.
+        retdata_size = return_values.retdata_end - return_values.retdata_start
+        error = memory.get_range(return_values.retdata_start, max(0, min(100, retdata_size)))
+
+        print("Invalid return value in execute_entry_point:")
+        print(f"  Class hash: {hex(ids.execution_context.class_hash)}")
+        print(f"  Selector: {hex(ids.execution_context.execution_info.selector)}")
+        print(f"  Size: {retdata_size}")
+        print(f"  Error (at most 100 elements): {error}")
+
+    if execution_helper.debug_mode:
+        # Validate the predicted gas cost.
+        actual = ids.remaining_gas - ids.entry_point_return_values.gas_builtin
+        predicted = execution_helper.call_info.gas_consumed
+        assert actual == predicted, (
+            "Predicted gas costs are inconsistent with the actual execution; "
+            f"{predicted=}, {actual=}."
+        )
+
+    # Exit call.
+    syscall_handler.validate_and_discard_syscall_ptr(
+        syscall_ptr_end=ids.entry_point_return_values.syscall_ptr
+    )
+    execution_helper.exit_call()"#
+};
+
+//implement check_execution according to the pythonic version given in the CHECK_EXECUTION const above
+pub fn check_execution(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let return_values_ptr =
+        get_ptr_from_var_name(ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
+
+    let x0 = return_values_ptr;
+    let x1: Relocatable = (x0 + 1)?;
+    let x2: Relocatable = (x0 + 2)?;
+    let x3: Relocatable = (x0 + 3)?;
+    let x4: Relocatable = (x0 + 4)?;
+
+    println!("entry_point_return_valuesss:\n\t[0]: {:?}\n\t[1]: {:?}\n\t[2]: {:?}\n\t[3]: {:?}\n\t[4]: {:?}",
+             vm.get_maybe(&x0),
+             vm.get_maybe(&x1),
+             vm.get_maybe(&x2),
+             vm.get_maybe(&x3),
+             vm.get_maybe(&x4)
+    );
+
+    let failure_flag = vm.get_integer((return_values_ptr + EntryPointReturnValues::failure_flag_offset())?)?;
+    if failure_flag.into_owned() != Felt252::ZERO {
+        let retdata_end = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_end_offset())?)?;
+        let retdata_start = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_start_offset())?)?;
+        let retdata_size = (retdata_end - retdata_start)?;
+        let error = vm.get_range(retdata_start, std::cmp::min(100, retdata_size as usize));
+        let execution_context = get_relocatable_from_var_name(EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
+        let class_hash = vm.get_integer((execution_context + ExecutionContext::class_hash_offset())?)?;
+        let selector = vm.get_integer((execution_context + ExecutionContext::execution_info_offset())?)?;
+        println!("Invalid return value in execute_entry_point:");
+        println!("  Class hash: {}", class_hash.to_hex_string());
+        println!("  Selector: {}", selector.to_hex_string());
+        println!("  Size: {}", retdata_size);
+        println!("  Error (at most 100 elements): {:?}", error);
+    }
+
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(EXECUTION_HELPER)?;
+    // TODO: make sure it is necessary to check the gas costs
+    // if execution_helper.debug_mode {
+    //     let actual = get_integer_from_var_name("remaining_gas", vm, ids_data, ap_tracking)?;
+    //     let predicted = get_integer_from_var_name("gas_consumed", vm, ids_data, ap_tracking)?;
+    //     assert_eq!(
+    //         actual,
+    //         predicted,
+    //         "Predicted gas costs are inconsistent with the actual execution; predicted={}, actual={}.",
+    //         predicted,
+    //         actual
+    //     );
+    // }
+
+    let syscall_ptr_end = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::syscall_ptr_offset())?)?;
+    let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper>(SYSCALL_HANDLER)?;
+    syscall_handler.validate_and_discard_syscall_ptr(syscall_ptr_end)?;
+    execution_helper.exit_call();
+
+    Ok(())
 }

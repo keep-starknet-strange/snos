@@ -32,3 +32,13 @@ pub struct CompiledClass {
     bytecode_length: Felt252,
     bytecode_ptr: Felt252,
 }
+
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct EntryPointReturnValues {
+    gas_builtin: Felt252,
+    syscall_ptr: Felt252,
+    failure_flag: Felt252,
+    retdata_start: Felt252,
+    retdata_end: Felt252,
+}

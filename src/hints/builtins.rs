@@ -49,7 +49,7 @@ pub fn select_builtin(
     let all_encodings = get_ptr_from_var_name("all_encodings", vm, ids_data, ap_tracking)?;
     let n_selected_builtins = exec_scopes.get_mut_ref::<Felt252>("n_selected_builtins")?;
     let select_builtin = n_selected_builtins > &mut Felt252::zero()
-        && vm.get_maybe(&selected_encodings).unwrap() == vm.get_maybe(&all_encodings).unwrap();
+        && vm.get_maybe(&selected_encodings)? == vm.get_maybe(&all_encodings)?;
     insert_value_from_var_name(
         "select_builtin",
         if select_builtin { Felt252::ONE } else { Felt252::ZERO },

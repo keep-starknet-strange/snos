@@ -3,6 +3,8 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
+use cairo_vm::types::errors::math_errors::MathError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use num_traits::ToPrimitive;
 use thiserror::Error;
 
@@ -94,6 +96,37 @@ pub fn felt_from_ptr(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Felt2
     Ok(felt)
 }
 
+pub fn read_felt_array<TErr>(
+    vm: &VirtualMachine,
+    ptr: &mut Relocatable,
+) -> Result<Vec<Felt252>, TErr>
+where
+    TErr: From<VirtualMachineError> + From<MemoryError> + From<MathError>,
+{
+    let array_data_start_ptr = vm.get_relocatable(*ptr)?;
+    *ptr = (*ptr + 1)?;
+    let array_data_end_ptr = vm.get_relocatable(*ptr)?;
+    *ptr = (*ptr + 1)?;
+    let array_size = (array_data_end_ptr - array_data_start_ptr)?;
+
+    let values = vm.get_integer_range(array_data_start_ptr, array_size)?;
+
+    Ok(values.into_iter().map(|felt| felt.into_owned()).collect())
+}
+pub fn read_calldata(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Vec<Felt252>> {
+    Ok(read_felt_array::<SyscallExecutionError>(vm, ptr)?)
+}
+
+pub fn read_call_params(
+    vm: &VirtualMachine,
+    ptr: &mut Relocatable,
+) -> SyscallResult<(Felt252, Vec<Felt252>)> {
+    let function_selector = felt_from_ptr(vm, ptr)?;
+    let calldata = read_calldata(vm, ptr)?;
+
+    Ok((function_selector, calldata))
+}
+
 pub fn write_felt(vm: &mut VirtualMachine, ptr: &mut Relocatable, felt: Felt252) -> Result<(), MemoryError> {
     write_maybe_relocatable(vm, ptr, felt)
 }
@@ -126,13 +159,25 @@ impl From<MemoryError> for SyscallExecutionError {
 
 impl From<SyscallExecutionError> for HintError {
     fn from(error: SyscallExecutionError) -> Self {
-        HintError::CustomHint(format!("Memory error: {}", error).into())
+        HintError::CustomHint(format!("SyscallExecution error: {}", error).into())
     }
 }
 
 impl From<HintError> for SyscallExecutionError {
     fn from(error: HintError) -> Self {
-        Self::InternalError(format!("Memory error: {}", error).into())
+        Self::InternalError(format!("Hint error: {}", error).into())
+    }
+}
+
+impl From<VirtualMachineError> for SyscallExecutionError {
+    fn from(error: VirtualMachineError) -> Self {
+        Self::InternalError(format!("VirtualMachine error: {}", error).into())
+    }
+}
+
+impl From<MathError> for SyscallExecutionError {
+    fn from(error: MathError) -> Self {
+        Self::InternalError(format!("MathError error: {}", error).into())
     }
 }
 
@@ -217,6 +262,36 @@ pub struct EmptyResponse;
 impl SyscallResponse for EmptyResponse {
     fn write(self, _vm: &mut VirtualMachine, _ptr: &mut Relocatable) -> WriteResponseResult {
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+// Invariant: read-only.
+pub struct ReadOnlySegment {
+    pub start_ptr: Relocatable,
+    pub length: usize,
+}
+
+#[derive(Debug)]
+pub struct SingleSegmentResponse {
+    pub segment: ReadOnlySegment,
+}
+
+fn write_segment(
+    vm: &mut VirtualMachine,
+    ptr: &mut Relocatable,
+    segment: ReadOnlySegment,
+) -> SyscallResult<()> {
+    write_maybe_relocatable(vm, ptr, segment.start_ptr)?;
+    let segment_end_ptr = (segment.start_ptr + segment.length)?;
+    write_maybe_relocatable(vm, ptr, segment_end_ptr)?;
+
+    Ok(())
+}
+
+impl SyscallResponse for SingleSegmentResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_segment(vm, ptr, self.segment)
     }
 }
 

@@ -1,50 +1,41 @@
+use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
 use crate::execution::helper::ExecutionHelperWrapper;
-use crate::execution::syscall_utils::{
-    write_maybe_relocatable, EmptyRequest, SyscallResponse, SyscallResult, WriteResponseResult,
-};
+use crate::execution::syscall_utils::{write_maybe_relocatable, EmptyRequest, SyscallResponse, SyscallResult, WriteResponseResult, felt_from_ptr, SyscallRequest, SingleSegmentResponse, ReadOnlySegment, read_call_params};
 
-// TODO: what is this for?
-// #[derive(Debug)]
-// pub struct SingleSegmentResponse {
-//     segment: ReadOnlySegment,
-// }
-//
-// impl SyscallResponse for SingleSegmentResponse {
-//     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-//         write_segment(vm, ptr, self.segment)
-//     }
-// }
+// CallContract syscall.
+#[derive(Debug, Eq, PartialEq)]
+pub struct CallContractRequest {
+    pub contract_address: Felt252,
+    pub function_selector: Felt252,
+    pub calldata: Vec<Felt252>,
+}
 
-// TODO: CallContract syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct CallContractRequest {
-//     pub contract_address: ContractAddress,
-//     pub function_selector: EntryPointSelector,
-//     pub calldata: Calldata,
-// }
-//
-// impl SyscallRequest for CallContractRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<CallContractRequest> {
-//         let contract_address = ContractAddress::try_from(stark_felt_from_ptr(vm, ptr)?)?;
-//         let (function_selector, calldata) = read_call_params(vm, ptr)?;
-//
-//         Ok(CallContractRequest { contract_address, function_selector, calldata })
-//     }
-// }
-//
-// pub type CallContractResponse = SingleSegmentResponse;
-//
-// pub fn call_contract(
-//     request: CallContractRequest,
-//     vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     remaining_gas: &mut u64,
-// ) -> SyscallResult<CallContractResponse> {
-//     Ok(CallContractResponse { segment: retdata_segment })
-// }
+impl SyscallRequest for CallContractRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<CallContractRequest> {
+        let contract_address = felt_from_ptr(vm, ptr)?;
+        let (function_selector, calldata) = read_call_params(vm, ptr)?;
+        Ok(CallContractRequest { contract_address, function_selector, calldata })
+    }
+}
+
+pub type CallContractResponse = SingleSegmentResponse;
+
+pub fn call_contract(
+    request: CallContractRequest,
+    vm: &mut VirtualMachine,
+    _exec_wrapper: ExecutionHelperWrapper,
+    remaining_gas: &mut u64,
+) -> SyscallResult<CallContractResponse> {
+    println!("CallContract syscall, contract_address: {}", request.contract_address);
+    // TODO: return non empty response
+    let start_ptr = vm.add_memory_segment();
+    vm.insert_value(start_ptr, 2)?;
+    Ok(CallContractResponse { segment: ReadOnlySegment { start_ptr, length: 1 } })
+}
+
 
 // TODO: Deploy syscall.
 // #[derive(Debug, Eq, PartialEq)]
