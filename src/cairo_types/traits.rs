@@ -25,6 +25,16 @@ mod tests {
         pub c: Felt252,
     }
 
+    #[derive(FieldOffsetGetters)]
+    struct MyNestedType {
+        #[allow(unused)]
+        pub x: Felt252,
+        #[allow(unused)]
+        pub y: MyType,
+        #[allow(unused)]
+        pub z: Felt252,
+    }
+
     #[test]
     fn write_cairo_type() {
         let mut vm = VirtualMachine::new(false);
@@ -71,5 +81,13 @@ mod tests {
         assert_eq!(MyType::a_offset(), 0);
         assert_eq!(MyType::b_offset(), 1);
         assert_eq!(MyType::c_offset(), 2);
+
+        assert_eq!(MyType::cairo_size(), 3);
+
+        assert_eq!(MyNestedType::x_offset(), 0);
+        assert_eq!(MyNestedType::y_offset(), 1);
+        assert_eq!(MyNestedType::z_offset(), 4);
+
+        assert_eq!(MyNestedType::cairo_size(), 5);
     }
 }

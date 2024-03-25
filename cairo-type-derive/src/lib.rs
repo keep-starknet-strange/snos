@@ -1,11 +1,10 @@
 extern crate proc_macro;
 
-use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields};
+use syn::{parse_macro_input, Data, DeriveInput, Fields, Type};
 
 #[proc_macro_derive(CairoType)]
-pub fn cairo_type_derive(input: TokenStream) -> TokenStream {
+pub fn cairo_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -62,12 +61,34 @@ pub fn cairo_type_derive(input: TokenStream) -> TokenStream {
     };
 
     // Convert the generated code into a TokenStream and return it
-    TokenStream::from(expanded)
+    proc_macro::TokenStream::from(expanded)
+}
+
+fn field_size(field: &syn::Field) -> proc_macro2::TokenStream {
+    if let Type::Path(type_path) = &field.ty {
+        if let Some(segment) = type_path.path.segments.last() {
+            let type_name = &segment.ident;
+            if type_name == "Felt252" || type_name == "Relocatable" {
+                quote! { 1 }
+            } else {
+                quote! { #type_name::cairo_size() }
+            }
+        } else {
+            let field_name = field.ident.as_ref().unwrap();
+            quote! {
+                compile_error!("Could not determine the size of {}.", #field_name);
+            }
+        }
+    } else {
+        quote! {
+            compile_error!("Could not determine the size of all fields in the struct. This derive macro is only compatible with Felt252 fields.");
+        }
+    }
 }
 
 /// Provides a method to compute the address of each field
 #[proc_macro_derive(FieldOffsetGetters)]
-pub fn get_field_addr_derive(input: TokenStream) -> TokenStream {
+pub fn get_field_offsets_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -88,21 +109,35 @@ pub fn get_field_addr_derive(input: TokenStream) -> TokenStream {
                 }
             };
 
-            // Generate setter methods for each field
-            let get_field_offset_methods = fields.iter().enumerate().map(|(index, field)| {
+            let mut field_sizes: Vec<proc_macro2::TokenStream> = vec![];
+            let mut get_field_offset_methods: Vec<proc_macro2::TokenStream> = vec![];
+
+            for field in fields {
                 let field_name = field.ident.as_ref().expect("Expected named field");
-                let fn_name = format_ident!("{}_offset", field_name);
-                quote! {
-                    pub fn #fn_name() -> usize {
-                        #index
+                let offset_fn_name = format_ident!("{}_offset", field_name);
+
+                let rendered_offset_impl = if field_sizes.is_empty() {
+                    quote! { 0 }
+                } else {
+                    quote! { #(#field_sizes)+* }
+                };
+
+                let get_offset_method = quote! {
+                    pub fn #offset_fn_name() -> usize {
+                        #rendered_offset_impl
                     }
-                }
-            });
+                };
+                get_field_offset_methods.push(get_offset_method);
+                field_sizes.push(field_size(field));
+            }
 
             // Combine all setter methods
             quote! {
                 impl #struct_ident {
                     #( #get_field_offset_methods )*
+                    pub fn cairo_size() -> usize {
+                        #(#field_sizes)+*
+                    }
                 }
             }
         }
