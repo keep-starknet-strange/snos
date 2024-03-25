@@ -30,7 +30,7 @@ pub fn call_contract(
     request: CallContractRequest,
     vm: &mut VirtualMachine,
     _exec_wrapper: ExecutionHelperWrapper,
-    remaining_gas: &mut u64,
+    _remaining_gas: &mut u64,
 ) -> SyscallResult<CallContractResponse> {
     println!("CallContract syscall, contract_address: {}", request.contract_address);
     // TODO: return non empty response

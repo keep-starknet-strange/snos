@@ -364,10 +364,9 @@ mod tests {
 
     #[fixture]
     fn exec_scopes(block_context: BlockContext) -> ExecutionScopes {
-        let syscall_ptr = Relocatable::from((0, 0));
         let execution_infos = vec![];
         let exec_helper = ExecutionHelperWrapper::new(execution_infos, &block_context);
-        let syscall_handler = OsSyscallHandlerWrapper::new(exec_helper, syscall_ptr);
+        let syscall_handler = OsSyscallHandlerWrapper::new(exec_helper);
 
         let mut exec_scopes = ExecutionScopes::new();
         exec_scopes.insert_value(vars::scopes::SYSCALL_HANDLER, syscall_handler);
@@ -399,6 +398,6 @@ mod tests {
         assert_eq!(syscall_ptr, Relocatable::from((3, 0)));
 
         let syscall_handler: OsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER).unwrap();
-        assert_eq!(syscall_handler.syscall_ptr(), syscall_ptr);
+        assert_eq!(syscall_handler.syscall_ptr().unwrap(), syscall_ptr);
     }
 }
