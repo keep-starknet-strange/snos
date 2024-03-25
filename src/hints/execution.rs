@@ -19,6 +19,7 @@ use indoc::indoc;
 use crate::cairo_types::structs::ExecutionContext;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
+use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::vars::ids::{SIGNATURE_LEN, SIGNATURE_START};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
@@ -166,9 +167,9 @@ pub fn enter_scope_syscall_handler(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let dep_sys = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("syscall_handler")?;
-    let deprecated_syscall_handler: Box<dyn Any> = Box::new(dep_sys);
-    exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), deprecated_syscall_handler)]));
+    let sys = exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?;
+    let syscall_handler: Box<dyn Any> = Box::new(sys);
+    exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), syscall_handler)]));
     Ok(())
 }
 
@@ -283,8 +284,7 @@ pub fn enter_syscall_scopes(
     let execution_helper: Box<dyn Any> = Box::new(exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?);
     let deprecated_syscall_handler: Box<dyn Any> =
         Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("deprecated_syscall_handler")?);
-    let syscall_handler: Box<dyn Any> =
-        Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("syscall_handler")?);
+    let syscall_handler: Box<dyn Any> = Box::new(exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?);
     let dict_manager: Box<dyn Any> = Box::new(exec_scopes.get_dict_manager()?);
     exec_scopes.enter_scope(HashMap::from_iter([
         (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
