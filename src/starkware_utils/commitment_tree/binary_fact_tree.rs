@@ -12,14 +12,14 @@ pub trait Leaf: Clone {}
 pub type BinaryFactDict = HashMap<BigUint, Vec<BigUint>>;
 
 #[allow(async_fn_in_trait)]
-pub trait BinaryFactTree<S, H, L>: Sized
+pub trait BinaryFactTree<S, H, LF>: Sized
 where
     S: Storage,
     H: HashFunctionType,
-    L: LeafFact<S, H>,
+    LF: LeafFact<S, H>,
 {
     /// Initializes an empty BinaryFactTree of the given height.
-    async fn empty_tree(ffc: &mut FactFetchingContext<S, H>, height: Height, leaf_fact: L) -> Result<Self, TreeError>;
+    async fn empty_tree(ffc: &mut FactFetchingContext<S, H>, height: Height, leaf_fact: LF) -> Result<Self, TreeError>;
 
     /// Returns the values of the leaves whose indices are given.
     async fn get_leaves(
@@ -27,9 +27,9 @@ where
         ffc: &mut FactFetchingContext<S, H>,
         indices: &[TreeIndex],
         facts: &mut Option<BinaryFactDict>,
-    ) -> Result<HashMap<TreeIndex, L>, TreeError>;
+    ) -> Result<HashMap<TreeIndex, LF>, TreeError>;
 
-    async fn get_leaf(&self, ffc: &mut FactFetchingContext<S, H>, index: TreeIndex) -> Result<Option<L>, TreeError> {
+    async fn get_leaf(&self, ffc: &mut FactFetchingContext<S, H>, index: TreeIndex) -> Result<Option<LF>, TreeError> {
         let mut facts = None;
         let leaves = self.get_leaves(ffc, vec![index.clone()].as_ref(), &mut facts).await?;
         Ok(leaves.get(&index).cloned())
@@ -43,7 +43,7 @@ where
     async fn update(
         &mut self,
         ffc: &mut FactFetchingContext<S, H>,
-        modifications: Vec<(TreeIndex, L)>,
+        modifications: Vec<(TreeIndex, LF)>,
         facts: &mut Option<BinaryFactDict>,
     ) -> Result<Self, TreeError>;
 }

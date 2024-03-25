@@ -18,11 +18,11 @@ use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY
 use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
 
 #[derive(Debug)]
-pub struct VirtualPatriciaNode<S, H, L>
+pub struct VirtualPatriciaNode<S, H, LF>
 where
     S: Storage,
     H: HashFunctionType,
-    L: LeafFact<S, H>,
+    LF: LeafFact<S, H>,
 {
     pub bottom_node: Vec<u8>,
     pub path: NodePath,
@@ -33,14 +33,14 @@ where
 
     _s: PhantomData<S>,
     _h: PhantomData<H>,
-    _l: PhantomData<L>,
+    _l: PhantomData<LF>,
 }
 
-impl<S, H, L> VirtualPatriciaNode<S, H, L>
+impl<S, H, LF> VirtualPatriciaNode<S, H, LF>
 where
     S: Storage + Sync + Send,
     H: HashFunctionType + Sync + Send,
-    L: LeafFact<S, H> + Send,
+    LF: LeafFact<S, H> + Send,
 {
     #[allow(unused)]
     pub fn new(bottom_nodes: Vec<u8>, path: NodePath, length: Length, height: Height) -> Result<Self, TreeError> {
@@ -148,7 +148,7 @@ where
         ffc: &mut FactFetchingContext<S, H>,
         indices: &[TreeIndex],
         facts: &mut Option<BinaryFactDict>,
-    ) -> Result<HashMap<TreeIndex, L>, TreeError> {
+    ) -> Result<HashMap<TreeIndex, LF>, TreeError> {
         // Partition indices.
         let path_suffix_width = self.height.0 - self.length.0;
         let path_prefix = self.path.0.clone() << path_suffix_width;
@@ -174,11 +174,11 @@ where
     }
 }
 
-impl<S, H, L> PartialEq for VirtualPatriciaNode<S, H, L>
+impl<S, H, LF> PartialEq for VirtualPatriciaNode<S, H, LF>
 where
     S: Storage,
     H: HashFunctionType,
-    L: LeafFact<S, H>,
+    LF: LeafFact<S, H>,
 {
     fn eq(&self, other: &Self) -> bool {
         self.bottom_node == other.bottom_node
@@ -188,11 +188,11 @@ where
     }
 }
 
-impl<S, H, L> Clone for VirtualPatriciaNode<S, H, L>
+impl<S, H, LF> Clone for VirtualPatriciaNode<S, H, LF>
 where
     S: Storage,
     H: HashFunctionType,
-    L: LeafFact<S, H>,
+    LF: LeafFact<S, H>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -207,11 +207,11 @@ where
     }
 }
 
-impl<S, H, L> BinaryFactTreeNode<S, H, L> for VirtualPatriciaNode<S, H, L>
+impl<S, H, LF> BinaryFactTreeNode<S, H, LF> for VirtualPatriciaNode<S, H, LF>
 where
     S: Storage + Sync + Send,
     H: HashFunctionType + Sync + Send,
-    L: LeafFact<S, H> + Send,
+    LF: LeafFact<S, H> + Send,
 {
     fn _leaf_hash(&self) -> Vec<u8> {
         self.bottom_node.clone()
@@ -278,7 +278,7 @@ where
         ffc: &'a mut FactFetchingContext<S, H>,
         indices: &'a [TreeIndex],
         facts: &'a mut Option<BinaryFactDict>,
-    ) -> impl std::future::Future<Output = Result<HashMap<TreeIndex, L>, TreeError>> + std::marker::Send {
+    ) -> impl std::future::Future<Output = Result<HashMap<TreeIndex, LF>, TreeError>> + std::marker::Send {
         async move {
             if indices.is_empty() {
                 return Ok(HashMap::new());
@@ -302,33 +302,33 @@ where
     }
 }
 
-async fn get_empty_leaves<S, H, L>(
+async fn get_empty_leaves<S, H, LF>(
     ffc: &mut FactFetchingContext<S, H>,
     indices: &[TreeIndex],
-) -> Result<HashMap<TreeIndex, L>, TreeError>
+) -> Result<HashMap<TreeIndex, LF>, TreeError>
 where
     S: Storage,
     H: HashFunctionType,
-    L: LeafFact<S, H>,
+    LF: LeafFact<S, H>,
 {
     if indices.is_empty() {
         return Ok(HashMap::new());
     }
 
-    let empty_leaf = L::get_or_fail(&ffc.storage, EMPTY_NODE_HASH.as_ref()).await?;
-    let result: HashMap<_, L> = indices.iter().map(|index| (index.clone(), empty_leaf.clone())).collect();
+    let empty_leaf = LF::get_or_fail(&ffc.storage, EMPTY_NODE_HASH.as_ref()).await?;
+    let result: HashMap<_, LF> = indices.iter().map(|index| (index.clone(), empty_leaf.clone())).collect();
     Ok(result)
 }
 
-fn unify_edge_leaves<S, H, L>(
+fn unify_edge_leaves<S, H, LF>(
     path_prefix: BigUint,
-    empty_leaves: HashMap<TreeIndex, L>,
-    bottom_subtree_leaves: HashMap<TreeIndex, L>,
-) -> HashMap<TreeIndex, L>
+    empty_leaves: HashMap<TreeIndex, LF>,
+    bottom_subtree_leaves: HashMap<TreeIndex, LF>,
+) -> HashMap<TreeIndex, LF>
 where
     S: Storage,
     H: HashFunctionType,
-    L: LeafFact<S, H>,
+    LF: LeafFact<S, H>,
 {
     let mut edge_leaves = empty_leaves;
     for (index, leaf_fact) in bottom_subtree_leaves.into_iter() {

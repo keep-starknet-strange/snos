@@ -4,11 +4,11 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::storage::storage::{HashFunctionType, Storage};
 
-pub trait TreeTraverser<'test, S, H, L>
+pub trait TreeTraverser<'test, S, H, LF>
 where
     S: Storage,
     H: HashFunctionType,
-    L: LeafFact<S, H>,
+    LF: LeafFact<S, H>,
 {
     type NodeType;
 
@@ -22,13 +22,13 @@ where
 ///
 /// The order of execution is not guaranteed, except that it is more similar to DFS than BFS in
 /// terms of memory consumption.
-pub async fn traverse_tree<'tree, S, H, L, N, TT>(traverser: &mut TT, root: N) -> Result<(), TreeError>
+pub async fn traverse_tree<'tree, S, H, LF, N, TT>(traverser: &mut TT, root: N) -> Result<(), TreeError>
 where
     S: Storage + Sync,
     H: HashFunctionType + Sync,
-    L: LeafFact<S, H>,
+    LF: LeafFact<S, H>,
     N: Sync,
-    TT: TreeTraverser<'tree, S, H, L, NodeType = N> + Send,
+    TT: TreeTraverser<'tree, S, H, LF, NodeType = N> + Send,
 {
     // The Python implementation (https://github.com/starkware-libs/cairo-lang/blob/4e233516f52477ad158bc81a86ec2760471c1b65/src/starkware/starkware_utils/commitment_tree/merkle_tree/traverse_tree.py#L16)
     // uses an async priority queue that ultimately should look like depth-first search (DFS).

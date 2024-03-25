@@ -18,13 +18,13 @@ pub struct PatriciaTree {
     pub height: Height,
 }
 
-impl<S, H, L> BinaryFactTree<S, H, L> for PatriciaTree
+impl<S, H, LF> BinaryFactTree<S, H, LF> for PatriciaTree
 where
     S: Storage + 'static,
     H: HashFunctionType + Sync + Send + 'static,
-    L: LeafFact<S, H> + Send + 'static,
+    LF: LeafFact<S, H> + Send + 'static,
 {
-    async fn empty_tree(ffc: &mut FactFetchingContext<S, H>, height: Height, leaf_fact: L) -> Result<Self, TreeError> {
+    async fn empty_tree(ffc: &mut FactFetchingContext<S, H>, height: Height, leaf_fact: LF) -> Result<Self, TreeError> {
         let empty_leaf_fact_hash = leaf_fact.set_fact(ffc).await?;
         Ok(Self { root: empty_leaf_fact_hash, height })
     }
@@ -34,7 +34,7 @@ where
         ffc: &mut FactFetchingContext<S, H>,
         indices: &[TreeIndex],
         facts: &mut Option<BinaryFactDict>,
-    ) -> Result<HashMap<TreeIndex, L>, TreeError> {
+    ) -> Result<HashMap<TreeIndex, LF>, TreeError> {
         let virtual_root_node = VirtualPatriciaNode::from_hash(self.root.clone(), self.height);
         virtual_root_node._get_leaves(ffc, indices, facts).await
     }
@@ -42,16 +42,16 @@ where
     async fn update(
         &mut self,
         ffc: &mut FactFetchingContext<S, H>,
-        modifications: Vec<(TreeIndex, L)>,
+        modifications: Vec<(TreeIndex, LF)>,
         facts: &mut Option<BinaryFactDict>,
     ) -> Result<Self, TreeError> {
         let virtual_root_node = VirtualPatriciaNode::from_hash(self.root.clone(), self.height);
         let updated_virtual_root_node = update_tree::<
             S,
             H,
-            L,
-            VirtualPatriciaNode<S, H, L>,
-            VirtualCalculationNode<S, H, L>,
+            LF,
+            VirtualPatriciaNode<S, H, LF>,
+            VirtualCalculationNode<S, H, LF>,
         >(virtual_root_node, ffc, modifications, facts)
         .await?;
 
