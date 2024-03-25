@@ -254,17 +254,6 @@ const SET_CONTRACT_ADDRESS: &str = indoc! {r#"
 const SET_AP_TO_NONCE_ARG_SEGMENT: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg([tx.nonce]))";
 
 #[allow(unused)]
-const COMPARE_RETURN_VALUE: &str = indoc! {r#"
-	# Check that the actual return value matches the expected one.
-	expected = memory.get_range(
-	    addr=ids.call_response.retdata, size=ids.call_response.retdata_size
-	)
-	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
-
-	assert expected == actual, f'Return value mismatch expected={expected}, actual={actual}.'"#
-};
-
-#[allow(unused)]
 const SPLIT_DESCEND: &str = "ids.length, ids.word = descend";
 
 #[allow(unused)]

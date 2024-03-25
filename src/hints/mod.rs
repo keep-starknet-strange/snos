@@ -43,7 +43,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 87] = [
+static HINTS: [(&str, HintImpl); 89] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -78,6 +78,7 @@ static HINTS: [(&str, HintImpl); 87] = [
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
     (execution::CHECK_EXECUTION, execution::check_execution),
+    (execution::COMPARE_RETURN_VALUE, execution::compare_return_value),
     (execution::CONTRACT_ADDRESS, execution::contract_address),
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
@@ -125,6 +126,7 @@ static HINTS: [(&str, HintImpl); 87] = [
     (syscalls::GET_TX_SIGNATURE, syscalls::get_tx_signature),
     (syscalls::LIBRARY, syscalls::library_call),
     (syscalls::LIBRARY_CALL_L1_HANDLER, syscalls::library_call_l1_handler),
+    (syscalls::OS_LOGGER_ENTER_SYSCALL_PREPRARE_EXIT_SYSCALL, syscalls::os_logger_enter_syscall_preprare_exit_syscall),
     (syscalls::REPLACE_CLASS, syscalls::replace_class),
     (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
     (syscalls::STORAGE_READ, syscalls::storage_read),

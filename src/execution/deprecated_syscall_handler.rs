@@ -2,7 +2,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use blockifier::execution::execution_utils::ReadOnlySegments;
-use cairo_vm::types::relocatable::Relocatable;
+use cairo_type_derive::FieldOffsetGetters;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 
 use super::helper::ExecutionHelperWrapper;
 
@@ -21,6 +25,25 @@ pub struct DeprecatedOsSyscallHandlerWrapper {
     pub deprecated_syscall_handler: Rc<RefCell<DeprecatedOsSyscallHandler>>,
 }
 
+#[derive(FieldOffsetGetters)]
+pub struct CallContractRequest {
+    selector: Felt252,
+    contract_address: Felt252,
+    function_selector: Felt252,
+    calldata_size: Felt252,
+    calldata: Relocatable,
+}
+#[derive(FieldOffsetGetters)]
+pub struct CallContractResponse {
+    retdata_size: Felt252,
+    retdata: Relocatable,
+}
+#[derive(FieldOffsetGetters)]
+pub struct CallContract {
+    request: CallContractRequest,
+    response: CallContractResponse,
+}
+
 impl DeprecatedOsSyscallHandlerWrapper {
     // TODO(#69): implement the syscalls
     pub fn new(exec_wrapper: ExecutionHelperWrapper, syscall_ptr: Relocatable) -> Self {
@@ -32,8 +55,28 @@ impl DeprecatedOsSyscallHandlerWrapper {
             })),
         }
     }
-    pub fn call_contract(&self, syscall_ptr: Relocatable) {
+    pub fn call_contract(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         println!("call_contract (TODO): {}", syscall_ptr);
+
+        let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
+        let result = sys_hand.exec_wrapper.execution_helper.as_ref().borrow_mut().result_iter.next()
+            .expect("A call execution should have a corresponding result"); // TODO
+
+        let response_offset = CallContract::response_offset() * 5; // TODO: response_offset() doesn't seem to take sizeof(CallContractRequest) into account
+        let retdata_size_offset = response_offset + CallContractResponse::retdata_size_offset();
+        let retdata_offset = response_offset + CallContractResponse::retdata_offset();
+
+        vm.insert_value((syscall_ptr + retdata_size_offset).unwrap(), result.retdata.0.len()).unwrap();
+        let new_segment = vm.add_memory_segment();
+        let retdata = result.retdata.0.iter().map(|sf| {
+            // TODO: better way to StarkFelt -> Felt252?
+            let felt = Felt252::from_hex(&sf.to_string()).unwrap();
+            MaybeRelocatable::Int(felt)
+        }).collect();
+        vm.load_data(new_segment, &retdata)?;
+        vm.insert_value((syscall_ptr + retdata_offset).unwrap(), new_segment)?;
+
+        Ok(())
     }
     pub fn delegate_call(&self, syscall_ptr: Relocatable) {
         println!("delegate_call (TODO): {}", syscall_ptr);

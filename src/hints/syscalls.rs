@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_ptr_from_var_name, insert_value_from_var_name};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
+use cairo_vm::hint_processor::hint_processor_utils::get_integer_from_reference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
+use num_traits::ToPrimitive;
+
 
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
@@ -25,7 +28,7 @@ pub fn call_contract(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("syscall_handler")?;
     let syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
 
-    syscall_handler.call_contract(syscall_ptr);
+    syscall_handler.call_contract(syscall_ptr, vm)?;
 
     Ok(())
 }
@@ -348,6 +351,35 @@ pub fn set_syscall_ptr(
 
     let syscall_handler: OsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
     syscall_handler.set_syscall_ptr(syscall_ptr);
+
+    Ok(())
+}
+
+pub const OS_LOGGER_ENTER_SYSCALL_PREPRARE_EXIT_SYSCALL: &str = indoc! {r#"
+        execution_helper.os_logger.enter_syscall(
+            n_steps=current_step,
+            builtin_ptrs=ids.builtin_ptrs,
+            deprecated=True,
+            selector=ids.selector,
+            range_check_ptr=ids.range_check_ptr,
+        )
+
+        # Prepare a short callable to save code duplication.
+        exit_syscall = lambda selector: execution_helper.os_logger.exit_syscall(
+            n_steps=current_step,
+            builtin_ptrs=ids.builtin_ptrs,
+            range_check_ptr=ids.range_check_ptr,
+            selector=selector,
+        )"#
+};
+pub fn os_logger_enter_syscall_preprare_exit_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    println!("TODO: os_logger enter/exit calls");
 
     Ok(())
 }
