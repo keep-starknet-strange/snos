@@ -43,7 +43,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 93] = [
+static HINTS: [(&str, HintImpl); 94] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -124,6 +124,7 @@ static HINTS: [(&str, HintImpl); 93] = [
     (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
     (state::DECODE_NODE, state::decode_node_hint),
     (state::DECODE_NODE_2, state::decode_node_hint),
+    (state::SET_INITIAL_STATE_UPDATES_PTR, state::set_initial_state_updates_ptr),
     (syscalls::CALL_CONTRACT, syscalls::call_contract),
     (syscalls::DELEGATE_CALL, syscalls::delegate_call),
     (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),
