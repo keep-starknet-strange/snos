@@ -32,3 +32,33 @@ pub struct CompiledClass {
     bytecode_length: Felt252,
     bytecode_ptr: Felt252,
 }
+
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct EntryPointReturnValues {
+    gas_builtin: Felt252,
+    syscall_ptr: Felt252,
+    failure_flag: Felt252,
+    retdata_start: Felt252,
+    retdata_end: Felt252,
+}
+
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct BuiltinParams {
+    builtin_encodings: Felt252,
+    builtin_instance_sizes: Felt252,
+}
+
+// TODO: how to handle this?
+// struct BuiltinPointers {
+//     selectable: SelectableBuiltins,
+//     non_selectable: NonSelectableBuiltins,
+// }
+
+// #[allow(unused)]
+// #[derive(FieldOffsetGetters)]
+// pub struct BuiltinPointers {
+//     selectable: Felt252,
+//     non_selectable: Felt252,
+// }

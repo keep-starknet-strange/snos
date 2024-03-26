@@ -53,7 +53,7 @@ pub fn run_os(
     let deprecated_syscall_handler =
         DeprecatedOsSyscallHandlerWrapper::new(execution_helper.clone(), vm.add_memory_segment());
 
-    let syscall_handler = OsSyscallHandlerWrapper::new(execution_helper.clone(), vm.add_memory_segment());
+    let syscall_handler = OsSyscallHandlerWrapper::new(execution_helper.clone());
 
     // Setup Globals
     cairo_runner.exec_scopes.insert_value("os_input", os_input);
