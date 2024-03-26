@@ -941,8 +941,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-vm"
-version = "1.0.0-rc0"
-source = "git+https://github.com/lambdaclass/cairo-vm#1f98feff566dd2da016e439f5e8db912c6e39872"
+version = "1.0.0-rc1"
+source = "git+https://github.com/lambdaclass/cairo-vm#72f0baddb007a8440d9f4a49c50dea0a67275a98"
 dependencies = [
  "anyhow",
  "ark-ff",
@@ -1961,12 +1961,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "lambdaworks-math"
-version = "0.4.0"
+name = "lambdaworks-crypto"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c6c4d0ddd1fcd235be5196b1bcc404f89ad3e911f4c190fa01459e05dbf40f8"
+checksum = "2d4c222d5b2fdc0faf702d3ab361d14589b097f40eac9dc550e27083483edc65"
 dependencies = [
- "thiserror",
+ "lambdaworks-math",
+ "serde",
+ "sha2",
+ "sha3",
+]
+
+[[package]]
+name = "lambdaworks-math"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ee7dcab3968c71896b8ee4dc829147acc918cffe897af6265b1894527fe3add"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3165,7 +3178,7 @@ dependencies = [
  "cairo-lang-casm",
  "cairo-lang-starknet",
  "cairo-type-derive",
- "cairo-vm 1.0.0-rc0",
+ "cairo-vm 1.0.0-rc1",
  "getset",
  "hex",
  "indexmap 1.9.3",
@@ -3301,11 +3314,12 @@ dependencies = [
 
 [[package]]
 name = "starknet-types-core"
-version = "0.0.6"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b6b868f545d43b474c2c00e9349c489fdeb7ff17eb00cdf339744ac4cae0930"
+checksum = "6d53160556d1f23425100f42b3230df747ea05763efee685a2cd939dfb640701"
 dependencies = [
  "bitvec",
+ "lambdaworks-crypto",
  "lambdaworks-math",
  "lazy_static",
  "num-bigint",

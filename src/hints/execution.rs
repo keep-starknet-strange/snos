@@ -4,13 +4,14 @@ use std::vec::IntoIter;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
-    insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, get_reference_from_var_name,
+    get_relocatable_from_var_name, insert_value_from_var_name, insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
-use cairo_vm::serde::deserialize_program::ApTracking;
+use cairo_vm::serde::deserialize_program::{ApTracking, OffsetValue};
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::MaybeRelocatable;
+use cairo_vm::types::instruction::Register;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
@@ -20,7 +21,7 @@ use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
-use crate::hints::vars::ids::{ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, SIGNATURE_LEN, SIGNATURE_START};
+use crate::hints::vars::ids::{ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, SELECTOR, SIGNATURE_LEN, SIGNATURE_START};
 use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
@@ -834,4 +835,148 @@ pub fn check_execution(
     execution_helper.exit_call();
 
     Ok(())
+}
+
+pub const LOG_ENTER_SYSCALL: &str = indoc! {r#"
+    execution_helper.os_logger.enter_syscall(
+        n_steps=current_step,
+        builtin_ptrs=ids.builtin_ptrs,
+        range_check_ptr=ids.range_check_ptr,
+        deprecated=False,
+        selector=ids.selector,
+    )
+
+    # Prepare a short callable to save code duplication.
+    exit_syscall = lambda selector: execution_helper.os_logger.exit_syscall(
+        n_steps=current_step,
+        builtin_ptrs=ids.builtin_ptrs,
+        range_check_ptr=ids.range_check_ptr,
+        selector=selector,
+    )"#
+};
+
+pub fn log_enter_syscall(
+    _vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let selector = get_integer_from_var_name(SELECTOR, _vm, ids_data, _ap_tracking)?;
+    println!("entering syscall: {} execution", selector);
+    // TODO: implement logging
+    Ok(())
+}
+
+pub const EXIT_GET_EXECUTION_INFO_SYSCALL: &str = "exit_syscall(selector=ids.GET_EXECUTION_INFO_SELECTOR)";
+pub fn exit_get_execution_info_syscall(
+    _vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    println!("exiting exit_get_execution_info_syscall");
+    // TODO: implement logging
+    Ok(())
+}
+
+pub const EXIT_CALL_CONTRACT_SYSCALL: &str = "exit_syscall(selector=ids.CALL_CONTRACT_SELECTOR)";
+pub fn exit_call_contract_syscall(
+    _vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    println!("exiting call_contract_syscall");
+    // TODO: implement logging
+    Ok(())
+}
+
+// Workaround for the lack of the `compute_integer_from_reference` in the cairo-vm
+fn compute_integer_from_reference(
+    // Reference data of the ids variable
+    hint_reference: &HintReference,
+    vm: &VirtualMachine,
+    // ApTracking of the Hint itself
+    hint_ap_tracking: &ApTracking,
+) -> Option<Felt252> {
+    fn apply_ap_tracking_correction(
+        ap: Relocatable,
+        ref_ap_tracking: &ApTracking,
+        hint_ap_tracking: &ApTracking,
+    ) -> Option<Relocatable> {
+        // check that both groups are the same
+        if ref_ap_tracking.group != hint_ap_tracking.group {
+            return None;
+        }
+        let ap_diff = hint_ap_tracking.offset - ref_ap_tracking.offset;
+        (ap - ap_diff).ok()
+    }
+    fn get_offset_value_reference(
+        vm: &VirtualMachine,
+        hint_reference: &HintReference,
+        hint_ap_tracking: &ApTracking,
+        offset_value: &OffsetValue,
+    ) -> Option<MaybeRelocatable> {
+        let (register, offset, deref) = match offset_value {
+            OffsetValue::Reference(register, offset, deref) => (register, offset, deref),
+            _ => return None,
+        };
+
+        let base_addr = if register == &Register::FP {
+            vm.get_fp()
+        } else {
+            let var_ap_trackig = hint_reference.ap_tracking_data.as_ref()?;
+
+            apply_ap_tracking_correction(vm.get_ap(), var_ap_trackig, hint_ap_tracking)?
+        };
+
+        if offset.is_negative() && base_addr.offset < offset.unsigned_abs() as usize {
+            return None;
+        }
+
+        if *deref { vm.get_maybe(&(base_addr + *offset).ok()?) } else { Some((base_addr + *offset).ok()?.into()) }
+    }
+    let offset1 = if let OffsetValue::Reference(_register, _offset, _deref) = &hint_reference.offset1 {
+        get_offset_value_reference(vm, hint_reference, hint_ap_tracking, &hint_reference.offset1)?.get_int().unwrap() //TODO: handle edgecases!
+    } else {
+        return None;
+    };
+
+    match &hint_reference.offset2 {
+        OffsetValue::Reference(_register, _offset, _deref) => {
+            // Cant add two relocatable values
+            // So OffSet2 must be Bigint
+            let value = get_offset_value_reference(vm, hint_reference, hint_ap_tracking, &hint_reference.offset2)?;
+
+            Some(offset1 + value.get_int_ref()?)
+        }
+        OffsetValue::Value(value) => {
+            if value.is_negative() {
+                Some(offset1 - Felt252::from((*value).unsigned_abs()))
+            } else {
+                Some(offset1 + Felt252::from(*value))
+            }
+        }
+        OffsetValue::Immediate(value) => Some(offset1 + *value),
+    }
+}
+
+pub const INITIAL_GE_REQUIRED_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_gas >= ids.required_gas)";
+pub fn initial_ge_required_gas(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // required_gas value: cast([fp + (-4)] + (-10000), felt)
+    let required_gas =
+        compute_integer_from_reference(get_reference_from_var_name("required_gas", ids_data)?, vm, ap_tracking)
+            .ok_or(HintError::CustomHint(Box::from("required_gas is None")))?;
+
+    let initial_gas = get_integer_from_var_name("initial_gas", vm, ids_data, ap_tracking)?;
+    insert_value_into_ap(vm, Felt252::from(initial_gas.as_ref() >= &required_gas))
 }

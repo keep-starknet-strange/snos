@@ -24,6 +24,7 @@ pub mod ids {
     pub const NODE: &str = "node";
     pub const OS_CONTEXT: &str = "os_context";
     pub const SECP_P: &str = "SECP_P";
+    pub const SELECTOR: &str = "selector";
     pub const SIGNATURE_LEN: &str = "signature_len";
     pub const SIGNATURE_START: &str = "signature_start";
     pub const STATE_ENTRY: &str = "state_entry";
