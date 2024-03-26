@@ -11,6 +11,8 @@ pub trait Leaf: Clone {}
 
 pub type BinaryFactDict = HashMap<BigUint, Vec<BigUint>>;
 
+/// An abstract base class for Merkle and Patricia-Merkle tree.
+/// An immutable binary tree backed by an immutable fact storage.
 #[allow(async_fn_in_trait)]
 pub trait BinaryFactTree<S, H, LF>: Sized
 where

@@ -33,7 +33,7 @@ impl<LF> Default for NodeFactDict<LF> {
 /// of other calculations. Those calculations can be of type other than T.
 /// The result of the calculation can be produced when the results of the dependency calculations
 /// are given.
-pub trait Calculation<T, LF> {
+pub(crate) trait Calculation<T, LF> {
     /// Returns a list of the calculations that this calculation depends on.
     fn get_dependency_calculations(&self) -> Vec<Box<dyn Calculation<Box<dyn Any>, LF>>>;
 
@@ -85,7 +85,7 @@ pub trait Calculation<T, LF> {
     }
 }
 
-pub struct DependencyWrapper<D, T, LF>
+pub(crate) struct DependencyWrapper<D, T, LF>
 where
     D: Calculation<T, LF>,
 {
@@ -116,7 +116,7 @@ where
     }
 }
 
-pub trait HashCalculation<LF>: Calculation<Vec<u8>, LF> {
+pub(crate) trait HashCalculation<LF>: Calculation<Vec<u8>, LF> {
     /// Method that allows cloning a Box<dyn HashCalculation> despite not being able to
     /// require Clone.
     /// Note that we could use https://github.com/dtolnay/dyn-clone for a more generic
@@ -245,7 +245,7 @@ where
 
 /// A calculation that produces a BinaryFactTreeNode. The calculation can be created from either
 /// a node or from a combination of two other calculations of the same type.
-pub trait CalculationNode<S, H, LF>: Sized + Clone
+pub(crate) trait CalculationNode<S, H, LF>: Sized + Clone
 where
     S: Storage + Sync + Send,
     H: HashFunctionType + Sync + Send,

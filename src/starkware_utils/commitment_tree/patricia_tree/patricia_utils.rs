@@ -23,7 +23,7 @@ use num_traits::ToPrimitive;
 
 use crate::storage::storage::HashFunctionType;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Node {
     bottom: Felt252,
     path: Felt252,
@@ -36,8 +36,7 @@ impl Node {
     }
 
     fn is_empty(&self) -> bool {
-        let empty_node = Self::empty();
-        self.bottom == empty_node.bottom && self.path == empty_node.path && self.length == empty_node.length
+        self == &Self::empty()
     }
 }
 
