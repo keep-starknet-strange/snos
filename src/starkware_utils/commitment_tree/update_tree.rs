@@ -43,7 +43,8 @@ where
 
     // Xoring by 1 switch between 2k <-> 2k + 1, which are siblings in the tree.
     // The parent of these siblings is k = floor(n/2) for n = 2k, 2k+1.
-    while updated_nodes.contains_key(&(cur_node_index.clone() ^ BigUint::from(1u64))) {
+    let one = BigUint::from(1u64);
+    while updated_nodes.contains_key(&(cur_node_index.clone() ^ &one)) {
         cur_node_index /= 2u64;
         // Unwrapping is safe, guaranteed by construction
         let (left_index, right_index) = (&cur_node_index * 2u64, &cur_node_index * 2u64 + 1u64);
