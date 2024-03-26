@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    get_integer_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name, insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -17,6 +17,8 @@ use crate::cairo_types::traits::CairoType;
 use crate::cairo_types::trie::NodeEdge;
 use crate::hints::vars;
 use crate::io::input::{CommitmentInfo, StarknetOsInput};
+use crate::starknet::starknet_storage::StorageLeaf;
+use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, TreeUpdate};
 
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
     if tree_height != merkle_height {
@@ -191,6 +193,41 @@ pub fn load_edge(
     vm.insert_value(hash_result_ptr, res)?;
 
     // TODO: __patricia_skip_validation_runner
+
+    Ok(())
+}
+
+pub const DECODE_NODE: &str = indoc! {r#"
+	from starkware.python.merkle_tree import decode_node
+	left_child, right_child, case = decode_node(node)
+	memory[ap] = int(case != 'both')"#
+};
+
+pub const DECODE_NODE_2: &str = indoc! {r#"
+	from starkware.python.merkle_tree import decode_node
+	left_child, right_child, case = decode_node(node)
+	memory[ap] = 1 if case != 'both' else 0"#
+};
+
+pub fn decode_node_hint(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let node: TreeUpdate<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
+    let DecodedNode { left_child, right_child, case } = decode_node(&node)?;
+    exec_scopes.insert_value(vars::scopes::LEFT_CHILD, left_child.clone());
+    exec_scopes.insert_value(vars::scopes::RIGHT_CHILD, right_child.clone());
+    exec_scopes.insert_value(vars::scopes::CASE, case.clone());
+
+    // memory[ap] = 1 if case != 'both' else 0"#
+    let ap = match case {
+        DecodeNodeCase::Both => Felt252::ZERO,
+        _ => Felt252::ONE,
+    };
+    insert_value_into_ap(vm, ap)?;
 
     Ok(())
 }
