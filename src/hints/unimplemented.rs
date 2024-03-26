@@ -32,13 +32,6 @@ const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_pt
 const SET_AP_TO_NONCE: &str = "memory[ap] = to_felt_or_relocatable(tx.nonce)";
 
 #[allow(unused)]
-const DECODE_NODE: &str = indoc! {r#"
-	from starkware.python.merkle_tree import decode_node
-	left_child, right_child, case = decode_node(node)
-	memory[ap] = int(case != 'both')"#
-};
-
-#[allow(unused)]
 const SET_TREE_STRUCTURE: &str = indoc! {r#"
 	from starkware.python.math_utils import div_ceil
 	onchain_data_start = ids.da_start
@@ -173,13 +166,6 @@ const ENTER_SCOPE_NEXT_NODE_2: &str = indoc! {r#"
 const WRITE_OLD_BLOCK_TO_STORAGE: &str = indoc! {r#"
 	storage = execution_helper.storage_by_address[ids.BLOCK_HASH_CONTRACT_ADDRESS]
 	storage.write(key=ids.old_block_number, value=ids.old_block_hash)"#
-};
-
-#[allow(unused)]
-const DECODE_NODE_2: &str = indoc! {r#"
-	from starkware.python.merkle_tree import decode_node
-	left_child, right_child, case = decode_node(node)
-	memory[ap] = 1 if case != 'both' else 0"#
 };
 
 #[allow(unused)]

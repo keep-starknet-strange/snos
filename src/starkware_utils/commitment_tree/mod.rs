@@ -7,4 +7,4 @@ mod inner_node_fact;
 pub mod leaf_fact;
 mod merkle_tree;
 pub mod patricia_tree;
-mod update_tree;
+pub mod update_tree;
