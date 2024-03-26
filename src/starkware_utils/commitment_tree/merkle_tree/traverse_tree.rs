@@ -4,7 +4,7 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::storage::storage::{HashFunctionType, Storage};
 
-pub trait TreeTraverser<'test, S, H, LF>
+pub trait TreeTraverser<'trav, S, H, LF>
 where
     S: Storage,
     H: HashFunctionType,

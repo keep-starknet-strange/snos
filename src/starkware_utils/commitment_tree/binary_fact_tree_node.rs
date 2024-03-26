@@ -97,12 +97,12 @@ where
     }
 }
 
-impl<'test, S, H, LF, N> TreeTraverser<'test, S, H, LF> for BinaryFactTreeTraverser<'test, S, H, LF, N>
+impl<'trav, S, H, LF, N> TreeTraverser<'trav, S, H, LF> for BinaryFactTreeTraverser<'trav, S, H, LF, N>
 where
     S: Storage + Sync + Send,
     H: HashFunctionType + Sync + Send,
     LF: LeafFact<S, H> + Sync + Send,
-    N: BinaryFactTreeNode<S, H, LF> + Sync + 'test,
+    N: BinaryFactTreeNode<S, H, LF> + Sync + 'trav,
 {
     type NodeType = BinaryFactTreeDiff<S, H, LF, N>;
 
