@@ -188,8 +188,7 @@ where
     LF: LeafFact<S, H>,
 {
     pub fact: LF,
-    _s: PhantomData<S>,
-    _h: PhantomData<H>,
+    _phantom: PhantomData<(S, H)>,
 }
 
 impl<S, H, LF> LeafFactCalculation<S, H, LF>
@@ -199,7 +198,7 @@ where
     LF: LeafFact<S, H>,
 {
     pub fn new(fact: LF) -> Self {
-        Self { fact, _s: Default::default(), _h: Default::default() }
+        Self { fact, _phantom: Default::default() }
     }
 }
 
@@ -240,7 +239,7 @@ where
     LF: LeafFact<S, H> + 'static,
 {
     fn clone_box(&self) -> Box<dyn HashCalculation<LF>> {
-        Box::new(Self { fact: self.fact.clone(), _s: Default::default(), _h: Default::default() })
+        Box::new(Self { fact: self.fact.clone(), _phantom: Default::default() })
     }
 }
 

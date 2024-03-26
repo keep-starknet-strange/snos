@@ -31,9 +31,7 @@ where
     /// In other words, this is the length of the path from this node to the leaves.
     pub height: Height,
 
-    _s: PhantomData<S>,
-    _h: PhantomData<H>,
-    _l: PhantomData<LF>,
+    _phantom: PhantomData<(S, H, LF)>,
 }
 
 impl<S, H, LF> VirtualPatriciaNode<S, H, LF>
@@ -43,30 +41,14 @@ where
     LF: LeafFact<S, H> + Send,
 {
     #[allow(unused)]
-    pub fn new(bottom_nodes: Vec<u8>, path: NodePath, length: Length, height: Height) -> Result<Self, TreeError> {
+    pub fn new(bottom_node: Vec<u8>, path: NodePath, length: Length, height: Height) -> Result<Self, TreeError> {
         verify_path_value(&path, length)?;
-        Ok(Self {
-            bottom_node: bottom_nodes,
-            path: path.clone(),
-            length,
-            height,
-            _s: Default::default(),
-            _h: Default::default(),
-            _l: Default::default(),
-        })
+        Ok(Self::new_unchecked(bottom_node, path, length, height))
     }
 
-    pub fn new_unchecked(bottom_nodes: Vec<u8>, path: NodePath, length: Length, height: Height) -> Self {
+    pub fn new_unchecked(bottom_node: Vec<u8>, path: NodePath, length: Length, height: Height) -> Self {
         debug_assert!(verify_path_value(&path, length).is_ok());
-        Self {
-            bottom_node: bottom_nodes,
-            path: path.clone(),
-            length,
-            height,
-            _s: Default::default(),
-            _h: Default::default(),
-            _l: Default::default(),
-        }
+        Self { bottom_node, path: path.clone(), length, height, _phantom: Default::default() }
     }
 
     fn empty_node(height: Height) -> Self {
@@ -75,9 +57,7 @@ where
             path: NodePath(0u64.into()),
             length: Length(0),
             height,
-            _s: Default::default(),
-            _h: Default::default(),
-            _l: Default::default(),
+            _phantom: Default::default(),
         }
     }
 
@@ -200,9 +180,7 @@ where
             path: self.path.clone(),
             length: self.length,
             height: self.height,
-            _s: Default::default(),
-            _h: Default::default(),
-            _l: Default::default(),
+            _phantom: Default::default(),
         }
     }
 }

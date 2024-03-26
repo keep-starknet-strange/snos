@@ -28,8 +28,7 @@ where
 {
     left: Box<HashCalculationImpl<S, H, LF>>,
     right: Box<HashCalculationImpl<S, H, LF>>,
-    _s: PhantomData<S>,
-    _h: PhantomData<H>,
+    _phantom: PhantomData<(S, H)>,
 }
 
 impl<S, H, LF> BinaryCalculation<S, H, LF>
@@ -39,7 +38,7 @@ where
     LF: LeafFact<S, H>,
 {
     pub fn new(left: Box<HashCalculationImpl<S, H, LF>>, right: Box<HashCalculationImpl<S, H, LF>>) -> Self {
-        Self { left, right, _s: Default::default(), _h: Default::default() }
+        Self { left, right, _phantom: Default::default() }
     }
 }
 
@@ -88,12 +87,7 @@ where
     LF: LeafFact<S, H> + 'static,
 {
     fn clone_box(&self) -> Box<dyn HashCalculation<LF>> {
-        Box::new(Self {
-            left: self.left.clone(),
-            right: self.right.clone(),
-            _s: Default::default(),
-            _h: Default::default(),
-        })
+        Box::new(Self { left: self.left.clone(), right: self.right.clone(), _phantom: Default::default() })
     }
 }
 
@@ -108,8 +102,7 @@ where
     bottom: Box<HashCalculationImpl<S, H, LF>>,
     path: NodePath,
     length: Length,
-    _s: PhantomData<S>,
-    _h: PhantomData<H>,
+    _phantom: PhantomData<(S, H)>,
 }
 
 impl<S, H, LF> EdgeCalculation<S, H, LF>
@@ -120,7 +113,7 @@ where
 {
     pub fn new(bottom: Box<HashCalculationImpl<S, H, LF>>, path: NodePath, length: Length) -> Self {
         debug_assert!(verify_path_value(&path, length).is_ok());
-        Self { bottom, path, length, _s: Default::default(), _h: Default::default() }
+        Self { bottom, path, length, _phantom: Default::default() }
     }
 }
 
@@ -133,13 +126,7 @@ where
     LF: LeafFact<S, H>,
 {
     fn clone(&self) -> Self {
-        Self {
-            bottom: self.bottom.clone(),
-            path: self.path.clone(),
-            length: self.length,
-            _s: Default::default(),
-            _h: Default::default(),
-        }
+        Self { bottom: self.bottom.clone(), path: self.path.clone(), length: self.length, _phantom: Default::default() }
     }
 }
 
@@ -174,8 +161,7 @@ where
             bottom: self.bottom.clone(),
             path: self.path.clone(),
             length: self.length,
-            _s: Default::default(),
-            _h: Default::default(),
+            _phantom: Default::default(),
         })
     }
 }
@@ -280,8 +266,7 @@ where
     /// The height of the subtree rooted at this node.
     /// In other words, this is the length of the path from this node to the leaves.
     height: Height,
-    _s: PhantomData<S>,
-    _h: PhantomData<H>,
+    _phantom: PhantomData<(S, H)>,
 }
 
 impl<S, H, LF> VirtualCalculationNode<S, H, LF>
@@ -297,7 +282,7 @@ where
         height: Height,
     ) -> Self {
         debug_assert!(verify_path_value(&path, length).is_ok());
-        Self { bottom_calculation, path, length, height, _s: Default::default(), _h: Default::default() }
+        Self { bottom_calculation, path, length, height, _phantom: Default::default() }
     }
 
     #[allow(unused)]
@@ -423,8 +408,7 @@ where
             path: self.path.clone(),
             length: self.length,
             height: self.height,
-            _s: Default::default(),
-            _h: Default::default(),
+            _phantom: Default::default(),
         }
     }
 }
