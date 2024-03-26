@@ -9,14 +9,6 @@ const CACHE_CONTRACT_STORAGE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const FETCH_STATE_ENTRY: &str = indoc! {r#"
-	# Fetch a state_entry in this hint. Validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
-	    ids.BLOCK_HASH_CONTRACT_ADDRESS]
-	ids.new_state_entry = segments.add()"#
-};
-
-#[allow(unused)]
 const SET_INITIAL_STATE_UPDATES_PTR: &str = indoc! {r#"
 	# This hint shouldn't be whitelisted.
 	vm_enter_scope(dict(
@@ -272,14 +264,6 @@ const HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO: &str =
     "memory[ap] = 1 if ids.height == 0 or len(preimage[ids.node]) == 2 else 0";
 
 #[allow(unused)]
-const FETCH_STATE_ENTRY_3: &str = indoc! {r#"
-	# Fetch a state_entry in this hint and validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
-	    ids.contract_address
-	]"#
-};
-
-#[allow(unused)]
 const ENTER_SCOPE_NEW_TREE: &str = indoc! {r#"
 	new_node = node
 	for i in range(ids.length - 1, -1, -1):
@@ -342,13 +326,6 @@ const CHECK_RETURN_VALUE_2: &str = indoc! {r#"
 	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
 
 	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
-};
-
-#[allow(unused)]
-const FETCH_STATE_ENTRY_4: &str = indoc! {r#"
-	# Fetch a state_entry in this hint and validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
-	ids.new_state_entry = segments.add()"#
 };
 
 #[allow(unused)]
@@ -430,16 +407,6 @@ const START_TX_2: &str = indoc! {r#"
 #[allow(unused)]
 const GET_SEQUENCER_ADDRESS: &str =
     "syscall_handler.get_sequencer_address(segments=segments, syscall_ptr=ids.syscall_ptr)";
-
-#[allow(unused)]
-const FETCH_STATE_ENTRY_5: &str = indoc! {r#"
-	# Fetch a state_entry in this hint and validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
-	    ids.contract_address
-	]
-
-	ids.new_state_entry = segments.add()"#
-};
 
 #[allow(unused)]
 const ENTER_SCOPE_RIGHT_CHILD: &str = "vm_enter_scope(dict(node=right_child, **common_args))";

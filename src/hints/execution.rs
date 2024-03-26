@@ -179,6 +179,14 @@ pub const GET_STATE_ENTRY: &str = indoc! {r##"
     # of this function.
     ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"##
 };
+
+pub const GET_STATE_ENTRY_2: &str = indoc! {r#"
+	# Fetch a state_entry in this hint and validate it in the update that comes next.
+	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
+	    ids.contract_address
+	]"#
+};
+
 pub fn get_state_entry(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -189,15 +197,54 @@ pub fn get_state_entry(
     let key = get_integer_from_var_name("contract_address", vm, ids_data, ap_tracking)?;
     let dict_ptr = get_ptr_from_var_name("contract_state_changes", vm, ids_data, ap_tracking)?;
     let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
-        Dictionary::SimpleDictionary(dict) => dict
-            .get(&MaybeRelocatable::Int(key.into_owned()))
-            .expect("State changes dictionnary shouldn't be None")
-            .clone(),
+        Dictionary::SimpleDictionary(dict) => dict.get(&MaybeRelocatable::Int(key.into_owned())).cloned(),
         Dictionary::DefaultDictionary { dict: _d, default_value: _v } => {
-            panic!("State changes dict shouldn't be a default dict")
+            return Err(HintError::CustomHint(
+                "State changes dictionary should not be a default dict".to_string().into_boxed_str(),
+            ));
         }
     };
+    let val =
+        val.ok_or(HintError::CustomHint("State changes dictionnary should not be None".to_string().into_boxed_str()))?;
+
     insert_value_from_var_name("state_entry", val, vm, ids_data, ap_tracking)?;
+    Ok(())
+}
+
+pub const GET_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY: &str = indoc! {r#"
+	# Fetch a state_entry in this hint. Validate it in the update that comes next.
+	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
+	    ids.BLOCK_HASH_CONTRACT_ADDRESS]
+	ids.new_state_entry = segments.add()"#
+};
+
+pub const GET_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY_2: &str = indoc! {r#"
+	# Fetch a state_entry in this hint and validate it in the update that comes next.
+	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
+	ids.new_state_entry = segments.add()"#
+};
+
+pub const GET_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY_3: &str = indoc! {r#"
+	# Fetch a state_entry in this hint and validate it in the update that comes next.
+	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
+	    ids.contract_address
+	]
+
+	ids.new_state_entry = segments.add()"#
+};
+
+pub fn get_state_entry_and_set_new_state_entry(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    get_state_entry(vm, exec_scopes, ids_data, ap_tracking, constants)?;
+
+    let new_segment = vm.add_memory_segment();
+    insert_value_from_var_name(vars::ids::NEW_STATE_ENTRY, new_segment, vm, ids_data, ap_tracking)?;
+
     Ok(())
 }
 

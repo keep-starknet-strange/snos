@@ -21,6 +21,7 @@ pub mod ids {
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const MERKLE_HEIGHT: &str = "MERKLE_HEIGHT";
     pub const N: &str = "n";
+    pub const NEW_STATE_ENTRY: &str = "new_state_entry";
     pub const NODE: &str = "node";
     pub const OS_CONTEXT: &str = "os_context";
     pub const REQUEST: &str = "request";
