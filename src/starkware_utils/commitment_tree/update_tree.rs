@@ -15,13 +15,15 @@ use crate::starkware_utils::commitment_tree::patricia_tree::nodes::PatriciaNodeF
 use crate::storage::storage::{DbObject, FactFetchingContext, HashFunctionType, Storage, StorageError};
 
 #[derive(Clone, Debug)]
-enum UpdateTree<LF>
+enum TreeUpdate<LF>
 where
     LF: Clone,
 {
-    Tuple(Box<Option<UpdateTree<LF>>>, Box<Option<UpdateTree<LF>>>),
-    Leaf(Option<LF>),
+    Tuple(Box<UpdateTree<LF>>, Box<UpdateTree<LF>>),
+    Leaf(LF),
 }
+
+type UpdateTree<LF> = Option<TreeUpdate<LF>>;
 
 /// Checks if there are merkle nodes that are not updated, but all of its children are.
 /// Starts at node_index, and goes up to the root.
@@ -149,19 +151,13 @@ where
         let subtree_update = &node.update;
 
         let children = match subtree_update {
-            UpdateTree::Leaf(leaf_update) => match leaf_update {
-                None => {
-                    update_if_possible(
-                        node_index,
-                        binary_fact_tree_node,
-                        &mut self.updated_nodes,
-                        self.ffc,
-                        self.facts,
-                    )
+            None => {
+                update_if_possible(node_index, binary_fact_tree_node, &mut self.updated_nodes, self.ffc, self.facts)
                     .await?;
-                    vec![]
-                }
-                Some(leaf_fact) => {
+                vec![]
+            }
+            Some(tree_update) => match tree_update {
+                TreeUpdate::Leaf(leaf_fact) => {
                     debug_assert!(binary_fact_tree_node.is_leaf());
                     set_fact::<S, H, LF, CN>(
                         leaf_fact.clone(),
@@ -173,23 +169,15 @@ where
                     .await?;
                     vec![]
                 }
-            },
-            UpdateTree::Tuple(left_update, right_update) => {
-                let (left, right) = binary_fact_tree_node.get_children(self.ffc, self.facts).await?;
+                TreeUpdate::Tuple(left_update, right_update) => {
+                    let (left, right) = binary_fact_tree_node.get_children(self.ffc, self.facts).await?;
 
-                vec![
-                    NodeType {
-                        index: 2u64 * &node_index,
-                        tree: left,
-                        update: (*left_update.clone()).unwrap_or(UpdateTree::Leaf(None)),
-                    },
-                    NodeType {
-                        index: 2u64 * &node_index + 1u64,
-                        tree: right,
-                        update: (*right_update.clone()).unwrap_or(UpdateTree::Leaf(None)),
-                    },
-                ]
-            }
+                    vec![
+                        NodeType { index: 2u64 * &node_index, tree: left, update: *left_update.clone() },
+                        NodeType { index: 2u64 * &node_index + 1u64, tree: right, update: *right_update.clone() },
+                    ]
+                }
+            },
         };
 
         Ok(children)
@@ -279,7 +267,7 @@ where
     Ok(root_node)
 }
 
-type Layer<LF> = HashMap<TreeIndex, UpdateTree<LF>>;
+type Layer<LF> = HashMap<TreeIndex, TreeUpdate<LF>>;
 
 /// Constructs a tree from leaf updates. This is not a full binary tree. It is just the subtree
 /// induced by the modification leaves.
@@ -293,13 +281,13 @@ where
 {
     // Bottom layer. This will prefer the last modification to an index.
     if modifications.is_empty() {
-        return UpdateTree::Leaf(None);
+        return None;
     }
 
     // A layer is a dictionary from index in current merkle layer [0, 2**layer_height) to a tree.
     // A tree is either None, a leaf, or a pair of trees.
     let mut layer: Layer<LF> =
-        modifications.into_iter().map(|(index, leaf_fact)| (index, UpdateTree::Leaf(Some(leaf_fact)))).collect();
+        modifications.into_iter().map(|(index, leaf_fact)| (index, TreeUpdate::Leaf(leaf_fact))).collect();
 
     for _ in 0..height.0 {
         let parents: HashSet<TreeIndex> = layer.keys().map(|key| key / 2u64).collect();
@@ -309,7 +297,7 @@ where
             let left_update = layer.get(&(&index * 2u64)).cloned();
             let right_update = layer.get(&(&index * 2u64 + 1u64)).cloned();
 
-            new_layer.insert(index, UpdateTree::Tuple(Box::new(left_update), Box::new(right_update)));
+            new_layer.insert(index, TreeUpdate::Tuple(Box::new(left_update), Box::new(right_update)));
         }
 
         layer = new_layer;
@@ -319,7 +307,7 @@ where
     debug_assert!(layer.len() == 1);
 
     // unwrap() is safe here, 0 should always be in `layer` by construction
-    layer.remove(&0u64.into()).unwrap()
+    Some(layer.remove(&0u64.into()).unwrap())
 }
 
 async fn write_fact_nodes<S, H, LF>(
@@ -356,27 +344,19 @@ mod tests {
     #[test]
     fn test_build_update_tree_empty() {
         let update_tree = build_update_tree::<LeafFactType>(Height(3), vec![]);
-        assert_matches!(update_tree, UpdateTree::Leaf(None));
+        assert_matches!(update_tree, None);
     }
 
     fn print_update_tree(index: u64, update_tree: &UpdateTree<LeafFactType>) {
         match update_tree {
-            UpdateTree::Tuple(left, right) => {
-                if let Some(left) = left.as_ref() {
-                    print_update_tree(index * 2, left);
-                }
-                if let Some(right) = right.as_ref() {
-                    print_update_tree(index * 2 + 1, right);
-                }
+            None => {
+                return;
             }
-            UpdateTree::Leaf(leaf_fact) => match leaf_fact {
-                Some(leaf_fact) => {
-                    println!("{index}: {}", leaf_fact.value.to_biguint())
-                }
-                None => {
-                    return;
-                }
-            },
+            Some(TreeUpdate::Tuple(left, right)) => {
+                print_update_tree(index * 2, left);
+                print_update_tree(index * 2 + 1, right);
+            }
+            Some(TreeUpdate::Leaf(leaf_fact)) => println!("{index}: {}", leaf_fact.value.to_biguint()),
         }
     }
 
