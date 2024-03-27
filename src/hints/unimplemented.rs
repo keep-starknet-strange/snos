@@ -9,9 +9,6 @@ const CACHE_CONTRACT_STORAGE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_ptr, dest_ptr=ids.dest_ptr)";
-
-#[allow(unused)]
 const SET_AP_TO_NONCE: &str = "memory[ap] = to_felt_or_relocatable(tx.nonce)";
 
 #[allow(unused)]

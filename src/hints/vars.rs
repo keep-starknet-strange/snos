@@ -23,6 +23,7 @@ pub mod ids {
     pub const CONTRACT_ADDRESS: &str = "contract_address";
     pub const CONTRACT_STATE_CHANGES: &str = "contract_state_changes";
     pub const DEPRECATED_TX_INFO: &str = "deprecated_tx_info";
+    pub const DEST_PTR: &str = "dest_ptr";
     pub const EDGE: &str = "edge";
     pub const FINAL_ROOT: &str = "final_root";
     pub const HASH_PTR: &str = "hash_ptr";
@@ -37,6 +38,7 @@ pub mod ids {
     pub const SECP_P: &str = "SECP_P";
     pub const SIGNATURE_LEN: &str = "signature_len";
     pub const SIGNATURE_START: &str = "signature_start";
+    pub const SRC_PTR: &str = "src_ptr";
     pub const STATE_ENTRY: &str = "state_entry";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
     pub const VALUE: &str = "value";
