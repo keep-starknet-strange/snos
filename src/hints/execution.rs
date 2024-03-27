@@ -21,7 +21,9 @@ use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
-use crate::hints::vars::ids::{ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, SELECTOR, SIGNATURE_LEN, SIGNATURE_START};
+use crate::hints::vars::ids::{
+    ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, REQUIRED_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
+};
 use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
@@ -981,12 +983,17 @@ pub fn initial_ge_required_gas(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // required_gas value: cast([fp + (-4)] + (-10000), felt)
-    let required_gas_reference = get_reference_from_var_name("required_gas", ids_data)?;
+    // line below fails with: UnknownIdentifier("required_gas"):
+    // let initial_gas = get_integer_from_var_name(REQUIRED_GAS, vm, ids_data, ap_tracking)?;
+    // the reason for this is: hint reference for `required_gas` is cast([fp + (-4)] + (-10000), felt)
+    // in our case [fp-4] contains a felt  to `get_integer_from_var_name` assumes that [fp-4] contains a
+    // pointer not a felt below is a temporary workaround, until the problem is solved in the vm
+
+    let required_gas_reference = get_reference_from_var_name(REQUIRED_GAS, ids_data)?;
     println!("required_gas_reference: {:?}", required_gas_reference);
     let required_gas = compute_integer_from_reference(required_gas_reference, vm, ap_tracking)
         .ok_or(HintError::CustomHint(Box::from("required_gas is None")))?;
 
-    let initial_gas = get_integer_from_var_name("initial_gas", vm, ids_data, ap_tracking)?;
+    let initial_gas = get_integer_from_var_name(INITIAL_GAS, vm, ids_data, ap_tracking)?;
     insert_value_into_ap(vm, Felt252::from(initial_gas.as_ref() >= &required_gas))
 }
