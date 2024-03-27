@@ -32,6 +32,7 @@ pub mod state;
 pub mod syscalls;
 #[cfg(test)]
 mod tests;
+mod types;
 mod unimplemented;
 mod vars;
 
@@ -43,7 +44,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 87] = [
+static HINTS: [(&str, HintImpl); 90] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -82,6 +83,7 @@ static HINTS: [(&str, HintImpl); 87] = [
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
     (execution::ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER, execution::enter_scope_deprecated_syscall_handler),
+    (execution::ENTER_SCOPE_NEW_NODE, execution::enter_scope_new_node),
     (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::EXIT_CALL, execution::exit_call),
@@ -112,6 +114,8 @@ static HINTS: [(&str, HintImpl); 87] = [
     (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
     (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
     (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
+    (state::DECODE_NODE, state::decode_node_hint),
+    (state::DECODE_NODE_2, state::decode_node_hint),
     (syscalls::CALL_CONTRACT, syscalls::call_contract),
     (syscalls::DELEGATE_CALL, syscalls::delegate_call),
     (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),

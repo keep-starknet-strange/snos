@@ -27,13 +27,6 @@ const SET_INITIAL_STATE_UPDATES_PTR: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const ENTER_SCOPE_NEW_NODE: &str = indoc! {r#"
-	ids.child_bit = 0 if case == 'left' else 1
-	new_node = left_child if case == 'left' else right_child
-	vm_enter_scope(dict(node=new_node, **common_args))"#
-};
-
-#[allow(unused)]
 const SET_AP_TO_CALLDATA_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(tx.calldata))";
 
 #[allow(unused)]
@@ -41,13 +34,6 @@ const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_pt
 
 #[allow(unused)]
 const SET_AP_TO_NONCE: &str = "memory[ap] = to_felt_or_relocatable(tx.nonce)";
-
-#[allow(unused)]
-const DECODE_NODE: &str = indoc! {r#"
-	from starkware.python.merkle_tree import decode_node
-	left_child, right_child, case = decode_node(node)
-	memory[ap] = int(case != 'both')"#
-};
 
 #[allow(unused)]
 const GEN_CALLDATA_ARG: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg(tx.calldata))";
@@ -217,13 +203,6 @@ const ENTER_SCOPE_NEXT_NODE_2: &str = indoc! {r#"
 const WRITE_OLD_BLOCK_TO_STORAGE: &str = indoc! {r#"
 	storage = execution_helper.storage_by_address[ids.BLOCK_HASH_CONTRACT_ADDRESS]
 	storage.write(key=ids.old_block_number, value=ids.old_block_hash)"#
-};
-
-#[allow(unused)]
-const DECODE_NODE_2: &str = indoc! {r#"
-	from starkware.python.merkle_tree import decode_node
-	left_child, right_child, case = decode_node(node)
-	memory[ap] = 1 if case != 'both' else 0"#
 };
 
 #[allow(unused)]
