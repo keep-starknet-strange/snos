@@ -14,7 +14,7 @@ use crate::starkware_utils::commitment_tree::merkle_tree::traverse_tree::{traver
 use crate::starkware_utils::commitment_tree::patricia_tree::nodes::PatriciaNodeFact;
 use crate::storage::storage::{DbObject, FactFetchingContext, HashFunctionType, Storage, StorageError};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TreeUpdate<LF>
 where
     LF: Clone,

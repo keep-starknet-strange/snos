@@ -27,13 +27,6 @@ const SET_INITIAL_STATE_UPDATES_PTR: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const ENTER_SCOPE_NEW_NODE: &str = indoc! {r#"
-	ids.child_bit = 0 if case == 'left' else 1
-	new_node = left_child if case == 'left' else right_child
-	vm_enter_scope(dict(node=new_node, **common_args))"#
-};
-
-#[allow(unused)]
 const SET_AP_TO_CALLDATA_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(tx.calldata))";
 
 #[allow(unused)]
