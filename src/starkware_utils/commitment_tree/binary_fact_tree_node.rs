@@ -134,6 +134,7 @@ where
     }
 }
 
+#[allow(async_fn_in_trait)]
 pub trait BinaryFactTreeNode<S, H, LF>: Sized + PartialEq + Sync + Send
 where
     S: Storage + Sync + Send,
