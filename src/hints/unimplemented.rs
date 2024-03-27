@@ -36,9 +36,6 @@ const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_pt
 const SET_AP_TO_NONCE: &str = "memory[ap] = to_felt_or_relocatable(tx.nonce)";
 
 #[allow(unused)]
-const GEN_CALLDATA_ARG: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg(tx.calldata))";
-
-#[allow(unused)]
 const SET_AP_TO_ENTRY_POINT_SELECTOR: &str = "memory[ap] = to_felt_or_relocatable(tx.entry_point_selector)";
 
 #[allow(unused)]
