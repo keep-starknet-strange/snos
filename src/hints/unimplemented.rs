@@ -29,9 +29,6 @@ const ENTER_SCOPE_NEW_NODE: &str = indoc! {r#"
 const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_ptr, dest_ptr=ids.dest_ptr)";
 
 #[allow(unused)]
-const SET_AP_TO_NONCE: &str = "memory[ap] = to_felt_or_relocatable(tx.nonce)";
-
-#[allow(unused)]
 const DECODE_NODE: &str = indoc! {r#"
 	from starkware.python.merkle_tree import decode_node
 	left_child, right_child, case = decode_node(node)
