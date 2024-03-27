@@ -5,6 +5,7 @@ pub mod scopes {
     pub const OS_INPUT: &str = "os_input";
     pub const PREIMAGE: &str = "preimage";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";
+    pub const TX: &str = "tx";
     pub const VALUE: &str = "value";
 }
 
