@@ -895,6 +895,7 @@ pub fn exit_call_contract_syscall(
 }
 
 // Workaround for the lack of the `compute_integer_from_reference` in the cairo-vm
+// based on `compute_addr_from_reference` from the cairo-vm
 fn compute_integer_from_reference(
     // Reference data of the ids variable
     hint_reference: &HintReference,
@@ -902,6 +903,7 @@ fn compute_integer_from_reference(
     // ApTracking of the Hint itself
     hint_ap_tracking: &ApTracking,
 ) -> Option<Felt252> {
+    // function copied verbatim from the nonpublic `apply_ap_tracking_correction` in the cairo-vm
     fn apply_ap_tracking_correction(
         ap: Relocatable,
         ref_ap_tracking: &ApTracking,
@@ -914,6 +916,7 @@ fn compute_integer_from_reference(
         let ap_diff = hint_ap_tracking.offset - ref_ap_tracking.offset;
         (ap - ap_diff).ok()
     }
+    // function copied verbatim from the nonpublic `get_offset_value_reference` in the cairo-vm
     fn get_offset_value_reference(
         vm: &VirtualMachine,
         hint_reference: &HintReference,
@@ -939,8 +942,14 @@ fn compute_integer_from_reference(
 
         if *deref { vm.get_maybe(&(base_addr + *offset).ok()?) } else { Some((base_addr + *offset).ok()?.into()) }
     }
+
     let offset1 = if let OffsetValue::Reference(_register, _offset, _deref) = &hint_reference.offset1 {
-        get_offset_value_reference(vm, hint_reference, hint_ap_tracking, &hint_reference.offset1)?.get_int().unwrap() //TODO: handle edgecases!
+        let offset1_maybe = get_offset_value_reference(vm, hint_reference, hint_ap_tracking, &hint_reference.offset1);
+        if let Some(MaybeRelocatable::Int(offset1)) = offset1_maybe {
+            offset1
+        } else {
+            return None;
+        }
     } else {
         return None;
     };
@@ -949,8 +958,8 @@ fn compute_integer_from_reference(
         OffsetValue::Reference(_register, _offset, _deref) => {
             // Cant add two relocatable values
             // So OffSet2 must be Bigint
+            // TODO: not sure what should be the expected behaviour here
             let value = get_offset_value_reference(vm, hint_reference, hint_ap_tracking, &hint_reference.offset2)?;
-
             Some(offset1 + value.get_int_ref()?)
         }
         OffsetValue::Value(value) => {
@@ -973,9 +982,10 @@ pub fn initial_ge_required_gas(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // required_gas value: cast([fp + (-4)] + (-10000), felt)
-    let required_gas =
-        compute_integer_from_reference(get_reference_from_var_name("required_gas", ids_data)?, vm, ap_tracking)
-            .ok_or(HintError::CustomHint(Box::from("required_gas is None")))?;
+    let required_gas_reference = get_reference_from_var_name("required_gas", ids_data)?;
+    println!("required_gas_reference: {:?}", required_gas_reference);
+    let required_gas = compute_integer_from_reference(required_gas_reference, vm, ap_tracking)
+        .ok_or(HintError::CustomHint(Box::from("required_gas is None")))?;
 
     let initial_gas = get_integer_from_var_name("initial_gas", vm, ids_data, ap_tracking)?;
     insert_value_into_ap(vm, Felt252::from(initial_gas.as_ref() >= &required_gas))
