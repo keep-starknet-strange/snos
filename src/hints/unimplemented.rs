@@ -34,9 +34,6 @@ const ENTER_SCOPE_NEW_NODE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_AP_TO_CALLDATA_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(tx.calldata))";
-
-#[allow(unused)]
 const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_ptr, dest_ptr=ids.dest_ptr)";
 
 #[allow(unused)]
