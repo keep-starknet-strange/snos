@@ -949,6 +949,21 @@ pub fn add_relocation_rule(
 
     Ok(())
 }
+pub const SET_AP_TO_TX_NONCE: &str = "memory[ap] = to_felt_or_relocatable(tx.nonce)";
+
+pub fn set_ap_to_tx_nonce(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx: &InternalTransaction = exec_scopes.get_ref(vars::scopes::TX)?;
+    let nonce = tx.nonce.ok_or(HintError::AssertionFailed("tx.nonce should be set".into_string().into_boxed_str()))?;
+    insert_value_into_ap(vm, Felt252::from(nonce))?;
+
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {

@@ -12,6 +12,7 @@ pub mod scopes {
     pub const PREIMAGE: &str = "preimage";
     pub const RIGHT_CHILD: &str = "right_child";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";
+    pub const TX: &str = "tx";
     pub const VALUE: &str = "value";
 }
 
