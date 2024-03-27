@@ -205,6 +205,33 @@ impl SerializeAs<ChainId> for ChainIdNum {
     }
 }
 
+pub fn u64_from_byte_slice_le(bytes: &[u8]) -> u64 {
+    let mut x: u64 = 0;
+    for (i, byte) in bytes.iter().enumerate() {
+        x += (*byte as u64) << (i * 8);
+    }
+    x
+}
+
+pub fn u64_from_byte_slice_be(bytes: &[u8]) -> u64 {
+    let mut x: u64 = 0;
+    for (i, byte) in bytes.iter().enumerate() {
+        if *byte != 0 {
+            let offset = 8 * (bytes.len() - i - 1);
+            x += (*byte as u64) << offset;
+        }
+    }
+    x
+}
+
+pub fn i64_from_byte_slice_le(bytes: &[u8]) -> i64 {
+    u64_from_byte_slice_le(bytes) as i64
+}
+
+pub fn i64_from_byte_slice_be(bytes: &[u8]) -> i64 {
+    u64_from_byte_slice_be(bytes) as i64
+}
+
 #[cfg(test)]
 mod tests {
     use bitvec::prelude::*;

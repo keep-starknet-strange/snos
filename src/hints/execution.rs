@@ -20,6 +20,7 @@ use crate::cairo_types::structs::ExecutionContext;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
+use crate::hints::vars;
 use crate::hints::vars::ids::{SIGNATURE_LEN, SIGNATURE_START};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
@@ -754,4 +755,133 @@ pub fn is_reverted(
     // let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
     // insert_value_into_ap(vm, Felt252::from(execution_helper. tx_execution_info.is_reverted))
     insert_value_into_ap(vm, Felt252::ZERO)
+}
+
+pub const CACHE_CONTRACT_STORAGE: &str = indoc! {r#"
+	# Make sure the value is cached (by reading it), to be used later on for the
+	# commitment computation.
+	value = execution_helper.storage_by_address[ids.contract_address].read(key=ids.request.key)
+	assert ids.value == value, "Inconsistent storage value.""#
+};
+
+pub fn cache_contract_storage(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
+
+    let contract_address =
+        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+    let request_ptr = get_relocatable_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
+    let key = vm.get_integer(&request_ptr + 1)?.into_owned();
+
+    let value = execution_helper
+        .read_storage_by_address(contract_address, key)
+        .ok_or(HintError::CustomHint(format!("No storage found for contract {}", contract_address).into_boxed_str()))?;
+
+    let ids_value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?.into_owned();
+    if ids_value != value {
+        return Err(HintError::AssertionFailed(
+            format!("Inconsistent storage value (expected {}, got {})", ids_value, value).into_boxed_str(),
+        ));
+    }
+
+    exec_scopes.insert_value(vars::scopes::VALUE, value);
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use blockifier::block_context::BlockContext;
+    use cairo_vm::types::relocatable::Relocatable;
+    use num_bigint::BigUint;
+    use rstest::{fixture, rstest};
+    use starknet_api::block::BlockNumber;
+
+    use super::*;
+    use crate::crypto::pedersen::PedersenHash;
+    use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
+    use crate::starkware_utils::commitment_tree::base_types::Height;
+    use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
+    use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+    use crate::storage::dict_storage::DictStorage;
+    use crate::storage::storage::FactFetchingContext;
+
+    #[fixture]
+    pub fn block_context() -> BlockContext {
+        BlockContext { block_number: BlockNumber(0), ..BlockContext::create_for_account_testing() }
+    }
+
+    #[fixture]
+    fn execution_helper(block_context: BlockContext) -> ExecutionHelperWrapper {
+        ExecutionHelperWrapper::new(vec![], &block_context)
+    }
+
+    #[fixture]
+    fn contract_address() -> Felt252 {
+        Felt252::from(300)
+    }
+
+    #[fixture]
+    fn execution_helper_with_storage(
+        execution_helper: ExecutionHelperWrapper,
+        contract_address: Felt252,
+    ) -> ExecutionHelperWrapper {
+        let storage = DictStorage::default();
+        let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
+
+        // Run async functions in a dedicated runtime to keep the test functions sync.
+        // Otherwise, we run into "cannot spawn a runtime from another runtime" issues.
+        let patricia_tree = execute_coroutine_threadsafe(async {
+            let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+            let modifications = vec![(BigUint::from(42u32), StorageLeaf::new(Felt252::from(8000)))];
+            let mut facts = None;
+            tree.update(&mut ffc, modifications, &mut facts).await.unwrap()
+        });
+        let os_single_starknet_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc);
+
+        {
+            let storage_by_address = &mut execution_helper.execution_helper.as_ref().borrow_mut().storage_by_address;
+            storage_by_address.insert(contract_address, os_single_starknet_storage);
+        }
+
+        execution_helper
+    }
+
+    #[rstest]
+    fn test_cache_contract_storage(execution_helper_with_storage: ExecutionHelperWrapper, contract_address: Felt252) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(4);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        let ids_data = HashMap::from([
+            (vars::ids::REQUEST.to_string(), HintReference::new_simple(-4)),
+            (vars::ids::CONTRACT_ADDRESS.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::VALUE.to_string(), HintReference::new_simple(-1)),
+        ]);
+
+        let key = Felt252::from(42);
+        // request.key is at offset 1 in the structure
+        vm.insert_value(Relocatable::from((1, 1)), key).unwrap();
+
+        insert_value_from_var_name(vars::ids::CONTRACT_ADDRESS, contract_address, &mut vm, &ids_data, &ap_tracking)
+            .unwrap();
+        insert_value_from_var_name(vars::ids::VALUE, Felt252::from(8000), &mut vm, &ids_data, &ap_tracking).unwrap();
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+        exec_scopes.insert_value(vars::scopes::EXECUTION_HELPER, execution_helper_with_storage);
+
+        // Just make sure that the hint goes through, all meaningful assertions are
+        // in the implementation of the hint
+        cache_contract_storage(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
+            .expect("Hint should not fail");
+    }
 }
