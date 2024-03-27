@@ -14,7 +14,6 @@ pub mod ids {
     pub const COMPILED_CLASS_FACT: &str = "compiled_class_fact";
     pub const CONTRACT_ADDRESS: &str = "contract_address";
     pub const CONTRACT_STATE_CHANGES: &str = "contract_state_changes";
-    pub const CONTRACT_ADDRESS: &str = "contract_address";
     pub const DEPRECATED_TX_INFO: &str = "deprecated_tx_info";
     pub const EDGE: &str = "edge";
     pub const FINAL_ROOT: &str = "final_root";
