@@ -9,10 +9,11 @@ pub mod scopes {
 }
 
 pub mod ids {
+    pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "BLOCK_HASH_CONTRACT_ADDRESS";
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACT: &str = "compiled_class_fact";
-    pub const CONTRACT_STATE_CHANGES: &str = "contract_state_changes";
     pub const CONTRACT_ADDRESS: &str = "contract_address";
+    pub const CONTRACT_STATE_CHANGES: &str = "contract_state_changes";
     pub const DEPRECATED_TX_INFO: &str = "deprecated_tx_info";
     pub const EDGE: &str = "edge";
     pub const FINAL_ROOT: &str = "final_root";
@@ -21,6 +22,7 @@ pub mod ids {
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const MERKLE_HEIGHT: &str = "MERKLE_HEIGHT";
     pub const N: &str = "n";
+    pub const NEW_STATE_ENTRY: &str = "new_state_entry";
     pub const NODE: &str = "node";
     pub const OS_CONTEXT: &str = "os_context";
     pub const REQUEST: &str = "request";
