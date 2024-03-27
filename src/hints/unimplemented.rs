@@ -50,9 +50,6 @@ const DECODE_NODE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_AP_TO_ENTRY_POINT_SELECTOR: &str = "memory[ap] = to_felt_or_relocatable(tx.entry_point_selector)";
-
-#[allow(unused)]
 const SET_TREE_STRUCTURE: &str = indoc! {r#"
 	from starkware.python.math_utils import div_ceil
 	onchain_data_start = ids.da_start
