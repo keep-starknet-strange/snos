@@ -9,13 +9,6 @@ const CACHE_CONTRACT_STORAGE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const ENTER_SCOPE_NEW_NODE: &str = indoc! {r#"
-	ids.child_bit = 0 if case == 'left' else 1
-	new_node = left_child if case == 'left' else right_child
-	vm_enter_scope(dict(node=new_node, **common_args))"#
-};
-
-#[allow(unused)]
 const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_ptr, dest_ptr=ids.dest_ptr)";
 
 #[allow(unused)]

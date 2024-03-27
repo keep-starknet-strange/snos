@@ -3,10 +3,12 @@ pub mod scopes {
     pub const COMMITMENT_INFO: &str = "commitment_info";
     pub const COMMITMENT_INFO_BY_ADDRESS: &str = "commitment_info_by_address";
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
+    pub const DESCENT_MAP: &str = "descent_map";
     pub const EXECUTION_HELPER: &str = "execution_helper";
     pub const NODE: &str = "node";
     pub const LEFT_CHILD: &str = "left_child";
     pub const OS_INPUT: &str = "os_input";
+    pub const PATRICIA_SKIP_VALIDATION_RUNNER: &str = "__patricia_skip_validation_runner";
     pub const PREIMAGE: &str = "preimage";
     pub const RIGHT_CHILD: &str = "right_child";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";
@@ -15,6 +17,7 @@ pub mod scopes {
 
 pub mod ids {
     pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "BLOCK_HASH_CONTRACT_ADDRESS";
+    pub const CHILD_BIT: &str = "CHILD_BIT";
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACT: &str = "compiled_class_fact";
     pub const CONTRACT_ADDRESS: &str = "contract_address";

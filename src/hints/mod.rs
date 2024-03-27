@@ -32,6 +32,7 @@ pub mod state;
 pub mod syscalls;
 #[cfg(test)]
 mod tests;
+mod types;
 mod unimplemented;
 mod vars;
 
@@ -82,6 +83,7 @@ static HINTS: [(&str, HintImpl); 94] = [
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
     (execution::ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER, execution::enter_scope_deprecated_syscall_handler),
+    (execution::ENTER_SCOPE_NEW_NODE, execution::enter_scope_new_node),
     (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::EXIT_CALL, execution::exit_call),
