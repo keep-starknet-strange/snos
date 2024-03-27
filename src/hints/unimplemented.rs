@@ -50,9 +50,6 @@ const DECODE_NODE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const GEN_CALLDATA_ARG: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg(tx.calldata))";
-
-#[allow(unused)]
 const SET_AP_TO_ENTRY_POINT_SELECTOR: &str = "memory[ap] = to_felt_or_relocatable(tx.entry_point_selector)";
 
 #[allow(unused)]
