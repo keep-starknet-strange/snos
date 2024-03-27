@@ -19,7 +19,7 @@ use storage::TrieStorage;
 use trie::{MerkleTrie, PedersenHash};
 
 use crate::config::DEFAULT_STORAGE_TREE_HEIGHT;
-use crate::io::input::CommitmentInfo;
+use crate::starknet::starknet_storage::CommitmentInfo;
 use crate::utils::{calculate_contract_state_hash, deprecated_class_vm2api, felt_to_bits_api};
 
 pub struct SharedState<S: StateReader> {

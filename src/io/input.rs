@@ -11,10 +11,10 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContract
 use super::InternalTransaction;
 use crate::config::StarknetGeneralConfig;
 use crate::error::SnOsError;
-use crate::state::trie::{MerkleTrie, StarkHasher};
-use crate::utils::{Felt252HexNoPrefix, Felt252Num, Felt252Str};
+use crate::starknet::starknet_storage::CommitmentInfo;
+use crate::utils::{Felt252HexNoPrefix, Felt252Str};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct StarknetOsInput {
     pub contract_state_commitment_info: CommitmentInfo,
     pub contract_class_commitment_info: CommitmentInfo,
@@ -42,27 +42,9 @@ impl StarknetOsInput {
         Ok(())
     }
 }
+
 #[serde_as]
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct CommitmentInfo {
-    #[serde_as(as = "Felt252Num")]
-    pub previous_root: Felt252,
-    #[serde_as(as = "Felt252Num")]
-    pub updated_root: Felt252,
-    pub tree_height: usize,
-    #[serde_as(as = "HashMap<Felt252Str, Vec<Felt252Str>>")]
-    pub commitment_facts: HashMap<Felt252, Vec<Felt252>>,
-}
-impl CommitmentInfo {
-    pub fn create_from_modifications<H>(_previous_tree: MerkleTrie<H, 64>) -> Self
-    where
-        H: StarkHasher,
-    {
-        CommitmentInfo::default()
-    }
-}
-#[serde_as]
-#[derive(Deserialize, Clone, Default, Debug, Serialize)]
+#[derive(Deserialize, Clone, Default, Debug, Serialize, PartialEq)]
 pub struct ContractState {
     #[serde_as(as = "Felt252HexNoPrefix")]
     pub contract_hash: Felt252,
@@ -72,7 +54,7 @@ pub struct ContractState {
 }
 
 #[serde_as]
-#[derive(Deserialize, Clone, Default, Debug, Serialize)]
+#[derive(Deserialize, Clone, Default, Debug, Serialize, PartialEq)]
 pub struct StorageCommitment {
     #[serde_as(as = "Felt252HexNoPrefix")]
     pub root: Felt252,

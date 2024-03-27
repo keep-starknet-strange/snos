@@ -1,5 +1,6 @@
 pub mod scopes {
     pub const COMMITMENT_INFO: &str = "commitment_info";
+    pub const COMMITMENT_INFO_BY_ADDRESS: &str = "commitment_info_by_address";
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
     pub const EXECUTION_HELPER: &str = "execution_helper";
     pub const OS_INPUT: &str = "os_input";
