@@ -959,8 +959,8 @@ pub fn set_ap_to_tx_nonce(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx: &InternalTransaction = exec_scopes.get_ref(vars::scopes::TX)?;
-    let nonce = tx.nonce.ok_or(HintError::AssertionFailed("tx.nonce should be set".into_string().into_boxed_str()))?;
-    insert_value_into_ap(vm, Felt252::from(nonce))?;
+    let nonce = tx.nonce.ok_or(HintError::AssertionFailed("tx.nonce should be set".to_string().into_boxed_str()))?;
+    insert_value_into_ap(vm, nonce)?;
 
     Ok(())
 }
