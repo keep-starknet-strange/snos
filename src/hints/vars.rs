@@ -3,6 +3,8 @@ pub mod scopes {
     pub const COMMITMENT_INFO: &str = "commitment_info";
     pub const COMMITMENT_INFO_BY_ADDRESS: &str = "commitment_info_by_address";
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
+    pub const DESCEND: &str = "descend";
+
     pub const DESCENT_MAP: &str = "descent_map";
     #[allow(unused)]
     pub const DICT_MANAGER: &str = "dict_manager";
@@ -40,12 +42,14 @@ pub mod ids {
     pub const PREV_VALUE: &str = "prev_value";
     pub const REQUEST: &str = "request";
     pub const SECP_P: &str = "SECP_P";
+    pub const SIBLINGS: &str = "siblings";
     pub const SIGNATURE_LEN: &str = "signature_len";
     pub const SIGNATURE_START: &str = "signature_start";
     pub const SRC_PTR: &str = "src_ptr";
     pub const STATE_ENTRY: &str = "state_entry";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
     pub const VALUE: &str = "value";
+    pub const WORD: &str = "word";
     pub const Y: &str = "y";
     pub const Y_SQUARE_INT: &str = "y_square_int";
 }
