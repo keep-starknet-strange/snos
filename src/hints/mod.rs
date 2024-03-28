@@ -46,7 +46,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 119] = [
+static HINTS: [(&str, HintImpl); 120] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -174,6 +174,7 @@ static HINTS: [(&str, HintImpl); 119] = [
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
     (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
+    (syscalls::VALIDATE_AND_DISCARD_SYSCALL_PTR, syscalls::validate_and_discard_syscall_ptr),
     (BREAKPOINT, breakpoint),
 ];
 

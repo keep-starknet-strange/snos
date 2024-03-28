@@ -45,6 +45,18 @@ impl OsSyscallHandlerWrapper {
         self.syscall_handler.as_ref().borrow().syscall_ptr
     }
 
+    pub fn validate_and_discard_syscall_ptr(&self, syscall_ptr_end: Relocatable) -> Result<(), HintError> {
+        let syscall_handler = self.syscall_handler.as_ref().borrow();
+        if syscall_handler.syscall_ptr != syscall_ptr_end {
+            return Err(HintError::AssertionFailed("Bad syscall_ptr_end".to_string().into_boxed_str()));
+        }
+
+        // TODO review: the Python VM declares `syscall_ptr` as Option<Relocatable> and sets it
+        //              back to None here. Should we do the same?
+
+        Ok(())
+    }
+
     pub fn syscall(&self, vm: &mut VirtualMachine, syscall_ptr: Relocatable) -> Result<(), HintError> {
         let mut syscall_handler = self.syscall_handler.as_ref().borrow_mut();
         assert_eq!(syscall_handler.syscall_ptr, syscall_ptr);

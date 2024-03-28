@@ -36,6 +36,7 @@ pub mod ids {
     pub const DESCEND: &str = "descend";
     pub const DEST_PTR: &str = "dest_ptr";
     pub const EDGE: &str = "edge";
+    pub const ENTRY_POINT_RETURN_VALUES: &str = "entry_point_return_values";
     pub const FINAL_ROOT: &str = "final_root";
     pub const HASH_PTR: &str = "hash_ptr";
     pub const HEIGHT: &str = "height";
