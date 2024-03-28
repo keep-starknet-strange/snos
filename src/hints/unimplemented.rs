@@ -72,12 +72,6 @@ const SET_TREE_STRUCTURE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SPLIT_OUTPUT1: &str = indoc! {r#"
-	tmp, ids.output1_low = divmod(ids.output1, 256 ** 7)
-	ids.output1_high, ids.output1_mid = divmod(tmp, 2 ** 128)"#
-};
-
-#[allow(unused)]
 const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
 	storage = execution_helper.storage_by_address[ids.contract_address]
 	ids.prev_value = storage.read(key=ids.syscall_ptr.address)
@@ -91,12 +85,6 @@ const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
 
 #[allow(unused)]
 const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
-
-#[allow(unused)]
-const SPLIT_OUTPUT0: &str = indoc! {r#"
-	ids.output0_low = ids.output0 & ((1 << 128) - 1)
-	ids.output0_high = ids.output0 >> 128"#
-};
 
 #[allow(unused)]
 const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': syscall_handler})";
@@ -125,9 +113,6 @@ const HAS_ENOUGH_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_ga
 
 #[allow(unused)]
 const IS_CASE_RIGHT: &str = "memory[ap] = int(case == 'right') ^ ids.bit";
-
-#[allow(unused)]
-const SPLIT_INPUTS_3: &str = "ids.high3, ids.low3 = divmod(memory[ids.inputs + 3], 256)";
 
 #[allow(unused)]
 const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
@@ -182,9 +167,6 @@ const SET_TX_INFO_PTR: &str = indoc! {r#"
 	tx_info_ptr = ids.tx_execution_context.deprecated_tx_info.address_
 	execution_helper.start_tx(tx_info_ptr=tx_info_ptr)"#
 };
-
-#[allow(unused)]
-const SPLIT_INPUTS_12: &str = "ids.high12, ids.low12 = divmod(memory[ids.inputs + 12], 256 ** 4)";
 
 #[allow(unused)]
 const SET_AP_TO_IS_REVERTED: &str =
@@ -263,12 +245,6 @@ const ENTER_SCOPE_NEW_TREE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SPLIT_INPUTS_15: &str = "ids.high15, ids.low15 = divmod(memory[ids.inputs + 15], 256 ** 5)";
-
-#[allow(unused)]
-const SPLIT_INPUTS_9: &str = "ids.high9, ids.low9 = divmod(memory[ids.inputs + 9], 256 ** 3)";
-
-#[allow(unused)]
 const SET_AP_TO_NONCE_OR_ZERO: &str = "memory[ap] = to_felt_or_relocatable(0 if tx.nonce is None else tx.nonce)";
 
 #[allow(unused)]
@@ -303,9 +279,6 @@ const GET_COMPILED_CLASS_STRUCT: &str = indoc! {r#"
 	    identifiers=ids._context.identifiers, compiled_class=compiled_class)
 	ids.compiled_class = segments.gen_arg(cairo_contract)"#
 };
-
-#[allow(unused)]
-const SPLIT_INPUTS_6: &str = "ids.high6, ids.low6 = divmod(memory[ids.inputs + 6], 256 ** 2)";
 
 #[allow(unused)]
 const CHECK_RETURN_VALUE_2: &str = indoc! {r#"
