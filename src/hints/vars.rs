@@ -41,6 +41,7 @@ pub mod ids {
     pub const MAX_FEE: &str = "max_fee";
     pub const MERKLE_HEIGHT: &str = "MERKLE_HEIGHT";
     pub const N: &str = "n";
+    pub const NEW_LENGTH: &str = "new_length";
     pub const NEW_STATE_ENTRY: &str = "new_state_entry";
     pub const NODE: &str = "node";
     pub const OS_CONTEXT: &str = "os_context";
