@@ -15,8 +15,9 @@ pub mod scopes {
 }
 
 pub mod ids {
+    pub const BIT: &str = "bit";
     pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "BLOCK_HASH_CONTRACT_ADDRESS";
-    pub const CHILD_BIT: &str = "CHILD_BIT";
+    pub const CHILD_BIT: &str = "child_bit";
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACT: &str = "compiled_class_fact";
     pub const CONTRACT_ADDRESS: &str = "contract_address";

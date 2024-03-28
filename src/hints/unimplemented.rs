@@ -28,17 +28,6 @@ const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_pt
 const SET_AP_TO_NONCE: &str = "memory[ap] = to_felt_or_relocatable(tx.nonce)";
 
 #[allow(unused)]
-<<<<<<< HEAD
-const SET_AP_TO_ENTRY_POINT_SELECTOR: &str = "memory[ap] = to_felt_or_relocatable(tx.entry_point_selector)";
-=======
-const DECODE_NODE: &str = indoc! {r#"
-	from starkware.python.merkle_tree import decode_node
-	left_child, right_child, case = decode_node(node)
-	memory[ap] = int(case != 'both')"#
-};
->>>>>>> cc3c3d7 (Cleanup: SET_AP_TO_ENTRY_POINT_SELECTOR is already implemented (#105))
-
-#[allow(unused)]
 const SET_TREE_STRUCTURE: &str = indoc! {r#"
 	from starkware.python.math_utils import div_ceil
 	onchain_data_start = ids.da_start
