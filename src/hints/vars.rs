@@ -1,6 +1,8 @@
 pub mod scopes {
     pub const COMMITMENT_INFO: &str = "commitment_info";
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
+    #[allow(unused)]
+    pub const DICT_MANAGER: &str = "dict_manager";
     pub const EXECUTION_HELPER: &str = "execution_helper";
     pub const OS_INPUT: &str = "os_input";
     pub const PREIMAGE: &str = "preimage";
@@ -25,6 +27,7 @@ pub mod ids {
     pub const NEW_STATE_ENTRY: &str = "new_state_entry";
     pub const NODE: &str = "node";
     pub const OS_CONTEXT: &str = "os_context";
+    pub const PREV_VALUE: &str = "prev_value";
     pub const REQUEST: &str = "request";
     pub const SECP_P: &str = "SECP_P";
     pub const SIGNATURE_LEN: &str = "signature_len";
