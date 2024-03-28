@@ -151,9 +151,6 @@ const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_AP_TO_MAX_FEE: &str = "memory[ap] = to_felt_or_relocatable(tx.max_fee)";
-
-#[allow(unused)]
 const ENTER_SCOPE_NEXT_NODE: &str = indoc! {r#"
 	new_node = left_child if ids.bit == 0 else right_child
 	vm_enter_scope(dict(node=new_node, **common_args))"#
