@@ -5,11 +5,14 @@ pub mod scopes {
     pub const OS_INPUT: &str = "os_input";
     pub const PREIMAGE: &str = "preimage";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";
+    pub const TX: &str = "tx";
     pub const VALUE: &str = "value";
 }
 
 pub mod ids {
+    pub const ADDITIONAL_DATA: &str = "additional_data";
     pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "BLOCK_HASH_CONTRACT_ADDRESS";
+    pub const CALLDATA: &str = "calldata";
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACT: &str = "compiled_class_fact";
     pub const CONTRACT_ADDRESS: &str = "contract_address";
@@ -20,6 +23,7 @@ pub mod ids {
     pub const HASH_PTR: &str = "hash_ptr";
     pub const INITIAL_ROOT: &str = "initial_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
+    pub const MAX_FEE: &str = "max_fee";
     pub const MERKLE_HEIGHT: &str = "MERKLE_HEIGHT";
     pub const N: &str = "n";
     pub const NEW_STATE_ENTRY: &str = "new_state_entry";
@@ -27,10 +31,13 @@ pub mod ids {
     pub const OS_CONTEXT: &str = "os_context";
     pub const REQUEST: &str = "request";
     pub const SECP_P: &str = "SECP_P";
+    pub const SENDER_ADDRESS: &str = "sender_address";
     pub const SIGNATURE_LEN: &str = "signature_len";
     pub const SIGNATURE_START: &str = "signature_start";
     pub const STATE_ENTRY: &str = "state_entry";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
+    pub const TX_VERSION: &str = "tx_version";
+
     pub const VALUE: &str = "value";
     pub const Y: &str = "y";
     pub const Y_SQUARE_INT: &str = "y_square_int";
