@@ -28,6 +28,7 @@ use crate::io::input::StarknetOsInput;
 pub mod block_context;
 pub mod builtins;
 pub mod execution;
+mod patricia;
 pub mod state;
 pub mod syscalls;
 #[cfg(test)]

@@ -124,9 +124,6 @@ const GEN_NONCE_ARG: &str = indoc! {r#"
 const HAS_ENOUGH_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_gas >= ids.required_gas)";
 
 #[allow(unused)]
-const IS_CASE_RIGHT: &str = "memory[ap] = int(case == 'right') ^ ids.bit";
-
-#[allow(unused)]
 const SPLIT_INPUTS_3: &str = "ids.high3, ids.low3 = divmod(memory[ids.inputs + 3], 256)";
 
 #[allow(unused)]
