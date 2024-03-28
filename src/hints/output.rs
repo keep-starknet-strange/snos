@@ -1,7 +1,7 @@
 use std::cmp::min;
 use std::collections::HashMap;
 
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_ptr_from_var_name, insert_value_into_ap};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -14,6 +14,7 @@ use indoc::indoc;
 use num_integer::div_ceil;
 
 use crate::hints::vars;
+use crate::io::input::StarknetOsInput;
 
 const MAX_PAGE_SIZE: usize = 3800;
 
@@ -107,6 +108,21 @@ pub fn set_tree_structure(
         ],
     );
     output_builtin.set_state(builtin_state);
+
+    Ok(())
+}
+
+pub const SET_AP_TO_BLOCK_HASH: &str = "memory[ap] = to_felt_or_relocatable(os_input.block_hash)";
+
+pub fn set_ap_to_block_hash(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input: &StarknetOsInput = exec_scopes.get_ref(vars::scopes::OS_INPUT)?;
+    insert_value_into_ap(vm, os_input.block_hash)?;
 
     Ok(())
 }
