@@ -1,6 +1,7 @@
 pub mod scopes {
     pub const COMMITMENT_INFO: &str = "commitment_info";
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
+    pub const DESCEND: &str = "descend";
     pub const EXECUTION_HELPER: &str = "execution_helper";
     pub const OS_INPUT: &str = "os_input";
     pub const PREIMAGE: &str = "preimage";
@@ -27,11 +28,13 @@ pub mod ids {
     pub const OS_CONTEXT: &str = "os_context";
     pub const REQUEST: &str = "request";
     pub const SECP_P: &str = "SECP_P";
+    pub const SIBLINGS: &str = "siblings";
     pub const SIGNATURE_LEN: &str = "signature_len";
     pub const SIGNATURE_START: &str = "signature_start";
     pub const STATE_ENTRY: &str = "state_entry";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
     pub const VALUE: &str = "value";
+    pub const WORD: &str = "word";
     pub const Y: &str = "y";
     pub const Y_SQUARE_INT: &str = "y_square_int";
 }

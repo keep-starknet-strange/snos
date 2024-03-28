@@ -90,9 +90,6 @@ const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
-
-#[allow(unused)]
 const SPLIT_OUTPUT0: &str = indoc! {r#"
 	ids.output0_low = ids.output0 & ((1 << 128) - 1)
 	ids.output0_high = ids.output0 >> 128"#
