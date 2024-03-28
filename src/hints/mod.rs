@@ -28,6 +28,7 @@ use crate::io::input::StarknetOsInput;
 pub mod block_context;
 pub mod builtins;
 pub mod execution;
+mod patricia;
 pub mod state;
 pub mod syscalls;
 #[cfg(test)]
@@ -43,7 +44,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 91] = [
+static HINTS: [(&str, HintImpl); 92] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -119,6 +120,7 @@ static HINTS: [(&str, HintImpl); 91] = [
     (execution::TX_RESOURCE_BOUNDS_LEN, execution::tx_resource_bounds_len),
     (execution::TX_TIP, execution::tx_tip),
     (state::LOAD_EDGE, state::load_edge),
+    (patricia::SET_SIBLINGS, patricia::set_siblings),
     (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
     (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
     (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
