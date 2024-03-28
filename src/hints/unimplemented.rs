@@ -42,18 +42,6 @@ const SET_TREE_STRUCTURE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
-	storage = execution_helper.storage_by_address[ids.contract_address]
-	ids.prev_value = storage.read(key=ids.syscall_ptr.address)
-	storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
-
-	# Fetch a state_entry in this hint and validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
-
-	ids.new_state_entry = segments.add()"#
-};
-
-#[allow(unused)]
 const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
 
 #[allow(unused)]

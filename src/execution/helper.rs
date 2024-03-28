@@ -15,6 +15,7 @@ use crate::config::STORED_BLOCK_HASH_BUFFER;
 use crate::crypto::pedersen::PedersenHash;
 use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage};
 use crate::storage::dict_storage::DictStorage;
+use crate::storage::storage::StorageError;
 
 // TODO: make the execution helper generic over the storage and hash function types.
 type StorageByAddress = HashMap<Felt252, OsSingleStarknetStorage<DictStorage, PedersenHash>>;
@@ -153,13 +154,28 @@ impl ExecutionHelperWrapper {
         self.exit_call();
     }
 
-    pub fn read_storage_by_address(&mut self, address: Felt252, key: Felt252) -> Option<Felt252> {
+    pub fn read_storage_for_address(&mut self, address: Felt252, key: Felt252) -> Result<Felt252, StorageError> {
         let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
         if let Some(storage) = storage_by_address.get_mut(&address) {
-            return storage.read(key);
+            return storage.read(key).ok_or(StorageError::ContentNotFound);
         }
 
-        None
+        Err(StorageError::ContentNotFound)
+    }
+
+    pub fn write_storage_for_address(
+        &mut self,
+        address: Felt252,
+        key: Felt252,
+        value: Felt252,
+    ) -> Result<(), StorageError> {
+        let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
+        if let Some(storage) = storage_by_address.get_mut(&address) {
+            storage.write(key.to_biguint(), value);
+            Ok(())
+        } else {
+            Err(StorageError::ContentNotFound)
+        }
     }
 
     #[allow(clippy::await_holding_refcell_ref)]

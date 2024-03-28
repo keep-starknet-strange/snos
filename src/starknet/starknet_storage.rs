@@ -205,6 +205,10 @@ where
         value
     }
 
+    pub fn write(&mut self, key: TreeIndex, value: Felt252) {
+        self.ongoing_storage_changes.insert(key, value);
+    }
+
     fn fetch_storage_leaf(&mut self, key: Felt252) -> StorageLeaf {
         let coroutine = self.previous_tree.get_leaf(&mut self.ffc, key.to_biguint());
         let result: Result<Option<StorageLeaf>, _> = execute_coroutine_threadsafe(coroutine);
