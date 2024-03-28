@@ -49,6 +49,9 @@ pub struct InternalTransaction {
     #[serde_as(as = "Option<Felt252Str>")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub class_hash: Option<Felt252>,
+    #[serde_as(as = "Option<Felt252Str>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compiled_class_hash: Option<Felt252>,
     #[serde_as(as = "Option<Vec<Felt252Str>>")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calldata: Option<Vec<Felt252>>,

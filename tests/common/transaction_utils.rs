@@ -68,6 +68,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     let entry_point_type: Option<String> = Some("EXTERNAL".to_string());
     let signature: Option<Vec<Felt252>>;
     let class_hash: Option<Felt252> = None;
+    let compiled_class_hash: Option<Felt252> = None;
     let calldata: Option<Vec<Felt252>>;
     let paid_on_l1: Option<bool> = None;
     let r#type: String = "INVOKE_FUNCTION".to_string();
@@ -110,6 +111,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
         entry_point_type,
         signature,
         class_hash,
+        compiled_class_hash,
         calldata,
         paid_on_l1,
         r#type,
