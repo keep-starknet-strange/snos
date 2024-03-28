@@ -46,7 +46,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 102] = [
+static HINTS: [(&str, HintImpl); 103] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -81,7 +81,11 @@ static HINTS: [(&str, HintImpl); 102] = [
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
-    (execution::CACHE_CONTRACT_STORAGE, execution::cache_contract_storage),
+    (execution::CACHE_CONTRACT_STORAGE_REQUEST_KEY, execution::cache_contract_storage_request_key),
+    (
+        execution::CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS,
+        execution::cache_contract_storage_syscall_request_address,
+    ),
     (execution::CONTRACT_ADDRESS, execution::contract_address),
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),

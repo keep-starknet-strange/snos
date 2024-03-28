@@ -17,7 +17,7 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use crate::cairo_types::structs::ExecutionContext;
-use crate::cairo_types::syscalls::StorageWrite;
+use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest, StorageWrite};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
@@ -852,26 +852,17 @@ pub fn is_reverted(
     insert_value_into_ap(vm, Felt252::ZERO)
 }
 
-pub const CACHE_CONTRACT_STORAGE: &str = indoc! {r#"
-	# Make sure the value is cached (by reading it), to be used later on for the
-	# commitment computation.
-	value = execution_helper.storage_by_address[ids.contract_address].read(key=ids.request.key)
-	assert ids.value == value, "Inconsistent storage value.""#
-};
-
-pub fn cache_contract_storage(
+fn cache_contract_storage(
+    key: Felt252,
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
 
     let contract_address =
         get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
-    let request_ptr = get_relocatable_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
-    let key = vm.get_integer(&request_ptr + 1)?.into_owned();
 
     let value = execution_helper.read_storage_for_address(contract_address, key).map_err(|_| {
         HintError::CustomHint(format!("No storage found for contract {}", contract_address).into_boxed_str())
@@ -1080,6 +1071,49 @@ pub fn gen_nonce_arg(
     Ok(())
 }
 
+pub const CACHE_CONTRACT_STORAGE_REQUEST_KEY: &str = indoc! {r#"
+	# Make sure the value is cached (by reading it), to be used later on for the
+	# commitment computation.
+	value = execution_helper.storage_by_address[ids.contract_address].read(key=ids.request.key)
+	assert ids.value == value, "Inconsistent storage value.""#
+};
+
+pub fn cache_contract_storage_request_key(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let request_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
+    let key = vm.get_integer(&request_ptr + 1)?.into_owned();
+
+    cache_contract_storage(key, vm, exec_scopes, ids_data, ap_tracking)
+}
+
+pub const CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS: &str = indoc! {r#"
+	# Make sure the value is cached (by reading it), to be used later on for the
+	# commitment computation.
+	value = execution_helper.storage_by_address[ids.contract_address].read(
+	    key=ids.syscall_ptr.request.address
+	)
+	assert ids.value == value, "Inconsistent storage value.""#
+};
+
+pub fn cache_contract_storage_syscall_request_address(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let syscall_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
+    let offset = StorageRead::request_offset() + StorageReadRequest::address_offset();
+    let key = vm.get_integer((syscall_ptr + offset)?)?.into_owned();
+
+    cache_contract_storage(key, vm, exec_scopes, ids_data, ap_tracking)
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
@@ -1144,21 +1178,26 @@ mod tests {
     }
 
     #[rstest]
-    fn test_cache_contract_storage(execution_helper_with_storage: ExecutionHelperWrapper, contract_address: Felt252) {
+    fn test_cache_contract_storage_request_key(
+        execution_helper_with_storage: ExecutionHelperWrapper,
+        contract_address: Felt252,
+    ) {
         let mut vm = VirtualMachine::new(false);
         vm.add_memory_segment();
         vm.add_memory_segment();
-        vm.set_fp(4);
+        vm.set_fp(5);
 
         let ap_tracking = ApTracking::new();
         let constants = HashMap::new();
 
         let ids_data = HashMap::from([
-            (vars::ids::REQUEST.to_string(), HintReference::new_simple(-4)),
+            (vars::ids::REQUEST.to_string(), HintReference::new_simple(-3)),
             (vars::ids::CONTRACT_ADDRESS.to_string(), HintReference::new_simple(-2)),
             (vars::ids::VALUE.to_string(), HintReference::new_simple(-1)),
         ]);
 
+        // Make ids.request point to (1, 0)
+        insert_value_from_var_name(vars::ids::REQUEST, (1, 0), &mut vm, &ids_data, &ap_tracking).unwrap();
         let key = Felt252::from(42);
         // request.key is at offset 1 in the structure
         vm.insert_value(Relocatable::from((1, 1)), key).unwrap();
@@ -1172,7 +1211,7 @@ mod tests {
 
         // Just make sure that the hint goes through, all meaningful assertions are
         // in the implementation of the hint
-        cache_contract_storage(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
+        cache_contract_storage_request_key(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
             .expect("Hint should not fail");
     }
 
