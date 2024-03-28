@@ -15,9 +15,6 @@ const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': sy
 const HAS_ENOUGH_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_gas >= ids.required_gas)";
 
 #[allow(unused)]
-const IS_CASE_RIGHT: &str = "memory[ap] = int(case == 'right') ^ ids.bit";
-
-#[allow(unused)]
 const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
 	# Make sure the value is cached (by reading it), to be used later on for the
 	# commitment computation.

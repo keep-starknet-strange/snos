@@ -22,6 +22,7 @@ pub mod scopes {
 
 pub mod ids {
     pub const ADDITIONAL_DATA: &str = "additional_data";
+    pub const BIT: &str = "bit";
     pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "BLOCK_HASH_CONTRACT_ADDRESS";
     pub const CALLDATA: &str = "calldata";
     pub const CHILD_BIT: &str = "CHILD_BIT";
