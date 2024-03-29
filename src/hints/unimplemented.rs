@@ -1,9 +1,6 @@
 use indoc::indoc;
 
 #[allow(unused)]
-const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': syscall_handler})";
-
-#[allow(unused)]
 const HAS_ENOUGH_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_gas >= ids.required_gas)";
 
 #[allow(unused)]
@@ -37,23 +34,11 @@ const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const ENTER_SCOPE_NEXT_NODE: &str = indoc! {r#"
-	new_node = left_child if ids.bit == 0 else right_child
-	vm_enter_scope(dict(node=new_node, **common_args))"#
-};
-
-#[allow(unused)]
 const ASSERT_CASE_IS_RIGHT: &str = "assert case == 'right'";
 
 #[allow(unused)]
 const SET_AP_TO_IS_REVERTED: &str =
     "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.is_reverted)";
-
-#[allow(unused)]
-const ENTER_SCOPE_NEXT_NODE_2: &str = indoc! {r#"
-	new_node = left_child if ids.bit == 1 else right_child
-	vm_enter_scope(dict(node=new_node, **common_args))"#
-};
 
 #[allow(unused)]
 const WRITE_OLD_BLOCK_TO_STORAGE: &str = indoc! {r#"
@@ -105,14 +90,6 @@ const SPLIT_DESCEND: &str = "ids.length, ids.word = descend";
 #[allow(unused)]
 const HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO: &str =
     "memory[ap] = 1 if ids.height == 0 or len(preimage[ids.node]) == 2 else 0";
-
-#[allow(unused)]
-const ENTER_SCOPE_NEW_TREE: &str = indoc! {r#"
-	new_node = node
-	for i in range(ids.length - 1, -1, -1):
-	    new_node = new_node[(ids.word >> i) & 1]
-	vm_enter_scope(dict(node=new_node, **common_args))"#
-};
 
 #[allow(unused)]
 const SET_AP_TO_NONCE_OR_ZERO: &str = "memory[ap] = to_felt_or_relocatable(0 if tx.nonce is None else tx.nonce)";
@@ -195,12 +172,6 @@ const BUILD_DESCENT_MAP: &str = indoc! {r#"
 const IS_N_GE_TEN: &str = "memory[ap] = to_felt_or_relocatable(ids.n >= 10)";
 
 #[allow(unused)]
-const ENTER_SCOPE_LEFT_CHILD: &str = "vm_enter_scope(dict(node=left_child, **common_args))";
-
-#[allow(unused)]
-const ENTER_SCOPE_NODE: &str = "vm_enter_scope(dict(node=node, **common_args))";
-
-#[allow(unused)]
 const CHECK_RETURN_VALUE_3: &str = indoc! {r#"
 	# Check that the actual return value matches the expected one.
 	expected = memory.get_range(
@@ -241,9 +212,6 @@ const START_TX_2: &str = indoc! {r#"
 #[allow(unused)]
 const GET_SEQUENCER_ADDRESS: &str =
     "syscall_handler.get_sequencer_address(segments=segments, syscall_ptr=ids.syscall_ptr)";
-
-#[allow(unused)]
-const ENTER_SCOPE_RIGHT_CHILD: &str = "vm_enter_scope(dict(node=right_child, **common_args))";
 
 #[allow(unused)]
 const WRITE_REQUEST: &str = indoc! {r#"

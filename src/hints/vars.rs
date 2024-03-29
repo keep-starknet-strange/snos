@@ -38,6 +38,7 @@ pub mod ids {
     pub const HASH_PTR: &str = "hash_ptr";
     pub const INITIAL_ROOT: &str = "initial_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
+    pub const LENGTH: &str = "length";
     pub const MAX_FEE: &str = "max_fee";
     pub const MERKLE_HEIGHT: &str = "MERKLE_HEIGHT";
     pub const N: &str = "n";
