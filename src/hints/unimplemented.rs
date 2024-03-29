@@ -160,12 +160,6 @@ const ENTER_SCOPE_NEXT_NODE: &str = indoc! {r#"
 const ASSERT_CASE_IS_RIGHT: &str = "assert case == 'right'";
 
 #[allow(unused)]
-const SET_TX_INFO_PTR: &str = indoc! {r#"
-	tx_info_ptr = ids.tx_execution_context.deprecated_tx_info.address_
-	execution_helper.start_tx(tx_info_ptr=tx_info_ptr)"#
-};
-
-#[allow(unused)]
 const SET_AP_TO_IS_REVERTED: &str =
     "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.is_reverted)";
 
