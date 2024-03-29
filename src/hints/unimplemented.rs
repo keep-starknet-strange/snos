@@ -29,12 +29,6 @@ const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
 const ASSERT_CASE_IS_RIGHT: &str = "assert case == 'right'";
 
 #[allow(unused)]
-const WRITE_OLD_BLOCK_TO_STORAGE: &str = indoc! {r#"
-	storage = execution_helper.storage_by_address[ids.BLOCK_HASH_CONTRACT_ADDRESS]
-	storage.write(key=ids.old_block_number, value=ids.old_block_hash)"#
-};
-
-#[allow(unused)]
 const HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO: &str =
     "memory[ap] = 1 if ids.height == 0 or len(preimage[ids.node]) == 2 else 0";
 
