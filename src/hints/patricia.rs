@@ -86,6 +86,22 @@ pub fn set_bit(
     Ok(())
 }
 
+pub const ASSERT_CASE_IS_RIGHT: &str = "assert case == 'right'";
+
+pub fn assert_case_is_right(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let case: DecodeNodeCase = exec_scopes.get(vars::scopes::CASE)?;
+    match case {
+        DecodeNodeCase::Right => Ok(()),
+        _ => Err(HintError::AssertionFailed("case != 'right".to_string().into_boxed_str())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
