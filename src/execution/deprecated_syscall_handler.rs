@@ -67,7 +67,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
         let retdata_offset = response_offset + CallContractResponse::retdata_offset();
 
         vm.insert_value((syscall_ptr + retdata_size_offset).unwrap(), result.retdata.0.len()).unwrap();
-        let new_segment = vm.add_memory_segment();
+        let new_segment = vm.add_temporary_segment();
         let retdata = result.retdata.0.iter().map(|sf| {
             // TODO: better way to StarkFelt -> Felt252?
             let felt = Felt252::from_hex(&sf.to_string()).unwrap();
