@@ -858,7 +858,9 @@ pub fn compare_return_value(
     let call_response = get_ptr_from_var_name("call_response", vm, ids_data, ap_tracking)?;
     // the first field in call_data is the size
     let size = vm.get_integer(call_response)?.into_owned().to_usize().unwrap();
-    let expected = vm.get_range(call_response, size);
+    // the second field is immediately afterward, but needs to be dereferenced
+    let expected_retdata_ptr = vm.get_relocatable((call_response + 1)?)?;
+    let expected = vm.get_range(expected_retdata_ptr, size);
 
     let ids_retdata = get_ptr_from_var_name("retdata", vm, ids_data, ap_tracking)?;
     let ids_retdata_size = get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?.into_owned().to_usize().unwrap();
@@ -869,9 +871,9 @@ pub fn compare_return_value(
         println!("expected: {:?}", expected);
         println!("actual: {:?}", actual);
 
-        assert_eq!(expected, actual, "Return value mismatch");
+        // assert_eq!(expected, actual, "Return value mismatch");
+        return Err(HintError::AssertNotEqualFail(Box::new((call_response.into(), ids_retdata.into()))));
     }
 
-    assert_eq!(expected, actual, "Return value mismatch");
     Ok(())
 }
