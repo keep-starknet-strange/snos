@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name, insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -12,10 +13,11 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
-use crate::cairo_types::builtins::SpongeHashBuiltin;
+use crate::cairo_types::builtins::{HashBuiltin, SpongeHashBuiltin};
 use crate::cairo_types::traits::CairoType;
 use crate::cairo_types::trie::NodeEdge;
 use crate::execution::helper::ExecutionHelperWrapper;
+use crate::hints::types::Preimage;
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, CommitmentInfo, StorageLeaf};
@@ -192,6 +194,42 @@ pub fn load_edge(
     let hash_ptr = get_relocatable_from_var_name(vars::ids::HASH_PTR, vm, ids_data, ap_tracking)?;
     let hash_result_ptr: Relocatable = (hash_ptr + SpongeHashBuiltin::result_offset())?;
     vm.insert_value(hash_result_ptr, res)?;
+
+    // TODO: __patricia_skip_validation_runner
+
+    Ok(())
+}
+
+pub const LOAD_BOTTOM: &str = indoc! {r#"
+	ids.hash_ptr.x, ids.hash_ptr.y = preimage[ids.edge.bottom]
+	if __patricia_skip_validation_runner:
+	    # Skip validation of the preimage dict to speed up the VM. When this flag is
+	    # set, mistakes in the preimage dict will be discovered only in the prover.
+	    __patricia_skip_validation_runner.verified_addresses.add(
+	        ids.hash_ptr + ids.HashBuiltin.result)"#
+};
+
+pub fn load_bottom(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let edge = get_relocatable_from_var_name(vars::ids::EDGE, vm, ids_data, ap_tracking)?;
+    let edge_bottom = vm.get_integer((edge + NodeEdge::bottom_offset())?)?.into_owned();
+
+    let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
+    let preimage_vec = preimage
+        .get(&edge_bottom)
+        .ok_or(HintError::CustomHint("Edge bottom not found in preimage".to_string().into_boxed_str()))?;
+
+    let x = preimage_vec[0];
+    let y = preimage_vec[1];
+
+    let hash_ptr = get_ptr_from_var_name(vars::ids::HASH_PTR, vm, ids_data, ap_tracking)?;
+    vm.insert_value((hash_ptr + HashBuiltin::x_offset())?, x)?;
+    vm.insert_value((hash_ptr + HashBuiltin::y_offset())?, y)?;
 
     // TODO: __patricia_skip_validation_runner
 

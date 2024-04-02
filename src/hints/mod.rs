@@ -146,6 +146,7 @@ static HINTS: [(&str, HintImpl); 120] = [
     (patricia::SET_BIT, patricia::set_bit),
     (patricia::SET_SIBLINGS, patricia::set_siblings),
     (patricia::SPLIT_DESCEND, patricia::split_descend),
+    (state::LOAD_BOTTOM, state::load_bottom),
     (state::LOAD_EDGE, state::load_edge),
     (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
     (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
