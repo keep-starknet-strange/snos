@@ -32,10 +32,12 @@ pub mod ids {
     pub const CONTRACT_STATE_CHANGES: &str = "contract_state_changes";
     pub const DA_START: &str = "da_start";
     pub const DEPRECATED_TX_INFO: &str = "deprecated_tx_info";
+    pub const DESCEND: &str = "descend";
     pub const DEST_PTR: &str = "dest_ptr";
     pub const EDGE: &str = "edge";
     pub const FINAL_ROOT: &str = "final_root";
     pub const HASH_PTR: &str = "hash_ptr";
+    pub const HEIGHT: &str = "height";
     pub const INITIAL_ROOT: &str = "initial_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const LENGTH: &str = "length";
@@ -47,6 +49,7 @@ pub mod ids {
     pub const NODE: &str = "node";
     pub const OS_CONTEXT: &str = "os_context";
     pub const OUTPUT_PTR: &str = "output_ptr";
+    pub const PATH: &str = "path";
     pub const PREV_VALUE: &str = "prev_value";
     pub const REQUEST: &str = "request";
     pub const SECP_P: &str = "SECP_P";

@@ -43,12 +43,6 @@ const WRITE_OLD_BLOCK_TO_STORAGE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_AP_TO_NOT_DESCEND: &str = indoc! {r#"
-	descend = descent_map.get((ids.height, ids.path))
-	memory[ap] = 0 if descend is None else 1"#
-};
-
-#[allow(unused)]
 const PREPARE_PREIMAGE_VALIDATION_BOTTOM: &str = indoc! {r#"
 	ids.hash_ptr.x, ids.hash_ptr.y = preimage[ids.edge.bottom]
 	if __patricia_skip_validation_runner:
