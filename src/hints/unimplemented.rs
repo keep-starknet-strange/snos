@@ -53,9 +53,6 @@ const PREPARE_PREIMAGE_VALIDATION_BOTTOM: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SPLIT_DESCEND: &str = "ids.length, ids.word = descend";
-
-#[allow(unused)]
 const HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO: &str =
     "memory[ap] = 1 if ids.height == 0 or len(preimage[ids.node]) == 2 else 0";
 
