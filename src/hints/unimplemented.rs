@@ -17,26 +17,6 @@ const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
 const ASSERT_CASE_IS_RIGHT: &str = "assert case == 'right'";
 
 #[allow(unused)]
-const PREPARE_PREIMAGE_VALIDATION_NON_DETERMINISTIC_HASHES: &str = indoc! {r#"
-	from starkware.python.merkle_tree import decode_node
-	left_child, right_child, case = decode_node(node)
-	left_hash, right_hash = preimage[ids.node]
-
-	# Fill non deterministic hashes.
-	hash_ptr = ids.current_hash.address_
-	memory[hash_ptr + ids.HashBuiltin.x] = left_hash
-	memory[hash_ptr + ids.HashBuiltin.y] = right_hash
-
-	if __patricia_skip_validation_runner:
-	    # Skip validation of the preimage dict to speed up the VM. When this flag is set,
-	    # mistakes in the preimage dict will be discovered only in the prover.
-	    __patricia_skip_validation_runner.verified_addresses.add(
-	        hash_ptr + ids.HashBuiltin.result)
-
-	memory[ap] = int(case != 'both')"#
-};
-
-#[allow(unused)]
 const GET_COMPILED_CLASS_STRUCT: &str = indoc! {r#"
 	from starkware.starknet.core.os.contract_class.compiled_class_hash import (
 	    get_compiled_class_struct,
