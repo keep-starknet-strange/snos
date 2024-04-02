@@ -53,9 +53,6 @@ const PREPARE_PREIMAGE_VALIDATION_BOTTOM: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_AP_TO_NONCE_ARG_SEGMENT: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg([tx.nonce]))";
-
-#[allow(unused)]
 const COMPARE_RETURN_VALUE: &str = indoc! {r#"
 	# Check that the actual return value matches the expected one.
 	expected = memory.get_range(

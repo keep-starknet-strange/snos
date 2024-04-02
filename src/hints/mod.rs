@@ -46,7 +46,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 114] = [
+static HINTS: [(&str, HintImpl); 115] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -120,6 +120,7 @@ static HINTS: [(&str, HintImpl); 114] = [
     (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
     (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
     (execution::RESOURCE_BOUNDS, execution::resource_bounds),
+    (execution::SET_AP_TO_NONCE_ARG_SEGMENT, execution::set_ap_to_nonce_arg_segment),
     (execution::SET_AP_TO_TX_NONCE, execution::set_ap_to_tx_nonce),
     (execution::START_TX, execution::start_tx),
     (execution::TRANSACTION_VERSION, execution::transaction_version),
