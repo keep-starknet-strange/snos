@@ -53,17 +53,6 @@ const PREPARE_PREIMAGE_VALIDATION_BOTTOM: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const COMPARE_RETURN_VALUE: &str = indoc! {r#"
-	# Check that the actual return value matches the expected one.
-	expected = memory.get_range(
-	    addr=ids.call_response.retdata, size=ids.call_response.retdata_size
-	)
-	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
-
-	assert expected == actual, f'Return value mismatch expected={expected}, actual={actual}.'"#
-};
-
-#[allow(unused)]
 const SPLIT_DESCEND: &str = "ids.length, ids.word = descend";
 
 #[allow(unused)]
@@ -107,18 +96,6 @@ const GET_COMPILED_CLASS_STRUCT: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const CHECK_RETURN_VALUE_2: &str = indoc! {r#"
-	# Check that the actual return value matches the expected one.
-	expected = memory.get_range(
-	    addr=ids.response.retdata_start,
-	    size=ids.response.retdata_end - ids.response.retdata_start,
-	)
-	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
-
-	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
-};
-
-#[allow(unused)]
 const BUILD_DESCENT_MAP: &str = indoc! {r#"
 	from starkware.cairo.common.patricia_utils import canonic, patricia_guess_descents
 	from starkware.python.merkle_tree import build_update_tree
@@ -149,17 +126,6 @@ const BUILD_DESCENT_MAP: &str = indoc! {r#"
 
 #[allow(unused)]
 const IS_N_GE_TEN: &str = "memory[ap] = to_felt_or_relocatable(ids.n >= 10)";
-
-#[allow(unused)]
-const CHECK_RETURN_VALUE_3: &str = indoc! {r#"
-	# Check that the actual return value matches the expected one.
-	expected = memory.get_range(
-	    addr=ids.response.constructor_retdata_start,
-	    size=ids.response.constructor_retdata_end - ids.response.constructor_retdata_start,
-	)
-	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
-	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
-};
 
 #[allow(unused)]
 const VM_LOAD_PROGRAM: &str = indoc! {r#"
