@@ -56,8 +56,6 @@ impl DeprecatedOsSyscallHandlerWrapper {
         }
     }
     pub fn call_contract(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
-        println!("call_contract (TODO): {}", syscall_ptr);
-
         let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
         let result = sys_hand
             .exec_wrapper
@@ -66,7 +64,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
             .borrow_mut()
             .result_iter
             .next()
-            .expect("A call execution should have a corresponding result"); // TODO
+            .expect("A call execution should have a corresponding result");
 
         let response_offset = CallContract::response_offset() * 5; // TODO: response_offset() doesn't seem to take sizeof(CallContractRequest) into account
         let retdata_size_offset = response_offset + CallContractResponse::retdata_size_offset();
@@ -211,8 +209,8 @@ mod test {
         let execution_infos = Default::default();
         let exec_helper = ExecutionHelperWrapper::new(execution_infos, &block_context);
 
-        // insert a call result for call_contract to replay. it should insert this into the
-        // syscall_ptr segment.
+        // insert a call result for call_contract to replay. it should insert this into a new temporary
+        // segment and insert its size somewhere in syscall_ptr.
         let call_results = vec![CallResult {
             failed: false,
             retdata: Retdata(vec![StarkFelt::THREE, StarkFelt::TWO, StarkFelt::ONE]),
