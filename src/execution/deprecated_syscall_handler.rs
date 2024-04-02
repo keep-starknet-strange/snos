@@ -142,3 +142,85 @@ impl DeprecatedOsSyscallHandlerWrapper {
         self.deprecated_syscall_handler.as_ref().borrow().syscall_ptr
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::{borrow::Cow, collections::HashMap, sync::Arc};
+
+    use blockifier::{block_context::{BlockContext, FeeTokenAddresses, GasPrices}, execution::{call_info::Retdata, entry_point_execution::CallResult}};
+    use cairo_vm::{serde::deserialize_program::ApTracking, types::{exec_scope::ExecutionScopes, relocatable::{MaybeRelocatable, Relocatable}}, vm::vm_core::VirtualMachine, Felt252};
+    use rstest::{fixture, rstest};
+    use starknet_api::{block::{BlockNumber, BlockTimestamp}, contract_address, core::{ChainId, ContractAddress, PatriciaKey}, hash::{StarkFelt, StarkHash}, patricia_key};
+    use crate::{execution::{deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper, helper::ExecutionHelperWrapper}, hints::vars};
+
+    #[fixture]
+    fn block_context() -> BlockContext {
+        BlockContext {
+            chain_id: ChainId("SN_GOERLI".to_string()),
+            block_number: BlockNumber(1_000_000),
+            block_timestamp: BlockTimestamp(1_704_067_200),
+            sequencer_address: contract_address!("0x0"),
+            fee_token_addresses: FeeTokenAddresses {
+                eth_fee_token_address: contract_address!("0x1"),
+                strk_fee_token_address: contract_address!("0x2"),
+            },
+            vm_resource_fee_cost: Arc::new(HashMap::new()),
+            gas_prices: GasPrices { eth_l1_gas_price: 1, strk_l1_gas_price: 1 },
+            invoke_tx_max_n_steps: 1,
+            validate_max_n_steps: 1,
+            max_recursion_depth: 50,
+        }
+    }
+
+    #[rstest]
+    fn test_call_contract(block_context: BlockContext) {
+        let mut vm = VirtualMachine::new(false);
+        vm.set_fp(1);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+
+        let syscall_ptr = vm.add_memory_segment();
+
+        let mut exec_scopes = ExecutionScopes::new();
+
+        let execution_infos = Default::default();
+        let exec_helper = ExecutionHelperWrapper::new(execution_infos, &block_context);
+
+        // insert a call result for call_contract to replay. it should insert this into the
+        // syscall_ptr segment.
+        let call_results = vec![CallResult {
+            failed: false,
+            retdata: Retdata(vec![StarkFelt::THREE, StarkFelt::TWO, StarkFelt::ONE]),
+            gas_consumed: 1,
+        }];
+        exec_helper.execution_helper.as_ref().borrow_mut().result_iter = call_results.into_iter();
+
+        let exec_helper_box = Box::new(exec_helper);
+        exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
+
+        let syscall_handler = DeprecatedOsSyscallHandlerWrapper::new(*exec_helper_box, syscall_ptr);
+
+        syscall_handler.call_contract(syscall_ptr, &mut vm).unwrap();
+
+        // syscall_ptr should have been filled out syscall_ptr segment with a CallContractResponse
+        let syscall_data_raw = vm.get_range(syscall_ptr, 7); // TODO: derive from struct size?
+        let expected_temp_segment = Relocatable { segment_index: -1, offset: 0 };
+        assert_eq!(syscall_data_raw, vec![
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::THREE))),
+            Some(Cow::Borrowed(&MaybeRelocatable::RelocatableValue(expected_temp_segment))),
+        ]);
+
+        // the retdata should have been copied into the temp segment
+        let retdata_raw = vm.get_range(expected_temp_segment, 3);
+        assert_eq!(retdata_raw, vec![
+            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::THREE))),
+            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::TWO))),
+            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ONE))),
+        ]);
+    }
+}

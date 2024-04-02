@@ -33,7 +33,7 @@ pub mod syscalls;
 #[cfg(test)]
 mod tests;
 mod unimplemented;
-mod vars;
+pub mod vars;
 
 type HintImpl = fn(
     &mut VirtualMachine,
