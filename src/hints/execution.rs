@@ -2,7 +2,6 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
 
-use blockifier::execution::deprecated_syscalls::CallContractResponse;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
