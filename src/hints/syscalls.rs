@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::get_integer_from_reference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -10,7 +12,6 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 use num_traits::ToPrimitive;
-
 
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;

@@ -59,7 +59,13 @@ impl DeprecatedOsSyscallHandlerWrapper {
         println!("call_contract (TODO): {}", syscall_ptr);
 
         let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
-        let result = sys_hand.exec_wrapper.execution_helper.as_ref().borrow_mut().result_iter.next()
+        let result = sys_hand
+            .exec_wrapper
+            .execution_helper
+            .as_ref()
+            .borrow_mut()
+            .result_iter
+            .next()
             .expect("A call execution should have a corresponding result"); // TODO
 
         let response_offset = CallContract::response_offset() * 5; // TODO: response_offset() doesn't seem to take sizeof(CallContractRequest) into account
@@ -68,11 +74,16 @@ impl DeprecatedOsSyscallHandlerWrapper {
 
         vm.insert_value((syscall_ptr + retdata_size_offset).unwrap(), result.retdata.0.len()).unwrap();
         let new_segment = vm.add_temporary_segment();
-        let retdata = result.retdata.0.iter().map(|sf| {
-            // TODO: better way to StarkFelt -> Felt252?
-            let felt = Felt252::from_hex(&sf.to_string()).unwrap();
-            MaybeRelocatable::Int(felt)
-        }).collect();
+        let retdata = result
+            .retdata
+            .0
+            .iter()
+            .map(|sf| {
+                // TODO: better way to StarkFelt -> Felt252?
+                let felt = Felt252::from_hex(&sf.to_string()).unwrap();
+                MaybeRelocatable::Int(felt)
+            })
+            .collect();
         vm.load_data(new_segment, &retdata)?;
         vm.insert_value((syscall_ptr + retdata_offset).unwrap(), new_segment)?;
 
@@ -145,13 +156,27 @@ impl DeprecatedOsSyscallHandlerWrapper {
 
 #[cfg(test)]
 mod test {
-    use std::{borrow::Cow, collections::HashMap, sync::Arc};
+    use std::borrow::Cow;
+    use std::collections::HashMap;
+    use std::sync::Arc;
 
-    use blockifier::{block_context::{BlockContext, FeeTokenAddresses, GasPrices}, execution::{call_info::Retdata, entry_point_execution::CallResult}};
-    use cairo_vm::{serde::deserialize_program::ApTracking, types::{exec_scope::ExecutionScopes, relocatable::{MaybeRelocatable, Relocatable}}, vm::vm_core::VirtualMachine, Felt252};
+    use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
+    use blockifier::execution::call_info::Retdata;
+    use blockifier::execution::entry_point_execution::CallResult;
+    use cairo_vm::serde::deserialize_program::ApTracking;
+    use cairo_vm::types::exec_scope::ExecutionScopes;
+    use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+    use cairo_vm::vm::vm_core::VirtualMachine;
+    use cairo_vm::Felt252;
     use rstest::{fixture, rstest};
-    use starknet_api::{block::{BlockNumber, BlockTimestamp}, contract_address, core::{ChainId, ContractAddress, PatriciaKey}, hash::{StarkFelt, StarkHash}, patricia_key};
-    use crate::{execution::{deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper, helper::ExecutionHelperWrapper}, hints::vars};
+    use starknet_api::block::{BlockNumber, BlockTimestamp};
+    use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
+    use starknet_api::hash::{StarkFelt, StarkHash};
+    use starknet_api::{contract_address, patricia_key};
+
+    use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
+    use crate::execution::helper::ExecutionHelperWrapper;
+    use crate::hints::vars;
 
     #[fixture]
     fn block_context() -> BlockContext {
@@ -205,22 +230,28 @@ mod test {
         // syscall_ptr should have been filled out syscall_ptr segment with a CallContractResponse
         let syscall_data_raw = vm.get_range(syscall_ptr, 7); // TODO: derive from struct size?
         let expected_temp_segment = Relocatable { segment_index: -1, offset: 0 };
-        assert_eq!(syscall_data_raw, vec![
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::THREE))),
-            Some(Cow::Borrowed(&MaybeRelocatable::RelocatableValue(expected_temp_segment))),
-        ]);
+        assert_eq!(
+            syscall_data_raw,
+            vec![
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::THREE))),
+                Some(Cow::Borrowed(&MaybeRelocatable::RelocatableValue(expected_temp_segment))),
+            ]
+        );
 
         // the retdata should have been copied into the temp segment
         let retdata_raw = vm.get_range(expected_temp_segment, 3);
-        assert_eq!(retdata_raw, vec![
-            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::THREE))),
-            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::TWO))),
-            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ONE))),
-        ]);
+        assert_eq!(
+            retdata_raw,
+            vec![
+                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::THREE))),
+                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::TWO))),
+                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ONE))),
+            ]
+        );
     }
 }

@@ -16,6 +16,7 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
+use num_traits::ToPrimitive;
 
 use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
@@ -25,7 +26,6 @@ use crate::hints::vars::ids::{ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, SIGN
 use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
-use num_traits::ToPrimitive;
 
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
         tx = next(transactions)
@@ -863,7 +863,8 @@ pub fn compare_return_value(
     let expected = vm.get_range(expected_retdata_ptr, size);
 
     let ids_retdata = get_ptr_from_var_name("retdata", vm, ids_data, ap_tracking)?;
-    let ids_retdata_size = get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?.into_owned().to_usize().unwrap();
+    let ids_retdata_size =
+        get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?.into_owned().to_usize().unwrap();
 
     let actual = vm.get_range(ids_retdata, ids_retdata_size);
 
