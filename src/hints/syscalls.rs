@@ -383,6 +383,21 @@ pub fn os_logger_enter_syscall_preprare_exit_syscall(
     Ok(())
 }
 
+pub const EXIT_SYSCALL: &str = indoc! {r#"
+    exit_syscall(selector=ids.CALL_CONTRACT_SELECTOR)"#
+};
+pub fn exit_syscall(
+    _vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    println!("exit_syscall hint: TODO");
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use blockifier::block_context::BlockContext;
