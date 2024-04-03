@@ -80,7 +80,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
             .iter()
             .map(|sf| {
                 // TODO: better way to StarkFelt -> Felt252?
-                let felt = Felt252::from_hex(&sf.to_string()).unwrap();
+                let felt = felt_api2vm(*sf);
                 MaybeRelocatable::Int(felt)
             })
             .collect();
