@@ -21,6 +21,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_crypto::FieldElement;
+use snos::config::{StarknetGeneralConfig, StarknetOsConfig};
 
 use crate::common::transaction_utils::to_felt252;
 
@@ -228,6 +229,17 @@ pub fn os_hints(
         println!("\t{} -> {}", ch, cch);
     }
 
+    let default_general_config = StarknetGeneralConfig::default();
+
+    let general_config = StarknetGeneralConfig {
+        starknet_os_config: StarknetOsConfig {
+            chain_id: default_general_config.starknet_os_config.chain_id,
+            fee_token_address: block_context.fee_token_addresses.strk_fee_token_address,
+            deprecated_fee_token_address: block_context.fee_token_addresses.eth_fee_token_address
+        },
+        ..default_general_config
+    };
+
     let os_input = StarknetOsInput {
         contract_state_commitment_info: Default::default(),
         contract_class_commitment_info: Default::default(),
@@ -236,7 +248,7 @@ pub fn os_hints(
         compiled_class_visited_pcs: Default::default(),
         contracts,
         class_hash_to_compiled_class_hash,
-        general_config: Default::default(),
+        general_config,
         transactions,
         block_hash: Default::default(),
     };

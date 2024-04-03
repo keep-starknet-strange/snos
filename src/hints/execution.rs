@@ -16,8 +16,9 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
+use num_traits::ToPrimitive;
 
-use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
+use crate::cairo_types::structs::{CallContractResponse, EntryPointReturnValues, ExecutionContext};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
@@ -995,4 +996,40 @@ pub fn initial_ge_required_gas(
 
     let initial_gas = get_integer_from_var_name(INITIAL_GAS, vm, ids_data, ap_tracking)?;
     insert_value_into_ap(vm, Felt252::from(initial_gas.as_ref() >= &required_gas))
+}
+
+pub const CHECK_RESPONSE_RETURN_VALUE: &str = indoc! {r#"
+    # Check that the actual return value matches the expected one.
+    expected = memory.get_range(
+        addr=ids.response.retdata_start,
+        size=ids.response.retdata_end - ids.response.retdata_start,
+    )
+    actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
+
+    assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
+};
+
+pub fn check_response_return_value(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let retdata = get_ptr_from_var_name("retdata", vm, ids_data, ap_tracking)?;
+    let retdata_size = get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?;
+
+    let response = get_ptr_from_var_name("response", vm, ids_data, ap_tracking)?;
+    let response_retdata_start = vm.get_relocatable((response + CallContractResponse::retdata_start_offset())?)?;
+    let response_retdata_end = vm.get_relocatable((response + CallContractResponse::retdata_end_offset())?)?;
+
+    let expected = vm.get_range(response_retdata_start, (response_retdata_end - response_retdata_start)?);
+    let actual = vm.get_range(retdata, retdata_size.as_ref().to_usize().ok_or(HintError::CustomHint("retdata_size is not usize".to_string().into_boxed_str()))?);
+
+    assert_eq!(expected, actual, "Return value mismatch; expected={:?}, actual={:?}", expected, actual);
+
+    // relocate_segment(src_ptr=response.retdata_start, dest_ptr=retdata);
+    println!("response_retdata_start: {}, retdata: {}", response_retdata_start, retdata);
+
+    Ok(())
 }
