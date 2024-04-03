@@ -46,7 +46,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 101] = [
+static HINTS: [(&str, HintImpl); 102] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -127,6 +127,7 @@ static HINTS: [(&str, HintImpl); 101] = [
     (execution::TX_TIP, execution::tx_tip),
     (execution::WRITE_SYSCALL_RESULT, execution::write_syscall_result),
     (output::SET_TREE_STRUCTURE, output::set_tree_structure),
+    (patricia::IS_CASE_RIGHT, patricia::is_case_right),
     (patricia::SET_SIBLINGS, patricia::set_siblings),
     (state::LOAD_EDGE, state::load_edge),
     (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
