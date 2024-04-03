@@ -149,7 +149,7 @@ pub fn get_caller_address(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("syscall_handler")?;
     let syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
 
-    syscall_handler.get_caller_address(syscall_ptr);
+    syscall_handler.get_caller_address(syscall_ptr, vm);
 
     Ok(())
 }

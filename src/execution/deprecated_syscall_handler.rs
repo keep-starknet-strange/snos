@@ -8,6 +8,8 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 
+use crate::utils::felt_api2vm;
+
 use super::helper::ExecutionHelperWrapper;
 
 /// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
@@ -105,8 +107,29 @@ impl DeprecatedOsSyscallHandlerWrapper {
     pub fn get_block_timestamp(&self, syscall_ptr: Relocatable) {
         println!("get_block_timestamp (TODO): {}", syscall_ptr);
     }
-    pub fn get_caller_address(&self, syscall_ptr: Relocatable) {
-        println!("get_caller_address (TODO): {}", syscall_ptr);
+    pub fn get_caller_address(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) {
+
+        let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
+        let exec_helper = sys_hand
+            .exec_wrapper
+            .execution_helper
+            .as_ref()
+            .borrow();
+        let caller_address = exec_helper
+            .call_info
+            .as_ref()
+            .expect("A call should have some call info")
+            .call
+            .caller_address.0.key();
+        let caller_address = felt_api2vm(*caller_address);
+
+        // TODO: create proper struct for this (similar to GetCallerAddress and friends)
+        // TODO: abstract this similar to pythonic _write_syscall_response()
+
+        println!("get_caller_address() syscall, syscall_ptr = {}, caller_address = {}", syscall_ptr, caller_address);
+
+        vm.insert_value((syscall_ptr + 1usize).unwrap(), caller_address).unwrap();
+
     }
     pub fn get_contract_address(&self, syscall_ptr: Relocatable) {
         println!("get_contract_address (TODO): {}", syscall_ptr);
