@@ -4,6 +4,8 @@ pub mod scopes {
     pub const COMMITMENT_INFO_BY_ADDRESS: &str = "commitment_info_by_address";
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
     pub const DESCENT_MAP: &str = "descent_map";
+    #[allow(unused)]
+    pub const DICT_MANAGER: &str = "dict_manager";
     pub const EXECUTION_HELPER: &str = "execution_helper";
     pub const NODE: &str = "node";
     pub const LEFT_CHILD: &str = "left_child";
@@ -35,6 +37,7 @@ pub mod ids {
     pub const NEW_STATE_ENTRY: &str = "new_state_entry";
     pub const NODE: &str = "node";
     pub const OS_CONTEXT: &str = "os_context";
+    pub const PREV_VALUE: &str = "prev_value";
     pub const REQUEST: &str = "request";
     pub const SECP_P: &str = "SECP_P";
     pub const SIGNATURE_LEN: &str = "signature_len";

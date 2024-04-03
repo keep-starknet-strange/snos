@@ -17,6 +17,7 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use crate::cairo_types::structs::ExecutionContext;
+use crate::cairo_types::syscalls::StorageWrite;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
@@ -872,9 +873,9 @@ pub fn cache_contract_storage(
     let request_ptr = get_relocatable_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
     let key = vm.get_integer(&request_ptr + 1)?.into_owned();
 
-    let value = execution_helper
-        .read_storage_by_address(contract_address, key)
-        .ok_or(HintError::CustomHint(format!("No storage found for contract {}", contract_address).into_boxed_str()))?;
+    let value = execution_helper.read_storage_for_address(contract_address, key).map_err(|_| {
+        HintError::CustomHint(format!("No storage found for contract {}", contract_address).into_boxed_str())
+    })?;
 
     let ids_value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?.into_owned();
     if ids_value != value {
@@ -965,9 +966,64 @@ pub fn set_ap_to_tx_nonce(
     Ok(())
 }
 
+pub const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
+	storage = execution_helper.storage_by_address[ids.contract_address]
+	ids.prev_value = storage.read(key=ids.syscall_ptr.address)
+	storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
+
+	# Fetch a state_entry in this hint and validate it in the update that comes next.
+	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
+
+	ids.new_state_entry = segments.add()"#
+};
+
+pub fn write_syscall_result(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+
+    let contract_address =
+        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+    let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
+
+    // ids.prev_value = storage.read(key=ids.syscall_ptr.address)
+    let storage_write_address = vm.get_integer((syscall_ptr + StorageWrite::address_offset())?)?.into_owned();
+    let prev_value =
+        execution_helper.read_storage_for_address(contract_address, storage_write_address).map_err(|_| {
+            HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str())
+        })?;
+    insert_value_from_var_name(vars::ids::PREV_VALUE, prev_value, vm, ids_data, ap_tracking)?;
+
+    // storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
+    let storage_write_value = vm.get_integer((syscall_ptr + StorageWrite::value_offset())?)?.into_owned();
+    execution_helper.write_storage_for_address(contract_address, storage_write_address, storage_write_value).map_err(
+        |_| HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str()),
+    )?;
+
+    let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    get_state_entry_and_set_new_state_entry(
+        contract_state_changes,
+        contract_address,
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    )?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
     use blockifier::block_context::BlockContext;
+    use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::DictManager;
     use cairo_vm::types::relocatable::Relocatable;
     use num_bigint::BigUint;
     use rstest::{fixture, rstest};
@@ -1102,5 +1158,73 @@ mod tests {
 
         let child_bit = get_integer_from_var_name(vars::ids::CHILD_BIT, &mut vm, &ids_data, &ap_tracking).unwrap();
         assert_eq!(*child_bit, Felt252::ZERO);
+    }
+
+    #[rstest]
+    fn test_write_syscall_result(mut execution_helper_with_storage: ExecutionHelperWrapper, contract_address: Felt252) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(9);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        let ids_data = HashMap::from([
+            (vars::ids::SYSCALL_PTR.to_string(), HintReference::new_simple(-6)),
+            (vars::ids::PREV_VALUE.to_string(), HintReference::new_simple(-5)),
+            (vars::ids::CONTRACT_ADDRESS.to_string(), HintReference::new_simple(-4)),
+            (vars::ids::CONTRACT_STATE_CHANGES.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::STATE_ENTRY.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::NEW_STATE_ENTRY.to_string(), HintReference::new_simple(-1)),
+        ]);
+
+        let key = Felt252::from(42);
+        let value = Felt252::from(777);
+        insert_value_from_var_name(vars::ids::SYSCALL_PTR, Relocatable::from((1, 0)), &mut vm, &ids_data, &ap_tracking)
+            .unwrap();
+        // syscall_ptr.address is at offset 1 in the structure
+        vm.insert_value(Relocatable::from((1, 1)), key).unwrap();
+        // syscall_ptr.value is at offset 1 in the structure
+        vm.insert_value(Relocatable::from((1, 2)), value).unwrap();
+
+        insert_value_from_var_name(vars::ids::CONTRACT_ADDRESS, contract_address, &mut vm, &ids_data, &ap_tracking)
+            .unwrap();
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+        exec_scopes.insert_value(vars::scopes::EXECUTION_HELPER, execution_helper_with_storage.clone());
+
+        // Prepare the dict manager for `get_state_entry()`
+        let mut dict_manager = DictManager::new();
+        let contract_state_changes = dict_manager
+            .new_dict(&mut vm, HashMap::from([(contract_address.into(), MaybeRelocatable::from(123))]))
+            .unwrap();
+        exec_scopes.insert_value(vars::scopes::DICT_MANAGER, Rc::new(RefCell::new(dict_manager)));
+
+        insert_value_from_var_name(
+            vars::ids::CONTRACT_STATE_CHANGES,
+            contract_state_changes,
+            &mut vm,
+            &ids_data,
+            &ap_tracking,
+        )
+        .unwrap();
+
+        // Just make sure that the hint goes through, all meaningful assertions are
+        // in the implementation of the hint
+        write_syscall_result(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
+            .expect("Hint should not fail");
+
+        // Check that the storage was updated
+        let prev_value =
+            get_integer_from_var_name(vars::ids::PREV_VALUE, &mut vm, &ids_data, &ap_tracking).unwrap().into_owned();
+        assert_eq!(prev_value, Felt252::from(8000));
+        let stored_value = execution_helper_with_storage.read_storage_for_address(contract_address, key).unwrap();
+        assert_eq!(stored_value, Felt252::from(777));
+
+        // Check the state entry
+        let state_entry =
+            get_integer_from_var_name(vars::ids::STATE_ENTRY, &mut vm, &ids_data, &ap_tracking).unwrap().into_owned();
+        assert_eq!(state_entry, Felt252::from(123));
     }
 }
