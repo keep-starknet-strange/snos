@@ -45,25 +45,6 @@ const SET_TREE_STRUCTURE: &str = indoc! {r#"
 const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': syscall_handler})";
 
 #[allow(unused)]
-const GEN_NONCE_ARG: &str = indoc! {r#"
-	ids.tx_version = tx.version
-	ids.max_fee = tx.max_fee
-	ids.sender_address = tx.sender_address
-	ids.calldata = segments.gen_arg([tx.class_hash])
-
-	if tx.version <= 1:
-	    assert tx.compiled_class_hash is None, (
-	        "Deprecated declare must not have compiled_class_hash."
-	    )
-	    ids.additional_data = segments.gen_arg([tx.nonce])
-	else:
-	    assert tx.compiled_class_hash is not None, (
-	        "Declare must have a concrete compiled_class_hash."
-	    )
-	    ids.additional_data = segments.gen_arg([tx.nonce, tx.compiled_class_hash])"#
-};
-
-#[allow(unused)]
 const HAS_ENOUGH_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_gas >= ids.required_gas)";
 
 #[allow(unused)]

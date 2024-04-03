@@ -21,7 +21,9 @@ pub mod scopes {
 }
 
 pub mod ids {
+    pub const ADDITIONAL_DATA: &str = "additional_data";
     pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "BLOCK_HASH_CONTRACT_ADDRESS";
+    pub const CALLDATA: &str = "calldata";
     pub const CHILD_BIT: &str = "CHILD_BIT";
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACT: &str = "compiled_class_fact";
@@ -34,6 +36,7 @@ pub mod ids {
     pub const HASH_PTR: &str = "hash_ptr";
     pub const INITIAL_ROOT: &str = "initial_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
+    pub const MAX_FEE: &str = "max_fee";
     pub const MERKLE_HEIGHT: &str = "MERKLE_HEIGHT";
     pub const N: &str = "n";
     pub const NEW_STATE_ENTRY: &str = "new_state_entry";
@@ -42,12 +45,15 @@ pub mod ids {
     pub const PREV_VALUE: &str = "prev_value";
     pub const REQUEST: &str = "request";
     pub const SECP_P: &str = "SECP_P";
+    pub const SENDER_ADDRESS: &str = "sender_address";
     pub const SIBLINGS: &str = "siblings";
     pub const SIGNATURE_LEN: &str = "signature_len";
     pub const SIGNATURE_START: &str = "signature_start";
     pub const SRC_PTR: &str = "src_ptr";
     pub const STATE_ENTRY: &str = "state_entry";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
+    pub const TX_VERSION: &str = "tx_version";
+
     pub const VALUE: &str = "value";
     pub const WORD: &str = "word";
     pub const Y: &str = "y";
