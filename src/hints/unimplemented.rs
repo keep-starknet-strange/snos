@@ -147,16 +147,6 @@ const IS_CASE_RIGHT: &str = "memory[ap] = int(case == 'right') ^ ids.bit";
 const SPLIT_INPUTS_3: &str = "ids.high3, ids.low3 = divmod(memory[ids.inputs + 3], 256)";
 
 #[allow(unused)]
-const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
-	# Make sure the value is cached (by reading it), to be used later on for the
-	# commitment computation.
-	value = execution_helper.storage_by_address[ids.contract_address].read(
-	    key=ids.syscall_ptr.request.address
-	)
-	assert ids.value == value, "Inconsistent storage value.""#
-};
-
-#[allow(unused)]
 const SET_BIT: &str = "ids.bit = (ids.edge.path >> ids.new_length) & 1";
 
 #[allow(unused)]

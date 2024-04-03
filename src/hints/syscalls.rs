@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name
+    get_integer_from_var_name, get_maybe_relocatable_from_var_name, get_ptr_from_var_name, insert_value_from_var_name
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -428,6 +428,40 @@ pub fn fetch_state_entry_5(
     };
     insert_value_from_var_name("state_entry", val, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name("new_state_entry", vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+pub const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
+	# Make sure the value is cached (by reading it), to be used later on for the
+	# commitment computation.
+	value = execution_helper.storage_by_address[ids.contract_address].read(
+	    key=ids.syscall_ptr.request.address
+	)
+	assert ids.value == value, "Inconsistent storage value.""#
+};
+pub fn cache_contract_storage_2(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let key = get_integer_from_var_name("request_address", vm, ids_data, ap_tracking)?;
+    let dict_ptr = get_ptr_from_var_name("contract_address", vm, ids_data, ap_tracking)?;
+    let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
+        Dictionary::SimpleDictionary(dict) => dict
+            .get(&MaybeRelocatable::Int(key.into_owned()))
+            .expect("State changes dictionnary shouldn't be None")
+            .clone(),
+        Dictionary::DefaultDictionary { dict: _d, default_value: _v } => {
+            panic!("State changes dict shouldn't be a default dict")
+        }
+    };
+    let ids_val = get_maybe_relocatable_from_var_name("value", vm, ids_data, ap_tracking)?;
+    if ids_val != val {
+        return Err(HintError::AssertionFailed("Inconsistent storage value.".into()));
+    }
 
     Ok(())
 }
