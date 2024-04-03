@@ -30,7 +30,7 @@ use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrap
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::execution::syscall_utils::SyscallSelector;
-use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
+use crate::hints::types::{PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
 use crate::hints::vars::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::hints::vars::ids::{
@@ -40,6 +40,7 @@ use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 use crate::starknet::starknet_storage::StorageLeaf;
+use crate::starkware_utils::commitment_tree::base_types::DescentMap;
 use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, TreeUpdate, UpdateTree};
 
 pub const LOAD_NEXT_TX: &str = indoc! {r#"

@@ -48,7 +48,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 157] = [
+static HINTS: [(&str, HintImpl); 158] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -141,6 +141,7 @@ static HINTS: [(&str, HintImpl); 157] = [
     (output::SET_AP_TO_BLOCK_HASH, output::set_ap_to_block_hash),
     (output::SET_TREE_STRUCTURE, output::set_tree_structure),
     (patricia::ASSERT_CASE_IS_RIGHT, patricia::assert_case_is_right),
+    (patricia::BUILD_DESCENT_MAP, patricia::build_descent_map),
     (patricia::HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO, patricia::height_is_zero_or_len_node_preimage_is_two),
     (patricia::IS_CASE_RIGHT, patricia::is_case_right),
     (patricia::PREPARE_PREIMAGE_VALIDATION_NON_DETERMINISTIC_HASHES, patricia::prepare_preimage_validation_non_deterministic_hashes),

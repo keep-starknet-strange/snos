@@ -1,7 +1,11 @@
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::ops::Sub;
 
+use cairo_vm::types::errors::math_errors::MathError;
+use cairo_vm::Felt252;
 use num_bigint::BigUint;
+use num_traits::ToPrimitive;
 
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
 use crate::storage::storage::HASH_BYTES;
@@ -63,6 +67,15 @@ impl Serializable for Length {
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Height(pub u64);
 
+impl TryFrom<Felt252> for Height {
+    type Error = MathError;
+
+    fn try_from(value: Felt252) -> Result<Self, Self::Error> {
+        let height = value.to_u64().ok_or(MathError::Felt252ToU64Conversion(Box::new(value)))?;
+        Ok(Self(height))
+    }
+}
+
 impl Sub<u64> for Height {
     type Output = Self;
 
@@ -76,3 +89,5 @@ impl Display for Height {
         self.0.fmt(f)
     }
 }
+
+pub type DescentMap = HashMap<(Felt252, Felt252), Vec<Felt252>>;

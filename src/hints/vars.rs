@@ -53,7 +53,9 @@ pub mod ids {
     pub const MAX_FEE: &str = "max_fee";
     pub const MERKLE_HEIGHT: &str = "MERKLE_HEIGHT";
     pub const N: &str = "n";
+    pub const N_UPDATES: &str = "n_updates";
     pub const NEW_LENGTH: &str = "new_length";
+    pub const NEW_ROOT: &str = "new_root";
     pub const NEW_STATE_ENTRY: &str = "new_state_entry";
     pub const NODE: &str = "node";
     pub const OLD_BLOCK_HASH: &str = "old_block_hash";
@@ -63,6 +65,7 @@ pub mod ids {
     pub const OUTPUT_PTR: &str = "output_ptr";
     pub const REQUEST_BLOCK_NUMBER: &str = "request_block_number";
     pub const PATH: &str = "path";
+    pub const PREV_ROOT: &str = "prev_root";
     pub const PREV_VALUE: &str = "prev_value";
     pub const REQUEST: &str = "request";
     pub const RESPONSE: &str = "response";
@@ -78,7 +81,7 @@ pub mod ids {
     pub const STATE_ENTRY: &str = "state_entry";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
     pub const TX_VERSION: &str = "tx_version";
-
+    pub const UPDATE_PTR: &str = "update_ptr";
     pub const VALUE: &str = "value";
     pub const WORD: &str = "word";
     pub const Y: &str = "y";
