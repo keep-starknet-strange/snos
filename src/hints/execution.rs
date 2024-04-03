@@ -934,6 +934,22 @@ pub fn enter_scope_new_node(
     Ok(())
 }
 
+pub const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_ptr, dest_ptr=ids.dest_ptr)";
+
+pub fn add_relocation_rule(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let src_ptr = get_ptr_from_var_name(vars::ids::SRC_PTR, vm, ids_data, ap_tracking)?;
+    let dest_ptr = get_ptr_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?;
+    vm.add_relocation_rule(src_ptr, dest_ptr)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use blockifier::block_context::BlockContext;
