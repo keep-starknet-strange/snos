@@ -1,6 +1,7 @@
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
 
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_utils::{
@@ -29,11 +30,16 @@ pub type CallContractResponse = SingleSegmentResponse;
 pub fn call_contract(
     request: CallContractRequest,
     vm: &mut VirtualMachine,
-    _exec_wrapper: ExecutionHelperWrapper,
+    exec_wrapper: ExecutionHelperWrapper,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<CallContractResponse> {
-    println!("CallContract syscall, contract_address: {}", request.contract_address);
-    // TODO: return non empty response
+
+    let result_iter = &mut exec_wrapper.execution_helper.as_ref().borrow_mut().result_iter;
+    let result = result_iter.next();
+
+    println!("CallContract syscall, contract_address: {}, result: {:?}", request.contract_address, result);
+
+    // TODO: return response based on the result
     let start_ptr = vm.add_memory_segment();
     vm.insert_value(start_ptr, 2)?;
     Ok(CallContractResponse { segment: ReadOnlySegment { start_ptr, length: 1 } })

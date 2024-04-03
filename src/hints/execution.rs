@@ -990,7 +990,6 @@ pub fn initial_ge_required_gas(
     // pointer not a felt below is a temporary workaround, until the problem is solved in the vm
 
     let required_gas_reference = get_reference_from_var_name(REQUIRED_GAS, ids_data)?;
-    println!("required_gas_reference: {:?}", required_gas_reference);
     let required_gas = compute_integer_from_reference(required_gas_reference, vm, ap_tracking)
         .ok_or(HintError::CustomHint(Box::from("required_gas is None")))?;
 
