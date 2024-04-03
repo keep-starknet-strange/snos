@@ -33,7 +33,7 @@ impl<LF> Default for NodeFactDict<LF> {
 /// of other calculations. Those calculations can be of type other than T.
 /// The result of the calculation can be produced when the results of the dependency calculations
 /// are given.
-pub(crate) trait Calculation<T, LF> {
+pub trait Calculation<T, LF> {
     /// Returns a list of the calculations that this calculation depends on.
     fn get_dependency_calculations(&self) -> Vec<Box<dyn Calculation<Box<dyn Any>, LF>>>;
 
@@ -245,7 +245,8 @@ where
 
 /// A calculation that produces a BinaryFactTreeNode. The calculation can be created from either
 /// a node or from a combination of two other calculations of the same type.
-pub(crate) trait CalculationNode<S, H, LF>: Sized + Clone
+#[allow(async_fn_in_trait)]
+pub trait CalculationNode<S, H, LF>: Sized + Clone
 where
     S: Storage + Sync + Send,
     H: HashFunctionType + Sync + Send,

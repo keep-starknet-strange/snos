@@ -1,3 +1,5 @@
+use cairo_vm::vm::errors::hint_errors::HintError;
+
 use crate::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
 use crate::storage::storage::StorageError;
 
@@ -41,4 +43,10 @@ pub enum TreeError {
 
     #[error("Edge path ({0}) must be at most of length {1}")]
     InvalidEdgePath(NodePath, Length),
+}
+
+impl From<TreeError> for HintError {
+    fn from(error: TreeError) -> Self {
+        HintError::CustomHint(error.to_string().into_boxed_str())
+    }
 }
