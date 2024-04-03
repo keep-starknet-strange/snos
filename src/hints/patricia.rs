@@ -5,6 +5,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
+use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -16,11 +17,16 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
 use crate::cairo_types::builtins::HashBuiltin;
+use crate::cairo_types::dict_access::DictAccess;
 use crate::cairo_types::trie::NodeEdge;
-use crate::hints::types::{skip_verification_if_configured, DescentMap, Preimage};
+use crate::hints::types::{skip_verification_if_configured, Preimage};
 use crate::hints::vars;
 use crate::starknet::starknet_storage::StorageLeaf;
-use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, TreeUpdate};
+use crate::starkware_utils::commitment_tree::base_types::{DescentMap, Height};
+use crate::starkware_utils::commitment_tree::patricia_tree::patricia_guess_descents::patricia_guess_descents;
+use crate::starkware_utils::commitment_tree::update_tree::{
+    build_update_tree, decode_node, DecodeNodeCase, DecodedNode, TreeUpdate,
+};
 
 pub const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
 
@@ -258,6 +264,81 @@ pub fn prepare_preimage_validation_non_deterministic_hashes(
         _ => Felt252::ONE,
     };
     insert_value_into_ap(vm, ap)?;
+
+    Ok(())
+}
+
+pub const BUILD_DESCENT_MAP: &str = indoc! {r#"
+	from starkware.cairo.common.patricia_utils import canonic, patricia_guess_descents
+	from starkware.python.merkle_tree import build_update_tree
+
+	# Build modifications list.
+	modifications = []
+	DictAccess_key = ids.DictAccess.key
+	DictAccess_new_value = ids.DictAccess.new_value
+	DictAccess_SIZE = ids.DictAccess.SIZE
+	for i in range(ids.n_updates):
+	    curr_update_ptr = ids.update_ptr.address_ + i * DictAccess_SIZE
+	    modifications.append((
+	        memory[curr_update_ptr + DictAccess_key],
+	        memory[curr_update_ptr + DictAccess_new_value]))
+
+	node = build_update_tree(ids.height, modifications)
+	descent_map = patricia_guess_descents(
+	    ids.height, node, preimage, ids.prev_root, ids.new_root)
+	del modifications
+	__patricia_skip_validation_runner = globals().get(
+	    '__patricia_skip_validation_runner')
+
+	common_args = dict(
+	    preimage=preimage, descent_map=descent_map,
+	    __patricia_skip_validation_runner=__patricia_skip_validation_runner)
+	common_args['common_args'] = common_args"#
+};
+
+pub fn build_descent_map(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // Build modifications list.
+    let n_updates = get_integer_from_var_name(vars::ids::N_UPDATES, vm, ids_data, ap_tracking)?;
+    let n_updates = felt_to_usize(&n_updates)?;
+    let update_ptr_address = get_relocatable_from_var_name(vars::ids::UPDATE_PTR, vm, ids_data, ap_tracking)?;
+
+    let modifications = {
+        let mut modifications = vec![];
+        for i in 0..n_updates {
+            let curr_update_ptr = (update_ptr_address + i * DictAccess::cairo_size())?;
+            let tree_index = vm.get_integer((curr_update_ptr + DictAccess::key_offset())?)?;
+            let new_value = vm.get_integer((curr_update_ptr + DictAccess::new_value_offset())?)?;
+
+            modifications.push((tree_index.into_owned().to_biguint(), StorageLeaf::new(new_value.into_owned())));
+        }
+        modifications
+    };
+
+    // Build the descent map.
+    let height: Height = get_integer_from_var_name(vars::ids::HEIGHT, vm, ids_data, ap_tracking)?.try_into()?;
+    let prev_root = get_integer_from_var_name(vars::ids::PREV_ROOT, vm, ids_data, ap_tracking)?.to_biguint();
+    let new_root = get_integer_from_var_name(vars::ids::NEW_ROOT, vm, ids_data, ap_tracking)?.to_biguint();
+
+    let preimage: &Preimage = exec_scopes.get_ref(vars::scopes::PREIMAGE)?;
+
+    let node = build_update_tree(height, modifications);
+    let descent_map = patricia_guess_descents::<StorageLeaf>(height, node, preimage, prev_root, new_root)?;
+
+    // Notes:
+    // 1. We do not build `common_args` as it seems to be a Python trick to enter new scopes with a dict
+    //    destructuring one-liner as the dict references itself. Neat trick that does not translate too
+    //    well in Rust. We just make sure that `descent_map`, `__patricia_skip_validation_runner` and
+    //    `preimage` are in the scope.
+    // 2. The Rust VM has no `globals()`, `__patricia_skip_validation_runner` should already be in
+    //    `exec_scopes`. `preimage` is also guaranteed to be present as we fetch it earlier. Conclusion:
+    //    we only need to insert `descent_map`.
+    exec_scopes.insert_value(vars::scopes::DESCENT_MAP, descent_map);
 
     Ok(())
 }
