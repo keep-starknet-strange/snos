@@ -13,17 +13,20 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
+use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use crate::cairo_types::structs::ExecutionContext;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
+use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
 use crate::hints::vars::ids::{SIGNATURE_LEN, SIGNATURE_START};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
+use crate::starknet::starknet_storage::StorageLeaf;
+use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, UpdateTree};
 
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
         tx = next(transactions)
@@ -885,6 +888,52 @@ pub fn cache_contract_storage(
     Ok(())
 }
 
+pub const ENTER_SCOPE_NEW_NODE: &str = indoc! {r#"
+	ids.child_bit = 0 if case == 'left' else 1
+	new_node = left_child if case == 'left' else right_child
+	vm_enter_scope(dict(node=new_node, **common_args))"#
+};
+
+pub fn enter_scope_new_node(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let left_child: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::LEFT_CHILD)?;
+    let right_child: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::RIGHT_CHILD)?;
+    let case: DecodeNodeCase = exec_scopes.get(vars::scopes::CASE)?;
+
+    let (child_bit, new_node) = match case {
+        DecodeNodeCase::Left => (Felt252::ZERO, left_child),
+        _ => (Felt252::ONE, right_child),
+    };
+
+    insert_value_from_var_name(vars::ids::CHILD_BIT, child_bit, vm, ids_data, ap_tracking)?;
+
+    // vm_enter_scope(dict(node=new_node, **common_args))"#
+    // In this implementation we assume that `common_args` is unpacked, having a
+    // `HashMap<String, Box<dyn Any>>` as scope variable is unpractical.
+    // `common_args` contains the 3 variables below and is never modified.
+    let new_scope = {
+        let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
+        let descent_map: DescentMap = exec_scopes.get(vars::scopes::DESCENT_MAP)?;
+        let patricia_skip_validation_runner: Option<PatriciaSkipValidationRunner> =
+            exec_scopes.get(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER)?;
+
+        HashMap::from([
+            (vars::scopes::NODE.to_string(), any_box!(new_node)),
+            (vars::scopes::PREIMAGE.to_string(), any_box!(preimage)),
+            (vars::scopes::DESCENT_MAP.to_string(), any_box!(descent_map)),
+            (vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER.to_string(), any_box!(patricia_skip_validation_runner)),
+        ])
+    };
+    exec_scopes.enter_scope(new_scope);
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use blockifier::block_context::BlockContext;
@@ -899,6 +948,7 @@ mod tests {
     use crate::starkware_utils::commitment_tree::base_types::Height;
     use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
     use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+    use crate::starkware_utils::commitment_tree::update_tree::TreeUpdate;
     use crate::storage::dict_storage::DictStorage;
     use crate::storage::storage::FactFetchingContext;
 
@@ -974,5 +1024,52 @@ mod tests {
         // in the implementation of the hint
         cache_contract_storage(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
             .expect("Hint should not fail");
+    }
+
+    #[test]
+    fn test_enter_scope_new_node() {
+        let preimage: Preimage = HashMap::new();
+        let descent_map: DescentMap = HashMap::new();
+        let patricia_skip_validation_runner: Option<PatriciaSkipValidationRunner> = None;
+        let left_child = Some(TreeUpdate::Leaf(StorageLeaf::new(Felt252::ZERO)));
+        let right_child: Option<TreeUpdate<StorageLeaf>> = None;
+        let case = DecodeNodeCase::Left;
+
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(1);
+
+        let ids_data = HashMap::from([(vars::ids::CHILD_BIT.to_string(), HintReference::new_simple(-1))]);
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+        exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage.clone());
+        exec_scopes.insert_value(vars::scopes::DESCENT_MAP, descent_map.clone());
+        exec_scopes
+            .insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, patricia_skip_validation_runner.clone());
+        exec_scopes.insert_value(vars::scopes::LEFT_CHILD, left_child.clone());
+        exec_scopes.insert_value(vars::scopes::RIGHT_CHILD, right_child);
+        exec_scopes.insert_value(vars::scopes::CASE, case);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        enter_scope_new_node(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
+            .expect("Hint should succeed");
+
+        assert_eq!(exec_scopes.data.len(), 2, "A new scope should have been created");
+        assert_eq!(exec_scopes.data[1].len(), 4, "The new scope should contain 4 items");
+        assert_eq!(exec_scopes.get::<Preimage>(vars::scopes::PREIMAGE).unwrap(), preimage);
+        assert_eq!(exec_scopes.get::<DescentMap>(vars::scopes::DESCENT_MAP).unwrap(), descent_map);
+        assert_eq!(
+            exec_scopes
+                .get::<Option<PatriciaSkipValidationRunner>>(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER)
+                .unwrap(),
+            patricia_skip_validation_runner
+        );
+        assert_eq!(exec_scopes.get::<UpdateTree<StorageLeaf>>(vars::scopes::NODE).unwrap(), left_child);
+
+        let child_bit = get_integer_from_var_name(vars::ids::CHILD_BIT, &mut vm, &ids_data, &ap_tracking).unwrap();
+        assert_eq!(*child_bit, Felt252::ZERO);
     }
 }
