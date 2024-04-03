@@ -1024,7 +1024,13 @@ pub fn check_response_return_value(
     let response_retdata_end = vm.get_relocatable((response + CallContractResponse::retdata_end_offset())?)?;
 
     let expected = vm.get_range(response_retdata_start, (response_retdata_end - response_retdata_start)?);
-    let actual = vm.get_range(retdata, retdata_size.as_ref().to_usize().ok_or(HintError::CustomHint("retdata_size is not usize".to_string().into_boxed_str()))?);
+    let actual = vm.get_range(
+        retdata,
+        retdata_size
+            .as_ref()
+            .to_usize()
+            .ok_or(HintError::CustomHint("retdata_size is not usize".to_string().into_boxed_str()))?,
+    );
 
     assert_eq!(expected, actual, "Return value mismatch; expected={:?}, actual={:?}", expected, actual);
 

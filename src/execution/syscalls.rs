@@ -1,6 +1,7 @@
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
+
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_utils::{
     felt_from_ptr, read_call_params, write_maybe_relocatable, EmptyRequest, ReadOnlySegment, SingleSegmentResponse,
@@ -31,7 +32,6 @@ pub fn call_contract(
     exec_wrapper: ExecutionHelperWrapper,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<CallContractResponse> {
-
     let result_iter = &mut exec_wrapper.execution_helper.as_ref().borrow_mut().result_iter;
     let result = result_iter.next();
 

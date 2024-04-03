@@ -14,6 +14,7 @@ use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
+use snos::config::{StarknetGeneralConfig, StarknetOsConfig};
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
@@ -21,7 +22,6 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_crypto::FieldElement;
-use snos::config::{StarknetGeneralConfig, StarknetOsConfig};
 
 use crate::common::transaction_utils::to_felt252;
 
@@ -235,7 +235,7 @@ pub fn os_hints(
         starknet_os_config: StarknetOsConfig {
             chain_id: default_general_config.starknet_os_config.chain_id,
             fee_token_address: block_context.fee_token_addresses.strk_fee_token_address,
-            deprecated_fee_token_address: block_context.fee_token_addresses.eth_fee_token_address
+            deprecated_fee_token_address: block_context.fee_token_addresses.eth_fee_token_address,
         },
         ..default_general_config
     };
