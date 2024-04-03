@@ -13,7 +13,7 @@ use crate::utils::{Felt252HexNoPrefix, Felt252Str};
 // - starknet_api::transaction::Transaction -> no deserialization tag information
 // - starknet::types::Transaction -> deserializes `transaction_hash` we have `hash_value`
 #[serde_as]
-#[derive(Deserialize, Clone, Debug, Serialize, Default)]
+#[derive(Deserialize, Clone, Debug, Serialize, Default, PartialEq)]
 pub struct InternalTransaction {
     #[serde_as(as = "Felt252Str")]
     pub hash_value: Felt252,

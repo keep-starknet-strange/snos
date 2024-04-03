@@ -1,12 +1,18 @@
 use std::collections::HashMap;
 
+use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 
-use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
+use crate::starkware_utils::commitment_tree::base_types::TreeIndex;
+use crate::starkware_utils::commitment_tree::binary_fact_tree::{BinaryFactDict, BinaryFactTree};
+use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::{PatriciaTree, EMPTY_NODE_HASH};
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
 use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
+use crate::utils::{Felt252Num, Felt252Str};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StorageLeaf {
@@ -62,6 +68,66 @@ where
     }
 }
 
+/// Contains hints needed for the commitment tree update in the OS.
+#[serde_as]
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+pub struct CommitmentInfo {
+    #[serde_as(as = "Felt252Num")]
+    pub previous_root: Felt252,
+    #[serde_as(as = "Felt252Num")]
+    pub updated_root: Felt252,
+    pub tree_height: usize,
+    #[serde_as(as = "HashMap<Felt252Str, Vec<Felt252Str>>")]
+    pub commitment_facts: HashMap<Felt252, Vec<Felt252>>,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum CommitmentInfoError {
+    #[error(transparent)]
+    Tree(#[from] TreeError),
+
+    #[error("Inconsistent commitment tree roots")]
+    UpdatedRootMismatch,
+}
+
+impl From<CommitmentInfoError> for HintError {
+    fn from(error: CommitmentInfoError) -> Self {
+        HintError::CustomHint(error.to_string().into_boxed_str())
+    }
+}
+
+impl CommitmentInfo {
+    /// Returns a commitment info that corresponds to the given modifications.
+    pub async fn create_from_modifications<S, H, LF>(
+        mut previous_tree: PatriciaTree,
+        expected_updated_root: Felt252,
+        modifications: Vec<(TreeIndex, LF)>,
+        ffc: &mut FactFetchingContext<S, H>,
+    ) -> Result<Self, CommitmentInfoError>
+    where
+        S: Storage + 'static,
+        H: HashFunctionType + Sync + Send + 'static,
+        LF: LeafFact<S, H> + Send + 'static,
+    {
+        let previous_tree_root = Felt252::from_bytes_be_slice(&previous_tree.root);
+
+        let mut commitment_facts = Some(BinaryFactDict::new());
+        let actual_updated_tree = previous_tree.update(ffc, modifications, &mut commitment_facts).await?;
+        let actual_updated_root = Felt252::from_bytes_be_slice(&actual_updated_tree.root);
+
+        if actual_updated_root != expected_updated_root {
+            return Err(CommitmentInfoError::UpdatedRootMismatch);
+        }
+
+        Ok(Self {
+            previous_root: previous_tree_root,
+            updated_root: actual_updated_root,
+            tree_height: 0,
+            commitment_facts: Default::default(),
+        })
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct OsSingleStarknetStorage<S, H>
 where
@@ -69,26 +135,47 @@ where
     H: HashFunctionType,
 {
     previous_tree: PatriciaTree,
-    _expected_updated_root: Felt252,
-    ongoing_storage_changes: HashMap<Felt252, Felt252>,
+    expected_updated_root: Felt252,
+    ongoing_storage_changes: HashMap<TreeIndex, Felt252>,
     ffc: FactFetchingContext<S, H>,
 }
 
 impl<S, H> OsSingleStarknetStorage<S, H>
 where
-    S: Storage,
-    H: HashFunctionType,
+    S: Storage + 'static,
+    H: HashFunctionType + Sync + Send + 'static,
 {
     pub fn new<LF>(patricia_tree: PatriciaTree, ffc: FactFetchingContext<S, H>) -> Self
     where
         LF: LeafFact<S, H>,
     {
+        let tree_root = Felt252::from_bytes_be_slice(&patricia_tree.root);
+
         Self {
             previous_tree: patricia_tree,
-            _expected_updated_root: Default::default(),
+            expected_updated_root: tree_root,
             ongoing_storage_changes: Default::default(),
             ffc,
         }
+    }
+
+    /// Computes the commitment info based on the ongoing storage changes which is maintained
+    /// during the transaction execution phase; should be called after the execution phase.
+    pub async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
+        let final_modifications: Vec<_> = self
+            .ongoing_storage_changes
+            .clone()
+            .into_iter()
+            .map(|(key, value)| (key, StorageLeaf::new(value)))
+            .collect();
+
+        CommitmentInfo::create_from_modifications(
+            self.previous_tree.clone(),
+            self.expected_updated_root,
+            final_modifications,
+            &mut self.ffc,
+        )
+        .await
     }
 }
 
@@ -106,12 +193,12 @@ where
     H: HashFunctionType + Sync + Send + 'static,
 {
     pub fn read(&mut self, key: Felt252) -> Option<Felt252> {
-        let mut value = self.ongoing_storage_changes.get(&key).cloned();
+        let mut value = self.ongoing_storage_changes.get(&key.to_biguint()).cloned();
 
         if value.is_none() {
             let leaf = self.fetch_storage_leaf(key);
             let value_from_storage = leaf.value;
-            self.ongoing_storage_changes.insert(key, value_from_storage);
+            self.ongoing_storage_changes.insert(key.to_biguint(), value_from_storage);
             value = Some(value_from_storage);
         }
 
