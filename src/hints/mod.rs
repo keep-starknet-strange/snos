@@ -43,7 +43,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 97] = [
+static HINTS: [(&str, HintImpl); 99] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -89,6 +89,7 @@ static HINTS: [(&str, HintImpl); 97] = [
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::EXIT_CALL, execution::exit_call),
     (execution::EXIT_CALL_CONTRACT_SYSCALL, execution::exit_call_contract_syscall),
+    (execution::EXIT_GET_CALLER_ADDRESS_SELECTOR, execution::exit_get_caller_address_selector),
     (execution::EXIT_GET_EXECUTION_INFO_SYSCALL, execution::exit_get_execution_info_syscall),
     (execution::GEN_SIGNATURE_ARG, execution::gen_signature_arg),
     (execution::GET_STATE_ENTRY, execution::get_state_entry),
@@ -124,6 +125,7 @@ static HINTS: [(&str, HintImpl); 97] = [
     (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),
     (syscalls::DEPLOY, syscalls::deploy),
     (syscalls::EMIT_EVENT, syscalls::emit_event),
+    (syscalls::FETCH_STATE_ENTRY_5, syscalls::fetch_state_entry_5),
     (syscalls::GET_BLOCK_NUMBER, syscalls::get_block_number),
     (syscalls::GET_BLOCK_TIMESTAMP, syscalls::get_block_timestamp),
     (syscalls::GET_CALLER_ADDRESS, syscalls::get_caller_address),

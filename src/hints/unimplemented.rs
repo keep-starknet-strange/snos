@@ -421,16 +421,6 @@ const GET_SEQUENCER_ADDRESS: &str =
     "syscall_handler.get_sequencer_address(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 #[allow(unused)]
-const FETCH_STATE_ENTRY_5: &str = indoc! {r#"
-	# Fetch a state_entry in this hint and validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
-	    ids.contract_address
-	]
-
-	ids.new_state_entry = segments.add()"#
-};
-
-#[allow(unused)]
 const ENTER_SCOPE_RIGHT_CHILD: &str = "vm_enter_scope(dict(node=right_child, **common_args))";
 
 #[allow(unused)]
