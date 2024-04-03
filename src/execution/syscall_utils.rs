@@ -111,7 +111,7 @@ where
     Ok(values.into_iter().map(|felt| felt.into_owned()).collect())
 }
 pub fn read_calldata(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Vec<Felt252>> {
-    Ok(read_felt_array::<SyscallExecutionError>(vm, ptr)?)
+    read_felt_array::<SyscallExecutionError>(vm, ptr)
 }
 
 pub fn read_call_params(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<(Felt252, Vec<Felt252>)> {

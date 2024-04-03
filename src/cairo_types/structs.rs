@@ -50,6 +50,13 @@ pub struct BuiltinParams {
     builtin_instance_sizes: Felt252,
 }
 
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct CallContractResponse {
+    retdata_start: Felt252,
+    retdata_end: Felt252,
+}
+
 // TODO: how to handle this?
 // struct BuiltinPointers {
 //     selectable: SelectableBuiltins,

@@ -343,7 +343,9 @@ pub fn fee_token_address(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
-    insert_value_into_ap(vm, felt_api2vm(*os_input.general_config.starknet_os_config.fee_token_address.0.key()))
+    let fee_token_address = *os_input.general_config.starknet_os_config.fee_token_address.0.key();
+    println!("fee_token_address: {}", fee_token_address.to_string());
+    insert_value_into_ap(vm, felt_api2vm(fee_token_address))
 }
 
 pub const DEPRECATED_FEE_TOKEN_ADDRESS: &str =
@@ -356,10 +358,9 @@ pub fn deprecated_fee_token_address(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
-    insert_value_into_ap(
-        vm,
-        felt_api2vm(*os_input.general_config.starknet_os_config.deprecated_fee_token_address.0.key()),
-    )
+    let deprecated_fee_token_address = *os_input.general_config.starknet_os_config.deprecated_fee_token_address.0.key();
+    println!("deprecated_fee_token_address: {}", deprecated_fee_token_address.to_string());
+    insert_value_into_ap(vm, felt_api2vm(deprecated_fee_token_address))
 }
 
 pub const SEQUENCER_ADDRESS: &str = "memory[ap] = to_felt_or_relocatable(syscall_handler.block_info.sequencer_address)";
