@@ -42,9 +42,6 @@ const SET_TREE_STRUCTURE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
-
-#[allow(unused)]
 const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': syscall_handler})";
 
 #[allow(unused)]
