@@ -81,18 +81,6 @@ pub struct CommitmentInfo {
     pub commitment_facts: HashMap<Felt252, Vec<Felt252>>,
 }
 
-// #[serde_as]
-// #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
-// pub struct CommitmentInfo {
-//     #[serde_as(as = "Felt252Num")]
-//     pub previous_root: Felt252,
-//     #[serde_as(as = "Felt252Num")]
-//     pub updated_root: Felt252,
-//     pub tree_height: usize,
-//     #[serde_as(as = "HashMap<Felt252Str, Vec<Felt252Str>>")]
-//     pub commitment_facts: HashMap<Felt252, Vec<Felt252>>,
-// }
-
 #[derive(thiserror::Error, Debug)]
 pub enum CommitmentInfoError {
     #[error(transparent)]
