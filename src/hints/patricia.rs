@@ -79,7 +79,7 @@ pub fn set_bit(
         new_length.to_u64().ok_or(MathError::Felt252ToU64Conversion(Box::new(new_length)))?
     };
 
-    let bit = (edge_path.to_biguint() >> new_length.to_u64().unwrap()) & BigUint::from(1u64);
+    let bit = (edge_path.to_biguint() >> new_length) & BigUint::from(1u64);
     let bit_felt = Felt252::from(&bit);
     insert_value_from_var_name(vars::ids::BIT, bit_felt, vm, ids_data, ap_tracking)?;
 
@@ -147,7 +147,7 @@ mod tests {
         ]);
 
         let new_length = Felt252::from(3);
-        let edge_path = Felt252::from(0x1008);
+        let edge_path = Felt252::from(0x8);
 
         // Set the NodeEdge struct to start at (1, 0)
         insert_value_from_var_name(vars::ids::EDGE, Relocatable::from((1, 0)), &mut vm, &ids_data, &ap_tracking)
