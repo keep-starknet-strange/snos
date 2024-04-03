@@ -1,14 +1,6 @@
 use indoc::indoc;
 
 #[allow(unused)]
-const CACHE_CONTRACT_STORAGE: &str = indoc! {r#"
-	# Make sure the value is cached (by reading it), to be used later on for the
-	# commitment computation.
-	value = execution_helper.storage_by_address[ids.contract_address].read(key=ids.request.key)
-	assert ids.value == value, "Inconsistent storage value.""#
-};
-
-#[allow(unused)]
 const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': syscall_handler})";
 
 #[allow(unused)]
