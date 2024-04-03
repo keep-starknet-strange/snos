@@ -306,7 +306,7 @@ pub fn storage_read(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("syscall_handler")?;
     let syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
 
-    syscall_handler.storage_read(syscall_ptr);
+    syscall_handler.storage_read(syscall_ptr, vm)?;
 
     Ok(())
 }

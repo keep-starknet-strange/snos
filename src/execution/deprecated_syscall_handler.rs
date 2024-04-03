@@ -155,8 +155,22 @@ impl DeprecatedOsSyscallHandlerWrapper {
     pub fn send_message_to_l1(&self, syscall_ptr: Relocatable) {
         println!("send_message_to_l1 (TODO): {}", syscall_ptr);
     }
-    pub fn storage_read(&self, syscall_ptr: Relocatable) {
-        println!("storage_read (TODO): {}", syscall_ptr);
+    pub fn storage_read(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
+        let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
+        let value = sys_hand
+            .exec_wrapper
+            .execution_helper
+            .as_ref()
+            .borrow_mut()
+            .execute_code_read_iter
+            .next()
+            .ok_or(HintError::SyscallError("No more storage reads available to replay".to_string().into_boxed_str()))?;
+
+        println!("get_caller_address() syscall, syscall_ptr = {}, value = {}", syscall_ptr, value);
+
+        vm.insert_value((syscall_ptr + 2usize).unwrap(), value).unwrap();
+
+        Ok(())
     }
     pub fn storage_write(&self, syscall_ptr: Relocatable) {
         println!("storage_write (TODO): {}", syscall_ptr);
