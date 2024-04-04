@@ -134,6 +134,26 @@ pub fn assert_case_is_right(
     }
 }
 
+pub const SPLIT_DESCEND: &str = "ids.length, ids.word = descend";
+
+pub fn split_descend(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let descend: Vec<Felt252> = exec_scopes.get(vars::scopes::DESCEND)?;
+
+    let length = descend[0];
+    let word = descend[1];
+
+    insert_value_from_var_name(vars::ids::LENGTH, length, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::WORD, word, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
