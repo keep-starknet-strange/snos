@@ -1263,6 +1263,24 @@ pub fn cache_contract_storage_syscall_request_address(
     cache_contract_storage(key, vm, exec_scopes, ids_data, ap_tracking)
 }
 
+pub const SET_AP_TO_NONCE_ARG_SEGMENT: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg([tx.nonce]))";
+
+pub fn set_ap_to_nonce_arg_segment(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx: InternalTransaction = exec_scopes.get(vars::scopes::TX)?;
+    let nonce = tx.nonce.ok_or(HintError::CustomHint("tx.nonce is not set".to_string().into_boxed_str()))?;
+
+    let nonce_arg = vm.gen_arg(&vec![nonce])?;
+    insert_value_into_ap(vm, nonce_arg)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
