@@ -10,10 +10,12 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
+use indoc::indoc;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
 use crate::cairo_types::trie::NodeEdge;
+use crate::hints::types::DescentMap;
 use crate::hints::vars;
 use crate::starkware_utils::commitment_tree::update_tree::DecodeNodeCase;
 
@@ -82,6 +84,36 @@ pub fn set_bit(
     let bit = (edge_path.to_biguint() >> new_length) & BigUint::from(1u64);
     let bit_felt = Felt252::from(&bit);
     insert_value_from_var_name(vars::ids::BIT, bit_felt, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+pub const SET_AP_TO_DESCEND: &str = indoc! {r#"
+	descend = descent_map.get((ids.height, ids.path))
+	memory[ap] = 0 if descend is None else 1"#
+};
+
+pub fn set_ap_to_descend(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let descent_map: DescentMap = exec_scopes.get(vars::scopes::DESCENT_MAP)?;
+
+    let height = get_integer_from_var_name(vars::ids::HEIGHT, vm, ids_data, ap_tracking)?.into_owned();
+    let path = get_integer_from_var_name(vars::ids::PATH, vm, ids_data, ap_tracking)?.into_owned();
+
+    let ap = match descent_map.get(&(height, path)) {
+        None => Felt252::ZERO,
+        Some(value) => {
+            exec_scopes.insert_value(vars::ids::DESCEND, value.clone());
+            Felt252::ONE
+        }
+    };
+
+    insert_value_into_ap(vm, ap)?;
 
     Ok(())
 }
