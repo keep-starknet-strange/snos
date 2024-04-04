@@ -13,8 +13,10 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 
+use crate::cairo_types::entry_point::EntryPointReturnValues;
 use crate::cairo_types::syscalls::{NewDeployResponse, NewSyscallContractResponse, SyscallContractResponse};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
+use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::vars;
 
@@ -474,6 +476,35 @@ pub fn check_new_deploy_response(
     Ok(())
 }
 
+pub const VALIDATE_AND_DISCARD_SYSCALL_PTR: &str = indoc! {r#"
+	syscall_handler.validate_and_discard_syscall_ptr(
+	    syscall_ptr_end=ids.entry_point_return_values.syscall_ptr
+	)
+	execution_helper.exit_call()"#
+};
+
+pub fn validate_and_discard_syscall_ptr(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let syscall_handler: OsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
+    let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+
+    let entry_point_return_values =
+        get_ptr_from_var_name(vars::ids::ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
+    let syscall_ptr =
+        vm.get_relocatable((entry_point_return_values + EntryPointReturnValues::syscall_ptr_offset())?)?;
+
+    syscall_handler.validate_and_discard_syscall_ptr(syscall_ptr)?;
+
+    execution_helper.exit_call();
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use blockifier::block_context::BlockContext;
@@ -521,6 +552,6 @@ mod tests {
         assert_eq!(syscall_ptr, Relocatable::from((3, 0)));
 
         let syscall_handler: OsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER).unwrap();
-        assert_eq!(syscall_handler.syscall_ptr(), syscall_ptr);
+        assert_eq!(syscall_handler.syscall_ptr(), Some(syscall_ptr));
     }
 }

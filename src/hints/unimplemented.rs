@@ -14,14 +14,6 @@ const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const VALIDATE_AND_DISCARD_SYSCALL_PTR: &str = indoc! {r#"
-	syscall_handler.validate_and_discard_syscall_ptr(
-	    syscall_ptr_end=ids.entry_point_return_values.syscall_ptr
-	)
-	execution_helper.exit_call()"#
-};
-
-#[allow(unused)]
 const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
 	(
 	    old_block_number, old_block_hash
