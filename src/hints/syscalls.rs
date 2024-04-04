@@ -447,9 +447,9 @@ pub fn cache_contract_storage_2(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let contract_address = get_ptr_from_var_name("contract_address", vm, ids_data, ap_tracking)?;
     let key = get_integer_from_var_name("request_address", vm, ids_data, ap_tracking)?;
-    let dict_ptr = get_ptr_from_var_name("contract_address", vm, ids_data, ap_tracking)?;
-    let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
+    let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(contract_address)?.data.clone() {
         Dictionary::SimpleDictionary(dict) => dict
             .get(&MaybeRelocatable::Int(key.into_owned()))
             .expect("State changes dictionnary shouldn't be None")

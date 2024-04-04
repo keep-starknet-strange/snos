@@ -69,3 +69,19 @@ pub struct CallContractResponse {
 //     selectable: Felt252,
 //     non_selectable: Felt252,
 // }
+
+// // Describes the StorageRead system call format.
+// struct StorageReadRequest {
+//     // The system call selector (= STORAGE_READ_SELECTOR).
+//     selector: felt,
+//     address: felt,
+// }
+//
+// struct StorageReadResponse {
+//     value: felt,
+// }
+//
+// struct StorageRead {
+//     request: StorageReadRequest,
+//     response: StorageReadResponse,
+// }
