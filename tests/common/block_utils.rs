@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
 use blockifier::block_context::BlockContext;
-use blockifier::execution::contract_class::ContractClass;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
-use blockifier::state::cached_state::{CachedState, StorageEntry};
+use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::StateReader;
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::contracts::FeatureContract::{
@@ -19,9 +18,9 @@ use snos::config::{StarknetGeneralConfig, StarknetOsConfig};
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::StarkHash;
 use starknet_crypto::FieldElement;
 
 use crate::common::transaction_utils::to_felt252;
@@ -169,7 +168,7 @@ pub fn copy_state(state: &CachedState<DictStateReader>) -> CachedState<DictState
         address_to_nonce,
         address_to_class_hash,
         class_hash_to_class,
-        class_hash_to_compiled_class_hash
+        class_hash_to_compiled_class_hash,
     })
 }
 

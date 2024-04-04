@@ -2,11 +2,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use blockifier::execution::execution_utils::ReadOnlySegments;
-use cairo_type_derive::FieldOffsetGetters;
+use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
+
+use cairo_type_derive::FieldOffsetGetters;
 
 use crate::utils::felt_api2vm;
 
@@ -27,6 +28,7 @@ pub struct DeprecatedOsSyscallHandlerWrapper {
     pub deprecated_syscall_handler: Rc<RefCell<DeprecatedOsSyscallHandler>>,
 }
 
+#[allow(unused)]
 #[derive(FieldOffsetGetters)]
 pub struct CallContractRequest {
     selector: Felt252,
@@ -35,11 +37,15 @@ pub struct CallContractRequest {
     calldata_size: Felt252,
     calldata: Relocatable,
 }
+
+#[allow(unused)]
 #[derive(FieldOffsetGetters)]
 pub struct CallContractResponse {
     retdata_size: Felt252,
     retdata: Relocatable,
 }
+
+#[allow(unused)]
 #[derive(FieldOffsetGetters)]
 pub struct CallContract {
     request: CallContractRequest,
@@ -109,19 +115,10 @@ impl DeprecatedOsSyscallHandlerWrapper {
         println!("get_block_timestamp (TODO): {}", syscall_ptr);
     }
     pub fn get_caller_address(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) {
-
         let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
-        let exec_helper = sys_hand
-            .exec_wrapper
-            .execution_helper
-            .as_ref()
-            .borrow();
-        let caller_address = exec_helper
-            .call_info
-            .as_ref()
-            .expect("A call should have some call info")
-            .call
-            .caller_address.0.key();
+        let exec_helper = sys_hand.exec_wrapper.execution_helper.as_ref().borrow();
+        let caller_address =
+            exec_helper.call_info.as_ref().expect("A call should have some call info").call.caller_address.0.key();
         let caller_address = felt_api2vm(*caller_address);
 
         // TODO: create proper struct for this (similar to GetCallerAddress and friends)
@@ -130,7 +127,6 @@ impl DeprecatedOsSyscallHandlerWrapper {
         println!("get_caller_address() syscall, syscall_ptr = {}, caller_address = {}", syscall_ptr, caller_address);
 
         vm.insert_value((syscall_ptr + 1usize).unwrap(), caller_address).unwrap();
-
     }
     pub fn get_contract_address(&self, syscall_ptr: Relocatable) {
         println!("get_contract_address (TODO): {}", syscall_ptr);
@@ -158,14 +154,10 @@ impl DeprecatedOsSyscallHandlerWrapper {
     }
     pub fn storage_read(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
-        let value = sys_hand
-            .exec_wrapper
-            .execution_helper
-            .as_ref()
-            .borrow_mut()
-            .execute_code_read_iter
-            .next()
-            .ok_or(HintError::SyscallError("No more storage reads available to replay".to_string().into_boxed_str()))?;
+        let value =
+            sys_hand.exec_wrapper.execution_helper.as_ref().borrow_mut().execute_code_read_iter.next().ok_or(
+                HintError::SyscallError("No more storage reads available to replay".to_string().into_boxed_str()),
+            )?;
 
         println!("storage_read syscall, syscall_ptr = {}, value = {}", syscall_ptr, value);
 
@@ -200,16 +192,16 @@ mod test {
     use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
     use blockifier::execution::call_info::Retdata;
     use blockifier::execution::entry_point_execution::CallResult;
-    use cairo_vm::serde::deserialize_program::ApTracking;
+    use blockifier::state::cached_state::CachedState;
+    use cairo_vm::Felt252;
     use cairo_vm::types::exec_scope::ExecutionScopes;
     use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
     use cairo_vm::vm::vm_core::VirtualMachine;
-    use cairo_vm::Felt252;
     use rstest::{fixture, rstest};
+    use starknet_api::{contract_address, patricia_key};
     use starknet_api::block::{BlockNumber, BlockTimestamp};
     use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
     use starknet_api::hash::{StarkFelt, StarkHash};
-    use starknet_api::{contract_address, patricia_key};
 
     use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
     use crate::execution::helper::ExecutionHelperWrapper;
@@ -246,7 +238,7 @@ mod test {
         let mut exec_scopes = ExecutionScopes::new();
 
         let execution_infos = Default::default();
-        let exec_helper = ExecutionHelperWrapper::new(execution_infos, &block_context);
+        let exec_helper = ExecutionHelperWrapper::new(CachedState::default(), execution_infos, &block_context);
 
         // insert a call result for call_contract to replay. it should insert this into a new temporary
         // segment and insert its size somewhere in syscall_ptr.

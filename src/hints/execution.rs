@@ -23,12 +23,12 @@ use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest, StorageWrite
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
+use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
+use crate::hints::vars;
 use crate::hints::vars::ids::{
     ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, REQUIRED_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
 };
 use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
-use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
-use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 use crate::starknet::starknet_storage::StorageLeaf;
@@ -71,6 +71,19 @@ pub fn load_next_tx(
     exec_scopes.insert_value("tx", tx.clone());
     insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
     // TODO: add logger
+}
+
+pub const EXIT_TX: &str = "exit_tx()";
+pub fn exit_tx(
+    _vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // TODO: add logger
+    println!("exit tx");
+    Ok(())
 }
 
 pub const PREPARE_CONSTRUCTOR_EXECUTION: &str = indoc! {r#"
@@ -948,7 +961,7 @@ pub const COMPARE_RETURN_VALUE: &str = indoc! {r#"
 
 pub fn compare_return_value(
     vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
@@ -1458,6 +1471,7 @@ mod tests {
     use std::rc::Rc;
 
     use blockifier::block_context::BlockContext;
+    use blockifier::state::cached_state::CachedState;
     use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::DictManager;
     use cairo_vm::types::relocatable::Relocatable;
     use num_bigint::BigUint;
@@ -1481,7 +1495,7 @@ mod tests {
 
     #[fixture]
     fn execution_helper(block_context: BlockContext) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(vec![], &block_context)
+        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context)
     }
 
     #[fixture]

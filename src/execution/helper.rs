@@ -12,7 +12,6 @@ use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::Felt252;
-use starknet_api::contract_address;
 use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::state::StorageKey;
@@ -53,7 +52,7 @@ pub struct ExecutionHelper {
     pub execute_code_read_iter: IntoIter<Felt252>,
     pub storage_by_address: StorageByAddress,
     // Temporary state, until storage_by_address is functional
-    pub state: CachedState<DictStateReader>
+    pub state: CachedState<DictStateReader>,
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
@@ -64,7 +63,11 @@ pub struct ExecutionHelperWrapper {
 }
 
 impl ExecutionHelperWrapper {
-    pub fn new(state: CachedState<DictStateReader>, tx_execution_infos: Vec<TransactionExecutionInfo>, block_context: &BlockContext) -> Self {
+    pub fn new(
+        state: CachedState<DictStateReader>,
+        tx_execution_infos: Vec<TransactionExecutionInfo>,
+        block_context: &BlockContext,
+    ) -> Self {
         // Block number and block hash (current_block_number - buffer) block buffer=STORED_BLOCK_HASH_BUFFER
         // Hash that is going to be written by this OS run
         let prev_block_context =
@@ -83,7 +86,7 @@ impl ExecutionHelperWrapper {
                 deployed_contracts_iter: vec![].into_iter(),
                 execute_code_read_iter: vec![].into_iter(),
                 storage_by_address: StorageByAddress::default(),
-                state
+                state,
             })),
         }
     }
@@ -175,7 +178,8 @@ impl ExecutionHelperWrapper {
             // TODO: be more specific about the error reasons
             Err(StorageError::ContentNotFound)
         }
-        // let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
+        // let storage_by_address = &mut
+        // self.execution_helper.as_ref().borrow_mut().storage_by_address;
         // if let Some(storage) = storage_by_address.get_mut(&address) {
         //     return storage.read(key).ok_or(StorageError::ContentNotFound);
         // }
@@ -194,13 +198,14 @@ impl ExecutionHelperWrapper {
         let address = ContractAddress::try_from(felt_vm2api(address)).map_err(|_| StorageError::ContentNotFound)?;
         let key = StorageKey::try_from(felt_vm2api(key)).map_err(|_| StorageError::ContentNotFound)?;
         let value = felt_vm2api(value);
-        if let Ok(value) = state.set_storage_at(address, key, value.into()) {
+        if let Ok(value) = state.set_storage_at(address, key, value) {
             Ok(value)
         } else {
             // TODO: be more specific about the error reasons
             Err(StorageError::ContentNotFound)
         }
-        // let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
+        // let storage_by_address = &mut
+        // self.execution_helper.as_ref().borrow_mut().storage_by_address;
         // if let Some(storage) = storage_by_address.get_mut(&address) {
         //     storage.write(key.to_biguint(), value);
         //     Ok(())

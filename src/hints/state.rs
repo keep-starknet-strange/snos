@@ -266,6 +266,7 @@ pub fn set_initial_state_updates_ptr(
 #[cfg(test)]
 mod tests {
     use blockifier::block_context::BlockContext;
+    use blockifier::state::cached_state::CachedState;
     use num_bigint::BigUint;
     use rstest::{fixture, rstest};
 
@@ -311,7 +312,7 @@ mod tests {
 
     #[fixture]
     fn execution_helper(block_context: BlockContext) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(vec![], &block_context)
+        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context)
     }
 
     #[fixture]

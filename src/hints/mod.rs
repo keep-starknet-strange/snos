@@ -38,7 +38,7 @@ mod types;
 mod unimplemented;
 pub mod vars;
 
-type HintImpl = fn(
+pub type HintImpl = fn(
     &mut VirtualMachine,
     &mut ExecutionScopes,
     &HashMap<String, HintReference>,
@@ -46,7 +46,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 117] = [
+static HINTS: [(&str, HintImpl); 147] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -78,6 +78,7 @@ static HINTS: [(&str, HintImpl); 117] = [
     (builtins::SELECT_BUILTIN, builtins::select_builtin),
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
     (execution::ADD_RELOCATION_RULE, execution::add_relocation_rule),
+    (execution::EXIT_TX, execution::exit_tx),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::CHECK_EXECUTION, execution::check_execution),
@@ -171,7 +172,36 @@ static HINTS: [(&str, HintImpl); 117] = [
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
     (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
-    (syscalls::EXIT_SYSCALL, syscalls::exit_syscall),
+    (syscalls::EXIT_CALL_CONTRACT_SYSCALL, syscalls::exit_call_contract_syscall),
+    (syscalls::EXIT_DELEGATE_CALL_SYSCALL, syscalls::exit_delegate_call_syscall),
+    (syscalls::EXIT_DELEGATE_L1_HANDLER_SYSCALL, syscalls::exit_delegate_l1_handler_syscall),
+    (syscalls::EXIT_DEPLOY_SYSCALL, syscalls::exit_deploy_syscall),
+    (syscalls::EXIT_EMIT_EVENT_SYSCALL, syscalls::exit_emit_event_syscall),
+    (syscalls::EXIT_GET_BLOCK_HASH_SYSCALL, syscalls::exit_get_block_hash_syscall),
+    (syscalls::EXIT_GET_BLOCK_TIMESTAMP_SYSCALL, syscalls::exit_get_block_timestamp_syscall),
+    (syscalls::EXIT_GET_CALLER_ADDRESS_SYSCALL, syscalls::exit_get_caller_address_syscall),
+    (syscalls::EXIT_GET_CONTRACT_ADDRESS_SYSCALL, syscalls::exit_get_contract_address_syscall),
+    (syscalls::EXIT_GET_EXECUTION_INFO_SYSCALL, syscalls::exit_get_execution_info_syscall),
+    (syscalls::EXIT_GET_SEQUENCER_ADDRESS_SYSCALL, syscalls::exit_get_sequencer_address_syscall),
+    (syscalls::EXIT_GET_TX_INFO_SYSCALL, syscalls::exit_get_tx_info_syscall),
+    (syscalls::EXIT_GET_TX_SIGNATURE_SYSCALL, syscalls::exit_get_tx_signature_syscall),
+    (syscalls::EXIT_KECCAK_SYSCALL, syscalls::exit_keccak_syscall),
+    (syscalls::EXIT_LIBRARY_CALL_L1_HANDLER_SYSCALL, syscalls::exit_library_call_l1_handler_syscall),
+    (syscalls::EXIT_LIBRARY_CALL_SYSCALL, syscalls::exit_library_call_syscall),
+    (syscalls::EXIT_REPLACE_CLASS_SYSCALL, syscalls::exit_replace_class_syscall),
+    (syscalls::EXIT_SECP256K1_ADD_SYSCALL, syscalls::exit_secp256k1_add_syscall),
+    (syscalls::EXIT_SECP256K1_GET_POINT_FROM_X_SYSCALL, syscalls::exit_secp256k1_get_point_from_x_syscall),
+    (syscalls::EXIT_SECP256K1_GET_XY_SYSCALL, syscalls::exit_secp256k1_get_xy_syscall),
+    (syscalls::EXIT_SECP256K1_MUL_SYSCALL, syscalls::exit_secp256k1_mul_syscall),
+    (syscalls::EXIT_SECP256K1_NEW_SYSCALL, syscalls::exit_secp256k1_new_syscall),
+    (syscalls::EXIT_SECP256R1_ADD_SYSCALL, syscalls::exit_secp256r1_add_syscall),
+    (syscalls::EXIT_SECP256R1_GET_POINT_FROM_X_SYSCALL, syscalls::exit_secp256r1_get_point_from_x_syscall),
+    (syscalls::EXIT_SECP256R1_GET_XY_SYSCALL, syscalls::exit_secp256r1_get_xy_syscall),
+    (syscalls::EXIT_SECP256R1_MUL_SYSCALL, syscalls::exit_secp256r1_mul_syscall),
+    (syscalls::EXIT_SECP256R1_NEW_SYSCALL, syscalls::exit_secp256r1_new_syscall),
+    (syscalls::EXIT_SEND_MESSAGE_TO_L1_SYSCALL, syscalls::exit_send_message_to_l1_syscall),
+    (syscalls::EXIT_STORAGE_READ_SYSCALL, syscalls::exit_storage_read_syscall),
+    (syscalls::EXIT_STORAGE_WRITE_SYSCALL, syscalls::exit_storage_write_syscall),
     (BREAKPOINT, breakpoint),
 ];
 

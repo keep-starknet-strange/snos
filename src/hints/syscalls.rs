@@ -1,9 +1,8 @@
 use std::collections::HashMap;
-use std::borrow::Cow;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_maybe_relocatable_from_var_name, get_ptr_from_var_name, insert_value_from_var_name
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -13,8 +12,8 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
-use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest};
 
+use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
@@ -377,28 +376,13 @@ pub const OS_LOGGER_ENTER_SYSCALL_PREPRARE_EXIT_SYSCALL: &str = indoc! {r#"
         )"#
 };
 pub fn os_logger_enter_syscall_preprare_exit_syscall(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    println!("TODO: os_logger enter/exit calls");
-
-    Ok(())
-}
-
-pub const EXIT_SYSCALL: &str = indoc! {r#"
-    exit_syscall(selector=ids.CALL_CONTRACT_SELECTOR)"#
-};
-pub fn exit_syscall(
     _vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    println!("exit_syscall hint: TODO");
+    println!("TODO: os_logger enter/exit calls");
 
     Ok(())
 }
@@ -452,18 +436,21 @@ pub fn cache_contract_storage_2(
 ) -> Result<(), HintError> {
     let contract_address = get_integer_from_var_name("contract_address", vm, ids_data, ap_tracking)?;
     let syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
-    let key = vm.get_integer((syscall_ptr + (StorageRead::request_offset() + StorageReadRequest::address_offset()))?)?;
+    let key =
+        vm.get_integer((syscall_ptr + (StorageRead::request_offset() + StorageReadRequest::address_offset()))?)?;
 
     let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
-    let value =
-        execution_helper.read_storage_for_address(*contract_address, *key).map_err(|_| {
-            HintError::CustomHint(format!("Storage read error, contract: {}, key: {}", contract_address, key).into_boxed_str())
-        })?;
-
+    let value = execution_helper.read_storage_for_address(*contract_address, *key).map_err(|_| {
+        HintError::CustomHint(
+            format!("Storage read error, contract: {}, key: {}", contract_address, key).into_boxed_str(),
+        )
+    })?;
 
     let ids_value = *get_integer_from_var_name("value", vm, ids_data, ap_tracking)?;
     if ids_value != value {
-        return Err(HintError::AssertionFailed(format!("Inconsistent storage value: {} <> {}.", ids_value, value).into()));
+        return Err(HintError::AssertionFailed(
+            format!("Inconsistent storage value: {} <> {}.", ids_value, value).into(),
+        ));
     }
 
     Ok(())
@@ -518,4 +505,346 @@ mod tests {
         let syscall_handler: OsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER).unwrap();
         assert_eq!(syscall_handler.syscall_ptr().unwrap(), syscall_ptr);
     }
+}
+
+pub fn exit_syscall(
+    selector_name: &str,
+    _vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // TODO: add logging
+    println!("exiting syscall {}", selector_name);
+    Ok(())
+}
+pub const EXIT_CALL_CONTRACT_SYSCALL: &str = "exit_syscall(selector=ids.CALL_CONTRACT_SELECTOR)";
+pub fn exit_call_contract_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("CALL_CONTRACT_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+
+pub const EXIT_DELEGATE_CALL_SYSCALL: &str = "exit_syscall(selector=ids.DELEGATE_CALL_SELECTOR)";
+pub fn exit_delegate_call_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("DELEGATE_CALL_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_DELEGATE_L1_HANDLER_SYSCALL: &str = "exit_syscall(selector=ids.DELEGATE_L1_HANDLER_SELECTOR)";
+pub fn exit_delegate_l1_handler_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("DELEGATE_L1_HANDLER_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_DEPLOY_SYSCALL: &str = "exit_syscall(selector=ids.DEPLOY_SELECTOR)";
+pub fn exit_deploy_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("DEPLOY_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_EMIT_EVENT_SYSCALL: &str = "exit_syscall(selector=ids.EMIT_EVENT_SELECTOR)";
+
+pub fn exit_emit_event_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("EMIT_EVENT_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_GET_BLOCK_HASH_SYSCALL: &str = "exit_syscall(selector=ids.GET_BLOCK_HASH_SELECTOR)";
+
+pub fn exit_get_block_hash_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("GET_BLOCK_HASH_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_GET_BLOCK_TIMESTAMP_SYSCALL: &str = "exit_syscall(selector=ids.GET_BLOCK_TIMESTAMP_SELECTOR)";
+
+pub fn exit_get_block_timestamp_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("GET_BLOCK_TIMESTAMP_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_GET_CALLER_ADDRESS_SYSCALL: &str = "exit_syscall(selector=ids.GET_CALLER_ADDRESS_SELECTOR)";
+
+pub fn exit_get_caller_address_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("GET_CALLER_ADDRESS_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_GET_CONTRACT_ADDRESS_SYSCALL: &str = "exit_syscall(selector=ids.GET_CONTRACT_ADDRESS_SELECTOR)";
+
+pub fn exit_get_contract_address_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("GET_CONTRACT_ADDRESS_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_GET_EXECUTION_INFO_SYSCALL: &str = "exit_syscall(selector=ids.GET_EXECUTION_INFO_SELECTOR)";
+
+pub fn exit_get_execution_info_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("GET_EXECUTION_INFO_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_GET_SEQUENCER_ADDRESS_SYSCALL: &str = "exit_syscall(selector=ids.GET_SEQUENCER_ADDRESS_SELECTOR)";
+
+pub fn exit_get_sequencer_address_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("GET_SEQUENCER_ADDRESS_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_GET_TX_INFO_SYSCALL: &str = "exit_syscall(selector=ids.GET_TX_INFO_SELECTOR)";
+
+pub fn exit_get_tx_info_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("GET_TX_INFO_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_GET_TX_SIGNATURE_SYSCALL: &str = "exit_syscall(selector=ids.GET_TX_SIGNATURE_SELECTOR)";
+
+pub fn exit_get_tx_signature_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("GET_TX_SIGNATURE_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_KECCAK_SYSCALL: &str = "exit_syscall(selector=ids.KECCAK_SELECTOR)";
+
+pub fn exit_keccak_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("KECCAK_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_LIBRARY_CALL_L1_HANDLER_SYSCALL: &str = "exit_syscall(selector=ids.LIBRARY_CALL_L1_HANDLER_SELECTOR)";
+
+pub fn exit_library_call_l1_handler_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("LIBRARY_CALL_L1_HANDLER_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_LIBRARY_CALL_SYSCALL: &str = "exit_syscall(selector=ids.LIBRARY_CALL_SELECTOR)";
+
+pub fn exit_library_call_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("LIBRARY_CALL_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_REPLACE_CLASS_SYSCALL: &str = "exit_syscall(selector=ids.REPLACE_CLASS_SELECTOR)";
+
+pub fn exit_replace_class_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("REPLACE_CLASS_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_SECP256K1_ADD_SYSCALL: &str = "exit_syscall(selector=ids.SECP256K1_ADD_SELECTOR)";
+
+pub fn exit_secp256k1_add_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SECP256K1_ADD_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_SECP256K1_GET_POINT_FROM_X_SYSCALL: &str =
+    "exit_syscall(selector=ids.SECP256K1_GET_POINT_FROM_X_SELECTOR)";
+
+pub fn exit_secp256k1_get_point_from_x_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SECP256K1_GET_POINT_FROM_X_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_SECP256K1_GET_XY_SYSCALL: &str = "exit_syscall(selector=ids.SECP256K1_GET_XY_SELECTOR)";
+
+pub fn exit_secp256k1_get_xy_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SECP256K1_GET_XY_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_SECP256K1_MUL_SYSCALL: &str = "exit_syscall(selector=ids.SECP256K1_MUL_SELECTOR)";
+
+pub fn exit_secp256k1_mul_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SECP256K1_MUL_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_SECP256K1_NEW_SYSCALL: &str = "exit_syscall(selector=ids.SECP256K1_NEW_SELECTOR)";
+
+pub fn exit_secp256k1_new_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SECP256K1_NEW_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_SECP256R1_ADD_SYSCALL: &str = "exit_syscall(selector=ids.SECP256R1_ADD_SELECTOR)";
+
+pub fn exit_secp256r1_add_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SECP256R1_ADD_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_SECP256R1_GET_POINT_FROM_X_SYSCALL: &str =
+    "exit_syscall(selector=ids.SECP256R1_GET_POINT_FROM_X_SELECTOR)";
+
+pub fn exit_secp256r1_get_point_from_x_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SECP256R1_GET_POINT_FROM_X_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_SECP256R1_GET_XY_SYSCALL: &str = "exit_syscall(selector=ids.SECP256R1_GET_XY_SELECTOR)";
+
+pub fn exit_secp256r1_get_xy_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SECP256R1_GET_XY_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_SECP256R1_MUL_SYSCALL: &str = "exit_syscall(selector=ids.SECP256R1_MUL_SELECTOR)";
+
+pub fn exit_secp256r1_mul_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SECP256R1_MUL_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_SECP256R1_NEW_SYSCALL: &str = "exit_syscall(selector=ids.SECP256R1_NEW_SELECTOR)";
+
+pub fn exit_secp256r1_new_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SECP256R1_NEW_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_SEND_MESSAGE_TO_L1_SYSCALL: &str = "exit_syscall(selector=ids.SEND_MESSAGE_TO_L1_SELECTOR)";
+
+pub fn exit_send_message_to_l1_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SEND_MESSAGE_TO_L1_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_STORAGE_READ_SYSCALL: &str = "exit_syscall(selector=ids.STORAGE_READ_SELECTOR)";
+
+pub fn exit_storage_read_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("STORAGE_READ_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+pub const EXIT_STORAGE_WRITE_SYSCALL: &str = "exit_syscall(selector=ids.STORAGE_WRITE_SELECTOR)";
+
+pub fn exit_storage_write_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("STORAGE_WRITE_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
 }
