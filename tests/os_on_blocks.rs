@@ -25,7 +25,9 @@ fn run_os_on_simple_block(block_context: BlockContext, simple_block: (StarknetOs
     if let Err(ref e) = result {
         if let Runner(ref r) = e {
             if let VmException(ref vme) = r {
-                println!("traceback:\n{}", vme.traceback.as_ref().unwrap());
+                if let Some(traceback) = vme.traceback.as_ref() {
+                    println!("traceback:\n{}", traceback);
+                }
             }
         }
     }

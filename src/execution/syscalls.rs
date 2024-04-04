@@ -1,12 +1,13 @@
-use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_utils::{
     felt_from_ptr, read_call_params, write_maybe_relocatable, EmptyRequest, ReadOnlySegment, SingleSegmentResponse,
-    SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
+    SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
 };
+use crate::utils::felt_api2vm;
 
 // CallContract syscall.
 #[derive(Debug, Eq, PartialEq)]
@@ -30,17 +31,29 @@ pub fn call_contract(
     request: CallContractRequest,
     vm: &mut VirtualMachine,
     exec_wrapper: ExecutionHelperWrapper,
-    _remaining_gas: &mut u64,
+    remaining_gas: &mut u64,
 ) -> SyscallResult<CallContractResponse> {
     let result_iter = &mut exec_wrapper.execution_helper.as_ref().borrow_mut().result_iter;
-    let result = result_iter.next();
+    let result = result_iter
+        .next()
+        .ok_or(SyscallExecutionError::InternalError(Box::from("No result left in the result iterator.")))?;
 
-    println!("CallContract syscall, contract_address: {}, result: {:?}", request.contract_address, result);
+    *remaining_gas = *remaining_gas - result.gas_consumed;
 
-    // TODO: return response based on the result
+    let retdata = result.retdata.0.iter().map(|sf| felt_api2vm(*sf)).collect();
+
+    if result.failed {
+        return Err(SyscallExecutionError::SyscallError { error_data: retdata });
+    }
+
+    println!(
+        "CallContract syscall, contract address: {}, selector: {} -> failed: {}, {:?}?",
+        request.contract_address, request.function_selector, result.failed, result.retdata
+    );
+
     let start_ptr = vm.add_temporary_segment();
-    vm.insert_value(start_ptr, 2)?;
-    Ok(CallContractResponse { segment: ReadOnlySegment { start_ptr, length: 1 } })
+    vm.load_data(start_ptr, &retdata.iter().map(|r| MaybeRelocatable::from(r)).collect())?;
+    Ok(CallContractResponse { segment: ReadOnlySegment { start_ptr, length: retdata.len() } })
 }
 
 // TODO: Deploy syscall.

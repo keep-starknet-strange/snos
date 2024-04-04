@@ -23,6 +23,7 @@ use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest, StorageWrite
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
+use crate::execution::syscall_utils::SyscallSelector;
 use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
 use crate::hints::vars::ids::{
@@ -1016,46 +1017,7 @@ pub fn log_enter_syscall(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let selector = get_integer_from_var_name(SELECTOR, _vm, ids_data, _ap_tracking)?;
-    println!("entering syscall: {} execution", selector);
-    // TODO: implement logging
-    Ok(())
-}
-
-pub const EXIT_GET_CALLER_ADDRESS_SELECTOR: &str = "exit_syscall(selector=ids.GET_CALLER_ADDRESS_SELECTOR)";
-pub fn exit_get_caller_address_selector(
-    _vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    println!("exiting get_caller_address_syscall");
-    // TODO: implement logging
-    Ok(())
-}
-
-pub const EXIT_GET_EXECUTION_INFO_SYSCALL: &str = "exit_syscall(selector=ids.GET_EXECUTION_INFO_SELECTOR)";
-pub fn exit_get_execution_info_syscall(
-    _vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    println!("exiting exit_get_execution_info_syscall");
-    // TODO: implement logging
-    Ok(())
-}
-
-pub const EXIT_CALL_CONTRACT_SYSCALL: &str = "exit_syscall(selector=ids.CALL_CONTRACT_SELECTOR)";
-pub fn exit_call_contract_syscall(
-    _vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    println!("exiting call_contract_syscall");
+    println!("entering syscall: {:?} execution", SyscallSelector::try_from(*selector)?);
     // TODO: implement logging
     Ok(())
 }

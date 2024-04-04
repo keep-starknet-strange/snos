@@ -58,12 +58,11 @@ impl OsSyscallHandlerWrapper {
         let syscall_handler_syscall_ptr =
             &mut syscall_handler.syscall_ptr.ok_or(HintError::CustomHint(Box::from("syscall_ptr is None")))?;
 
-        println!("about to execute syscall syscall_ptr: {:?}", syscall_handler_syscall_ptr);
         assert_eq!(*syscall_handler_syscall_ptr, syscall_ptr);
 
         let selector = SyscallSelector::try_from(felt_from_ptr(vm, syscall_handler_syscall_ptr)?)?;
 
-        println!("about to execute, syscall_ptr: {:?}", selector);
+        println!("about to execute: {:?}", selector);
 
         let ehw = syscall_handler.exec_wrapper.clone();
 
@@ -78,10 +77,6 @@ impl OsSyscallHandlerWrapper {
         }?;
 
         syscall_handler.syscall_ptr = Some(*syscall_handler_syscall_ptr);
-
-        let x = &mut syscall_handler.syscall_ptr.ok_or(HintError::CustomHint(Box::from("syscall_ptr is None")))?;
-
-        println!("syscall {:?} executed, syscall_ptr: {}, {} ", selector, syscall_handler_syscall_ptr, x);
 
         Ok(())
     }
