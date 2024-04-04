@@ -59,14 +59,6 @@ const PREPARE_PREIMAGE_VALIDATION_BOTTOM: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_CONTRACT_ADDRESS: &str = indoc! {r#"
-	from starkware.starknet.business_logic.transaction.objects import InternalL1Handler
-	ids.contract_address = (
-	    tx.contract_address if isinstance(tx, InternalL1Handler) else tx.sender_address
-	)"#
-};
-
-#[allow(unused)]
 const SET_AP_TO_NONCE_ARG_SEGMENT: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg([tx.nonce]))";
 
 #[allow(unused)]
