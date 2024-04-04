@@ -57,9 +57,6 @@ const HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO: &str =
     "memory[ap] = 1 if ids.height == 0 or len(preimage[ids.node]) == 2 else 0";
 
 #[allow(unused)]
-const SET_AP_TO_NONCE_OR_ZERO: &str = "memory[ap] = to_felt_or_relocatable(0 if tx.nonce is None else tx.nonce)";
-
-#[allow(unused)]
 const PREPARE_PREIMAGE_VALIDATION_NON_DETERMINISTIC_HASHES: &str = indoc! {r#"
 	from starkware.python.merkle_tree import decode_node
 	left_child, right_child, case = decode_node(node)
