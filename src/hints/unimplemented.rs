@@ -35,16 +35,6 @@ const WRITE_OLD_BLOCK_TO_STORAGE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const PREPARE_PREIMAGE_VALIDATION_BOTTOM: &str = indoc! {r#"
-	ids.hash_ptr.x, ids.hash_ptr.y = preimage[ids.edge.bottom]
-	if __patricia_skip_validation_runner:
-	    # Skip validation of the preimage dict to speed up the VM. When this flag is
-	    # set, mistakes in the preimage dict will be discovered only in the prover.
-	    __patricia_skip_validation_runner.verified_addresses.add(
-	        ids.hash_ptr + ids.HashBuiltin.result)"#
-};
-
-#[allow(unused)]
 const HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO: &str =
     "memory[ap] = 1 if ids.height == 0 or len(preimage[ids.node]) == 2 else 0";
 
