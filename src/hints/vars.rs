@@ -24,6 +24,7 @@ pub mod ids {
     pub const ADDITIONAL_DATA: &str = "additional_data";
     pub const BIT: &str = "bit";
     pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "BLOCK_HASH_CONTRACT_ADDRESS";
+    pub const CALL_RESPONSE: &str = "call_response";
     pub const CALLDATA: &str = "calldata";
     pub const CHILD_BIT: &str = "CHILD_BIT";
     pub const COMPILED_CLASS: &str = "compiled_class";
@@ -52,6 +53,9 @@ pub mod ids {
     pub const PATH: &str = "path";
     pub const PREV_VALUE: &str = "prev_value";
     pub const REQUEST: &str = "request";
+    pub const RESPONSE: &str = "response";
+    pub const RETDATA: &str = "retdata";
+    pub const RETDATA_SIZE: &str = "retdata_size";
     pub const SECP_P: &str = "SECP_P";
     pub const SENDER_ADDRESS: &str = "sender_address";
     pub const SIBLINGS: &str = "siblings";
