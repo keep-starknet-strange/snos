@@ -17,12 +17,16 @@ use crate::io::input::StarknetOsInput;
 
 mod cairo_types;
 pub mod config;
+pub mod crypto;
 pub mod error;
 pub mod execution;
 pub mod hints;
 pub mod io;
 pub mod sharp;
+pub mod starknet;
+pub mod starkware_utils;
 pub mod state;
+pub mod storage;
 pub mod utils;
 
 pub fn run_os(

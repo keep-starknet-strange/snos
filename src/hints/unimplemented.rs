@@ -1,141 +1,7 @@
 use indoc::indoc;
 
 #[allow(unused)]
-const CACHE_CONTRACT_STORAGE: &str = indoc! {r#"
-	# Make sure the value is cached (by reading it), to be used later on for the
-	# commitment computation.
-	value = execution_helper.storage_by_address[ids.contract_address].read(key=ids.request.key)
-	assert ids.value == value, "Inconsistent storage value.""#
-};
-
-#[allow(unused)]
-const FETCH_STATE_ENTRY: &str = indoc! {r#"
-	# Fetch a state_entry in this hint. Validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
-	    ids.BLOCK_HASH_CONTRACT_ADDRESS]
-	ids.new_state_entry = segments.add()"#
-};
-
-#[allow(unused)]
-const SET_INITIAL_STATE_UPDATES_PTR: &str = indoc! {r#"
-	# This hint shouldn't be whitelisted.
-	vm_enter_scope(dict(
-	    commitment_info_by_address=execution_helper.compute_storage_commitments(),
-	    os_input=os_input,
-	))
-	ids.initial_state_updates_ptr = segments.add_temp_segment()"#
-};
-
-#[allow(unused)]
-const ENTER_SCOPE_NEW_NODE: &str = indoc! {r#"
-	ids.child_bit = 0 if case == 'left' else 1
-	new_node = left_child if case == 'left' else right_child
-	vm_enter_scope(dict(node=new_node, **common_args))"#
-};
-
-#[allow(unused)]
-const SET_AP_TO_CALLDATA_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(tx.calldata))";
-
-#[allow(unused)]
-const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_ptr, dest_ptr=ids.dest_ptr)";
-
-#[allow(unused)]
-const SET_AP_TO_NONCE: &str = "memory[ap] = to_felt_or_relocatable(tx.nonce)";
-
-#[allow(unused)]
-const DECODE_NODE: &str = indoc! {r#"
-	from starkware.python.merkle_tree import decode_node
-	left_child, right_child, case = decode_node(node)
-	memory[ap] = int(case != 'both')"#
-};
-
-#[allow(unused)]
-const GEN_CALLDATA_ARG: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg(tx.calldata))";
-
-#[allow(unused)]
-const SET_AP_TO_ENTRY_POINT_SELECTOR: &str = "memory[ap] = to_felt_or_relocatable(tx.entry_point_selector)";
-
-#[allow(unused)]
-const SET_TREE_STRUCTURE: &str = indoc! {r#"
-	from starkware.python.math_utils import div_ceil
-	onchain_data_start = ids.da_start
-	onchain_data_size = ids.output_ptr - onchain_data_start
-
-	max_page_size = 3800
-	n_pages = div_ceil(onchain_data_size, max_page_size)
-	for i in range(n_pages):
-	    start_offset = i * max_page_size
-	    output_builtin.add_page(
-	        page_id=1 + i,
-	        page_start=onchain_data_start + start_offset,
-	        page_size=min(onchain_data_size - start_offset, max_page_size),
-	    )
-	# Set the tree structure to a root with two children:
-	# * A leaf which represents the main part
-	# * An inner node for the onchain data part (which contains n_pages children).
-	#
-	# This is encoded using the following sequence:
-	output_builtin.add_attribute('gps_fact_topology', [
-	    # Push 1 + n_pages pages (all of the pages).
-	    1 + n_pages,
-	    # Create a parent node for the last n_pages.
-	    n_pages,
-	    # Don't push additional pages.
-	    0,
-	    # Take the first page (the main part) and the node that was created (onchain data)
-	    # and use them to construct the root of the fact tree.
-	    2,
-	])"#
-};
-
-#[allow(unused)]
-const SPLIT_OUTPUT1: &str = indoc! {r#"
-	tmp, ids.output1_low = divmod(ids.output1, 256 ** 7)
-	ids.output1_high, ids.output1_mid = divmod(tmp, 2 ** 128)"#
-};
-
-#[allow(unused)]
-const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
-	storage = execution_helper.storage_by_address[ids.contract_address]
-	ids.prev_value = storage.read(key=ids.syscall_ptr.address)
-	storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
-
-	# Fetch a state_entry in this hint and validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
-
-	ids.new_state_entry = segments.add()"#
-};
-
-#[allow(unused)]
-const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
-
-#[allow(unused)]
-const SPLIT_OUTPUT0: &str = indoc! {r#"
-	ids.output0_low = ids.output0 & ((1 << 128) - 1)
-	ids.output0_high = ids.output0 >> 128"#
-};
-
-#[allow(unused)]
 const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': syscall_handler})";
-
-#[allow(unused)]
-const GEN_NONCE_ARG: &str = indoc! {r#"
-	ids.tx_version = tx.version
-	ids.max_fee = tx.max_fee
-	ids.sender_address = tx.sender_address
-	ids.calldata = segments.gen_arg([tx.class_hash])
-
-	if tx.version <= 1:
-	    assert tx.compiled_class_hash is None, (
-	        "Deprecated declare must not have compiled_class_hash."
-	    )
-	    ids.additional_data = segments.gen_arg([tx.nonce])
-	else:
-	    assert tx.compiled_class_hash is not None, (
-	        "Declare must have a concrete compiled_class_hash."
-	    )
-	    ids.additional_data = segments.gen_arg([tx.nonce, tx.compiled_class_hash])"#
-};
 
 #[allow(unused)]
 const HAS_ENOUGH_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_gas >= ids.required_gas)";
@@ -147,10 +13,17 @@ const IS_CASE_RIGHT: &str = "memory[ap] = int(case == 'right') ^ ids.bit";
 const SPLIT_INPUTS_3: &str = "ids.high3, ids.low3 = divmod(memory[ids.inputs + 3], 256)";
 
 #[allow(unused)]
-const SET_BIT: &str = "ids.bit = (ids.edge.path >> ids.new_length) & 1";
+const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
+	# Make sure the value is cached (by reading it), to be used later on for the
+	# commitment computation.
+	value = execution_helper.storage_by_address[ids.contract_address].read(
+	    key=ids.syscall_ptr.request.address
+	)
+	assert ids.value == value, "Inconsistent storage value.""#
+};
 
 #[allow(unused)]
-const SET_AP_TO_BLOCK_HASH: &str = "memory[ap] = to_felt_or_relocatable(os_input.block_hash)";
+const SET_BIT: &str = "ids.bit = (ids.edge.path >> ids.new_length) & 1";
 
 #[allow(unused)]
 const VALIDATE_AND_DISCARD_SYSCALL_PTR: &str = indoc! {r#"
@@ -173,9 +46,6 @@ const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_AP_TO_MAX_FEE: &str = "memory[ap] = to_felt_or_relocatable(tx.max_fee)";
-
-#[allow(unused)]
 const ENTER_SCOPE_NEXT_NODE: &str = indoc! {r#"
 	new_node = left_child if ids.bit == 0 else right_child
 	vm_enter_scope(dict(node=new_node, **common_args))"#
@@ -183,15 +53,6 @@ const ENTER_SCOPE_NEXT_NODE: &str = indoc! {r#"
 
 #[allow(unused)]
 const ASSERT_CASE_IS_RIGHT: &str = "assert case == 'right'";
-
-#[allow(unused)]
-const SET_TX_INFO_PTR: &str = indoc! {r#"
-	tx_info_ptr = ids.tx_execution_context.deprecated_tx_info.address_
-	execution_helper.start_tx(tx_info_ptr=tx_info_ptr)"#
-};
-
-#[allow(unused)]
-const SPLIT_INPUTS_12: &str = "ids.high12, ids.low12 = divmod(memory[ids.inputs + 12], 256 ** 4)";
 
 #[allow(unused)]
 const SET_AP_TO_IS_REVERTED: &str =
@@ -207,13 +68,6 @@ const ENTER_SCOPE_NEXT_NODE_2: &str = indoc! {r#"
 const WRITE_OLD_BLOCK_TO_STORAGE: &str = indoc! {r#"
 	storage = execution_helper.storage_by_address[ids.BLOCK_HASH_CONTRACT_ADDRESS]
 	storage.write(key=ids.old_block_number, value=ids.old_block_hash)"#
-};
-
-#[allow(unused)]
-const DECODE_NODE_2: &str = indoc! {r#"
-	from starkware.python.merkle_tree import decode_node
-	left_child, right_child, case = decode_node(node)
-	memory[ap] = 1 if case != 'both' else 0"#
 };
 
 #[allow(unused)]
@@ -251,26 +105,12 @@ const HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO: &str =
     "memory[ap] = 1 if ids.height == 0 or len(preimage[ids.node]) == 2 else 0";
 
 #[allow(unused)]
-const FETCH_STATE_ENTRY_3: &str = indoc! {r#"
-	# Fetch a state_entry in this hint and validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
-	    ids.contract_address
-	]"#
-};
-
-#[allow(unused)]
 const ENTER_SCOPE_NEW_TREE: &str = indoc! {r#"
 	new_node = node
 	for i in range(ids.length - 1, -1, -1):
 	    new_node = new_node[(ids.word >> i) & 1]
 	vm_enter_scope(dict(node=new_node, **common_args))"#
 };
-
-#[allow(unused)]
-const SPLIT_INPUTS_15: &str = "ids.high15, ids.low15 = divmod(memory[ids.inputs + 15], 256 ** 5)";
-
-#[allow(unused)]
-const SPLIT_INPUTS_9: &str = "ids.high9, ids.low9 = divmod(memory[ids.inputs + 9], 256 ** 3)";
 
 #[allow(unused)]
 const SET_AP_TO_NONCE_OR_ZERO: &str = "memory[ap] = to_felt_or_relocatable(0 if tx.nonce is None else tx.nonce)";
@@ -309,9 +149,6 @@ const GET_COMPILED_CLASS_STRUCT: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SPLIT_INPUTS_6: &str = "ids.high6, ids.low6 = divmod(memory[ids.inputs + 6], 256 ** 2)";
-
-#[allow(unused)]
 const CHECK_RETURN_VALUE_2: &str = indoc! {r#"
 	# Check that the actual return value matches the expected one.
 	expected = memory.get_range(
@@ -321,13 +158,6 @@ const CHECK_RETURN_VALUE_2: &str = indoc! {r#"
 	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
 
 	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
-};
-
-#[allow(unused)]
-const FETCH_STATE_ENTRY_4: &str = indoc! {r#"
-	# Fetch a state_entry in this hint and validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
-	ids.new_state_entry = segments.add()"#
 };
 
 #[allow(unused)]

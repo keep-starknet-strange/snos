@@ -12,13 +12,16 @@ use cairo_vm::serde::deserialize_program::{ApTracking, OffsetValue};
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::instruction::Register;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
+use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 use num_traits::ToPrimitive;
 
 use crate::cairo_types::structs::{CallContractResponse, EntryPointReturnValues, ExecutionContext};
+use crate::cairo_types::structs::ExecutionContext;
+use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest, StorageWrite};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
@@ -26,8 +29,13 @@ use crate::hints::vars::ids::{
     ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, REQUIRED_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
 };
 use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
+use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
+use crate::hints::vars;
+use crate::hints::vars::ids::{SIGNATURE_LEN, SIGNATURE_START};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
+use crate::starknet::starknet_storage::StorageLeaf;
+use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, UpdateTree};
 
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
         tx = next(transactions)
@@ -178,30 +186,121 @@ pub fn enter_scope_syscall_handler(
     Ok(())
 }
 
-pub const GET_STATE_ENTRY: &str = indoc! {r##"
+fn get_state_entry(
+    dict_ptr: Relocatable,
+    key: Felt252,
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+) -> Result<(), HintError> {
+    let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
+        Dictionary::SimpleDictionary(dict) => dict.get(&MaybeRelocatable::Int(key)).cloned(),
+        Dictionary::DefaultDictionary { dict: _d, default_value: _v } => {
+            return Err(HintError::CustomHint(
+                "State changes dictionary should not be a default dict".to_string().into_boxed_str(),
+            ));
+        }
+    };
+    let val =
+        val.ok_or(HintError::CustomHint("State changes dictionnary should not be None".to_string().into_boxed_str()))?;
+
+    insert_value_from_var_name("state_entry", val, vm, ids_data, ap_tracking)?;
+    Ok(())
+}
+
+pub const GET_CONTRACT_ADDRESS_STATE_ENTRY: &str = indoc! {r##"
     # Fetch a state_entry in this hint and validate it in the update at the end
     # of this function.
     ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"##
 };
-pub fn get_state_entry(
+
+pub const GET_CONTRACT_ADDRESS_STATE_ENTRY_2: &str = indoc! {r#"
+	# Fetch a state_entry in this hint and validate it in the update that comes next.
+	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
+	    ids.contract_address
+	]"#
+};
+
+pub fn get_contract_address_state_entry(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let key = get_integer_from_var_name("contract_address", vm, ids_data, ap_tracking)?;
-    let dict_ptr = get_ptr_from_var_name("contract_state_changes", vm, ids_data, ap_tracking)?;
-    let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
-        Dictionary::SimpleDictionary(dict) => dict
-            .get(&MaybeRelocatable::Int(key.into_owned()))
-            .expect("State changes dictionnary shouldn't be None")
-            .clone(),
-        Dictionary::DefaultDictionary { dict: _d, default_value: _v } => {
-            panic!("State changes dict shouldn't be a default dict")
-        }
-    };
-    insert_value_from_var_name("state_entry", val, vm, ids_data, ap_tracking)?;
+    let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let key = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+
+    get_state_entry(dict_ptr, key.into_owned(), vm, exec_scopes, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+fn get_state_entry_and_set_new_state_entry(
+    dict_ptr: Relocatable,
+    key: Felt252,
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+) -> Result<(), HintError> {
+    get_state_entry(dict_ptr, key, vm, exec_scopes, ids_data, ap_tracking)?;
+
+    let new_segment = vm.add_memory_segment();
+    insert_value_from_var_name(vars::ids::NEW_STATE_ENTRY, new_segment, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+pub const GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY: &str = indoc! {r#"
+	# Fetch a state_entry in this hint. Validate it in the update that comes next.
+	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
+	    ids.BLOCK_HASH_CONTRACT_ADDRESS]
+	ids.new_state_entry = segments.add()"#
+};
+
+pub fn get_block_hash_contract_address_state_entry_and_set_new_state_entry(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let key = get_integer_from_var_name(vars::ids::BLOCK_HASH_CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+
+    get_state_entry_and_set_new_state_entry(dict_ptr, key.into_owned(), vm, exec_scopes, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+pub const GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY: &str = indoc! {r#"
+	# Fetch a state_entry in this hint and validate it in the update that comes next.
+	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
+	ids.new_state_entry = segments.add()"#
+};
+
+pub const GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY_2: &str = indoc! {r#"
+	# Fetch a state_entry in this hint and validate it in the update that comes next.
+	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
+	    ids.contract_address
+	]
+
+	ids.new_state_entry = segments.add()"#
+};
+
+pub fn get_contract_address_state_entry_and_set_new_state_entry(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let key = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+
+    get_state_entry_and_set_new_state_entry(dict_ptr, key.into_owned(), vm, exec_scopes, ids_data, ap_tracking)?;
+
     Ok(())
 }
 
@@ -1092,4 +1191,483 @@ pub fn check_response_return_value(
     println!("response_retdata_start: {}, retdata: {}", response_retdata_start, retdata);
 
     Ok(())
+}
+
+fn cache_contract_storage(
+    key: Felt252,
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+) -> Result<(), HintError> {
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
+
+    let contract_address =
+        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+
+    let value = execution_helper.read_storage_for_address(contract_address, key).map_err(|_| {
+        HintError::CustomHint(format!("No storage found for contract {}", contract_address).into_boxed_str())
+    })?;
+
+    let ids_value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?.into_owned();
+    if ids_value != value {
+        return Err(HintError::AssertionFailed(
+            format!("Inconsistent storage value (expected {}, got {})", ids_value, value).into_boxed_str(),
+        ));
+    }
+
+    exec_scopes.insert_value(vars::scopes::VALUE, value);
+
+    Ok(())
+}
+
+pub const ENTER_SCOPE_NEW_NODE: &str = indoc! {r#"
+	ids.child_bit = 0 if case == 'left' else 1
+	new_node = left_child if case == 'left' else right_child
+	vm_enter_scope(dict(node=new_node, **common_args))"#
+};
+
+pub fn enter_scope_new_node(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let left_child: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::LEFT_CHILD)?;
+    let right_child: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::RIGHT_CHILD)?;
+    let case: DecodeNodeCase = exec_scopes.get(vars::scopes::CASE)?;
+
+    let (child_bit, new_node) = match case {
+        DecodeNodeCase::Left => (Felt252::ZERO, left_child),
+        _ => (Felt252::ONE, right_child),
+    };
+
+    insert_value_from_var_name(vars::ids::CHILD_BIT, child_bit, vm, ids_data, ap_tracking)?;
+
+    // vm_enter_scope(dict(node=new_node, **common_args))"#
+    // In this implementation we assume that `common_args` is unpacked, having a
+    // `HashMap<String, Box<dyn Any>>` as scope variable is unpractical.
+    // `common_args` contains the 3 variables below and is never modified.
+    let new_scope = {
+        let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
+        let descent_map: DescentMap = exec_scopes.get(vars::scopes::DESCENT_MAP)?;
+        let patricia_skip_validation_runner: Option<PatriciaSkipValidationRunner> =
+            exec_scopes.get(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER)?;
+
+        HashMap::from([
+            (vars::scopes::NODE.to_string(), any_box!(new_node)),
+            (vars::scopes::PREIMAGE.to_string(), any_box!(preimage)),
+            (vars::scopes::DESCENT_MAP.to_string(), any_box!(descent_map)),
+            (vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER.to_string(), any_box!(patricia_skip_validation_runner)),
+        ])
+    };
+    exec_scopes.enter_scope(new_scope);
+
+    Ok(())
+}
+
+pub const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_ptr, dest_ptr=ids.dest_ptr)";
+
+pub fn add_relocation_rule(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let src_ptr = get_ptr_from_var_name(vars::ids::SRC_PTR, vm, ids_data, ap_tracking)?;
+    let dest_ptr = get_ptr_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?;
+    vm.add_relocation_rule(src_ptr, dest_ptr)?;
+
+    Ok(())
+}
+pub const SET_AP_TO_TX_NONCE: &str = "memory[ap] = to_felt_or_relocatable(tx.nonce)";
+
+pub fn set_ap_to_tx_nonce(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx: &InternalTransaction = exec_scopes.get_ref(vars::scopes::TX)?;
+    let nonce = tx.nonce.ok_or(HintError::AssertionFailed("tx.nonce should be set".to_string().into_boxed_str()))?;
+    insert_value_into_ap(vm, nonce)?;
+
+    Ok(())
+}
+
+pub const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
+	storage = execution_helper.storage_by_address[ids.contract_address]
+	ids.prev_value = storage.read(key=ids.syscall_ptr.address)
+	storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
+
+	# Fetch a state_entry in this hint and validate it in the update that comes next.
+	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
+
+	ids.new_state_entry = segments.add()"#
+};
+
+pub fn write_syscall_result(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+
+    let contract_address =
+        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+    let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
+
+    // ids.prev_value = storage.read(key=ids.syscall_ptr.address)
+    let storage_write_address = vm.get_integer((syscall_ptr + StorageWrite::address_offset())?)?.into_owned();
+    let prev_value =
+        execution_helper.read_storage_for_address(contract_address, storage_write_address).map_err(|_| {
+            HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str())
+        })?;
+    insert_value_from_var_name(vars::ids::PREV_VALUE, prev_value, vm, ids_data, ap_tracking)?;
+
+    // storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
+    let storage_write_value = vm.get_integer((syscall_ptr + StorageWrite::value_offset())?)?.into_owned();
+    execution_helper.write_storage_for_address(contract_address, storage_write_address, storage_write_value).map_err(
+        |_| HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str()),
+    )?;
+
+    let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    get_state_entry_and_set_new_state_entry(
+        contract_state_changes,
+        contract_address,
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    )?;
+
+    Ok(())
+}
+
+pub const GEN_NONCE_ARG: &str = indoc! {r#"
+	ids.tx_version = tx.version
+	ids.max_fee = tx.max_fee
+	ids.sender_address = tx.sender_address
+	ids.calldata = segments.gen_arg([tx.class_hash])
+
+	if tx.version <= 1:
+	    assert tx.compiled_class_hash is None, (
+	        "Deprecated declare must not have compiled_class_hash."
+	    )
+	    ids.additional_data = segments.gen_arg([tx.nonce])
+	else:
+	    assert tx.compiled_class_hash is not None, (
+	        "Declare must have a concrete compiled_class_hash."
+	    )
+	    ids.additional_data = segments.gen_arg([tx.nonce, tx.compiled_class_hash])"#
+};
+
+pub fn gen_nonce_arg(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx: InternalTransaction = exec_scopes.get(vars::scopes::TX)?;
+
+    let tx_version = tx.version.ok_or(HintError::CustomHint("tx.version is not set".to_string().into_boxed_str()))?;
+    let tx_nonce = tx.nonce.ok_or(HintError::CustomHint("tx.nonce is not set".to_string().into_boxed_str()))?;
+    let max_fee = tx.max_fee.ok_or(HintError::CustomHint("tx.max_fee is not set".to_string().into_boxed_str()))?;
+    let sender_address =
+        tx.sender_address.ok_or(HintError::CustomHint("tx.sender_address is not set".to_string().into_boxed_str()))?;
+    let class_hash =
+        tx.class_hash.ok_or(HintError::CustomHint("tx.class_hash is not set".to_string().into_boxed_str()))?;
+
+    insert_value_from_var_name(vars::ids::TX_VERSION, tx_version, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::MAX_FEE, max_fee, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::SENDER_ADDRESS, sender_address, vm, ids_data, ap_tracking)?;
+
+    let calldata_arg = vm.gen_arg(&vec![class_hash])?;
+    insert_value_from_var_name(vars::ids::CALLDATA, calldata_arg, vm, ids_data, ap_tracking)?;
+
+    let additional_data = if tx_version <= Felt252::ONE {
+        if tx.compiled_class_hash.is_some() {
+            return Err(HintError::AssertionFailed(
+                "Deprecated declare must not have compiled_class_hash.".to_string().into_boxed_str(),
+            ));
+        }
+        vec![tx_nonce]
+    } else {
+        let compiled_class_hash = tx.compiled_class_hash.ok_or(HintError::AssertionFailed(
+            "Declare must have a concrete compiled_class_hash.".to_string().into_boxed_str(),
+        ))?;
+
+        vec![tx_nonce, compiled_class_hash]
+    };
+
+    let additional_data_arg = vm.gen_arg(&additional_data)?;
+    insert_value_from_var_name(vars::ids::ADDITIONAL_DATA, additional_data_arg, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+pub const CACHE_CONTRACT_STORAGE_REQUEST_KEY: &str = indoc! {r#"
+	# Make sure the value is cached (by reading it), to be used later on for the
+	# commitment computation.
+	value = execution_helper.storage_by_address[ids.contract_address].read(key=ids.request.key)
+	assert ids.value == value, "Inconsistent storage value.""#
+};
+
+pub fn cache_contract_storage_request_key(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let request_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
+    let key = vm.get_integer(&request_ptr + 1)?.into_owned();
+
+    cache_contract_storage(key, vm, exec_scopes, ids_data, ap_tracking)
+}
+
+pub const CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS: &str = indoc! {r#"
+	# Make sure the value is cached (by reading it), to be used later on for the
+	# commitment computation.
+	value = execution_helper.storage_by_address[ids.contract_address].read(
+	    key=ids.syscall_ptr.request.address
+	)
+	assert ids.value == value, "Inconsistent storage value.""#
+};
+
+pub fn cache_contract_storage_syscall_request_address(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let syscall_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
+    let offset = StorageRead::request_offset() + StorageReadRequest::address_offset();
+    let key = vm.get_integer((syscall_ptr + offset)?)?.into_owned();
+
+    cache_contract_storage(key, vm, exec_scopes, ids_data, ap_tracking)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use blockifier::block_context::BlockContext;
+    use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::DictManager;
+    use cairo_vm::types::relocatable::Relocatable;
+    use num_bigint::BigUint;
+    use rstest::{fixture, rstest};
+    use starknet_api::block::BlockNumber;
+
+    use super::*;
+    use crate::crypto::pedersen::PedersenHash;
+    use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
+    use crate::starkware_utils::commitment_tree::base_types::Height;
+    use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
+    use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+    use crate::starkware_utils::commitment_tree::update_tree::TreeUpdate;
+    use crate::storage::dict_storage::DictStorage;
+    use crate::storage::storage::FactFetchingContext;
+
+    #[fixture]
+    pub fn block_context() -> BlockContext {
+        BlockContext { block_number: BlockNumber(0), ..BlockContext::create_for_account_testing() }
+    }
+
+    #[fixture]
+    fn execution_helper(block_context: BlockContext) -> ExecutionHelperWrapper {
+        ExecutionHelperWrapper::new(vec![], &block_context)
+    }
+
+    #[fixture]
+    fn contract_address() -> Felt252 {
+        Felt252::from(300)
+    }
+
+    #[fixture]
+    fn execution_helper_with_storage(
+        execution_helper: ExecutionHelperWrapper,
+        contract_address: Felt252,
+    ) -> ExecutionHelperWrapper {
+        let storage = DictStorage::default();
+        let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
+
+        // Run async functions in a dedicated runtime to keep the test functions sync.
+        // Otherwise, we run into "cannot spawn a runtime from another runtime" issues.
+        let patricia_tree = execute_coroutine_threadsafe(async {
+            let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+            let modifications = vec![(BigUint::from(42u32), StorageLeaf::new(Felt252::from(8000)))];
+            let mut facts = None;
+            tree.update(&mut ffc, modifications, &mut facts).await.unwrap()
+        });
+        let os_single_starknet_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc);
+
+        {
+            let storage_by_address = &mut execution_helper.execution_helper.as_ref().borrow_mut().storage_by_address;
+            storage_by_address.insert(contract_address, os_single_starknet_storage);
+        }
+
+        execution_helper
+    }
+
+    #[rstest]
+    fn test_cache_contract_storage_request_key(
+        execution_helper_with_storage: ExecutionHelperWrapper,
+        contract_address: Felt252,
+    ) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(5);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        let ids_data = HashMap::from([
+            (vars::ids::REQUEST.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::CONTRACT_ADDRESS.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::VALUE.to_string(), HintReference::new_simple(-1)),
+        ]);
+
+        // Make ids.request point to (1, 0)
+        insert_value_from_var_name(vars::ids::REQUEST, (1, 0), &mut vm, &ids_data, &ap_tracking).unwrap();
+        let key = Felt252::from(42);
+        // request.key is at offset 1 in the structure
+        vm.insert_value(Relocatable::from((1, 1)), key).unwrap();
+
+        insert_value_from_var_name(vars::ids::CONTRACT_ADDRESS, contract_address, &mut vm, &ids_data, &ap_tracking)
+            .unwrap();
+        insert_value_from_var_name(vars::ids::VALUE, Felt252::from(8000), &mut vm, &ids_data, &ap_tracking).unwrap();
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+        exec_scopes.insert_value(vars::scopes::EXECUTION_HELPER, execution_helper_with_storage);
+
+        // Just make sure that the hint goes through, all meaningful assertions are
+        // in the implementation of the hint
+        cache_contract_storage_request_key(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
+            .expect("Hint should not fail");
+    }
+
+    #[test]
+    fn test_enter_scope_new_node() {
+        let preimage: Preimage = HashMap::new();
+        let descent_map: DescentMap = HashMap::new();
+        let patricia_skip_validation_runner: Option<PatriciaSkipValidationRunner> = None;
+        let left_child = Some(TreeUpdate::Leaf(StorageLeaf::new(Felt252::ZERO)));
+        let right_child: Option<TreeUpdate<StorageLeaf>> = None;
+        let case = DecodeNodeCase::Left;
+
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(1);
+
+        let ids_data = HashMap::from([(vars::ids::CHILD_BIT.to_string(), HintReference::new_simple(-1))]);
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+        exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage.clone());
+        exec_scopes.insert_value(vars::scopes::DESCENT_MAP, descent_map.clone());
+        exec_scopes
+            .insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, patricia_skip_validation_runner.clone());
+        exec_scopes.insert_value(vars::scopes::LEFT_CHILD, left_child.clone());
+        exec_scopes.insert_value(vars::scopes::RIGHT_CHILD, right_child);
+        exec_scopes.insert_value(vars::scopes::CASE, case);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        enter_scope_new_node(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
+            .expect("Hint should succeed");
+
+        assert_eq!(exec_scopes.data.len(), 2, "A new scope should have been created");
+        assert_eq!(exec_scopes.data[1].len(), 4, "The new scope should contain 4 items");
+        assert_eq!(exec_scopes.get::<Preimage>(vars::scopes::PREIMAGE).unwrap(), preimage);
+        assert_eq!(exec_scopes.get::<DescentMap>(vars::scopes::DESCENT_MAP).unwrap(), descent_map);
+        assert_eq!(
+            exec_scopes
+                .get::<Option<PatriciaSkipValidationRunner>>(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER)
+                .unwrap(),
+            patricia_skip_validation_runner
+        );
+        assert_eq!(exec_scopes.get::<UpdateTree<StorageLeaf>>(vars::scopes::NODE).unwrap(), left_child);
+
+        let child_bit = get_integer_from_var_name(vars::ids::CHILD_BIT, &mut vm, &ids_data, &ap_tracking).unwrap();
+        assert_eq!(*child_bit, Felt252::ZERO);
+    }
+
+    #[rstest]
+    fn test_write_syscall_result(mut execution_helper_with_storage: ExecutionHelperWrapper, contract_address: Felt252) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(9);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        let ids_data = HashMap::from([
+            (vars::ids::SYSCALL_PTR.to_string(), HintReference::new_simple(-6)),
+            (vars::ids::PREV_VALUE.to_string(), HintReference::new_simple(-5)),
+            (vars::ids::CONTRACT_ADDRESS.to_string(), HintReference::new_simple(-4)),
+            (vars::ids::CONTRACT_STATE_CHANGES.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::STATE_ENTRY.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::NEW_STATE_ENTRY.to_string(), HintReference::new_simple(-1)),
+        ]);
+
+        let key = Felt252::from(42);
+        let value = Felt252::from(777);
+        insert_value_from_var_name(vars::ids::SYSCALL_PTR, Relocatable::from((1, 0)), &mut vm, &ids_data, &ap_tracking)
+            .unwrap();
+        // syscall_ptr.address is at offset 1 in the structure
+        vm.insert_value(Relocatable::from((1, 1)), key).unwrap();
+        // syscall_ptr.value is at offset 1 in the structure
+        vm.insert_value(Relocatable::from((1, 2)), value).unwrap();
+
+        insert_value_from_var_name(vars::ids::CONTRACT_ADDRESS, contract_address, &mut vm, &ids_data, &ap_tracking)
+            .unwrap();
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+        exec_scopes.insert_value(vars::scopes::EXECUTION_HELPER, execution_helper_with_storage.clone());
+
+        // Prepare the dict manager for `get_state_entry()`
+        let mut dict_manager = DictManager::new();
+        let contract_state_changes = dict_manager
+            .new_dict(&mut vm, HashMap::from([(contract_address.into(), MaybeRelocatable::from(123))]))
+            .unwrap();
+        exec_scopes.insert_value(vars::scopes::DICT_MANAGER, Rc::new(RefCell::new(dict_manager)));
+
+        insert_value_from_var_name(
+            vars::ids::CONTRACT_STATE_CHANGES,
+            contract_state_changes,
+            &mut vm,
+            &ids_data,
+            &ap_tracking,
+        )
+        .unwrap();
+
+        // Just make sure that the hint goes through, all meaningful assertions are
+        // in the implementation of the hint
+        write_syscall_result(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
+            .expect("Hint should not fail");
+
+        // Check that the storage was updated
+        let prev_value =
+            get_integer_from_var_name(vars::ids::PREV_VALUE, &mut vm, &ids_data, &ap_tracking).unwrap().into_owned();
+        assert_eq!(prev_value, Felt252::from(8000));
+        let stored_value = execution_helper_with_storage.read_storage_for_address(contract_address, key).unwrap();
+        assert_eq!(stored_value, Felt252::from(777));
+
+        // Check the state entry
+        let state_entry =
+            get_integer_from_var_name(vars::ids::STATE_ENTRY, &mut vm, &ids_data, &ap_tracking).unwrap().into_owned();
+        assert_eq!(state_entry, Felt252::from(123));
+    }
 }

@@ -34,7 +34,7 @@ pub const SN_GOERLI: &str = "534e5f474f45524c49";
 
 use crate::utils::ChainIdNum;
 #[serde_as]
-#[derive(Debug, Serialize, Clone, Deserialize)]
+#[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]
 pub struct StarknetOsConfig {
     #[serde_as(as = "ChainIdNum")]
     pub chain_id: ChainId,
@@ -52,7 +52,7 @@ impl StarknetOsConfig {
     }
 }
 
-#[derive(Debug, Serialize, Clone, Deserialize)]
+#[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]
 pub struct GasPriceBounds {
     pub min_wei_l1_gas_price: u128,
     pub min_fri_l1_gas_price: u128,
@@ -62,7 +62,7 @@ pub struct GasPriceBounds {
     pub max_fri_l1_data_gas_price: u128,
 }
 
-#[derive(Debug, Serialize, Clone, Deserialize)]
+#[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]
 pub struct StarknetGeneralConfig {
     pub starknet_os_config: StarknetOsConfig,
     pub gas_price_bounds: GasPriceBounds,

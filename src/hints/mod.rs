@@ -28,10 +28,13 @@ use crate::io::input::StarknetOsInput;
 pub mod block_context;
 pub mod builtins;
 pub mod execution;
+mod output;
+mod patricia;
 pub mod state;
 pub mod syscalls;
 #[cfg(test)]
 mod tests;
+mod types;
 mod unimplemented;
 pub mod vars;
 
@@ -43,8 +46,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 100] = [
-    (BREAKPOINT, breakpoint),
+static HINTS: [(&str, HintImpl); 104] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -75,25 +77,44 @@ static HINTS: [(&str, HintImpl); 100] = [
     (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
     (builtins::SELECT_BUILTIN, builtins::select_builtin),
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
+    (execution::ADD_RELOCATION_RULE, execution::add_relocation_rule),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::CHECK_EXECUTION, execution::check_execution),
     (execution::COMPARE_RETURN_VALUE, execution::compare_return_value),
     (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
+    (execution::CACHE_CONTRACT_STORAGE_REQUEST_KEY, execution::cache_contract_storage_request_key),
+    (
+        execution::CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS,
+        execution::cache_contract_storage_syscall_request_address,
+    ),
     (execution::CHECK_RESPONSE_RETURN_VALUE, execution::check_response_return_value),
     (execution::CONTRACT_ADDRESS, execution::contract_address),
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
     (execution::ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER, execution::enter_scope_deprecated_syscall_handler),
+    (execution::ENTER_SCOPE_NEW_NODE, execution::enter_scope_new_node),
     (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::EXIT_CALL, execution::exit_call),
     (execution::EXIT_CALL_CONTRACT_SYSCALL, execution::exit_call_contract_syscall),
     (execution::EXIT_GET_CALLER_ADDRESS_SELECTOR, execution::exit_get_caller_address_selector),
     (execution::EXIT_GET_EXECUTION_INFO_SYSCALL, execution::exit_get_execution_info_syscall),
+    (execution::GEN_NONCE_ARG, execution::gen_nonce_arg),
     (execution::GEN_SIGNATURE_ARG, execution::gen_signature_arg),
     (execution::GET_STATE_ENTRY, execution::get_state_entry),
     (execution::INITIAL_GE_REQUIRED_GAS, execution::initial_ge_required_gas),
+    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry),
+    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_2, execution::get_contract_address_state_entry),
+    (
+        execution::GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY,
+        execution::get_block_hash_contract_address_state_entry_and_set_new_state_entry,
+    ),
+    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry_and_set_new_state_entry),
+    (
+        execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_2,
+        execution::get_contract_address_state_entry_and_set_new_state_entry,
+    ),
     (execution::IS_DEPRECATED, execution::is_deprecated),
     (execution::IS_REVERTED, execution::is_reverted),
     (execution::LOAD_NEXT_TX, execution::load_next_tx),
@@ -101,6 +122,7 @@ static HINTS: [(&str, HintImpl); 100] = [
     (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
     (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
     (execution::RESOURCE_BOUNDS, execution::resource_bounds),
+    (execution::SET_AP_TO_TX_NONCE, execution::set_ap_to_tx_nonce),
     (execution::START_TX, execution::start_tx),
     (execution::TRANSACTION_VERSION, execution::transaction_version),
     (execution::TX_ACCOUNT_DEPLOYMENT_DATA, execution::tx_account_deployment_data),
@@ -116,10 +138,18 @@ static HINTS: [(&str, HintImpl); 100] = [
     (execution::TX_PAYMASTER_DATA_LEN, execution::tx_paymaster_data_len),
     (execution::TX_RESOURCE_BOUNDS_LEN, execution::tx_resource_bounds_len),
     (execution::TX_TIP, execution::tx_tip),
+    (execution::WRITE_SYSCALL_RESULT, execution::write_syscall_result),
+    (output::SET_AP_TO_BLOCK_HASH, output::set_ap_to_block_hash),
+    (output::SET_TREE_STRUCTURE, output::set_tree_structure),
+    (patricia::IS_CASE_RIGHT, patricia::is_case_right),
+    (patricia::SET_SIBLINGS, patricia::set_siblings),
     (state::LOAD_EDGE, state::load_edge),
     (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
     (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
     (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
+    (state::DECODE_NODE, state::decode_node_hint),
+    (state::DECODE_NODE_2, state::decode_node_hint),
+    (state::SET_INITIAL_STATE_UPDATES_PTR, state::set_initial_state_updates_ptr),
     (syscalls::CACHE_CONTRACT_STORAGE_2, syscalls::cache_contract_storage_2),
     (syscalls::CALL_CONTRACT, syscalls::call_contract),
     (syscalls::DELEGATE_CALL, syscalls::delegate_call),

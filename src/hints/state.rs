@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    get_integer_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name, insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -9,14 +9,17 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
+use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use crate::cairo_types::builtins::SpongeHashBuiltin;
 use crate::cairo_types::traits::CairoType;
 use crate::cairo_types::trie::NodeEdge;
+use crate::execution::helper::ExecutionHelperWrapper;
 use crate::hints::vars;
-use crate::io::input::{CommitmentInfo, StarknetOsInput};
+use crate::io::input::StarknetOsInput;
+use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, CommitmentInfo, StorageLeaf};
+use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, TreeUpdate};
 
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
     if tree_height != merkle_height {
@@ -195,12 +198,85 @@ pub fn load_edge(
     Ok(())
 }
 
+pub const DECODE_NODE: &str = indoc! {r#"
+	from starkware.python.merkle_tree import decode_node
+	left_child, right_child, case = decode_node(node)
+	memory[ap] = int(case != 'both')"#
+};
+
+pub const DECODE_NODE_2: &str = indoc! {r#"
+	from starkware.python.merkle_tree import decode_node
+	left_child, right_child, case = decode_node(node)
+	memory[ap] = 1 if case != 'both' else 0"#
+};
+
+pub fn decode_node_hint(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let node: TreeUpdate<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
+    let DecodedNode { left_child, right_child, case } = decode_node(&node)?;
+    exec_scopes.insert_value(vars::scopes::LEFT_CHILD, left_child.clone());
+    exec_scopes.insert_value(vars::scopes::RIGHT_CHILD, right_child.clone());
+    exec_scopes.insert_value(vars::scopes::CASE, case.clone());
+
+    // memory[ap] = 1 if case != 'both' else 0"#
+    let ap = match case {
+        DecodeNodeCase::Both => Felt252::ZERO,
+        _ => Felt252::ONE,
+    };
+    insert_value_into_ap(vm, ap)?;
+
+    Ok(())
+}
+
+pub const SET_INITIAL_STATE_UPDATES_PTR: &str = indoc! {r#"
+	# This hint shouldn't be whitelisted.
+	vm_enter_scope(dict(
+	    commitment_info_by_address=execution_helper.compute_storage_commitments(),
+	    os_input=os_input,
+	))
+	ids.initial_state_updates_ptr = segments.add_temp_segment()"#
+};
+
+pub fn set_initial_state_updates_ptr(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let os_input: StarknetOsInput = exec_scopes.get(vars::scopes::OS_INPUT)?;
+
+    let commitment_info_by_address = execute_coroutine_threadsafe(execution_helper.compute_storage_commitments())?;
+
+    let new_scope = HashMap::from([
+        (vars::scopes::COMMITMENT_INFO_BY_ADDRESS.to_string(), any_box!(commitment_info_by_address)),
+        (vars::scopes::OS_INPUT.to_string(), any_box!(os_input)),
+    ]);
+    exec_scopes.enter_scope(new_scope);
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use blockifier::block_context::BlockContext;
+    use num_bigint::BigUint;
     use rstest::{fixture, rstest};
 
     use super::*;
-    use crate::io::input::CommitmentInfo;
+    use crate::crypto::pedersen::PedersenHash;
+    use crate::starknet::starknet_storage::{OsSingleStarknetStorage, StorageLeaf};
+    use crate::starkware_utils::commitment_tree::base_types::Height;
+    use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
+    use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+    use crate::storage::dict_storage::DictStorage;
+    use crate::storage::storage::FactFetchingContext;
 
     #[fixture]
     fn os_input() -> StarknetOsInput {
@@ -226,6 +302,47 @@ mod tests {
             block_hash: Default::default(),
             compiled_class_visited_pcs: Default::default(),
         }
+    }
+
+    #[fixture]
+    pub fn block_context() -> BlockContext {
+        BlockContext::create_for_testing()
+    }
+
+    #[fixture]
+    fn execution_helper(block_context: BlockContext) -> ExecutionHelperWrapper {
+        ExecutionHelperWrapper::new(vec![], &block_context)
+    }
+
+    #[fixture]
+    fn contract_address() -> Felt252 {
+        Felt252::from(1000)
+    }
+
+    #[fixture]
+    fn execution_helper_with_storage(
+        execution_helper: ExecutionHelperWrapper,
+        contract_address: Felt252,
+    ) -> ExecutionHelperWrapper {
+        let storage = DictStorage::default();
+        let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
+
+        // Run async functions in a dedicated runtime to keep the test functions sync.
+        // Otherwise, we run into "cannot spawn a runtime from another runtime" issues.
+        let patricia_tree = execute_coroutine_threadsafe(async {
+            let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+            let modifications = vec![(BigUint::from(400u64), StorageLeaf::new(Felt252::from(160000)))];
+            let mut facts = None;
+            tree.update(&mut ffc, modifications, &mut facts).await.unwrap()
+        });
+        let os_single_starknet_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc);
+
+        {
+            let storage_by_address = &mut execution_helper.execution_helper.as_ref().borrow_mut().storage_by_address;
+            storage_by_address.insert(contract_address, os_single_starknet_storage);
+        }
+
+        execution_helper
     }
 
     #[rstest]
@@ -364,5 +481,35 @@ mod tests {
         // TODO: test post-conditions:
         // * edge (edge.length, edge.path, edge.bottom)
         // * hash_ptr.result
+    }
+
+    #[rstest]
+    fn test_set_initial_state_updates_ptr(
+        os_input: StarknetOsInput,
+        contract_address: Felt252,
+        execution_helper_with_storage: ExecutionHelperWrapper,
+    ) {
+        let mut vm = VirtualMachine::new(false);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        let ids_data = HashMap::default();
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+        exec_scopes.insert_value(vars::scopes::OS_INPUT, os_input.clone());
+        exec_scopes.insert_value(vars::scopes::EXECUTION_HELPER, execution_helper_with_storage);
+
+        set_initial_state_updates_ptr(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
+            .expect("Hint should succeed");
+
+        let os_input_from_scope: StarknetOsInput = exec_scopes.get(vars::scopes::OS_INPUT).unwrap();
+        assert_eq!(os_input_from_scope, os_input);
+
+        let commitment_info_by_address: HashMap<Felt252, CommitmentInfo> =
+            exec_scopes.get(vars::scopes::COMMITMENT_INFO_BY_ADDRESS).unwrap();
+
+        // TODO: more asserts on the contract commitment info (?)
+        assert!(commitment_info_by_address.contains_key(&contract_address));
     }
 }

@@ -12,12 +12,12 @@ use crate::utils::felt_api2vm;
 
 use super::helper::ExecutionHelperWrapper;
 
-/// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
+/// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
 pub struct DeprecatedOsSyscallHandler {
     pub exec_wrapper: ExecutionHelperWrapper,
     pub syscall_ptr: Relocatable,
-    pub segments: ReadOnlySegments,
+    pub _segments: ReadOnlySegments,
 }
 
 /// DeprecatedOsSyscallHandler is wrapped in Rc<RefCell<_>> in order
@@ -53,7 +53,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
             deprecated_syscall_handler: Rc::new(RefCell::new(DeprecatedOsSyscallHandler {
                 exec_wrapper,
                 syscall_ptr,
-                segments: ReadOnlySegments::default(),
+                _segments: ReadOnlySegments::default(),
             })),
         }
     }
@@ -89,6 +89,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
 
         Ok(())
     }
+    #[allow(unused)]
     pub fn delegate_call(&self, syscall_ptr: Relocatable) {
         println!("delegate_call (TODO): {}", syscall_ptr);
     }
@@ -184,6 +185,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
         syscall_handler.syscall_ptr = syscall_ptr;
     }
 
+    #[allow(unused)]
     pub fn syscall_ptr(&self) -> Relocatable {
         self.deprecated_syscall_handler.as_ref().borrow().syscall_ptr
     }
