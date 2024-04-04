@@ -217,7 +217,7 @@ pub fn load_bottom(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let edge = get_relocatable_from_var_name(vars::ids::EDGE, vm, ids_data, ap_tracking)?;
-    let edge_bottom = vm.get_integer((edge + NodeEdge::bottom_offset())?)?.into_owned();
+    let edge_bottom = vm.get_integer((edge + NodeEdge::bottom_offset())?)?;
 
     let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
     let preimage_vec = preimage
