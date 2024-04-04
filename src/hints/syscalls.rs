@@ -552,6 +552,6 @@ mod tests {
         assert_eq!(syscall_ptr, Relocatable::from((3, 0)));
 
         let syscall_handler: OsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER).unwrap();
-        assert_eq!(syscall_handler.syscall_ptr(), syscall_ptr);
+        assert_eq!(syscall_handler.syscall_ptr(), Some(syscall_ptr));
     }
 }
