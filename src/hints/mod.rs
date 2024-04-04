@@ -46,7 +46,7 @@ type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 105] = [
+static HINTS: [(&str, HintImpl); 111] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -90,7 +90,13 @@ static HINTS: [(&str, HintImpl); 105] = [
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
     (execution::ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER, execution::enter_scope_deprecated_syscall_handler),
+    (execution::ENTER_SCOPE_DESCEND_EDGE, execution::enter_scope_descend_edge),
+    (execution::ENTER_SCOPE_LEFT_CHILD, execution::enter_scope_left_child),
     (execution::ENTER_SCOPE_NEW_NODE, execution::enter_scope_new_node),
+    (execution::ENTER_SCOPE_RIGHT_CHILD, execution::enter_scope_right_child),
+    (execution::ENTER_SCOPE_NODE, execution::enter_scope_node_hint),
+    (execution::ENTER_SCOPE_NEXT_NODE_BIT_0, execution::enter_scope_next_node_bit_0),
+    (execution::ENTER_SCOPE_NEXT_NODE_BIT_1, execution::enter_scope_next_node_bit_1),
     (execution::ENTER_SCOPE_SYSCALL_HANDLER, execution::enter_scope_syscall_handler),
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::EXIT_CALL, execution::exit_call),
