@@ -12,7 +12,6 @@ use cairo_vm::serde::deserialize_program::{ApTracking, OffsetValue};
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::instruction::Register;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
-use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
@@ -20,7 +19,6 @@ use indoc::indoc;
 use num_traits::ToPrimitive;
 
 use crate::cairo_types::structs::{CallContractResponse, EntryPointReturnValues, ExecutionContext};
-use crate::cairo_types::structs::ExecutionContext;
 use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest, StorageWrite};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
@@ -31,7 +29,6 @@ use crate::hints::vars::ids::{
 use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
 use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
-use crate::hints::vars::ids::{SIGNATURE_LEN, SIGNATURE_START};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 use crate::starknet::starknet_storage::StorageLeaf;

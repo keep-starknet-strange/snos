@@ -14,7 +14,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
-use crate::common::block_utils::{os_hints, test_state};
+use crate::common::block_utils::{copy_state, os_hints, test_state};
 use crate::common::transaction_utils::{to_felt252, to_internal_tx};
 
 #[fixture]
@@ -59,11 +59,13 @@ pub fn simple_block(
         only_query,
     });
 
+    let initial_state = copy_state(&state);
+
     let account_tx_internal = to_internal_tx(&account_tx);
 
     let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
-    os_hints(&block_context, state, vec![account_tx_internal], vec![tx_execution_info])
+    os_hints(&block_context, initial_state, vec![account_tx_internal], vec![tx_execution_info])
 }
 
 #[fixture]
@@ -103,9 +105,11 @@ pub fn simple_block_cairo1(
         only_query,
     });
 
+    let initial_state = copy_state(&state);
+
     let account_tx_intenal = to_internal_tx(&account_tx);
 
     let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
-    os_hints(&block_context, state, vec![account_tx_intenal], vec![tx_execution_info])
+    os_hints(&block_context, initial_state, vec![account_tx_intenal], vec![tx_execution_info])
 }

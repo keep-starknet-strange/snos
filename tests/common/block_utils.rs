@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use blockifier::block_context::BlockContext;
+use blockifier::execution::contract_class::ContractClass;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
-use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CachedState, StorageEntry};
 use blockifier::state::state_api::StateReader;
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::contracts::FeatureContract::{
@@ -18,9 +19,9 @@ use snos::config::{StarknetGeneralConfig, StarknetOsConfig};
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::hash::StarkHash;
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_crypto::FieldElement;
 
 use crate::common::transaction_utils::to_felt252;
@@ -150,6 +151,28 @@ pub fn test_state(
     state
 }
 
+pub fn copy_state(state: &CachedState<DictStateReader>) -> CachedState<DictStateReader> {
+    let mut storage_view = HashMap::new();
+    let mut address_to_nonce = HashMap::new();
+    let mut address_to_class_hash = HashMap::new();
+    let mut class_hash_to_class = HashMap::new();
+    let mut class_hash_to_compiled_class_hash = HashMap::new();
+
+    storage_view.extend(state.state.storage_view.clone());
+    address_to_nonce.extend(state.state.address_to_nonce.clone());
+    address_to_class_hash.extend(state.state.address_to_class_hash.clone());
+    class_hash_to_class.extend(state.state.class_hash_to_class.clone());
+    class_hash_to_compiled_class_hash.extend(state.state.class_hash_to_compiled_class_hash.clone());
+
+    CachedState::from(DictStateReader {
+        storage_view,
+        address_to_nonce,
+        address_to_class_hash,
+        class_hash_to_class,
+        class_hash_to_compiled_class_hash
+    })
+}
+
 pub fn os_hints(
     block_context: &BlockContext,
     mut state: CachedState<DictStateReader>,
@@ -253,7 +276,7 @@ pub fn os_hints(
         block_hash: Default::default(),
     };
 
-    let execution_helper = ExecutionHelperWrapper::new(tx_execution_infos, &block_context);
+    let execution_helper = ExecutionHelperWrapper::new(state, tx_execution_infos, &block_context);
 
     (os_input, execution_helper)
 }

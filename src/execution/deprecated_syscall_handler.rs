@@ -167,7 +167,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
             .next()
             .ok_or(HintError::SyscallError("No more storage reads available to replay".to_string().into_boxed_str()))?;
 
-        println!("get_caller_address() syscall, syscall_ptr = {}, value = {}", syscall_ptr, value);
+        println!("storage_read syscall, syscall_ptr = {}, value = {}", syscall_ptr, value);
 
         vm.insert_value((syscall_ptr + 2usize).unwrap(), value).unwrap();
 

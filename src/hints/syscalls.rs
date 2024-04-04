@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::borrow::Cow;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
@@ -12,8 +13,10 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
+use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest};
 
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
+use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::vars;
 
@@ -447,20 +450,20 @@ pub fn cache_contract_storage_2(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let contract_address = get_ptr_from_var_name("contract_address", vm, ids_data, ap_tracking)?;
-    let key = get_integer_from_var_name("request_address", vm, ids_data, ap_tracking)?;
-    let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(contract_address)?.data.clone() {
-        Dictionary::SimpleDictionary(dict) => dict
-            .get(&MaybeRelocatable::Int(key.into_owned()))
-            .expect("State changes dictionnary shouldn't be None")
-            .clone(),
-        Dictionary::DefaultDictionary { dict: _d, default_value: _v } => {
-            panic!("State changes dict shouldn't be a default dict")
-        }
-    };
-    let ids_val = get_maybe_relocatable_from_var_name("value", vm, ids_data, ap_tracking)?;
-    if ids_val != val {
-        return Err(HintError::AssertionFailed("Inconsistent storage value.".into()));
+    let contract_address = get_integer_from_var_name("contract_address", vm, ids_data, ap_tracking)?;
+    let syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
+    let key = vm.get_integer((syscall_ptr + (StorageRead::request_offset() + StorageReadRequest::address_offset()))?)?;
+
+    let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let value =
+        execution_helper.read_storage_for_address(*contract_address, *key).map_err(|_| {
+            HintError::CustomHint(format!("Storage read error, contract: {}, key: {}", contract_address, key).into_boxed_str())
+        })?;
+
+
+    let ids_value = *get_integer_from_var_name("value", vm, ids_data, ap_tracking)?;
+    if ids_value != value {
+        return Err(HintError::AssertionFailed(format!("Inconsistent storage value: {} <> {}.", ids_value, value).into()));
     }
 
     Ok(())
@@ -469,6 +472,7 @@ pub fn cache_contract_storage_2(
 #[cfg(test)]
 mod tests {
     use blockifier::block_context::BlockContext;
+    use blockifier::state::cached_state::CachedState;
     use cairo_vm::types::relocatable::Relocatable;
     use rstest::{fixture, rstest};
 
@@ -479,7 +483,7 @@ mod tests {
     #[fixture]
     fn exec_scopes(block_context: BlockContext) -> ExecutionScopes {
         let execution_infos = vec![];
-        let exec_helper = ExecutionHelperWrapper::new(execution_infos, &block_context);
+        let exec_helper = ExecutionHelperWrapper::new(CachedState::default(), execution_infos, &block_context);
         let syscall_handler = OsSyscallHandlerWrapper::new(exec_helper);
 
         let mut exec_scopes = ExecutionScopes::new();
