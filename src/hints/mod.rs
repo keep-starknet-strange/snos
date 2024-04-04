@@ -46,7 +46,7 @@ pub type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 144] = [
+static HINTS: [(&str, HintImpl); 145] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -142,6 +142,7 @@ static HINTS: [(&str, HintImpl); 144] = [
     (patricia::SET_SIBLINGS, patricia::set_siblings),
     (state::DECODE_NODE, state::decode_node_hint),
     (state::DECODE_NODE_2, state::decode_node_hint),
+    (state::ENTER_SCOPE_WITH_COMMITMENT_INFO, state::enter_scope_with_commitment_info),
     (state::LOAD_EDGE, state::load_edge),
     (state::SET_INITIAL_STATE_UPDATES_PTR, state::set_initial_state_updates_ptr),
     (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),

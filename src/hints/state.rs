@@ -260,6 +260,37 @@ pub fn set_initial_state_updates_ptr(
     ]);
     exec_scopes.enter_scope(new_scope);
 
+    // TODO: set ids.initial_state_updates_ptr?
+
+    Ok(())
+}
+
+pub const ENTER_SCOPE_WITH_COMMITMENT_INFO: &str = indoc! {r#"
+	# This hint shouldn't be whitelisted.
+	vm_enter_scope(dict(
+	    commitment_info_by_address=execution_helper.compute_storage_commitments(),
+	    os_input=os_input,
+	))"#
+};
+
+pub fn enter_scope_with_commitment_info(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let os_input: StarknetOsInput = exec_scopes.get(vars::scopes::OS_INPUT)?;
+
+    let commitment_info_by_address = execute_coroutine_threadsafe(execution_helper.compute_storage_commitments())?;
+
+    let new_scope = HashMap::from([
+        (vars::scopes::COMMITMENT_INFO_BY_ADDRESS.to_string(), any_box!(commitment_info_by_address)),
+        (vars::scopes::OS_INPUT.to_string(), any_box!(os_input)),
+    ]);
+    exec_scopes.enter_scope(new_scope);
+
     Ok(())
 }
 
