@@ -15,7 +15,7 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
 use crate::cairo_types::trie::NodeEdge;
-use crate::hints::types::DescentMap;
+use crate::hints::types::{DescentMap, Preimage};
 use crate::hints::vars;
 use crate::starkware_utils::commitment_tree::update_tree::DecodeNodeCase;
 
@@ -150,6 +150,34 @@ pub fn split_descend(
 
     insert_value_from_var_name(vars::ids::LENGTH, length, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::WORD, word, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+pub const HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO: &str =
+    "memory[ap] = 1 if ids.height == 0 or len(preimage[ids.node]) == 2 else 0";
+
+pub fn height_is_zero_or_len_node_preimage_is_two(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let height = get_integer_from_var_name(vars::ids::HEIGHT, vm, ids_data, ap_tracking)?;
+    let node = get_integer_from_var_name(vars::ids::NODE, vm, ids_data, ap_tracking)?;
+
+    let ap = if *height == Felt252::ZERO {
+        Felt252::ONE
+    } else {
+        let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
+        let preimage_value = preimage
+            .get(node.as_ref())
+            .ok_or(HintError::CustomHint("No preimage found for node".to_string().into_boxed_str()))?;
+        if preimage_value.len() == 2 { Felt252::ONE } else { Felt252::ZERO }
+    };
+
+    insert_value_into_ap(vm, ap)?;
 
     Ok(())
 }
