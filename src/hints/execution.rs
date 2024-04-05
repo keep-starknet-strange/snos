@@ -1292,6 +1292,41 @@ pub fn cache_contract_storage_syscall_request_address(
 
     cache_contract_storage(key, vm, exec_scopes, ids_data, ap_tracking)
 }
+pub const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
+	(
+	    old_block_number, old_block_hash
+	) = execution_helper.get_old_block_number_and_hash()
+	assert old_block_number == ids.old_block_number,(
+	    "Inconsistent block number. "
+	    "The constant STORED_BLOCK_HASH_BUFFER is probably out of sync."
+	)
+	ids.old_block_hash = old_block_hash"#
+};
+
+pub fn get_old_block_number_and_hash(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let (old_block_number, old_block_hash) = execution_helper.get_old_block_number_and_hash()?;
+
+    let ids_old_block_number =
+        get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?.into_owned();
+    if old_block_number != ids_old_block_number {
+        return Err(HintError::AssertionFailed(
+            "Inconsistent block number. The constant STORED_BLOCK_HASH_BUFFER is probably out of sync."
+                .to_string()
+                .into_boxed_str(),
+        ));
+    }
+
+    insert_value_from_var_name(vars::ids::OLD_BLOCK_HASH, old_block_hash, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
 
 pub const SET_AP_TO_NONCE_ARG_SEGMENT: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg([tx.nonce]))";
 

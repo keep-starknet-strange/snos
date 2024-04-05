@@ -14,18 +14,6 @@ const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
-	(
-	    old_block_number, old_block_hash
-	) = execution_helper.get_old_block_number_and_hash()
-	assert old_block_number == ids.old_block_number,(
-	    "Inconsistent block number. "
-	    "The constant STORED_BLOCK_HASH_BUFFER is probably out of sync."
-	)
-	ids.old_block_hash = old_block_hash"#
-};
-
-#[allow(unused)]
 const ASSERT_CASE_IS_RIGHT: &str = "assert case == 'right'";
 
 #[allow(unused)]
