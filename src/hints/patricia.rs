@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -14,10 +15,12 @@ use indoc::indoc;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
+use crate::cairo_types::builtins::HashBuiltin;
 use crate::cairo_types::trie::NodeEdge;
 use crate::hints::types::{DescentMap, Preimage};
 use crate::hints::vars;
-use crate::starkware_utils::commitment_tree::update_tree::DecodeNodeCase;
+use crate::starknet::starknet_storage::StorageLeaf;
+use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, TreeUpdate};
 
 pub const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
 
@@ -177,6 +180,66 @@ pub fn height_is_zero_or_len_node_preimage_is_two(
         if preimage_value.len() == 2 { Felt252::ONE } else { Felt252::ZERO }
     };
 
+    insert_value_into_ap(vm, ap)?;
+
+    Ok(())
+}
+
+pub const PREPARE_PREIMAGE_VALIDATION_NON_DETERMINISTIC_HASHES: &str = indoc! {r#"
+	from starkware.python.merkle_tree import decode_node
+	left_child, right_child, case = decode_node(node)
+	left_hash, right_hash = preimage[ids.node]
+
+	# Fill non deterministic hashes.
+	hash_ptr = ids.current_hash.address_
+	memory[hash_ptr + ids.HashBuiltin.x] = left_hash
+	memory[hash_ptr + ids.HashBuiltin.y] = right_hash
+
+	if __patricia_skip_validation_runner:
+	    # Skip validation of the preimage dict to speed up the VM. When this flag is set,
+	    # mistakes in the preimage dict will be discovered only in the prover.
+	    __patricia_skip_validation_runner.verified_addresses.add(
+	        hash_ptr + ids.HashBuiltin.result)
+
+	memory[ap] = int(case != 'both')"#
+};
+
+pub fn prepare_preimage_validation_non_deterministic_hashes(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let node: TreeUpdate<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
+    let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
+
+    let ids_node = get_integer_from_var_name(vars::ids::NODE, vm, ids_data, ap_tracking)?;
+
+    let DecodedNode { left_child, right_child, case } = decode_node(&node)?;
+
+    exec_scopes.insert_value(vars::scopes::LEFT_CHILD, left_child.clone());
+    exec_scopes.insert_value(vars::scopes::RIGHT_CHILD, right_child.clone());
+
+    let node_preimage =
+        preimage.get(&ids_node).ok_or(HintError::CustomHint("Node preimage not found".to_string().into_boxed_str()))?;
+    let left_hash = node_preimage[0];
+    let right_hash = node_preimage[1];
+
+    // Fill non deterministic hashes.
+    let hash_ptr = get_relocatable_from_var_name(vars::ids::CURRENT_HASH, vm, ids_data, ap_tracking)?;
+    // memory[hash_ptr + ids.HashBuiltin.x] = left_hash
+    vm.insert_value((hash_ptr + HashBuiltin::x_offset())?, left_hash)?;
+    // memory[hash_ptr + ids.HashBuiltin.y] = right_hash
+    vm.insert_value((hash_ptr + HashBuiltin::y_offset())?, right_hash)?;
+
+    // TODO: __patricia_skip_validation_runner
+
+    // memory[ap] = int(case != 'both')"#
+    let ap = match case {
+        DecodeNodeCase::Both => Felt252::ZERO,
+        _ => Felt252::ONE,
+    };
     insert_value_into_ap(vm, ap)?;
 
     Ok(())
