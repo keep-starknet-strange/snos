@@ -49,6 +49,8 @@ pub mod ids {
     pub const NEW_LENGTH: &str = "new_length";
     pub const NEW_STATE_ENTRY: &str = "new_state_entry";
     pub const NODE: &str = "node";
+    pub const OLD_BLOCK_HASH: &str = "old_block_hash";
+    pub const OLD_BLOCK_NUMBER: &str = "old_block_number";
     pub const OS_CONTEXT: &str = "os_context";
     pub const OUTPUT_PTR: &str = "output_ptr";
     pub const PATH: &str = "path";

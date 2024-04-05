@@ -1220,6 +1220,36 @@ pub fn gen_nonce_arg(
     Ok(())
 }
 
+pub const WRITE_OLD_BLOCK_TO_STORAGE: &str = indoc! {r#"
+	storage = execution_helper.storage_by_address[ids.BLOCK_HASH_CONTRACT_ADDRESS]
+	storage.write(key=ids.old_block_number, value=ids.old_block_hash)"#
+};
+
+pub fn write_old_block_to_storage(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let block_hash_contract_address =
+        get_integer_from_var_name(vars::ids::BLOCK_HASH_CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+    let old_block_number =
+        get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?.into_owned();
+    let old_block_hash = get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?.into_owned();
+
+    execution_helper.write_storage_for_address(block_hash_contract_address, old_block_number, old_block_hash).map_err(
+        |_| {
+            HintError::CustomHint(
+                format!("Storage not found for contract {}", block_hash_contract_address).into_boxed_str(),
+            )
+        },
+    )?;
+
+    Ok(())
+}
+
 pub const CACHE_CONTRACT_STORAGE_REQUEST_KEY: &str = indoc! {r#"
 	# Make sure the value is cached (by reading it), to be used later on for the
 	# commitment computation.
