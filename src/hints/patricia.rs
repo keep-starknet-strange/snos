@@ -17,7 +17,7 @@ use num_traits::ToPrimitive;
 
 use crate::cairo_types::builtins::HashBuiltin;
 use crate::cairo_types::trie::NodeEdge;
-use crate::hints::types::{DescentMap, Preimage};
+use crate::hints::types::{skip_verification_if_configured, DescentMap, Preimage};
 use crate::hints::vars;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, TreeUpdate};
@@ -233,7 +233,8 @@ pub fn prepare_preimage_validation_non_deterministic_hashes(
     // memory[hash_ptr + ids.HashBuiltin.y] = right_hash
     vm.insert_value((hash_ptr + HashBuiltin::y_offset())?, right_hash)?;
 
-    // TODO: __patricia_skip_validation_runner
+    let hash_result_address = (hash_ptr + HashBuiltin::result_offset())?;
+    skip_verification_if_configured(exec_scopes, hash_result_address)?;
 
     // memory[ap] = int(case != 'both')"#
     let ap = match case {
