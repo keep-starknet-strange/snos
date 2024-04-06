@@ -1,9 +1,6 @@
 use indoc::indoc;
 
 #[allow(unused)]
-const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': syscall_handler})";
-
-#[allow(unused)]
 const HAS_ENOUGH_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_gas >= ids.required_gas)";
 
 #[allow(unused)]
@@ -23,117 +20,7 @@ const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-const SET_BIT: &str = "ids.bit = (ids.edge.path >> ids.new_length) & 1";
-
-#[allow(unused)]
-const VALIDATE_AND_DISCARD_SYSCALL_PTR: &str = indoc! {r#"
-	syscall_handler.validate_and_discard_syscall_ptr(
-	    syscall_ptr_end=ids.entry_point_return_values.syscall_ptr
-	)
-	execution_helper.exit_call()"#
-};
-
-#[allow(unused)]
-const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
-	(
-	    old_block_number, old_block_hash
-	) = execution_helper.get_old_block_number_and_hash()
-	assert old_block_number == ids.old_block_number,(
-	    "Inconsistent block number. "
-	    "The constant STORED_BLOCK_HASH_BUFFER is probably out of sync."
-	)
-	ids.old_block_hash = old_block_hash"#
-};
-
-#[allow(unused)]
-const ENTER_SCOPE_NEXT_NODE: &str = indoc! {r#"
-	new_node = left_child if ids.bit == 0 else right_child
-	vm_enter_scope(dict(node=new_node, **common_args))"#
-};
-
-#[allow(unused)]
 const ASSERT_CASE_IS_RIGHT: &str = "assert case == 'right'";
-
-#[allow(unused)]
-const SET_AP_TO_IS_REVERTED: &str =
-    "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.is_reverted)";
-
-#[allow(unused)]
-const ENTER_SCOPE_NEXT_NODE_2: &str = indoc! {r#"
-	new_node = left_child if ids.bit == 1 else right_child
-	vm_enter_scope(dict(node=new_node, **common_args))"#
-};
-
-#[allow(unused)]
-const WRITE_OLD_BLOCK_TO_STORAGE: &str = indoc! {r#"
-	storage = execution_helper.storage_by_address[ids.BLOCK_HASH_CONTRACT_ADDRESS]
-	storage.write(key=ids.old_block_number, value=ids.old_block_hash)"#
-};
-
-#[allow(unused)]
-const SET_AP_TO_NOT_DESCEND: &str = indoc! {r#"
-	descend = descent_map.get((ids.height, ids.path))
-	memory[ap] = 0 if descend is None else 1"#
-};
-
-#[allow(unused)]
-const PREPARE_PREIMAGE_VALIDATION_BOTTOM: &str = indoc! {r#"
-	ids.hash_ptr.x, ids.hash_ptr.y = preimage[ids.edge.bottom]
-	if __patricia_skip_validation_runner:
-	    # Skip validation of the preimage dict to speed up the VM. When this flag is
-	    # set, mistakes in the preimage dict will be discovered only in the prover.
-	    __patricia_skip_validation_runner.verified_addresses.add(
-	        ids.hash_ptr + ids.HashBuiltin.result)"#
-};
-
-#[allow(unused)]
-const SET_CONTRACT_ADDRESS: &str = indoc! {r#"
-	from starkware.starknet.business_logic.transaction.objects import InternalL1Handler
-	ids.contract_address = (
-	    tx.contract_address if isinstance(tx, InternalL1Handler) else tx.sender_address
-	)"#
-};
-
-#[allow(unused)]
-const SET_AP_TO_NONCE_ARG_SEGMENT: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg([tx.nonce]))";
-
-#[allow(unused)]
-const SPLIT_DESCEND: &str = "ids.length, ids.word = descend";
-
-#[allow(unused)]
-const HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO: &str =
-    "memory[ap] = 1 if ids.height == 0 or len(preimage[ids.node]) == 2 else 0";
-
-#[allow(unused)]
-const ENTER_SCOPE_NEW_TREE: &str = indoc! {r#"
-	new_node = node
-	for i in range(ids.length - 1, -1, -1):
-	    new_node = new_node[(ids.word >> i) & 1]
-	vm_enter_scope(dict(node=new_node, **common_args))"#
-};
-
-#[allow(unused)]
-const SET_AP_TO_NONCE_OR_ZERO: &str = "memory[ap] = to_felt_or_relocatable(0 if tx.nonce is None else tx.nonce)";
-
-#[allow(unused)]
-const PREPARE_PREIMAGE_VALIDATION_NON_DETERMINISTIC_HASHES: &str = indoc! {r#"
-	from starkware.python.merkle_tree import decode_node
-	left_child, right_child, case = decode_node(node)
-	left_hash, right_hash = preimage[ids.node]
-
-	# Fill non deterministic hashes.
-	hash_ptr = ids.current_hash.address_
-	memory[hash_ptr + ids.HashBuiltin.x] = left_hash
-	memory[hash_ptr + ids.HashBuiltin.y] = right_hash
-
-	if __patricia_skip_validation_runner:
-	    # Skip validation of the preimage dict to speed up the VM. When this flag is set,
-	    # mistakes in the preimage dict will be discovered only in the prover.
-	    __patricia_skip_validation_runner.verified_addresses.add(
-	        hash_ptr + ids.HashBuiltin.result)
-
-	memory[ap] = int(case != 'both')"#
-};
 
 #[allow(unused)]
 const GET_COMPILED_CLASS_STRUCT: &str = indoc! {r#"
@@ -146,18 +33,6 @@ const GET_COMPILED_CLASS_STRUCT: &str = indoc! {r#"
 	cairo_contract = get_compiled_class_struct(
 	    identifiers=ids._context.identifiers, compiled_class=compiled_class)
 	ids.compiled_class = segments.gen_arg(cairo_contract)"#
-};
-
-#[allow(unused)]
-const CHECK_RETURN_VALUE_2: &str = indoc! {r#"
-	# Check that the actual return value matches the expected one.
-	expected = memory.get_range(
-	    addr=ids.response.retdata_start,
-	    size=ids.response.retdata_end - ids.response.retdata_start,
-	)
-	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
-
-	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
 };
 
 #[allow(unused)]
@@ -193,23 +68,6 @@ const BUILD_DESCENT_MAP: &str = indoc! {r#"
 const IS_N_GE_TEN: &str = "memory[ap] = to_felt_or_relocatable(ids.n >= 10)";
 
 #[allow(unused)]
-const ENTER_SCOPE_LEFT_CHILD: &str = "vm_enter_scope(dict(node=left_child, **common_args))";
-
-#[allow(unused)]
-const ENTER_SCOPE_NODE: &str = "vm_enter_scope(dict(node=node, **common_args))";
-
-#[allow(unused)]
-const CHECK_RETURN_VALUE_3: &str = indoc! {r#"
-	# Check that the actual return value matches the expected one.
-	expected = memory.get_range(
-	    addr=ids.response.constructor_retdata_start,
-	    size=ids.response.constructor_retdata_end - ids.response.constructor_retdata_start,
-	)
-	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
-	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
-};
-
-#[allow(unused)]
 const VM_LOAD_PROGRAM: &str = indoc! {r#"
 	computed_hash = ids.compiled_class_fact.hash
 	expected_hash = compiled_class_hash
@@ -239,9 +97,6 @@ const START_TX_2: &str = indoc! {r#"
 #[allow(unused)]
 const GET_SEQUENCER_ADDRESS: &str =
     "syscall_handler.get_sequencer_address(segments=segments, syscall_ptr=ids.syscall_ptr)";
-
-#[allow(unused)]
-const ENTER_SCOPE_RIGHT_CHILD: &str = "vm_enter_scope(dict(node=right_child, **common_args))";
 
 #[allow(unused)]
 const WRITE_REQUEST: &str = indoc! {r#"

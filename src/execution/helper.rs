@@ -11,6 +11,7 @@ use blockifier::state::state_api::{State, StateReader};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
 use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -40,6 +41,10 @@ pub struct ExecutionHelper {
     // Pointer to the Cairo ExecutionInfo struct of the current call.
     // Must match the ExecutionInfo pointer for system call validation in 'enter_call'
     pub call_execution_info_ptr: Option<Relocatable>,
+    // The block number and block hash of the (current_block_number - buffer) block, where
+    // buffer=STORED_BLOCK_HASH_BUFFER.
+    // It is the hash that is going to be written by this OS run.
+    pub old_block_number_and_hash: Option<(Felt252, Felt252)>,
     // Iter for CallInfo
     pub call_iter: IntoIter<CallInfo>,
     // CallInfo for the call currently being executed
@@ -81,6 +86,7 @@ impl ExecutionHelperWrapper {
                 tx_info_ptr: None,
                 call_iter: vec![].into_iter(),
                 call_execution_info_ptr: None,
+                old_block_number_and_hash: None,
                 call_info: None,
                 result_iter: vec![].into_iter(),
                 deployed_contracts_iter: vec![].into_iter(),
@@ -90,6 +96,14 @@ impl ExecutionHelperWrapper {
             })),
         }
     }
+
+    pub fn get_old_block_number_and_hash(&self) -> Result<(Felt252, Felt252), HintError> {
+        let eh_ref = self.execution_helper.as_ref().borrow();
+        eh_ref.old_block_number_and_hash.ok_or(HintError::AssertionFailed(
+            format!("Block number is probably < {STORED_BLOCK_HASH_BUFFER}.").into_boxed_str(),
+        ))
+    }
+
     pub fn start_tx(&self, tx_info_ptr: Option<Relocatable>) {
         let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
         assert!(eh_ref.tx_info_ptr.is_none());

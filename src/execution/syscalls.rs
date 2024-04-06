@@ -38,7 +38,7 @@ pub fn call_contract(
         .next()
         .ok_or(SyscallExecutionError::InternalError(Box::from("No result left in the result iterator.")))?;
 
-    *remaining_gas = *remaining_gas - result.gas_consumed;
+    *remaining_gas -= result.gas_consumed;
 
     let retdata = result.retdata.0.iter().map(|sf| felt_api2vm(*sf)).collect();
 
@@ -52,7 +52,7 @@ pub fn call_contract(
     );
 
     let start_ptr = vm.add_temporary_segment();
-    vm.load_data(start_ptr, &retdata.iter().map(|r| MaybeRelocatable::from(r)).collect())?;
+    vm.load_data(start_ptr, &retdata.iter().map(MaybeRelocatable::from).collect())?;
     Ok(CallContractResponse { segment: ReadOnlySegment { start_ptr, length: retdata.len() } })
 }
 
