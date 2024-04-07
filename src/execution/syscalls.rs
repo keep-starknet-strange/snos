@@ -1,9 +1,13 @@
-use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 
 use crate::execution::helper::ExecutionHelperWrapper;
-use crate::execution::syscall_utils::{EmptyRequest, EmptyResponse, felt_from_ptr, ignore_felt_array, read_call_params, ReadOnlySegment, SingleSegmentResponse, SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult, write_maybe_relocatable, WriteResponseResult};
+use crate::execution::syscall_utils::{
+    felt_from_ptr, ignore_felt_array, read_call_params, write_maybe_relocatable, EmptyRequest, EmptyResponse,
+    ReadOnlySegment, SingleSegmentResponse, SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult,
+    WriteResponseResult,
+};
 use crate::utils::felt_api2vm;
 
 // CallContract syscall.
@@ -117,7 +121,7 @@ impl SyscallRequest for EmitEventRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<EmitEventRequest> {
         ignore_felt_array::<SyscallExecutionError>(vm, ptr)?;
         ignore_felt_array::<SyscallExecutionError>(vm, ptr)?;
-        Ok(EmitEventRequest { })
+        Ok(EmitEventRequest {})
     }
 }
 

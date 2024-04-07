@@ -8,6 +8,7 @@ use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::{config, run_os};
+
 use crate::common::blocks::simple_block_cairo1;
 use crate::common::syscalls_blocks::cairo1_syscalls_block;
 
@@ -33,15 +34,11 @@ fn run_os_on_block(block_context: BlockContext, block: (StarknetOsInput, Executi
     }
 
     println!("exception:\n{:#?}", result);
-
 }
 
 #[rstest]
 #[ignore]
-fn run_os_on_simple_block(
-    block_context: BlockContext,
-    simple_block: (StarknetOsInput, ExecutionHelperWrapper)
-) {
+fn run_os_on_simple_block(block_context: BlockContext, simple_block: (StarknetOsInput, ExecutionHelperWrapper)) {
     run_os_on_block(block_context, simple_block);
 }
 

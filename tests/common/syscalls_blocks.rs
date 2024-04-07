@@ -1,17 +1,18 @@
 use blockifier::block_context::BlockContext;
 use blockifier::invoke_tx_args;
-use blockifier::test_utils::{BALANCE, CairoVersion, create_calldata, NonceManager};
 use blockifier::test_utils::contracts::FeatureContract;
+use blockifier::test_utils::{create_calldata, CairoVersion, NonceManager, BALANCE};
 use blockifier::transaction::objects::FeeType;
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use rstest::fixture;
-use starknet_api::stark_felt;
-use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{Fee, TransactionVersion};
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
+use starknet_api::transaction::{Fee, TransactionVersion};
+
 use crate::common::block_utils::{copy_state, os_hints, test_state};
 use crate::common::blocks::block_context;
 use crate::common::transaction_utils::{to_felt252, to_internal_tx};
@@ -39,7 +40,6 @@ pub fn cairo1_syscalls_block(
     println!("\taccount: {}", to_felt252(account_address.0.key()));
     println!("\tcontract: {}", to_felt252(contract_address.0.key()));
 
-
     // TODO: use following test methods to test syscalls as soon as they are implemented
     // test_emit_event
     // test_storage_read_write
@@ -63,8 +63,9 @@ pub fn cairo1_syscalls_block(
         vec![stark_felt!(u128::try_from(keys.len()).expect("Failed to convert usize to u16."))],
         keys,
         vec![stark_felt!(u128::try_from(data.len()).expect("Failed to convert usize to u16."))],
-        data
-    ].concat();
+        data,
+    ]
+    .concat();
 
     let test_emit_event_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,

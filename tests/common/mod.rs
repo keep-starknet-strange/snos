@@ -12,9 +12,9 @@ mod block_utils;
 pub mod blocks;
 mod deprecated_hash_utils;
 pub mod serde_utils;
+pub mod syscalls_blocks;
 mod transaction_utils;
 pub mod utils;
-pub mod syscalls_blocks;
 
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
