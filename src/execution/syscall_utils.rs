@@ -114,6 +114,14 @@ pub fn read_calldata(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResul
     read_felt_array::<SyscallExecutionError>(vm, ptr)
 }
 
+pub fn ignore_felt_array<TErr>(_vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<(), TErr>
+where
+    TErr: From<VirtualMachineError> + From<MemoryError> + From<MathError>,
+{
+    *ptr = (*ptr + 2)?;
+    Ok(())
+}
+
 pub fn read_call_params(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<(Felt252, Vec<Felt252>)> {
     let function_selector = felt_from_ptr(vm, ptr)?;
     let calldata = read_calldata(vm, ptr)?;

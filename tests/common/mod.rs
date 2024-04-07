@@ -14,6 +14,7 @@ mod deprecated_hash_utils;
 pub mod serde_utils;
 mod transaction_utils;
 pub mod utils;
+pub mod syscalls_blocks;
 
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
