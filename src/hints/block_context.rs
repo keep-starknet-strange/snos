@@ -20,6 +20,7 @@ use indoc::indoc;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use crate::cairo_types::structs::{CompiledClass, CompiledClassFact};
+use crate::hints::vars::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::hints::vars::ids::{COMPILED_CLASS, COMPILED_CLASS_FACT, CONTRACT_STATE_CHANGES, STATE_ENTRY};
 use crate::hints::vars::scopes::COMPILED_CLASS_HASH;
 use crate::io::classes::{write_class, write_deprecated_class};
@@ -381,7 +382,6 @@ pub const GET_BLOCK_MAPPING: &str = indoc! {r#"
     ]"#
 };
 
-const BLOCK_HASH_CONTRACT_ADDRESS: &str = "starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS";
 pub fn get_block_mapping(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,

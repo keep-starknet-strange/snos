@@ -8,8 +8,9 @@ use cairo_vm::Felt252;
 use num_traits::ToPrimitive;
 use thiserror::Error;
 
-use crate::execution::gas_constants::SYSCALL_BASE_GAS_COST;
+use crate::execution::constants::SYSCALL_BASE_GAS_COST;
 use crate::execution::helper::ExecutionHelperWrapper;
+use crate::storage::storage::StorageError;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum SyscallSelector {
@@ -185,6 +186,12 @@ impl From<MathError> for SyscallExecutionError {
     }
 }
 
+impl From<StorageError> for SyscallExecutionError {
+    fn from(error: StorageError) -> Self {
+        Self::InternalError(format!("StorageError error: {}", error).into())
+    }
+}
+
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type WriteResponseResult = SyscallResult<()>;
 
@@ -300,14 +307,14 @@ pub const OUT_OF_GAS_ERROR: &str = "0x000000000000000000000000000000000000000000
 pub fn execute_syscall<Request, Response, ExecuteCallback>(
     syscall_ptr: &mut Relocatable,
     vm: &mut VirtualMachine,
-    exec_wrapper: ExecutionHelperWrapper,
+    exec_wrapper: &mut ExecutionHelperWrapper,
     execute_callback: ExecuteCallback,
     syscall_gas_cost: u64,
 ) -> Result<(), HintError>
 where
     Request: SyscallRequest + std::fmt::Debug,
     Response: SyscallResponse + std::fmt::Debug,
-    ExecuteCallback: FnOnce(Request, &mut VirtualMachine, ExecutionHelperWrapper, &mut u64) -> SyscallResult<Response>,
+    ExecuteCallback: FnOnce(Request, &mut VirtualMachine, &mut ExecutionHelperWrapper, &mut u64) -> SyscallResult<Response>,
 {
     // Refund `SYSCALL_BASE_GAS_COST` as it was pre-charged.
     let required_gas = syscall_gas_cost - SYSCALL_BASE_GAS_COST;

@@ -1,5 +1,5 @@
 pub mod deprecated_syscall_handler;
-mod gas_constants;
+mod constants;
 pub mod helper;
 pub mod syscall_handler;
 pub mod syscall_utils;

@@ -2,6 +2,7 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
+use crate::execution::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_utils::{
@@ -32,7 +33,7 @@ pub type CallContractResponse = SingleSegmentResponse;
 pub fn call_contract(
     request: CallContractRequest,
     vm: &mut VirtualMachine,
-    exec_wrapper: ExecutionHelperWrapper,
+    exec_wrapper: &mut ExecutionHelperWrapper,
     remaining_gas: &mut u64,
 ) -> SyscallResult<CallContractResponse> {
     let result_iter = &mut exec_wrapper.execution_helper.as_ref().borrow_mut().result_iter;
@@ -109,13 +110,6 @@ pub fn call_contract(
 //     Ok(DeployResponse { contract_address: deployed_contract_address, constructor_retdata })
 // }
 
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct EmitEventRequest {
-//     pub keys: Vec<Felt252>,
-//     pub data: Vec<Felt252>,
-// }
-//
-
 type EmitEventRequest = EmptyResponse;
 
 impl SyscallRequest for EmitEventRequest {
@@ -131,57 +125,50 @@ type EmitEventResponse = EmptyResponse;
 pub fn emit_event(
     _request: EmitEventRequest,
     _vm: &mut VirtualMachine,
-    _exec_wrapper: ExecutionHelperWrapper,
+    _exec_wrapper: &mut ExecutionHelperWrapper,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<EmitEventResponse> {
     Ok(EmitEventResponse {})
 }
 
-// TODO: GetBlockHash syscall.
-//
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct GetBlockHashRequest {
-//     pub block_number: BlockNumber,
-// }
-//
-// impl SyscallRequest for GetBlockHashRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
-//         let felt = felt_from_ptr(vm, ptr)?;
-//         let block_number = BlockNumber(felt.to_u64().ok_or_else(|| {
-//             SyscallExecutionError::InvalidSyscallInput {
-//                 input: felt_to_stark_felt(&felt),
-//                 info: String::from("Block number must fit within 64 bits."),
-//             }
-//         })?);
-//
-//         Ok(GetBlockHashRequest { block_number })
-//     }
-// }
-//
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct GetBlockHashResponse {
-//     pub block_hash: BlockHash,
-// }
-//
-// impl SyscallResponse for GetBlockHashResponse {
-//     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-//         write_stark_felt(vm, ptr, self.block_hash.0)?;
-//         Ok(())
-//     }
-// }
-//
-// /// Returns the block hash of a given block_number.
-// /// Returns the expected block hash if the given block was created at least
-// /// [constants::STORED_BLOCK_HASH_BUFFER] blocks before the current block. Otherwise, returns an
-// /// error.
-// pub fn get_block_hash(
-//     request: GetBlockHashRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> SyscallResult<GetBlockHashResponse> {
-//     Ok(GetBlockHashResponse { block_hash })
-// }
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetBlockHashRequest {
+    pub block_number: Felt252,
+}
+
+impl SyscallRequest for GetBlockHashRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
+        let block_number = felt_from_ptr(vm, ptr)?;
+        Ok(GetBlockHashRequest { block_number })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetBlockHashResponse {
+    pub block_hash: Felt252,
+}
+
+impl SyscallResponse for GetBlockHashResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_felt(vm, ptr, self.block_hash)?;
+        Ok(())
+    }
+}
+
+pub fn get_block_hash(
+    request: GetBlockHashRequest,
+    _vm: &mut VirtualMachine,
+    exec_wrapper: &mut ExecutionHelperWrapper,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<GetBlockHashResponse> {
+    // # The syscall handler should not directly read from the storage during the execution of
+    // # transactions because the order in which reads and writes occur is not strictly linear.
+    // # However, for the "block hash contract," this rule does not apply. This contract is updated
+    // # only at the start of each block before other transactions are executed.
+    let block_hash = exec_wrapper.read_storage_for_address(Felt252::from(BLOCK_HASH_CONTRACT_ADDRESS), request.block_number)?;
+    Ok(GetBlockHashResponse { block_hash })
+}
 
 // GetExecutionInfo syscall.
 type GetExecutionInfoRequest = EmptyRequest;
@@ -201,7 +188,7 @@ impl SyscallResponse for GetExecutionInfoResponse {
 pub fn get_execution_info(
     _request: GetExecutionInfoRequest,
     _vm: &mut VirtualMachine,
-    exec_wrapper: ExecutionHelperWrapper,
+    exec_wrapper: &mut ExecutionHelperWrapper,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<GetExecutionInfoResponse> {
     let eh_ref = exec_wrapper.execution_helper.as_ref().borrow();
@@ -342,7 +329,7 @@ impl SyscallResponse for StorageReadResponse {
 pub fn storage_read(
     _request: StorageReadRequest,
     _vm: &mut VirtualMachine,
-    exec_wrapper: ExecutionHelperWrapper,
+    exec_wrapper: &mut ExecutionHelperWrapper,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<StorageReadResponse> {
     let value = exec_wrapper
@@ -351,7 +338,7 @@ pub fn storage_read(
         .borrow_mut()
         .execute_code_read_iter
         .next()
-        .ok_or(HintError::SyscallError("No more storage reads available to replay".to_string().into_boxed_str()))?;
+        .ok_or(HintError::SyscallError("n: No more storage reads available to replay".to_string().into_boxed_str()))?;
     Ok(StorageReadResponse { value })
 }
 
@@ -380,7 +367,7 @@ pub type StorageWriteResponse = EmptyResponse;
 pub fn storage_write(
     _request: StorageWriteRequest,
     _vm: &mut VirtualMachine,
-    _exec_wrapper: ExecutionHelperWrapper,
+    _exec_wrapper: &mut ExecutionHelperWrapper,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<StorageWriteResponse> {
     Ok(StorageWriteResponse {})

@@ -9,7 +9,6 @@ use blockifier::transaction::transactions::ExecutableTransaction;
 use rstest::fixture;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
-use starknet_api::block::BlockNumber;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
@@ -19,7 +18,7 @@ use crate::common::transaction_utils::{to_felt252, to_internal_tx};
 
 #[fixture]
 pub fn block_context() -> BlockContext {
-    BlockContext { block_number: BlockNumber(0), ..BlockContext::create_for_account_testing() }
+    BlockContext::create_for_account_testing()
 }
 
 #[fixture]
