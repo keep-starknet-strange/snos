@@ -6,8 +6,6 @@ use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::builtin_runner::{BuiltinRunner, OutputBuiltinRunner};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
@@ -17,17 +15,6 @@ use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 
 const MAX_PAGE_SIZE: usize = 3800;
-
-// TODO: replace by vm.get_output_builtin() once it's merged upstream
-pub fn get_output_builtin(vm: &mut VirtualMachine) -> Result<&mut OutputBuiltinRunner, VirtualMachineError> {
-    for builtin in vm.get_builtin_runners_as_mut() {
-        if let BuiltinRunner::Output(output_builtin) = builtin {
-            return Ok(output_builtin);
-        };
-    }
-
-    Err(VirtualMachineError::NotImplemented)
-}
 
 pub const SET_TREE_STRUCTURE: &str = indoc! {r#"
 	from starkware.python.math_utils import div_ceil
@@ -72,7 +59,7 @@ pub fn set_tree_structure(
     let output_ptr = get_ptr_from_var_name(vars::ids::OUTPUT_PTR, vm, ids_data, ap_tracking)?;
     let onchain_data_size = (output_ptr - onchain_data_start)?;
 
-    let output_builtin = get_output_builtin(vm)?;
+    let output_builtin = vm.get_output_builtin_mut()?;
 
     let n_pages = div_ceil(onchain_data_size, MAX_PAGE_SIZE);
     for i in 0..n_pages {
@@ -85,15 +72,12 @@ pub fn set_tree_structure(
             .map_err(|e| HintError::CustomHint(e.to_string().into_boxed_str()))?;
     }
 
-    // TODO: replace the get_state() / set_state() sequence with add_attribute()
-    //       once https://github.com/lambdaclass/cairo-vm/pull/1691 is merged.
-    let mut builtin_state = output_builtin.get_state();
     // Set the tree structure to a root with two children:
     // * A leaf which represents the main part
     // * An inner node for the onchain data part (which contains n_pages children).
     //
     // This is encoded using the following sequence:
-    builtin_state.attributes.insert(
+    output_builtin.add_attribute(
         "gps_fact_topology".to_string(),
         vec![
             // Push 1 + n_pages pages (all of the pages).
@@ -107,7 +91,6 @@ pub fn set_tree_structure(
             2,
         ],
     );
-    output_builtin.set_state(builtin_state);
 
     Ok(())
 }
@@ -131,6 +114,7 @@ pub fn set_ap_to_block_hash(
 mod tests {
     use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::insert_value_from_var_name;
     use cairo_vm::types::relocatable::Relocatable;
+    use cairo_vm::vm::runners::builtin_runner::{BuiltinRunner, OutputBuiltinRunner};
     use cairo_vm::vm::runners::cairo_pie::PublicMemoryPage;
 
     use super::*;
@@ -178,7 +162,7 @@ mod tests {
 
         let n_expected_pages: usize = 3;
 
-        let output_builtin = get_output_builtin(&mut vm).unwrap();
+        let output_builtin = vm.get_output_builtin_mut().unwrap();
         let builtin_state = output_builtin.get_state();
 
         let pages = builtin_state.pages;
