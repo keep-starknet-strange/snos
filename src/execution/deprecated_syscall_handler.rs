@@ -58,7 +58,6 @@ impl DeprecatedOsSyscallHandlerWrapper {
             .0
             .iter()
             .map(|sf| {
-                // TODO: better way to StarkFelt -> Felt252?
                 let felt = felt_api2vm(*sf);
                 MaybeRelocatable::Int(felt)
             })
