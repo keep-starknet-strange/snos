@@ -79,3 +79,7 @@ pub mod ids {
     pub const Y: &str = "y";
     pub const Y_SQUARE_INT: &str = "y_square_int";
 }
+
+pub mod constants {
+    pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS";
+}

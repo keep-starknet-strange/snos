@@ -128,7 +128,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
         let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
         let value =
             sys_hand.exec_wrapper.execution_helper.as_ref().borrow_mut().execute_code_read_iter.next().ok_or(
-                HintError::SyscallError("No more storage reads available to replay".to_string().into_boxed_str()),
+                HintError::SyscallError("d: No more storage reads available to replay".to_string().into_boxed_str()),
             )?;
 
         println!("storage_read syscall, syscall_ptr = {}, value = {}", syscall_ptr, value);

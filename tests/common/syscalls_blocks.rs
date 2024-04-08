@@ -12,6 +12,7 @@ use snos::io::input::StarknetOsInput;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
+use snos::config::STORED_BLOCK_HASH_BUFFER;
 
 use crate::common::block_utils::{copy_state, os_hints, test_state};
 use crate::common::blocks::block_context;
@@ -88,16 +89,33 @@ pub fn cairo1_syscalls_block(
     });
     let test_storage_read_write_tx_internal = to_internal_tx(&test_storage_read_write_tx);
 
+    println!("block_number: {:?}", block_context.block_number.0);
+
+    // test_get_block_hash
+    let test_get_block_hash_tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: account_address,
+        calldata: create_calldata(contract_address, "test_get_block_hash", &[stark_felt!(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER)]),
+        version: tx_version,
+        nonce: nonce_manager.next(account_address),
+        only_query,
+    });
+    let test_get_block_hash_tx_internal = to_internal_tx(&test_storage_read_write_tx);
+
     let initial_state = copy_state(&state);
 
-    let test_emit_event_tx_execution_info = test_emit_event_tx.execute(&mut state, &block_context, true, true).unwrap();
-    let test_storage_read_write_tx_execution_info =
-        test_storage_read_write_tx.execute(&mut state, &block_context, true, true).unwrap();
+    // let test_emit_event_tx_execution_info = test_emit_event_tx.execute(&mut state, &block_context, true, true).unwrap();
+    // let test_storage_read_write_tx_execution_info =
+    //     test_storage_read_write_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let test_get_block_hash_tx_execution_info =
+        test_get_block_hash_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     os_hints(
         &block_context,
         initial_state,
-        vec![test_emit_event_tx_internal, test_storage_read_write_tx_internal],
-        vec![test_emit_event_tx_execution_info, test_storage_read_write_tx_execution_info],
+        // vec![test_emit_event_tx_internal, test_storage_read_write_tx_internal, test_get_block_hash_tx_internal],
+        // vec![test_emit_event_tx_execution_info, test_storage_read_write_tx_execution_info, test_get_block_hash_tx_execution_info],
+        vec![test_get_block_hash_tx_internal],
+        vec![test_get_block_hash_tx_execution_info],
     )
 }

@@ -28,6 +28,7 @@ use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::execution::syscall_utils::SyscallSelector;
 use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
+use crate::hints::vars::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::hints::vars::ids::{
     ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, REQUIRED_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
 };
@@ -1593,16 +1594,19 @@ pub fn write_old_block_to_storage(
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
+    constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
-    let block_hash_contract_address =
-        get_integer_from_var_name(vars::ids::BLOCK_HASH_CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+
+    let block_hash_contract_address = constants
+        .get(BLOCK_HASH_CONTRACT_ADDRESS)
+        .ok_or_else(|| HintError::MissingConstant(Box::new(BLOCK_HASH_CONTRACT_ADDRESS)))?;
     let old_block_number =
         get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?.into_owned();
     let old_block_hash = get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?.into_owned();
 
-    execution_helper.write_storage_for_address(block_hash_contract_address, old_block_number, old_block_hash).map_err(
+    println!("writing block number: {} -> block hash: {}", old_block_number, old_block_hash);
+    execution_helper.write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash).map_err(
         |_| {
             HintError::CustomHint(
                 format!("Storage not found for contract {}", block_hash_contract_address).into_boxed_str(),
