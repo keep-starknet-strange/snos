@@ -50,6 +50,7 @@ fn main() -> std::io::Result<()> {
         );
         if let Err(e) = r {
             if let HintError::UnknownHint(_) = e {
+                println!(" ----- gave unknown hint error: ----- \n{}", code.clone());
                 return false;
             }
         }
@@ -76,6 +77,7 @@ fn main() -> std::io::Result<()> {
     }
 
     println!("{}", serde_json::to_string(&result)?);
+    println!("{} results", result.len());
 
     Ok(())
 }

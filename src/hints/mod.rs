@@ -46,7 +46,7 @@ pub type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 166] = [
+static HINTS: [(&str, HintImpl); 200] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -224,7 +224,44 @@ static HINTS: [(&str, HintImpl); 166] = [
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
     (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
     (syscalls::VALIDATE_AND_DISCARD_SYSCALL_PTR, syscalls::validate_and_discard_syscall_ptr),
+
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_001, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_002, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_003, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_004, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_005, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_006, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_007, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_008, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_009, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_010, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_011, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_012, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_013, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_014, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_015, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_016, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_017, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_018, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_019, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_020, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_021, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_022, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_023, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_024, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_025, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_026, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_027, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_028, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_029, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_030, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_031, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_032, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_033, hint_stub),
+    (unimplemented::maybe_new::NEW_UNUSED_HINT_034, hint_stub),
     (BREAKPOINT, breakpoint),
+
+
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
@@ -366,6 +403,17 @@ impl HintProcessorLogic for SnosHintProcessor {
 
         Err(HintError::WrongHintData)
     }
+}
+
+pub fn hint_stub(
+    _vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    println!("!!! unimplemented hint !!!");
+    Ok(())
 }
 
 pub const STARKNET_OS_INPUT: &str = indoc! {r#"
