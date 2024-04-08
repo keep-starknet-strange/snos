@@ -147,6 +147,8 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
 pub enum SyscallExecutionError {
     #[error("Internal Error: {0}")]
     InternalError(Box<str>),
+    #[error("Invalid address domain: {address_domain:?}")]
+    InvalidAddressDomain { address_domain: Felt252 },
     #[error("Invalid syscall input: {input:?}; {info}")]
     InvalidSyscallInput { input: Felt252, info: String },
     #[error("Syscall error.")]

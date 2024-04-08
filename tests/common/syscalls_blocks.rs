@@ -41,8 +41,7 @@ pub fn cairo1_syscalls_block(
     println!("\tcontract: {}", to_felt252(contract_address.0.key()));
 
     // TODO: use following test methods to test syscalls as soon as they are implemented
-    // test_emit_event
-    // test_storage_read_write
+
     // test_call_contract
     // test_get_block_hash
     // test_get_execution_info
@@ -57,6 +56,7 @@ pub fn cairo1_syscalls_block(
     // test_secp256r1
     // get_message_and_secp256r1_signature
 
+    // test_emit_event
     let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
     let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
     let entrypoint_args = &[
@@ -75,12 +75,29 @@ pub fn cairo1_syscalls_block(
         nonce: nonce_manager.next(account_address),
         only_query,
     });
+    let test_emit_event_tx_internal = to_internal_tx(&test_emit_event_tx);
+
+    // test_storage_read_write
+    let test_storage_read_write_tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: account_address,
+        calldata: create_calldata(contract_address, "test_storage_read_write", &[StarkFelt::TWO, StarkFelt::ONE]),
+        version: tx_version,
+        nonce: nonce_manager.next(account_address),
+        only_query,
+    });
+    let test_storage_read_write_tx_internal = to_internal_tx(&test_storage_read_write_tx);
 
     let initial_state = copy_state(&state);
 
-    let test_emit_event_tx_internal = to_internal_tx(&test_emit_event_tx);
+    let test_emit_event_tx_execution_info = test_emit_event_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let test_storage_read_write_tx_execution_info =
+        test_storage_read_write_tx.execute(&mut state, &block_context, true, true).unwrap();
 
-    let tx_execution_info = test_emit_event_tx.execute(&mut state, &block_context, true, true).unwrap();
-
-    os_hints(&block_context, initial_state, vec![test_emit_event_tx_internal], vec![tx_execution_info])
+    os_hints(
+        &block_context,
+        initial_state,
+        vec![test_emit_event_tx_internal, test_storage_read_write_tx_internal],
+        vec![test_emit_event_tx_execution_info, test_storage_read_write_tx_execution_info],
+    )
 }

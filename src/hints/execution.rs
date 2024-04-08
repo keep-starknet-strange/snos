@@ -21,7 +21,7 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
 use crate::cairo_types::structs::{CallContractResponse, EntryPointReturnValues, ExecutionContext};
-use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest, StorageWrite};
+use crate::cairo_types::syscalls::{NewStorageWriteRequest, StorageRead, StorageReadRequest, StorageWrite};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
@@ -1418,7 +1418,7 @@ pub fn enter_scope_descend_edge(
     enter_node_scope(new_node, exec_scopes)
 }
 
-pub const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
+pub const WRITE_SYSCALL_RESULT_DEPRECATED: &str = indoc! {r#"
 	storage = execution_helper.storage_by_address[ids.contract_address]
 	ids.prev_value = storage.read(key=ids.syscall_ptr.address)
 	storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
@@ -1429,7 +1429,7 @@ pub const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
 	ids.new_state_entry = segments.add()"#
 };
 
-pub fn write_syscall_result(
+pub fn write_syscall_result_deprecated(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -1452,6 +1452,56 @@ pub fn write_syscall_result(
 
     // storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
     let storage_write_value = vm.get_integer((syscall_ptr + StorageWrite::value_offset())?)?.into_owned();
+    execution_helper.write_storage_for_address(contract_address, storage_write_address, storage_write_value).map_err(
+        |_| HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str()),
+    )?;
+
+    let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    get_state_entry_and_set_new_state_entry(
+        contract_state_changes,
+        contract_address,
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    )?;
+
+    Ok(())
+}
+
+pub const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
+    storage = execution_helper.storage_by_address[ids.contract_address]
+    ids.prev_value = storage.read(key=ids.request.key)
+    storage.write(key=ids.request.key, value=ids.request.value)
+
+    # Fetch a state_entry in this hint and validate it in the update that comes next.
+    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
+    ids.new_state_entry = segments.add()"#
+};
+
+pub fn write_syscall_result(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+
+    let contract_address =
+        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+    let request = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
+
+    // ids.prev_value = storage.read(key=ids.request.key)
+    let storage_write_address = *vm.get_integer((request + NewStorageWriteRequest::key_offset())?)?;
+    let prev_value =
+        execution_helper.read_storage_for_address(contract_address, storage_write_address).map_err(|_| {
+            HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str())
+        })?;
+    insert_value_from_var_name(vars::ids::PREV_VALUE, prev_value, vm, ids_data, ap_tracking)?;
+
+    // storage.write(key=ids.request.key, value=ids.request.value)
+    let storage_write_value = vm.get_integer((request + NewStorageWriteRequest::value_offset())?)?.into_owned();
     execution_helper.write_storage_for_address(contract_address, storage_write_address, storage_write_value).map_err(
         |_| HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str()),
     )?;
@@ -1861,7 +1911,7 @@ mod tests {
 
         // Just make sure that the hint goes through, all meaningful assertions are
         // in the implementation of the hint
-        write_syscall_result(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
+        write_syscall_result_deprecated(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
             .expect("Hint should not fail");
 
         // Check that the storage was updated
