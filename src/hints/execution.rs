@@ -1033,6 +1033,7 @@ pub fn log_enter_syscall(
 
 // Workaround for the lack of the `compute_integer_from_reference` in the cairo-vm
 // based on `compute_addr_from_reference` from the cairo-vm
+// See: https://github.com/lambdaclass/cairo-vm/pull/1701
 fn compute_integer_from_reference(
     // Reference data of the ids variable
     hint_reference: &HintReference,
