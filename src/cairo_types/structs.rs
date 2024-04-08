@@ -1,5 +1,5 @@
 use cairo_type_derive::FieldOffsetGetters;
-use cairo_vm::Felt252;
+use cairo_vm::{types::relocatable::Relocatable, Felt252};
 
 #[allow(unused)]
 #[derive(FieldOffsetGetters)]
@@ -55,6 +55,34 @@ pub struct BuiltinParams {
 pub struct CallContractResponse {
     retdata_start: Felt252,
     retdata_end: Felt252,
+}
+
+pub mod deprecated {
+    use super::*;
+
+    #[allow(unused)]
+    #[derive(FieldOffsetGetters)]
+    pub struct CallContractRequest {
+        selector: Felt252,
+        contract_address: Felt252,
+        function_selector: Felt252,
+        calldata_size: Felt252,
+        calldata: Relocatable,
+    }
+
+    #[allow(unused)]
+    #[derive(FieldOffsetGetters)]
+    pub struct CallContractResponse {
+        retdata_size: Felt252,
+        retdata: Relocatable,
+    }
+
+    #[allow(unused)]
+    #[derive(FieldOffsetGetters)]
+    pub struct CallContract {
+        request: CallContractRequest,
+        response: CallContractResponse,
+    }
 }
 
 // TODO: how to handle this?

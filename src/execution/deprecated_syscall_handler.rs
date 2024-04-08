@@ -2,13 +2,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use blockifier::execution::execution_utils::ReadOnlySegments;
-use cairo_type_derive::FieldOffsetGetters;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 
 use super::helper::ExecutionHelperWrapper;
+use crate::cairo_types::structs::deprecated::{CallContract, CallContractResponse};
 use crate::utils::felt_api2vm;
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
@@ -24,30 +23,6 @@ pub struct DeprecatedOsSyscallHandler {
 #[derive(Clone, Debug)]
 pub struct DeprecatedOsSyscallHandlerWrapper {
     pub deprecated_syscall_handler: Rc<RefCell<DeprecatedOsSyscallHandler>>,
-}
-
-#[allow(unused)]
-#[derive(FieldOffsetGetters)]
-pub struct CallContractRequest {
-    selector: Felt252,
-    contract_address: Felt252,
-    function_selector: Felt252,
-    calldata_size: Felt252,
-    calldata: Relocatable,
-}
-
-#[allow(unused)]
-#[derive(FieldOffsetGetters)]
-pub struct CallContractResponse {
-    retdata_size: Felt252,
-    retdata: Relocatable,
-}
-
-#[allow(unused)]
-#[derive(FieldOffsetGetters)]
-pub struct CallContract {
-    request: CallContractRequest,
-    response: CallContractResponse,
 }
 
 impl DeprecatedOsSyscallHandlerWrapper {
@@ -72,7 +47,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
             .next()
             .expect("A call execution should have a corresponding result");
 
-        let response_offset = CallContract::response_offset(); // TODO: response_offset() doesn't seem to take sizeof(CallContractRequest) into account
+        let response_offset = CallContract::response_offset();
         let retdata_size_offset = response_offset + CallContractResponse::retdata_size_offset();
         let retdata_offset = response_offset + CallContractResponse::retdata_offset();
 
