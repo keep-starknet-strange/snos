@@ -14,6 +14,7 @@ use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
+use snos::config::{StarknetGeneralConfig, StarknetOsConfig};
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
@@ -149,6 +150,28 @@ pub fn test_state(
     state
 }
 
+pub fn copy_state(state: &CachedState<DictStateReader>) -> CachedState<DictStateReader> {
+    let mut storage_view = HashMap::new();
+    let mut address_to_nonce = HashMap::new();
+    let mut address_to_class_hash = HashMap::new();
+    let mut class_hash_to_class = HashMap::new();
+    let mut class_hash_to_compiled_class_hash = HashMap::new();
+
+    storage_view.extend(state.state.storage_view.clone());
+    address_to_nonce.extend(state.state.address_to_nonce.clone());
+    address_to_class_hash.extend(state.state.address_to_class_hash.clone());
+    class_hash_to_class.extend(state.state.class_hash_to_class.clone());
+    class_hash_to_compiled_class_hash.extend(state.state.class_hash_to_compiled_class_hash.clone());
+
+    CachedState::from(DictStateReader {
+        storage_view,
+        address_to_nonce,
+        address_to_class_hash,
+        class_hash_to_class,
+        class_hash_to_compiled_class_hash,
+    })
+}
+
 pub fn os_hints(
     block_context: &BlockContext,
     mut state: CachedState<DictStateReader>,
@@ -228,6 +251,17 @@ pub fn os_hints(
         println!("\t{} -> {}", ch, cch);
     }
 
+    let default_general_config = StarknetGeneralConfig::default();
+
+    let general_config = StarknetGeneralConfig {
+        starknet_os_config: StarknetOsConfig {
+            chain_id: default_general_config.starknet_os_config.chain_id,
+            fee_token_address: block_context.fee_token_addresses.strk_fee_token_address,
+            deprecated_fee_token_address: block_context.fee_token_addresses.eth_fee_token_address,
+        },
+        ..default_general_config
+    };
+
     let os_input = StarknetOsInput {
         contract_state_commitment_info: Default::default(),
         contract_class_commitment_info: Default::default(),
@@ -236,12 +270,12 @@ pub fn os_hints(
         compiled_class_visited_pcs: Default::default(),
         contracts,
         class_hash_to_compiled_class_hash,
-        general_config: Default::default(),
+        general_config,
         transactions,
         block_hash: Default::default(),
     };
 
-    let execution_helper = ExecutionHelperWrapper::new(tx_execution_infos, &block_context);
+    let execution_helper = ExecutionHelperWrapper::new(state, tx_execution_infos, &block_context);
 
     (os_input, execution_helper)
 }

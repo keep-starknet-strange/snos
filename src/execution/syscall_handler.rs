@@ -7,9 +7,9 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
 use super::helper::ExecutionHelperWrapper;
-use crate::execution::gas_constants::GET_EXECUTION_INFO_GAS_COST;
+use crate::execution::gas_constants::{CALL_CONTRACT_GAS_COST, GET_EXECUTION_INFO_GAS_COST};
 use crate::execution::syscall_utils::{execute_syscall, felt_from_ptr, SyscallSelector};
-use crate::execution::syscalls::get_execution_info;
+use crate::execution::syscalls::{call_contract, get_execution_info};
 
 /// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
@@ -27,11 +27,11 @@ pub struct OsSyscallHandlerWrapper {
 }
 
 impl OsSyscallHandlerWrapper {
-    pub fn new(exec_wrapper: ExecutionHelperWrapper, syscall_ptr: Relocatable) -> Self {
+    pub fn new(exec_wrapper: ExecutionHelperWrapper) -> Self {
         Self {
             syscall_handler: Rc::new(RefCell::new(OsSyscallHandler {
                 exec_wrapper,
-                syscall_ptr: Some(syscall_ptr),
+                syscall_ptr: None,
                 segments: ReadOnlySegments::default(),
             })),
         }
@@ -47,25 +47,22 @@ impl OsSyscallHandlerWrapper {
 
     pub fn validate_and_discard_syscall_ptr(&self, syscall_ptr_end: Relocatable) -> Result<(), HintError> {
         let mut syscall_handler = self.syscall_handler.as_ref().borrow_mut();
-        if syscall_handler.syscall_ptr != Some(syscall_ptr_end) {
-            return Err(HintError::AssertionFailed("Bad syscall_ptr_end".to_string().into_boxed_str()));
-        }
-
+        let syscall_ptr = syscall_handler.syscall_ptr.ok_or(HintError::CustomHint(Box::from("syscall_ptr is None")))?;
+        assert_eq!(syscall_ptr, syscall_ptr_end, "Bad syscall_ptr_end.");
         syscall_handler.syscall_ptr = None;
-
         Ok(())
     }
 
     pub fn syscall(&self, vm: &mut VirtualMachine, syscall_ptr: Relocatable) -> Result<(), HintError> {
-        let syscall_handler = self.syscall_handler.as_ref().borrow_mut();
-        assert_eq!(syscall_handler.syscall_ptr, Some(syscall_ptr));
-
+        let mut syscall_handler = self.syscall_handler.as_ref().borrow_mut();
         let syscall_handler_syscall_ptr =
-            &mut syscall_handler.syscall_ptr.ok_or(HintError::AssertionFailed(Box::from("syscall_ptr is None")))?;
+            &mut syscall_handler.syscall_ptr.ok_or(HintError::CustomHint(Box::from("syscall_ptr is None")))?;
+
+        assert_eq!(*syscall_handler_syscall_ptr, syscall_ptr);
 
         let selector = SyscallSelector::try_from(felt_from_ptr(vm, syscall_handler_syscall_ptr)?)?;
 
-        println!("about to execute syscall: {:?}", selector);
+        println!("about to execute: {:?}", selector);
 
         let ehw = syscall_handler.exec_wrapper.clone();
 
@@ -73,7 +70,14 @@ impl OsSyscallHandlerWrapper {
             SyscallSelector::GetExecutionInfo => {
                 execute_syscall(syscall_handler_syscall_ptr, vm, ehw, get_execution_info, GET_EXECUTION_INFO_GAS_COST)
             }
+            SyscallSelector::CallContract => {
+                execute_syscall(syscall_handler_syscall_ptr, vm, ehw, call_contract, CALL_CONTRACT_GAS_COST)
+            }
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
-        }
+        }?;
+
+        syscall_handler.syscall_ptr = Some(*syscall_handler_syscall_ptr);
+
+        Ok(())
     }
 }

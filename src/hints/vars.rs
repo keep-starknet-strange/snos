@@ -38,8 +38,10 @@ pub mod ids {
     pub const DEST_PTR: &str = "dest_ptr";
     pub const EDGE: &str = "edge";
     pub const ENTRY_POINT_RETURN_VALUES: &str = "entry_point_return_values";
+    pub const EXECUTION_CONTEXT: &str = "execution_context";
     pub const FINAL_ROOT: &str = "final_root";
     pub const HASH_PTR: &str = "hash_ptr";
+    pub const INITIAL_GAS: &str = "initial_gas";
     pub const HEIGHT: &str = "height";
     pub const INITIAL_ROOT: &str = "initial_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
@@ -53,6 +55,7 @@ pub mod ids {
     pub const OLD_BLOCK_HASH: &str = "old_block_hash";
     pub const OLD_BLOCK_NUMBER: &str = "old_block_number";
     pub const OS_CONTEXT: &str = "os_context";
+    pub const REQUIRED_GAS: &str = "required_gas";
     pub const OUTPUT_PTR: &str = "output_ptr";
     pub const PATH: &str = "path";
     pub const PREV_VALUE: &str = "prev_value";
@@ -61,6 +64,7 @@ pub mod ids {
     pub const RETDATA: &str = "retdata";
     pub const RETDATA_SIZE: &str = "retdata_size";
     pub const SECP_P: &str = "SECP_P";
+    pub const SELECTOR: &str = "selector";
     pub const SENDER_ADDRESS: &str = "sender_address";
     pub const SIBLINGS: &str = "siblings";
     pub const SIGNATURE_LEN: &str = "signature_len";
