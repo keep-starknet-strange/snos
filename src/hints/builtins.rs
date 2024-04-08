@@ -99,8 +99,7 @@ pub fn update_builtin_ptrs(
     let selected_encodings = get_ptr_from_var_name("selected_encodings", vm, ids_data, ap_tracking)?;
 
     let builtin_ptrs = get_ptr_from_var_name("builtin_ptrs", vm, ids_data, ap_tracking)?;
-    // TODO: line below is not right!
-    // let orig_builtin_ptrs = (builtin_ptrs + BuiltinPointers::selectable_offset())?;
+
     let orig_builtin_ptrs = builtin_ptrs;
 
     let selected_ptrs = get_ptr_from_var_name("selected_ptrs", vm, ids_data, ap_tracking)?;

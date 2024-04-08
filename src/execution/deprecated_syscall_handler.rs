@@ -2,14 +2,14 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use blockifier::execution::execution_utils::ReadOnlySegments;
-use cairo_type_derive::FieldOffsetGetters;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
+
+use crate::cairo_types::structs::deprecated::{CallContract, CallContractResponse};
+use crate::utils::felt_api2vm;
 
 use super::helper::ExecutionHelperWrapper;
-use crate::utils::felt_api2vm;
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
@@ -24,30 +24,6 @@ pub struct DeprecatedOsSyscallHandler {
 #[derive(Clone, Debug)]
 pub struct DeprecatedOsSyscallHandlerWrapper {
     pub deprecated_syscall_handler: Rc<RefCell<DeprecatedOsSyscallHandler>>,
-}
-
-#[allow(unused)]
-#[derive(FieldOffsetGetters)]
-pub struct CallContractRequest {
-    selector: Felt252,
-    contract_address: Felt252,
-    function_selector: Felt252,
-    calldata_size: Felt252,
-    calldata: Relocatable,
-}
-
-#[allow(unused)]
-#[derive(FieldOffsetGetters)]
-pub struct CallContractResponse {
-    retdata_size: Felt252,
-    retdata: Relocatable,
-}
-
-#[allow(unused)]
-#[derive(FieldOffsetGetters)]
-pub struct CallContract {
-    request: CallContractRequest,
-    response: CallContractResponse,
 }
 
 impl DeprecatedOsSyscallHandlerWrapper {
@@ -72,7 +48,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
             .next()
             .expect("A call execution should have a corresponding result");
 
-        let response_offset = CallContract::response_offset(); // TODO: response_offset() doesn't seem to take sizeof(CallContractRequest) into account
+        let response_offset = CallContract::response_offset();
         let retdata_size_offset = response_offset + CallContractResponse::retdata_size_offset();
         let retdata_offset = response_offset + CallContractResponse::retdata_offset();
 
@@ -83,7 +59,6 @@ impl DeprecatedOsSyscallHandlerWrapper {
             .0
             .iter()
             .map(|sf| {
-                // TODO: better way to StarkFelt -> Felt252?
                 let felt = felt_api2vm(*sf);
                 MaybeRelocatable::Int(felt)
             })
@@ -191,15 +166,15 @@ mod test {
     use blockifier::execution::call_info::Retdata;
     use blockifier::execution::entry_point_execution::CallResult;
     use blockifier::state::cached_state::CachedState;
+    use cairo_vm::Felt252;
     use cairo_vm::types::exec_scope::ExecutionScopes;
     use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
     use cairo_vm::vm::vm_core::VirtualMachine;
-    use cairo_vm::Felt252;
     use rstest::{fixture, rstest};
+    use starknet_api::{contract_address, patricia_key};
     use starknet_api::block::{BlockNumber, BlockTimestamp};
     use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
     use starknet_api::hash::{StarkFelt, StarkHash};
-    use starknet_api::{contract_address, patricia_key};
 
     use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
     use crate::execution::helper::ExecutionHelperWrapper;

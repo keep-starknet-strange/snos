@@ -1,4 +1,5 @@
 use cairo_type_derive::FieldOffsetGetters;
+use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::Felt252;
 
 #[allow(unused)]
@@ -57,31 +58,30 @@ pub struct CallContractResponse {
     retdata_end: Felt252,
 }
 
-// TODO: how to handle this?
-// struct BuiltinPointers {
-//     selectable: SelectableBuiltins,
-//     non_selectable: NonSelectableBuiltins,
-// }
+pub mod deprecated {
+    use super::*;
 
-// #[allow(unused)]
-// #[derive(FieldOffsetGetters)]
-// pub struct BuiltinPointers {
-//     selectable: Felt252,
-//     non_selectable: Felt252,
-// }
+    #[allow(unused)]
+    #[derive(FieldOffsetGetters)]
+    pub struct CallContractRequest {
+        selector: Felt252,
+        contract_address: Felt252,
+        function_selector: Felt252,
+        calldata_size: Felt252,
+        calldata: Relocatable,
+    }
 
-// // Describes the StorageRead system call format.
-// struct StorageReadRequest {
-//     // The system call selector (= STORAGE_READ_SELECTOR).
-//     selector: felt,
-//     address: felt,
-// }
-//
-// struct StorageReadResponse {
-//     value: felt,
-// }
-//
-// struct StorageRead {
-//     request: StorageReadRequest,
-//     response: StorageReadResponse,
-// }
+    #[allow(unused)]
+    #[derive(FieldOffsetGetters)]
+    pub struct CallContractResponse {
+        retdata_size: Felt252,
+        retdata: Relocatable,
+    }
+
+    #[allow(unused)]
+    #[derive(FieldOffsetGetters)]
+    pub struct CallContract {
+        request: CallContractRequest,
+        response: CallContractResponse,
+    }
+}
