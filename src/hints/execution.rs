@@ -227,13 +227,6 @@ pub const GET_CONTRACT_ADDRESS_STATE_ENTRY: &str = indoc! {r##"
     # of this function.
     ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"##
 };
-
-pub const GET_CONTRACT_ADDRESS_STATE_ENTRY_2: &str = indoc! {r#"
-	# Fetch a state_entry in this hint and validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
-	    ids.contract_address
-	]"#
-};
 fn get_state_entry_and_set_new_state_entry(
     dict_ptr: Relocatable,
     key: Felt252,
@@ -1609,24 +1602,6 @@ pub fn get_old_block_number_and_hash(
     }
 
     insert_value_from_var_name(vars::ids::OLD_BLOCK_HASH, old_block_hash, vm, ids_data, ap_tracking)?;
-
-    Ok(())
-}
-
-pub const SET_AP_TO_NONCE_ARG_SEGMENT: &str = "memory[ap] = to_felt_or_relocatable(segments.gen_arg([tx.nonce]))";
-
-pub fn set_ap_to_nonce_arg_segment(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let tx: InternalTransaction = exec_scopes.get(vars::scopes::TX)?;
-    let nonce = tx.nonce.ok_or(HintError::CustomHint("tx.nonce is not set".to_string().into_boxed_str()))?;
-
-    let nonce_arg = vm.gen_arg(&vec![nonce])?;
-    insert_value_into_ap(vm, nonce_arg)?;
 
     Ok(())
 }
