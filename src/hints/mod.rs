@@ -47,7 +47,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 198] = [
+static HINTS: [(&str, HintImpl); 194] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_ON_CURVE, is_on_curve),
@@ -152,9 +152,6 @@ static HINTS: [(&str, HintImpl); 198] = [
     (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
     (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
     (syscalls::CALL_CONTRACT, syscalls::call_contract),
-    (syscalls::CHECK_SYSCALL_RESPONSE, syscalls::check_syscall_response),
-    (syscalls::CHECK_NEW_SYSCALL_RESPONSE, syscalls::check_new_syscall_response),
-    (syscalls::CHECK_NEW_DEPLOY_RESPONSE, syscalls::check_new_deploy_response),
     (syscalls::DELEGATE_CALL, syscalls::delegate_call),
     (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),
     (syscalls::DEPLOY, syscalls::deploy),
@@ -201,8 +198,6 @@ static HINTS: [(&str, HintImpl); 198] = [
     (syscalls::OS_LOGGER_ENTER_SYSCALL_PREPRARE_EXIT_SYSCALL, syscalls::os_logger_enter_syscall_preprare_exit_syscall),
     (syscalls::REPLACE_CLASS, syscalls::replace_class),
     (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
-    (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
-    (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
     (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
