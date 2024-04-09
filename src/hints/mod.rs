@@ -46,7 +46,7 @@ pub type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 203] = [
+static HINTS: [(&str, HintImpl); 199] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_ON_CURVE, is_on_curve),
@@ -78,7 +78,6 @@ static HINTS: [(&str, HintImpl); 203] = [
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
     (execution::ADD_RELOCATION_RULE, execution::add_relocation_rule),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
-    (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::CACHE_CONTRACT_STORAGE_REQUEST_KEY, execution::cache_contract_storage_request_key),
     (
         execution::CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS,
@@ -109,9 +108,7 @@ static HINTS: [(&str, HintImpl); 203] = [
         execution::GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY,
         execution::get_block_hash_contract_address_state_entry_and_set_new_state_entry,
     ),
-    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry),
     (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry_and_set_new_state_entry),
-    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_2, execution::get_contract_address_state_entry),
     (
         execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_2,
         execution::get_contract_address_state_entry_and_set_new_state_entry,
@@ -165,7 +162,6 @@ static HINTS: [(&str, HintImpl); 203] = [
     (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
     (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
     (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
-    (syscalls::CACHE_CONTRACT_STORAGE_2, syscalls::cache_contract_storage_2),
     (syscalls::CALL_CONTRACT, syscalls::call_contract),
     (syscalls::CHECK_SYSCALL_RESPONSE, syscalls::check_syscall_response),
     (syscalls::CHECK_NEW_SYSCALL_RESPONSE, syscalls::check_new_syscall_response),
@@ -314,17 +310,21 @@ impl SnosHintProcessor {
     fn new_with_builtin_hints() -> Self {
         println!("Defaulting proc...");
         let mut hints: HashMap<String, HintImpl> = HashMap::new();
+        let mut i = 0;
         for (hint, hint_impl) in &HINTS {
             let hint_str = hint.to_string();
             let existed = hints.insert(hint_str, *hint_impl);
-            assert!(existed.is_none(), "Duplicate hint detected:\n-----\n\n{}\n\n-----\n", hint);
+            assert!(existed.is_none(), "Duplicate hint (number {}) detected:\n-----\n\n{}\n\n-----\n", i, hint);
+            i += 1;
         }
 
         let mut extensive_hints: HashMap<String, ExtensiveHintImpl> = HashMap::new();
+        i = 0;
         for (hint, hint_impl) in &EXTENSIVE_HINTS {
             let hint_str = hint.to_string();
             let existed = extensive_hints.insert(hint_str, *hint_impl);
-            assert!(existed.is_none(), "Duplicate hint detected:\n-----\n\n{}\n\n-----\n", hint);
+            assert!(existed.is_none(), "Duplicate extensive hint (number {}) detected:\n-----\n\n{}\n\n-----\n", i, hint);
+            i += 1;
         }
 
         Self {

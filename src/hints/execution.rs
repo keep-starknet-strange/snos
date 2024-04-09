@@ -234,21 +234,6 @@ pub const GET_CONTRACT_ADDRESS_STATE_ENTRY_2: &str = indoc! {r#"
 	    ids.contract_address
 	]"#
 };
-
-pub fn get_contract_address_state_entry(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
-    let key = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
-
-    get_state_entry(dict_ptr, key.into_owned(), vm, exec_scopes, ids_data, ap_tracking)?;
-
-    Ok(())
-}
 fn get_state_entry_and_set_new_state_entry(
     dict_ptr: Relocatable,
     key: Felt252,

@@ -422,43 +422,6 @@ pub fn fetch_state_entry_5(
     Ok(())
 }
 
-pub const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
-	# Make sure the value is cached (by reading it), to be used later on for the
-	# commitment computation.
-	value = execution_helper.storage_by_address[ids.contract_address].read(
-	    key=ids.syscall_ptr.request.address
-	)
-	assert ids.value == value, "Inconsistent storage value.""#
-};
-pub fn cache_contract_storage_2(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let contract_address = get_integer_from_var_name("contract_address", vm, ids_data, ap_tracking)?;
-    let syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
-    let key =
-        vm.get_integer((syscall_ptr + (StorageRead::request_offset() + StorageReadRequest::address_offset()))?)?;
-
-    let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
-    let value = execution_helper.read_storage_for_address(*contract_address, *key).map_err(|_| {
-        HintError::CustomHint(
-            format!("Storage read error, contract: {}, key: {}", contract_address, key).into_boxed_str(),
-        )
-    })?;
-
-    let ids_value = *get_integer_from_var_name("value", vm, ids_data, ap_tracking)?;
-    if ids_value != value {
-        return Err(HintError::AssertionFailed(
-            format!("Inconsistent storage value: {} <> {}.", ids_value, value).into(),
-        ));
-    }
-
-    Ok(())
-}
-
 fn assert_memory_ranges_equal(
     vm: &VirtualMachine,
     expected_ptr: Relocatable,
