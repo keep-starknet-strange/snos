@@ -76,8 +76,8 @@ fn main() -> std::io::Result<()> {
 
     let mut result = Vec::new();
 
-    let os: Os = serde_json::from_reader(BufReader::new(File::open(args.in_file)?))
-        .expect("Failed to parse os_latest.json");
+    let os: Os =
+        serde_json::from_reader(BufReader::new(File::open(args.in_file)?)).expect("Failed to parse os_latest.json");
     let os_hints = os.hints.into_values().flatten().map(|h| h.code.to_string()).collect::<HashSet<_>>();
     let syscall_hints = hint_code::SYSCALL_HINTS.into_iter().map(|h| h.to_string()).collect::<HashSet<_>>();
 
@@ -100,7 +100,6 @@ fn main() -> std::io::Result<()> {
         true
     };
 
-
     if subset == HintStatus::Orphaned {
         for code in snos_hints.iter() {
             if !os_hints.contains(code) && !syscall_hints.contains(code) {
@@ -115,7 +114,7 @@ fn main() -> std::io::Result<()> {
                 HintStatus::Unimplemented => !known_to_hint_processor(code),
                 HintStatus::ImplementedExternally => known_to_hint_processor(code) && !snos_hints.contains(code),
                 HintStatus::ImplementedLocally => snos_hints.contains(code),
-                _ => unreachable!()
+                _ => unreachable!(),
             };
             if add {
                 result.push(code);
@@ -133,7 +132,6 @@ fn main() -> std::io::Result<()> {
         let mut output = File::create(filepath)?;
         write!(output, "{}", buf.as_str())?;
     }
-
 
     Ok(())
 }
