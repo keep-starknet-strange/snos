@@ -120,7 +120,7 @@ pub fn set_preimage_for_class_commitments(
 }
 
 pub const SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO: &str = indoc! {r#"
-	commitment_info = commitment_info_by_address[ids.state_changes.key]
+	commitment_info = commitment_info_by_address[ids.contract_address]
 	ids.initial_contract_state_root = commitment_info.previous_root
 	ids.final_contract_state_root = commitment_info.updated_root
 	preimage = {
@@ -137,6 +137,8 @@ pub fn set_preimage_for_current_commitment_info(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let _contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+    // TODO: CommitmentInfo should not be obtained through exec_scopes
     let commitment_info = exec_scopes.get::<CommitmentInfo>(vars::scopes::COMMITMENT_INFO)?;
     insert_value_from_var_name(vars::ids::INITIAL_ROOT, commitment_info.previous_root, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::FINAL_ROOT, commitment_info.updated_root, vm, ids_data, ap_tracking)?;
