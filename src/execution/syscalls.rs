@@ -108,13 +108,6 @@ pub fn call_contract(
 //     Ok(DeployResponse { contract_address: deployed_contract_address, constructor_retdata })
 // }
 
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct EmitEventRequest {
-//     pub keys: Vec<Felt252>,
-//     pub data: Vec<Felt252>,
-// }
-//
-
 type EmitEventRequest = EmptyResponse;
 
 impl SyscallRequest for EmitEventRequest {
