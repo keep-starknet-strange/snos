@@ -275,16 +275,15 @@ pub fn decode_node_hint(
     Ok(())
 }
 
-pub const SET_INITIAL_STATE_UPDATES_PTR: &str = indoc! {r#"
+pub const ENTER_SCOPE_COMMITMENT_INFO_BY_ADDRESS: &str = indoc! {r#"
 	# This hint shouldn't be whitelisted.
 	vm_enter_scope(dict(
 	    commitment_info_by_address=execution_helper.compute_storage_commitments(),
 	    os_input=os_input,
-	))
-	ids.initial_state_updates_ptr = segments.add_temp_segment()"#
+	))"#
 };
 
-pub fn set_initial_state_updates_ptr(
+pub fn enter_scope_commitment_info_by_address(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
