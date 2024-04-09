@@ -14,7 +14,6 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 
-use crate::cairo_types::entry_point::EntryPointReturnValues;
 use crate::cairo_types::syscalls::{
     NewDeployResponse, NewSyscallContractResponse, StorageRead, StorageReadRequest, SyscallContractResponse,
 };
@@ -573,35 +572,6 @@ pub fn check_new_deploy_response(
         felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
 
     assert_memory_ranges_equal(vm, constructor_retdata_start, response_retdata_size, retdata, retdata_size)?;
-
-    Ok(())
-}
-
-pub const VALIDATE_AND_DISCARD_SYSCALL_PTR: &str = indoc! {r#"
-	syscall_handler.validate_and_discard_syscall_ptr(
-	    syscall_ptr_end=ids.entry_point_return_values.syscall_ptr
-	)
-	execution_helper.exit_call()"#
-};
-
-pub fn validate_and_discard_syscall_ptr(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let syscall_handler: OsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
-    let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
-
-    let entry_point_return_values =
-        get_ptr_from_var_name(vars::ids::ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
-    let syscall_ptr =
-        vm.get_relocatable((entry_point_return_values + EntryPointReturnValues::syscall_ptr_offset())?)?;
-
-    syscall_handler.validate_and_discard_syscall_ptr(syscall_ptr)?;
-
-    execution_helper.exit_call();
 
     Ok(())
 }
