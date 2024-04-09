@@ -46,7 +46,8 @@ pub type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 199] = [
+#[rustfmt::skip]
+static HINTS: [(&str, HintImpl); 198] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_ON_CURVE, is_on_curve),
@@ -79,10 +80,7 @@ static HINTS: [(&str, HintImpl); 199] = [
     (execution::ADD_RELOCATION_RULE, execution::add_relocation_rule),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::CACHE_CONTRACT_STORAGE_REQUEST_KEY, execution::cache_contract_storage_request_key),
-    (
-        execution::CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS,
-        execution::cache_contract_storage_syscall_request_address,
-    ),
+    (execution::CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS, execution::cache_contract_storage_syscall_request_address),
     (execution::CHECK_EXECUTION, execution::check_execution),
     (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
     (execution::CHECK_RESPONSE_RETURN_VALUE, execution::check_response_return_value),
@@ -104,15 +102,9 @@ static HINTS: [(&str, HintImpl); 199] = [
     (execution::EXIT_TX, execution::exit_tx),
     (execution::GEN_CLASS_HASH_ARG, execution::gen_class_hash_arg),
     (execution::GEN_SIGNATURE_ARG, execution::gen_signature_arg),
-    (
-        execution::GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY,
-        execution::get_block_hash_contract_address_state_entry_and_set_new_state_entry,
-    ),
+    (execution::GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY, execution::get_block_hash_contract_address_state_entry_and_set_new_state_entry),
     (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry_and_set_new_state_entry),
-    (
-        execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_2,
-        execution::get_contract_address_state_entry_and_set_new_state_entry,
-    ),
+    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_2, execution::get_contract_address_state_entry_and_set_new_state_entry),
     (execution::INITIAL_GE_REQUIRED_GAS, execution::initial_ge_required_gas),
     (execution::GET_OLD_BLOCK_NUMBER_AND_HASH, execution::get_old_block_number_and_hash),
     (execution::IS_DEPRECATED, execution::is_deprecated),
@@ -146,10 +138,7 @@ static HINTS: [(&str, HintImpl); 199] = [
     (patricia::ASSERT_CASE_IS_RIGHT, patricia::assert_case_is_right),
     (patricia::HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO, patricia::height_is_zero_or_len_node_preimage_is_two),
     (patricia::IS_CASE_RIGHT, patricia::is_case_right),
-    (
-        patricia::PREPARE_PREIMAGE_VALIDATION_NON_DETERMINISTIC_HASHES,
-        patricia::prepare_preimage_validation_non_deterministic_hashes,
-    ),
+    (patricia::PREPARE_PREIMAGE_VALIDATION_NON_DETERMINISTIC_HASHES, patricia::prepare_preimage_validation_non_deterministic_hashes),
     (patricia::SET_AP_TO_DESCEND, patricia::set_ap_to_descend),
     (patricia::SET_BIT, patricia::set_bit),
     (patricia::SET_SIBLINGS, patricia::set_siblings),
@@ -217,7 +206,6 @@ static HINTS: [(&str, HintImpl); 199] = [
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
     (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
-
     (unimplemented::maybe_new::UNUSED_HINT_0, hint_stub),
     (unimplemented::maybe_new::UNUSED_HINT_1, hint_stub),
     (unimplemented::maybe_new::UNUSED_HINT_2, hint_stub),
@@ -258,10 +246,7 @@ static HINTS: [(&str, HintImpl); 199] = [
     (unimplemented::maybe_new::UNUSED_HINT_37, hint_stub),
     (unimplemented::maybe_new::UNUSED_HINT_38, hint_stub),
     (unimplemented::maybe_new::UNUSED_HINT_39, hint_stub),
-
     (BREAKPOINT, breakpoint),
-
-
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
