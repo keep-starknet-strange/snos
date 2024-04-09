@@ -119,8 +119,8 @@ type EmitEventRequest = EmptyResponse;
 
 impl SyscallRequest for EmitEventRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<EmitEventRequest> {
-        ignore_felt_array::<SyscallExecutionError>(vm, ptr)?;
-        ignore_felt_array::<SyscallExecutionError>(vm, ptr)?;
+        ignore_felt_array(ptr);
+        ignore_felt_array(ptr);
         Ok(EmitEventRequest {})
     }
 }
