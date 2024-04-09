@@ -1470,25 +1470,23 @@ pub fn write_syscall_result(
     Ok(())
 }
 
-pub const GEN_NONCE_ARG: &str = indoc! {r#"
-	ids.tx_version = tx.version
-	ids.max_fee = tx.max_fee
-	ids.sender_address = tx.sender_address
-	ids.calldata = segments.gen_arg([tx.class_hash])
-
-	if tx.version <= 1:
-	    assert tx.compiled_class_hash is None, (
-	        "Deprecated declare must not have compiled_class_hash."
-	    )
-	    ids.additional_data = segments.gen_arg([tx.nonce])
-	else:
-	    assert tx.compiled_class_hash is not None, (
-	        "Declare must have a concrete compiled_class_hash."
-	    )
-	    ids.additional_data = segments.gen_arg([tx.nonce, tx.compiled_class_hash])"#
+pub const GEN_CLASS_HASH_ARG: &str = indoc! {r#"
+    ids.tx_version = tx.version
+    ids.sender_address = tx.sender_address
+    ids.class_hash_ptr = segments.gen_arg([tx.class_hash])
+    if tx.version <= 1:
+        assert tx.compiled_class_hash is None, (
+            "Deprecated declare must not have compiled_class_hash."
+        )
+        ids.compiled_class_hash = 0
+    else:
+        assert tx.compiled_class_hash is not None, (
+            "Declare must have a concrete compiled_class_hash."
+        )
+        ids.compiled_class_hash = tx.compiled_class_hash"#
 };
 
-pub fn gen_nonce_arg(
+pub fn gen_class_hash_arg(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -1498,37 +1496,33 @@ pub fn gen_nonce_arg(
     let tx: InternalTransaction = exec_scopes.get(vars::scopes::TX)?;
 
     let tx_version = tx.version.ok_or(HintError::CustomHint("tx.version is not set".to_string().into_boxed_str()))?;
-    let tx_nonce = tx.nonce.ok_or(HintError::CustomHint("tx.nonce is not set".to_string().into_boxed_str()))?;
-    let max_fee = tx.max_fee.ok_or(HintError::CustomHint("tx.max_fee is not set".to_string().into_boxed_str()))?;
     let sender_address =
         tx.sender_address.ok_or(HintError::CustomHint("tx.sender_address is not set".to_string().into_boxed_str()))?;
     let class_hash =
         tx.class_hash.ok_or(HintError::CustomHint("tx.class_hash is not set".to_string().into_boxed_str()))?;
 
     insert_value_from_var_name(vars::ids::TX_VERSION, tx_version, vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(vars::ids::MAX_FEE, max_fee, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::SENDER_ADDRESS, sender_address, vm, ids_data, ap_tracking)?;
 
-    let calldata_arg = vm.gen_arg(&vec![class_hash])?;
-    insert_value_from_var_name(vars::ids::CALLDATA, calldata_arg, vm, ids_data, ap_tracking)?;
+    let class_hash_ptr_arg = vm.gen_arg(&vec![class_hash])?;
+    insert_value_from_var_name(vars::ids::CLASS_HASH_PTR, class_hash_ptr_arg, vm, ids_data, ap_tracking)?;
 
-    let additional_data = if tx_version <= Felt252::ONE {
+    let compiled_class_hash = if tx_version <= Felt252::ONE {
         if tx.compiled_class_hash.is_some() {
             return Err(HintError::AssertionFailed(
                 "Deprecated declare must not have compiled_class_hash.".to_string().into_boxed_str(),
             ));
         }
-        vec![tx_nonce]
+        Felt252::ZERO
     } else {
         let compiled_class_hash = tx.compiled_class_hash.ok_or(HintError::AssertionFailed(
             "Declare must have a concrete compiled_class_hash.".to_string().into_boxed_str(),
         ))?;
 
-        vec![tx_nonce, compiled_class_hash]
+        compiled_class_hash
     };
 
-    let additional_data_arg = vm.gen_arg(&additional_data)?;
-    insert_value_from_var_name(vars::ids::ADDITIONAL_DATA, additional_data_arg, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::COMPILED_CLASS_HASH, compiled_class_hash, vm, ids_data, ap_tracking)?;
 
     Ok(())
 }

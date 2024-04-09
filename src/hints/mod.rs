@@ -105,7 +105,7 @@ static HINTS: [(&str, HintImpl); 206] = [
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::EXIT_CALL, execution::exit_call),
     (execution::EXIT_TX, execution::exit_tx),
-    (execution::GEN_NONCE_ARG, execution::gen_nonce_arg),
+    (execution::GEN_CLASS_HASH_ARG, execution::gen_class_hash_arg),
     (execution::GEN_SIGNATURE_ARG, execution::gen_signature_arg),
     (
         execution::GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY,
