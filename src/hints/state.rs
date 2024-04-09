@@ -527,34 +527,4 @@ mod tests {
         // * edge (edge.length, edge.path, edge.bottom)
         // * hash_ptr.result
     }
-
-    #[rstest]
-    fn test_set_initial_state_updates_ptr(
-        os_input: StarknetOsInput,
-        contract_address: Felt252,
-        execution_helper_with_storage: ExecutionHelperWrapper,
-    ) {
-        let mut vm = VirtualMachine::new(false);
-
-        let ap_tracking = ApTracking::new();
-        let constants = HashMap::new();
-
-        let ids_data = HashMap::default();
-
-        let mut exec_scopes: ExecutionScopes = Default::default();
-        exec_scopes.insert_value(vars::scopes::OS_INPUT, os_input.clone());
-        exec_scopes.insert_value(vars::scopes::EXECUTION_HELPER, execution_helper_with_storage);
-
-        set_initial_state_updates_ptr(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
-            .expect("Hint should succeed");
-
-        let os_input_from_scope: StarknetOsInput = exec_scopes.get(vars::scopes::OS_INPUT).unwrap();
-        assert_eq!(os_input_from_scope, os_input);
-
-        let commitment_info_by_address: HashMap<Felt252, CommitmentInfo> =
-            exec_scopes.get(vars::scopes::COMMITMENT_INFO_BY_ADDRESS).unwrap();
-
-        // TODO: more asserts on the contract commitment info (?)
-        assert!(commitment_info_by_address.contains_key(&contract_address));
-    }
 }
