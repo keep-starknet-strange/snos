@@ -411,8 +411,7 @@ pub fn hint_stub(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    println!("!!! unimplemented hint !!!");
-    Ok(())
+    Err(HintError::CustomHint("Hint stubbed but not implemented".to_string().into_boxed_str()))
 }
 
 pub const STARKNET_OS_INPUT: &str = indoc! {r#"
