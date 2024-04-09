@@ -51,7 +51,8 @@ expected = memory.get_range(
 actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
 assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#};
 
-pub const SET_AP_TO_SEGMENT_HASH: &str = indoc! {r#"memory[ap] = to_felt_or_relocatable(bytecode_segment_structure.hash())"#};
+pub const SET_AP_TO_SEGMENT_HASH: &str =
+    indoc! {r#"memory[ap] = to_felt_or_relocatable(bytecode_segment_structure.hash())"#};
 
 pub const FETCH_RESULT: &str = indoc! {r#"# Fetch the result, up to 100 elements.
 result = memory.get_range(ids.retdata, min(100, ids.retdata_size))
@@ -104,9 +105,11 @@ segments.write_arg(
 
 pub const WRITE_NIBBLES_TO_MEM: &str = indoc! {r#"memory[fp + 0] = to_felt_or_relocatable(nibbles.pop())"#};
 
-pub const WRITE_USE_ZKG_DA_TO_MEM: &str = indoc! {r#"memory[fp + 15] = to_felt_or_relocatable(syscall_handler.block_info.use_kzg_da)"#};
+pub const WRITE_USE_ZKG_DA_TO_MEM: &str =
+    indoc! {r#"memory[fp + 15] = to_felt_or_relocatable(syscall_handler.block_info.use_kzg_da)"#};
 
-pub const GET_SEQUENCER_ADDRESS: &str = indoc! {r#"syscall_handler.get_sequencer_address(segments=segments, syscall_ptr=ids.syscall_ptr)"#};
+pub const GET_SEQUENCER_ADDRESS: &str =
+    indoc! {r#"syscall_handler.get_sequencer_address(segments=segments, syscall_ptr=ids.syscall_ptr)"#};
 
 pub const PACK_X_PRIME: &str = indoc! {r#"from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_P
 from starkware.cairo.common.cairo_secp.secp_utils import pack
@@ -131,7 +134,7 @@ vm_enter_scope(new_scope_locals={
 })"#};
 
 pub const CHECK_REQUEST_BLOCK_AGAINST_BUFFER_LEN: &str = indoc! {r#"memory[ap] = to_felt_or_relocatable(ids.request_block_number > \
-           ids.current_block_number - ids.STORED_BLOCK_HASH_BUFFER)"#};
+ids.current_block_number - ids.STORED_BLOCK_HASH_BUFFER)"#};
 
 pub const START_TX_VALIDATE_DECLARE: &str = indoc! {r#"execution_helper.start_tx(
     tx_info_ptr=ids.validate_declare_execution_context.deprecated_tx_info.address_
@@ -229,4 +232,3 @@ ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contra
 ids.new_state_entry = segments.add()"#};
 
 pub const COMPUTE_IDS_LOW: &str = indoc! {r#"ids.low = (ids.value.d0 + ids.value.d1 * ids.BASE) & ((1 << 128) - 1)"#};
-

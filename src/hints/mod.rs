@@ -299,7 +299,12 @@ impl SnosHintProcessor {
         for (hint, hint_impl) in &EXTENSIVE_HINTS {
             let hint_str = hint.to_string();
             let existed = extensive_hints.insert(hint_str, *hint_impl);
-            assert!(existed.is_none(), "Duplicate extensive hint (number {}) detected:\n-----\n\n{}\n\n-----\n", i, hint);
+            assert!(
+                existed.is_none(),
+                "Duplicate extensive hint (number {}) detected:\n-----\n\n{}\n\n-----\n",
+                i,
+                hint
+            );
             i += 1;
         }
 

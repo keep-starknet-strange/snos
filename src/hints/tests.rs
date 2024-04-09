@@ -227,7 +227,6 @@ pub mod tests {
 
     #[test]
     fn test_built_in_hints_have_no_duplicates() {
-
         // find all occurences of a hint in HINTS
         fn find_matching_indices(hint_to_match: &str) -> Vec<usize> {
             let mut indices = Vec::new();
@@ -246,7 +245,12 @@ pub mod tests {
         for (hint, hint_impl) in &HINTS {
             let hint_str = hint.to_string();
             let existed = hints.insert(hint_str, *hint_impl);
-            assert!(existed.is_none(), "Duplicate hint (indices {:?}) detected:\n-----\n\n{}\n\n-----\n", find_matching_indices(hint), hint);
+            assert!(
+                existed.is_none(),
+                "Duplicate hint (indices {:?}) detected:\n-----\n\n{}\n\n-----\n",
+                find_matching_indices(hint),
+                hint
+            );
         }
 
         // constructor does a similar check to the above, also make sure it does not panic
