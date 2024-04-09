@@ -489,13 +489,6 @@ pub const CONTRACT_ADDRESS: &str = indoc! {r#"
     )"#
 };
 
-pub const CONTRACT_ADDRESS_2: &str = indoc! {r#"
-	from starkware.starknet.business_logic.transaction.objects import InternalL1Handler
-	ids.contract_address = (
-	    tx.contract_address if isinstance(tx, InternalL1Handler) else tx.sender_address
-	)"#
-};
-
 pub fn contract_address(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,

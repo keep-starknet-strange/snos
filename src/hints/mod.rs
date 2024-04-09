@@ -46,7 +46,7 @@ pub type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 206] = [
+static HINTS: [(&str, HintImpl); 205] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -90,7 +90,6 @@ static HINTS: [(&str, HintImpl); 206] = [
     (execution::CHECK_RESPONSE_RETURN_VALUE, execution::check_response_return_value),
     (execution::COMPARE_RETURN_VALUE, execution::compare_return_value),
     (execution::CONTRACT_ADDRESS, execution::contract_address),
-    (execution::CONTRACT_ADDRESS_2, execution::contract_address),
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
     (execution::ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER, execution::enter_scope_deprecated_syscall_handler),
