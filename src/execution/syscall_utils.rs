@@ -114,9 +114,9 @@ pub fn read_calldata(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResul
     read_felt_array::<SyscallExecutionError>(vm, ptr)
 }
 
-pub fn ignore_felt_array(ptr: &mut Relocatable)
-{
+pub fn ignore_felt_array(ptr: &mut Relocatable) -> SyscallResult<()> {
     *ptr = (*ptr + 2)?;
+    Ok(())
 }
 
 pub fn read_call_params(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<(Felt252, Vec<Felt252>)> {
