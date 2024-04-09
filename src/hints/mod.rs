@@ -315,16 +315,16 @@ impl SnosHintProcessor {
         println!("Defaulting proc...");
         let mut hints: HashMap<String, HintImpl> = HashMap::new();
         for (hint, hint_impl) in &HINTS {
-            let hint = hint.to_string();
-            assert!(! hints.contains_key(&hint), "Duplicate hint detected:\n-----\n\n{}\n\n-----\n", hint);
-            hints.insert(hint, *hint_impl);
+            let hint_str = hint.to_string();
+            let existed = hints.insert(hint_str, *hint_impl);
+            assert!(existed.is_none(), "Duplicate hint detected:\n-----\n\n{}\n\n-----\n", hint);
         }
 
         let mut extensive_hints: HashMap<String, ExtensiveHintImpl> = HashMap::new();
         for (hint, hint_impl) in &EXTENSIVE_HINTS {
-            let hint = hint.to_string();
-            assert!(! extensive_hints.contains_key(&hint), "Duplicate hint detected:\n-----\n\n{}\n\n-----\n", hint);
-            extensive_hints.insert(hint, *hint_impl);
+            let hint_str = hint.to_string();
+            let existed = extensive_hints.insert(hint_str, *hint_impl);
+            assert!(existed.is_none(), "Duplicate hint detected:\n-----\n\n{}\n\n-----\n", hint);
         }
 
         Self {
