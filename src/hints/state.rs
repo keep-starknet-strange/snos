@@ -17,7 +17,7 @@ use crate::cairo_types::builtins::{HashBuiltin, SpongeHashBuiltin};
 use crate::cairo_types::traits::CairoType;
 use crate::cairo_types::trie::NodeEdge;
 use crate::execution::helper::ExecutionHelperWrapper;
-use crate::hints::types::Preimage;
+use crate::hints::types::{skip_verification_if_configured, Preimage};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, CommitmentInfo, StorageLeaf};
@@ -195,7 +195,8 @@ pub fn load_edge(
     let hash_result_ptr: Relocatable = (hash_ptr + SpongeHashBuiltin::result_offset())?;
     vm.insert_value(hash_result_ptr, res)?;
 
-    // TODO: __patricia_skip_validation_runner
+    let hash_result_address = (hash_ptr + HashBuiltin::result_offset())?;
+    skip_verification_if_configured(exec_scopes, hash_result_address)?;
 
     Ok(())
 }
@@ -231,7 +232,8 @@ pub fn load_bottom(
     vm.insert_value((hash_ptr + HashBuiltin::x_offset())?, x)?;
     vm.insert_value((hash_ptr + HashBuiltin::y_offset())?, y)?;
 
-    // TODO: __patricia_skip_validation_runner
+    let hash_result_address = (hash_ptr + HashBuiltin::result_offset())?;
+    skip_verification_if_configured(exec_scopes, hash_result_address)?;
 
     Ok(())
 }
@@ -310,6 +312,7 @@ mod tests {
 
     use super::*;
     use crate::crypto::pedersen::PedersenHash;
+    use crate::hints::types::PatriciaSkipValidationRunner;
     use crate::starknet::starknet_storage::{OsSingleStarknetStorage, StorageLeaf};
     use crate::starkware_utils::commitment_tree::base_types::Height;
     use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
@@ -514,6 +517,8 @@ mod tests {
         let mut preimage: HashMap<Felt252, Vec<Felt252>> = Default::default();
         preimage.insert(1_usize.into(), vec![2_usize.into(), 3_usize.into(), 4_usize.into()]);
         exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
+        exec_scopes
+            .insert_value::<Option<PatriciaSkipValidationRunner>>(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, None);
 
         load_edge(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 

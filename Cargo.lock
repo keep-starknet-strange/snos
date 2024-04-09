@@ -965,7 +965,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "1.0.0-rc1"
-source = "git+https://github.com/lambdaclass/cairo-vm#42e04161de82d7e5381258def4b65087c8944660"
+source = "git+https://github.com/lambdaclass/cairo-vm#c692b7594a74ee3245cf7affc7c8cfc296b0398c"
 dependencies = [
  "anyhow",
  "ark-ff",

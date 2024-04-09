@@ -110,16 +110,14 @@ where
 
     Ok(values.into_iter().map(|felt| felt.into_owned()).collect())
 }
-pub fn read_calldata(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Vec<Felt252>> {
-    read_felt_array::<SyscallExecutionError>(vm, ptr)
-}
 
-pub fn ignore_felt_array<TErr>(_vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<(), TErr>
-where
-    TErr: From<VirtualMachineError> + From<MemoryError> + From<MathError>,
-{
+pub fn ignore_felt_array(ptr: &mut Relocatable) -> SyscallResult<()> {
     *ptr = (*ptr + 2)?;
     Ok(())
+}
+
+pub fn read_calldata(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Vec<Felt252>> {
+    read_felt_array::<SyscallExecutionError>(vm, ptr)
 }
 
 pub fn read_call_params(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<(Felt252, Vec<Felt252>)> {
