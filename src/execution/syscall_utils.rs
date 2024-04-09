@@ -112,6 +112,7 @@ where
 }
 
 pub fn ignore_felt_array(ptr: &mut Relocatable) -> SyscallResult<()> {
+    // skip data start and end pointers, see `read_felt_array` function above.
     *ptr = (*ptr + 2)?;
     Ok(())
 }
