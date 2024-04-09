@@ -7,9 +7,9 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
 use super::helper::ExecutionHelperWrapper;
-use crate::execution::gas_constants::{CALL_CONTRACT_GAS_COST, GET_EXECUTION_INFO_GAS_COST};
+use crate::execution::gas_constants::{CALL_CONTRACT_GAS_COST, EMIT_EVENT_GAS_COST, GET_EXECUTION_INFO_GAS_COST};
 use crate::execution::syscall_utils::{execute_syscall, felt_from_ptr, SyscallSelector};
-use crate::execution::syscalls::{call_contract, get_execution_info};
+use crate::execution::syscalls::{call_contract, emit_event, get_execution_info};
 
 /// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
@@ -72,6 +72,9 @@ impl OsSyscallHandlerWrapper {
             }
             SyscallSelector::CallContract => {
                 execute_syscall(syscall_handler_syscall_ptr, vm, ehw, call_contract, CALL_CONTRACT_GAS_COST)
+            }
+            SyscallSelector::EmitEvent => {
+                execute_syscall(syscall_handler_syscall_ptr, vm, ehw, emit_event, EMIT_EVENT_GAS_COST)
             }
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;

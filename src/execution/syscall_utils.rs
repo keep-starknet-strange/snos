@@ -110,6 +110,13 @@ where
 
     Ok(values.into_iter().map(|felt| felt.into_owned()).collect())
 }
+
+pub fn ignore_felt_array(ptr: &mut Relocatable) -> SyscallResult<()> {
+    // skip data start and end pointers, see `read_felt_array` function above.
+    *ptr = (*ptr + 2)?;
+    Ok(())
+}
+
 pub fn read_calldata(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Vec<Felt252>> {
     read_felt_array::<SyscallExecutionError>(vm, ptr)
 }

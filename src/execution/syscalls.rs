@@ -4,8 +4,9 @@ use cairo_vm::Felt252;
 
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_utils::{
-    felt_from_ptr, read_call_params, write_maybe_relocatable, EmptyRequest, ReadOnlySegment, SingleSegmentResponse,
-    SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
+    felt_from_ptr, ignore_felt_array, read_call_params, write_maybe_relocatable, EmptyRequest, EmptyResponse,
+    ReadOnlySegment, SingleSegmentResponse, SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult,
+    WriteResponseResult,
 };
 use crate::utils::felt_api2vm;
 
@@ -107,34 +108,26 @@ pub fn call_contract(
 //     Ok(DeployResponse { contract_address: deployed_contract_address, constructor_retdata })
 // }
 
-// TODO: EmitEvent syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct EmitEventRequest {
-//     pub content: EventContent,
-// }
-//
-// impl SyscallRequest for EmitEventRequest {
-//     // The Cairo struct contains: `keys_len`, `keys`, `data_len`, `data`·
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<EmitEventRequest> {
-//         let keys =
-//             read_felt_array::<SyscallExecutionError>(vm,
-// ptr)?.into_iter().map(EventKey).collect();         let data =
-// EventData(read_felt_array::<SyscallExecutionError>(vm, ptr)?);
-//
-//         Ok(EmitEventRequest { content: EventContent { keys, data } })
-//     }
-// }
-//
-// type EmitEventResponse = EmptyResponse;
-//
-// pub fn emit_event(
-//     request: EmitEventRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> SyscallResult<EmitEventResponse> {
-//     Ok(EmitEventResponse {})
-// }
+type EmitEventRequest = EmptyResponse;
+
+impl SyscallRequest for EmitEventRequest {
+    fn read(_vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<EmitEventRequest> {
+        ignore_felt_array(ptr)?;
+        ignore_felt_array(ptr)?;
+        Ok(EmitEventRequest {})
+    }
+}
+
+type EmitEventResponse = EmptyResponse;
+
+pub fn emit_event(
+    _request: EmitEventRequest,
+    _vm: &mut VirtualMachine,
+    _exec_wrapper: ExecutionHelperWrapper,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<EmitEventResponse> {
+    Ok(EmitEventResponse {})
+}
 
 // TODO: GetBlockHash syscall.
 //
