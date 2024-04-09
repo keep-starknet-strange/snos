@@ -142,7 +142,7 @@ fn generate_hints_as_rust(hints: &Vec<&String>) -> String {
     let mut buf = String::new();
     let mut count = 0;
     for hint in hints {
-        buf.push_str(&format!("pub const UNUSED_HINT_{}", count));
+        buf.push_str(&format!("pub const HINT_{}", count));
         buf.push_str(": &str = indoc! {r#\"");
         buf.push_str(hint.as_str());
         buf.push_str("\"#};\n\n");
