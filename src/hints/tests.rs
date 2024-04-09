@@ -249,4 +249,10 @@ pub mod tests {
         // our only call should have been consumed
         assert!(exec_helper_box.execution_helper.borrow().call_iter.clone().peekable().peek().is_none());
     }
+
+    #[test]
+    fn test_built_in_hints_have_no_duplicates() {
+        // constructor will panic if duplicates are detected in HINTS or EXTENSIVE_HINTS
+        SnosHintProcessor::new_with_builtin_hints();
+    }
 }

@@ -310,10 +310,23 @@ impl ResourceTracker for SnosHintProcessor {
     }
 }
 
-impl Default for SnosHintProcessor {
-    fn default() -> Self {
-        let hints = HINTS.into_iter().map(|(h, i)| (h.to_string(), i)).collect();
-        let extensive_hints = EXTENSIVE_HINTS.into_iter().map(|(h, i)| (h.to_string(), i)).collect();
+impl SnosHintProcessor {
+    fn new_with_builtin_hints() -> Self {
+        println!("Defaulting proc...");
+        let mut hints: HashMap<String, HintImpl> = HashMap::new();
+        for (hint, hint_impl) in &HINTS {
+            let hint = hint.to_string();
+            assert!(! hints.contains_key(&hint), "Duplicate hint detected:\n-----\n\n{}\n\n-----\n", hint);
+            hints.insert(hint, *hint_impl);
+        }
+
+        let mut extensive_hints: HashMap<String, ExtensiveHintImpl> = HashMap::new();
+        for (hint, hint_impl) in &EXTENSIVE_HINTS {
+            let hint = hint.to_string();
+            assert!(! extensive_hints.contains_key(&hint), "Duplicate hint detected:\n-----\n\n{}\n\n-----\n", hint);
+            extensive_hints.insert(hint, *hint_impl);
+        }
+
         Self {
             builtin_hint_proc: BuiltinHintProcessor::new_empty(),
             cairo1_builtin_hint_proc: Cairo1HintProcessor::new(Default::default(), Default::default()),
@@ -321,6 +334,12 @@ impl Default for SnosHintProcessor {
             extensive_hints,
             run_resources: Default::default(),
         }
+    }
+}
+
+impl Default for SnosHintProcessor {
+    fn default() -> Self {
+        Self::new_with_builtin_hints()
     }
 }
 
