@@ -93,7 +93,6 @@ fn main() -> std::io::Result<()> {
         );
         if let Err(e) = r {
             if let HintError::UnknownHint(_) = e {
-                println!("\n----- gave unknown hint error: ----- \n{}", code.clone());
                 return false;
             }
         }
