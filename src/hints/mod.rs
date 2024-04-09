@@ -46,10 +46,9 @@ pub type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 204] = [
+static HINTS: [(&str, HintImpl); 203] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
-    (IS_N_GE_TWO, is_n_ge_two),
     (IS_ON_CURVE, is_on_curve),
     (OS_INPUT_TRANSACTIONS, os_input_transactions),
     (SEGMENTS_ADD, segments_add),
@@ -553,21 +552,6 @@ pub fn breakpoint(
     // println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
     // println!("\tids -> {:?}", ids_data);
     println!("-----------END BREAKPOINT-----------");
-    Ok(())
-}
-
-pub const IS_N_GE_TWO: &str = "memory[ap] = to_felt_or_relocatable(ids.n >= 2)";
-
-pub fn is_n_ge_two(
-    vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let n = get_integer_from_var_name(vars::ids::N, vm, ids_data, ap_tracking)?.into_owned();
-    let value = if n >= Felt252::TWO { Felt252::ONE } else { Felt252::ZERO };
-    insert_value_into_ap(vm, value)?;
     Ok(())
 }
 
