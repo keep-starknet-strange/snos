@@ -16,7 +16,7 @@ use serde::Deserialize;
 use snos::hints::SnosHintProcessor;
 
 #[derive(Clone, Copy, Debug, Default, clap::ValueEnum, PartialEq)]
-enum HintStatus {
+enum HintFilter {
     Implemented,
     Unimplemented,
     ImplementedExternally,
@@ -41,7 +41,7 @@ enum OutputType {
 struct Args {
     /// Subset of hints to report
     #[arg(long)]
-    subset: Option<HintStatus>,
+    subset: Option<HintFilter>,
 
     /// Output type
     #[arg(long)]
@@ -99,7 +99,7 @@ fn main() -> std::io::Result<()> {
         true
     };
 
-    if subset == HintStatus::Orphaned {
+    if subset == HintFilter::Orphaned {
         for code in snos_hints.iter() {
             if !os_hints.contains(code) && !syscall_hints.contains(code) {
                 result.push(code);
@@ -108,11 +108,11 @@ fn main() -> std::io::Result<()> {
     } else {
         for code in os_hints.union(&syscall_hints).collect::<HashSet<_>>() {
             let add = match subset {
-                HintStatus::All => true,
-                HintStatus::Implemented => known_to_hint_processor(code),
-                HintStatus::Unimplemented => !known_to_hint_processor(code),
-                HintStatus::ImplementedExternally => known_to_hint_processor(code) && !snos_hints.contains(code),
-                HintStatus::ImplementedLocally => snos_hints.contains(code),
+                HintFilter::All => true,
+                HintFilter::Implemented => known_to_hint_processor(code),
+                HintFilter::Unimplemented => !known_to_hint_processor(code),
+                HintFilter::ImplementedExternally => known_to_hint_processor(code) && !snos_hints.contains(code),
+                HintFilter::ImplementedLocally => snos_hints.contains(code),
                 _ => unreachable!(),
             };
             if add {
