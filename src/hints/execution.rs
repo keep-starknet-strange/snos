@@ -1535,11 +1535,9 @@ pub fn gen_class_hash_arg(
         }
         Felt252::ZERO
     } else {
-        let compiled_class_hash = tx.compiled_class_hash.ok_or(HintError::AssertionFailed(
+        tx.compiled_class_hash.ok_or(HintError::AssertionFailed(
             "Declare must have a concrete compiled_class_hash.".to_string().into_boxed_str(),
-        ))?;
-
-        compiled_class_hash
+        ))?
     };
 
     insert_value_from_var_name(vars::ids::COMPILED_CLASS_HASH, compiled_class_hash, vm, ids_data, ap_tracking)?;

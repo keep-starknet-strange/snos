@@ -5,20 +5,15 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
-use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 
-use crate::cairo_types::syscalls::{
-    NewDeployResponse, NewSyscallContractResponse, StorageRead, StorageReadRequest, SyscallContractResponse,
-};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
-use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::vars;
 
@@ -418,25 +413,6 @@ pub fn fetch_state_entry_5(
     };
     insert_value_from_var_name("state_entry", val, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name("new_state_entry", vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
-
-    Ok(())
-}
-
-fn assert_memory_ranges_equal(
-    vm: &VirtualMachine,
-    expected_ptr: Relocatable,
-    expected_size: usize,
-    actual_ptr: Relocatable,
-    actual_size: usize,
-) -> Result<(), HintError> {
-    let expected = vm.get_range(expected_ptr, expected_size);
-    let actual = vm.get_range(actual_ptr, actual_size);
-
-    if expected != actual {
-        return Err(HintError::AssertionFailed(
-            format!("Return value mismatch expected={expected:?}, actual={actual:?}.").into_boxed_str(),
-        ));
-    }
 
     Ok(())
 }
