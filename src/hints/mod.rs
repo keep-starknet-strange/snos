@@ -293,7 +293,6 @@ impl Default for SnosHintProcessor {
             extensive_hints,
             run_resources: Default::default(),
         }
-
     }
 }
 
