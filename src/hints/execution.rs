@@ -86,7 +86,6 @@ pub fn exit_tx(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // TODO: add logger
-    println!("exit tx");
     Ok(())
 }
 

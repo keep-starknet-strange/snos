@@ -386,8 +386,7 @@ pub fn os_logger_enter_syscall_preprare_exit_syscall(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    println!("TODO: os_logger enter/exit calls");
-
+    //TODO: os_logger enter/exit calls
     Ok(())
 }
 
@@ -672,7 +671,6 @@ pub fn exit_syscall(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // TODO: add logging
-    println!("exiting syscall {}", selector_name);
     Ok(())
 }
 pub const EXIT_CALL_CONTRACT_SYSCALL: &str = "exit_syscall(selector=ids.CALL_CONTRACT_SELECTOR)";
