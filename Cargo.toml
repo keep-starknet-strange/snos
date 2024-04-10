@@ -1,4 +1,4 @@
-workspace = { members = ["cairo-type-derive"] }
+workspace = { members = ["cairo-type-derive", "bin/hint_tool"] }
 [package]
 edition = "2021"
 name = "snos"

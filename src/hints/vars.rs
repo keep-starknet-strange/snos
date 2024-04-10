@@ -27,8 +27,10 @@ pub mod ids {
     pub const CALL_RESPONSE: &str = "call_response";
     pub const CALLDATA: &str = "calldata";
     pub const CHILD_BIT: &str = "CHILD_BIT";
+    pub const CLASS_HASH_PTR: &str = "class_hash_ptr";
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACT: &str = "compiled_class_fact";
+    pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
     pub const CONTRACT_ADDRESS: &str = "contract_address";
     pub const CONTRACT_STATE_CHANGES: &str = "contract_state_changes";
     pub const CURRENT_HASH: &str = "current_hash";

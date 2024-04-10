@@ -5,21 +5,15 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
-use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 
-use crate::cairo_types::entry_point::EntryPointReturnValues;
-use crate::cairo_types::syscalls::{
-    NewDeployResponse, NewSyscallContractResponse, StorageRead, StorageReadRequest, SyscallContractResponse,
-};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
-use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::vars;
 
@@ -419,189 +413,6 @@ pub fn fetch_state_entry_5(
     };
     insert_value_from_var_name("state_entry", val, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name("new_state_entry", vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
-
-    Ok(())
-}
-
-pub const CACHE_CONTRACT_STORAGE_2: &str = indoc! {r#"
-	# Make sure the value is cached (by reading it), to be used later on for the
-	# commitment computation.
-	value = execution_helper.storage_by_address[ids.contract_address].read(
-	    key=ids.syscall_ptr.request.address
-	)
-	assert ids.value == value, "Inconsistent storage value.""#
-};
-pub fn cache_contract_storage_2(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let contract_address = get_integer_from_var_name("contract_address", vm, ids_data, ap_tracking)?;
-    let syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
-    let key =
-        vm.get_integer((syscall_ptr + (StorageRead::request_offset() + StorageReadRequest::address_offset()))?)?;
-
-    let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
-    let value = execution_helper.read_storage_for_address(*contract_address, *key).map_err(|_| {
-        HintError::CustomHint(
-            format!("Storage read error, contract: {}, key: {}", contract_address, key).into_boxed_str(),
-        )
-    })?;
-
-    let ids_value = *get_integer_from_var_name("value", vm, ids_data, ap_tracking)?;
-    if ids_value != value {
-        return Err(HintError::AssertionFailed(
-            format!("Inconsistent storage value: {} <> {}.", ids_value, value).into(),
-        ));
-    }
-
-    Ok(())
-}
-
-fn assert_memory_ranges_equal(
-    vm: &VirtualMachine,
-    expected_ptr: Relocatable,
-    expected_size: usize,
-    actual_ptr: Relocatable,
-    actual_size: usize,
-) -> Result<(), HintError> {
-    let expected = vm.get_range(expected_ptr, expected_size);
-    let actual = vm.get_range(actual_ptr, actual_size);
-
-    if expected != actual {
-        return Err(HintError::AssertionFailed(
-            format!("Return value mismatch expected={expected:?}, actual={actual:?}.").into_boxed_str(),
-        ));
-    }
-
-    Ok(())
-}
-
-pub const CHECK_SYSCALL_RESPONSE: &str = indoc! {r#"
-	# Check that the actual return value matches the expected one.
-	expected = memory.get_range(
-	    addr=ids.call_response.retdata, size=ids.call_response.retdata_size
-	)
-	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
-
-	assert expected == actual, f'Return value mismatch expected={expected}, actual={actual}.'"#
-};
-
-pub fn check_syscall_response(
-    vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let call_response_ptr = get_ptr_from_var_name(vars::ids::CALL_RESPONSE, vm, ids_data, ap_tracking)?;
-    let call_response_retdata = vm.get_relocatable((call_response_ptr + SyscallContractResponse::retdata_offset())?)?;
-    let call_response_retdata_size =
-        felt_to_usize(vm.get_integer((call_response_ptr + SyscallContractResponse::retdata_size_offset())?)?.as_ref())?;
-
-    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
-    let retdata_size =
-        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
-
-    assert_memory_ranges_equal(vm, call_response_retdata, call_response_retdata_size, retdata, retdata_size)?;
-
-    Ok(())
-}
-
-pub const CHECK_NEW_SYSCALL_RESPONSE: &str = indoc! {r#"
-	# Check that the actual return value matches the expected one.
-	expected = memory.get_range(
-	    addr=ids.response.retdata_start,
-	    size=ids.response.retdata_end - ids.response.retdata_start,
-	)
-	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
-
-	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
-};
-
-pub fn check_new_syscall_response(
-    vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let response_ptr = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
-    let response_retdata_start =
-        vm.get_relocatable((response_ptr + NewSyscallContractResponse::retdata_start_offset())?)?;
-    let response_retdata_end =
-        vm.get_relocatable((response_ptr + NewSyscallContractResponse::retdata_end_offset())?)?;
-    let response_retdata_size = (response_retdata_end - response_retdata_start)?;
-
-    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
-    let retdata_size =
-        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
-
-    assert_memory_ranges_equal(vm, response_retdata_start, response_retdata_size, retdata, retdata_size)?;
-
-    Ok(())
-}
-
-pub const CHECK_NEW_DEPLOY_RESPONSE: &str = indoc! {r#"
-	# Check that the actual return value matches the expected one.
-	expected = memory.get_range(
-	    addr=ids.response.constructor_retdata_start,
-	    size=ids.response.constructor_retdata_end - ids.response.constructor_retdata_start,
-	)
-	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
-	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
-};
-
-pub fn check_new_deploy_response(
-    vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let response_ptr = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
-    let constructor_retdata_start =
-        vm.get_relocatable((response_ptr + NewDeployResponse::constructor_retdata_start_offset())?)?;
-    let constructor_retdata_end =
-        vm.get_relocatable((response_ptr + NewDeployResponse::constructor_retdata_end_offset())?)?;
-    let response_retdata_size = (constructor_retdata_end - constructor_retdata_start)?;
-
-    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
-    let retdata_size =
-        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
-
-    assert_memory_ranges_equal(vm, constructor_retdata_start, response_retdata_size, retdata, retdata_size)?;
-
-    Ok(())
-}
-
-pub const VALIDATE_AND_DISCARD_SYSCALL_PTR: &str = indoc! {r#"
-	syscall_handler.validate_and_discard_syscall_ptr(
-	    syscall_ptr_end=ids.entry_point_return_values.syscall_ptr
-	)
-	execution_helper.exit_call()"#
-};
-
-pub fn validate_and_discard_syscall_ptr(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let syscall_handler: OsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
-    let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
-
-    let entry_point_return_values =
-        get_ptr_from_var_name(vars::ids::ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
-    let syscall_ptr =
-        vm.get_relocatable((entry_point_return_values + EntryPointReturnValues::syscall_ptr_offset())?)?;
-
-    syscall_handler.validate_and_discard_syscall_ptr(syscall_ptr)?;
-
-    execution_helper.exit_call();
 
     Ok(())
 }

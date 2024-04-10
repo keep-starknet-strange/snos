@@ -46,10 +46,10 @@ pub type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 167] = [
+#[rustfmt::skip]
+static HINTS: [(&str, HintImpl); 190] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
-    (IS_N_GE_TWO, is_n_ge_two),
     (IS_ON_CURVE, is_on_curve),
     (OS_INPUT_TRANSACTIONS, os_input_transactions),
     (SEGMENTS_ADD, segments_add),
@@ -79,18 +79,13 @@ static HINTS: [(&str, HintImpl); 167] = [
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
     (execution::ADD_RELOCATION_RULE, execution::add_relocation_rule),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
-    (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::CACHE_CONTRACT_STORAGE_REQUEST_KEY, execution::cache_contract_storage_request_key),
-    (
-        execution::CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS,
-        execution::cache_contract_storage_syscall_request_address,
-    ),
+    (execution::CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS, execution::cache_contract_storage_syscall_request_address),
     (execution::CHECK_EXECUTION, execution::check_execution),
     (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
     (execution::CHECK_RESPONSE_RETURN_VALUE, execution::check_response_return_value),
     (execution::COMPARE_RETURN_VALUE, execution::compare_return_value),
     (execution::CONTRACT_ADDRESS, execution::contract_address),
-    (execution::CONTRACT_ADDRESS_2, execution::contract_address),
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
     (execution::ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER, execution::enter_scope_deprecated_syscall_handler),
@@ -105,22 +100,10 @@ static HINTS: [(&str, HintImpl); 167] = [
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::EXIT_CALL, execution::exit_call),
     (execution::EXIT_TX, execution::exit_tx),
-    (execution::GEN_NONCE_ARG, execution::gen_nonce_arg),
+    (execution::GEN_CLASS_HASH_ARG, execution::gen_class_hash_arg),
     (execution::GEN_SIGNATURE_ARG, execution::gen_signature_arg),
-    (
-        execution::GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY,
-        execution::get_block_hash_contract_address_state_entry_and_set_new_state_entry,
-    ),
-    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry),
-    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_2, execution::get_contract_address_state_entry),
-    (
-        execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY,
-        execution::get_contract_address_state_entry_and_set_new_state_entry,
-    ),
-    (
-        execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY_2,
-        execution::get_contract_address_state_entry_and_set_new_state_entry,
-    ),
+    (execution::GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY, execution::get_block_hash_contract_address_state_entry_and_set_new_state_entry),
+    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry_and_set_new_state_entry),
     (execution::INITIAL_GE_REQUIRED_GAS, execution::initial_ge_required_gas),
     (execution::GET_OLD_BLOCK_NUMBER_AND_HASH, execution::get_old_block_number_and_hash),
     (execution::IS_DEPRECATED, execution::is_deprecated),
@@ -130,7 +113,6 @@ static HINTS: [(&str, HintImpl); 167] = [
     (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
     (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
     (execution::RESOURCE_BOUNDS, execution::resource_bounds),
-    (execution::SET_AP_TO_NONCE_ARG_SEGMENT, execution::set_ap_to_nonce_arg_segment),
     (execution::SET_AP_TO_TX_NONCE, execution::set_ap_to_tx_nonce),
     (execution::START_TX, execution::start_tx),
     (execution::TRANSACTION_VERSION, execution::transaction_version),
@@ -155,27 +137,20 @@ static HINTS: [(&str, HintImpl); 167] = [
     (patricia::ASSERT_CASE_IS_RIGHT, patricia::assert_case_is_right),
     (patricia::HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO, patricia::height_is_zero_or_len_node_preimage_is_two),
     (patricia::IS_CASE_RIGHT, patricia::is_case_right),
-    (
-        patricia::PREPARE_PREIMAGE_VALIDATION_NON_DETERMINISTIC_HASHES,
-        patricia::prepare_preimage_validation_non_deterministic_hashes,
-    ),
+    (patricia::PREPARE_PREIMAGE_VALIDATION_NON_DETERMINISTIC_HASHES, patricia::prepare_preimage_validation_non_deterministic_hashes),
     (patricia::SET_AP_TO_DESCEND, patricia::set_ap_to_descend),
     (patricia::SET_BIT, patricia::set_bit),
     (patricia::SET_SIBLINGS, patricia::set_siblings),
     (patricia::SPLIT_DESCEND, patricia::split_descend),
     (state::DECODE_NODE, state::decode_node_hint),
     (state::DECODE_NODE_2, state::decode_node_hint),
+    (state::ENTER_SCOPE_COMMITMENT_INFO_BY_ADDRESS, state::enter_scope_commitment_info_by_address),
     (state::LOAD_BOTTOM, state::load_bottom),
     (state::LOAD_EDGE, state::load_edge),
-    (state::SET_INITIAL_STATE_UPDATES_PTR, state::set_initial_state_updates_ptr),
     (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
     (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
     (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
-    (syscalls::CACHE_CONTRACT_STORAGE_2, syscalls::cache_contract_storage_2),
     (syscalls::CALL_CONTRACT, syscalls::call_contract),
-    (syscalls::CHECK_SYSCALL_RESPONSE, syscalls::check_syscall_response),
-    (syscalls::CHECK_NEW_SYSCALL_RESPONSE, syscalls::check_new_syscall_response),
-    (syscalls::CHECK_NEW_DEPLOY_RESPONSE, syscalls::check_new_deploy_response),
     (syscalls::DELEGATE_CALL, syscalls::delegate_call),
     (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),
     (syscalls::DEPLOY, syscalls::deploy),
@@ -222,13 +197,47 @@ static HINTS: [(&str, HintImpl); 167] = [
     (syscalls::OS_LOGGER_ENTER_SYSCALL_PREPRARE_EXIT_SYSCALL, syscalls::os_logger_enter_syscall_preprare_exit_syscall),
     (syscalls::REPLACE_CLASS, syscalls::replace_class),
     (syscalls::SEND_MESSAGE_TO_L1, syscalls::send_message_to_l1),
-    (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
-    (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
     (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
-    (syscalls::VALIDATE_AND_DISCARD_SYSCALL_PTR, syscalls::validate_and_discard_syscall_ptr),
     (BREAKPOINT, breakpoint),
+    (unimplemented::ASSIGN_BYTECODE_SEGMENTS, hint_stub),
+    (unimplemented::COMPUTE_SLOPE, hint_stub),
+    (unimplemented::ASSIGN_STATE_ENTRY_WITH_NEW_SEGMENT, hint_stub),
+    (unimplemented::SET_STATE_ENTRY_TO_ACCOUNT_CONTRACT_ADDRESS, hint_stub),
+    (unimplemented::CALCULATE_VALUE, hint_stub),
+    (unimplemented::COMPARE_RETURN_VALUE_2, hint_stub),
+    (unimplemented::SET_AP_TO_SEGMENT_HASH, hint_stub),
+    (unimplemented::FETCH_RESULT, hint_stub),
+    (unimplemented::COMPUTE_NEW_Y, hint_stub),
+    (unimplemented::COMPUTE_VALUE_DIV_MOD, hint_stub),
+    (unimplemented::DATA_TO_HASH_NEW_SEGMENT, hint_stub),
+    (unimplemented::SET_STATE_UPDATES_START, hint_stub),
+    (unimplemented::ASSERT_END_OF_BYTECODE_SEGMENTS, hint_stub),
+    (unimplemented::ADDITIONAL_DATA_NEW_SEGMENT, hint_stub),
+    (unimplemented::WRITE_ADDRESS, hint_stub),
+    (unimplemented::COMPUTE_IDS_HIGH_LOW, hint_stub),
+    (unimplemented::WRITE_ZKG_COMMITMENT_ADDRESS, hint_stub),
+    (unimplemented::WRITE_NIBBLES_TO_MEM, hint_stub),
+    (unimplemented::WRITE_USE_ZKG_DA_TO_MEM, hint_stub),
+    (unimplemented::GET_SEQUENCER_ADDRESS, hint_stub),
+    (unimplemented::PACK_X_PRIME, hint_stub),
+    (unimplemented::WRITE_CASE_NOT_LEFT_TO_AP, hint_stub),
+    (unimplemented::EXIT_SYSCALL_GET_BLOCK_NUMBER, hint_stub),
+    (unimplemented::ITER_CURRENT_SEGMENT_INFO, hint_stub),
+    (unimplemented::CHECK_REQUEST_BLOCK_AGAINST_BUFFER_LEN, hint_stub),
+    (unimplemented::START_TX_VALIDATE_DECLARE, hint_stub),
+    (unimplemented::WRITE_TX_NONCE_TO_MEMORY, hint_stub),
+    (unimplemented::MAYBE_WRITE_ADDRESS_TO_AP, hint_stub),
+    (unimplemented::GENERATE_NIBBLES, hint_stub),
+    (unimplemented::IS_ON_CURVE_2, hint_stub),
+    (unimplemented::PACK_X_PRIME_2, hint_stub),
+    (unimplemented::WRITE_DIVMOD_SEGMENT, hint_stub),
+    (unimplemented::CALCULATE_VALUE_2, hint_stub),
+    (unimplemented::COMPUTE_Q_MOD_PRIME, hint_stub),
+    (unimplemented::CREATE_COMMON_ARGS, hint_stub),
+    (unimplemented::COMPUTE_SLOPE_2, hint_stub),
+    (unimplemented::COMPUTE_IDS_LOW, hint_stub),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
@@ -372,6 +381,16 @@ impl HintProcessorLogic for SnosHintProcessor {
     }
 }
 
+pub fn hint_stub(
+    _vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    Err(HintError::CustomHint("Hint stubbed but not implemented".to_string().into_boxed_str()))
+}
+
 pub const STARKNET_OS_INPUT: &str = indoc! {r#"
     from starkware.starknet.core.os.os_input import StarknetOsInput
 
@@ -504,21 +523,6 @@ pub fn breakpoint(
     // println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
     // println!("\tids -> {:?}", ids_data);
     println!("-----------END BREAKPOINT-----------");
-    Ok(())
-}
-
-pub const IS_N_GE_TWO: &str = "memory[ap] = to_felt_or_relocatable(ids.n >= 2)";
-
-pub fn is_n_ge_two(
-    vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let n = get_integer_from_var_name(vars::ids::N, vm, ids_data, ap_tracking)?.into_owned();
-    let value = if n >= Felt252::TWO { Felt252::ONE } else { Felt252::ZERO };
-    insert_value_into_ap(vm, value)?;
     Ok(())
 }
 

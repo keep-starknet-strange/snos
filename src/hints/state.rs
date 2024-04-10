@@ -120,7 +120,7 @@ pub fn set_preimage_for_class_commitments(
 }
 
 pub const SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO: &str = indoc! {r#"
-	commitment_info = commitment_info_by_address[ids.state_changes.key]
+	commitment_info = commitment_info_by_address[ids.contract_address]
 	ids.initial_contract_state_root = commitment_info.previous_root
 	ids.final_contract_state_root = commitment_info.updated_root
 	preimage = {
@@ -137,6 +137,7 @@ pub fn set_preimage_for_current_commitment_info(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    // TODO: CommitmentInfo should not be obtained through exec_scopes
     let commitment_info = exec_scopes.get::<CommitmentInfo>(vars::scopes::COMMITMENT_INFO)?;
     insert_value_from_var_name(vars::ids::INITIAL_ROOT, commitment_info.previous_root, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::FINAL_ROOT, commitment_info.updated_root, vm, ids_data, ap_tracking)?;
@@ -273,16 +274,15 @@ pub fn decode_node_hint(
     Ok(())
 }
 
-pub const SET_INITIAL_STATE_UPDATES_PTR: &str = indoc! {r#"
+pub const ENTER_SCOPE_COMMITMENT_INFO_BY_ADDRESS: &str = indoc! {r#"
 	# This hint shouldn't be whitelisted.
 	vm_enter_scope(dict(
 	    commitment_info_by_address=execution_helper.compute_storage_commitments(),
 	    os_input=os_input,
-	))
-	ids.initial_state_updates_ptr = segments.add_temp_segment()"#
+	))"#
 };
 
-pub fn set_initial_state_updates_ptr(
+pub fn enter_scope_commitment_info_by_address(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
@@ -525,35 +525,5 @@ mod tests {
         // TODO: test post-conditions:
         // * edge (edge.length, edge.path, edge.bottom)
         // * hash_ptr.result
-    }
-
-    #[rstest]
-    fn test_set_initial_state_updates_ptr(
-        os_input: StarknetOsInput,
-        contract_address: Felt252,
-        execution_helper_with_storage: ExecutionHelperWrapper,
-    ) {
-        let mut vm = VirtualMachine::new(false);
-
-        let ap_tracking = ApTracking::new();
-        let constants = HashMap::new();
-
-        let ids_data = HashMap::default();
-
-        let mut exec_scopes: ExecutionScopes = Default::default();
-        exec_scopes.insert_value(vars::scopes::OS_INPUT, os_input.clone());
-        exec_scopes.insert_value(vars::scopes::EXECUTION_HELPER, execution_helper_with_storage);
-
-        set_initial_state_updates_ptr(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
-            .expect("Hint should succeed");
-
-        let os_input_from_scope: StarknetOsInput = exec_scopes.get(vars::scopes::OS_INPUT).unwrap();
-        assert_eq!(os_input_from_scope, os_input);
-
-        let commitment_info_by_address: HashMap<Felt252, CommitmentInfo> =
-            exec_scopes.get(vars::scopes::COMMITMENT_INFO_BY_ADDRESS).unwrap();
-
-        // TODO: more asserts on the contract commitment info (?)
-        assert!(commitment_info_by_address.contains_key(&contract_address));
     }
 }
