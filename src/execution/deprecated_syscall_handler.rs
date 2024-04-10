@@ -126,10 +126,9 @@ impl DeprecatedOsSyscallHandlerWrapper {
     }
     pub fn storage_read(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
-        let value =
-            sys_hand.exec_wrapper.execution_helper.as_ref().borrow_mut().execute_code_read_iter.next().ok_or(
-                HintError::SyscallError("d: No more storage reads available to replay".to_string().into_boxed_str()),
-            )?;
+        let value = sys_hand.exec_wrapper.execution_helper.as_ref().borrow_mut().execute_code_read_iter.next().ok_or(
+            HintError::SyscallError("d: No more storage reads available to replay".to_string().into_boxed_str()),
+        )?;
 
         println!("storage_read syscall, syscall_ptr = {}, value = {}", syscall_ptr, value);
 
@@ -175,6 +174,7 @@ mod test {
     use starknet_api::hash::{StarkFelt, StarkHash};
     use starknet_api::{contract_address, patricia_key};
 
+    use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
     use crate::execution::helper::ExecutionHelperWrapper;
     use crate::hints::vars;
@@ -198,8 +198,13 @@ mod test {
         }
     }
 
+    #[fixture]
+    fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
+        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+    }
+
     #[rstest]
-    fn test_call_contract(block_context: BlockContext) {
+    fn test_call_contract(block_context: BlockContext, old_block_number_and_hash: (Felt252, Felt252)) {
         let mut vm = VirtualMachine::new(false);
         vm.set_fp(1);
         vm.add_memory_segment();
@@ -210,7 +215,12 @@ mod test {
         let mut exec_scopes = ExecutionScopes::new();
 
         let execution_infos = Default::default();
-        let exec_helper = ExecutionHelperWrapper::new(CachedState::default(), execution_infos, &block_context);
+        let exec_helper = ExecutionHelperWrapper::new(
+            CachedState::default(),
+            execution_infos,
+            &block_context,
+            old_block_number_and_hash,
+        );
 
         // insert a call result for call_contract to replay. it should insert this into a new temporary
         // segment and insert its size somewhere in syscall_ptr.

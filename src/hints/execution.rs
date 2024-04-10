@@ -1606,13 +1606,13 @@ pub fn write_old_block_to_storage(
     let old_block_hash = get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?.into_owned();
 
     println!("writing block number: {} -> block hash: {}", old_block_number, old_block_hash);
-    execution_helper.write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash).map_err(
-        |_| {
+    execution_helper
+        .write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash)
+        .map_err(|_| {
             HintError::CustomHint(
                 format!("Storage not found for contract {}", block_hash_contract_address).into_boxed_str(),
             )
-        },
-    )?;
+        })?;
 
     Ok(())
 }
@@ -1727,6 +1727,7 @@ mod tests {
     use starknet_api::block::BlockNumber;
 
     use super::*;
+    use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
     use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
     use crate::starkware_utils::commitment_tree::base_types::Height;
@@ -1742,8 +1743,16 @@ mod tests {
     }
 
     #[fixture]
-    fn execution_helper(block_context: BlockContext) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context)
+    fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
+        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+    }
+
+    #[fixture]
+    fn execution_helper(
+        block_context: BlockContext,
+        old_block_number_and_hash: (Felt252, Felt252),
+    ) -> ExecutionHelperWrapper {
+        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context, old_block_number_and_hash)
     }
 
     #[fixture]

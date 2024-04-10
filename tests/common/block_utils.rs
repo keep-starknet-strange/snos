@@ -14,7 +14,7 @@ use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
-use snos::config::{BLOCK_HASH_CONTRACT_ADDRESS, StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
+use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
@@ -153,15 +153,11 @@ pub fn test_state(
     let block_number = StorageKey::from(upper_bound_block_number);
     let block_hash = stark_felt!(66_u64);
 
-    let block_hash_contract_address =
-        ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
+    let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
 
     let storage_view = &mut state.state.storage_view;
 
-    storage_view.insert(
-        (block_hash_contract_address, block_number),
-        block_hash,
-    );
+    storage_view.insert((block_hash_contract_address, block_number), block_hash);
 
     state
 }
@@ -292,12 +288,10 @@ pub fn os_hints(
     };
 
     let execution_helper = ExecutionHelperWrapper::new(
-        state, tx_execution_infos,
+        state,
+        tx_execution_infos,
         &block_context,
-        (
-            Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER),
-            Felt252::from(66_u64)
-        )
+        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64)),
     );
 
     (os_input, execution_helper)

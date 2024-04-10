@@ -614,13 +614,19 @@ mod tests {
     use rstest::{fixture, rstest};
 
     use super::*;
-    use crate::hints::tests::tests::block_context;
+    use crate::config::STORED_BLOCK_HASH_BUFFER;
+    use crate::hints::tests::tests::{block_context, old_block_number_and_hash};
     use crate::ExecutionHelperWrapper;
 
     #[fixture]
-    fn exec_scopes(block_context: BlockContext) -> ExecutionScopes {
+    fn exec_scopes(block_context: BlockContext, old_block_number_and_hash: (Felt252, Felt252)) -> ExecutionScopes {
         let execution_infos = vec![];
-        let exec_helper = ExecutionHelperWrapper::new(CachedState::default(), execution_infos, &block_context);
+        let exec_helper = ExecutionHelperWrapper::new(
+            CachedState::default(),
+            execution_infos,
+            &block_context,
+            old_block_number_and_hash,
+        );
         let syscall_handler = OsSyscallHandlerWrapper::new(exec_helper);
 
         let mut exec_scopes = ExecutionScopes::new();

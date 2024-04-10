@@ -313,7 +313,8 @@ pub fn execute_syscall<Request, Response, ExecuteCallback>(
 where
     Request: SyscallRequest + std::fmt::Debug,
     Response: SyscallResponse + std::fmt::Debug,
-    ExecuteCallback: FnOnce(Request, &mut VirtualMachine, &mut ExecutionHelperWrapper, &mut u64) -> SyscallResult<Response>,
+    ExecuteCallback:
+        FnOnce(Request, &mut VirtualMachine, &mut ExecutionHelperWrapper, &mut u64) -> SyscallResult<Response>,
 {
     // Refund `SYSCALL_BASE_GAS_COST` as it was pre-charged.
     let required_gas = syscall_gas_cost - SYSCALL_BASE_GAS_COST;

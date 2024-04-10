@@ -7,9 +7,14 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 
 use super::helper::ExecutionHelperWrapper;
-use crate::execution::constants::{CALL_CONTRACT_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST, GET_EXECUTION_INFO_GAS_COST, STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST};
+use crate::execution::constants::{
+    CALL_CONTRACT_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST, GET_EXECUTION_INFO_GAS_COST,
+    STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
+};
 use crate::execution::syscall_utils::{execute_syscall, felt_from_ptr, SyscallSelector};
-use crate::execution::syscalls::{call_contract, emit_event, get_block_hash, get_execution_info, storage_read, storage_write};
+use crate::execution::syscalls::{
+    call_contract, emit_event, get_block_hash, get_execution_info, storage_read, storage_write,
+};
 
 /// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]

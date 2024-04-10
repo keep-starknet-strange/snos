@@ -2,8 +2,8 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
-use crate::execution::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 
+use crate::execution::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_utils::{
     felt_from_ptr, ignore_felt_array, read_call_params, write_felt, write_maybe_relocatable, EmptyRequest,
@@ -131,7 +131,6 @@ pub fn emit_event(
     Ok(EmitEventResponse {})
 }
 
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetBlockHashRequest {
     pub block_number: Felt252,
@@ -166,7 +165,8 @@ pub fn get_block_hash(
     // # transactions because the order in which reads and writes occur is not strictly linear.
     // # However, for the "block hash contract," this rule does not apply. This contract is updated
     // # only at the start of each block before other transactions are executed.
-    let block_hash = exec_wrapper.read_storage_for_address(Felt252::from(BLOCK_HASH_CONTRACT_ADDRESS), request.block_number)?;
+    let block_hash =
+        exec_wrapper.read_storage_for_address(Felt252::from(BLOCK_HASH_CONTRACT_ADDRESS), request.block_number)?;
     Ok(GetBlockHashResponse { block_hash })
 }
 
@@ -332,13 +332,10 @@ pub fn storage_read(
     exec_wrapper: &mut ExecutionHelperWrapper,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<StorageReadResponse> {
-    let value = exec_wrapper
-        .execution_helper
-        .as_ref()
-        .borrow_mut()
-        .execute_code_read_iter
-        .next()
-        .ok_or(HintError::SyscallError("n: No more storage reads available to replay".to_string().into_boxed_str()))?;
+    let value =
+        exec_wrapper.execution_helper.as_ref().borrow_mut().execute_code_read_iter.next().ok_or(
+            HintError::SyscallError("n: No more storage reads available to replay".to_string().into_boxed_str()),
+        )?;
     Ok(StorageReadResponse { value })
 }
 

@@ -7,12 +7,12 @@ use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use rstest::fixture;
+use snos::config::STORED_BLOCK_HASH_BUFFER;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
-use snos::config::STORED_BLOCK_HASH_BUFFER;
 
 use crate::common::block_utils::{copy_state, os_hints, test_state};
 use crate::common::blocks::block_context;
@@ -104,8 +104,8 @@ pub fn cairo1_syscalls_block(
 
     let initial_state = copy_state(&state);
 
-    // let test_emit_event_tx_execution_info = test_emit_event_tx.execute(&mut state, &block_context, true, true).unwrap();
-    // let test_storage_read_write_tx_execution_info =
+    // let test_emit_event_tx_execution_info = test_emit_event_tx.execute(&mut state, &block_context,
+    // true, true).unwrap(); let test_storage_read_write_tx_execution_info =
     //     test_storage_read_write_tx.execute(&mut state, &block_context, true, true).unwrap();
     let test_get_block_hash_tx_execution_info =
         test_get_block_hash_tx.execute(&mut state, &block_context, true, true).unwrap();
@@ -114,7 +114,8 @@ pub fn cairo1_syscalls_block(
         &block_context,
         initial_state,
         // vec![test_emit_event_tx_internal, test_storage_read_write_tx_internal, test_get_block_hash_tx_internal],
-        // vec![test_emit_event_tx_execution_info, test_storage_read_write_tx_execution_info, test_get_block_hash_tx_execution_info],
+        // vec![test_emit_event_tx_execution_info, test_storage_read_write_tx_execution_info,
+        // test_get_block_hash_tx_execution_info],
         vec![test_get_block_hash_tx_internal],
         vec![test_get_block_hash_tx_execution_info],
     )
