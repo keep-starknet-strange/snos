@@ -91,10 +91,8 @@ fn main() -> std::io::Result<()> {
             &any_box!(HintProcessorData::new_default(code.clone(), HashMap::new())),
             &HashMap::new(),
         );
-        if let Err(e) = r {
-            if let HintError::UnknownHint(_) = e {
-                return false;
-            }
+        if let Err(HintError::UnknownHint(_)) = r {
+            return false;
         }
         true
     };
@@ -135,15 +133,13 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-fn generate_hints_as_rust(hints: &Vec<&String>) -> String {
+fn generate_hints_as_rust(hints: &[&String]) -> String {
     let mut buf = String::new();
-    let mut count = 0;
-    for hint in hints {
+    for (count, hint) in hints.iter().enumerate() {
         buf.push_str(&format!("pub const HINT_{}", count));
         buf.push_str(": &str = indoc! {r#\"");
         buf.push_str(hint.as_str());
         buf.push_str("\"#};\n\n");
-        count += 1;
     }
 
     buf
