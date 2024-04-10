@@ -44,3 +44,10 @@ pub struct NewDeployResponse {
     pub constructor_retdata_start: Relocatable,
     pub constructor_retdata_end: Relocatable,
 }
+
+#[derive(FieldOffsetGetters)]
+pub struct NewStorageWriteRequest {
+    pub reserved: Felt252,
+    pub key: Felt252,
+    pub value: Felt252,
+}

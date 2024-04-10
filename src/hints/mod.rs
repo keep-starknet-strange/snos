@@ -46,7 +46,7 @@ pub type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 166] = [
+static HINTS: [(&str, HintImpl); 167] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -112,10 +112,13 @@ static HINTS: [(&str, HintImpl); 166] = [
         execution::get_block_hash_contract_address_state_entry_and_set_new_state_entry,
     ),
     (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry),
-    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry_and_set_new_state_entry),
     (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_2, execution::get_contract_address_state_entry),
     (
-        execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_2,
+        execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY,
+        execution::get_contract_address_state_entry_and_set_new_state_entry,
+    ),
+    (
+        execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY_2,
         execution::get_contract_address_state_entry_and_set_new_state_entry,
     ),
     (execution::INITIAL_GE_REQUIRED_GAS, execution::initial_ge_required_gas),
@@ -146,6 +149,7 @@ static HINTS: [(&str, HintImpl); 166] = [
     (execution::TX_TIP, execution::tx_tip),
     (execution::WRITE_OLD_BLOCK_TO_STORAGE, execution::write_old_block_to_storage),
     (execution::WRITE_SYSCALL_RESULT, execution::write_syscall_result),
+    (execution::WRITE_SYSCALL_RESULT_DEPRECATED, execution::write_syscall_result_deprecated),
     (output::SET_AP_TO_BLOCK_HASH, output::set_ap_to_block_hash),
     (output::SET_TREE_STRUCTURE, output::set_tree_structure),
     (patricia::ASSERT_CASE_IS_RIGHT, patricia::assert_case_is_right),
