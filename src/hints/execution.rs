@@ -1205,6 +1205,23 @@ pub fn set_ap_to_tx_nonce(
     Ok(())
 }
 
+pub const SET_FP_PLUS_4_TO_TX_NONCE: &str = "memory[fp + 4] = to_felt_or_relocatable(tx.nonce)";
+
+pub fn set_fp_plus_4_to_tx_nonce(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx: &InternalTransaction = exec_scopes.get_ref(vars::scopes::TX)?;
+    let nonce = tx.nonce.ok_or(HintError::AssertionFailed("tx.nonce should be set".to_string().into_boxed_str()))?;
+    vm.insert_value((vm.get_fp() + 4)?, nonce)
+        .map_err(HintError::Memory)?;
+
+    Ok(())
+}
+
 pub fn enter_node_scope(node: UpdateTree<StorageLeaf>, exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
     // vm_enter_scope(dict(node=new_node, **common_args))"#
     // In this implementation we assume that `common_args` is unpacked, having a
@@ -1870,5 +1887,30 @@ mod tests {
         let state_entry =
             get_integer_from_var_name(vars::ids::STATE_ENTRY, &mut vm, &ids_data, &ap_tracking).unwrap().into_owned();
         assert_eq!(state_entry, Felt252::from(123));
+    }
+
+    #[test]
+    fn test_set_fp_plus_4_to_tx_nonce() {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(3);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        let ids_data = HashMap::new();
+
+        // insert tx with a nonce
+        let mut tx = InternalTransaction::default();
+        tx.nonce = Some(Felt252::THREE);
+        let mut exec_scopes: ExecutionScopes = Default::default();
+        exec_scopes.insert_value(vars::scopes::TX, tx);
+
+        set_fp_plus_4_to_tx_nonce(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+
+        let address: Relocatable = (vm.get_fp() + 4usize).unwrap();
+        let value = vm.get_integer(address).unwrap();
+        assert_eq!(value, std::borrow::Cow::Borrowed(&Felt252::THREE));
     }
 }
