@@ -223,12 +223,4 @@ x1 = pack(ids.point1.x, PRIME)
 y1 = pack(ids.point1.y, PRIME)
 value = slope = line_slope(point1=(x0, y0), point2=(x1, y1), p=SECP256R1_P)"#};
 
-pub const SET_STATE_ENTRY: &str = indoc! {r#"storage = execution_helper.storage_by_address[ids.contract_address]
-ids.prev_value = storage.read(key=ids.request.key)
-storage.write(key=ids.request.key, value=ids.request.value)
-
-# Fetch a state_entry in this hint and validate it in the update that comes next.
-ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
-ids.new_state_entry = segments.add()"#};
-
 pub const COMPUTE_IDS_LOW: &str = indoc! {r#"ids.low = (ids.value.d0 + ids.value.d1 * ids.BASE) & ((1 << 128) - 1)"#};

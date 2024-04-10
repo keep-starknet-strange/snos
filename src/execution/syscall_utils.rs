@@ -110,6 +110,13 @@ where
 
     Ok(values.into_iter().map(|felt| felt.into_owned()).collect())
 }
+
+pub fn ignore_felt_array(ptr: &mut Relocatable) -> SyscallResult<()> {
+    // skip data start and end pointers, see `read_felt_array` function above.
+    *ptr = (*ptr + 2)?;
+    Ok(())
+}
+
 pub fn read_calldata(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Vec<Felt252>> {
     read_felt_array::<SyscallExecutionError>(vm, ptr)
 }
@@ -139,6 +146,8 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
 pub enum SyscallExecutionError {
     #[error("Internal Error: {0}")]
     InternalError(Box<str>),
+    #[error("Invalid address domain: {address_domain:?}")]
+    InvalidAddressDomain { address_domain: Felt252 },
     #[error("Invalid syscall input: {input:?}; {info}")]
     InvalidSyscallInput { input: Felt252, info: String },
     #[error("Syscall error.")]

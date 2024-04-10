@@ -1,11 +1,13 @@
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_utils::{
-    felt_from_ptr, read_call_params, write_maybe_relocatable, EmptyRequest, ReadOnlySegment, SingleSegmentResponse,
-    SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
+    felt_from_ptr, ignore_felt_array, read_call_params, write_felt, write_maybe_relocatable, EmptyRequest,
+    EmptyResponse, ReadOnlySegment, SingleSegmentResponse, SyscallExecutionError, SyscallRequest, SyscallResponse,
+    SyscallResult, WriteResponseResult,
 };
 use crate::utils::felt_api2vm;
 
@@ -107,34 +109,26 @@ pub fn call_contract(
 //     Ok(DeployResponse { contract_address: deployed_contract_address, constructor_retdata })
 // }
 
-// TODO: EmitEvent syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct EmitEventRequest {
-//     pub content: EventContent,
-// }
-//
-// impl SyscallRequest for EmitEventRequest {
-//     // The Cairo struct contains: `keys_len`, `keys`, `data_len`, `data`·
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<EmitEventRequest> {
-//         let keys =
-//             read_felt_array::<SyscallExecutionError>(vm,
-// ptr)?.into_iter().map(EventKey).collect();         let data =
-// EventData(read_felt_array::<SyscallExecutionError>(vm, ptr)?);
-//
-//         Ok(EmitEventRequest { content: EventContent { keys, data } })
-//     }
-// }
-//
-// type EmitEventResponse = EmptyResponse;
-//
-// pub fn emit_event(
-//     request: EmitEventRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> SyscallResult<EmitEventResponse> {
-//     Ok(EmitEventResponse {})
-// }
+type EmitEventRequest = EmptyResponse;
+
+impl SyscallRequest for EmitEventRequest {
+    fn read(_vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<EmitEventRequest> {
+        ignore_felt_array(ptr)?;
+        ignore_felt_array(ptr)?;
+        Ok(EmitEventRequest {})
+    }
+}
+
+type EmitEventResponse = EmptyResponse;
+
+pub fn emit_event(
+    _request: EmitEventRequest,
+    _vm: &mut VirtualMachine,
+    _exec_wrapper: ExecutionHelperWrapper,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<EmitEventResponse> {
+    Ok(EmitEventResponse {})
+}
 
 // TODO: GetBlockHash syscall.
 //
@@ -309,73 +303,81 @@ pub fn get_execution_info(
 //     Ok(SendMessageToL1Response {})
 // }
 
-// TODO: StorageRead syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct StorageReadRequest {
-//     pub address_domain: StarkFelt,
-//     pub address: StorageKey,
-// }
-//
-// impl SyscallRequest for StorageReadRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageReadRequest> {
-//         let address_domain = stark_felt_from_ptr(vm, ptr)?;
-//         if address_domain != StarkFelt::from(0_u8) {
-//             return Err(SyscallExecutionError::InvalidAddressDomain { address_domain });
-//         }
-//         let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
-//         Ok(StorageReadRequest { address_domain, address })
-//     }
-// }
-//
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct StorageReadResponse {
-//     pub value: StarkFelt,
-// }
-//
-// impl SyscallResponse for StorageReadResponse {
-//     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-//         write_stark_felt(vm, ptr, self.value)?;
-//         Ok(())
-//     }
-// }
-//
-// pub fn storage_read(
-//     request: StorageReadRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> SyscallResult<StorageReadResponse> {
-// }
+#[derive(Debug, Eq, PartialEq)]
+pub struct StorageReadRequest {
+    pub address_domain: Felt252, // to be ignored
+    pub address: Felt252,
+}
 
-// TODO: StorageWrite syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct StorageWriteRequest {
-//     pub address_domain: StarkFelt,
-//     pub address: StorageKey,
-//     pub value: StarkFelt,
-// }
-//
-// impl SyscallRequest for StorageWriteRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageWriteRequest> {
-//         let address_domain = stark_felt_from_ptr(vm, ptr)?;
-//         if address_domain != StarkFelt::from(0_u8) {
-//             return Err(SyscallExecutionError::InvalidAddressDomain { address_domain });
-//         }
-//         let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
-//         let value = stark_felt_from_ptr(vm, ptr)?;
-//         Ok(StorageWriteRequest { address_domain, address, value })
-//     }
-// }
-//
-// pub type StorageWriteResponse = EmptyResponse;
-//
-// pub fn storage_write(
-//     request: StorageWriteRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> SyscallResult<StorageWriteResponse> {
-// }
+impl SyscallRequest for StorageReadRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageReadRequest> {
+        let address_domain = felt_from_ptr(vm, ptr)?;
+        if address_domain != Felt252::ZERO {
+            return Err(SyscallExecutionError::InvalidAddressDomain { address_domain });
+        }
+        let address = felt_from_ptr(vm, ptr)?;
+        Ok(StorageReadRequest { address_domain, address })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct StorageReadResponse {
+    pub value: Felt252,
+}
+
+impl SyscallResponse for StorageReadResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_felt(vm, ptr, self.value)?;
+        Ok(())
+    }
+}
+
+pub fn storage_read(
+    _request: StorageReadRequest,
+    _vm: &mut VirtualMachine,
+    exec_wrapper: ExecutionHelperWrapper,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<StorageReadResponse> {
+    let value = exec_wrapper
+        .execution_helper
+        .as_ref()
+        .borrow_mut()
+        .execute_code_read_iter
+        .next()
+        .ok_or(HintError::SyscallError("No more storage reads available to replay".to_string().into_boxed_str()))?;
+    Ok(StorageReadResponse { value })
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct StorageWriteRequest {
+    pub address_domain: Felt252,
+    pub address: Felt252,
+    pub value: Felt252,
+}
+
+impl SyscallRequest for StorageWriteRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageWriteRequest> {
+        let address_domain = felt_from_ptr(vm, ptr)?;
+        if address_domain != Felt252::ZERO {
+            return Err(SyscallExecutionError::InvalidAddressDomain { address_domain });
+        }
+        let address = felt_from_ptr(vm, ptr)?;
+        let value = felt_from_ptr(vm, ptr)?;
+
+        Ok(StorageWriteRequest { address_domain, address, value })
+    }
+}
+
+pub type StorageWriteResponse = EmptyResponse;
+
+pub fn storage_write(
+    _request: StorageWriteRequest,
+    _vm: &mut VirtualMachine,
+    _exec_wrapper: ExecutionHelperWrapper,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<StorageWriteResponse> {
+    Ok(StorageWriteResponse {})
+}
 
 // TODO: Keccak syscall.
 // #[derive(Debug, Eq, PartialEq)]

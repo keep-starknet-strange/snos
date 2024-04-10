@@ -131,6 +131,7 @@ static HINTS: [(&str, HintImpl); 190] = [
     (execution::TX_TIP, execution::tx_tip),
     (execution::WRITE_OLD_BLOCK_TO_STORAGE, execution::write_old_block_to_storage),
     (execution::WRITE_SYSCALL_RESULT, execution::write_syscall_result),
+    (execution::WRITE_SYSCALL_RESULT_DEPRECATED, execution::write_syscall_result_deprecated),
     (output::SET_AP_TO_BLOCK_HASH, output::set_ap_to_block_hash),
     (output::SET_TREE_STRUCTURE, output::set_tree_structure),
     (patricia::ASSERT_CASE_IS_RIGHT, patricia::assert_case_is_right),
@@ -236,7 +237,6 @@ static HINTS: [(&str, HintImpl); 190] = [
     (unimplemented::COMPUTE_Q_MOD_PRIME, hint_stub),
     (unimplemented::CREATE_COMMON_ARGS, hint_stub),
     (unimplemented::COMPUTE_SLOPE_2, hint_stub),
-    (unimplemented::SET_STATE_ENTRY, hint_stub),
     (unimplemented::COMPUTE_IDS_LOW, hint_stub),
 ];
 
