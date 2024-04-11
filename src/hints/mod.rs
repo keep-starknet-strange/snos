@@ -19,8 +19,8 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::BigInt;
-use crate::execution::execute_syscalls;
 
+use crate::execution::execute_syscalls;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::block_context::is_leaf;

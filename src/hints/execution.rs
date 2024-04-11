@@ -28,7 +28,7 @@ use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::execution::syscall_utils::SyscallSelector;
 use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
-use crate::hints::vars::constants::{BLOCK_HASH_CONTRACT_ADDRESS};
+use crate::hints::vars::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::hints::vars::ids::{
     ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, REQUIRED_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
 };
@@ -280,7 +280,8 @@ pub fn get_block_hash_contract_address_state_entry_and_set_new_state_entry(
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
-    let key = constants.get(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)
+    let key = constants
+        .get(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)
         .ok_or_else(|| HintError::MissingConstant(Box::new(BLOCK_HASH_CONTRACT_ADDRESS)))?;
 
     get_state_entry_and_set_new_state_entry(dict_ptr, *key, vm, exec_scopes, ids_data, ap_tracking)?;

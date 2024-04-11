@@ -386,7 +386,7 @@ pub fn os_logger_enter_syscall_preprare_exit_syscall(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    //TODO: os_logger enter/exit calls
+    // TODO: os_logger enter/exit calls
     Ok(())
 }
 
@@ -613,7 +613,6 @@ mod tests {
     use rstest::{fixture, rstest};
 
     use super::*;
-    use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::hints::tests::tests::{block_context, old_block_number_and_hash};
     use crate::ExecutionHelperWrapper;
 
