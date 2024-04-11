@@ -1893,7 +1893,6 @@ mod tests {
         let mut vm = VirtualMachine::new(false);
         vm.add_memory_segment();
         vm.add_memory_segment();
-        vm.set_fp(3);
 
         let ap_tracking = ApTracking::new();
         let constants = HashMap::new();
@@ -1913,3 +1912,4 @@ mod tests {
         assert_eq!(value, std::borrow::Cow::Borrowed(&Felt252::THREE));
     }
 }
+
