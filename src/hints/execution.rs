@@ -1576,7 +1576,10 @@ pub fn write_old_block_to_storage(
     let old_block_number = get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
     let old_block_hash = get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?;
 
-    println!("writing block number: {} -> block hash: {}", old_block_number, old_block_hash);
+    println!(
+        "writing block number: {} -> block hash: {} into contract {}",
+        old_block_number, old_block_hash, block_hash_contract_address
+    );
     execution_helper
         .write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash)
         .map_err(|_| {

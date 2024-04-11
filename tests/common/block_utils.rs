@@ -14,11 +14,20 @@ use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
-use snos::execution::helper::ExecutionHelperWrapper;
+use snos::crypto::pedersen::PedersenHash;
+use snos::execution::helper::{ExecutionHelperWrapper, StorageByAddress};
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
+use snos::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
+use snos::starkware_utils::commitment_tree::base_types::Height;
+use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
+use snos::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+use snos::storage::dict_storage::DictStorage;
+use snos::storage::storage::FactFetchingContext;
+use snos::utils::felt_api2vm;
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::stark_felt;
@@ -184,6 +193,51 @@ pub fn copy_state(state: &CachedState<DictStateReader>) -> CachedState<DictState
     })
 }
 
+/// extract the contract storage from a CachedState
+pub fn cached_state_to_storage_by_address(state: &CachedState<DictStateReader>) -> StorageByAddress {
+    let mut storage_by_address = StorageByAddress::new();
+
+    // CachedState's `state.state.storage_view` is a mapping of (contract, storage_key) -> value
+    // but we need a mapping of (contract) -> [(storage_key, value)] so we can build entire trees
+    // at a time
+    let mut contract_storages: HashMap<Felt252, Vec<(Felt252, Felt252)>> = Default::default();
+    for ((contract_address, storage_key), value) in &state.state.storage_view {
+        let contract_address = felt_api2vm(*contract_address.0.key());
+        let storage_key = felt_api2vm(*storage_key.0.key());
+        let value = felt_api2vm(*value);
+
+        println!("adding initial state {:?}/{:?}: {:?}", contract_address, storage_key, value);
+
+        if !contract_storages.contains_key(&contract_address) {
+            contract_storages.insert(contract_address, vec![]);
+        }
+        contract_storages.get_mut(&contract_address).unwrap().push((storage_key, value));
+    }
+
+    let storage = DictStorage::default();
+    let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
+
+    for (contract_address, storage) in &contract_storages {
+        assert!(
+            !storage_by_address.contains_key(&contract_address),
+            "logic error: should be building entire tree at once"
+        );
+
+        // TODO: roll this into contract_storages above for simplicity
+        let modifications = storage.iter().map(|(key, value)| (key.to_biguint(), StorageLeaf::new(*value))).collect();
+
+        let patricia_tree = execute_coroutine_threadsafe(async {
+            let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+            let mut facts = None;
+            tree.update(&mut ffc, modifications, &mut facts).await.unwrap()
+        });
+        let contract_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc.clone());
+        storage_by_address.insert(*contract_address, contract_storage);
+    }
+
+    storage_by_address
+}
+
 pub fn os_hints(
     block_context: &BlockContext,
     mut state: CachedState<DictStateReader>,
@@ -288,7 +342,7 @@ pub fn os_hints(
     };
 
     let execution_helper = ExecutionHelperWrapper::new(
-        state,
+        cached_state_to_storage_by_address(&state),
         tx_execution_infos,
         &block_context,
         (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64)),

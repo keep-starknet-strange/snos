@@ -128,6 +128,8 @@ impl CommitmentInfo {
     }
 }
 
+// TODO: document this, is this the entire tree storage for a whole contract?
+//       why is it called "Single"?
 #[derive(Clone, Debug)]
 pub struct OsSingleStarknetStorage<S, H>
 where
