@@ -1216,7 +1216,7 @@ pub fn set_fp_plus_4_to_tx_nonce(
 ) -> Result<(), HintError> {
     let tx: &InternalTransaction = exec_scopes.get_ref(vars::scopes::TX)?;
     let nonce = tx.nonce.ok_or(HintError::AssertionFailed("tx.nonce should be set".to_string().into_boxed_str()))?;
-    vm.insert_value((vm.get_fp() + 4)?, nonce).map_err(HintError::Memory)?;
+    vm.insert_value((vm.get_fp() + 4)?, nonce)?;
 
     Ok(())
 }
