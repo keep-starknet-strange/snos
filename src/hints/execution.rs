@@ -1908,8 +1908,8 @@ mod tests {
         set_fp_plus_4_to_tx_nonce(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 
         let address: Relocatable = (vm.get_fp() + 4usize).unwrap();
-        let value = vm.get_integer(address).unwrap();
-        assert_eq!(value, std::borrow::Cow::Borrowed(&Felt252::THREE));
+        let value = vm.get_integer(address).unwrap().into_owned();
+        assert_eq!(value, Felt252::THREE);
     }
 }
 
