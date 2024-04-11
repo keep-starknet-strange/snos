@@ -137,17 +137,24 @@ pub fn set_preimage_for_current_commitment_info(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // TODO: CommitmentInfo should not be obtained through exec_scopes
-    let commitment_info = exec_scopes.get::<CommitmentInfo>(vars::scopes::COMMITMENT_INFO)?;
+    let commitment_info_by_address: &HashMap<Felt252, CommitmentInfo> =
+        exec_scopes.get_ref(vars::scopes::COMMITMENT_INFO_BY_ADDRESS)?;
+    let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+    let commitment_info = commitment_info_by_address.get(&contract_address).ok_or(HintError::CustomHint(
+        format!("Could not find commitment info for contract {contract_address}").into_boxed_str(),
+    ))?;
+
     insert_value_from_var_name(vars::ids::INITIAL_ROOT, commitment_info.previous_root, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::FINAL_ROOT, commitment_info.updated_root, vm, ids_data, ap_tracking)?;
 
-    let preimage = commitment_info.commitment_facts;
-    exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
+    let preimage = commitment_info.commitment_facts.clone();
 
     let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?;
     let tree_height: Felt252 = commitment_info.tree_height.into();
     assert_tree_height_eq_merkle_height(tree_height, merkle_height)?;
+
+    // Insert preimage in scopes later than the Python VM to please the borrow checker
+    exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
     Ok(())
 }
