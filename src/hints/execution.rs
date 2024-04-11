@@ -31,7 +31,6 @@ use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::execution::syscall_utils::SyscallSelector;
 use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
-use crate::hints::vars::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::hints::vars::ids::{
     ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
 };
@@ -231,6 +230,21 @@ pub const GET_CONTRACT_ADDRESS_STATE_ENTRY: &str = indoc! {r#"
     ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"#
 };
 
+pub fn get_contract_address_state_entry(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let key = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+
+    get_state_entry(dict_ptr, key, vm, exec_scopes, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
 fn get_state_entry_and_set_new_state_entry(
     dict_ptr: Relocatable,
     key: Felt252,
@@ -264,7 +278,7 @@ pub fn get_block_hash_contract_address_state_entry_and_set_new_state_entry(
     let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     let key = constants
         .get(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)
-        .ok_or_else(|| HintError::MissingConstant(Box::new(BLOCK_HASH_CONTRACT_ADDRESS)))?;
+        .ok_or_else(|| HintError::MissingConstant(Box::new(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)))?;
 
     get_state_entry_and_set_new_state_entry(dict_ptr, *key, vm, exec_scopes, ids_data, ap_tracking)?;
 
@@ -1558,8 +1572,8 @@ pub fn write_old_block_to_storage(
     let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
     let block_hash_contract_address = constants
-        .get(BLOCK_HASH_CONTRACT_ADDRESS)
-        .ok_or_else(|| HintError::MissingConstant(Box::new(BLOCK_HASH_CONTRACT_ADDRESS)))?;
+        .get(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)
+        .ok_or_else(|| HintError::MissingConstant(Box::new(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)))?;
     let old_block_number = get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
     let old_block_hash = get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?;
 
