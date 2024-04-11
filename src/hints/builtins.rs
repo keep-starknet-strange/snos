@@ -1,11 +1,12 @@
 use std::any::Any;
 use std::collections::HashMap;
-use std::ops::{AddAssign, Deref};
+use std::ops::AddAssign;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
+use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
@@ -13,7 +14,7 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
-use num_traits::{ToPrimitive, Zero};
+use num_traits::Zero;
 
 use crate::cairo_types::structs::BuiltinParams;
 
@@ -26,7 +27,7 @@ pub fn selected_builtins(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let n_selected_builtins: Box<dyn Any> =
-        Box::new(get_integer_from_var_name("n_selected_builtins", vm, ids_data, ap_tracking)?.into_owned());
+        Box::new(get_integer_from_var_name("n_selected_builtins", vm, ids_data, ap_tracking)?);
     exec_scopes.enter_scope(HashMap::from_iter([(String::from("n_selected_builtins"), n_selected_builtins)]));
     Ok(())
 }
@@ -104,13 +105,9 @@ pub fn update_builtin_ptrs(
 
     let selected_ptrs = get_ptr_from_var_name("selected_ptrs", vm, ids_data, ap_tracking)?;
 
-    let all_builtins = vm
-        .get_continuous_range(builtins_encoding_addr, n_builtins.deref().to_usize().ok_or(HintError::WrongHintData)?)?;
+    let all_builtins = vm.get_continuous_range(builtins_encoding_addr, felt_to_usize(&n_builtins)?)?;
 
-    let selected_builtins = vm.get_continuous_range(
-        selected_encodings,
-        n_selected_builtins.deref().to_usize().ok_or(HintError::WrongHintData)?,
-    )?;
+    let selected_builtins = vm.get_continuous_range(selected_encodings, felt_to_usize(&n_selected_builtins)?)?;
 
     let mut returned_builtins: Vec<MaybeRelocatable> = Vec::new();
     let mut selected_builtin_offset: usize = 0;

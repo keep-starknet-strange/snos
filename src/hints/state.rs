@@ -69,7 +69,7 @@ pub fn set_preimage_for_state_commitments(
     let preimage = os_input.contract_state_commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
-    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?.into_owned();
+    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?;
     let tree_height: Felt252 = os_input.contract_state_commitment_info.tree_height.into();
     assert_tree_height_eq_merkle_height(tree_height, merkle_height)?;
 
@@ -112,7 +112,7 @@ pub fn set_preimage_for_class_commitments(
     let preimage = os_input.contract_class_commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
-    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?.into_owned();
+    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?;
     let tree_height: Felt252 = os_input.contract_class_commitment_info.tree_height.into();
     assert_tree_height_eq_merkle_height(tree_height, merkle_height)?;
 
@@ -145,7 +145,7 @@ pub fn set_preimage_for_current_commitment_info(
     let preimage = commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
-    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?.into_owned();
+    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?;
     let tree_height: Felt252 = commitment_info.tree_height.into();
     assert_tree_height_eq_merkle_height(tree_height, merkle_height)?;
 
@@ -174,7 +174,7 @@ pub fn load_edge(
     insert_value_from_var_name(vars::ids::EDGE, new_segment_base, vm, ids_data, ap_tracking)?;
 
     let preimage: HashMap<Felt252, Vec<Felt252>> = exec_scopes.get(vars::scopes::PREIMAGE)?;
-    let node = get_integer_from_var_name(vars::ids::NODE, vm, ids_data, ap_tracking)?.into_owned();
+    let node = get_integer_from_var_name(vars::ids::NODE, vm, ids_data, ap_tracking)?;
     let node_values = preimage
         .get(&node)
         .ok_or(HintError::CustomHint("preimage does not contain expected edge".to_string().into_boxed_str()))?;
@@ -421,11 +421,11 @@ mod tests {
         set_preimage_for_state_commitments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 
         assert_eq!(
-            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             1_usize.into()
         );
         assert_eq!(
-            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             2_usize.into()
         );
         // TODO: test preimage more thoroughly
@@ -456,11 +456,11 @@ mod tests {
         set_preimage_for_class_commitments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 
         assert_eq!(
-            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             11_usize.into()
         );
         assert_eq!(
-            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             12_usize.into()
         );
         // TODO: test preimage more thoroughly
@@ -492,11 +492,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             1_usize.into()
         );
         assert_eq!(
-            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             2_usize.into()
         );
         // TODO: test preimage more thoroughly
