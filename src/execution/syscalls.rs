@@ -51,7 +51,7 @@ pub fn call_contract(
 
     println!(
         "CallContract syscall, contract address: {}, selector: {} -> failed: {}, {:?}?",
-        request.contract_address, request.function_selector, result.failed, result.retdata
+        request.contract_address, request.function_selector.to_hex_string(), result.failed, result.retdata
     );
 
     let start_ptr = vm.add_temporary_segment();

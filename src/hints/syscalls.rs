@@ -663,7 +663,7 @@ mod tests {
 }
 
 pub fn exit_syscall(
-    selector_name: &str,
+    _selector_name: &str,
     _vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,

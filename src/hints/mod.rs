@@ -19,6 +19,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::BigInt;
+use crate::execution::execute_syscalls;
 
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
@@ -46,7 +47,7 @@ pub type HintImpl = fn(
     &HashMap<String, Felt252>,
 ) -> Result<(), HintError>;
 
-static HINTS: [(&str, HintImpl); 167] = [
+static HINTS: [(&str, HintImpl); 168] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_N_GE_TWO, is_n_ge_two),
@@ -77,6 +78,7 @@ static HINTS: [(&str, HintImpl); 167] = [
     (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
     (builtins::SELECT_BUILTIN, builtins::select_builtin),
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
+    (execute_syscalls::IS_BLOCK_NUMBER_IN_BLOCK_HASH_BUFFER, execute_syscalls::is_block_number_in_block_hash_buffer),
     (execution::ADD_RELOCATION_RULE, execution::add_relocation_rule),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
@@ -349,7 +351,8 @@ impl HintProcessorLogic for SnosHintProcessor {
             }
 
             if let Some(hint_impl) = self.extensive_hints.get(hint_code) {
-                return hint_impl(self, vm, exec_scopes, &hpd.ids_data, &hpd.ap_tracking);
+                let r = hint_impl(self, vm, exec_scopes, &hpd.ids_data, &hpd.ap_tracking);
+                return r;
             }
 
             return self
