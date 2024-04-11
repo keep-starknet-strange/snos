@@ -21,13 +21,16 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
 use crate::cairo_types::structs::{CallContractResponse, EntryPointReturnValues, ExecutionContext};
-use crate::cairo_types::syscalls::{NewStorageWriteRequest, StorageRead, StorageReadRequest, StorageWrite};
+use crate::cairo_types::syscalls::{
+    NewStorageRead, NewStorageWriteRequest, StorageRead, StorageReadRequest, StorageWrite,
+};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::execution::syscall_utils::SyscallSelector;
 use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
+use crate::hints::vars::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::hints::vars::ids::{
     ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, REQUIRED_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
 };
@@ -85,7 +88,6 @@ pub fn exit_tx(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // TODO: add logger
-    println!("exit tx");
     Ok(())
 }
 
@@ -222,10 +224,10 @@ fn get_state_entry(
     Ok(())
 }
 
-pub const GET_CONTRACT_ADDRESS_STATE_ENTRY: &str = indoc! {r##"
+pub const GET_CONTRACT_ADDRESS_STATE_ENTRY: &str = indoc! {r#"
     # Fetch a state_entry in this hint and validate it in the update at the end
     # of this function.
-    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"##
+    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"#
 };
 fn get_state_entry_and_set_new_state_entry(
     dict_ptr: Relocatable,
@@ -255,12 +257,14 @@ pub fn get_block_hash_contract_address_state_entry_and_set_new_state_entry(
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
+    constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
-    let key = get_integer_from_var_name(vars::ids::BLOCK_HASH_CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+    let key = constants
+        .get(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)
+        .ok_or_else(|| HintError::MissingConstant(Box::new(BLOCK_HASH_CONTRACT_ADDRESS)))?;
 
-    get_state_entry_and_set_new_state_entry(dict_ptr, key.into_owned(), vm, exec_scopes, ids_data, ap_tracking)?;
+    get_state_entry_and_set_new_state_entry(dict_ptr, *key, vm, exec_scopes, ids_data, ap_tracking)?;
 
     Ok(())
 }
@@ -1555,22 +1559,25 @@ pub fn write_old_block_to_storage(
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
+    constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
-    let block_hash_contract_address =
-        get_integer_from_var_name(vars::ids::BLOCK_HASH_CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+
+    let block_hash_contract_address = constants
+        .get(BLOCK_HASH_CONTRACT_ADDRESS)
+        .ok_or_else(|| HintError::MissingConstant(Box::new(BLOCK_HASH_CONTRACT_ADDRESS)))?;
     let old_block_number =
         get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?.into_owned();
     let old_block_hash = get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?.into_owned();
 
-    execution_helper.write_storage_for_address(block_hash_contract_address, old_block_number, old_block_hash).map_err(
-        |_| {
+    println!("writing block number: {} -> block hash: {}", old_block_number, old_block_hash);
+    execution_helper
+        .write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash)
+        .map_err(|_| {
             HintError::CustomHint(
                 format!("Storage not found for contract {}", block_hash_contract_address).into_boxed_str(),
             )
-        },
-    )?;
+        })?;
 
     Ok(())
 }
@@ -1590,7 +1597,7 @@ pub fn cache_contract_storage_request_key(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let request_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
-    let key = vm.get_integer(&request_ptr + 1)?.into_owned();
+    let key = vm.get_integer((request_ptr + NewStorageRead::key_offset())?)?.into_owned();
 
     cache_contract_storage(key, vm, exec_scopes, ids_data, ap_tracking)
 }
@@ -1611,7 +1618,7 @@ pub fn cache_contract_storage_syscall_request_address(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
+    let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
     let offset = StorageRead::request_offset() + StorageReadRequest::address_offset();
     let key = vm.get_integer((syscall_ptr + offset)?)?.into_owned();
 
@@ -1667,6 +1674,7 @@ mod tests {
     use starknet_api::block::BlockNumber;
 
     use super::*;
+    use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
     use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
     use crate::starkware_utils::commitment_tree::base_types::Height;
@@ -1682,8 +1690,16 @@ mod tests {
     }
 
     #[fixture]
-    fn execution_helper(block_context: BlockContext) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context)
+    fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
+        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+    }
+
+    #[fixture]
+    fn execution_helper(
+        block_context: BlockContext,
+        old_block_number_and_hash: (Felt252, Felt252),
+    ) -> ExecutionHelperWrapper {
+        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context, old_block_number_and_hash)
     }
 
     #[fixture]
@@ -1732,13 +1748,13 @@ mod tests {
         let constants = HashMap::new();
 
         let ids_data = HashMap::from([
-            (vars::ids::REQUEST.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::SYSCALL_PTR.to_string(), HintReference::new_simple(-3)),
             (vars::ids::CONTRACT_ADDRESS.to_string(), HintReference::new_simple(-2)),
             (vars::ids::VALUE.to_string(), HintReference::new_simple(-1)),
         ]);
 
         // Make ids.request point to (1, 0)
-        insert_value_from_var_name(vars::ids::REQUEST, (1, 0), &mut vm, &ids_data, &ap_tracking).unwrap();
+        insert_value_from_var_name(vars::ids::SYSCALL_PTR, (1, 0), &mut vm, &ids_data, &ap_tracking).unwrap();
         let key = Felt252::from(42);
         // request.key is at offset 1 in the structure
         vm.insert_value(Relocatable::from((1, 1)), key).unwrap();

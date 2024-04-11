@@ -15,6 +15,7 @@ pub mod tests {
     use starknet_api::transaction::Fee;
     use starknet_api::{contract_address, patricia_key};
 
+    use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::hints::*;
 
     macro_rules! references {
@@ -61,6 +62,11 @@ pub mod tests {
     }
 
     #[fixture]
+    pub fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
+        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+    }
+
+    #[fixture]
     fn transaction_execution_info() -> TransactionExecutionInfo {
         TransactionExecutionInfo {
             validate_call_info: None,
@@ -76,6 +82,7 @@ pub mod tests {
     fn test_set_ap_to_actual_fee_hint(
         block_context: BlockContext,
         transaction_execution_info: TransactionExecutionInfo,
+        old_block_number_and_hash: (Felt252, Felt252),
     ) {
         let mut vm = VirtualMachine::new(false);
         vm.set_fp(1);
@@ -89,7 +96,12 @@ pub mod tests {
 
         // inject txn execution info with a fee for hint to use
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::new(CachedState::default(), execution_infos, &block_context);
+        let exec_helper = ExecutionHelperWrapper::new(
+            CachedState::default(),
+            execution_infos,
+            &block_context,
+            old_block_number_and_hash,
+        );
         exec_helper.start_tx(None);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, Box::new(exec_helper));
 
@@ -137,7 +149,11 @@ pub mod tests {
     }
 
     #[rstest]
-    fn test_start_tx(block_context: BlockContext, transaction_execution_info: TransactionExecutionInfo) {
+    fn test_start_tx(
+        block_context: BlockContext,
+        transaction_execution_info: TransactionExecutionInfo,
+        old_block_number_and_hash: (Felt252, Felt252),
+    ) {
         let mut vm = VirtualMachine::new(false);
         vm.set_fp(1);
         vm.add_memory_segment();
@@ -150,7 +166,12 @@ pub mod tests {
 
         // we need an execution info in order to start a tx
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::new(CachedState::default(), execution_infos, &block_context);
+        let exec_helper = ExecutionHelperWrapper::new(
+            CachedState::default(),
+            execution_infos,
+            &block_context,
+            old_block_number_and_hash,
+        );
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
@@ -164,7 +185,11 @@ pub mod tests {
     }
 
     #[rstest]
-    fn test_skip_tx(block_context: BlockContext, transaction_execution_info: TransactionExecutionInfo) {
+    fn test_skip_tx(
+        block_context: BlockContext,
+        transaction_execution_info: TransactionExecutionInfo,
+        old_block_number_and_hash: (Felt252, Felt252),
+    ) {
         let mut vm = VirtualMachine::new(false);
         vm.set_fp(1);
         vm.add_memory_segment();
@@ -178,7 +203,12 @@ pub mod tests {
         // skipping a tx is the same as starting and immediately ending it, so we need one
         // execution info to chew through
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::new(CachedState::default(), execution_infos, &block_context);
+        let exec_helper = ExecutionHelperWrapper::new(
+            CachedState::default(),
+            execution_infos,
+            &block_context,
+            old_block_number_and_hash,
+        );
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
@@ -194,7 +224,11 @@ pub mod tests {
     }
 
     #[rstest]
-    fn test_skip_call(block_context: BlockContext, transaction_execution_info: TransactionExecutionInfo) {
+    fn test_skip_call(
+        block_context: BlockContext,
+        transaction_execution_info: TransactionExecutionInfo,
+        old_block_number_and_hash: (Felt252, Felt252),
+    ) {
         let mut vm = VirtualMachine::new(false);
         vm.set_fp(1);
         vm.add_memory_segment();
@@ -210,7 +244,12 @@ pub mod tests {
         transaction_execution_info.execute_call_info = Some(Default::default());
 
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::new(CachedState::default(), execution_infos, &block_context);
+        let exec_helper = ExecutionHelperWrapper::new(
+            CachedState::default(),
+            execution_infos,
+            &block_context,
+            old_block_number_and_hash,
+        );
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 

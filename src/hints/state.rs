@@ -311,6 +311,7 @@ mod tests {
     use rstest::{fixture, rstest};
 
     use super::*;
+    use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
     use crate::hints::types::PatriciaSkipValidationRunner;
     use crate::starknet::starknet_storage::{OsSingleStarknetStorage, StorageLeaf};
@@ -352,8 +353,16 @@ mod tests {
     }
 
     #[fixture]
-    fn execution_helper(block_context: BlockContext) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context)
+    fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
+        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+    }
+
+    #[fixture]
+    fn execution_helper(
+        block_context: BlockContext,
+        old_block_number_and_hash: (Felt252, Felt252),
+    ) -> ExecutionHelperWrapper {
+        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context, old_block_number_and_hash)
     }
 
     #[fixture]
