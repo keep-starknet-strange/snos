@@ -57,18 +57,6 @@ pub const CALCULATE_VALUE: &str = indoc! {r#"
         value = (-y) % SECP256R1.prime"#
 };
 
-// TODO: similar to execution::COMPARE_RETURN_VALUE
-#[allow(unused)]
-pub const COMPARE_RETURN_VALUE_2: &str = indoc! {r#"
-    # Check that the actual return value matches the expected one.
-    expected = memory.get_range(
-        addr=ids.response.constructor_retdata_start,
-        size=ids.response.constructor_retdata_end - ids.response.constructor_retdata_start,
-    )
-    actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
-    assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
-};
-
 #[allow(unused)]
 pub const SET_AP_TO_SEGMENT_HASH: &str = indoc! {r#"
     memory[ap] = to_felt_or_relocatable(bytecode_segment_structure.hash())"#

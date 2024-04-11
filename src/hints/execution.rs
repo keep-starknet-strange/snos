@@ -8,6 +8,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     insert_value_from_var_name, insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
+use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
 use cairo_vm::serde::deserialize_program::{ApTracking, OffsetValue};
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -22,7 +23,8 @@ use num_traits::ToPrimitive;
 
 use crate::cairo_types::structs::{CallContractResponse, EntryPointReturnValues, ExecutionContext};
 use crate::cairo_types::syscalls::{
-    NewStorageRead, NewStorageWriteRequest, StorageRead, StorageReadRequest, StorageWrite,
+    NewDeployResponse, NewStorageRead, NewStorageWriteRequest, NewSyscallContractResponse, StorageRead,
+    StorageReadRequest, StorageWrite, SyscallContractResponse,
 };
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
@@ -934,7 +936,26 @@ pub fn check_execution(
     Ok(())
 }
 
-pub const COMPARE_RETURN_VALUE: &str = indoc! {r#"
+fn assert_memory_ranges_equal(
+    vm: &VirtualMachine,
+    expected_ptr: Relocatable,
+    expected_size: usize,
+    actual_ptr: Relocatable,
+    actual_size: usize,
+) -> Result<(), HintError> {
+    let expected = vm.get_range(expected_ptr, expected_size);
+    let actual = vm.get_range(actual_ptr, actual_size);
+
+    if expected != actual {
+        return Err(HintError::AssertionFailed(
+            format!("Return value mismatch expected={expected:?}, actual={actual:?}.").into_boxed_str(),
+        ));
+    }
+
+    Ok(())
+}
+
+pub const CHECK_SYSCALL_RESPONSE: &str = indoc! {r#"
 	# Check that the actual return value matches the expected one.
 	expected = memory.get_range(
 	    addr=ids.call_response.retdata, size=ids.call_response.retdata_size
@@ -944,32 +965,90 @@ pub const COMPARE_RETURN_VALUE: &str = indoc! {r#"
 	assert expected == actual, f'Return value mismatch expected={expected}, actual={actual}.'"#
 };
 
-pub fn compare_return_value(
+pub fn check_syscall_response(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let call_response = get_ptr_from_var_name("call_response", vm, ids_data, ap_tracking)?;
-    // the first field in call_data is the size
-    let size = vm.get_integer(call_response)?.into_owned().to_usize().unwrap();
-    // the second field is immediately afterward, but needs to be dereferenced
-    let expected_retdata_ptr = vm.get_relocatable((call_response + 1)?)?;
-    let expected = vm.get_range(expected_retdata_ptr, size);
+    let call_response_ptr = get_ptr_from_var_name(vars::ids::CALL_RESPONSE, vm, ids_data, ap_tracking)?;
+    let call_response_retdata = vm.get_relocatable((call_response_ptr + SyscallContractResponse::retdata_offset())?)?;
+    let call_response_retdata_size =
+        felt_to_usize(vm.get_integer((call_response_ptr + SyscallContractResponse::retdata_size_offset())?)?.as_ref())?;
 
-    let ids_retdata = get_ptr_from_var_name("retdata", vm, ids_data, ap_tracking)?;
-    let ids_retdata_size = get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?.to_usize().unwrap();
+    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
+    let retdata_size =
+        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
 
-    let actual = vm.get_range(ids_retdata, ids_retdata_size);
+    assert_memory_ranges_equal(vm, call_response_retdata, call_response_retdata_size, retdata, retdata_size)?;
 
-    if expected != actual {
-        println!("expected: {:?}", expected);
-        println!("actual: {:?}", actual);
+    Ok(())
+}
 
-        // assert_eq!(expected, actual, "Return value mismatch");
-        return Err(HintError::AssertNotEqualFail(Box::new((call_response.into(), ids_retdata.into()))));
-    }
+pub const CHECK_NEW_SYSCALL_RESPONSE: &str = indoc! {r#"
+	# Check that the actual return value matches the expected one.
+	expected = memory.get_range(
+	    addr=ids.response.retdata_start,
+	    size=ids.response.retdata_end - ids.response.retdata_start,
+	)
+	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
+
+	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
+};
+
+pub fn check_new_syscall_response(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let response_ptr = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
+    let response_retdata_start =
+        vm.get_relocatable((response_ptr + NewSyscallContractResponse::retdata_start_offset())?)?;
+    let response_retdata_end =
+        vm.get_relocatable((response_ptr + NewSyscallContractResponse::retdata_end_offset())?)?;
+    let response_retdata_size = (response_retdata_end - response_retdata_start)?;
+
+    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
+    let retdata_size =
+        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
+
+    assert_memory_ranges_equal(vm, response_retdata_start, response_retdata_size, retdata, retdata_size)?;
+
+    Ok(())
+}
+
+pub const CHECK_NEW_DEPLOY_RESPONSE: &str = indoc! {r#"
+	# Check that the actual return value matches the expected one.
+	expected = memory.get_range(
+	    addr=ids.response.constructor_retdata_start,
+	    size=ids.response.constructor_retdata_end - ids.response.constructor_retdata_start,
+	)
+	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
+	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
+};
+
+pub fn check_new_deploy_response(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let response_ptr = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
+    let constructor_retdata_start =
+        vm.get_relocatable((response_ptr + NewDeployResponse::constructor_retdata_start_offset())?)?;
+    let constructor_retdata_end =
+        vm.get_relocatable((response_ptr + NewDeployResponse::constructor_retdata_end_offset())?)?;
+    let response_retdata_size = (constructor_retdata_end - constructor_retdata_start)?;
+
+    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
+    let retdata_size =
+        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
+
+    assert_memory_ranges_equal(vm, constructor_retdata_start, response_retdata_size, retdata, retdata_size)?;
 
     Ok(())
 }
