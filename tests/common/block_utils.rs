@@ -14,6 +14,7 @@ use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
 use snos::crypto::pedersen::PedersenHash;
 use snos::execution::helper::{ExecutionHelperWrapper, StorageByAddress};
@@ -194,43 +195,42 @@ pub fn copy_state(state: &CachedState<DictStateReader>) -> CachedState<DictState
 
 /// extract the contract storage from a CachedState
 pub fn cached_state_to_storage_by_address(state: &CachedState<DictStateReader>) -> StorageByAddress {
-    let storage_by_address = StorageByAddress::new();
+    let mut storage_by_address = StorageByAddress::new();
 
-    let contract_trees = HashMap::new();
-
-    let storage = DictStorage::default();
-    let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
-
+    // CachedState's `state.state.storage_view` is a mapping of (contract, storage_key) -> value
+    // but we need a mapping of (contract) -> [(storage_key, value)] so we can build entire trees
+    // at a time
+    let mut contract_storages: HashMap<Felt252, Vec<(Felt252, Felt252)>> = Default::default();
     for ((contract_address, storage_key), value) in &state.state.storage_view {
-        // adding initial state
-        //     ContractAddress(PatriciaKey(StarkFelt("0x...0001")))/
-        //     StorageKey(PatriciaKey(StarkFelt("0x...07c6")))):
-        //     StarkFelt("0x0000000000000000000000000000000000000000000000000000000000000042")
-        println!("adding initial state {:?}/{:?}: {:?}", contract_address, storage_key, value);
 
         let contract_address = felt_api2vm(*contract_address.0.key());
         let storage_key = felt_api2vm(*storage_key.0.key());
         let value = felt_api2vm(*value);
 
-        // initialize a OsSingleStarknetStorage if needed
-        let contract_storage = contract_trees.get_mut(&contract_address).ok_or_else(|| {
-            let patricia_tree = execute_coroutine_threadsafe(async {
-                PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap()
-            });
-            let contract_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc);
-            contract_trees.insert(contract_address, contract_storage);
-            
-            contract_storage
-        }).expect("contract storage exists or is initialized above, QED");
+        println!("adding initial state {:?}/{:?}: {:?}", contract_address, storage_key, value);
 
-        // TODO: restructure this to put initial state in the tree at initialiation instead of as
-        // ongoing_storage_changes (that was the initial point of 'contract_trees')
-        contract_storage.write(storage_key.to_biguint(), value);
+        if ! contract_storages.contains_key(&contract_address) {
+            contract_storages.insert(contract_address, vec![]);
+        }
+        contract_storages.get_mut(&contract_address).unwrap().push((storage_key, value));
     }
 
-    // TODO: see above, contract_trees needs restructuring
-    for (contract_address, contract_tree) in contract_trees {
-        storage_by_address.insert(contract_address, contract_tree);
+    let storage = DictStorage::default();
+    let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
+
+    for (contract_address, storage) in &contract_storages {
+        assert!(! storage_by_address.contains_key(&contract_address), "logic error: should be building entire tree at once");
+
+        // TODO: roll this into contract_storages above for simplicity
+        let modifications = storage.iter().map(|(key, value)| (key.to_biguint(), StorageLeaf::new(*value))).collect();
+
+        let patricia_tree = execute_coroutine_threadsafe(async {
+            let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+            let mut facts = None;
+            tree.update(&mut ffc, modifications, &mut facts).await.unwrap()
+        });
+        let contract_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc.clone());
+        storage_by_address.insert(*contract_address, contract_storage);
     }
 
     storage_by_address
