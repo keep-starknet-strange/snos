@@ -1,11 +1,9 @@
 use indoc::indoc;
 
-#[allow(unused)]
 pub const ASSIGN_BYTECODE_SEGMENTS: &str = indoc! {r#"
     bytecode_segments = iter(bytecode_segment_structure.segments)"#
 };
 
-#[allow(unused)]
 pub const COMPUTE_SLOPE: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_ALPHA, SECP256R1_P
     from starkware.cairo.common.cairo_secp.secp_utils import pack
@@ -17,14 +15,12 @@ pub const COMPUTE_SLOPE: &str = indoc! {r#"
     value = slope = ec_double_slope(point=(x, y), alpha=SECP256R1_ALPHA, p=SECP256R1_P)"#
 };
 
-#[allow(unused)]
 pub const ASSIGN_STATE_ENTRY_WITH_NEW_SEGMENT: &str = indoc! {r#"
     # Fetch a state_entry in this hint and validate it in the update that comes next.
     ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
     ids.new_state_entry = segments.add()"#
 };
 
-#[allow(unused)]
 pub const SET_STATE_ENTRY_TO_ACCOUNT_CONTRACT_ADDRESS: &str = indoc! {r#"
     # Fetch a state_entry in this hint and validate it in the update that comes next.
     ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
@@ -32,7 +28,6 @@ pub const SET_STATE_ENTRY_TO_ACCOUNT_CONTRACT_ADDRESS: &str = indoc! {r#"
     ]"#
 };
 
-#[allow(unused)]
 pub const CALCULATE_VALUE: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp_utils import SECP256R1, pack
     from starkware.python.math_utils import y_squared_from_x
@@ -58,7 +53,6 @@ pub const CALCULATE_VALUE: &str = indoc! {r#"
 };
 
 // TODO: similar to execution::COMPARE_RETURN_VALUE
-#[allow(unused)]
 pub const COMPARE_RETURN_VALUE_2: &str = indoc! {r#"
     # Check that the actual return value matches the expected one.
     expected = memory.get_range(
@@ -69,12 +63,10 @@ pub const COMPARE_RETURN_VALUE_2: &str = indoc! {r#"
     assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
 };
 
-#[allow(unused)]
 pub const SET_AP_TO_SEGMENT_HASH: &str = indoc! {r#"
     memory[ap] = to_felt_or_relocatable(bytecode_segment_structure.hash())"#
 };
 
-#[allow(unused)]
 pub const FETCH_RESULT: &str = indoc! {r#"
     # Fetch the result, up to 100 elements.
     result = memory.get_range(ids.retdata, min(100, ids.retdata_size))
@@ -85,48 +77,40 @@ pub const FETCH_RESULT: &str = indoc! {r#"
         print(f"  Result (at most 100 elements): {result}")"#
 };
 
-#[allow(unused)]
 pub const COMPUTE_NEW_Y: &str = indoc! {r#"
     value = new_y = (slope * (x - new_x) - y) % SECP256R1_P"#
 };
 
-#[allow(unused)]
 pub const COMPUTE_VALUE_DIV_MOD: &str = indoc! {r#"
     from starkware.python.math_utils import div_mod
 
     value = div_mod(1, x, SECP256R1_P)"#
 };
 
-#[allow(unused)]
 pub const DATA_TO_HASH_NEW_SEGMENT: &str = indoc! {r#"
     ids.data_to_hash = segments.add()"#
 };
 
-#[allow(unused)]
 pub const SET_STATE_UPDATES_START: &str = indoc! {r#"if ids.use_kzg_da:
     ids.state_updates_start = segments.add()
 else:
     # Assign a temporary segment, to be relocated into the output segment.
     ids.state_updates_start = segments.add_temp_segment()"#};
 
-#[allow(unused)]
 pub const ASSERT_END_OF_BYTECODE_SEGMENTS: &str = indoc! {r#"
     assert next(bytecode_segments, None) is None"#
 };
 
-#[allow(unused)]
 pub const ADDITIONAL_DATA_NEW_SEGMENT: &str = indoc! {r#"
     ids.additional_data = segments.add()"#
 };
 
-#[allow(unused)]
 pub const WRITE_ADDRESS: &str = indoc! {r#"
     from starkware.starknet.core.os.data_availability.bls_utils import split
 
     segments.write_arg(ids.res.address_, split(ids.value))"#
 };
 
-#[allow(unused)]
 pub const COMPUTE_IDS_HIGH_LOW: &str = indoc! {r#"
     from starkware.cairo.common.math_utils import as_int
 
@@ -138,7 +122,6 @@ pub const COMPUTE_IDS_HIGH_LOW: &str = indoc! {r#"
     ids.high, ids.low = divmod(ids.value, ids.SHIFT)"#
 };
 
-#[allow(unused)]
 pub const WRITE_ZKG_COMMITMENT_ADDRESS: &str = indoc! {r#"
     execution_helper.store_da_segment(
         da_segment=memory.get_range_as_ints(addr=ids.state_updates_start, size=ids.da_size)
@@ -151,17 +134,14 @@ pub const WRITE_ZKG_COMMITMENT_ADDRESS: &str = indoc! {r#"
     )"#
 };
 
-#[allow(unused)]
 pub const WRITE_NIBBLES_TO_MEM: &str = indoc! {r#"
     memory[fp + 0] = to_felt_or_relocatable(nibbles.pop())"#
 };
 
-#[allow(unused)]
 pub const WRITE_USE_ZKG_DA_TO_MEM: &str = indoc! {r#"
     memory[fp + 15] = to_felt_or_relocatable(syscall_handler.block_info.use_kzg_da)"#
 };
 
-#[allow(unused)]
 pub const PACK_X_PRIME: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_P
     from starkware.cairo.common.cairo_secp.secp_utils import pack
@@ -169,17 +149,14 @@ pub const PACK_X_PRIME: &str = indoc! {r#"
     x = pack(ids.x, PRIME) % SECP256R1_P"#
 };
 
-#[allow(unused)]
 pub const WRITE_CASE_NOT_LEFT_TO_AP: &str = indoc! {r#"
     memory[ap] = int(case != 'left')"#
 };
 
-#[allow(unused)]
 pub const EXIT_SYSCALL_GET_BLOCK_NUMBER: &str = indoc! {r#"
     exit_syscall(selector=ids.GET_BLOCK_NUMBER_SELECTOR)"#
 };
 
-#[allow(unused)]
 pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"
     current_segment_info = next(bytecode_segments)
 
@@ -196,30 +173,25 @@ pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"
 };
 
 // TODO: this hint isn't matching properly, perhaps because of the backslash-line-continuation
-#[allow(unused)]
 pub const CHECK_REQUEST_BLOCK_AGAINST_BUFFER_LEN: &str = indoc! {r#"
     memory[ap] = to_felt_or_relocatable(ids.request_block_number > \
         ids.current_block_number - ids.STORED_BLOCK_HASH_BUFFER)"#
 };
 
-#[allow(unused)]
 pub const START_TX_VALIDATE_DECLARE: &str = indoc! {r#"
     execution_helper.start_tx(
         tx_info_ptr=ids.validate_declare_execution_context.deprecated_tx_info.address_
     )"#
 };
 
-#[allow(unused)]
 pub const WRITE_TX_NONCE_TO_MEMORY: &str = indoc! {r#"
     memory[fp + 4] = to_felt_or_relocatable(tx.nonce)"#
 };
 
-#[allow(unused)]
 pub const MAYBE_WRITE_ADDRESS_TO_AP: &str = indoc! {r#"
     memory[ap] = to_felt_or_relocatable(ids.response.ec_point.address_ if ids.not_on_curve == 0 else segments.add())"#
 };
 
-#[allow(unused)]
 pub const GENERATE_NIBBLES: &str = indoc! {r#"
     num = (ids.scalar.high << 128) + ids.scalar.low
     nibbles = [(num >> i) & 0xf for i in range(0, 256, 4)]
@@ -228,20 +200,17 @@ pub const GENERATE_NIBBLES: &str = indoc! {r#"
 };
 
 // TODO: looks nearly identical to crate::IS_ON_CURVE
-#[allow(unused)]
 pub const IS_ON_CURVE_2: &str = indoc! {r#"
     ids.is_on_curve = (y * y) % SECP256R1.prime == y_square_int"#
 };
 
 // TODO: looks similar to PACK_X_PRIME (above)
-#[allow(unused)]
 pub const PACK_X_PRIME_2: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_P
     from starkware.cairo.common.cairo_secp.secp_utils import pack
     value = pack(ids.x, PRIME) % SECP256R1_P"#
 };
 
-#[allow(unused)]
 pub const WRITE_DIVMOD_SEGMENT: &str = indoc! {r#"
     from starkware.starknet.core.os.data_availability.bls_utils import BLS_PRIME, pack, split
 
@@ -257,7 +226,6 @@ pub const WRITE_DIVMOD_SEGMENT: &str = indoc! {r#"
     segments.write_arg(ids.res.address_, split(r))"#
 };
 
-#[allow(unused)]
 pub const CALCULATE_VALUE_2: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_P
     from starkware.cairo.common.cairo_secp.secp_utils import pack
@@ -269,7 +237,6 @@ pub const CALCULATE_VALUE_2: &str = indoc! {r#"
     value = new_x = (pow(slope, 2, SECP256R1_P) - 2 * x) % SECP256R1_P"#
 };
 
-#[allow(unused)]
 pub const COMPUTE_Q_MOD_PRIME: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_P
     from starkware.cairo.common.cairo_secp.secp_utils import pack
@@ -279,7 +246,6 @@ pub const COMPUTE_Q_MOD_PRIME: &str = indoc! {r#"
     ids.q = q % PRIME"#
 };
 
-#[allow(unused)]
 pub const CREATE_COMMON_ARGS: &str = indoc! {r#"
     from starkware.cairo.common.patricia_utils import canonic, patricia_guess_descents
     from starkware.python.merkle_tree import build_update_tree
@@ -308,7 +274,6 @@ pub const CREATE_COMMON_ARGS: &str = indoc! {r#"
     common_args['common_args'] = common_args"#
 };
 
-#[allow(unused)]
 pub const COMPUTE_SLOPE_2: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_P
     from starkware.cairo.common.cairo_secp.secp_utils import pack
@@ -322,7 +287,6 @@ pub const COMPUTE_SLOPE_2: &str = indoc! {r#"
     value = slope = line_slope(point1=(x0, y0), point2=(x1, y1), p=SECP256R1_P)"#
 };
 
-#[allow(unused)]
 pub const COMPUTE_IDS_LOW: &str = indoc! {r#"
     ids.low = (ids.value.d0 + ids.value.d1 * ids.BASE) & ((1 << 128) - 1)"#
 };

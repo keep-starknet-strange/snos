@@ -48,7 +48,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 156] = [
+static HINTS: [(&str, HintImpl); 158] = [
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
     (IS_ON_CURVE, is_on_curve),
@@ -106,6 +106,8 @@ static HINTS: [(&str, HintImpl); 156] = [
     (execution::GEN_SIGNATURE_ARG, execution::gen_signature_arg),
     (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY, execution::get_contract_address_state_entry_and_set_new_state_entry),
     (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY_2, execution::get_contract_address_state_entry_and_set_new_state_entry),
+    (execution::GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY, execution::get_block_hash_contract_address_state_entry_and_set_new_state_entry),
+    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry_and_set_new_state_entry),
     (execution::GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY, execution::get_block_hash_contract_address_state_entry_and_set_new_state_entry),
     (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry_and_set_new_state_entry),
     (execution::INITIAL_GE_REQUIRED_GAS, execution::initial_ge_required_gas),
