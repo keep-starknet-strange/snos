@@ -181,19 +181,6 @@ impl ExecutionHelperWrapper {
     }
 
     pub fn read_storage_for_address(&mut self, address: Felt252, key: Felt252) -> Result<Felt252, StorageError> {
-        /*
-        // TODO: temporary implementation using blockifier state
-        let state = &mut self.execution_helper.as_ref().borrow_mut().state;
-        let address = ContractAddress::try_from(felt_vm2api(address)).map_err(|_| StorageError::ContentNotFound)?;
-        let key = StorageKey::try_from(felt_vm2api(key)).map_err(|_| StorageError::ContentNotFound)?;
-        if let Ok(value) = state.get_storage_at(address, key) {
-            Ok(felt_api2vm(value))
-        } else {
-            // TODO: be more specific about the error reasons
-            Err(StorageError::ContentNotFound)
-        }
-        */
-
         let storage_by_address = &mut
         self.execution_helper.as_ref().borrow_mut().storage_by_address;
         if let Some(storage) = storage_by_address.get_mut(&address) {
@@ -209,20 +196,6 @@ impl ExecutionHelperWrapper {
         key: Felt252,
         value: Felt252,
     ) -> Result<(), StorageError> {
-        /*
-        // TODO: temporary implementation using blockifier state
-        let state = &mut self.execution_helper.as_ref().borrow_mut().state;
-        let address = ContractAddress::try_from(felt_vm2api(address)).map_err(|_| StorageError::ContentNotFound)?;
-        let key = StorageKey::try_from(felt_vm2api(key)).map_err(|_| StorageError::ContentNotFound)?;
-        let value = felt_vm2api(value);
-        if let Ok(value) = state.set_storage_at(address, key, value) {
-            Ok(value)
-        } else {
-            // TODO: be more specific about the error reasons
-            Err(StorageError::ContentNotFound)
-        }
-        */
-
         let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
         if let Some(storage) = storage_by_address.get_mut(&address) {
             storage.write(key.to_biguint(), value);
