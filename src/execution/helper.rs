@@ -181,12 +181,11 @@ impl ExecutionHelperWrapper {
     }
 
     pub fn read_storage_for_address(&mut self, address: Felt252, key: Felt252) -> Result<Felt252, StorageError> {
-        let storage_by_address = &mut
-        self.execution_helper.as_ref().borrow_mut().storage_by_address;
+        let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
         if let Some(storage) = storage_by_address.get_mut(&address) {
             return storage.read(key).ok_or(StorageError::ContentNotFound);
         }
-        
+
         Err(StorageError::ContentNotFound)
     }
 

@@ -202,14 +202,13 @@ pub fn cached_state_to_storage_by_address(state: &CachedState<DictStateReader>) 
     // at a time
     let mut contract_storages: HashMap<Felt252, Vec<(Felt252, Felt252)>> = Default::default();
     for ((contract_address, storage_key), value) in &state.state.storage_view {
-
         let contract_address = felt_api2vm(*contract_address.0.key());
         let storage_key = felt_api2vm(*storage_key.0.key());
         let value = felt_api2vm(*value);
 
         println!("adding initial state {:?}/{:?}: {:?}", contract_address, storage_key, value);
 
-        if ! contract_storages.contains_key(&contract_address) {
+        if !contract_storages.contains_key(&contract_address) {
             contract_storages.insert(contract_address, vec![]);
         }
         contract_storages.get_mut(&contract_address).unwrap().push((storage_key, value));
@@ -219,7 +218,10 @@ pub fn cached_state_to_storage_by_address(state: &CachedState<DictStateReader>) 
     let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
 
     for (contract_address, storage) in &contract_storages {
-        assert!(! storage_by_address.contains_key(&contract_address), "logic error: should be building entire tree at once");
+        assert!(
+            !storage_by_address.contains_key(&contract_address),
+            "logic error: should be building entire tree at once"
+        );
 
         // TODO: roll this into contract_storages above for simplicity
         let modifications = storage.iter().map(|(key, value)| (key.to_biguint(), StorageLeaf::new(*value))).collect();
