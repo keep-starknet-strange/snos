@@ -414,7 +414,7 @@ pub fn elements_ge_10(
 ) -> Result<(), HintError> {
     let elements_end = get_ptr_from_var_name("elements_end", vm, ids_data, _ap_tracking)?;
     let elements = get_ptr_from_var_name("elements", vm, ids_data, _ap_tracking)?;
-    insert_value_into_ap(vm, Felt252::from(elements_end - elements))
+    insert_value_into_ap(vm, Felt252::from((elements_end - elements)? >= 10))
 }
 
 pub const ELEMENTS_GE_2: &str = "memory[ap] = to_felt_or_relocatable(ids.elements_end - ids.elements >= 2)";
