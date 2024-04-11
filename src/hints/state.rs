@@ -144,8 +144,8 @@ pub fn set_preimage_for_current_commitment_info(
         format!("Could not find commitment info for contract {contract_address}").into_boxed_str(),
     ))?;
 
-    insert_value_from_var_name(vars::ids::INITIAL_ROOT, commitment_info.previous_root, vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(vars::ids::FINAL_ROOT, commitment_info.updated_root, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::INITIAL_CONTRACT_STATE_ROOT, commitment_info.previous_root, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::FINAL_CONTRACT_STATE_ROOT, commitment_info.updated_root, vm, ids_data, ap_tracking)?;
 
     let preimage = commitment_info.commitment_facts.clone();
 

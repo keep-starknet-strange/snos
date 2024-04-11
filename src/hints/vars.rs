@@ -42,10 +42,12 @@ pub mod ids {
     pub const ENTRY_POINT_RETURN_VALUES: &str = "entry_point_return_values";
     pub const EXECUTION_CONTEXT: &str = "execution_context";
     pub const FINAL_ROOT: &str = "final_root";
+    pub const FINAL_CONTRACT_STATE_ROOT: &str = "final_contract_state_root";
     pub const HASH_PTR: &str = "hash_ptr";
     pub const INITIAL_GAS: &str = "initial_gas";
     pub const HEIGHT: &str = "height";
     pub const INITIAL_ROOT: &str = "initial_root";
+    pub const INITIAL_CONTRACT_STATE_ROOT: &str = "initial_contract_state_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const LENGTH: &str = "length";
     pub const MAX_FEE: &str = "max_fee";
