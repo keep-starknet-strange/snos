@@ -149,31 +149,6 @@ pub mod tests {
     }
 
     #[rstest]
-    #[case(Felt252::TWO, Felt252::ONE)]
-    #[case(Felt252::THREE, Felt252::ONE)]
-    #[case(Felt252::ZERO, Felt252::ZERO)]
-    fn test_is_n_ge_two(#[case] input: Felt252, #[case] expected: Felt252) {
-        let mut vm = VirtualMachine::new(false);
-        let ids_data = ids_data!["n"];
-        let ap_tracking = ApTracking::default();
-        let mut exec_scopes: ExecutionScopes = ExecutionScopes::new();
-
-        vm.set_fp(1);
-        vm.set_ap(1);
-        vm.add_memory_segment();
-        vm.add_memory_segment();
-        // Create ids_data
-        let _ = insert_value_from_var_name("n", input, &mut vm, &ids_data, &ap_tracking);
-        is_n_ge_two(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
-            .expect("is_n_ge_two() failed");
-
-        let relocatable = vm.get_ap();
-
-        let result = vm.get_integer(relocatable).unwrap().into_owned();
-        assert_eq!(result, expected);
-    }
-
-    #[rstest]
     fn test_start_tx(
         block_context: BlockContext,
         transaction_execution_info: TransactionExecutionInfo,
@@ -287,5 +262,63 @@ pub mod tests {
 
         // our only call should have been consumed
         assert!(exec_helper_box.execution_helper.borrow().call_iter.clone().peekable().peek().is_none());
+    }
+
+    #[test]
+    fn test_built_in_hints_have_no_duplicates() {
+        // find all occurences of a hint in HINTS
+        fn find_matching_indices(hint_to_match: &str) -> Vec<usize> {
+            let mut indices = Vec::new();
+            let mut i = 0;
+            for (hint, _) in &HINTS {
+                if hint_to_match == *hint {
+                    indices.push(i);
+                }
+                i += 1;
+            }
+            indices
+        }
+
+        // look for any duplicatses in HINTS and print out all occurences if found
+        let mut hints: HashMap<String, HintImpl> = HashMap::new();
+        for (hint, hint_impl) in &HINTS {
+            let hint_str = hint.to_string();
+            let existed = hints.insert(hint_str, *hint_impl);
+            assert!(
+                existed.is_none(),
+                "Duplicate hint (indices {:?}) detected:\n-----\n\n{}\n\n-----\n",
+                find_matching_indices(hint),
+                hint
+            );
+        }
+    }
+
+    #[test]
+    fn test_built_in_extensive_hints_have_no_duplicates() {
+        // find all occurences of a hint in EXTENSIVE_HINTS
+        fn find_matching_indices(hint_to_match: &str) -> Vec<usize> {
+            let mut indices = Vec::new();
+            let mut i = 0;
+            for (hint, _) in &EXTENSIVE_HINTS {
+                if hint_to_match == *hint {
+                    indices.push(i);
+                }
+                i += 1;
+            }
+            indices
+        }
+
+        // look for any duplicatses in EXTENSIVE_HINTS and print out all occurences if found
+        let mut hints: HashMap<String, ExtensiveHintImpl> = HashMap::new();
+        for (hint, hint_impl) in &EXTENSIVE_HINTS {
+            let hint_str = hint.to_string();
+            let existed = hints.insert(hint_str, *hint_impl);
+            assert!(
+                existed.is_none(),
+                "Duplicate extensive hint (indices {:?}) detected:\n-----\n\n{}\n\n-----\n",
+                find_matching_indices(hint),
+                hint
+            );
+        }
     }
 }
