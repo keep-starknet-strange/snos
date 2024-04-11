@@ -43,7 +43,7 @@ pub fn is_block_number_in_block_hash_buffer(
         .get(STORED_BLOCK_HASH_BUFFER)
         .ok_or_else(|| HintError::MissingConstant(Box::new(STORED_BLOCK_HASH_BUFFER)))?;
 
-    let result = *request_block_number > *current_block_number - *stored_block_hash_buffer;
+    let result = request_block_number > *current_block_number - *stored_block_hash_buffer;
 
     insert_value_into_ap(vm, if result { Felt252::ONE } else { Felt252::ZERO })?;
 

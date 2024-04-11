@@ -143,8 +143,7 @@ pub mod tests {
             .expect("is_on_curve() failed");
 
         let is_on_curve: Felt252 = get_integer_from_var_name(vars::ids::IS_ON_CURVE, &vm, &ids_data, &ap_tracking)
-            .expect("is_on_curve should be put in ids_data")
-            .into_owned();
+            .expect("is_on_curve should be put in ids_data");
         assert_eq!(is_on_curve, 1.into());
     }
 

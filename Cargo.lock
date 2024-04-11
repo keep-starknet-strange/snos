@@ -1013,7 +1013,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "1.0.0-rc1"
-source = "git+https://github.com/lambdaclass/cairo-vm#c692b7594a74ee3245cf7affc7c8cfc296b0398c"
+source = "git+https://github.com/lambdaclass/cairo-vm#6de8f56fcb28f5e5c0669c747cc76ce34cfef6aa"
 dependencies = [
  "anyhow",
  "ark-ff",
@@ -1027,7 +1027,6 @@ dependencies = [
  "hex",
  "keccak",
  "lazy_static",
- "mimalloc",
  "nom",
  "num-bigint",
  "num-integer",

@@ -53,7 +53,7 @@ pub fn is_case_right(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let case: DecodeNodeCase = exec_scopes.get(vars::scopes::CASE)?;
-    let bit = get_integer_from_var_name(vars::ids::BIT, vm, ids_data, ap_tracking)?.into_owned();
+    let bit = get_integer_from_var_name(vars::ids::BIT, vm, ids_data, ap_tracking)?;
 
     let case_felt = match case {
         DecodeNodeCase::Right => Felt252::ONE,
@@ -80,7 +80,7 @@ pub fn set_bit(
     let edge_ptr = get_ptr_from_var_name(vars::ids::EDGE, vm, ids_data, ap_tracking)?;
     let edge_path = vm.get_integer((edge_ptr + NodeEdge::path_offset())?)?.into_owned();
     let new_length = {
-        let new_length = get_integer_from_var_name(vars::ids::NEW_LENGTH, vm, ids_data, ap_tracking)?.into_owned();
+        let new_length = get_integer_from_var_name(vars::ids::NEW_LENGTH, vm, ids_data, ap_tracking)?;
         new_length.to_u64().ok_or(MathError::Felt252ToU64Conversion(Box::new(new_length)))?
     };
 
@@ -105,8 +105,8 @@ pub fn set_ap_to_descend(
 ) -> Result<(), HintError> {
     let descent_map: DescentMap = exec_scopes.get(vars::scopes::DESCENT_MAP)?;
 
-    let height = get_integer_from_var_name(vars::ids::HEIGHT, vm, ids_data, ap_tracking)?.into_owned();
-    let path = get_integer_from_var_name(vars::ids::PATH, vm, ids_data, ap_tracking)?.into_owned();
+    let height = get_integer_from_var_name(vars::ids::HEIGHT, vm, ids_data, ap_tracking)?;
+    let path = get_integer_from_var_name(vars::ids::PATH, vm, ids_data, ap_tracking)?;
 
     let ap = match descent_map.get(&(height, path)) {
         None => Felt252::ZERO,
@@ -170,7 +170,7 @@ pub fn height_is_zero_or_len_node_preimage_is_two(
     let height = get_integer_from_var_name(vars::ids::HEIGHT, vm, ids_data, ap_tracking)?;
     let node = get_integer_from_var_name(vars::ids::NODE, vm, ids_data, ap_tracking)?;
 
-    let ap = if *height == Felt252::ZERO {
+    let ap = if height == Felt252::ZERO {
         Felt252::ONE
     } else {
         let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
@@ -322,7 +322,7 @@ mod tests {
         // in the implementation of the hint
         set_bit(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).expect("Hint should succeed");
 
-        let bit = get_integer_from_var_name(vars::ids::BIT, &mut vm, &ids_data, &ap_tracking).unwrap().into_owned();
+        let bit = get_integer_from_var_name(vars::ids::BIT, &mut vm, &ids_data, &ap_tracking).unwrap();
         assert_eq!(bit, Felt252::from(1));
     }
 }
