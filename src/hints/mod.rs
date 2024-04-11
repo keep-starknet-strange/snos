@@ -531,8 +531,7 @@ pub fn is_on_curve(
     let sec_p: BigInt = exec_scopes.get(vars::ids::SECP_P)?;
 
     let is_on_curve = (y.clone() * y) % sec_p == y_square_int;
-    let is_on_curve: Felt252 = if is_on_curve { Felt252::ONE } else { Felt252::ZERO };
-    insert_value_from_var_name(vars::ids::IS_ON_CURVE, is_on_curve, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::IS_ON_CURVE, Felt252::from(is_on_curve), vm, ids_data, ap_tracking)?;
 
     Ok(())
 }

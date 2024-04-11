@@ -55,7 +55,7 @@ pub fn select_builtin(
         && vm.get_maybe(&selected_encodings).unwrap() == vm.get_maybe(&all_encodings).unwrap();
     insert_value_from_var_name(
         "select_builtin",
-        if select_builtin { Felt252::ONE } else { Felt252::ZERO },
+        Felt252::from(select_builtin),
         vm,
         ids_data,
         ap_tracking,

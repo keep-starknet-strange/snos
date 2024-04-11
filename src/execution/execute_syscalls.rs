@@ -45,7 +45,7 @@ pub fn is_block_number_in_block_hash_buffer(
 
     let result = request_block_number > *current_block_number - *stored_block_hash_buffer;
 
-    insert_value_into_ap(vm, if result { Felt252::ONE } else { Felt252::ZERO })?;
+    insert_value_into_ap(vm, Felt252::from(result))?;
 
     Ok(())
 }
