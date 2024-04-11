@@ -62,7 +62,7 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use std::collections::{HashSet, VecDeque};
 
     use assert_matches::assert_matches;
@@ -87,7 +87,7 @@ mod tests {
     type FFC = FactFetchingContext<StorageType, HashFunction>;
 
     #[fixture]
-    fn ffc() -> FFC {
+    pub fn ffc() -> FFC {
         FactFetchingContext::<_, HashFunction>::new(DictStorage::default())
     }
 

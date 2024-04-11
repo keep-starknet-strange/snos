@@ -15,10 +15,18 @@ use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
-use snos::execution::helper::ExecutionHelperWrapper;
+use snos::crypto::pedersen::PedersenHash;
+use snos::execution::helper::{ExecutionHelperWrapper, StorageByAddress};
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
+use snos::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
+use snos::starkware_utils::commitment_tree::base_types::Height;
+use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
+use snos::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+use snos::storage::dict_storage::DictStorage;
+use snos::storage::storage::FactFetchingContext;
+use snos::utils::felt_api2vm;
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::stark_felt;
@@ -184,6 +192,50 @@ pub fn copy_state(state: &CachedState<DictStateReader>) -> CachedState<DictState
     })
 }
 
+/// extract the contract storage from a CachedState
+pub fn cached_state_to_storage_by_address(state: &CachedState<DictStateReader>) -> StorageByAddress {
+    let storage_by_address = StorageByAddress::new();
+
+    let contract_trees = HashMap::new();
+
+    let storage = DictStorage::default();
+    let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
+
+    for ((contract_address, storage_key), value) in &state.state.storage_view {
+        // adding initial state
+        //     ContractAddress(PatriciaKey(StarkFelt("0x...0001")))/
+        //     StorageKey(PatriciaKey(StarkFelt("0x...07c6")))):
+        //     StarkFelt("0x0000000000000000000000000000000000000000000000000000000000000042")
+        println!("adding initial state {:?}/{:?}: {:?}", contract_address, storage_key, value);
+
+        let contract_address = felt_api2vm(*contract_address.0.key());
+        let storage_key = felt_api2vm(*storage_key.0.key());
+        let value = felt_api2vm(*value);
+
+        // initialize a OsSingleStarknetStorage if needed
+        let contract_storage = contract_trees.get_mut(&contract_address).ok_or_else(|| {
+            let patricia_tree = execute_coroutine_threadsafe(async {
+                PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap()
+            });
+            let contract_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc);
+            contract_trees.insert(contract_address, contract_storage);
+            
+            contract_storage
+        }).expect("contract storage exists or is initialized above, QED");
+
+        // TODO: restructure this to put initial state in the tree at initialiation instead of as
+        // ongoing_storage_changes (that was the initial point of 'contract_trees')
+        contract_storage.write(storage_key.to_biguint(), value);
+    }
+
+    // TODO: see above, contract_trees needs restructuring
+    for (contract_address, contract_tree) in contract_trees {
+        storage_by_address.insert(contract_address, contract_tree);
+    }
+
+    storage_by_address
+}
+
 pub fn os_hints(
     block_context: &BlockContext,
     mut state: CachedState<DictStateReader>,
@@ -288,7 +340,7 @@ pub fn os_hints(
     };
 
     let execution_helper = ExecutionHelperWrapper::new(
-        state,
+        cached_state_to_storage_by_address(&state),
         tx_execution_infos,
         &block_context,
         (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64)),
