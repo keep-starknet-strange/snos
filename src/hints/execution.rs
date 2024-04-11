@@ -21,7 +21,9 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
 use crate::cairo_types::structs::{CallContractResponse, EntryPointReturnValues, ExecutionContext};
-use crate::cairo_types::syscalls::{NewStorageRead, NewStorageWriteRequest, StorageRead, StorageReadRequest, StorageWrite};
+use crate::cairo_types::syscalls::{
+    NewStorageRead, NewStorageWriteRequest, StorageRead, StorageReadRequest, StorageWrite,
+};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
@@ -222,10 +224,10 @@ fn get_state_entry(
     Ok(())
 }
 
-pub const GET_CONTRACT_ADDRESS_STATE_ENTRY: &str = indoc! {r##"
+pub const GET_CONTRACT_ADDRESS_STATE_ENTRY: &str = indoc! {r#"
     # Fetch a state_entry in this hint and validate it in the update at the end
     # of this function.
-    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"##
+    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"#
 };
 fn get_state_entry_and_set_new_state_entry(
     dict_ptr: Relocatable,
@@ -1595,7 +1597,7 @@ pub fn cache_contract_storage_request_key(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let request_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
-    let key = vm.get_integer(&request_ptr + NewStorageRead::key_offset())?.into_owned();
+    let key = vm.get_integer((request_ptr + NewStorageRead::key_offset())?)?.into_owned();
 
     cache_contract_storage(key, vm, exec_scopes, ids_data, ap_tracking)
 }
