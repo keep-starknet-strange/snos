@@ -23,7 +23,7 @@ use num_traits::ToPrimitive;
 use crate::cairo_types::structs::{CallContractResponse, EntryPointReturnValues, ExecutionContext};
 use crate::cairo_types::syscalls::{
     NewDeployResponse, NewStorageRead, NewStorageWriteRequest, NewSyscallContractResponse, StorageRead,
-    StorageReadRequest, StorageWrite, SyscallContractResponse,
+    StorageReadRequest, StorageWrite, SyscallContractResponse, TxInfo,
 };
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
@@ -219,9 +219,9 @@ fn get_state_entry(
         }
     };
     let val =
-        val.ok_or(HintError::CustomHint("State changes dictionnary should not be None".to_string().into_boxed_str()))?;
+        val.ok_or(HintError::CustomHint("State changes dictionary should not be None".to_string().into_boxed_str()))?;
 
-    insert_value_from_var_name("state_entry", val, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::STATE_ENTRY, val, vm, ids_data, ap_tracking)?;
     Ok(())
 }
 
@@ -242,6 +242,30 @@ pub fn get_contract_address_state_entry(
     let key = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
 
     get_state_entry(dict_ptr, key, vm, exec_scopes, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+pub const SET_STATE_ENTRY_TO_ACCOUNT_CONTRACT_ADDRESS: &str = indoc! {r#"
+    # Fetch a state_entry in this hint and validate it in the update that comes next.
+    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
+        ids.tx_info.account_contract_address
+    ]"#
+};
+
+pub fn set_state_entry_to_account_contract_address(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let tx_info_ptr = get_ptr_from_var_name(vars::ids::TX_INFO, vm, ids_data, ap_tracking)?;
+    let account_contract_address =
+        vm.get_integer((tx_info_ptr + TxInfo::account_contract_address_offset())?)?.into_owned();
+
+    get_state_entry(dict_ptr, account_contract_address, vm, exec_scopes, ids_data, ap_tracking)?;
 
     Ok(())
 }
