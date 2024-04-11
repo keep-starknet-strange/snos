@@ -48,7 +48,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 156] = [
+static HINTS: [(&str, HintImpl); 157] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -86,8 +86,9 @@ static HINTS: [(&str, HintImpl); 156] = [
     (execution::CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS, execution::cache_contract_storage_syscall_request_address),
     (execution::CHECK_EXECUTION, execution::check_execution),
     (execution::CHECK_IS_DEPRECATED, execution::check_is_deprecated),
-    (execution::CHECK_RESPONSE_RETURN_VALUE, execution::check_response_return_value),
-    (execution::COMPARE_RETURN_VALUE, execution::compare_return_value),
+    (execution::CHECK_NEW_DEPLOY_RESPONSE, execution::check_new_deploy_response),
+    (execution::CHECK_NEW_SYSCALL_RESPONSE, execution::check_new_syscall_response),
+    (execution::CHECK_SYSCALL_RESPONSE, execution::check_syscall_response),
     (execution::CONTRACT_ADDRESS, execution::contract_address),
     (execution::END_TX, execution::end_tx),
     (execution::ENTER_CALL, execution::enter_call),
