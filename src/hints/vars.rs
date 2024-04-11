@@ -1,4 +1,6 @@
 pub mod scopes {
+    pub const BYTECODE_SEGMENT_STRUCTURE: &str = "bytecode_segment_structure";
+    pub const BYTECODE_SEGMENTS: &str = "bytecode_segments";
     pub const CASE: &str = "case";
     pub const COMMITMENT_INFO: &str = "commitment_info";
     pub const COMMITMENT_INFO_BY_ADDRESS: &str = "commitment_info_by_address";
