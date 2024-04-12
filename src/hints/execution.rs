@@ -231,6 +231,7 @@ pub const GET_CONTRACT_ADDRESS_STATE_ENTRY: &str = indoc! {r#"
     # of this function.
     ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"#
 };
+
 fn get_state_entry_and_set_new_state_entry(
     dict_ptr: Relocatable,
     key: Felt252,
@@ -272,11 +273,10 @@ pub fn get_block_hash_contract_address_state_entry_and_set_new_state_entry(
 }
 
 pub const GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY: &str = indoc! {r#"
-	# Fetch a state_entry in this hint and validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
-	ids.new_state_entry = segments.add()"#
+    # Fetch a state_entry in this hint and validate it in the update that comes next.
+    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
+    ids.new_state_entry = segments.add()"#
 };
-
 pub const GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY_2: &str = indoc! {r#"
 	# Fetch a state_entry in this hint and validate it in the update that comes next.
 	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[

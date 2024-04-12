@@ -18,13 +18,6 @@ pub const COMPUTE_SLOPE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const ASSIGN_STATE_ENTRY_WITH_NEW_SEGMENT: &str = indoc! {r#"
-    # Fetch a state_entry in this hint and validate it in the update that comes next.
-    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
-    ids.new_state_entry = segments.add()"#
-};
-
-#[allow(unused)]
 pub const SET_STATE_ENTRY_TO_ACCOUNT_CONTRACT_ADDRESS: &str = indoc! {r#"
     # Fetch a state_entry in this hint and validate it in the update that comes next.
     ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
