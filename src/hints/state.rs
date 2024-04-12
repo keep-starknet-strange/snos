@@ -139,8 +139,20 @@ pub fn set_preimage_for_current_commitment_info(
 ) -> Result<(), HintError> {
     // TODO: CommitmentInfo should not be obtained through exec_scopes
     let commitment_info = exec_scopes.get::<CommitmentInfo>(vars::scopes::COMMITMENT_INFO)?;
-    insert_value_from_var_name(vars::ids::INITIAL_ROOT, commitment_info.previous_root, vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(vars::ids::FINAL_ROOT, commitment_info.updated_root, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::INITIAL_CONTRACT_STATE_ROOT,
+        commitment_info.previous_root,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
+    insert_value_from_var_name(
+        vars::ids::FINAL_CONTRACT_STATE_ROOT,
+        commitment_info.updated_root,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     let preimage = commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
@@ -478,8 +490,8 @@ mod tests {
         let constants = HashMap::new();
 
         let ids_data = HashMap::from([
-            (vars::ids::INITIAL_ROOT.to_string(), HintReference::new_simple(-3)),
-            (vars::ids::FINAL_ROOT.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::INITIAL_CONTRACT_STATE_ROOT.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::FINAL_CONTRACT_STATE_ROOT.to_string(), HintReference::new_simple(-2)),
             (vars::ids::MERKLE_HEIGHT.to_string(), HintReference::new_simple(-1)),
         ]);
         insert_value_from_var_name(vars::ids::MERKLE_HEIGHT, 251_usize, &mut vm, &ids_data, &ap_tracking)
@@ -492,11 +504,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
+            get_integer_from_var_name(vars::ids::INITIAL_CONTRACT_STATE_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             1_usize.into()
         );
         assert_eq!(
-            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
+            get_integer_from_var_name(vars::ids::FINAL_CONTRACT_STATE_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             2_usize.into()
         );
         // TODO: test preimage more thoroughly
