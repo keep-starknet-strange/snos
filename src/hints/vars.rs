@@ -51,7 +51,6 @@ pub mod ids {
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const LENGTH: &str = "length";
     pub const MAX_FEE: &str = "max_fee";
-    pub const MERKLE_HEIGHT: &str = "MERKLE_HEIGHT";
     pub const N: &str = "n";
     pub const NEW_LENGTH: &str = "new_length";
     pub const NEW_STATE_ENTRY: &str = "new_state_entry";
@@ -87,5 +86,6 @@ pub mod ids {
 
 pub mod constants {
     pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS";
+    pub const MERKLE_HEIGHT: &str = "MERKLE_HEIGHT";
     pub const STORED_BLOCK_HASH_BUFFER: &str = "starkware.starknet.core.os.constants.STORED_BLOCK_HASH_BUFFER";
 }
