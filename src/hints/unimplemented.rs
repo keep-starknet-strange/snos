@@ -79,13 +79,6 @@ pub const DATA_TO_HASH_NEW_SEGMENT: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const SET_STATE_UPDATES_START: &str = indoc! {r#"if ids.use_kzg_da:
-    ids.state_updates_start = segments.add()
-else:
-    # Assign a temporary segment, to be relocated into the output segment.
-    ids.state_updates_start = segments.add_temp_segment()"#};
-
-#[allow(unused)]
 pub const ASSERT_END_OF_BYTECODE_SEGMENTS: &str = indoc! {r#"
     assert next(bytecode_segments, None) is None"#
 };
