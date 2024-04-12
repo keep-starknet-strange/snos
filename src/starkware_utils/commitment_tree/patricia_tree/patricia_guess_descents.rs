@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -71,49 +71,54 @@ enum PreimageNode<'preimage> {
     Branch { left: Option<PreimageNodeIterator<'preimage>>, right: Option<PreimageNodeIterator<'preimage>> },
 }
 
+/// Maps the generator function used in cairo-lang.
+/// This iterator builds the children of the root node lazily.
+/// Note: this does not strictly need to be an iterator as it is only called once,
+/// but this maps better to the Python implementation in terms of intent.
+/// The important part is that children nodes must be generated lazily.
 struct PreimageNodeIterator<'preimage> {
     height: Height,
     preimage: &'preimage Preimage,
-    queue: VecDeque<PreimageNode<'preimage>>,
+    node: Triplet,
+    is_done: bool,
 }
 impl<'preimage> PreimageNodeIterator<'preimage> {
-    fn new(height: Height, preimage: &'preimage Preimage, node: &Triplet) -> Result<Self, DescentError> {
-        let mut iter = Self { height, preimage, queue: VecDeque::new() };
-        iter.fill_queue(node)?;
-        Ok(iter)
+    fn new(height: Height, preimage: &'preimage Preimage, node: Triplet) -> Self {
+        Self { height, preimage, node, is_done: false }
     }
+}
 
-    fn fill_queue(&mut self, node: &Triplet) -> Result<(), DescentError> {
+impl<'preimage> Iterator for PreimageNodeIterator<'preimage> {
+    type Item = Result<PreimageNode<'preimage>, DescentError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.is_done {
+            return None;
+        }
+        self.is_done = true;
+
         // Check for children
         if self.height.0 == 0 {
-            self.queue.push_back(PreimageNode::Leaf);
-            return Ok(());
+            return Some(Ok(PreimageNode::Leaf));
         }
-        let (left, right) = get_children(self.preimage, node)?;
+        let (left, right) = match get_children(self.preimage, &self.node) {
+            Ok(children) => children,
+            Err(e) => return Some(Err(e)),
+        };
         let empty_node = empty_triplet();
 
         let left_child = if left == empty_node {
             None
         } else {
-            Some(PreimageNodeIterator::new(self.height - 1, self.preimage, &left)?)
+            Some(PreimageNodeIterator::new(self.height - 1, self.preimage, left))
         };
         let right_child = if right == empty_node {
             None
         } else {
-            Some(PreimageNodeIterator::new(self.height - 1, self.preimage, &right)?)
+            Some(PreimageNodeIterator::new(self.height - 1, self.preimage, right))
         };
 
-        self.queue.push_back(PreimageNode::Branch { left: left_child, right: right_child });
-
-        Ok(())
-    }
-}
-
-impl<'preimage> Iterator for PreimageNodeIterator<'preimage> {
-    type Item = PreimageNode<'preimage>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.queue.pop_front()
+        Some(Ok(PreimageNode::Branch { left: left_child, right: right_child }))
     }
 }
 
@@ -125,11 +130,7 @@ impl<'preimage> Iterator for PreimageNodeIterator<'preimage> {
 /// recursively.
 /// Note that this does not necessarily traverse the entire tree. The caller may open the branches
 /// as they wish.
-fn preimage_tree<'preimage>(
-    height: Height,
-    preimage: &'preimage Preimage,
-    node: &Triplet,
-) -> Result<PreimageNodeIterator<'preimage>, DescentError> {
+fn preimage_tree(height: Height, preimage: &Preimage, node: Triplet) -> PreimageNodeIterator {
     PreimageNodeIterator::new(height, preimage, node)
 }
 
@@ -195,7 +196,7 @@ where
 
         let (previous_left, previous_right) = match previous_tree {
             None => (None, None),
-            Some(mut iter) => match iter.next().ok_or(DescentError::TreeHeightMismatch)? {
+            Some(mut iter) => match iter.next().ok_or(DescentError::TreeHeightMismatch)?? {
                 PreimageNode::Leaf => {
                     return Err(DescentError::IsNotBranch);
                 }
@@ -205,7 +206,7 @@ where
 
         let (new_left, new_right) = match new_tree {
             None => (None, None),
-            Some(mut iter) => match iter.next().ok_or(DescentError::TreeHeightMismatch)? {
+            Some(mut iter) => match iter.next().ok_or(DescentError::TreeHeightMismatch)?? {
                 PreimageNode::Leaf => {
                     return Err(DescentError::IsNotBranch);
                 }
@@ -282,8 +283,8 @@ pub fn patricia_guess_descents<LF>(
 where
     LF: Clone,
 {
-    let node_prev = preimage_tree(height, preimage, &canonic(preimage, Felt252::from(prev_root)))?;
-    let node_new = preimage_tree(height, preimage, &canonic(preimage, Felt252::from(new_root)))?;
+    let node_prev = preimage_tree(height, preimage, canonic(preimage, Felt252::from(prev_root)));
+    let node_new = preimage_tree(height, preimage, canonic(preimage, Felt252::from(new_root)));
 
     get_descents::<LF>(height, NodePath(BigUint::from(0u64)), &node, Some(node_prev), Some(node_new))
 }
@@ -370,8 +371,8 @@ mod tests {
         // The update tree should look like this:
         //        r
         //    1       0
-        //  0   1   0   0
-        // 0 0 u 0 0 0 0 0
+        //  1   0   0   0
+        // 0 u 0 0 0 0 0 0
         // Resulting in a descent of length 3.
         let update_tree = build_update_tree(height, vec![(TreeIndex::from(1u64), LF::new(Felt252::from(128)))]);
 
@@ -388,8 +389,7 @@ mod tests {
         print_descent_map(&descent_map);
         assert_eq!(
             descent_map,
-            // height of the start node - path of the start node / length of the descent - path
-            DescentMap::from([((Felt252::from(3), Felt252::from(0)), vec![Felt252::from(3), Felt252::from(2)])]),
+            DescentMap::from([((Felt252::from(3), Felt252::from(0)), vec![Felt252::from(3), Felt252::from(1)])]),
         );
     }
 
