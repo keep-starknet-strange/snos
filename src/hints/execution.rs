@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
 
@@ -1699,6 +1700,47 @@ pub fn get_old_block_number_and_hash(
     }
 
     insert_value_from_var_name(vars::ids::OLD_BLOCK_HASH, old_block_hash, vm, ids_data, ap_tracking)?;
+
+    Ok(())
+}
+
+pub const FETCH_RESULT: &str = indoc! {r#"
+    # Fetch the result, up to 100 elements.
+    result = memory.get_range(ids.retdata, min(100, ids.retdata_size))
+
+    if result != [ids.VALIDATED]:
+        print("Invalid return value from __validate__:")
+        print(f"  Size: {ids.retdata_size}")
+        print(f"  Result (at most 100 elements): {result}")"#
+};
+
+pub fn fetch_result(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // Fetch the result, up to 100 elements.
+    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
+    let retdata_size = get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?;
+
+    // validated is the string "VALID" translated to a felt.
+    let validated = constants
+        .get(vars::constants::VALIDATED)
+        .ok_or(HintError::MissingConstant(Box::new(vars::constants::VALIDATED)))?;
+
+    let n_elements = std::cmp::min(felt_to_usize(&retdata_size)?, 100usize);
+
+    let result = vm.get_range(retdata, n_elements);
+
+    // This hint is weird, there is absolutely no need to fetch 100 elements to do this.
+    // Nonetheless, we implement it 1-1 with the Python version.
+    if n_elements != 1 || result[0] != Some(Cow::Borrowed(&MaybeRelocatable::Int(*validated))) {
+        println!("Invalid return value from __validate__:");
+        println!("  Size: {n_elements}");
+        println!("  Result (at most 100 elements): {:?}", result);
+    }
 
     Ok(())
 }

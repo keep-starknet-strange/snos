@@ -43,17 +43,6 @@ pub const SET_AP_TO_SEGMENT_HASH: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const FETCH_RESULT: &str = indoc! {r#"
-    # Fetch the result, up to 100 elements.
-    result = memory.get_range(ids.retdata, min(100, ids.retdata_size))
-
-    if result != [ids.VALIDATED]:
-        print("Invalid return value from __validate__:")
-        print(f"  Size: {ids.retdata_size}")
-        print(f"  Result (at most 100 elements): {result}")"#
-};
-
-#[allow(unused)]
 pub const COMPUTE_NEW_Y: &str = indoc! {r#"
     value = new_y = (slope * (x - new_x) - y) % SECP256R1_P"#
 };

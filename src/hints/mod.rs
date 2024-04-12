@@ -53,7 +53,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 169] = [
+static HINTS: [(&str, HintImpl); 170] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -113,6 +113,7 @@ static HINTS: [(&str, HintImpl); 169] = [
     (execution::ENTER_SYSCALL_SCOPES, execution::enter_syscall_scopes),
     (execution::EXIT_CALL, execution::exit_call),
     (execution::EXIT_TX, execution::exit_tx),
+    (execution::FETCH_RESULT, execution::fetch_result),
     (execution::GEN_CLASS_HASH_ARG, execution::gen_class_hash_arg),
     (execution::GEN_SIGNATURE_ARG, execution::gen_signature_arg),
     (execution::GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY, execution::get_block_hash_contract_address_state_entry_and_set_new_state_entry),
