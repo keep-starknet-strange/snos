@@ -66,6 +66,7 @@ fn get_children(preimage: &Preimage, node: &Triplet) -> Result<(Triplet, Triplet
     Ok((empty_triplet(), (length - 1, word - (1 << (length_u64 - 1)), node_hash)))
 }
 
+#[allow(clippy::large_enum_variant)]
 enum PreimageNode<'preimage> {
     Leaf,
     Branch { left: Option<PreimageNodeIterator<'preimage>>, right: Option<PreimageNodeIterator<'preimage>> },
