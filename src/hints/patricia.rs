@@ -177,7 +177,7 @@ pub fn height_is_zero_or_len_node_preimage_is_two(
         let preimage_value = preimage
             .get(node.as_ref())
             .ok_or(HintError::CustomHint("No preimage found for node".to_string().into_boxed_str()))?;
-        if preimage_value.len() == 2 { Felt252::ONE } else { Felt252::ZERO }
+        Felt252::from(preimage_value.len() == 2)
     };
 
     insert_value_into_ap(vm, ap)?;
