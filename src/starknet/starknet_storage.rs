@@ -145,18 +145,22 @@ where
     S: Storage + 'static,
     H: HashFunctionType + Sync + Send + 'static,
 {
-    pub fn new<LF>(patricia_tree: PatriciaTree, ffc: FactFetchingContext<S, H>) -> Self
-    where
-        LF: LeafFact<S, H>,
-    {
-        let tree_root = Felt252::from_bytes_be_slice(&patricia_tree.root);
+    pub async fn new(
+        previous_tree: PatriciaTree,
+        updated_tree: PatriciaTree,
+        accessed_addresses: &[TreeIndex],
+        mut ffc: FactFetchingContext<S, H>,
+    ) -> Result<Self, TreeError> {
+        // Fetch initial values of keys accessed by this contract.
+        // NOTE: this is an optimization - not all values can be fetched ahead.
+        let mut facts = None;
+        let initial_leaves: HashMap<TreeIndex, StorageLeaf> =
+            previous_tree.get_leaves(&mut ffc, accessed_addresses, &mut facts).await?;
+        let initial_entries: HashMap<_, _> = initial_leaves.into_iter().map(|(key, leaf)| (key, leaf.value)).collect();
 
-        Self {
-            previous_tree: patricia_tree,
-            expected_updated_root: tree_root,
-            ongoing_storage_changes: Default::default(),
-            ffc,
-        }
+        let expected_updated_root = Felt252::from_bytes_be_slice(&updated_tree.root);
+
+        Ok(Self { previous_tree, expected_updated_root, ongoing_storage_changes: initial_entries, ffc })
     }
 
     /// Computes the commitment info based on the ongoing storage changes which is maintained

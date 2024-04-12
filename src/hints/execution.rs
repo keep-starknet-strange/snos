@@ -1709,13 +1709,14 @@ mod tests {
 
         // Run async functions in a dedicated runtime to keep the test functions sync.
         // Otherwise, we run into "cannot spawn a runtime from another runtime" issues.
-        let patricia_tree = execute_coroutine_threadsafe(async {
+        let os_single_starknet_storage = execute_coroutine_threadsafe(async {
             let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
             let modifications = vec![(BigUint::from(42u32), StorageLeaf::new(Felt252::from(8000)))];
             let mut facts = None;
-            tree.update(&mut ffc, modifications, &mut facts).await.unwrap()
+            let tree = tree.update(&mut ffc, modifications, &mut facts).await.unwrap();
+            // We pass the same tree as previous and updated tree as this is enough for the tests.
+            OsSingleStarknetStorage::new(tree.clone(), tree, &vec![], ffc).await.unwrap()
         });
-        let os_single_starknet_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc);
 
         {
             let storage_by_address = &mut execution_helper.execution_helper.as_ref().borrow_mut().storage_by_address;
