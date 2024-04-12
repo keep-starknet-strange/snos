@@ -138,6 +138,16 @@ fn preimage_tree<'preimage>(
 /// 1. In each tree, the authentication subpath consists of empty nodes.
 /// 2. The subpath is longer than 1.
 ///
+/// Simply put, a descent is a path of length > 1 where there is only one path with data
+/// in the tree. Each entry in the descent map is of the form:
+/// (start_node_height, start_node_path) -> (descent_length, end_node_relative_path).
+/// The key is a tuple representing the absolute position of the node at which the descent starts
+/// in the tree. The value represents the descent relative to the start node.
+///
+/// In this case the descent map is computed not over one tree but over three. Each descent
+/// represents the longest path from the start node until a binary node is encountered in
+/// at least one of the trees.
+///
 /// Returns descents as a map: (height, path_to_upper_node) -> (subpath_length, subpath).
 /// The function does not return descents that begin at an empty node in the first tree.
 ///
@@ -358,11 +368,11 @@ mod tests {
         let height = Height(3);
 
         // The update tree should look like this:
-        //        0
-        //    0       0
-        //  0   0   0   0
-        // 0 u 0 0 0 0 0 0
-        // Resulting in a descent of 3.
+        //        r
+        //    1       0
+        //  0   1   0   0
+        // 0 0 u 0 0 0 0 0
+        // Resulting in a descent of length 3.
         let update_tree = build_update_tree(height, vec![(TreeIndex::from(1u64), LF::new(Felt252::from(128)))]);
 
         // Start from an empty tree
@@ -378,7 +388,8 @@ mod tests {
         print_descent_map(&descent_map);
         assert_eq!(
             descent_map,
-            DescentMap::from([((Felt252::from(3), Felt252::from(0)), vec![Felt252::from(3), Felt252::from(1)])]),
+            // height of the start node - path of the start node / length of the descent - path
+            DescentMap::from([((Felt252::from(3), Felt252::from(0)), vec![Felt252::from(3), Felt252::from(2)])]),
         );
     }
 
@@ -390,11 +401,11 @@ mod tests {
         let height = Height(3);
 
         // The update tree should look like this:
-        //        0
-        //    0       0
-        //  0   0   0   0
+        //        r
+        //    1       0
+        //  1   0   0   0
         // u u 0 0 0 0 0 0
-        // Resulting in a descent of 2.
+        // Resulting in a descent of length 2.
         let update_tree = build_update_tree(
             height,
             vec![
@@ -428,11 +439,11 @@ mod tests {
         let height = Height(3);
 
         // The update tree should look like this:
-        //        0
-        //    0       0
-        //  0   0   0   0
+        //        r
+        //    1       1
+        //  1   0   1   0
         // 0 u 0 0 u 0 0 0
-        // Resulting in two descents of 3.
+        // Resulting in two descents of length 2.
         let update_tree = build_update_tree(
             height,
             vec![
