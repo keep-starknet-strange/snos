@@ -260,6 +260,7 @@ pub const COMPUTE_Q_MOD_PRIME: &str = indoc! {r#"
     ids.q = q % PRIME"#
 };
 
+#[allow(unused)]
 pub const COMPUTE_SLOPE_2: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_P
     from starkware.cairo.common.cairo_secp.secp_utils import pack

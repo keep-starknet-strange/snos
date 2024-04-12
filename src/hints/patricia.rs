@@ -305,8 +305,7 @@ pub fn build_descent_map(
     };
 
     // Build the descent map.
-    let height: Height =
-        get_integer_from_var_name(vars::ids::HEIGHT, vm, ids_data, ap_tracking)?.into_owned().try_into()?;
+    let height: Height = get_integer_from_var_name(vars::ids::HEIGHT, vm, ids_data, ap_tracking)?.try_into()?;
     let prev_root = get_integer_from_var_name(vars::ids::PREV_ROOT, vm, ids_data, ap_tracking)?.to_biguint();
     let new_root = get_integer_from_var_name(vars::ids::NEW_ROOT, vm, ids_data, ap_tracking)?.to_biguint();
 
