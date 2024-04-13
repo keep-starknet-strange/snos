@@ -21,23 +21,10 @@ fn run_os_on_block(block_context: BlockContext, block: (StarknetOsInput, Executi
         os_input,
         block_context,
         execution_helper,
-    );
-
-    if let Err(ref e) = result {
-        if let Runner(ref r) = e {
-            if let VmException(ref vme) = r {
-                if let Some(traceback) = vme.traceback.as_ref() {
-                    println!("traceback:\n{}", traceback);
-                }
-            }
-        }
-    }
-
-    println!("exception:\n{:#?}", result);
+    ).unwrap();
 }
 
 #[rstest]
-#[ignore]
 fn run_os_on_simple_block(block_context: BlockContext, simple_block: (StarknetOsInput, ExecutionHelperWrapper)) {
     run_os_on_block(block_context, simple_block);
 }
