@@ -12,7 +12,7 @@ use crate::storage::storage::HASH_BYTES;
 
 pub type TreeIndex = BigUint;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Eq, Hash)]
 pub struct NodePath(pub BigUint);
 
 impl Display for NodePath {
@@ -34,7 +34,7 @@ impl Serializable for NodePath {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Eq)]
 pub struct Length(pub u64);
 
 impl Sub<u64> for Length {
@@ -64,7 +64,7 @@ impl Serializable for Length {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Eq, Hash)]
 pub struct Height(pub u64);
 
 impl TryFrom<Felt252> for Height {
@@ -90,4 +90,8 @@ impl Display for Height {
     }
 }
 
-pub type DescentMap = HashMap<(Felt252, Felt252), Vec<Felt252>>;
+#[derive(Debug, Clone, PartialEq, Default, Eq, Hash)]
+pub struct DescentStart(pub Height, pub NodePath);
+#[derive(Debug, Clone, PartialEq, Default, Eq)]
+pub struct DescentPath(pub Length, pub NodePath);
+pub type DescentMap = HashMap<DescentStart, DescentPath>;

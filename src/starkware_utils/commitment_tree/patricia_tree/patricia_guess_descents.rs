@@ -5,8 +5,9 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
+use std::ops::{Add, Mul};
 
-use crate::starkware_utils::commitment_tree::base_types::{DescentMap, Height, NodePath};
+use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentPath, DescentStart, Height, Length, NodePath};
 use crate::starkware_utils::commitment_tree::update_tree::{TreeUpdate, UpdateTree};
 
 type Preimage = HashMap<Felt252, Vec<Felt252>>;
@@ -246,15 +247,15 @@ where
     // length <= 1 is not a descent.
     if length > 1 {
         descent_map.insert(
-            (Felt252::from(orig_height.0), Felt252::from(orig_path.0)),
-            vec![Felt252::from(length), Felt252::from(&path.0 % (BigUint::from(1u64) << length))],
+            DescentStart(orig_height, orig_path),
+            DescentPath(Length(length), NodePath(path.0.clone() % (BigUint::from(1u64) << length))),
         );
     }
 
     if height.0 > 0 {
         let next_height = Height(height.0 - 1);
-        descent_map.extend(get_descents(next_height, NodePath(&path.0 * 2u64), lefts.0, lefts.1, lefts.2)?);
-        descent_map.extend(get_descents(next_height, NodePath(path.0 * 2u64 + 1u64), rights.0, rights.1, rights.2)?);
+        descent_map.extend(get_descents(next_height, NodePath(path.0.clone().mul(2u64)), lefts.0, lefts.1, lefts.2)?);
+        descent_map.extend(get_descents(next_height, NodePath(path.0.mul(2u64).add(1u64)), rights.0, rights.1, rights.2)?);
     }
 
     Ok(descent_map)
@@ -329,10 +330,11 @@ mod tests {
     fn print_descent_map(descent_map: &DescentMap) {
         for (key, value) in descent_map {
             println!(
-                "{}-{}: {:?}",
-                key.0.to_biguint(),
-                key.1.to_biguint(),
-                value.iter().map(|x| x.to_biguint()).collect::<Vec<_>>()
+                "{}-{}: {}-{}",
+                key.0,
+                key.1,
+                value.0,
+                value.1,
             )
         }
     }
@@ -390,7 +392,7 @@ mod tests {
         print_descent_map(&descent_map);
         assert_eq!(
             descent_map,
-            DescentMap::from([((Felt252::from(3), Felt252::from(0)), vec![Felt252::from(3), Felt252::from(1)])]),
+            DescentMap::from([(DescentStart(Height(3), NodePath(0usize.into())), DescentPath(Length(3), NodePath(1usize.into())))]),
         );
     }
 
@@ -428,7 +430,7 @@ mod tests {
         print_descent_map(&descent_map);
         assert_eq!(
             descent_map,
-            DescentMap::from([((Felt252::from(3), Felt252::from(0)), vec![Felt252::from(2), Felt252::from(0)])]),
+            DescentMap::from([(DescentStart(Height(3), NodePath(0usize.into())), DescentPath(Length(2), NodePath(0usize.into())))]),
         );
     }
 
@@ -467,8 +469,8 @@ mod tests {
         assert_eq!(
             descent_map,
             DescentMap::from([
-                ((Felt252::from(2), Felt252::from(0)), vec![Felt252::from(2), Felt252::from(1)]),
-                ((Felt252::from(2), Felt252::from(1)), vec![Felt252::from(2), Felt252::from(0)]),
+                (DescentStart(Height(2), NodePath(0usize.into())), DescentPath(Length(2), NodePath(1usize.into()))),
+                (DescentStart(Height(2), NodePath(1usize.into())), DescentPath(Length(2), NodePath(0usize.into()))),
             ]),
         );
     }

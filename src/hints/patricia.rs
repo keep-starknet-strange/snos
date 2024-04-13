@@ -22,7 +22,7 @@ use crate::cairo_types::trie::NodeEdge;
 use crate::hints::types::{skip_verification_if_configured, Preimage};
 use crate::hints::vars;
 use crate::starknet::starknet_storage::StorageLeaf;
-use crate::starkware_utils::commitment_tree::base_types::{DescentMap, Height};
+use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentStart, Height, NodePath};
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_guess_descents::patricia_guess_descents;
 use crate::starkware_utils::commitment_tree::update_tree::{
     build_update_tree, decode_node, DecodeNodeCase, DecodedNode, TreeUpdate,
@@ -114,7 +114,11 @@ pub fn set_ap_to_descend(
     let height = get_integer_from_var_name(vars::ids::HEIGHT, vm, ids_data, ap_tracking)?;
     let path = get_integer_from_var_name(vars::ids::PATH, vm, ids_data, ap_tracking)?;
 
-    let ap = match descent_map.get(&(height, path)) {
+    let height = height.try_into()?;
+    let path = NodePath(path.to_biguint());
+
+    let descent_start = DescentStart(height, path);
+    let ap = match descent_map.get(&descent_start) {
         None => Felt252::ZERO,
         Some(value) => {
             exec_scopes.insert_value(vars::ids::DESCEND, value.clone());
