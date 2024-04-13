@@ -1,13 +1,15 @@
 use std::collections::HashMap;
+use std::ops::{Add, Mul};
 
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
-use std::ops::{Add, Mul};
 
-use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentPath, DescentStart, Height, Length, NodePath};
+use crate::starkware_utils::commitment_tree::base_types::{
+    DescentMap, DescentPath, DescentStart, Height, Length, NodePath,
+};
 use crate::starkware_utils::commitment_tree::update_tree::{TreeUpdate, UpdateTree};
 
 type Preimage = HashMap<Felt252, Vec<Felt252>>;
@@ -255,7 +257,13 @@ where
     if height.0 > 0 {
         let next_height = Height(height.0 - 1);
         descent_map.extend(get_descents(next_height, NodePath(path.0.clone().mul(2u64)), lefts.0, lefts.1, lefts.2)?);
-        descent_map.extend(get_descents(next_height, NodePath(path.0.mul(2u64).add(1u64)), rights.0, rights.1, rights.2)?);
+        descent_map.extend(get_descents(
+            next_height,
+            NodePath(path.0.mul(2u64).add(1u64)),
+            rights.0,
+            rights.1,
+            rights.2,
+        )?);
     }
 
     Ok(descent_map)
@@ -329,13 +337,7 @@ mod tests {
 
     fn print_descent_map(descent_map: &DescentMap) {
         for (key, value) in descent_map {
-            println!(
-                "{}-{}: {}-{}",
-                key.0,
-                key.1,
-                value.0,
-                value.1,
-            )
+            println!("{}-{}: {}-{}", key.0, key.1, value.0, value.1,)
         }
     }
 
@@ -392,7 +394,10 @@ mod tests {
         print_descent_map(&descent_map);
         assert_eq!(
             descent_map,
-            DescentMap::from([(DescentStart(Height(3), NodePath(0usize.into())), DescentPath(Length(3), NodePath(1usize.into())))]),
+            DescentMap::from([(
+                DescentStart(Height(3), NodePath(0usize.into())),
+                DescentPath(Length(3), NodePath(1usize.into()))
+            )]),
         );
     }
 
@@ -430,7 +435,10 @@ mod tests {
         print_descent_map(&descent_map);
         assert_eq!(
             descent_map,
-            DescentMap::from([(DescentStart(Height(3), NodePath(0usize.into())), DescentPath(Length(2), NodePath(0usize.into())))]),
+            DescentMap::from([(
+                DescentStart(Height(3), NodePath(0usize.into())),
+                DescentPath(Length(2), NodePath(0usize.into()))
+            )]),
         );
     }
 
