@@ -2,11 +2,10 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
 
-use cairo_vm::{any_box, Felt252};
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name,
-    insert_value_from_var_name, insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
@@ -16,6 +15,7 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
@@ -1665,6 +1665,7 @@ mod tests {
     use rstest::{fixture, rstest};
     use starknet_api::block::BlockNumber;
 
+    use super::*;
     use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
     use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
@@ -1674,8 +1675,6 @@ mod tests {
     use crate::starkware_utils::commitment_tree::update_tree::TreeUpdate;
     use crate::storage::dict_storage::DictStorage;
     use crate::storage::storage::FactFetchingContext;
-
-    use super::*;
 
     #[fixture]
     pub fn block_context() -> BlockContext {
@@ -1861,7 +1860,7 @@ mod tests {
             &ids_data,
             &ap_tracking,
         )
-            .unwrap();
+        .unwrap();
 
         // Just make sure that the hint goes through, all meaningful assertions are
         // in the implementation of the hint
