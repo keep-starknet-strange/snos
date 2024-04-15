@@ -340,7 +340,7 @@ pub fn write_split_result(
 ) -> Result<(), HintError> {
     // this hint fills in a Cairo BigInt3 by taking a felt (ids.value) and passing it to a split fn
     let value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
-    let res_ptr = get_ptr_from_var_name(vars::ids::RES, vm, ids_data, ap_tracking)?;
+    let res_ptr = get_relocatable_from_var_name(vars::ids::RES, vm, ids_data, ap_tracking)?;
 
     fn split(num: Felt252) -> Vec<Felt252> {
         // Takes an integer and returns its canonical representation as:
