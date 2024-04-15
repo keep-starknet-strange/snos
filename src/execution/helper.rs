@@ -6,23 +6,17 @@ use std::vec::IntoIter;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point_execution::CallResult;
-use blockifier::state::cached_state::CachedState;
-use blockifier::state::state_api::{State, StateReader};
-use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
-use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::state::StorageKey;
 
 use crate::config::STORED_BLOCK_HASH_BUFFER;
 use crate::crypto::pedersen::PedersenHash;
 use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage};
 use crate::storage::dict_storage::DictStorage;
 use crate::storage::storage::StorageError;
-use crate::utils::{felt_api2vm, felt_vm2api};
 
 // TODO: make the execution helper generic over the storage and hash function types.
 pub type StorageByAddress = HashMap<Felt252, OsSingleStarknetStorage<DictStorage, PedersenHash>>;

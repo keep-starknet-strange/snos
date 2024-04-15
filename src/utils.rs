@@ -4,6 +4,8 @@ use anyhow::anyhow;
 use bitvec::prelude::{BitSlice, BitVec, Msb0};
 use bitvec::view::BitView;
 use blockifier::execution::contract_class::ContractClassV0Inner;
+use blockifier::state::cached_state::CachedState;
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
 use lazy_static::lazy_static;
@@ -17,7 +19,15 @@ use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 use starknet_api::stark_felt;
 
 use crate::config::DEFAULT_COMPILER_VERSION;
+use crate::crypto::pedersen::PedersenHash;
 use crate::error::SnOsError;
+use crate::execution::helper::StorageByAddress;
+use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
+use crate::starkware_utils::commitment_tree::base_types::Height;
+use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
+use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+use crate::storage::dict_storage::DictStorage;
+use crate::storage::storage::FactFetchingContext;
 
 lazy_static! {
     static ref RE: Regex = Regex::new(r"^[A-Fa-f0-9]+$").unwrap();
@@ -242,6 +252,51 @@ pub fn get_constant<'a>(
     constants: &'a HashMap<String, Felt252>,
 ) -> Result<&'a Felt252, HintError> {
     constants.get(identifier).ok_or(HintError::MissingConstant(Box::new(identifier)))
+}
+
+/// extract the contract storage from a CachedState
+pub fn cached_state_to_storage_by_address(state: &CachedState<DictStateReader>) -> StorageByAddress {
+    let mut storage_by_address = StorageByAddress::new();
+
+    // CachedState's `state.state.storage_view` is a mapping of (contract, storage_key) -> value
+    // but we need a mapping of (contract) -> [(storage_key, value)] so we can build entire trees
+    // at a time
+    let mut contract_storages: HashMap<Felt252, Vec<(Felt252, Felt252)>> = Default::default();
+    for ((contract_address, storage_key), value) in &state.state.storage_view {
+        let contract_address = felt_api2vm(*contract_address.0.key());
+        let storage_key = felt_api2vm(*storage_key.0.key());
+        let value = felt_api2vm(*value);
+
+        println!("adding initial state {:?}/{:?}: {:?}", contract_address, storage_key, value);
+
+        if !contract_storages.contains_key(&contract_address) {
+            contract_storages.insert(contract_address, vec![]);
+        }
+        contract_storages.get_mut(&contract_address).unwrap().push((storage_key, value));
+    }
+
+    let storage = DictStorage::default();
+    let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
+
+    for (contract_address, storage) in &contract_storages {
+        assert!(
+            !storage_by_address.contains_key(&contract_address),
+            "logic error: should be building entire tree at once"
+        );
+
+        // TODO: roll this into contract_storages above for simplicity
+        let modifications = storage.iter().map(|(key, value)| (key.to_biguint(), StorageLeaf::new(*value))).collect();
+
+        let patricia_tree = execute_coroutine_threadsafe(async {
+            let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+            let mut facts = None;
+            tree.update(&mut ffc, modifications, &mut facts).await.unwrap()
+        });
+        let contract_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc.clone());
+        storage_by_address.insert(*contract_address, contract_storage);
+    }
+
+    storage_by_address
 }
 
 #[cfg(test)]

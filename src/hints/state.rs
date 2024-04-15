@@ -326,13 +326,13 @@ pub fn enter_scope_commitment_info_by_address(
 #[cfg(test)]
 mod tests {
     use blockifier::block_context::BlockContext;
-    use blockifier::state::cached_state::CachedState;
     use num_bigint::BigUint;
     use rstest::{fixture, rstest};
 
     use super::*;
     use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
+    use crate::execution::helper::StorageByAddress;
     use crate::hints::types::PatriciaSkipValidationRunner;
     use crate::starknet::starknet_storage::{OsSingleStarknetStorage, StorageLeaf};
     use crate::starkware_utils::commitment_tree::base_types::Height;
@@ -382,7 +382,7 @@ mod tests {
         block_context: BlockContext,
         old_block_number_and_hash: (Felt252, Felt252),
     ) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context, old_block_number_and_hash)
+        ExecutionHelperWrapper::new(StorageByAddress::default(), vec![], &block_context, old_block_number_and_hash)
     }
 
     #[fixture]
