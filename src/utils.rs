@@ -256,8 +256,6 @@ pub fn get_constant<'a>(
 
 /// extract the contract storage from a CachedState
 pub fn cached_state_to_storage_by_address(state: &CachedState<DictStateReader>) -> StorageByAddress {
-    let mut storage_by_address = StorageByAddress::new();
-
     // CachedState's `state.state.storage_view` is a mapping of (contract, storage_key) -> value
     // but we need a mapping of (contract) -> [(storage_key, value)] so we can build entire trees
     // at a time
@@ -275,10 +273,11 @@ pub fn cached_state_to_storage_by_address(state: &CachedState<DictStateReader>) 
         contract_storages.get_mut(&contract_address).unwrap().push((storage_key, value));
     }
 
-    let storage = DictStorage::default();
-    let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
+    let mut storage_by_address = StorageByAddress::new();
 
     for (contract_address, storage) in &contract_storages {
+        let mut ffc = FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());
+
         assert!(
             !storage_by_address.contains_key(&contract_address),
             "logic error: should be building entire tree at once"
@@ -287,17 +286,23 @@ pub fn cached_state_to_storage_by_address(state: &CachedState<DictStateReader>) 
         // TODO: roll this into contract_storages above for simplicity
         let modifications = storage.iter().map(|(key, value)| (key.to_biguint(), StorageLeaf::new(*value))).collect();
 
-        execute_coroutine_threadsafe(async {
-            let previous_tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+        let patricia_tree = execute_coroutine_threadsafe(async {
+            let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
             let mut facts = None;
-            let updated_tree = previous_tree.clone().update(&mut ffc, modifications, &mut facts).await.unwrap();
+            let updated_tree = tree.update(&mut ffc, modifications, &mut facts).await.unwrap();
             let contract_storage =
-                OsSingleStarknetStorage::new(previous_tree, updated_tree, &[], ffc.clone()).await.unwrap();
+                OsSingleStarknetStorage::new(updated_tree.clone(), updated_tree, &[], ffc.clone()).await.unwrap();
             storage_by_address.insert(*contract_address, contract_storage);
         });
     }
 
     storage_by_address
+}
+
+pub fn build_starknet_storage(
+    initial_state: &CachedState<DictStateReader>,
+    final_state: &CachedState<DictStateReader>,
+) -> StorageByAddress {
 }
 
 #[cfg(test)]
