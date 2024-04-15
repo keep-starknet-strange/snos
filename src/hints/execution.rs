@@ -39,6 +39,7 @@ use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, TreeUpdate, UpdateTree};
+use crate::utils::get_constant;
 
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
         tx = next(transactions)
@@ -276,9 +277,7 @@ pub fn get_block_hash_contract_address_state_entry_and_set_new_state_entry(
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
-    let key = constants
-        .get(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)
-        .ok_or_else(|| HintError::MissingConstant(Box::new(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)))?;
+    let key = get_constant(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS, constants)?;
 
     get_state_entry_and_set_new_state_entry(dict_ptr, *key, vm, exec_scopes, ids_data, ap_tracking)?;
 
