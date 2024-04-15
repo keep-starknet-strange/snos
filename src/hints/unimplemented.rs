@@ -96,11 +96,6 @@ pub const ASSERT_END_OF_BYTECODE_SEGMENTS: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const ADDITIONAL_DATA_NEW_SEGMENT: &str = indoc! {r#"
-    ids.additional_data = segments.add()"#
-};
-
-#[allow(unused)]
 pub const WRITE_ADDRESS: &str = indoc! {r#"
     from starkware.starknet.core.os.data_availability.bls_utils import split
 
