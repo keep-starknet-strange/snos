@@ -12,6 +12,9 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
+use num_bigint::BigInt;
+use num_integer::Integer;
+use num_traits::Signed;
 
 use crate::cairo_types::builtins::{HashBuiltin, SpongeHashBuiltin};
 use crate::cairo_types::traits::CairoType;
@@ -318,6 +321,50 @@ pub fn enter_scope_commitment_info_by_address(
         (vars::scopes::OS_INPUT.to_string(), any_box!(os_input)),
     ]);
     exec_scopes.enter_scope(new_scope);
+
+    Ok(())
+}
+
+pub const WRITE_SPLIT_RESULT: &str = indoc! {r#"
+    from starkware.starknet.core.os.data_availability.bls_utils import split
+
+    segments.write_arg(ids.res.address_, split(ids.value))"#
+};
+pub fn write_split_result(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+
+    // this hint fills in a Cairo BigInt3 by taking a felt (ids.value) and passing it to a split fn
+    let value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
+    let res_ptr = get_ptr_from_var_name(vars::ids::RES, vm, ids_data, ap_tracking)?;
+
+    fn split(num: Felt252) -> Vec<Felt252> {
+        // Takes an integer and returns its canonical representation as:
+        //    d0 + d1 * BASE + d2 * BASE**2.
+        // d2 can be in the range (-2**127, 2**127).
+
+        let base: BigInt = BigInt::from(2).pow(86);
+
+        let mut a = Vec::with_capacity(3);
+        let mut num = num.to_bigint();
+        for _ in 1..3 {
+            let (q, residue) = num.div_mod_floor(&base);
+            num = q;
+            a.push(residue);
+        }
+        assert!(num.abs() < BigInt::from(2).pow(127));
+        a.push(num);
+        assert!(a.len() == 3);
+
+        a.into_iter().map(|big| big.into()).collect()
+    }
+
+    vm.write_arg(res_ptr, &split(value));
+
 
     Ok(())
 }
