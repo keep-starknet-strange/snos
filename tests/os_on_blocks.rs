@@ -6,20 +6,17 @@ use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use rstest::rstest;
+use snos::config::STORED_BLOCK_HASH_BUFFER;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
-use snos::config::STORED_BLOCK_HASH_BUFFER;
+
 use crate::common::block_context;
 use crate::common::state::{initial_state, InitialState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
-fn simple_method_cairo0(
-    block_context: BlockContext,
-    initial_state: InitialState,
-    max_fee: Fee,
-) {
+fn simple_method_cairo0(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
@@ -49,11 +46,7 @@ fn simple_method_cairo0(
 }
 
 #[rstest]
-fn simple_method_cairo1(
-    block_context: BlockContext,
-    initial_state: InitialState,
-    max_fee: Fee,
-) {
+fn simple_method_cairo1(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
@@ -82,13 +75,8 @@ fn simple_method_cairo1(
     assert!(&format!("{:?}", r).contains(r#"VariableNotInScopeError("commitment_info")"#));
 }
 
-
 #[rstest]
-fn syscalls_cairo1(
-    block_context: BlockContext,
-    initial_state: InitialState,
-    max_fee: Fee,
-) {
+fn syscalls_cairo1(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
@@ -107,7 +95,8 @@ fn syscalls_cairo1(
         keys,
         vec![stark_felt!(u128::try_from(data.len()).unwrap())],
         data,
-    ].concat();
+    ]
+    .concat();
 
     let test_emit_event_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,

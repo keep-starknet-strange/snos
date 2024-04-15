@@ -1,10 +1,11 @@
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
-use blockifier::test_utils::{BALANCE, CairoVersion};
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
+use blockifier::test_utils::{CairoVersion, BALANCE};
 use rstest::fixture;
 use starknet_api::core::ContractAddress;
+
 use crate::common::block_context;
 use crate::common::block_utils::test_state;
 
@@ -25,13 +26,17 @@ pub fn initial_state(block_context: BlockContext) -> InitialState {
     let test_contract_cairo0 = FeatureContract::TestContract(CairoVersion::Cairo0);
     let erc20_cairo0 = FeatureContract::ERC20;
 
-    let state = test_state(&block_context, BALANCE, &[
-        (account_without_validations_cairo1, 1),
-        (account_without_validations_cairo0, 1),
-        (test_contract_cairo1, 1),
-        (test_contract_cairo0, 1),
-        (erc20_cairo0, 1),
-    ]);
+    let state = test_state(
+        &block_context,
+        BALANCE,
+        &[
+            (account_without_validations_cairo1, 1),
+            (account_without_validations_cairo0, 1),
+            (test_contract_cairo1, 1),
+            (test_contract_cairo0, 1),
+            (erc20_cairo0, 1),
+        ],
+    );
 
     InitialState {
         state,

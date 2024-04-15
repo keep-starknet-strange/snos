@@ -1,20 +1,20 @@
 use std::fs;
 
+use blockifier::block_context::BlockContext;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use rstest::fixture;
-use blockifier::block_context::BlockContext;
 use snos::io::output::{decode_output, StarknetOsOutput};
 
 pub mod block_utils;
 mod deprecated_hash_utils;
 pub mod serde_utils;
+pub mod state;
 pub mod transaction_utils;
 pub mod utils;
-pub mod state;
 
 #[fixture]
 pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
