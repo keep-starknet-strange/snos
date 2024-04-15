@@ -299,10 +299,37 @@ pub fn cached_state_to_storage_by_address(state: &CachedState<DictStateReader>) 
     storage_by_address
 }
 
+/// CachedState's `state.state.storage_view` is a mapping of (contract, storage_key) -> value
+/// but we need a mapping of (contract) -> [(storage_key, value)] so we can build the tree
+/// in one go.
+pub fn get_contract_storage_map(
+    blockifier_state: &CachedState<DictStateReader>,
+) -> HashMap<Felt252, Vec<(Felt252, Felt252)>> {
+    let mut contract_storage_map: HashMap<Felt252, Vec<(Felt252, Felt252)>> = Default::default();
+    for ((contract_address, storage_key), value) in &blockifier_state.state.storage_view {
+        let contract_address = felt_api2vm(*contract_address.0.key());
+        let storage_key = felt_api2vm(*storage_key.0.key());
+        let value = felt_api2vm(*value);
+
+        println!("adding state {:?}/{:?}: {:?}", contract_address, storage_key, value);
+
+        if !contract_storage_map.contains_key(&contract_address) {
+            contract_storage_map.insert(contract_address, vec![]);
+        }
+        contract_storage_map.get_mut(&contract_address).unwrap().push((storage_key, value));
+    }
+
+    contract_storage_map
+}
+
 pub fn build_starknet_storage(
     initial_state: &CachedState<DictStateReader>,
     final_state: &CachedState<DictStateReader>,
 ) -> StorageByAddress {
+    let initial_contract_storage_map = get_contract_storage_map(initial_state);
+    let final_contract_storage_map = get_contract_storage_map(final_state);
+
+
 }
 
 #[cfg(test)]
