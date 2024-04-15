@@ -42,7 +42,7 @@ fn simple_method_cairo0(block_context: BlockContext, initial_state: InitialState
     let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]);
 
     // temporarily expect test to break somewhere in the state_update function
-    assert!(&format!("{:?}", r).contains(r#"VariableNotInScopeError("commitment_info")"#));
+    assert!(&format!("{:?}", r).contains(r#"CustomHint("Could not find commitment info"#));
 }
 
 #[rstest]
@@ -72,7 +72,7 @@ fn simple_method_cairo1(block_context: BlockContext, initial_state: InitialState
     let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]);
 
     // temporarily expect test to break somewhere in the state_update function
-    assert!(&format!("{:?}", r).contains(r#"VariableNotInScopeError("commitment_info")"#));
+    assert!(&format!("{:?}", r).contains(r#"CustomHint("Could not find commitment info"#));
 }
 
 #[rstest]
@@ -129,5 +129,5 @@ fn syscalls_cairo1(block_context: BlockContext, initial_state: InitialState, max
     let r = execute_txs_and_run_os(state, block_context, txs);
 
     // temporarily expect test to break somewhere in the state_update function
-    assert!(&format!("{:?}", r).contains(r#"VariableNotInScopeError("commitment_info")"#));
+    assert!(&format!("{:?}", r).contains(r#"CustomHint("Could not find commitment info"#));
 }
