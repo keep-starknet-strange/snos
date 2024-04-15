@@ -137,6 +137,22 @@ pub fn assert_case_is_right(
     }
 }
 
+pub const WRITE_CASE_NOT_LEFT_TO_AP: &str = indoc! {r#"
+    memory[ap] = int(case != 'left')"#
+};
+pub fn write_case_not_left_to_ap(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let case: DecodeNodeCase = exec_scopes.get(vars::scopes::CASE)?;
+    let value = Felt252::from(case != DecodeNodeCase::Left);
+    vm.insert_value(vm.get_ap(), value)?;
+    Ok(())
+}
+
 pub const SPLIT_DESCEND: &str = "ids.length, ids.word = descend";
 
 pub fn split_descend(

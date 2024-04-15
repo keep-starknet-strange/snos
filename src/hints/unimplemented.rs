@@ -134,11 +134,6 @@ pub const PACK_X_PRIME: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const WRITE_CASE_NOT_LEFT_TO_AP: &str = indoc! {r#"
-    memory[ap] = int(case != 'left')"#
-};
-
-#[allow(unused)]
 pub const EXIT_SYSCALL_GET_BLOCK_NUMBER: &str = indoc! {r#"
     exit_syscall(selector=ids.GET_BLOCK_NUMBER_SELECTOR)"#
 };
