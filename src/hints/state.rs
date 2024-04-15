@@ -351,14 +351,13 @@ pub fn write_split_result(
 
         let mut a = Vec::with_capacity(3);
         let mut num = num.to_bigint();
-        for _ in 1..3 {
+        for _ in 0..2 {
             let (q, residue) = num.div_mod_floor(&base);
             num = q;
             a.push(residue);
         }
         assert!(num.abs() < BigInt::from(2).pow(127));
         a.push(num);
-        assert!(a.len() == 3);
 
         a.into_iter().map(|big| big.into()).collect()
     }
