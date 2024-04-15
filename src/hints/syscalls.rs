@@ -510,6 +510,18 @@ pub fn exit_get_block_hash_syscall(
 ) -> Result<(), HintError> {
     exit_syscall("GET_BLOCK_HASH_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
 }
+
+pub const EXIT_GET_BLOCK_NUMBER_SYSCALL: &str = "exit_syscall(selector=ids.GET_BLOCK_NUMBER_SELECTOR)";
+pub fn exit_get_block_number_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("GET_BLOCK_NUMBER_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+
 pub const EXIT_GET_BLOCK_TIMESTAMP_SYSCALL: &str = "exit_syscall(selector=ids.GET_BLOCK_TIMESTAMP_SELECTOR)";
 
 pub fn exit_get_block_timestamp_syscall(
