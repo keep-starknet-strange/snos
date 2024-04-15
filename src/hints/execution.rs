@@ -4,15 +4,14 @@ use std::vec::IntoIter;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_reference_from_var_name, get_relocatable_from_var_name,
-    insert_value_from_var_name, insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
-use cairo_vm::serde::deserialize_program::{ApTracking, OffsetValue};
+use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::instruction::Register;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
@@ -34,7 +33,7 @@ use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
 use crate::hints::vars::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::hints::vars::ids::{
-    ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, REQUIRED_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
+    ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
 };
 use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
 use crate::io::input::StarknetOsInput;
@@ -1084,86 +1083,6 @@ pub fn log_enter_syscall(
     Ok(())
 }
 
-// Workaround for the lack of the `compute_integer_from_reference` in the cairo-vm
-// based on `compute_addr_from_reference` from the cairo-vm
-// See: https://github.com/lambdaclass/cairo-vm/pull/1701
-fn compute_integer_from_reference(
-    // Reference data of the ids variable
-    hint_reference: &HintReference,
-    vm: &VirtualMachine,
-    // ApTracking of the Hint itself
-    hint_ap_tracking: &ApTracking,
-) -> Option<Felt252> {
-    // function copied verbatim from the nonpublic `apply_ap_tracking_correction` in the cairo-vm
-    fn apply_ap_tracking_correction(
-        ap: Relocatable,
-        ref_ap_tracking: &ApTracking,
-        hint_ap_tracking: &ApTracking,
-    ) -> Option<Relocatable> {
-        // check that both groups are the same
-        if ref_ap_tracking.group != hint_ap_tracking.group {
-            return None;
-        }
-        let ap_diff = hint_ap_tracking.offset - ref_ap_tracking.offset;
-        (ap - ap_diff).ok()
-    }
-    // function copied verbatim from the nonpublic `get_offset_value_reference` in the cairo-vm
-    fn get_offset_value_reference(
-        vm: &VirtualMachine,
-        hint_reference: &HintReference,
-        hint_ap_tracking: &ApTracking,
-        offset_value: &OffsetValue,
-    ) -> Option<MaybeRelocatable> {
-        let (register, offset, deref) = match offset_value {
-            OffsetValue::Reference(register, offset, deref) => (register, offset, deref),
-            _ => return None,
-        };
-
-        let base_addr = if register == &Register::FP {
-            vm.get_fp()
-        } else {
-            let var_ap_trackig = hint_reference.ap_tracking_data.as_ref()?;
-
-            apply_ap_tracking_correction(vm.get_ap(), var_ap_trackig, hint_ap_tracking)?
-        };
-
-        if offset.is_negative() && base_addr.offset < offset.unsigned_abs() as usize {
-            return None;
-        }
-
-        if *deref { vm.get_maybe(&(base_addr + *offset).ok()?) } else { Some((base_addr + *offset).ok()?.into()) }
-    }
-
-    let offset1 = if let OffsetValue::Reference(_register, _offset, _deref) = &hint_reference.offset1 {
-        let offset1_maybe = get_offset_value_reference(vm, hint_reference, hint_ap_tracking, &hint_reference.offset1);
-        if let Some(MaybeRelocatable::Int(offset1)) = offset1_maybe {
-            offset1
-        } else {
-            return None;
-        }
-    } else {
-        return None;
-    };
-
-    match &hint_reference.offset2 {
-        OffsetValue::Reference(_register, _offset, _deref) => {
-            // Cant add two relocatable values
-            // So OffSet2 must be Bigint
-            // TODO: not sure what should be the expected behaviour here
-            let value = get_offset_value_reference(vm, hint_reference, hint_ap_tracking, &hint_reference.offset2)?;
-            Some(offset1 + value.get_int_ref()?)
-        }
-        OffsetValue::Value(value) => {
-            if value.is_negative() {
-                Some(offset1 - Felt252::from((*value).unsigned_abs()))
-            } else {
-                Some(offset1 + Felt252::from(*value))
-            }
-        }
-        OffsetValue::Immediate(value) => Some(offset1 + *value),
-    }
-}
-
 pub const INITIAL_GE_REQUIRED_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_gas >= ids.required_gas)";
 pub fn initial_ge_required_gas(
     vm: &mut VirtualMachine,
@@ -1173,14 +1092,14 @@ pub fn initial_ge_required_gas(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // line below fails with: UnknownIdentifier("required_gas"):
-    // let initial_gas = get_integer_from_var_name(REQUIRED_GAS, vm, ids_data, ap_tracking)?;
+    // let required_gas = get_integer_from_var_name(REQUIRED_GAS, vm, ids_data, ap_tracking)?;
+
     // the reason for this is: hint reference for `required_gas` is cast([fp + (-4)] + (-10000), felt)
     // in our case [fp-4] contains a felt  to `get_integer_from_var_name` assumes that [fp-4] contains a
     // pointer not a felt below is a temporary workaround, until the problem is solved in the vm
 
-    let required_gas_reference = get_reference_from_var_name(REQUIRED_GAS, ids_data)?;
-    let required_gas = compute_integer_from_reference(required_gas_reference, vm, ap_tracking)
-        .ok_or(HintError::CustomHint(Box::from("required_gas is None")))?;
+    // workaround
+    let required_gas = *vm.get_integer((vm.get_fp() - 4)?)? - 10000;
 
     let initial_gas = get_integer_from_var_name(INITIAL_GAS, vm, ids_data, ap_tracking)?;
     insert_value_into_ap(vm, Felt252::from(initial_gas.as_ref() >= &required_gas))
