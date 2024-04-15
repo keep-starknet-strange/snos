@@ -287,13 +287,14 @@ pub fn cached_state_to_storage_by_address(state: &CachedState<DictStateReader>) 
         // TODO: roll this into contract_storages above for simplicity
         let modifications = storage.iter().map(|(key, value)| (key.to_biguint(), StorageLeaf::new(*value))).collect();
 
-        let patricia_tree = execute_coroutine_threadsafe(async {
-            let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+        execute_coroutine_threadsafe(async {
+            let previous_tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
             let mut facts = None;
-            tree.update(&mut ffc, modifications, &mut facts).await.unwrap()
+            let updated_tree = previous_tree.clone().update(&mut ffc, modifications, &mut facts).await.unwrap();
+            let contract_storage =
+                OsSingleStarknetStorage::new(previous_tree, updated_tree, &[], ffc.clone()).await.unwrap();
+            storage_by_address.insert(*contract_address, contract_storage);
         });
-        let contract_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc.clone());
-        storage_by_address.insert(*contract_address, contract_storage);
     }
 
     storage_by_address
