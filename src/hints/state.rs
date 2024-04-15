@@ -342,7 +342,7 @@ pub fn write_split_result(
     let value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
     let res_ptr = get_relocatable_from_var_name(vars::ids::RES, vm, ids_data, ap_tracking)?;
 
-    fn split(num: Felt252) -> Vec<Felt252> {
+    fn split(num: Felt252) -> Result<Vec<Felt252>, HintError> {
         // Takes an integer and returns its canonical representation as:
         //    d0 + d1 * BASE + d2 * BASE**2.
         // d2 can be in the range (-2**127, 2**127).
@@ -356,10 +356,14 @@ pub fn write_split_result(
             num = q;
             a.push(residue);
         }
-        assert!(num.abs() < BigInt::from(2).pow(127));
+        if num.abs() >= BigInt::from(2).pow(127) {
+            return Err(HintError::AssertionFailed(
+                "remainder should be less than 2**127".to_string().into_boxed_str(),
+            ));
+        }
         a.push(num);
 
-        a.into_iter().map(|big| big.into()).collect()
+        Ok(a.into_iter().map(|big| big.into()).collect())
     }
 
     vm.write_arg(res_ptr, &split(value))?;
