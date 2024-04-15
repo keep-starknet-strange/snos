@@ -338,7 +338,6 @@ pub fn write_split_result(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-
     // this hint fills in a Cairo BigInt3 by taking a felt (ids.value) and passing it to a split fn
     let value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
     let res_ptr = get_ptr_from_var_name(vars::ids::RES, vm, ids_data, ap_tracking)?;
@@ -364,8 +363,7 @@ pub fn write_split_result(
         a.into_iter().map(|big| big.into()).collect()
     }
 
-    vm.write_arg(res_ptr, &split(value));
-
+    vm.write_arg(res_ptr, &split(value))?;
 
     Ok(())
 }
