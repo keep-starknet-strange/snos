@@ -1726,7 +1726,7 @@ pub fn fetch_result(
     let retdata_size = get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?;
 
     // validated is the string "VALID" translated to a felt.
-    let validated = get_constant(vars::constants::VALIDATED, &constants)?;
+    let validated = get_constant(vars::constants::VALIDATED, constants)?;
 
     let n_elements = std::cmp::min(felt_to_usize(&retdata_size)?, 100usize);
 
