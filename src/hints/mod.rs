@@ -35,6 +35,7 @@ pub mod state;
 pub mod syscalls;
 #[cfg(test)]
 mod tests;
+mod transaction_hash;
 mod types;
 mod unimplemented;
 pub mod vars;
@@ -48,7 +49,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 157] = [
+static HINTS: [(&str, HintImpl); 158] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -206,6 +207,7 @@ static HINTS: [(&str, HintImpl); 157] = [
     (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
+    (transaction_hash::ADDITIONAL_DATA_NEW_SEGMENT, transaction_hash::additional_data_new_segment),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
