@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::ops::Deref;
 
 use futures::future::FutureExt;
 use num_bigint::BigUint;
@@ -293,7 +294,8 @@ where
         return Ok(HashMap::new());
     }
 
-    let empty_leaf = LF::get_or_fail(&ffc.storage, EMPTY_NODE_HASH.as_ref()).await?;
+    let storage = ffc.storage().await;
+    let empty_leaf = LF::get_or_fail(storage.deref(), EMPTY_NODE_HASH.as_ref()).await?;
     let result: HashMap<_, LF> = indices.iter().map(|index| (index.clone(), empty_leaf.clone())).collect();
     Ok(result)
 }

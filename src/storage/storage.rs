@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::ops::DerefMut;
+use std::sync::Arc;
 
 use async_stream::try_stream;
 use cairo_vm::Felt252;
+use tokio::sync::Mutex;
 use tokio_stream::Stream;
 
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
@@ -145,7 +148,7 @@ where
     S: Storage,
     H: HashFunctionType,
 {
-    pub storage: S,
+    storage: Arc<Mutex<S>>,
     _h: PhantomData<H>,
 }
 
@@ -154,9 +157,12 @@ where
     S: Storage,
     H: HashFunctionType,
 {
-    #[allow(unused)]
     pub fn new(storage: S) -> Self {
-        Self { storage, _h: Default::default() }
+        Self { storage: Arc::new(Mutex::new(storage)), _h: Default::default() }
+    }
+
+    pub async fn storage(&self) -> tokio::sync::MutexGuard<S> {
+        self.storage.lock().await
     }
 }
 
@@ -166,7 +172,8 @@ pub trait Fact<S: Storage, H: HashFunctionType>: DbObject {
 
     async fn set_fact(&self, ffc: &mut FactFetchingContext<S, H>) -> Result<Vec<u8>, StorageError> {
         let hash_val = self.hash();
-        self.set(&mut ffc.storage, &hash_val).await?;
+        let mut storage = ffc.storage().await;
+        self.set(storage.deref_mut(), &hash_val).await?;
 
         Ok(hash_val)
     }

@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
+use std::ops::DerefMut;
 
 use num_bigint::BigUint;
 
@@ -322,11 +323,12 @@ where
 {
     // TODO: this implementation is sync and simplistic for now.
     //       Determine if it is necessary to improve it.
+    let mut storage = ffc.storage().await;
     for (root_hash, root_node) in fact_nodes.inner_nodes.iter() {
-        root_node.set(&mut ffc.storage, root_hash).await?;
+        root_node.set(storage.deref_mut(), root_hash).await?;
     }
     for (root_hash, root_node) in fact_nodes.leaves.iter() {
-        root_node.set(&mut ffc.storage, root_hash).await?;
+        root_node.set(storage.deref_mut(), root_hash).await?;
     }
 
     Ok(())
