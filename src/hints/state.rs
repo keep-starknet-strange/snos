@@ -22,6 +22,7 @@ use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, CommitmentInfo, StorageLeaf};
 use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, TreeUpdate};
+use crate::utils::get_constant;
 
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
     if tree_height != merkle_height {
@@ -69,9 +70,7 @@ pub fn set_preimage_for_state_commitments(
     let preimage = os_input.contract_state_commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
-    let merkle_height = constants
-        .get(vars::constants::MERKLE_HEIGHT)
-        .ok_or(HintError::MissingConstant(Box::new(vars::constants::MERKLE_HEIGHT)))?;
+    let merkle_height = get_constant(vars::constants::MERKLE_HEIGHT, constants)?;
     let tree_height: Felt252 = os_input.contract_state_commitment_info.tree_height.into();
     assert_tree_height_eq_merkle_height(tree_height, *merkle_height)?;
 
@@ -114,9 +113,7 @@ pub fn set_preimage_for_class_commitments(
     let preimage = os_input.contract_class_commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
-    let merkle_height = constants
-        .get(vars::constants::MERKLE_HEIGHT)
-        .ok_or(HintError::MissingConstant(Box::new(vars::constants::MERKLE_HEIGHT)))?;
+    let merkle_height = get_constant(vars::constants::MERKLE_HEIGHT, constants)?;
     let tree_height: Felt252 = os_input.contract_class_commitment_info.tree_height.into();
     assert_tree_height_eq_merkle_height(tree_height, *merkle_height)?;
 
@@ -165,9 +162,7 @@ pub fn set_preimage_for_current_commitment_info(
 
     let preimage = commitment_info.commitment_facts.clone();
 
-    let merkle_height = constants
-        .get(vars::constants::MERKLE_HEIGHT)
-        .ok_or(HintError::MissingConstant(Box::new(vars::constants::MERKLE_HEIGHT)))?;
+    let merkle_height = get_constant(vars::constants::MERKLE_HEIGHT, constants)?;
     let tree_height: Felt252 = commitment_info.tree_height.into();
     assert_tree_height_eq_merkle_height(tree_height, *merkle_height)?;
 
