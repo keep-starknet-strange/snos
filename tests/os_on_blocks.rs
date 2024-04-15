@@ -1,61 +1,144 @@
 mod common;
 
 use blockifier::block_context::BlockContext;
-use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
-use common::blocks::{block_context, simple_block};
+use blockifier::invoke_tx_args;
+use blockifier::test_utils::{create_calldata, NonceManager};
+use blockifier::transaction::test_utils;
+use blockifier::transaction::test_utils::max_fee;
 use rstest::rstest;
-use snos::error::SnOsError::Runner;
-use snos::execution::helper::ExecutionHelperWrapper;
-use snos::io::input::StarknetOsInput;
-use snos::{config, run_os};
-
-use crate::common::blocks::simple_block_cairo1;
-use crate::common::syscalls_blocks::cairo1_syscalls_block;
-
-fn run_os_on_block(block_context: BlockContext, block: (StarknetOsInput, ExecutionHelperWrapper)) {
-    let (os_input, execution_helper) = block;
-
-    let result = run_os(
-        config::DEFAULT_COMPILED_OS.to_string(),
-        config::DEFAULT_LAYOUT.to_string(),
-        os_input,
-        block_context,
-        execution_helper,
-    );
-
-    if let Err(ref e) = result {
-        if let Runner(ref r) = e {
-            if let VmException(ref vme) = r {
-                if let Some(traceback) = vme.traceback.as_ref() {
-                    println!("traceback:\n{}", traceback);
-                }
-            }
-        }
-    }
-
-    println!("exception:\n{:#?}", result);
-}
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
+use starknet_api::transaction::{Fee, TransactionVersion};
+use snos::config::STORED_BLOCK_HASH_BUFFER;
+use crate::common::block_context;
+use crate::common::state::{initial_state, InitialState};
+use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
-#[ignore]
-fn run_os_on_simple_block(block_context: BlockContext, simple_block: (StarknetOsInput, ExecutionHelperWrapper)) {
-    run_os_on_block(block_context, simple_block);
-}
-
-#[rstest]
-#[ignore]
-fn run_os_on_simple_block_cairo1(
+fn simple_method_cairo0(
     block_context: BlockContext,
-    simple_block_cairo1: (StarknetOsInput, ExecutionHelperWrapper),
+    initial_state: InitialState,
+    max_fee: Fee,
 ) {
-    run_os_on_block(block_context, simple_block_cairo1);
+    let tx_version = TransactionVersion::ZERO;
+    let mut nonce_manager = NonceManager::default();
+
+    let InitialState {
+        state,
+        account_without_validations_cairo0_address: sender_address,
+        test_contract_cairo0_address: contract_address,
+        ..
+    } = initial_state;
+
+    let return_result_tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address,
+        calldata: create_calldata(
+            contract_address,
+            "return_result",
+            &[stark_felt!(2_u8)],
+        ),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]);
+
+    // temporarily expect test to break somewhere in the state_update function
+    assert!(&format!("{:?}", r).contains(r#"VariableNotInScopeError("commitment_info")"#));
 }
 
 #[rstest]
-#[ignore]
-fn run_os_on_cairo1_syscalls_block(
+fn simple_method_cairo1(
     block_context: BlockContext,
-    cairo1_syscalls_block: (StarknetOsInput, ExecutionHelperWrapper),
+    initial_state: InitialState,
+    max_fee: Fee,
 ) {
-    run_os_on_block(block_context, cairo1_syscalls_block);
+    let tx_version = TransactionVersion::ZERO;
+    let mut nonce_manager = NonceManager::default();
+
+    let InitialState {
+        state,
+        account_without_validations_cairo1_address: sender_address,
+        test_contract_cairo0_address: contract_address,
+        ..
+    } = initial_state;
+
+    let return_result_tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address,
+        calldata: create_calldata(
+            contract_address,
+            "return_result",
+            &[stark_felt!(2_u8)],
+        ),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]);
+
+    // temporarily expect test to break somewhere in the state_update function
+    assert!(&format!("{:?}", r).contains(r#"VariableNotInScopeError("commitment_info")"#));
+}
+
+
+#[rstest]
+fn syscalls_cairo1(
+    block_context: BlockContext,
+    initial_state: InitialState,
+    max_fee: Fee,
+) {
+    let tx_version = TransactionVersion::ZERO;
+    let mut nonce_manager = NonceManager::default();
+
+    let InitialState {
+        state,
+        account_without_validations_cairo1_address: sender_address,
+        test_contract_cairo1_address: contract_address,
+        ..
+    } = initial_state;
+
+    // test_emit_event
+    let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
+    let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
+    let entrypoint_args = &[
+        vec![stark_felt!(u128::try_from(keys.len()).unwrap())],
+        keys,
+        vec![stark_felt!(u128::try_from(data.len()).unwrap())],
+        data,
+    ].concat();
+
+    let test_emit_event_tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_emit_event", entrypoint_args),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    // test_storage_read_write
+    let test_storage_read_write_tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_storage_read_write", &[StarkFelt::TWO, StarkFelt::ONE]),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    // test_get_block_hash
+    let test_get_block_hash_tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_get_block_hash", &[stark_felt!(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER)]),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let txs = vec![test_emit_event_tx, test_storage_read_write_tx, test_get_block_hash_tx];
+
+    let r = execute_txs_and_run_os(state, block_context, txs);
+
+    // temporarily expect test to break somewhere in the state_update function
+    assert!(&format!("{:?}", r).contains(r#"VariableNotInScopeError("commitment_info")"#));
 }

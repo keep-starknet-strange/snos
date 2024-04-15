@@ -61,7 +61,7 @@ pub fn run_os(
 
     // Setup Globals
     cairo_runner.exec_scopes.insert_value("os_input", os_input);
-    cairo_runner.exec_scopes.insert_box("block_context", Box::new(block_context.clone()));
+    cairo_runner.exec_scopes.insert_box("block_context", Box::new(block_context));
     cairo_runner.exec_scopes.insert_value("execution_helper", execution_helper);
     cairo_runner.exec_scopes.insert_value("deprecated_syscall_handler", deprecated_syscall_handler);
     cairo_runner.exec_scopes.insert_value("syscall_handler", syscall_handler);
@@ -85,7 +85,7 @@ pub fn run_os(
     // Prepare and check expected output.
     let _os_output = StarknetOsOutput::from_run(&vm)?;
 
-    println!("{:?}", _os_output);
+    println!("output: {:?}", _os_output);
 
     vm.verify_auto_deductions().map_err(|e| SnOsError::Runner(e.into()))?;
     cairo_runner.read_return_values(&mut vm, false).map_err(|e| SnOsError::Runner(e.into()))?;
