@@ -23,7 +23,6 @@ pub mod scopes {
 pub mod ids {
     pub const ADDITIONAL_DATA: &str = "additional_data";
     pub const BIT: &str = "bit";
-    pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "BLOCK_HASH_CONTRACT_ADDRESS";
     pub const CALL_RESPONSE: &str = "call_response";
     pub const CALLDATA: &str = "calldata";
     pub const CHILD_BIT: &str = "CHILD_BIT";
@@ -33,6 +32,7 @@ pub mod ids {
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
     pub const CONTRACT_ADDRESS: &str = "contract_address";
     pub const CONTRACT_STATE_CHANGES: &str = "contract_state_changes";
+    pub const CURRENT_BLOCK_NUMBER: &str = "current_block_number";
     pub const CURRENT_HASH: &str = "current_hash";
     pub const DA_START: &str = "da_start";
     pub const DEPRECATED_TX_INFO: &str = "deprecated_tx_info";
@@ -41,10 +41,12 @@ pub mod ids {
     pub const EDGE: &str = "edge";
     pub const ENTRY_POINT_RETURN_VALUES: &str = "entry_point_return_values";
     pub const EXECUTION_CONTEXT: &str = "execution_context";
+    pub const FINAL_CONTRACT_STATE_ROOT: &str = "final_contract_state_root";
     pub const FINAL_ROOT: &str = "final_root";
     pub const HASH_PTR: &str = "hash_ptr";
     pub const INITIAL_GAS: &str = "initial_gas";
     pub const HEIGHT: &str = "height";
+    pub const INITIAL_CONTRACT_STATE_ROOT: &str = "initial_contract_state_root";
     pub const INITIAL_ROOT: &str = "initial_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const LENGTH: &str = "length";
@@ -59,6 +61,7 @@ pub mod ids {
     pub const OS_CONTEXT: &str = "os_context";
     pub const REQUIRED_GAS: &str = "required_gas";
     pub const OUTPUT_PTR: &str = "output_ptr";
+    pub const REQUEST_BLOCK_NUMBER: &str = "request_block_number";
     pub const PATH: &str = "path";
     pub const PREV_VALUE: &str = "prev_value";
     pub const REQUEST: &str = "request";
@@ -80,4 +83,9 @@ pub mod ids {
     pub const WORD: &str = "word";
     pub const Y: &str = "y";
     pub const Y_SQUARE_INT: &str = "y_square_int";
+}
+
+pub mod constants {
+    pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS";
+    pub const STORED_BLOCK_HASH_BUFFER: &str = "starkware.starknet.core.os.constants.STORED_BLOCK_HASH_BUFFER";
 }

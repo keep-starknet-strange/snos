@@ -4,14 +4,14 @@ use std::vec::IntoIter;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_reference_from_var_name, get_relocatable_from_var_name,
-    insert_value_from_var_name, insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
-use cairo_vm::serde::deserialize_program::{ApTracking, OffsetValue};
+use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
+use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::instruction::Register;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
@@ -21,15 +21,19 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
 use crate::cairo_types::structs::{CallContractResponse, EntryPointReturnValues, ExecutionContext};
-use crate::cairo_types::syscalls::{NewStorageWriteRequest, StorageRead, StorageReadRequest, StorageWrite};
+use crate::cairo_types::syscalls::{
+    NewDeployResponse, NewStorageRead, NewStorageWriteRequest, NewSyscallContractResponse, StorageRead,
+    StorageReadRequest, StorageWrite, SyscallContractResponse,
+};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::execution::syscall_utils::SyscallSelector;
 use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
+use crate::hints::vars::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::hints::vars::ids::{
-    ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, REQUIRED_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
+    ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
 };
 use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
 use crate::io::input::StarknetOsInput;
@@ -85,7 +89,6 @@ pub fn exit_tx(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // TODO: add logger
-    println!("exit tx");
     Ok(())
 }
 
@@ -157,7 +160,7 @@ pub fn assert_transaction_hash(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>("tx")?;
-    let transaction_hash = get_integer_from_var_name("transaction_hash", vm, ids_data, ap_tracking)?.into_owned();
+    let transaction_hash = get_integer_from_var_name("transaction_hash", vm, ids_data, ap_tracking)?;
 
     assert_eq!(
         tx.hash_value,
@@ -222,11 +225,12 @@ fn get_state_entry(
     Ok(())
 }
 
-pub const GET_CONTRACT_ADDRESS_STATE_ENTRY: &str = indoc! {r##"
+pub const GET_CONTRACT_ADDRESS_STATE_ENTRY: &str = indoc! {r#"
     # Fetch a state_entry in this hint and validate it in the update at the end
     # of this function.
-    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"##
+    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]"#
 };
+
 fn get_state_entry_and_set_new_state_entry(
     dict_ptr: Relocatable,
     key: Felt252,
@@ -255,22 +259,23 @@ pub fn get_block_hash_contract_address_state_entry_and_set_new_state_entry(
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
+    constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
-    let key = get_integer_from_var_name(vars::ids::BLOCK_HASH_CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+    let key = constants
+        .get(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)
+        .ok_or_else(|| HintError::MissingConstant(Box::new(BLOCK_HASH_CONTRACT_ADDRESS)))?;
 
-    get_state_entry_and_set_new_state_entry(dict_ptr, key.into_owned(), vm, exec_scopes, ids_data, ap_tracking)?;
+    get_state_entry_and_set_new_state_entry(dict_ptr, *key, vm, exec_scopes, ids_data, ap_tracking)?;
 
     Ok(())
 }
 
 pub const GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY: &str = indoc! {r#"
-	# Fetch a state_entry in this hint and validate it in the update that comes next.
-	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
-	ids.new_state_entry = segments.add()"#
+    # Fetch a state_entry in this hint and validate it in the update that comes next.
+    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[ids.contract_address]
+    ids.new_state_entry = segments.add()"#
 };
-
 pub const GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY_2: &str = indoc! {r#"
 	# Fetch a state_entry in this hint and validate it in the update that comes next.
 	ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
@@ -290,7 +295,7 @@ pub fn get_contract_address_state_entry_and_set_new_state_entry(
     let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     let key = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
 
-    get_state_entry_and_set_new_state_entry(dict_ptr, key.into_owned(), vm, exec_scopes, ids_data, ap_tracking)?;
+    get_state_entry_and_set_new_state_entry(dict_ptr, key, vm, exec_scopes, ids_data, ap_tracking)?;
 
     Ok(())
 }
@@ -930,7 +935,26 @@ pub fn check_execution(
     Ok(())
 }
 
-pub const COMPARE_RETURN_VALUE: &str = indoc! {r#"
+fn assert_memory_ranges_equal(
+    vm: &VirtualMachine,
+    expected_ptr: Relocatable,
+    expected_size: usize,
+    actual_ptr: Relocatable,
+    actual_size: usize,
+) -> Result<(), HintError> {
+    let expected = vm.get_range(expected_ptr, expected_size);
+    let actual = vm.get_range(actual_ptr, actual_size);
+
+    if expected != actual {
+        return Err(HintError::AssertionFailed(
+            format!("Return value mismatch expected={expected:?}, actual={actual:?}.").into_boxed_str(),
+        ));
+    }
+
+    Ok(())
+}
+
+pub const CHECK_SYSCALL_RESPONSE: &str = indoc! {r#"
 	# Check that the actual return value matches the expected one.
 	expected = memory.get_range(
 	    addr=ids.call_response.retdata, size=ids.call_response.retdata_size
@@ -940,33 +964,90 @@ pub const COMPARE_RETURN_VALUE: &str = indoc! {r#"
 	assert expected == actual, f'Return value mismatch expected={expected}, actual={actual}.'"#
 };
 
-pub fn compare_return_value(
+pub fn check_syscall_response(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let call_response = get_ptr_from_var_name("call_response", vm, ids_data, ap_tracking)?;
-    // the first field in call_data is the size
-    let size = vm.get_integer(call_response)?.into_owned().to_usize().unwrap();
-    // the second field is immediately afterward, but needs to be dereferenced
-    let expected_retdata_ptr = vm.get_relocatable((call_response + 1)?)?;
-    let expected = vm.get_range(expected_retdata_ptr, size);
+    let call_response_ptr = get_ptr_from_var_name(vars::ids::CALL_RESPONSE, vm, ids_data, ap_tracking)?;
+    let call_response_retdata = vm.get_relocatable((call_response_ptr + SyscallContractResponse::retdata_offset())?)?;
+    let call_response_retdata_size =
+        felt_to_usize(vm.get_integer((call_response_ptr + SyscallContractResponse::retdata_size_offset())?)?.as_ref())?;
 
-    let ids_retdata = get_ptr_from_var_name("retdata", vm, ids_data, ap_tracking)?;
-    let ids_retdata_size =
-        get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?.into_owned().to_usize().unwrap();
+    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
+    let retdata_size =
+        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
 
-    let actual = vm.get_range(ids_retdata, ids_retdata_size);
+    assert_memory_ranges_equal(vm, call_response_retdata, call_response_retdata_size, retdata, retdata_size)?;
 
-    if expected != actual {
-        println!("expected: {:?}", expected);
-        println!("actual: {:?}", actual);
+    Ok(())
+}
 
-        // assert_eq!(expected, actual, "Return value mismatch");
-        return Err(HintError::AssertNotEqualFail(Box::new((call_response.into(), ids_retdata.into()))));
-    }
+pub const CHECK_NEW_SYSCALL_RESPONSE: &str = indoc! {r#"
+	# Check that the actual return value matches the expected one.
+	expected = memory.get_range(
+	    addr=ids.response.retdata_start,
+	    size=ids.response.retdata_end - ids.response.retdata_start,
+	)
+	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
+
+	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
+};
+
+pub fn check_new_syscall_response(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let response_ptr = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
+    let response_retdata_start =
+        vm.get_relocatable((response_ptr + NewSyscallContractResponse::retdata_start_offset())?)?;
+    let response_retdata_end =
+        vm.get_relocatable((response_ptr + NewSyscallContractResponse::retdata_end_offset())?)?;
+    let response_retdata_size = (response_retdata_end - response_retdata_start)?;
+
+    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
+    let retdata_size =
+        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
+
+    assert_memory_ranges_equal(vm, response_retdata_start, response_retdata_size, retdata, retdata_size)?;
+
+    Ok(())
+}
+
+pub const CHECK_NEW_DEPLOY_RESPONSE: &str = indoc! {r#"
+	# Check that the actual return value matches the expected one.
+	expected = memory.get_range(
+	    addr=ids.response.constructor_retdata_start,
+	    size=ids.response.constructor_retdata_end - ids.response.constructor_retdata_start,
+	)
+	actual = memory.get_range(addr=ids.retdata, size=ids.retdata_size)
+	assert expected == actual, f'Return value mismatch; expected={expected}, actual={actual}.'"#
+};
+
+pub fn check_new_deploy_response(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let response_ptr = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
+    let constructor_retdata_start =
+        vm.get_relocatable((response_ptr + NewDeployResponse::constructor_retdata_start_offset())?)?;
+    let constructor_retdata_end =
+        vm.get_relocatable((response_ptr + NewDeployResponse::constructor_retdata_end_offset())?)?;
+    let response_retdata_size = (constructor_retdata_end - constructor_retdata_start)?;
+
+    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
+    let retdata_size =
+        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
+
+    assert_memory_ranges_equal(vm, constructor_retdata_start, response_retdata_size, retdata, retdata_size)?;
 
     Ok(())
 }
@@ -997,89 +1078,9 @@ pub fn log_enter_syscall(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let selector = get_integer_from_var_name(SELECTOR, _vm, ids_data, _ap_tracking)?;
-    println!("entering syscall: {:?} execution", SyscallSelector::try_from(*selector)?);
+    println!("entering syscall: {:?} execution", SyscallSelector::try_from(selector)?);
     // TODO: implement logging
     Ok(())
-}
-
-// Workaround for the lack of the `compute_integer_from_reference` in the cairo-vm
-// based on `compute_addr_from_reference` from the cairo-vm
-// See: https://github.com/lambdaclass/cairo-vm/pull/1701
-fn compute_integer_from_reference(
-    // Reference data of the ids variable
-    hint_reference: &HintReference,
-    vm: &VirtualMachine,
-    // ApTracking of the Hint itself
-    hint_ap_tracking: &ApTracking,
-) -> Option<Felt252> {
-    // function copied verbatim from the nonpublic `apply_ap_tracking_correction` in the cairo-vm
-    fn apply_ap_tracking_correction(
-        ap: Relocatable,
-        ref_ap_tracking: &ApTracking,
-        hint_ap_tracking: &ApTracking,
-    ) -> Option<Relocatable> {
-        // check that both groups are the same
-        if ref_ap_tracking.group != hint_ap_tracking.group {
-            return None;
-        }
-        let ap_diff = hint_ap_tracking.offset - ref_ap_tracking.offset;
-        (ap - ap_diff).ok()
-    }
-    // function copied verbatim from the nonpublic `get_offset_value_reference` in the cairo-vm
-    fn get_offset_value_reference(
-        vm: &VirtualMachine,
-        hint_reference: &HintReference,
-        hint_ap_tracking: &ApTracking,
-        offset_value: &OffsetValue,
-    ) -> Option<MaybeRelocatable> {
-        let (register, offset, deref) = match offset_value {
-            OffsetValue::Reference(register, offset, deref) => (register, offset, deref),
-            _ => return None,
-        };
-
-        let base_addr = if register == &Register::FP {
-            vm.get_fp()
-        } else {
-            let var_ap_trackig = hint_reference.ap_tracking_data.as_ref()?;
-
-            apply_ap_tracking_correction(vm.get_ap(), var_ap_trackig, hint_ap_tracking)?
-        };
-
-        if offset.is_negative() && base_addr.offset < offset.unsigned_abs() as usize {
-            return None;
-        }
-
-        if *deref { vm.get_maybe(&(base_addr + *offset).ok()?) } else { Some((base_addr + *offset).ok()?.into()) }
-    }
-
-    let offset1 = if let OffsetValue::Reference(_register, _offset, _deref) = &hint_reference.offset1 {
-        let offset1_maybe = get_offset_value_reference(vm, hint_reference, hint_ap_tracking, &hint_reference.offset1);
-        if let Some(MaybeRelocatable::Int(offset1)) = offset1_maybe {
-            offset1
-        } else {
-            return None;
-        }
-    } else {
-        return None;
-    };
-
-    match &hint_reference.offset2 {
-        OffsetValue::Reference(_register, _offset, _deref) => {
-            // Cant add two relocatable values
-            // So OffSet2 must be Bigint
-            // TODO: not sure what should be the expected behaviour here
-            let value = get_offset_value_reference(vm, hint_reference, hint_ap_tracking, &hint_reference.offset2)?;
-            Some(offset1 + value.get_int_ref()?)
-        }
-        OffsetValue::Value(value) => {
-            if value.is_negative() {
-                Some(offset1 - Felt252::from((*value).unsigned_abs()))
-            } else {
-                Some(offset1 + Felt252::from(*value))
-            }
-        }
-        OffsetValue::Immediate(value) => Some(offset1 + *value),
-    }
 }
 
 pub const INITIAL_GE_REQUIRED_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_gas >= ids.required_gas)";
@@ -1091,14 +1092,14 @@ pub fn initial_ge_required_gas(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // line below fails with: UnknownIdentifier("required_gas"):
-    // let initial_gas = get_integer_from_var_name(REQUIRED_GAS, vm, ids_data, ap_tracking)?;
+    // let required_gas = get_integer_from_var_name(REQUIRED_GAS, vm, ids_data, ap_tracking)?;
+
     // the reason for this is: hint reference for `required_gas` is cast([fp + (-4)] + (-10000), felt)
     // in our case [fp-4] contains a felt  to `get_integer_from_var_name` assumes that [fp-4] contains a
     // pointer not a felt below is a temporary workaround, until the problem is solved in the vm
 
-    let required_gas_reference = get_reference_from_var_name(REQUIRED_GAS, ids_data)?;
-    let required_gas = compute_integer_from_reference(required_gas_reference, vm, ap_tracking)
-        .ok_or(HintError::CustomHint(Box::from("required_gas is None")))?;
+    // workaround
+    let required_gas = *vm.get_integer((vm.get_fp() - 4)?)? - 10000;
 
     let initial_gas = get_integer_from_var_name(INITIAL_GAS, vm, ids_data, ap_tracking)?;
     insert_value_into_ap(vm, Felt252::from(initial_gas.as_ref() >= &required_gas))
@@ -1155,14 +1156,13 @@ fn cache_contract_storage(
 ) -> Result<(), HintError> {
     let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
 
-    let contract_address =
-        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+    let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
 
     let value = execution_helper.read_storage_for_address(contract_address, key).map_err(|_| {
         HintError::CustomHint(format!("No storage found for contract {}", contract_address).into_boxed_str())
     })?;
 
-    let ids_value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?.into_owned();
+    let ids_value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
     if ids_value != value {
         return Err(HintError::AssertionFailed(
             format!("Inconsistent storage value (expected {}, got {})", ids_value, value).into_boxed_str(),
@@ -1378,7 +1378,7 @@ pub fn enter_scope_descend_edge(
     let mut new_node: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
     let length = {
         let length = get_integer_from_var_name(vars::ids::LENGTH, vm, ids_data, ap_tracking)?;
-        length.to_u64().ok_or(MathError::Felt252ToU64Conversion(Box::new(length.into_owned())))?
+        length.to_u64().ok_or(MathError::Felt252ToU64Conversion(Box::new(length)))?
     };
     let word = get_integer_from_var_name(vars::ids::WORD, vm, ids_data, ap_tracking)?.to_biguint();
 
@@ -1426,8 +1426,7 @@ pub fn write_syscall_result_deprecated(
 ) -> Result<(), HintError> {
     let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
-    let contract_address =
-        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+    let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     // ids.prev_value = storage.read(key=ids.syscall_ptr.address)
@@ -1475,8 +1474,7 @@ pub fn write_syscall_result(
 ) -> Result<(), HintError> {
     let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
-    let contract_address =
-        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
+    let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
     let request = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
 
     // ids.prev_value = storage.read(key=ids.request.key)
@@ -1571,22 +1569,24 @@ pub fn write_old_block_to_storage(
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
+    constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
-    let block_hash_contract_address =
-        get_integer_from_var_name(vars::ids::BLOCK_HASH_CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?.into_owned();
-    let old_block_number =
-        get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?.into_owned();
-    let old_block_hash = get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?.into_owned();
 
-    execution_helper.write_storage_for_address(block_hash_contract_address, old_block_number, old_block_hash).map_err(
-        |_| {
+    let block_hash_contract_address = constants
+        .get(BLOCK_HASH_CONTRACT_ADDRESS)
+        .ok_or_else(|| HintError::MissingConstant(Box::new(BLOCK_HASH_CONTRACT_ADDRESS)))?;
+    let old_block_number = get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
+    let old_block_hash = get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?;
+
+    println!("writing block number: {} -> block hash: {}", old_block_number, old_block_hash);
+    execution_helper
+        .write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash)
+        .map_err(|_| {
             HintError::CustomHint(
                 format!("Storage not found for contract {}", block_hash_contract_address).into_boxed_str(),
             )
-        },
-    )?;
+        })?;
 
     Ok(())
 }
@@ -1606,7 +1606,7 @@ pub fn cache_contract_storage_request_key(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let request_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
-    let key = vm.get_integer(&request_ptr + 1)?.into_owned();
+    let key = vm.get_integer((request_ptr + NewStorageRead::key_offset())?)?.into_owned();
 
     cache_contract_storage(key, vm, exec_scopes, ids_data, ap_tracking)
 }
@@ -1627,7 +1627,7 @@ pub fn cache_contract_storage_syscall_request_address(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
+    let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
     let offset = StorageRead::request_offset() + StorageReadRequest::address_offset();
     let key = vm.get_integer((syscall_ptr + offset)?)?.into_owned();
 
@@ -1654,8 +1654,7 @@ pub fn get_old_block_number_and_hash(
     let execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
     let (old_block_number, old_block_hash) = execution_helper.get_old_block_number_and_hash()?;
 
-    let ids_old_block_number =
-        get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?.into_owned();
+    let ids_old_block_number = get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
     if old_block_number != ids_old_block_number {
         return Err(HintError::AssertionFailed(
             "Inconsistent block number. The constant STORED_BLOCK_HASH_BUFFER is probably out of sync."
@@ -1683,6 +1682,7 @@ mod tests {
     use starknet_api::block::BlockNumber;
 
     use super::*;
+    use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
     use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
     use crate::starkware_utils::commitment_tree::base_types::Height;
@@ -1698,8 +1698,16 @@ mod tests {
     }
 
     #[fixture]
-    fn execution_helper(block_context: BlockContext) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context)
+    fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
+        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+    }
+
+    #[fixture]
+    fn execution_helper(
+        block_context: BlockContext,
+        old_block_number_and_hash: (Felt252, Felt252),
+    ) -> ExecutionHelperWrapper {
+        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context, old_block_number_and_hash)
     }
 
     #[fixture]
@@ -1717,13 +1725,14 @@ mod tests {
 
         // Run async functions in a dedicated runtime to keep the test functions sync.
         // Otherwise, we run into "cannot spawn a runtime from another runtime" issues.
-        let patricia_tree = execute_coroutine_threadsafe(async {
+        let os_single_starknet_storage = execute_coroutine_threadsafe(async {
             let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
             let modifications = vec![(BigUint::from(42u32), StorageLeaf::new(Felt252::from(8000)))];
             let mut facts = None;
-            tree.update(&mut ffc, modifications, &mut facts).await.unwrap()
+            let tree = tree.update(&mut ffc, modifications, &mut facts).await.unwrap();
+            // We pass the same tree as previous and updated tree as this is enough for the tests.
+            OsSingleStarknetStorage::new(tree.clone(), tree, &vec![], ffc).await.unwrap()
         });
-        let os_single_starknet_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc);
 
         {
             let storage_by_address = &mut execution_helper.execution_helper.as_ref().borrow_mut().storage_by_address;
@@ -1748,13 +1757,13 @@ mod tests {
         let constants = HashMap::new();
 
         let ids_data = HashMap::from([
-            (vars::ids::REQUEST.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::SYSCALL_PTR.to_string(), HintReference::new_simple(-3)),
             (vars::ids::CONTRACT_ADDRESS.to_string(), HintReference::new_simple(-2)),
             (vars::ids::VALUE.to_string(), HintReference::new_simple(-1)),
         ]);
 
         // Make ids.request point to (1, 0)
-        insert_value_from_var_name(vars::ids::REQUEST, (1, 0), &mut vm, &ids_data, &ap_tracking).unwrap();
+        insert_value_from_var_name(vars::ids::SYSCALL_PTR, (1, 0), &mut vm, &ids_data, &ap_tracking).unwrap();
         let key = Felt252::from(42);
         // request.key is at offset 1 in the structure
         vm.insert_value(Relocatable::from((1, 1)), key).unwrap();
@@ -1816,7 +1825,7 @@ mod tests {
         assert_eq!(exec_scopes.get::<UpdateTree<StorageLeaf>>(vars::scopes::NODE).unwrap(), left_child);
 
         let child_bit = get_integer_from_var_name(vars::ids::CHILD_BIT, &mut vm, &ids_data, &ap_tracking).unwrap();
-        assert_eq!(*child_bit, Felt252::ZERO);
+        assert_eq!(child_bit, Felt252::ZERO);
     }
 
     #[rstest]
@@ -1876,15 +1885,13 @@ mod tests {
             .expect("Hint should not fail");
 
         // Check that the storage was updated
-        let prev_value =
-            get_integer_from_var_name(vars::ids::PREV_VALUE, &mut vm, &ids_data, &ap_tracking).unwrap().into_owned();
+        let prev_value = get_integer_from_var_name(vars::ids::PREV_VALUE, &mut vm, &ids_data, &ap_tracking).unwrap();
         assert_eq!(prev_value, Felt252::from(8000));
         let stored_value = execution_helper_with_storage.read_storage_for_address(contract_address, key).unwrap();
         assert_eq!(stored_value, Felt252::from(777));
 
         // Check the state entry
-        let state_entry =
-            get_integer_from_var_name(vars::ids::STATE_ENTRY, &mut vm, &ids_data, &ap_tracking).unwrap().into_owned();
+        let state_entry = get_integer_from_var_name(vars::ids::STATE_ENTRY, &mut vm, &ids_data, &ap_tracking).unwrap();
         assert_eq!(state_entry, Felt252::from(123));
     }
 

@@ -20,6 +20,7 @@ use indoc::indoc;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use crate::cairo_types::structs::{CompiledClass, CompiledClassFact};
+use crate::hints::vars::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::hints::vars::ids::{COMPILED_CLASS, COMPILED_CLASS_FACT, CONTRACT_STATE_CHANGES, STATE_ENTRY};
 use crate::hints::vars::scopes::COMPILED_CLASS_HASH;
 use crate::io::classes::{write_class, write_deprecated_class};
@@ -381,7 +382,6 @@ pub const GET_BLOCK_MAPPING: &str = indoc! {r#"
     ]"#
 };
 
-const BLOCK_HASH_CONTRACT_ADDRESS: &str = "starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS";
 pub fn get_block_mapping(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -414,7 +414,7 @@ pub fn elements_ge_10(
 ) -> Result<(), HintError> {
     let elements_end = get_ptr_from_var_name("elements_end", vm, ids_data, _ap_tracking)?;
     let elements = get_ptr_from_var_name("elements", vm, ids_data, _ap_tracking)?;
-    insert_value_into_ap(vm, if (elements_end - elements)? >= 10 { Felt252::ONE } else { Felt252::ZERO })
+    insert_value_into_ap(vm, Felt252::from((elements_end - elements)? >= 10))
 }
 
 pub const ELEMENTS_GE_2: &str = "memory[ap] = to_felt_or_relocatable(ids.elements_end - ids.elements >= 2)";
@@ -427,7 +427,7 @@ pub fn elements_ge_2(
 ) -> Result<(), HintError> {
     let elements_end = get_ptr_from_var_name("elements_end", vm, ids_data, _ap_tracking)?;
     let elements = get_ptr_from_var_name("elements", vm, ids_data, _ap_tracking)?;
-    insert_value_into_ap(vm, if (elements_end - elements)? >= 2 { Felt252::ONE } else { Felt252::ZERO })
+    insert_value_into_ap(vm, Felt252::from((elements_end - elements)? >= 2))
 }
 
 pub const IS_LEAF: &str = indoc! {r#"

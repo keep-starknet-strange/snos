@@ -69,7 +69,7 @@ pub fn set_preimage_for_state_commitments(
     let preimage = os_input.contract_state_commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
-    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?.into_owned();
+    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?;
     let tree_height: Felt252 = os_input.contract_state_commitment_info.tree_height.into();
     assert_tree_height_eq_merkle_height(tree_height, merkle_height)?;
 
@@ -112,7 +112,7 @@ pub fn set_preimage_for_class_commitments(
     let preimage = os_input.contract_class_commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
-    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?.into_owned();
+    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?;
     let tree_height: Felt252 = os_input.contract_class_commitment_info.tree_height.into();
     assert_tree_height_eq_merkle_height(tree_height, merkle_height)?;
 
@@ -137,17 +137,36 @@ pub fn set_preimage_for_current_commitment_info(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // TODO: CommitmentInfo should not be obtained through exec_scopes
-    let commitment_info = exec_scopes.get::<CommitmentInfo>(vars::scopes::COMMITMENT_INFO)?;
-    insert_value_from_var_name(vars::ids::INITIAL_ROOT, commitment_info.previous_root, vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(vars::ids::FINAL_ROOT, commitment_info.updated_root, vm, ids_data, ap_tracking)?;
+    let commitment_info_by_address: &HashMap<Felt252, CommitmentInfo> =
+        exec_scopes.get_ref(vars::scopes::COMMITMENT_INFO_BY_ADDRESS)?;
+    let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+    let commitment_info = commitment_info_by_address.get(&contract_address).ok_or(HintError::CustomHint(
+        format!("Could not find commitment info for contract {contract_address}").into_boxed_str(),
+    ))?;
 
-    let preimage = commitment_info.commitment_facts;
-    exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
+    insert_value_from_var_name(
+        vars::ids::INITIAL_CONTRACT_STATE_ROOT,
+        commitment_info.previous_root,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
+    insert_value_from_var_name(
+        vars::ids::FINAL_CONTRACT_STATE_ROOT,
+        commitment_info.updated_root,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
-    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?.into_owned();
+    let preimage = commitment_info.commitment_facts.clone();
+
+    let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?;
     let tree_height: Felt252 = commitment_info.tree_height.into();
     assert_tree_height_eq_merkle_height(tree_height, merkle_height)?;
+
+    // Insert preimage in scopes later than the Python VM to please the borrow checker
+    exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
     Ok(())
 }
@@ -174,7 +193,7 @@ pub fn load_edge(
     insert_value_from_var_name(vars::ids::EDGE, new_segment_base, vm, ids_data, ap_tracking)?;
 
     let preimage: HashMap<Felt252, Vec<Felt252>> = exec_scopes.get(vars::scopes::PREIMAGE)?;
-    let node = get_integer_from_var_name(vars::ids::NODE, vm, ids_data, ap_tracking)?.into_owned();
+    let node = get_integer_from_var_name(vars::ids::NODE, vm, ids_data, ap_tracking)?;
     let node_values = preimage
         .get(&node)
         .ok_or(HintError::CustomHint("preimage does not contain expected edge".to_string().into_boxed_str()))?;
@@ -311,6 +330,7 @@ mod tests {
     use rstest::{fixture, rstest};
 
     use super::*;
+    use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
     use crate::hints::types::PatriciaSkipValidationRunner;
     use crate::starknet::starknet_storage::{OsSingleStarknetStorage, StorageLeaf};
@@ -352,8 +372,16 @@ mod tests {
     }
 
     #[fixture]
-    fn execution_helper(block_context: BlockContext) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context)
+    fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
+        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+    }
+
+    #[fixture]
+    fn execution_helper(
+        block_context: BlockContext,
+        old_block_number_and_hash: (Felt252, Felt252),
+    ) -> ExecutionHelperWrapper {
+        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context, old_block_number_and_hash)
     }
 
     #[fixture]
@@ -371,13 +399,14 @@ mod tests {
 
         // Run async functions in a dedicated runtime to keep the test functions sync.
         // Otherwise, we run into "cannot spawn a runtime from another runtime" issues.
-        let patricia_tree = execute_coroutine_threadsafe(async {
+        let os_single_starknet_storage = execute_coroutine_threadsafe(async {
             let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
             let modifications = vec![(BigUint::from(400u64), StorageLeaf::new(Felt252::from(160000)))];
             let mut facts = None;
-            tree.update(&mut ffc, modifications, &mut facts).await.unwrap()
+            let tree = tree.update(&mut ffc, modifications, &mut facts).await.unwrap();
+            // We pass the same tree as previous and updated tree as this is enough for the tests.
+            OsSingleStarknetStorage::new(tree.clone(), tree, &vec![], ffc).await.unwrap()
         });
-        let os_single_starknet_storage = OsSingleStarknetStorage::new::<StorageLeaf>(patricia_tree, ffc);
 
         {
             let storage_by_address = &mut execution_helper.execution_helper.as_ref().borrow_mut().storage_by_address;
@@ -412,11 +441,11 @@ mod tests {
         set_preimage_for_state_commitments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 
         assert_eq!(
-            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             1_usize.into()
         );
         assert_eq!(
-            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             2_usize.into()
         );
         // TODO: test preimage more thoroughly
@@ -447,11 +476,11 @@ mod tests {
         set_preimage_for_class_commitments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 
         assert_eq!(
-            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             11_usize.into()
         );
         assert_eq!(
-            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             12_usize.into()
         );
         // TODO: test preimage more thoroughly
@@ -463,31 +492,37 @@ mod tests {
         let mut vm = VirtualMachine::new(false);
         vm.add_memory_segment();
         vm.add_memory_segment();
-        vm.set_fp(3);
+        vm.set_fp(4);
 
         let ap_tracking = ApTracking::new();
         let constants = HashMap::new();
 
         let ids_data = HashMap::from([
-            (vars::ids::INITIAL_ROOT.to_string(), HintReference::new_simple(-3)),
-            (vars::ids::FINAL_ROOT.to_string(), HintReference::new_simple(-2)),
-            (vars::ids::MERKLE_HEIGHT.to_string(), HintReference::new_simple(-1)),
+            (vars::ids::INITIAL_CONTRACT_STATE_ROOT.to_string(), HintReference::new_simple(-4)),
+            (vars::ids::FINAL_CONTRACT_STATE_ROOT.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::MERKLE_HEIGHT.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::CONTRACT_ADDRESS.to_string(), HintReference::new_simple(-1)),
         ]);
         insert_value_from_var_name(vars::ids::MERKLE_HEIGHT, 251_usize, &mut vm, &ids_data, &ap_tracking)
             .expect("Couldn't insert 252 into ids.MERKLE_HEIGHT");
+        let contract_address = Felt252::ONE;
+        insert_value_from_var_name(vars::ids::CONTRACT_ADDRESS, contract_address, &mut vm, &ids_data, &ap_tracking)
+            .unwrap();
+
+        let commitment_info_by_address = HashMap::from([(contract_address, os_input.contract_state_commitment_info)]);
 
         let mut exec_scopes: ExecutionScopes = Default::default();
-        exec_scopes.insert_value(vars::scopes::COMMITMENT_INFO, os_input.contract_state_commitment_info);
+        exec_scopes.insert_value(vars::scopes::COMMITMENT_INFO_BY_ADDRESS, commitment_info_by_address);
 
         set_preimage_for_current_commitment_info(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
             .unwrap();
 
         assert_eq!(
-            get_integer_from_var_name(vars::ids::INITIAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::INITIAL_CONTRACT_STATE_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             1_usize.into()
         );
         assert_eq!(
-            get_integer_from_var_name(vars::ids::FINAL_ROOT, &vm, &ids_data, &ap_tracking).unwrap().into_owned(),
+            get_integer_from_var_name(vars::ids::FINAL_CONTRACT_STATE_ROOT, &vm, &ids_data, &ap_tracking).unwrap(),
             2_usize.into()
         );
         // TODO: test preimage more thoroughly

@@ -72,6 +72,7 @@ impl ExecutionHelperWrapper {
         state: CachedState<DictStateReader>,
         tx_execution_infos: Vec<TransactionExecutionInfo>,
         block_context: &BlockContext,
+        old_block_number_and_hash: (Felt252, Felt252),
     ) -> Self {
         // Block number and block hash (current_block_number - buffer) block buffer=STORED_BLOCK_HASH_BUFFER
         // Hash that is going to be written by this OS run
@@ -86,7 +87,7 @@ impl ExecutionHelperWrapper {
                 tx_info_ptr: None,
                 call_iter: vec![].into_iter(),
                 call_execution_info_ptr: None,
-                old_block_number_and_hash: None,
+                old_block_number_and_hash: Some(old_block_number_and_hash),
                 call_info: None,
                 result_iter: vec![].into_iter(),
                 deployed_contracts_iter: vec![].into_iter(),

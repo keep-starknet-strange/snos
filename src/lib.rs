@@ -88,7 +88,7 @@ pub fn run_os(
     println!("{:?}", _os_output);
 
     vm.verify_auto_deductions().map_err(|e| SnOsError::Runner(e.into()))?;
-    cairo_runner.read_return_values(&mut vm).map_err(|e| SnOsError::Runner(e.into()))?;
+    cairo_runner.read_return_values(&mut vm, false).map_err(|e| SnOsError::Runner(e.into()))?;
     cairo_runner.relocate(&mut vm, cairo_run_config.relocate_mem).map_err(|e| SnOsError::Runner(e.into()))?;
 
     // Parse the Cairo VM output
