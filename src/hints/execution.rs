@@ -1919,4 +1919,3 @@ mod tests {
         assert_eq!(value, Felt252::THREE);
     }
 }
-
