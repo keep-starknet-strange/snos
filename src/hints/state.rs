@@ -137,8 +137,13 @@ pub fn set_preimage_for_current_commitment_info(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // TODO: CommitmentInfo should not be obtained through exec_scopes
-    let commitment_info = exec_scopes.get::<CommitmentInfo>(vars::scopes::COMMITMENT_INFO)?;
+    let commitment_info_by_address: &HashMap<Felt252, CommitmentInfo> =
+        exec_scopes.get_ref(vars::scopes::COMMITMENT_INFO_BY_ADDRESS)?;
+    let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+    let commitment_info = commitment_info_by_address.get(&contract_address).ok_or(HintError::CustomHint(
+        format!("Could not find commitment info for contract {contract_address}").into_boxed_str(),
+    ))?;
+
     insert_value_from_var_name(
         vars::ids::INITIAL_CONTRACT_STATE_ROOT,
         commitment_info.previous_root,
@@ -154,12 +159,14 @@ pub fn set_preimage_for_current_commitment_info(
         ap_tracking,
     )?;
 
-    let preimage = commitment_info.commitment_facts;
-    exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
+    let preimage = commitment_info.commitment_facts.clone();
 
     let merkle_height = get_integer_from_var_name(vars::ids::MERKLE_HEIGHT, vm, ids_data, ap_tracking)?;
     let tree_height: Felt252 = commitment_info.tree_height.into();
     assert_tree_height_eq_merkle_height(tree_height, merkle_height)?;
+
+    // Insert preimage in scopes later than the Python VM to please the borrow checker
+    exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
     Ok(())
 }
@@ -485,21 +492,27 @@ mod tests {
         let mut vm = VirtualMachine::new(false);
         vm.add_memory_segment();
         vm.add_memory_segment();
-        vm.set_fp(3);
+        vm.set_fp(4);
 
         let ap_tracking = ApTracking::new();
         let constants = HashMap::new();
 
         let ids_data = HashMap::from([
-            (vars::ids::INITIAL_CONTRACT_STATE_ROOT.to_string(), HintReference::new_simple(-3)),
-            (vars::ids::FINAL_CONTRACT_STATE_ROOT.to_string(), HintReference::new_simple(-2)),
-            (vars::ids::MERKLE_HEIGHT.to_string(), HintReference::new_simple(-1)),
+            (vars::ids::INITIAL_CONTRACT_STATE_ROOT.to_string(), HintReference::new_simple(-4)),
+            (vars::ids::FINAL_CONTRACT_STATE_ROOT.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::MERKLE_HEIGHT.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::CONTRACT_ADDRESS.to_string(), HintReference::new_simple(-1)),
         ]);
         insert_value_from_var_name(vars::ids::MERKLE_HEIGHT, 251_usize, &mut vm, &ids_data, &ap_tracking)
             .expect("Couldn't insert 252 into ids.MERKLE_HEIGHT");
+        let contract_address = Felt252::ONE;
+        insert_value_from_var_name(vars::ids::CONTRACT_ADDRESS, contract_address, &mut vm, &ids_data, &ap_tracking)
+            .unwrap();
+
+        let commitment_info_by_address = HashMap::from([(contract_address, os_input.contract_state_commitment_info)]);
 
         let mut exec_scopes: ExecutionScopes = Default::default();
-        exec_scopes.insert_value(vars::scopes::COMMITMENT_INFO, os_input.contract_state_commitment_info);
+        exec_scopes.insert_value(vars::scopes::COMMITMENT_INFO_BY_ADDRESS, commitment_info_by_address);
 
         set_preimage_for_current_commitment_info(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
             .unwrap();
