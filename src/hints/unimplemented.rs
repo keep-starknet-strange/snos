@@ -84,11 +84,6 @@ pub const ASSERT_END_OF_BYTECODE_SEGMENTS: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const ADDITIONAL_DATA_NEW_SEGMENT: &str = indoc! {r#"
-    ids.additional_data = segments.add()"#
-};
-
-#[allow(unused)]
 pub const COMPUTE_IDS_HIGH_LOW: &str = indoc! {r#"
     from starkware.cairo.common.math_utils import as_int
 
