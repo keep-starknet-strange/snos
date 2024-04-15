@@ -1,11 +1,6 @@
 use indoc::indoc;
 
 #[allow(unused)]
-pub const ASSIGN_BYTECODE_SEGMENTS: &str = indoc! {r#"
-    bytecode_segments = iter(bytecode_segment_structure.segments)"#
-};
-
-#[allow(unused)]
 pub const COMPUTE_SLOPE: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_ALPHA, SECP256R1_P
     from starkware.cairo.common.cairo_secp.secp_utils import pack
