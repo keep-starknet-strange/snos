@@ -159,15 +159,16 @@ pub fn execute_txs_and_run_os(
         execution_helper,
     );
 
-    if let Err(ref e) = result {
-        if let Runner(ref r) = e {
-            if let VmException(ref vme) = r {
-                if let Some(traceback) = vme.traceback.as_ref() {
-                    println!("traceback:\n{}", traceback);
-                }
+    match &result {
+        Err(Runner(VmException(vme))) => {
+            if let Some(traceback) = vme.traceback.as_ref() {
+                println!("traceback:\n{}", traceback);
             }
         }
-        println!("exception:\n{:#?}", result);
+        Err(other) => {
+            println!("exception:\n{:#?}", other);
+        }
+        _ => {}
     }
 
     return result;

@@ -83,9 +83,9 @@ pub fn run_os(
     }
 
     // Prepare and check expected output.
-    let _os_output = StarknetOsOutput::from_run(&vm)?;
+    let os_output = StarknetOsOutput::from_run(&vm)?;
 
-    println!("output: {:?}", _os_output);
+    println!("output: {:?}", os_output);
 
     vm.verify_auto_deductions().map_err(|e| SnOsError::Runner(e.into()))?;
     cairo_runner.read_return_values(&mut vm, false).map_err(|e| SnOsError::Runner(e.into()))?;
