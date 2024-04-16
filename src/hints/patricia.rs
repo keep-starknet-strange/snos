@@ -149,7 +149,7 @@ pub fn write_case_not_left_to_ap(
 ) -> Result<(), HintError> {
     let case: DecodeNodeCase = exec_scopes.get(vars::scopes::CASE)?;
     let value = Felt252::from(case != DecodeNodeCase::Left);
-    vm.insert_value(vm.get_ap(), value)?;
+    insert_value_into_ap(vm, value)?;
     Ok(())
 }
 
