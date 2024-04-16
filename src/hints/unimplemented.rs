@@ -134,11 +134,6 @@ pub const PACK_X_PRIME: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const WRITE_CASE_NOT_LEFT_TO_AP: &str = indoc! {r#"
-    memory[ap] = int(case != 'left')"#
-};
-
-#[allow(unused)]
 pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"
     current_segment_info = next(bytecode_segments)
 

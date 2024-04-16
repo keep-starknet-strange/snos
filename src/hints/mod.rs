@@ -50,7 +50,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 161] = [
+static HINTS: [(&str, HintImpl); 162] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -152,6 +152,7 @@ static HINTS: [(&str, HintImpl); 161] = [
     (patricia::SET_BIT, patricia::set_bit),
     (patricia::SET_SIBLINGS, patricia::set_siblings),
     (patricia::SPLIT_DESCEND, patricia::split_descend),
+    (patricia::WRITE_CASE_NOT_LEFT_TO_AP, patricia::write_case_not_left_to_ap),
     (state::DECODE_NODE, state::decode_node_hint),
     (state::DECODE_NODE_2, state::decode_node_hint),
     (state::ENTER_SCOPE_COMMITMENT_INFO_BY_ADDRESS, state::enter_scope_commitment_info_by_address),
