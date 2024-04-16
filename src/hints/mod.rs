@@ -123,6 +123,7 @@ static HINTS: [(&str, HintImpl); 162] = [
     (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
     (execution::RESOURCE_BOUNDS, execution::resource_bounds),
     (execution::SET_AP_TO_TX_NONCE, execution::set_ap_to_tx_nonce),
+    (execution::SET_FP_PLUS_4_TO_TX_NONCE, execution::set_fp_plus_4_to_tx_nonce),
     (execution::START_TX, execution::start_tx),
     (execution::TRANSACTION_VERSION, execution::transaction_version),
     (execution::TX_ACCOUNT_DEPLOYMENT_DATA, execution::tx_account_deployment_data),
