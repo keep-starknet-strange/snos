@@ -1694,15 +1694,15 @@ pub const COMPUTE_IDS_HIGH_LOW: &str = indoc! {r#"
 
 pub fn compute_ids_high_low(
     vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let upper_bound = get_constant_from_var_name("UPPER_BOUND", constants)?;
     let shift = get_constant_from_var_name("SHIFT", constants)?;
-    let value = get_integer_from_var_name("value", vm, ids_data, ap_tracking)?;
+    let value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
 
-    // Main logic
     if &value > upper_bound {
         return Err(HintError::CustomHint(
             format!("Value: {} is outside of the range [0, 2**{})", value, upper_bound,).into(),
@@ -1975,11 +1975,18 @@ mod tests {
             ("UPPER_BOUND".to_string(), Felt252::from(15)),
             ("SHIFT".to_string(), Felt252::from(5)),
         ]);
-        //Create ids
-        let ids_data = HashMap::new();
+        let mut exec_scopes: ExecutionScopes = Default::default();
 
-        insert_value_from_var_name(vars::ids::VALUE, "value", &mut vm, &ids_data, &ap_tracking).unwrap();
-        //Execute the hint
+        let ids_data = HashMap::from([
+            (vars::ids::VALUE.to_string(), HintReference::new_simple(-1)),
+            (vars::ids::BIT.to_string(), HintReference::new_simple(-2))]);
+
+        insert_value_from_var_name(vars::ids::VALUE, Felt252::from(1), &mut vm, &ids_data, &ap_tracking).unwrap();
+        println!("PASO1");
+        compute_ids_high_low(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+        println!("PASO2");
+        let low = get_integer_from_var_name("low", &vm, &ids_data, &ap_tracking).unwrap();
+        let high = get_integer_from_var_name("high", &vm, &ids_data, &ap_tracking).unwrap();
 
     }
 }
