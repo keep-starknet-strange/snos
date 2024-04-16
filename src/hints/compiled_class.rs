@@ -41,11 +41,11 @@ pub fn assert_end_of_bytecode_segments(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let mut bytecode_segments: <Vec<BytecodeSegment> as IntoIterator>::IntoIter = exec_scopes.get(vars::scopes::BYTECODE_SEGMENTS)?;
+    let mut bytecode_segments: <Vec<BytecodeSegment> as IntoIterator>::IntoIter =
+        exec_scopes.get(vars::scopes::BYTECODE_SEGMENTS)?;
     if let Some(_) = bytecode_segments.next() {
         return Err(HintError::AssertionFailed("bytecode_segments is not exhausted".to_string().into_boxed_str()));
     }
 
     Ok(())
 }
-
