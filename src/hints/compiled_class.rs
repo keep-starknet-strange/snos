@@ -93,7 +93,13 @@ mod tests {
         // iter is not empty, so the next call should fail. notice that it will consume next(),
         // though.
         let res = assert_end_of_bytecode_segments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants);
-        assert!(res.is_err()); // TODO: match on exact error, HintError doesn't impl PartialEq
+        assert!(res.is_err());
+        match res.unwrap_err() {
+            HintError::AssertionFailed(msg) => {
+                assert_eq!(msg, "bytecode_segments is not exhausted".to_string().into_boxed_str())
+            }
+            _ => panic!("Unexpected error returned"),
+        }
 
         // should succeed this time because iter as exhausted
         let res = assert_end_of_bytecode_segments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants);
