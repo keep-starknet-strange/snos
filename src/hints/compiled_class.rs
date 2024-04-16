@@ -43,7 +43,8 @@ pub fn assert_end_of_bytecode_segments(
 ) -> Result<(), HintError> {
     let bytecode_segments =
         exec_scopes.get_mut_ref::<<Vec<BytecodeSegment> as IntoIterator>::IntoIter>(vars::scopes::BYTECODE_SEGMENTS)?;
-    if let Some(_) = bytecode_segments.next() {
+    // ensure the iter is exhausted. note that this consumes next() if it is not
+    if bytecode_segments.next().is_some() {
         return Err(HintError::AssertionFailed("bytecode_segments is not exhausted".to_string().into_boxed_str()));
     }
 
