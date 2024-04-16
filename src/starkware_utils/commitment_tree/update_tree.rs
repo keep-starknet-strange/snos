@@ -332,7 +332,7 @@ where
     Ok(())
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DecodeNodeCase {
     Left,
     Right,
