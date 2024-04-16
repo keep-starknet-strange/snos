@@ -9,7 +9,7 @@ use cairo_vm::Felt252;
 use indoc::indoc;
 
 use crate::hints::vars;
-use crate::starknet::core::os::contract_class::compiled_class_hash_objects::BytecodeSegmentedNode;
+use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{BytecodeSegment, BytecodeSegmentedNode};
 
 pub const ASSIGN_BYTECODE_SEGMENTS: &str = indoc! {r#"
     bytecode_segments = iter(bytecode_segment_structure.segments)"#
@@ -30,3 +30,22 @@ pub fn assign_bytecode_segments(
 
     Ok(())
 }
+
+pub const ASSERT_END_OF_BYTECODE_SEGMENTS: &str = indoc! {r#"
+    assert next(bytecode_segments, None) is None"#
+};
+pub fn assert_end_of_bytecode_segments(
+    _vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let mut bytecode_segments: <Vec<BytecodeSegment> as IntoIterator>::IntoIter = exec_scopes.get(vars::scopes::BYTECODE_SEGMENTS)?;
+    if let Some(_) = bytecode_segments.next() {
+        return Err(HintError::AssertionFailed("bytecode_segments is not exhausted".to_string().into_boxed_str()));
+    }
+
+    Ok(())
+}
+

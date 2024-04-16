@@ -79,11 +79,6 @@ pub const DATA_TO_HASH_NEW_SEGMENT: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const ASSERT_END_OF_BYTECODE_SEGMENTS: &str = indoc! {r#"
-    assert next(bytecode_segments, None) is None"#
-};
-
-#[allow(unused)]
 pub const WRITE_ADDRESS: &str = indoc! {r#"
     from starkware.starknet.core.os.data_availability.bls_utils import split
 
