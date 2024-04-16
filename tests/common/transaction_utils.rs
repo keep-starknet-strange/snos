@@ -171,5 +171,5 @@ pub fn execute_txs_and_run_os(
         _ => {}
     }
 
-    return result;
+    result
 }
