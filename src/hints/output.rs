@@ -112,7 +112,6 @@ pub fn set_ap_to_block_hash(
     Ok(())
 }
 
-#[allow(unused)]
 pub const SET_STATE_UPDATES_START: &str = indoc! {r#"if ids.use_kzg_da:
     ids.state_updates_start = segments.add()
 else:
