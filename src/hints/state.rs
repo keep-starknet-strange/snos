@@ -340,7 +340,7 @@ pub fn write_split_result(
     let value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
     let res_ptr = get_relocatable_from_var_name(vars::ids::RES, vm, ids_data, ap_tracking)?;
 
-    let splits = split(value)?.into_iter().map(|f| MaybeRelocatable::Int(f)).collect::<Vec<MaybeRelocatable>>();
+    let splits = split(value)?.into_iter().map(MaybeRelocatable::Int).collect::<Vec<MaybeRelocatable>>();
     vm.write_arg(res_ptr, &splits)?;
 
     Ok(())
