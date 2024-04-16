@@ -172,6 +172,7 @@ static HINTS: [(&str, HintImpl); 161] = [
     (syscalls::EXIT_DEPLOY_SYSCALL, syscalls::exit_deploy_syscall),
     (syscalls::EXIT_EMIT_EVENT_SYSCALL, syscalls::exit_emit_event_syscall),
     (syscalls::EXIT_GET_BLOCK_HASH_SYSCALL, syscalls::exit_get_block_hash_syscall),
+    (syscalls::EXIT_GET_BLOCK_NUMBER_SYSCALL, syscalls::exit_get_block_number_syscall),
     (syscalls::EXIT_GET_BLOCK_TIMESTAMP_SYSCALL, syscalls::exit_get_block_timestamp_syscall),
     (syscalls::EXIT_GET_CALLER_ADDRESS_SYSCALL, syscalls::exit_get_caller_address_syscall),
     (syscalls::EXIT_GET_CONTRACT_ADDRESS_SYSCALL, syscalls::exit_get_contract_address_syscall),
