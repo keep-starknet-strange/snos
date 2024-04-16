@@ -27,6 +27,7 @@ use crate::hints::block_context::is_leaf;
 use crate::io::input::StarknetOsInput;
 
 pub mod block_context;
+mod bls_utils;
 pub mod builtins;
 mod compiled_class;
 pub mod execution;

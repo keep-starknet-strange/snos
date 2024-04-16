@@ -12,9 +12,6 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
-use num_bigint::BigInt;
-use num_integer::Integer;
-use num_traits::Signed;
 
 use crate::cairo_types::builtins::{HashBuiltin, SpongeHashBuiltin};
 use crate::cairo_types::traits::CairoType;
@@ -26,6 +23,8 @@ use crate::io::input::StarknetOsInput;
 use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, CommitmentInfo, StorageLeaf};
 use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, TreeUpdate};
 use crate::utils::get_constant;
+
+use super::bls_utils::split;
 
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
     if tree_height != merkle_height {
@@ -341,30 +340,6 @@ pub fn write_split_result(
     // this hint fills in a Cairo BigInt3 by taking a felt (ids.value) and passing it to a split fn
     let value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
     let res_ptr = get_relocatable_from_var_name(vars::ids::RES, vm, ids_data, ap_tracking)?;
-
-    fn split(num: Felt252) -> Result<Vec<Felt252>, HintError> {
-        // Takes an integer and returns its canonical representation as:
-        //    d0 + d1 * BASE + d2 * BASE**2.
-        // d2 can be in the range (-2**127, 2**127).
-
-        let base: BigInt = BigInt::from(2).pow(86);
-
-        let mut a = Vec::with_capacity(3);
-        let mut num = num.to_bigint();
-        for _ in 0..2 {
-            let (q, residue) = num.div_mod_floor(&base);
-            num = q;
-            a.push(residue);
-        }
-        if num.abs() >= BigInt::from(2).pow(127) {
-            return Err(HintError::AssertionFailed(
-                "remainder should be less than 2**127".to_string().into_boxed_str(),
-            ));
-        }
-        a.push(num);
-
-        Ok(a.into_iter().map(|big| big.into()).collect())
-    }
 
     vm.write_arg(res_ptr, &split(value))?;
 
