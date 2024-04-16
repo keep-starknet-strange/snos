@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Formatter;
 
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
@@ -26,6 +27,12 @@ impl StorageLeaf {
 
     pub fn empty() -> Self {
         Self::new(Felt252::ZERO)
+    }
+}
+
+impl std::fmt::Display for StorageLeaf {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "value: {}", self.value.to_biguint())
     }
 }
 
@@ -107,12 +114,12 @@ impl CommitmentInfo {
     where
         S: Storage + 'static,
         H: HashFunctionType + Sync + Send + 'static,
-        LF: LeafFact<S, H> + Send + 'static + std::fmt::Debug,
+        LF: LeafFact<S, H> + Send + 'static + std::fmt::Display,
     {
         let previous_tree_root = Felt252::from_bytes_be_slice(&previous_tree.root);
 
         for modification in modifications.iter() {
-            println!("{}: {:?}", modification.0, modification.1);
+            println!("{}: {}", modification.0, modification.1);
         }
 
         let mut commitment_facts = Some(BinaryFactDict::new());
