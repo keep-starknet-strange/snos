@@ -157,11 +157,6 @@ pub const START_TX_VALIDATE_DECLARE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const WRITE_TX_NONCE_TO_MEMORY: &str = indoc! {r#"
-    memory[fp + 4] = to_felt_or_relocatable(tx.nonce)"#
-};
-
-#[allow(unused)]
 pub const MAYBE_WRITE_ADDRESS_TO_AP: &str = indoc! {r#"
     memory[ap] = to_felt_or_relocatable(ids.response.ec_point.address_ if ids.not_on_curve == 0 else segments.add())"#
 };
