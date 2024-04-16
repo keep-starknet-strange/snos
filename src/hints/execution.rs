@@ -4,8 +4,8 @@ use std::vec::IntoIter;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
-    insert_value_into_ap,
+    get_constant_from_var_name, get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name,
+    insert_value_from_var_name, insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
@@ -1681,6 +1681,38 @@ pub fn get_old_block_number_and_hash(
     Ok(())
 }
 
+pub const COMPUTE_IDS_HIGH_LOW: &str = indoc! {r#"
+    from starkware.cairo.common.math_utils import as_int
+
+    # Correctness check.
+    value = as_int(ids.value, PRIME) % PRIME
+    assert value < ids.UPPER_BOUND, f'{value} is outside of the range [0, 2**165).'
+
+    # Calculation for the assertion.
+    ids.high, ids.low = divmod(ids.value, ids.SHIFT)"#
+};
+
+pub fn compute_ids_high_low(
+    vm: &mut VirtualMachine,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let upper_bound = get_constant_from_var_name("UPPER_BOUND", constants)?;
+    let shift = get_constant_from_var_name("SHIFT", constants)?;
+    let value = get_integer_from_var_name("value", vm, ids_data, ap_tracking)?;
+
+    // Main logic
+    if &value > upper_bound {
+        return Err(HintError::CustomHint(
+            format!("Value: {} is outside of the range [0, 2**{})", value, upper_bound,).into(),
+        ));
+    }
+    let (high, low) = value.div_rem(&shift.try_into().map_err(|_| MathError::DividedByZero)?);
+    insert_value_from_var_name("high", high, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name("low", low, vm, ids_data, ap_tracking)
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
@@ -1930,5 +1962,24 @@ mod tests {
         let address: Relocatable = (vm.get_fp() + 4usize).unwrap();
         let value = vm.get_integer(address).unwrap().into_owned();
         assert_eq!(value, Felt252::THREE);
+    }
+
+    #[test]
+    fn test_compute_ids_high_low() {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+    
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::from([
+            ("UPPER_BOUND".to_string(), Felt252::from(15)),
+            ("SHIFT".to_string(), Felt252::from(5)),
+        ]);
+        //Create ids
+        let ids_data = HashMap::new();
+
+        insert_value_from_var_name(vars::ids::VALUE, "value", &mut vm, &ids_data, &ap_tracking).unwrap();
+        //Execute the hint
+
     }
 }
