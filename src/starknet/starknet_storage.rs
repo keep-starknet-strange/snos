@@ -107,15 +107,20 @@ impl CommitmentInfo {
     where
         S: Storage + 'static,
         H: HashFunctionType + Sync + Send + 'static,
-        LF: LeafFact<S, H> + Send + 'static,
+        LF: LeafFact<S, H> + Send + 'static + std::fmt::Debug,
     {
         let previous_tree_root = Felt252::from_bytes_be_slice(&previous_tree.root);
+
+        for modification in modifications.iter() {
+            println!("{}: {:?}", modification.0, modification.1);
+        }
 
         let mut commitment_facts = Some(BinaryFactDict::new());
         let actual_updated_tree = previous_tree.update(ffc, modifications, &mut commitment_facts).await?;
         let actual_updated_root = Felt252::from_bytes_be_slice(&actual_updated_tree.root);
 
         if actual_updated_root != expected_updated_root {
+            println!("expected: {} - actual: {}", expected_updated_root.to_biguint(), actual_updated_root.to_biguint());
             return Err(CommitmentInfoError::UpdatedRootMismatch);
         }
 

@@ -64,7 +64,7 @@ pub fn simple_block(
 
     let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
-    os_hints(&block_context, initial_state, vec![account_tx_internal], vec![tx_execution_info])
+    os_hints(&block_context, initial_state, state, vec![account_tx_internal], vec![tx_execution_info])
 }
 
 #[fixture]
@@ -110,5 +110,5 @@ pub fn simple_block_cairo1(
 
     let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
-    os_hints(&block_context, initial_state, vec![account_tx_intenal], vec![tx_execution_info])
+    os_hints(&block_context, initial_state, state, vec![account_tx_intenal], vec![tx_execution_info])
 }

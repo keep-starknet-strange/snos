@@ -111,6 +111,7 @@ pub fn cairo1_syscalls_block(
     os_hints(
         &block_context,
         initial_state,
+        state,
         vec![test_emit_event_tx_internal, test_storage_read_write_tx_internal, test_get_block_hash_tx_internal],
         vec![
             test_emit_event_tx_execution_info,

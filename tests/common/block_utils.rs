@@ -18,7 +18,7 @@ use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
-use snos::utils::cached_state_to_storage_by_address;
+use snos::utils::build_starknet_storage;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -187,17 +187,18 @@ pub fn copy_state(state: &CachedState<DictStateReader>) -> CachedState<DictState
 
 pub fn os_hints(
     block_context: &BlockContext,
-    mut state: CachedState<DictStateReader>,
+    mut initial_state: CachedState<DictStateReader>,
+    final_state: CachedState<DictStateReader>,
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
-    let mut contracts: HashMap<Felt252, ContractState> = state
+    let mut contracts: HashMap<Felt252, ContractState> = initial_state
         .state
         .address_to_class_hash
         .keys()
         .map(|address| {
             let contract_state = ContractState {
-                contract_hash: to_felt252(&state.state.address_to_class_hash.get(address).unwrap().0),
+                contract_hash: to_felt252(&initial_state.state.address_to_class_hash.get(address).unwrap().0),
                 storage_commitment_tree: StorageCommitment::default(), // TODO
                 nonce: 0.into(),                                       // TODO
             };
@@ -210,12 +211,12 @@ pub fn os_hints(
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
     for c in contracts.keys() {
-        let class_hash = state
+        let class_hash = initial_state
             .get_class_hash_at(
                 ContractAddress::try_from(StarkHash::try_from(c.to_hex_string().as_str()).unwrap()).unwrap(),
             )
             .unwrap();
-        let blockifier_class = state.get_compiled_contract_class(class_hash).unwrap();
+        let blockifier_class = initial_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
             V0(_) => {
                 deprecated_compiled_classes.insert(to_felt252(&class_hash.0), deprecated_compiled_class(class_hash));
@@ -288,8 +289,9 @@ pub fn os_hints(
         block_hash: Default::default(),
     };
 
+    let storage_by_address = build_starknet_storage(&initial_state, &final_state);
     let execution_helper = ExecutionHelperWrapper::new(
-        cached_state_to_storage_by_address(&state),
+        storage_by_address,
         tx_execution_infos,
         &block_context,
         (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64)),
