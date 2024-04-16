@@ -1,5 +1,5 @@
-use cairo_vm::{vm::errors::hint_errors::HintError, Felt252};
-
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::Felt252;
 use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use num_integer::Integer;
@@ -13,7 +13,6 @@ lazy_static! {
 ///    d0 + d1 * BASE + d2 * BASE**2.
 /// d2 can be in the range (-2**127, 2**127).
 pub fn split(num: Felt252) -> Result<Vec<Felt252>, HintError> {
-
     let mut a = Vec::with_capacity(3);
     let mut num = num.to_bigint();
     for _ in 0..2 {
@@ -22,9 +21,7 @@ pub fn split(num: Felt252) -> Result<Vec<Felt252>, HintError> {
         a.push(residue);
     }
     if num.abs() >= BigInt::from(2).pow(127) {
-        return Err(HintError::AssertionFailed(
-            "remainder should be less than 2**127".to_string().into_boxed_str(),
-        ));
+        return Err(HintError::AssertionFailed("remainder should be less than 2**127".to_string().into_boxed_str()));
     }
     a.push(num);
 
@@ -51,4 +48,3 @@ mod tests {
         assert_eq!(splits, vec![Felt252::ONE, Felt252::TWO, Felt252::THREE]);
     }
 }
-
