@@ -1,4 +1,6 @@
 pub mod scopes {
+    pub const BYTECODE_SEGMENT_STRUCTURE: &str = "bytecode_segment_structure";
+    pub const BYTECODE_SEGMENTS: &str = "bytecode_segments";
     pub const CASE: &str = "case";
     pub const COMMITMENT_INFO: &str = "commitment_info";
     pub const COMMITMENT_INFO_BY_ADDRESS: &str = "commitment_info_by_address";
@@ -49,9 +51,9 @@ pub mod ids {
     pub const INITIAL_CONTRACT_STATE_ROOT: &str = "initial_contract_state_root";
     pub const INITIAL_ROOT: &str = "initial_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
+    pub const USE_KZG_DA: &str = "use_kzg_da";
     pub const LENGTH: &str = "length";
     pub const MAX_FEE: &str = "max_fee";
-    pub const MERKLE_HEIGHT: &str = "MERKLE_HEIGHT";
     pub const N: &str = "n";
     pub const NEW_LENGTH: &str = "new_length";
     pub const NEW_STATE_ENTRY: &str = "new_state_entry";
@@ -76,6 +78,7 @@ pub mod ids {
     pub const SIGNATURE_START: &str = "signature_start";
     pub const SRC_PTR: &str = "src_ptr";
     pub const STATE_ENTRY: &str = "state_entry";
+    pub const STATE_UPDATES_START: &str = "state_updates_start";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
     pub const TX_VERSION: &str = "tx_version";
 
@@ -87,5 +90,6 @@ pub mod ids {
 
 pub mod constants {
     pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS";
+    pub const MERKLE_HEIGHT: &str = "starkware.starknet.core.os.state.commitment.MERKLE_HEIGHT";
     pub const STORED_BLOCK_HASH_BUFFER: &str = "starkware.starknet.core.os.constants.STORED_BLOCK_HASH_BUFFER";
 }

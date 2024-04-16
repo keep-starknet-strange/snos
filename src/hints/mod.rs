@@ -28,6 +28,7 @@ use crate::io::input::StarknetOsInput;
 
 pub mod block_context;
 pub mod builtins;
+mod compiled_class;
 pub mod execution;
 mod output;
 mod patricia;
@@ -35,6 +36,7 @@ pub mod state;
 pub mod syscalls;
 #[cfg(test)]
 mod tests;
+mod transaction_hash;
 mod types;
 mod unimplemented;
 pub mod vars;
@@ -48,7 +50,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 158] = [
+static HINTS: [(&str, HintImpl); 162] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -79,6 +81,7 @@ static HINTS: [(&str, HintImpl); 158] = [
     (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
     (builtins::SELECT_BUILTIN, builtins::select_builtin),
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
+    (compiled_class::ASSIGN_BYTECODE_SEGMENTS, compiled_class::assign_bytecode_segments),
     (execute_syscalls::IS_BLOCK_NUMBER_IN_BLOCK_HASH_BUFFER, execute_syscalls::is_block_number_in_block_hash_buffer),
     (execution::ADD_RELOCATION_RULE, execution::add_relocation_rule),
     (execution::ASSERT_TRANSACTION_HASH, execution::assert_transaction_hash),
@@ -107,7 +110,7 @@ static HINTS: [(&str, HintImpl); 158] = [
     (execution::GEN_CLASS_HASH_ARG, execution::gen_class_hash_arg),
     (execution::GEN_SIGNATURE_ARG, execution::gen_signature_arg),
     (execution::GET_BLOCK_HASH_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY, execution::get_block_hash_contract_address_state_entry_and_set_new_state_entry),
-    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry_and_set_new_state_entry),
+    (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY, execution::get_contract_address_state_entry),
     (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY, execution::get_contract_address_state_entry_and_set_new_state_entry),
     (execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY_2, execution::get_contract_address_state_entry_and_set_new_state_entry),
     (execution::GET_OLD_BLOCK_NUMBER_AND_HASH, execution::get_old_block_number_and_hash),
@@ -140,6 +143,7 @@ static HINTS: [(&str, HintImpl); 158] = [
     (execution::WRITE_SYSCALL_RESULT, execution::write_syscall_result),
     (execution::WRITE_SYSCALL_RESULT_DEPRECATED, execution::write_syscall_result_deprecated),
     (output::SET_AP_TO_BLOCK_HASH, output::set_ap_to_block_hash),
+    (output::SET_STATE_UPDATES_START, output::set_state_updates_start),
     (output::SET_TREE_STRUCTURE, output::set_tree_structure),
     (patricia::ASSERT_CASE_IS_RIGHT, patricia::assert_case_is_right),
     (patricia::HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO, patricia::height_is_zero_or_len_node_preimage_is_two),
@@ -168,6 +172,7 @@ static HINTS: [(&str, HintImpl); 158] = [
     (syscalls::EXIT_DEPLOY_SYSCALL, syscalls::exit_deploy_syscall),
     (syscalls::EXIT_EMIT_EVENT_SYSCALL, syscalls::exit_emit_event_syscall),
     (syscalls::EXIT_GET_BLOCK_HASH_SYSCALL, syscalls::exit_get_block_hash_syscall),
+    (syscalls::EXIT_GET_BLOCK_NUMBER_SYSCALL, syscalls::exit_get_block_number_syscall),
     (syscalls::EXIT_GET_BLOCK_TIMESTAMP_SYSCALL, syscalls::exit_get_block_timestamp_syscall),
     (syscalls::EXIT_GET_CALLER_ADDRESS_SYSCALL, syscalls::exit_get_caller_address_syscall),
     (syscalls::EXIT_GET_CONTRACT_ADDRESS_SYSCALL, syscalls::exit_get_contract_address_syscall),
@@ -207,6 +212,7 @@ static HINTS: [(&str, HintImpl); 158] = [
     (syscalls::SET_SYSCALL_PTR, syscalls::set_syscall_ptr),
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
+    (transaction_hash::ADDITIONAL_DATA_NEW_SEGMENT, transaction_hash::additional_data_new_segment),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.

@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use bitvec::prelude::{BitSlice, BitVec, Msb0};
 use bitvec::view::BitView;
 use blockifier::execution::contract_class::ContractClassV0Inner;
+use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -230,6 +231,17 @@ pub fn i64_from_byte_slice_le(bytes: &[u8]) -> i64 {
 
 pub fn i64_from_byte_slice_be(bytes: &[u8]) -> i64 {
     u64_from_byte_slice_be(bytes) as i64
+}
+
+/// Retrieves a constant from the `constants` hashmap or returns an error.
+///
+/// We should not use `get_constant_from_var_name` if possible as it performs an O(N)
+/// lookup to look for an entry that matches a variable name, without the path prefix.
+pub fn get_constant<'a>(
+    identifier: &'static str,
+    constants: &'a HashMap<String, Felt252>,
+) -> Result<&'a Felt252, HintError> {
+    constants.get(identifier).ok_or(HintError::MissingConstant(Box::new(identifier)))
 }
 
 #[cfg(test)]
