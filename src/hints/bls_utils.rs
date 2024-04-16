@@ -28,3 +28,24 @@ pub fn split(num: Felt252) -> Result<Vec<Felt252>, HintError> {
     Ok(a.into_iter().map(|big| big.into()).collect())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_split_zero() {
+        let splits = split(Felt252::ZERO).unwrap();
+        assert_eq!(splits.len(), 3);
+        assert_eq!(splits, vec![Felt252::ZERO, Felt252::ZERO, Felt252::ZERO]);
+    }
+
+    #[test]
+    fn test_split_large_num() {
+        // 1 + 2*BASE + 3*(BASE^2) == 17958932119522135058886879379160190656204633450479617
+        let large = Felt252::from_dec_str("17958932119522135058886879379160190656204633450479617").unwrap();
+        let splits = split(large).unwrap();
+        assert_eq!(splits.len(), 3);
+        assert_eq!(splits, vec![Felt252::ONE, Felt252::TWO, Felt252::THREE]);
+    }
+}
+
