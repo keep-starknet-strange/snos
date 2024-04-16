@@ -16,7 +16,7 @@ use crate::common::state::{initial_state, InitialState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
-fn simple_method_cairo0(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
+fn return_result_cairo0_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
@@ -46,7 +46,7 @@ fn simple_method_cairo0(block_context: BlockContext, initial_state: InitialState
 }
 
 #[rstest]
-fn simple_method_cairo1(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
+fn return_result_cairo1_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
