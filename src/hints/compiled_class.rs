@@ -41,11 +41,62 @@ pub fn assert_end_of_bytecode_segments(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let mut bytecode_segments: <Vec<BytecodeSegment> as IntoIterator>::IntoIter =
-        exec_scopes.get(vars::scopes::BYTECODE_SEGMENTS)?;
+    let bytecode_segments: <Vec<BytecodeSegment> as IntoIterator>::IntoIter =
+        exec_scopes.get_mut_ref(vars::scopes::BYTECODE_SEGMENTS)?;
     if let Some(_) = bytecode_segments.next() {
         return Err(HintError::AssertionFailed("bytecode_segments is not exhausted".to_string().into_boxed_str()));
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use cairo_vm::any_box;
+
+    use super::*;
+    use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
+        BytecodeLeaf, BytecodeSegmentStructureImpl,
+    };
+    use crate::starkware_utils::commitment_tree::base_types::Length;
+
+    #[test]
+    fn test_bytecode_segment_hints() {
+        // tests both ASSIGN_BYTECODE_SEGMENTS and ASSERT_END_OF_BYTECODE_SEGMENTS. The first
+        // should prepare an iterater and put it in ExecutionScopes, the second should ensure that
+        // the iterator is exhausted.
+
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(2);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+        let ids_data = HashMap::new();
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+
+        // execution scopes must have a BytecodeSegmentNode inserted. We insert one that has one
+        // segment which lets us test both success and failure of ASSERT_END_OF_BYTECODE_SEGMENTS.
+        let node = BytecodeSegmentedNode {
+            segments: vec![BytecodeSegment {
+                segment_length: Length(0),
+                is_used: false,
+                inner_structure: BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf { data: Default::default() }),
+            }],
+        };
+        exec_scopes.insert_box(vars::scopes::BYTECODE_SEGMENT_STRUCTURE, any_box!(node));
+
+        assign_bytecode_segments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+
+        // iter is not empty, so the next call should fail. notice that it will consume next(),
+        // though.
+        let res = assert_end_of_bytecode_segments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants);
+        assert!(res.is_err()); // TODO: match on exact error, HintError doesn't impl PartialEq
+
+        // should succeed this time because iter as exhausted
+        let res = assert_end_of_bytecode_segments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants);
+        assert!(res.is_ok());
+    }
 }
