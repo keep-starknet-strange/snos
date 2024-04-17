@@ -75,7 +75,7 @@ pub fn load_next_tx(
     let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>("transactions")?;
     // Safe to unwrap because the remaining number of txs is checked in the cairo code.
     let tx = transactions.next().unwrap();
-    println!("executing {} on: {}", tx.r#type, tx.sender_address.unwrap());
+    println!("executing {} on: {:?}", tx.r#type, tx.sender_address);
     exec_scopes.insert_value("transactions", transactions);
     exec_scopes.insert_value("tx", tx.clone());
     insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)

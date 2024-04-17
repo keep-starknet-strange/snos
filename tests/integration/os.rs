@@ -1,6 +1,7 @@
 use blockifier::block_context::BlockContext;
-use blockifier::invoke_tx_args;
-use blockifier::test_utils::{create_calldata, NonceManager};
+use blockifier::test_utils::contracts::FeatureContract;
+use blockifier::{invoke_tx_args, declare_tx_args};
+use blockifier::test_utils::{create_calldata, CairoVersion, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use rstest::rstest;
@@ -42,6 +43,34 @@ fn return_result_cairo0_account(block_context: BlockContext, initial_state: Init
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
     assert!(err_log.contains(r#"Could not find commitment info for contract 1073742336"#), "{}", err_log);
+}
+
+#[rstest]
+fn declare_and_deploy_account_cairo0_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
+    let tx_version = TransactionVersion::ZERO;
+    let mut nonce_manager = NonceManager::default();
+
+    let InitialState {
+        state,
+        account_without_validations_cairo0_address: sender_address,
+        // test_contract_cairo0_address: contract_address,
+        ..
+    } = initial_state;
+
+    let declare_tx = blockifier::test_utils::declare::declare_tx(
+        declare_tx_args! {
+            max_fee,
+            sender_address,
+            version: tx_version,
+            nonce: nonce_manager.next(sender_address),
+        },
+        FeatureContract::Empty(CairoVersion::Cairo0).get_class(),
+    );
+
+    let r = execute_txs_and_run_os(state, block_context, vec![declare_tx]);
+
+    // temporarily expect test to break somewhere in the state_update function
+    // assert!(&format!("{:?}", r).contains(r#"CustomHint("Could not find commitment info"#));
 }
 
 #[rstest]
