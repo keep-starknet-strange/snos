@@ -144,13 +144,6 @@ pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"
     })"#
 };
 
-// TODO: this hint isn't matching properly, perhaps because of the backslash-line-continuation
-#[allow(unused)]
-pub const CHECK_REQUEST_BLOCK_AGAINST_BUFFER_LEN: &str = indoc! {r#"
-    memory[ap] = to_felt_or_relocatable(ids.request_block_number > \
-        ids.current_block_number - ids.STORED_BLOCK_HASH_BUFFER)"#
-};
-
 #[allow(unused)]
 pub const START_TX_VALIDATE_DECLARE: &str = indoc! {r#"
     execution_helper.start_tx(
