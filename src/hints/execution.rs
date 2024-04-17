@@ -202,7 +202,7 @@ pub fn enter_scope_syscall_handler(
     Ok(())
 }
 
-fn get_state_entry(
+fn set_state_entry(
     dict_ptr: Relocatable,
     key: Felt252,
     vm: &mut VirtualMachine,
@@ -241,7 +241,7 @@ pub fn get_contract_address_state_entry(
     let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     let key = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
 
-    get_state_entry(dict_ptr, key, vm, exec_scopes, ids_data, ap_tracking)?;
+    set_state_entry(dict_ptr, key, vm, exec_scopes, ids_data, ap_tracking)?;
 
     Ok(())
 }
@@ -265,7 +265,7 @@ pub fn set_state_entry_to_account_contract_address(
     let account_contract_address =
         vm.get_integer((tx_info_ptr + TxInfo::account_contract_address_offset())?)?.into_owned();
 
-    get_state_entry(dict_ptr, account_contract_address, vm, exec_scopes, ids_data, ap_tracking)?;
+    set_state_entry(dict_ptr, account_contract_address, vm, exec_scopes, ids_data, ap_tracking)?;
 
     Ok(())
 }
@@ -278,7 +278,7 @@ fn get_state_entry_and_set_new_state_entry(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError> {
-    get_state_entry(dict_ptr, key, vm, exec_scopes, ids_data, ap_tracking)?;
+    set_state_entry(dict_ptr, key, vm, exec_scopes, ids_data, ap_tracking)?;
 
     let new_segment = vm.add_memory_segment();
     insert_value_from_var_name(vars::ids::NEW_STATE_ENTRY, new_segment, vm, ids_data, ap_tracking)?;
@@ -1610,9 +1610,7 @@ pub fn write_old_block_to_storage(
 ) -> Result<(), HintError> {
     let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
-    let block_hash_contract_address = constants
-        .get(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)
-        .ok_or_else(|| HintError::MissingConstant(Box::new(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS)))?;
+    let block_hash_contract_address = get_constant(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS, constants)?;
     let old_block_number = get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
     let old_block_hash = get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?;
 
