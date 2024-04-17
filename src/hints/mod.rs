@@ -27,6 +27,7 @@ use crate::hints::block_context::is_leaf;
 use crate::io::input::StarknetOsInput;
 
 pub mod block_context;
+mod bls_utils;
 pub mod builtins;
 mod compiled_class;
 pub mod execution;
@@ -50,7 +51,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 164] = [
+static HINTS: [(&str, HintImpl); 165] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -163,6 +164,7 @@ static HINTS: [(&str, HintImpl); 164] = [
     (state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS, state::set_preimage_for_class_commitments),
     (state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO, state::set_preimage_for_current_commitment_info),
     (state::SET_PREIMAGE_FOR_STATE_COMMITMENTS, state::set_preimage_for_state_commitments),
+    (state::WRITE_SPLIT_RESULT, state::write_split_result),
     (syscalls::CALL_CONTRACT, syscalls::call_contract),
     (syscalls::DELEGATE_CALL, syscalls::delegate_call),
     (syscalls::DELEGATE_L1_HANDLER, syscalls::delegate_l1_handler),
@@ -215,6 +217,7 @@ static HINTS: [(&str, HintImpl); 164] = [
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
     (transaction_hash::ADDITIONAL_DATA_NEW_SEGMENT, transaction_hash::additional_data_new_segment),
+    (transaction_hash::DATA_TO_HASH_NEW_SEGMENT, transaction_hash::data_to_hash_new_segment),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.

@@ -37,6 +37,7 @@ pub mod ids {
     pub const CURRENT_BLOCK_NUMBER: &str = "current_block_number";
     pub const CURRENT_HASH: &str = "current_hash";
     pub const DA_START: &str = "da_start";
+    pub const DATA_TO_HASH: &str = "data_to_hash";
     pub const DEPRECATED_TX_INFO: &str = "deprecated_tx_info";
     pub const DESCEND: &str = "descend";
     pub const DEST_PTR: &str = "dest_ptr";
@@ -67,6 +68,7 @@ pub mod ids {
     pub const PATH: &str = "path";
     pub const PREV_VALUE: &str = "prev_value";
     pub const REQUEST: &str = "request";
+    pub const RES: &str = "res";
     pub const RESPONSE: &str = "response";
     pub const RETDATA: &str = "retdata";
     pub const RETDATA_SIZE: &str = "retdata_size";

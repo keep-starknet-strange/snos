@@ -7,12 +7,13 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
+use super::bls_utils::split;
 use crate::cairo_types::builtins::{HashBuiltin, SpongeHashBuiltin};
 use crate::cairo_types::traits::CairoType;
 use crate::cairo_types::trie::NodeEdge;
@@ -323,8 +324,32 @@ pub fn enter_scope_commitment_info_by_address(
     Ok(())
 }
 
+pub const WRITE_SPLIT_RESULT: &str = indoc! {r#"
+    from starkware.starknet.core.os.data_availability.bls_utils import split
+
+    segments.write_arg(ids.res.address_, split(ids.value))"#
+};
+pub fn write_split_result(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // this hint fills in a Cairo BigInt3 by taking a felt (ids.value) and passing it to a split fn
+    let value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
+    let res_ptr = get_relocatable_from_var_name(vars::ids::RES, vm, ids_data, ap_tracking)?;
+
+    let splits = split(value)?.into_iter().map(MaybeRelocatable::Int).collect::<Vec<MaybeRelocatable>>();
+    vm.write_arg(res_ptr, &splits)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use blockifier::block_context::BlockContext;
     use blockifier::state::cached_state::CachedState;
     use num_bigint::BigUint;
@@ -552,5 +577,36 @@ mod tests {
         // TODO: test post-conditions:
         // * edge (edge.length, edge.path, edge.bottom)
         // * hash_ptr.result
+    }
+
+    #[test]
+    pub fn test_write_split_result() {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(2);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        let ids_data = HashMap::from([
+            (vars::ids::VALUE.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::RES.to_string(), HintReference::new_simple(-1)),
+        ]);
+        let mut exec_scopes: ExecutionScopes = Default::default();
+
+        insert_value_from_var_name(vars::ids::VALUE, Felt252::ONE, &mut vm, &ids_data, &ap_tracking).unwrap();
+
+        write_split_result(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+        let res_ptr = get_relocatable_from_var_name(vars::ids::RES, &vm, &ids_data, &ap_tracking).unwrap();
+        let splits = vm.get_range(res_ptr, 3);
+        assert_eq!(
+            splits,
+            vec![
+                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ONE))),
+                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ZERO))),
+                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ZERO))),
+            ]
+        );
     }
 }
