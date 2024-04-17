@@ -74,11 +74,6 @@ pub const COMPUTE_VALUE_DIV_MOD: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const ASSERT_END_OF_BYTECODE_SEGMENTS: &str = indoc! {r#"
-    assert next(bytecode_segments, None) is None"#
-};
-
-#[allow(unused)]
 pub const COMPUTE_IDS_HIGH_LOW: &str = indoc! {r#"
     from starkware.cairo.common.math_utils import as_int
 
