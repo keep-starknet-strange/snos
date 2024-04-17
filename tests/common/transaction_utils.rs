@@ -1,13 +1,26 @@
+use blockifier::block_context::BlockContext;
+use blockifier::state::cached_state::CachedState;
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::account_transaction::AccountTransaction::{Declare, DeployAccount, Invoke};
+use blockifier::transaction::transactions::ExecutableTransaction;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
+use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use snos::config::SN_GOERLI;
+use snos::error::SnOsError;
+use snos::error::SnOsError::Runner;
+use snos::execution::helper::ExecutionHelperWrapper;
+use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
+use snos::{config, run_os};
 use starknet_api::hash::StarkFelt;
 use starknet_crypto::{pedersen_hash, FieldElement};
 
+use crate::common::block_utils::{copy_state, os_hints};
+
 pub fn to_felt252(stark_felt: &StarkFelt) -> Felt252 {
-    Felt252::from_hex(&stark_felt.to_string()).expect("Couldn't parse bytes")
+    Felt252::from_bytes_be_slice(stark_felt.bytes())
 }
 
 // const DECLARE_PREFIX: &[u8] = b"declare";
@@ -117,4 +130,46 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
         r#type,
         max_fee,
     };
+}
+
+fn execute_txs(
+    mut state: CachedState<DictStateReader>,
+    block_context: &BlockContext,
+    txs: Vec<AccountTransaction>,
+) -> (StarknetOsInput, ExecutionHelperWrapper) {
+    let internal_txs: Vec<_> = txs.iter().map(to_internal_tx).collect();
+    let initial_state = copy_state(&state);
+    let execution_infos =
+        txs.into_iter().map(|tx| tx.execute(&mut state, block_context, true, true).unwrap()).collect();
+    os_hints(&block_context, initial_state, internal_txs, execution_infos)
+}
+
+pub fn execute_txs_and_run_os(
+    state: CachedState<DictStateReader>,
+    block_context: BlockContext,
+    txs: Vec<AccountTransaction>,
+) -> Result<CairoPie, SnOsError> {
+    let (os_input, execution_helper) = execute_txs(state, &block_context, txs);
+
+    let result = run_os(
+        config::DEFAULT_COMPILED_OS.to_string(),
+        config::DEFAULT_LAYOUT.to_string(),
+        os_input,
+        block_context,
+        execution_helper,
+    );
+
+    match &result {
+        Err(Runner(VmException(vme))) => {
+            if let Some(traceback) = vme.traceback.as_ref() {
+                println!("traceback:\n{}", traceback);
+            }
+        }
+        Err(other) => {
+            println!("exception:\n{:#?}", other);
+        }
+        _ => {}
+    }
+
+    result
 }
