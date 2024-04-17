@@ -50,7 +50,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 162] = [
+static HINTS: [(&str, HintImpl); 164] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -214,6 +214,7 @@ static HINTS: [(&str, HintImpl); 162] = [
     (syscalls::STORAGE_READ, syscalls::storage_read),
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
     (transaction_hash::ADDITIONAL_DATA_NEW_SEGMENT, transaction_hash::additional_data_new_segment),
+    (transaction_hash::DATA_TO_HASH_NEW_SEGMENT, transaction_hash::data_to_hash_new_segment),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.

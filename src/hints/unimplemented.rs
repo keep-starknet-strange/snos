@@ -74,11 +74,6 @@ pub const COMPUTE_VALUE_DIV_MOD: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const DATA_TO_HASH_NEW_SEGMENT: &str = indoc! {r#"
-    ids.data_to_hash = segments.add()"#
-};
-
-#[allow(unused)]
 pub const ASSERT_END_OF_BYTECODE_SEGMENTS: &str = indoc! {r#"
     assert next(bytecode_segments, None) is None"#
 };
