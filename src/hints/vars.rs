@@ -54,6 +54,7 @@ pub mod ids {
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const USE_KZG_DA: &str = "use_kzg_da";
     pub const LENGTH: &str = "length";
+    pub const LOW: &str = "low";
     pub const MAX_FEE: &str = "max_fee";
     pub const N: &str = "n";
     pub const NEW_LENGTH: &str = "new_length";
@@ -91,6 +92,7 @@ pub mod ids {
 }
 
 pub mod constants {
+    pub const BASE: &str = "starkware.starknet.core.os.data_availability.bls_field.BASE";
     pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS";
     pub const MERKLE_HEIGHT: &str = "starkware.starknet.core.os.state.commitment.MERKLE_HEIGHT";
     pub const STORED_BLOCK_HASH_BUFFER: &str = "starkware.starknet.core.os.constants.STORED_BLOCK_HASH_BUFFER";
