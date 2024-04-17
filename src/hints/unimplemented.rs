@@ -79,13 +79,6 @@ pub const ASSERT_END_OF_BYTECODE_SEGMENTS: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const WRITE_ADDRESS: &str = indoc! {r#"
-    from starkware.starknet.core.os.data_availability.bls_utils import split
-
-    segments.write_arg(ids.res.address_, split(ids.value))"#
-};
-
-#[allow(unused)]
 pub const COMPUTE_IDS_HIGH_LOW: &str = indoc! {r#"
     from starkware.cairo.common.math_utils import as_int
 

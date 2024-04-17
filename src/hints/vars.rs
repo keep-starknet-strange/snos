@@ -68,6 +68,7 @@ pub mod ids {
     pub const PATH: &str = "path";
     pub const PREV_VALUE: &str = "prev_value";
     pub const REQUEST: &str = "request";
+    pub const RES: &str = "res";
     pub const RESPONSE: &str = "response";
     pub const RETDATA: &str = "retdata";
     pub const RETDATA_SIZE: &str = "retdata_size";
