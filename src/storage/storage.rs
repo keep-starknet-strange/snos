@@ -161,7 +161,7 @@ where
         Self { storage: Arc::new(Mutex::new(storage)), _h: Default::default() }
     }
 
-    pub async fn storage(&self) -> tokio::sync::MutexGuard<S> {
+    pub async fn acquire_storage(&self) -> tokio::sync::MutexGuard<S> {
         self.storage.lock().await
     }
 }
@@ -172,7 +172,7 @@ pub trait Fact<S: Storage, H: HashFunctionType>: DbObject {
 
     async fn set_fact(&self, ffc: &mut FactFetchingContext<S, H>) -> Result<Vec<u8>, StorageError> {
         let hash_val = self.hash();
-        let mut storage = ffc.storage().await;
+        let mut storage = ffc.acquire_storage().await;
         self.set(storage.deref_mut(), &hash_val).await?;
 
         Ok(hash_val)

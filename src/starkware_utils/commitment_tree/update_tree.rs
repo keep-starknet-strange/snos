@@ -323,7 +323,7 @@ where
 {
     // TODO: this implementation is sync and simplistic for now.
     //       Determine if it is necessary to improve it.
-    let mut storage = ffc.storage().await;
+    let mut storage = ffc.acquire_storage().await;
     for (root_hash, root_node) in fact_nodes.inner_nodes.iter() {
         root_node.set(storage.deref_mut(), root_hash).await?;
     }

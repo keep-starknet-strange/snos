@@ -109,7 +109,7 @@ where
 
     async fn get_children(&mut self, node: &Self::NodeType) -> Result<Vec<Self::NodeType>, TreeError> {
         if node.previous.is_leaf() {
-            let storage = self.ffc.storage().await;
+            let storage = self.ffc.acquire_storage().await;
             // unwrap() on leaf_hash is guaranteed to be safe because of the check above
             let previous = LF::get_or_fail(storage.deref(), &node.previous.leaf_hash().unwrap()).await?;
             let current = LF::get_or_fail(storage.deref(), &node.current.leaf_hash().unwrap()).await?;
@@ -260,7 +260,7 @@ where
             // TODO: determine what to do with the assertion in the Python code
             // assert set(indices) == {0}, f"Commitment tree indices out of range: {indices}."
 
-            let storage = ffc.storage().await;
+            let storage = ffc.acquire_storage().await;
             let leaf = LF::get_or_fail(storage.deref(), &self._leaf_hash()).await?;
             Ok(HashMap::from([(BigUint::from(0u64), leaf)]))
         }
@@ -296,7 +296,7 @@ where
     H: HashFunctionType,
     INF: InnerNodeFact<S, H>,
 {
-    let storage = ffc.storage().await;
+    let storage = ffc.acquire_storage().await;
     let inner_node_fact = INF::get_or_fail(storage.deref(), fact_hash).await?;
 
     if let Some(facts) = facts {
