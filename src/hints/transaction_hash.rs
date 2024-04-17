@@ -24,3 +24,17 @@ pub fn additional_data_new_segment(
 ) -> Result<(), HintError> {
     insert_value_from_var_name(vars::ids::ADDITIONAL_DATA, vm.add_memory_segment(), vm, ids_data, ap_tracking)
 }
+
+pub const DATA_TO_HASH_NEW_SEGMENT: &str = indoc! {r#"
+    ids.data_to_hash = segments.add()"#
+};
+
+pub fn data_to_hash_new_segment(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    insert_value_from_var_name(vars::ids::DATA_TO_HASH, vm.segments.add(), vm, ids_data, ap_tracking)
+}

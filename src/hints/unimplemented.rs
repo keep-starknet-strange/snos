@@ -74,11 +74,6 @@ pub const COMPUTE_VALUE_DIV_MOD: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const DATA_TO_HASH_NEW_SEGMENT: &str = indoc! {r#"
-    ids.data_to_hash = segments.add()"#
-};
-
-#[allow(unused)]
 pub const ASSERT_END_OF_BYTECODE_SEGMENTS: &str = indoc! {r#"
     assert next(bytecode_segments, None) is None"#
 };
@@ -140,13 +135,6 @@ pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"
     vm_enter_scope(new_scope_locals={
         "bytecode_segment_structure": current_segment_info.inner_structure,
     })"#
-};
-
-// TODO: this hint isn't matching properly, perhaps because of the backslash-line-continuation
-#[allow(unused)]
-pub const CHECK_REQUEST_BLOCK_AGAINST_BUFFER_LEN: &str = indoc! {r#"
-    memory[ap] = to_felt_or_relocatable(ids.request_block_number > \
-        ids.current_block_number - ids.STORED_BLOCK_HASH_BUFFER)"#
 };
 
 #[allow(unused)]
