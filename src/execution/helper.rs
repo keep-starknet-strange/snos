@@ -15,6 +15,7 @@ use tokio::sync::RwLock;
 
 use crate::config::STORED_BLOCK_HASH_BUFFER;
 use crate::crypto::pedersen::PedersenHash;
+use crate::execution::kzg::{KzgCommitmentComputer, PlaceholderKzgCommitmentComputer};
 use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage};
 use crate::storage::dict_storage::DictStorage;
 use crate::storage::storage::StorageError;
@@ -24,7 +25,10 @@ pub type ContractStorageMap<S, H> = HashMap<Felt252, OsSingleStarknetStorage<S, 
 
 /// Maintains the info for executing txns in the OS
 #[derive(Debug)]
-pub struct ExecutionHelper {
+pub struct ExecutionHelper<KZG>
+where
+    KZG: KzgCommitmentComputer,
+{
     pub _prev_block_context: Option<BlockContext>,
     // Pointer tx execution info
     pub tx_execution_info_iter: IntoIter<TransactionExecutionInfo>,
@@ -52,13 +56,18 @@ pub struct ExecutionHelper {
     pub execute_code_read_iter: IntoIter<Felt252>,
     // Per-contract storage
     pub storage_by_address: ContractStorageMap<DictStorage, PedersenHash>,
+    // Stores the state diff computed by the OS, in case that KZG commitment is used (since
+    // it won't be part of the OS output).
+    da_segment: Option<Vec<Felt252>>,
+    // Callback that computes the KZG commitment of a polynomial in coefficient representation.
+    kzg_computer: KZG,
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
 /// to clone the refrence when entering and exiting vm scopes
 #[derive(Clone, Debug)]
 pub struct ExecutionHelperWrapper {
-    pub execution_helper: Rc<RwLock<ExecutionHelper>>,
+    pub execution_helper: Rc<RwLock<ExecutionHelper<PlaceholderKzgCommitmentComputer>>>,
 }
 
 impl ExecutionHelperWrapper {
@@ -87,6 +96,8 @@ impl ExecutionHelperWrapper {
                 deployed_contracts_iter: vec![].into_iter(),
                 execute_code_read_iter: vec![].into_iter(),
                 storage_by_address: contract_storage_map,
+                da_segment: None,
+                kzg_computer: PlaceholderKzgCommitmentComputer {},
             })),
         }
     }
@@ -214,9 +225,30 @@ impl ExecutionHelperWrapper {
 
         Ok(commitments)
     }
+
+    /// Stores the data-availabilty segment, to be used for computing the KZG commitment
+    /// and published on L1 using a blob transaction.
+    pub async fn store_da_segment(&mut self, da_segment: Vec<Felt252>) -> Result<(), HintError> {
+        let mut eh_ref = self.execution_helper.write().await;
+        if eh_ref.da_segment.is_none() {
+            return Err(HintError::AssertionFailed("DA segment is already initialized".to_string().into_boxed_str()));
+        }
+
+        eh_ref.da_segment = Some(da_segment);
+
+        Ok(())
+    }
+
+    pub async fn compute_kzg_commitment(&self, coefficients: &[Felt252]) -> (Felt252, Felt252) {
+        let eh_ref = self.execution_helper.read().await;
+        eh_ref.kzg_computer.compute_kzg_commitment_from_coefficients(coefficients)
+    }
 }
 
-fn assert_iterators_exhausted(eh_ref: &ExecutionHelper) {
+fn assert_iterators_exhausted<KZG>(eh_ref: &ExecutionHelper<KZG>)
+where
+    KZG: KzgCommitmentComputer,
+{
     assert!(eh_ref.deployed_contracts_iter.clone().peekable().peek().is_none());
     assert!(eh_ref.result_iter.clone().peekable().peek().is_none());
     assert!(eh_ref.execute_code_read_iter.clone().peekable().peek().is_none());
