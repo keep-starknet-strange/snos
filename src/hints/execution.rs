@@ -1424,7 +1424,7 @@ pub fn write_syscall_result_deprecated(
     let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
     let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
-    let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
+    let syscall_ptr = get_relocatable_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     // ids.prev_value = storage.read(key=ids.syscall_ptr.address)
     let storage_write_address = vm.get_integer((syscall_ptr + StorageWrite::address_offset())?)?.into_owned();
@@ -1432,6 +1432,7 @@ pub fn write_syscall_result_deprecated(
         execution_helper.read_storage_for_address(contract_address, storage_write_address).map_err(|_| {
             HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str())
         })?;
+    println!("prev value: {}", prev_value.to_biguint());
     insert_value_from_var_name(vars::ids::PREV_VALUE, prev_value, vm, ids_data, ap_tracking)?;
 
     // storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
@@ -1578,7 +1579,9 @@ pub fn write_old_block_to_storage(
 
     println!(
         "writing block number: {} -> block hash: {} into contract {}",
-        old_block_number, old_block_hash, block_hash_contract_address
+        old_block_number.to_biguint(),
+        old_block_hash.to_biguint(),
+        block_hash_contract_address.to_biguint()
     );
     execution_helper
         .write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash)
