@@ -1,5 +1,6 @@
 use blockifier::block_context::BlockContext;
 use blockifier::invoke_tx_args;
+use blockifier::state::state_api::State;
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::{create_calldata, CairoVersion, NonceManager, BALANCE};
 use blockifier::transaction::objects::FeeType;
@@ -63,7 +64,6 @@ pub fn simple_block(
     let account_tx_internal = to_internal_tx(&account_tx);
 
     let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
-
     os_hints(&block_context, initial_state, state, vec![account_tx_internal], vec![tx_execution_info])
 }
 

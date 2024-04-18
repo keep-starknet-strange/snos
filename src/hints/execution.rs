@@ -1424,7 +1424,7 @@ pub fn write_syscall_result_deprecated(
     let mut execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
     let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
-    let syscall_ptr = get_relocatable_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
+    let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     // ids.prev_value = storage.read(key=ids.syscall_ptr.address)
     let storage_write_address = vm.get_integer((syscall_ptr + StorageWrite::address_offset())?)?.into_owned();

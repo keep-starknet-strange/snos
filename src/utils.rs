@@ -4,19 +4,22 @@ use anyhow::anyhow;
 use bitvec::prelude::{BitSlice, BitVec, Msb0};
 use bitvec::view::BitView;
 use blockifier::execution::contract_class::ContractClassV0Inner;
-use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CachedState, CommitmentStateDiff, StorageEntry};
+use blockifier::state::state_api::State;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
+use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Number;
 use serde_with::{DeserializeAs, SerializeAs};
-use starknet_api::core::{ChainId, ClassHash, Nonce, PatriciaKey};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, Program as DeprecatedProgram};
 use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 use starknet_api::stark_felt;
+use starknet_api::state::StorageKey;
 
 use crate::config::DEFAULT_COMPILER_VERSION;
 use crate::error::SnOsError;
@@ -258,10 +261,10 @@ pub fn get_constant<'a>(
 /// but we need a mapping of (contract) -> [(storage_key, value)] so we can build the tree
 /// in one go.
 fn get_contract_storage_map(
-    blockifier_state: &CachedState<DictStateReader>,
+    storage_view: &HashMap<StorageEntry, StarkFelt>,
 ) -> HashMap<Felt252, Vec<(Felt252, Felt252)>> {
     let mut contract_storage_map: HashMap<Felt252, Vec<(Felt252, Felt252)>> = Default::default();
-    for ((contract_address, storage_key), value) in &blockifier_state.state.storage_view {
+    for ((contract_address, storage_key), value) in storage_view {
         let contract_address = felt_api2vm(*contract_address.0.key());
         let storage_key = felt_api2vm(*storage_key.0.key());
         let value = felt_api2vm(*value);
@@ -280,6 +283,21 @@ fn get_contract_storage_map(
     }
 
     contract_storage_map
+}
+
+fn build_final_storage_map(
+    final_state: &mut CachedState<DictStateReader>,
+) -> HashMap<Felt252, Vec<(Felt252, Felt252)>> {
+    let mut storage = final_state.state.storage_view.clone();
+    let storage_updates = final_state.to_state_diff().storage_updates;
+
+    for (contract_address, contract_storage_updates) in storage_updates {
+        for (key, value) in contract_storage_updates {
+            storage.insert((contract_address, key), value);
+        }
+    }
+
+    get_contract_storage_map(&storage)
 }
 
 async fn build_patricia_tree_from_contract_storage<S, H>(
@@ -304,10 +322,10 @@ where
 
 pub fn build_starknet_storage(
     initial_state: &CachedState<DictStateReader>,
-    final_state: &CachedState<DictStateReader>,
+    final_state: &mut CachedState<DictStateReader>,
 ) -> StorageByAddress {
-    let initial_contract_storage_map = get_contract_storage_map(initial_state);
-    let final_contract_storage_map = get_contract_storage_map(final_state);
+    let initial_contract_storage_map = get_contract_storage_map(&initial_state.state.storage_view);
+    let final_contract_storage_map = build_final_storage_map(final_state);
 
     let mut storage_by_address = StorageByAddress::new();
 

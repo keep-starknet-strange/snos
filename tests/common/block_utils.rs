@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
-use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CachedState, CommitmentStateDiff};
 use blockifier::state::state_api::StateReader;
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::contracts::FeatureContract::{
@@ -188,7 +188,7 @@ pub fn copy_state(state: &CachedState<DictStateReader>) -> CachedState<DictState
 pub fn os_hints(
     block_context: &BlockContext,
     mut initial_state: CachedState<DictStateReader>,
-    final_state: CachedState<DictStateReader>,
+    mut final_state: CachedState<DictStateReader>,
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
@@ -289,7 +289,7 @@ pub fn os_hints(
         block_hash: Default::default(),
     };
 
-    let storage_by_address = build_starknet_storage(&initial_state, &final_state);
+    let storage_by_address = build_starknet_storage(&initial_state, &mut final_state);
     let execution_helper = ExecutionHelperWrapper::new(
         storage_by_address,
         tx_execution_infos,
