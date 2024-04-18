@@ -27,6 +27,7 @@ use crate::hints::block_context::is_leaf;
 use crate::io::input::StarknetOsInput;
 
 pub mod block_context;
+mod bls_field;
 mod bls_utils;
 pub mod builtins;
 mod compiled_class;
@@ -51,7 +52,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 166] = [
+static HINTS: [(&str, HintImpl); 167] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -79,6 +80,7 @@ static HINTS: [(&str, HintImpl); 166] = [
     (block_context::LOAD_DEPRECATED_CLASS_FACTS, block_context::load_deprecated_class_facts),
     (block_context::LOAD_DEPRECATED_CLASS_INNER, block_context::load_deprecated_class_inner),
     (block_context::SEQUENCER_ADDRESS, block_context::sequencer_address),
+    (bls_field::COMPUTE_IDS_LOW, bls_field::compute_ids_low),
     (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
     (builtins::SELECT_BUILTIN, builtins::select_builtin),
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),

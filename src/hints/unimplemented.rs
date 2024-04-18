@@ -246,8 +246,3 @@ pub const COMPUTE_SLOPE_2: &str = indoc! {r#"
     y1 = pack(ids.point1.y, PRIME)
     value = slope = line_slope(point1=(x0, y0), point2=(x1, y1), p=SECP256R1_P)"#
 };
-
-#[allow(unused)]
-pub const COMPUTE_IDS_LOW: &str = indoc! {r#"
-    ids.low = (ids.value.d0 + ids.value.d1 * ids.BASE) & ((1 << 128) - 1)"#
-};
