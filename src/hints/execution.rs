@@ -1687,7 +1687,6 @@ mod tests {
     use std::rc::Rc;
 
     use blockifier::block_context::BlockContext;
-    use blockifier::state::cached_state::CachedState;
     use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::DictManager;
     use cairo_vm::types::relocatable::Relocatable;
     use num_bigint::BigUint;
@@ -1697,6 +1696,7 @@ mod tests {
     use super::*;
     use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
+    use crate::execution::helper::ContractStorageMap;
     use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
     use crate::starkware_utils::commitment_tree::base_types::Height;
     use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
@@ -1720,7 +1720,7 @@ mod tests {
         block_context: BlockContext,
         old_block_number_and_hash: (Felt252, Felt252),
     ) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context, old_block_number_and_hash)
+        ExecutionHelperWrapper::new(ContractStorageMap::default(), vec![], &block_context, old_block_number_and_hash)
     }
 
     #[fixture]

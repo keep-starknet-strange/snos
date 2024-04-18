@@ -163,7 +163,6 @@ mod test {
     use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
     use blockifier::execution::call_info::Retdata;
     use blockifier::execution::entry_point_execution::CallResult;
-    use blockifier::state::cached_state::CachedState;
     use cairo_vm::types::exec_scope::ExecutionScopes;
     use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
     use cairo_vm::vm::vm_core::VirtualMachine;
@@ -176,7 +175,7 @@ mod test {
 
     use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
-    use crate::execution::helper::ExecutionHelperWrapper;
+    use crate::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
     use crate::hints::vars;
 
     #[fixture]
@@ -216,7 +215,7 @@ mod test {
 
         let execution_infos = Default::default();
         let exec_helper = ExecutionHelperWrapper::new(
-            CachedState::default(),
+            ContractStorageMap::default(),
             execution_infos,
             &block_context,
             old_block_number_and_hash,

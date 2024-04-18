@@ -17,7 +17,7 @@ use snos::{config, run_os};
 use starknet_api::hash::StarkFelt;
 use starknet_crypto::{pedersen_hash, FieldElement};
 
-use crate::common::block_utils::{copy_state, os_hints};
+use crate::common::block_utils::os_hints;
 
 pub fn to_felt252(stark_felt: &StarkFelt) -> Felt252 {
     Felt252::from_bytes_be_slice(stark_felt.bytes())
@@ -138,10 +138,9 @@ fn execute_txs(
     txs: Vec<AccountTransaction>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
     let internal_txs: Vec<_> = txs.iter().map(to_internal_tx).collect();
-    let initial_state = copy_state(&state);
     let execution_infos =
         txs.into_iter().map(|tx| tx.execute(&mut state, block_context, true, true).unwrap()).collect();
-    os_hints(&block_context, initial_state, internal_txs, execution_infos)
+    os_hints(&block_context, state, internal_txs, execution_infos)
 }
 
 pub fn execute_txs_and_run_os(
