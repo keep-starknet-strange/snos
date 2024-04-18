@@ -383,11 +383,11 @@ pub fn os_logger_enter_syscall_preprare_exit_syscall(
 #[cfg(test)]
 mod tests {
     use blockifier::block_context::BlockContext;
-    use blockifier::state::cached_state::CachedState;
     use cairo_vm::types::relocatable::Relocatable;
     use rstest::{fixture, rstest};
 
     use super::*;
+    use crate::execution::helper::ContractStorageMap;
     use crate::hints::tests::tests::{block_context, old_block_number_and_hash};
     use crate::ExecutionHelperWrapper;
 
@@ -395,7 +395,7 @@ mod tests {
     fn exec_scopes(block_context: BlockContext, old_block_number_and_hash: (Felt252, Felt252)) -> ExecutionScopes {
         let execution_infos = vec![];
         let exec_helper = ExecutionHelperWrapper::new(
-            CachedState::default(),
+            ContractStorageMap::default(),
             execution_infos,
             &block_context,
             old_block_number_and_hash,

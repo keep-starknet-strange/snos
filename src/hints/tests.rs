@@ -3,7 +3,6 @@ pub mod tests {
     use std::sync::Arc;
 
     use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
-    use blockifier::state::cached_state::CachedState;
     use blockifier::transaction::objects::TransactionExecutionInfo;
     use cairo_vm::serde::deserialize_program::ApTracking;
     use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -16,6 +15,7 @@ pub mod tests {
     use starknet_api::{contract_address, patricia_key};
 
     use crate::config::STORED_BLOCK_HASH_BUFFER;
+    use crate::execution::helper::ContractStorageMap;
     use crate::hints::*;
 
     macro_rules! references {
@@ -97,7 +97,7 @@ pub mod tests {
         // inject txn execution info with a fee for hint to use
         let execution_infos = vec![transaction_execution_info];
         let exec_helper = ExecutionHelperWrapper::new(
-            CachedState::default(),
+            ContractStorageMap::default(),
             execution_infos,
             &block_context,
             old_block_number_and_hash,
@@ -166,7 +166,7 @@ pub mod tests {
         // we need an execution info in order to start a tx
         let execution_infos = vec![transaction_execution_info];
         let exec_helper = ExecutionHelperWrapper::new(
-            CachedState::default(),
+            ContractStorageMap::default(),
             execution_infos,
             &block_context,
             old_block_number_and_hash,
@@ -203,7 +203,7 @@ pub mod tests {
         // execution info to chew through
         let execution_infos = vec![transaction_execution_info];
         let exec_helper = ExecutionHelperWrapper::new(
-            CachedState::default(),
+            ContractStorageMap::default(),
             execution_infos,
             &block_context,
             old_block_number_and_hash,
@@ -244,7 +244,7 @@ pub mod tests {
 
         let execution_infos = vec![transaction_execution_info];
         let exec_helper = ExecutionHelperWrapper::new(
-            CachedState::default(),
+            ContractStorageMap::default(),
             execution_infos,
             &block_context,
             old_block_number_and_hash,
