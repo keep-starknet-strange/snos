@@ -133,13 +133,6 @@ pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const START_TX_VALIDATE_DECLARE: &str = indoc! {r#"
-    execution_helper.start_tx(
-        tx_info_ptr=ids.validate_declare_execution_context.deprecated_tx_info.address_
-    )"#
-};
-
-#[allow(unused)]
 pub const MAYBE_WRITE_ADDRESS_TO_AP: &str = indoc! {r#"
     memory[ap] = to_felt_or_relocatable(ids.response.ec_point.address_ if ids.not_on_curve == 0 else segments.add())"#
 };
