@@ -122,7 +122,7 @@ impl CommitmentInfo {
         Ok(Self {
             previous_root: previous_tree_root,
             updated_root: actual_updated_root,
-            tree_height: 0,
+            tree_height: previous_tree.height.0 as usize,
             commitment_facts: Default::default(),
         })
     }
