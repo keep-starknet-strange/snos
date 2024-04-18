@@ -13,14 +13,6 @@ pub const COMPUTE_SLOPE: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const SET_STATE_ENTRY_TO_ACCOUNT_CONTRACT_ADDRESS: &str = indoc! {r#"
-    # Fetch a state_entry in this hint and validate it in the update that comes next.
-    ids.state_entry = __dict_manager.get_dict(ids.contract_state_changes)[
-        ids.tx_info.account_contract_address
-    ]"#
-};
-
-#[allow(unused)]
 pub const CALCULATE_VALUE: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp_utils import SECP256R1, pack
     from starkware.python.math_utils import y_squared_from_x

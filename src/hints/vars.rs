@@ -83,6 +83,7 @@ pub mod ids {
     pub const STATE_ENTRY: &str = "state_entry";
     pub const STATE_UPDATES_START: &str = "state_updates_start";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
+    pub const TX_INFO: &str = "tx_info";
     pub const TX_VERSION: &str = "tx_version";
     pub const VALIDATE_DECLARE_EXECUTION_CONTEXT: &str = "validate_declare_execution_context";
     pub const VALUE: &str = "value";
