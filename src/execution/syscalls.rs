@@ -6,7 +6,7 @@ use cairo_vm::Felt252;
 use crate::execution::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_utils::{
-    felt_from_ptr, ignore_felt_array, read_call_params, write_felt, write_maybe_relocatable, EmptyRequest,
+    felt_from_ptr, ignore_felt, ignore_felt_array, read_call_params, write_felt, write_maybe_relocatable, EmptyRequest,
     EmptyResponse, ReadOnlySegment, SingleSegmentResponse, SyscallExecutionError, SyscallRequest, SyscallResponse,
     SyscallResult, WriteResponseResult,
 };
@@ -273,32 +273,27 @@ pub fn get_execution_info(
 // ) -> SyscallResult<ReplaceClassResponse> {
 // }
 
-// TODO: SendMessageToL1 syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct SendMessageToL1Request {
-//     pub message: MessageToL1,
-// }
-//
-// impl SyscallRequest for SendMessageToL1Request {
-//     // The Cairo struct contains: `to_address`, `payload_size`, `payload`.
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SendMessageToL1Request>
-// {         let to_address = EthAddress::try_from(stark_felt_from_ptr(vm, ptr)?)?;
-//         let payload = L2ToL1Payload(read_felt_array::<SyscallExecutionError>(vm, ptr)?);
-//
-//         Ok(SendMessageToL1Request { message: MessageToL1 { to_address, payload } })
-//     }
-// }
-//
-// type SendMessageToL1Response = EmptyResponse;
-//
-// pub fn send_message_to_l1(
-//     request: SendMessageToL1Request,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> SyscallResult<SendMessageToL1Response> {
-//     Ok(SendMessageToL1Response {})
-// }
+#[derive(Debug, Eq, PartialEq)]
+pub struct SendMessageToL1Request {}
+
+impl SyscallRequest for SendMessageToL1Request {
+    // The Cairo struct contains: `to_address`, `payload_start`, `payload_end`.
+    fn read(_vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SendMessageToL1Request> {
+        ignore_felt(ptr)?; // to_address
+        ignore_felt_array(ptr)?; // payload
+        Ok(SendMessageToL1Request {})
+    }
+}
+type SendMessageToL1Response = EmptyResponse;
+
+pub fn send_message_to_l1(
+    _request: SendMessageToL1Request,
+    _vm: &mut VirtualMachine,
+    _exec_wrapper: &mut ExecutionHelperWrapper,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<SendMessageToL1Response> {
+    Ok(SendMessageToL1Response {})
+}
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageReadRequest {

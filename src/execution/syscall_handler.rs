@@ -9,11 +9,11 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use super::helper::ExecutionHelperWrapper;
 use crate::execution::constants::{
     CALL_CONTRACT_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST, GET_EXECUTION_INFO_GAS_COST,
-    STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
+    SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
 };
 use crate::execution::syscall_utils::{execute_syscall, felt_from_ptr, SyscallSelector};
 use crate::execution::syscalls::{
-    call_contract, emit_event, get_block_hash, get_execution_info, storage_read, storage_write,
+    call_contract, emit_event, get_block_hash, get_execution_info, send_message_to_l1, storage_read, storage_write,
 };
 
 /// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
@@ -89,6 +89,9 @@ impl OsSyscallHandlerWrapper {
             }
             SyscallSelector::StorageWrite => {
                 execute_syscall(syscall_handler_syscall_ptr, vm, ehw, storage_write, STORAGE_WRITE_GAS_COST)
+            }
+            SyscallSelector::SendMessageToL1 => {
+                execute_syscall(syscall_handler_syscall_ptr, vm, ehw, send_message_to_l1, SEND_MESSAGE_TO_L1_GAS_COST)
             }
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;

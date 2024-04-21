@@ -165,11 +165,9 @@ pub fn execute_txs_and_run_os(
                 println!("traceback:\n{}", traceback);
             }
         }
-        Err(other) => {
-            println!("exception:\n{:#?}", other);
-        }
         _ => {}
     }
+    println!("exception:\n{:#?}", result);
 
     result
 }
