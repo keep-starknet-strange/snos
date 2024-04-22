@@ -97,6 +97,11 @@ pub fn felt_from_ptr(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Felt2
     Ok(felt)
 }
 
+pub fn ignore_felt(ptr: &mut Relocatable) -> SyscallResult<()> {
+    *ptr = (*ptr + 1)?;
+    Ok(())
+}
+
 pub fn read_felt_array<TErr>(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Vec<Felt252>, TErr>
 where
     TErr: From<VirtualMachineError> + From<MemoryError> + From<MathError>,

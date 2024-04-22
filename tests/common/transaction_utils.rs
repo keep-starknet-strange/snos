@@ -169,11 +169,9 @@ pub fn execute_txs_and_run_os(
                 println!("inst_location:\n{:?}", inst_location);
             }
         }
-        Err(other) => {
-            println!("exception:\n{:#?}", other);
-        }
         _ => {}
     }
+    println!("exception:\n{:#?}", result);
 
     result
 }
