@@ -15,7 +15,6 @@ cairo-type-derive = { version = "0.1.0", path = "cairo-type-derive" }
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = ["extensive_hints", "cairo-1-hints"] }
 futures = "0.3.30"
 futures-util = "0.3.30"
-getset = "0.1.2"
 heck = "0.4.1"
 hex = "0.4.3"
 indexmap = "1.9.2"
@@ -50,6 +49,7 @@ cairo-lang-sierra = { version = "~2.5.4" }
 cairo-lang-syntax = { version = "~2.5.4" }
 
 [dev-dependencies]
+getset = "0.1.2"
 pretty_assertions = "1.4.0"
 rand = "0.8.5"
 rstest = "0.18.2"

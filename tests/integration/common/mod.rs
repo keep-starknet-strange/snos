@@ -50,7 +50,7 @@ pub fn setup_pie(setup_runner: (CairoRunner, VirtualMachine)) -> CairoPie {
 
 #[fixture]
 pub fn load_output() -> StarknetOsOutput {
-    let buf = fs::read_to_string("tests/common/data/os_output.json").unwrap();
+    let buf = fs::read_to_string("tests/integration/common/data/os_output.json").unwrap();
     let raw_output: serde_utils::RawOsOutput = serde_json::from_str(&buf).unwrap();
 
     decode_output(raw_output.0).unwrap()
@@ -58,7 +58,7 @@ pub fn load_output() -> StarknetOsOutput {
 
 #[fixture]
 pub fn os_pie_string() -> String {
-    std::fs::read_to_string("tests/common/data/output_pie.b64").unwrap()
+    std::fs::read_to_string("tests/integration/common/data/output_pie.b64").unwrap()
 }
 
 #[fixture]

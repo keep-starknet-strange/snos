@@ -1,5 +1,3 @@
-mod common;
-
 use blockifier::block_context::BlockContext;
 use blockifier::invoke_tx_args;
 use blockifier::test_utils::{create_calldata, NonceManager};
