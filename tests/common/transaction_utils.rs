@@ -168,6 +168,7 @@ pub fn execute_txs_and_run_os(
                 println!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
                 println!("inst_location:\n{:?}", inst_location);
             }
+            println!("exception:\n{:#?}", vme);
         }
         _ => {}
     }

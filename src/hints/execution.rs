@@ -32,9 +32,7 @@ use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::execution::syscall_utils::SyscallSelector;
 use crate::hints::types::{DescentMap, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
-use crate::hints::vars::ids::{
-    ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
-};
+use crate::hints::vars::ids::{ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, REQUIRED_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START};
 use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
@@ -1130,14 +1128,14 @@ pub fn initial_ge_required_gas(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // line below fails with: UnknownIdentifier("required_gas"):
-    // let required_gas = get_integer_from_var_name(REQUIRED_GAS, vm, ids_data, ap_tracking)?;
+    let required_gas = get_integer_from_var_name(REQUIRED_GAS, vm, ids_data, ap_tracking)?;
 
     // the reason for this is: hint reference for `required_gas` is cast([fp + (-4)] + (-10000), felt)
     // in our case [fp-4] contains a felt  to `get_integer_from_var_name` assumes that [fp-4] contains a
     // pointer not a felt below is a temporary workaround, until the problem is solved in the vm
 
     // workaround
-    let required_gas = *vm.get_integer((vm.get_fp() - 4)?)? - 10000;
+    // let required_gas = *vm.get_integer((vm.get_fp() - 4)?)? - 10000;
 
     let initial_gas = get_integer_from_var_name(INITIAL_GAS, vm, ids_data, ap_tracking)?;
     insert_value_into_ap(vm, Felt252::from(initial_gas.as_ref() >= &required_gas))
@@ -1675,7 +1673,7 @@ pub const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
 	) = execution_helper.get_old_block_number_and_hash()
 	assert old_block_number == ids.old_block_number,(
 	    "Inconsistent block number. "
-	    "The constant STORED_BLOCK_HASH_BUFFER is probably out of sync."
+	    "The constant stored_block_hash_buffer is probably out of sync."
 	)
 	ids.old_block_hash = old_block_hash"#
 };
