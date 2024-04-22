@@ -22,7 +22,7 @@ use crate::hints::types::{skip_verification_if_configured, Preimage};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, CommitmentInfo, StorageLeaf};
-use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, TreeUpdate};
+use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, UpdateTree};
 use crate::utils::get_constant;
 
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
@@ -278,7 +278,8 @@ pub fn decode_node_hint(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let node: TreeUpdate<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
+    let node: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
+    let node = node.ok_or(HintError::AssertionFailed("'node' should not be None".to_string().into_boxed_str()))?;
     let DecodedNode { left_child, right_child, case } = decode_node(&node)?;
     exec_scopes.insert_value(vars::scopes::LEFT_CHILD, left_child.clone());
     exec_scopes.insert_value(vars::scopes::RIGHT_CHILD, right_child.clone());
