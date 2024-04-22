@@ -1514,17 +1514,15 @@ pub fn write_syscall_result(
 
     let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
     let request = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
+    let storage_write_address = *vm.get_integer((request + NewStorageWriteRequest::key_offset())?)?;
+    let storage_write_value = vm.get_integer((request + NewStorageWriteRequest::value_offset())?)?.into_owned();
 
     // ids.prev_value = storage.read(key=ids.request.key)
-    let storage_write_address = *vm.get_integer((request + NewStorageWriteRequest::key_offset())?)?;
     let prev_value =
-        execution_helper.read_storage_for_address(contract_address, storage_write_address).map_err(|_| {
-            HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str())
-        })?;
+        execution_helper.read_storage_for_address(contract_address, storage_write_address).unwrap_or_default();
     insert_value_from_var_name(vars::ids::PREV_VALUE, prev_value, vm, ids_data, ap_tracking)?;
 
     // storage.write(key=ids.request.key, value=ids.request.value)
-    let storage_write_value = vm.get_integer((request + NewStorageWriteRequest::value_offset())?)?.into_owned();
     execution_helper.write_storage_for_address(contract_address, storage_write_address, storage_write_value).map_err(
         |_| HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str()),
     )?;
@@ -1749,7 +1747,6 @@ mod tests {
     use std::rc::Rc;
 
     use blockifier::block_context::BlockContext;
-    use blockifier::state::cached_state::CachedState;
     use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::DictManager;
     use cairo_vm::types::relocatable::Relocatable;
     use num_bigint::BigUint;
@@ -1759,6 +1756,7 @@ mod tests {
     use super::*;
     use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
+    use crate::execution::helper::ContractStorageMap;
     use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
     use crate::starkware_utils::commitment_tree::base_types::Height;
     use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
@@ -1782,7 +1780,7 @@ mod tests {
         block_context: BlockContext,
         old_block_number_and_hash: (Felt252, Felt252),
     ) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(CachedState::default(), vec![], &block_context, old_block_number_and_hash)
+        ExecutionHelperWrapper::new(ContractStorageMap::default(), vec![], &block_context, old_block_number_and_hash)
     }
 
     #[fixture]

@@ -18,6 +18,7 @@ use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
+use snos::storage::storage_utils::build_starknet_storage;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -162,41 +163,19 @@ pub fn test_state(
     state
 }
 
-pub fn copy_state(state: &CachedState<DictStateReader>) -> CachedState<DictStateReader> {
-    let mut storage_view = HashMap::new();
-    let mut address_to_nonce = HashMap::new();
-    let mut address_to_class_hash = HashMap::new();
-    let mut class_hash_to_class = HashMap::new();
-    let mut class_hash_to_compiled_class_hash = HashMap::new();
-
-    storage_view.extend(state.state.storage_view.clone());
-    address_to_nonce.extend(state.state.address_to_nonce.clone());
-    address_to_class_hash.extend(state.state.address_to_class_hash.clone());
-    class_hash_to_class.extend(state.state.class_hash_to_class.clone());
-    class_hash_to_compiled_class_hash.extend(state.state.class_hash_to_compiled_class_hash.clone());
-
-    CachedState::from(DictStateReader {
-        storage_view,
-        address_to_nonce,
-        address_to_class_hash,
-        class_hash_to_class,
-        class_hash_to_compiled_class_hash,
-    })
-}
-
 pub fn os_hints(
     block_context: &BlockContext,
-    mut state: CachedState<DictStateReader>,
+    mut blockifier_state: CachedState<DictStateReader>,
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
-    let mut contracts: HashMap<Felt252, ContractState> = state
+    let mut contracts: HashMap<Felt252, ContractState> = blockifier_state
         .state
         .address_to_class_hash
         .keys()
         .map(|address| {
             let contract_state = ContractState {
-                contract_hash: to_felt252(&state.state.address_to_class_hash.get(address).unwrap().0),
+                contract_hash: to_felt252(&blockifier_state.state.address_to_class_hash.get(address).unwrap().0),
                 storage_commitment_tree: StorageCommitment::default(), // TODO
                 nonce: 0.into(),                                       // TODO
             };
@@ -209,12 +188,12 @@ pub fn os_hints(
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
     for c in contracts.keys() {
-        let class_hash = state
+        let class_hash = blockifier_state
             .get_class_hash_at(
                 ContractAddress::try_from(StarkHash::try_from(c.to_hex_string().as_str()).unwrap()).unwrap(),
             )
             .unwrap();
-        let blockifier_class = state.get_compiled_contract_class(class_hash).unwrap();
+        let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
             V0(_) => {
                 deprecated_compiled_classes.insert(to_felt252(&class_hash.0), deprecated_compiled_class(class_hash));
@@ -287,8 +266,11 @@ pub fn os_hints(
         block_hash: Default::default(),
     };
 
+    // Convert the Blockifier storage into an OS-compatible one
+    let contract_storage_map = build_starknet_storage(&mut blockifier_state);
+
     let execution_helper = ExecutionHelperWrapper::new(
-        state,
+        contract_storage_map,
         tx_execution_infos,
         &block_context,
         (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64)),
