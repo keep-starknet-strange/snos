@@ -19,7 +19,7 @@ use num_traits::ToPrimitive;
 use crate::cairo_types::builtins::HashBuiltin;
 use crate::cairo_types::dict_access::DictAccess;
 use crate::cairo_types::trie::NodeEdge;
-use crate::hints::types::{skip_verification_if_configured, Preimage};
+use crate::hints::types::{skip_verification_if_configured, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentStart, Height, NodePath};
@@ -332,17 +332,27 @@ pub fn build_descent_map(
     let preimage: &Preimage = exec_scopes.get_ref(vars::scopes::PREIMAGE)?;
 
     let node = build_update_tree(height, modifications);
-    let descent_map = patricia_guess_descents::<StorageLeaf>(height, node, preimage, prev_root, new_root)?;
+    let descent_map = patricia_guess_descents::<StorageLeaf>(height, node.clone(), preimage, prev_root, new_root)?;
 
+    exec_scopes.insert_value(vars::scopes::NODE, node.clone());
     // Notes:
     // 1. We do not build `common_args` as it seems to be a Python trick to enter new scopes with a dict
     //    destructuring one-liner as the dict references itself. Neat trick that does not translate too
     //    well in Rust. We just make sure that `descent_map`, `__patricia_skip_validation_runner` and
     //    `preimage` are in the scope.
     // 2. The Rust VM has no `globals()`, `__patricia_skip_validation_runner` should already be in
-    //    `exec_scopes`. `preimage` is also guaranteed to be present as we fetch it earlier. Conclusion:
-    //    we only need to insert `descent_map`.
+    //    `exec_scopes.data[0]`.
+    // 3. `preimage` is guaranteed to be present as we fetch it earlier. Conclusion: we only need to
+    //    insert `__patricia_skip_validation_runner` and `descent_map`.
     exec_scopes.insert_value(vars::scopes::DESCENT_MAP, descent_map);
+
+    let patricia_skip_validation_runner = exec_scopes.data[0]
+        .get(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER)
+        .map(|var| var.downcast_ref::<PatriciaSkipValidationRunner>().cloned())
+        .ok_or(HintError::VariableNotInScopeError(
+            vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER.to_string().into_boxed_str(),
+        ))?;
+    exec_scopes.insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, patricia_skip_validation_runner);
 
     Ok(())
 }

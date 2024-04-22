@@ -13,6 +13,8 @@ use execution::helper::ExecutionHelperWrapper;
 use io::output::StarknetOsOutput;
 
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
+use crate::hints::types::PatriciaSkipValidationRunner;
+use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 
 mod cairo_types;
@@ -65,6 +67,9 @@ pub fn run_os(
     cairo_runner.exec_scopes.insert_value("execution_helper", execution_helper);
     cairo_runner.exec_scopes.insert_value("deprecated_syscall_handler", deprecated_syscall_handler);
     cairo_runner.exec_scopes.insert_value("syscall_handler", syscall_handler);
+    cairo_runner
+        .exec_scopes
+        .insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, None::<PatriciaSkipValidationRunner>);
 
     // Run the Cairo VM
     let mut sn_hint_processor = hints::SnosHintProcessor::default();

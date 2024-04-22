@@ -40,7 +40,7 @@ pub mod syscalls;
 #[cfg(test)]
 mod tests;
 mod transaction_hash;
-mod types;
+pub mod types;
 mod unimplemented;
 pub mod vars;
 
