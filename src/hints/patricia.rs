@@ -25,7 +25,7 @@ use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentPath, DescentStart, Height, NodePath};
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_guess_descents::patricia_guess_descents;
 use crate::starkware_utils::commitment_tree::update_tree::{
-    build_update_tree, decode_node, DecodeNodeCase, DecodedNode, TreeUpdate,
+    build_update_tree, decode_node, DecodeNodeCase, DecodedNode, UpdateTree,
 };
 
 pub const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
@@ -238,7 +238,9 @@ pub fn prepare_preimage_validation_non_deterministic_hashes(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let node: TreeUpdate<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
+    let node: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
+    let node = node.ok_or(HintError::AssertionFailed("'node' should not be None".to_string().into_boxed_str()))?;
+
     let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
 
     let ids_node = get_integer_from_var_name(vars::ids::NODE, vm, ids_data, ap_tracking)?;
@@ -332,7 +334,7 @@ pub fn build_descent_map(
 
     let preimage: &Preimage = exec_scopes.get_ref(vars::scopes::PREIMAGE)?;
 
-    let node = build_update_tree(height, modifications);
+    let node: UpdateTree<StorageLeaf> = build_update_tree(height, modifications);
     let descent_map = patricia_guess_descents::<StorageLeaf>(height, node.clone(), preimage, prev_root, new_root)?;
 
     exec_scopes.insert_value(vars::scopes::NODE, node.clone());
