@@ -310,7 +310,7 @@ pub fn build_descent_map(
     // Build modifications list.
     let n_updates = get_integer_from_var_name(vars::ids::N_UPDATES, vm, ids_data, ap_tracking)?;
     let n_updates = felt_to_usize(&n_updates)?;
-    let update_ptr_address = get_relocatable_from_var_name(vars::ids::UPDATE_PTR, vm, ids_data, ap_tracking)?;
+    let update_ptr_address = get_ptr_from_var_name(vars::ids::UPDATE_PTR, vm, ids_data, ap_tracking)?;
 
     let modifications = {
         let mut modifications = vec![];
