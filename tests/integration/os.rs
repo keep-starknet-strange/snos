@@ -39,9 +39,9 @@ fn return_result_cairo0_account(block_context: BlockContext, initial_state: Init
 
     let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]);
 
-    // temporarily expect test to break at the descent map hint
+    // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"UnknownHint"#), "{}", err_log);
+    assert!(err_log.contains(r#"VariableNotInScopeError("descend")"#), "{}", err_log);
 }
 
 #[rstest]
@@ -70,9 +70,9 @@ fn return_result_cairo1_account(block_context: BlockContext, initial_state: Init
 
     let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]);
 
-    // temporarily expect test to break at the descent map hint
+    // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"UnknownHint"#), "{}", err_log);
+    assert!(err_log.contains(r#"VariableNotInScopeError("descend")"#), "{}", err_log);
 }
 
 #[rstest]
@@ -142,7 +142,7 @@ fn syscalls_cairo1(block_context: BlockContext, initial_state: InitialState, max
 
     let r = execute_txs_and_run_os(state, block_context, txs);
 
-    // temporarily expect test to break at the descent map hint
+    // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"UnknownHint"#), "{}", err_log);
+    assert!(err_log.contains(r#"VariableNotInScopeError("descend")"#), "{}", err_log);
 }
