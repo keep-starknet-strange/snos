@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use cairo_vm::Felt252;
 use num_bigint::BigUint;
 
 use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
@@ -10,6 +11,14 @@ use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
 pub trait Leaf: Clone {}
 
 pub type BinaryFactDict = HashMap<BigUint, Vec<BigUint>>;
+
+/// Converts a BinaryFactDict from maps of BigUints to Felt252s.
+pub fn binary_fact_dict_to_felts(binary_fact_dict: BinaryFactDict) -> HashMap<Felt252, Vec<Felt252>> {
+    binary_fact_dict
+        .into_iter()
+        .map(|(key, values)| (Felt252::from(key), values.into_iter().map(Felt252::from).collect()))
+        .collect()
+}
 
 /// An abstract base class for Merkle and Patricia-Merkle tree.
 /// An immutable binary tree backed by an immutable fact storage.
