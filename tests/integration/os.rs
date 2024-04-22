@@ -39,8 +39,9 @@ fn return_result_cairo0_account(block_context: BlockContext, initial_state: Init
 
     let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]);
 
-    // temporarily expect test to break somewhere in the state_update function
-    assert!(&format!("{:?}", r).contains(r#"AssertionFailed("Tree height does not match Merkle height")))"#));
+    // temporarily expect test to break at the descent map hint
+    let err_log = format!("{:?}", r);
+    assert!(err_log.contains(r#"UnknownHint"#), "{}", err_log);
 }
 
 #[rstest]
@@ -69,8 +70,9 @@ fn return_result_cairo1_account(block_context: BlockContext, initial_state: Init
 
     let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]);
 
-    // temporarily expect test to break somewhere in the state_update function
-    assert!(&format!("{:?}", r).contains(r#"AssertionFailed("Tree height does not match Merkle height")))"#));
+    // temporarily expect test to break at the descent map hint
+    let err_log = format!("{:?}", r);
+    assert!(err_log.contains(r#"UnknownHint"#), "{}", err_log);
 }
 
 #[rstest]
@@ -140,6 +142,7 @@ fn syscalls_cairo1(block_context: BlockContext, initial_state: InitialState, max
 
     let r = execute_txs_and_run_os(state, block_context, txs);
 
-    // temporarily expect test to break somewhere in the state_update function
-    assert!(&format!("{:?}", r).contains(r#"AssertionFailed("Tree height does not match Merkle height")))"#));
+    // temporarily expect test to break at the descent map hint
+    let err_log = format!("{:?}", r);
+    assert!(err_log.contains(r#"UnknownHint"#), "{}", err_log);
 }
