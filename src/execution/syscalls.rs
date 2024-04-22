@@ -6,9 +6,9 @@ use cairo_vm::Felt252;
 use crate::execution::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_utils::{
-    felt_from_ptr, ignore_felt, ignore_felt_array, read_call_params, write_felt, write_maybe_relocatable, EmptyRequest,
-    EmptyResponse, ReadOnlySegment, SingleSegmentResponse, SyscallExecutionError, SyscallRequest, SyscallResponse,
-    SyscallResult, WriteResponseResult,
+    felt_from_ptr, ignore_felt, ignore_felt_array, read_call_params, write_felt, write_maybe_relocatable,
+    write_segment, EmptyRequest, EmptyResponse, ReadOnlySegment, SingleSegmentResponse, SyscallExecutionError,
+    SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
 };
 use crate::utils::felt_api2vm;
 
@@ -62,56 +62,73 @@ pub fn call_contract(
     Ok(CallContractResponse { segment: ReadOnlySegment { start_ptr, length: retdata.len() } })
 }
 
-// TODO: Deploy syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct DeployRequest {
-//     pub class_hash: ClassHash,
-//     pub contract_address_salt: ContractAddressSalt,
-//     pub constructor_calldata: Calldata,
-//     pub deploy_from_zero: bool,
-// }
-//
-// impl SyscallRequest for DeployRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<DeployRequest> {
-//         let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
-//         let contract_address_salt = ContractAddressSalt(stark_felt_from_ptr(vm, ptr)?);
-//         let constructor_calldata = read_calldata(vm, ptr)?;
-//         let deploy_from_zero = stark_felt_from_ptr(vm, ptr)?;
-//
-//         Ok(DeployRequest {
-//             class_hash,
-//             contract_address_salt,
-//             constructor_calldata,
-//             deploy_from_zero: felt_to_bool(
-//                 deploy_from_zero,
-//                 "The deploy_from_zero field in the deploy system call must be 0 or 1.",
-//             )?,
-//         })
-//     }
-// }
-//
-// #[derive(Debug)]
-// pub struct DeployResponse {
-//     pub contract_address: ContractAddress,
-//     pub constructor_retdata: ReadOnlySegment,
-// }
-//
-// impl SyscallResponse for DeployResponse {
-//     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-//         write_stark_felt(vm, ptr, *self.contract_address.0.key())?;
-//         write_segment(vm, ptr, self.constructor_retdata)
-//     }
-// }
-//
-// pub fn deploy(
-//     request: DeployRequest,
-//     vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     remaining_gas: &mut u64,
-// ) -> SyscallResult<DeployResponse> {
-//
-//     Ok(DeployResponse { contract_address: deployed_contract_address, constructor_retdata })
-// }
+#[derive(Debug, Eq, PartialEq)]
+pub struct DeployRequest {
+    // pub class_hash: Felt252,
+    // pub contract_address_salt: Felt252,
+    // pub constructor_calldata: Vec<Felt252>,
+    // pub deploy_from_zero: bool,
+}
+
+impl SyscallRequest for DeployRequest {
+    fn read(_vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<DeployRequest> {
+        ignore_felt(ptr)?; // class_hash
+        ignore_felt(ptr)?; // contract_address_salt
+        ignore_felt_array(ptr)?; // constructor_calldata
+        ignore_felt(ptr)?; // deploy_from_zero
+
+        Ok(DeployRequest {})
+    }
+}
+
+#[derive(Debug)]
+pub struct DeployResponse {
+    pub contract_address: Felt252,
+    pub constructor_retdata: ReadOnlySegment,
+}
+
+impl SyscallResponse for DeployResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_felt(vm, ptr, self.contract_address)?;
+        write_segment(vm, ptr, self.constructor_retdata)?;
+        Ok(())
+    }
+}
+
+pub fn deploy(
+    _request: DeployRequest,
+    vm: &mut VirtualMachine,
+    exec_wrapper: &mut ExecutionHelperWrapper,
+    remaining_gas: &mut u64,
+) -> SyscallResult<DeployResponse> {
+
+    let execution_helper = &mut exec_wrapper.execution_helper.as_ref().borrow_mut();
+
+    let result = execution_helper.result_iter
+        .next()
+        .ok_or(SyscallExecutionError::InternalError(Box::from("No result left in the result iterator.")))?;
+
+    *remaining_gas -= result.gas_consumed;
+
+    let retdata = result.retdata.0.iter().map(|sf| felt_api2vm(*sf)).collect();
+
+    if result.failed {
+        return Err(SyscallExecutionError::SyscallError { error_data: retdata });
+    }
+
+    let start_ptr = vm.add_temporary_segment();
+    vm.load_data(start_ptr, &retdata.iter().map(MaybeRelocatable::from).collect())?;
+
+    let constructor_retdata = ReadOnlySegment { start_ptr, length: retdata.len() };
+
+    let contract_address = execution_helper.deployed_contracts_iter.next().ok_or(
+        HintError::SyscallError("n: No more deployed contracts available to replay".to_string().into_boxed_str()),
+    )?;
+
+    println!("new contract_address: {}", contract_address);
+
+    Ok(DeployResponse { contract_address, constructor_retdata })
+}
 
 type EmitEventRequest = EmptyResponse;
 
