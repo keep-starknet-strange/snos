@@ -151,13 +151,8 @@ pub fn execute_txs_and_run_os(
 ) -> Result<CairoPie, SnOsError> {
     let (os_input, execution_helper) = execute_txs(state, &block_context, txs);
 
-    let result = run_os(
-        config::DEFAULT_COMPILED_OS.to_string(),
-        config::DEFAULT_LAYOUT.to_string(),
-        os_input,
-        block_context,
-        execution_helper,
-    );
+    let layout = config::default_layout();
+    let result = run_os(config::DEFAULT_COMPILED_OS.to_string(), layout, os_input, block_context, execution_helper);
 
     match &result {
         Err(Runner(VmException(vme))) => {

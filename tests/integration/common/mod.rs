@@ -3,6 +3,7 @@ use std::fs;
 use blockifier::block_context::BlockContext;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
+use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
@@ -29,7 +30,7 @@ pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
             entrypoint: "main",
             trace_enabled: true,
             relocate_mem: true,
-            layout: "small",
+            layout: LayoutName::small,
             proof_mode: false,
             secure_run: Some(true),
             disable_trace_padding: false,

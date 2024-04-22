@@ -20,7 +20,7 @@ pub fn cairo_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
                 let n_fields = field_names_read.clone().count();
                 let field_values = field_names_read.clone().enumerate().map(|(index, field_name)| {
                     quote! {
-                        let #field_name = vm.get_integer(&address + #index)?.into_owned();
+                        let #field_name = vm.get_integer((address + #index)?)?.into_owned();
                     }
                 });
 
@@ -34,7 +34,7 @@ pub fn cairo_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
                         }
                         fn to_memory(&self, vm: &mut VirtualMachine, address: Relocatable) -> Result<(), MemoryError> {
                             let mut offset = 0;
-                            #(vm.insert_value(&address + offset, &self.#field_names_write)?; offset += 1;)*
+                            #(vm.insert_value((address + offset)?, &self.#field_names_write)?; offset += 1;)*
 
                             Ok(())
                         }

@@ -6,6 +6,7 @@ use std::sync::Arc;
 use blockifier::abi::constants::{MAX_STEPS_PER_TX, N_STEPS_RESOURCE};
 use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use blockifier::transaction::objects::FeeType;
+use cairo_vm::types::layout_name::LayoutName;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -15,12 +16,16 @@ use starknet_api::{contract_address, patricia_key};
 use starknet_crypto::FieldElement;
 
 use crate::error::SnOsError;
+use crate::utils::ChainIdNum;
+
+pub fn default_layout() -> LayoutName {
+    LayoutName::starknet_with_keccak
+}
 
 const DEFAULT_CONFIG_PATH: &str = "cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 pub const STORED_BLOCK_HASH_BUFFER: u64 = 10;
 pub const BLOCK_HASH_CONTRACT_ADDRESS: u64 = 1;
 pub const STARKNET_OS_CONFIG_HASH_VERSION: &str = "StarknetOsConfig1";
-pub const DEFAULT_LAYOUT: &str = "starknet_with_keccak";
 pub const DEFAULT_COMPILED_OS: &str = "build/os_latest.json";
 pub const DEFAULT_INPUT_PATH: &str = "build/input.json";
 pub const DEFAULT_COMPILER_VERSION: &str = "0.12.2";
@@ -32,7 +37,6 @@ pub const DEFAULT_DEPRECATED_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43
 pub const SEQUENCER_ADDR_0_13_0: &str = "0x4acb67f8e29379b475ccc408fc8269c116f64b4fe5a625644c507d7df07132";
 pub const SN_GOERLI: &str = "534e5f474f45524c49";
 
-use crate::utils::ChainIdNum;
 #[serde_as]
 #[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]
 pub struct StarknetOsConfig {
