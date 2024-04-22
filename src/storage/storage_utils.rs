@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use blockifier::state::cached_state::{CachedState, StorageEntry};
 use blockifier::state::state_api::State;
@@ -129,21 +129,29 @@ pub fn build_starknet_storage(blockifier_state: &mut CachedState<DictStateReader
     let initial_contract_storage_map = get_contract_storage_map(&blockifier_state.state.storage_view);
     let final_contract_storage_map = build_final_storage_map(blockifier_state);
 
+    let all_contracts =
+        initial_contract_storage_map.keys().chain(final_contract_storage_map.keys()).collect::<HashSet<&Felt252>>();
+
     let mut storage_by_address = ContractStorageMap::new();
 
+    let empty_state = Default::default();
+
     let mut ffc = FactFetchingContext::new(DictStorage::default());
-    for (contract_address, initial_contract_storage) in initial_contract_storage_map {
-        let final_contract_storage = final_contract_storage_map.get(&contract_address).unwrap();
+    for contract_address in all_contracts {
+        println!("Creating initial state for contract {}", contract_address);
+        let initial_contract_storage = initial_contract_storage_map.get(contract_address).unwrap_or(&empty_state);
+        let final_contract_storage =
+            final_contract_storage_map.get(contract_address).expect("any contract should appear in final storage");
 
         execute_coroutine_threadsafe(async {
             let initial_tree =
-                build_patricia_tree_from_contract_storage(&mut ffc, &initial_contract_storage).await.unwrap();
+                build_patricia_tree_from_contract_storage(&mut ffc, initial_contract_storage).await.unwrap();
             let updated_tree =
                 build_patricia_tree_from_contract_storage(&mut ffc, final_contract_storage).await.unwrap();
 
             let contract_storage =
                 OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], ffc.clone()).await.unwrap();
-            storage_by_address.insert(contract_address, contract_storage);
+            storage_by_address.insert(*contract_address, contract_storage);
         });
     }
 
