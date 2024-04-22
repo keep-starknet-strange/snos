@@ -22,15 +22,13 @@ use crate::cairo_types::trie::NodeEdge;
 use crate::hints::types::{skip_verification_if_configured, PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
 use crate::starknet::starknet_storage::StorageLeaf;
-use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentStart, Height, NodePath};
+use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentPath, DescentStart, Height, NodePath};
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_guess_descents::patricia_guess_descents;
 use crate::starkware_utils::commitment_tree::update_tree::{
     build_update_tree, decode_node, DecodeNodeCase, DecodedNode, TreeUpdate,
 };
 
 pub const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
-
-pub type Descend = (Felt252, Felt252);
 
 pub fn set_siblings(
     vm: &mut VirtualMachine,
@@ -39,12 +37,12 @@ pub fn set_siblings(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let descend: Descend = exec_scopes.get(vars::scopes::DESCEND)?;
+    let descend: DescentPath = exec_scopes.get(vars::scopes::DESCEND)?;
 
     let siblings = get_ptr_from_var_name(vars::ids::SIBLINGS, vm, ids_data, ap_tracking)?;
-    vm.insert_value(siblings, descend.0)?;
+    vm.insert_value(siblings, Felt252::from(descend.0.0))?;
 
-    insert_value_from_var_name(vars::ids::WORD, descend.1, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::WORD, Felt252::from(descend.1.0), vm, ids_data, ap_tracking)?;
 
     Ok(())
 }
@@ -172,13 +170,13 @@ pub fn split_descend(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let descend: Vec<Felt252> = exec_scopes.get(vars::scopes::DESCEND)?;
+    let descend: DescentPath = exec_scopes.get(vars::scopes::DESCEND)?;
 
-    let length = descend[0];
-    let word = descend[1];
+    let length = descend.0;
+    let word = descend.1;
 
-    insert_value_from_var_name(vars::ids::LENGTH, length, vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(vars::ids::WORD, word, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::LENGTH, Felt252::from(length.0), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::WORD, Felt252::from(word.0), vm, ids_data, ap_tracking)?;
 
     Ok(())
 }
