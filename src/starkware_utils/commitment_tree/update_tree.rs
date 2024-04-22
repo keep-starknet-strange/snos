@@ -277,7 +277,7 @@ type Layer<LF> = HashMap<TreeIndex, TreeUpdate<LF>>;
 ///  * None (if no modifications exist in its subtree).
 ///  * A leaf (if a single modification is given at height 0; i.e., a leaf).
 ///  * A pair of trees.
-fn build_update_tree<LF>(height: Height, modifications: Vec<(TreeIndex, LF)>) -> UpdateTree<LF>
+pub fn build_update_tree<LF>(height: Height, modifications: Vec<(TreeIndex, LF)>) -> UpdateTree<LF>
 where
     LF: Clone,
 {

@@ -14,9 +14,6 @@ pub struct PatriciaSkipValidationRunner {
     pub verified_addresses: HashSet<Relocatable>,
 }
 
-// TODO: define correctly when implementing the descend functionality
-pub type DescentMap = HashMap<(Felt252, Felt252), Vec<Felt252>>;
-
 /// Inserts a hash result address in `__patricia_skip_validation_runner` if it exists.
 ///
 /// This skips validation of the preimage dict to speed up the VM. When this flag is set,
