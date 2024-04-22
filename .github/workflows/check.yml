@@ -38,7 +38,7 @@ jobs:
       - run: |
           pip install cairo-lang==0.13.1a0
           bash ./scripts/reset-tests.sh
-          cargo test
+          RUSTFLAGS="-D warnings" cargo test
 
   udeps:
     runs-on: ubuntu-latest

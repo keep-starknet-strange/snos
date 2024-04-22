@@ -1,9 +1,8 @@
-mod common;
-
-use common::os_pie_string;
 use rstest::rstest;
 use snos::sharp::{CairoJobStatus, InvalidReason, SharpClient, SharpPie};
 use uuid::uuid;
+
+use crate::common::os_pie_string;
 
 #[rstest]
 #[ignore]

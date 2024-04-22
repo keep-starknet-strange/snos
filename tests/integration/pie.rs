@@ -1,14 +1,14 @@
-mod common;
 use std::collections::HashMap;
 use std::path::Path;
 
 use cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_pie::{BuiltinAdditionalData, CairoPie, OutputBuiltinAdditionalData, SegmentInfo};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use common::{os_pie_string, setup_pie};
 use rstest::rstest;
 use serde_json::json;
 use snos::sharp::pie::{decode_base64_to_unzipped, PIE_FILES};
+
+use crate::common::{os_pie_string, setup_pie};
 
 #[rstest]
 fn pie_metadata_ok(setup_pie: CairoPie) {
