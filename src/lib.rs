@@ -2,6 +2,7 @@ use std::fs;
 
 use blockifier::block_context::BlockContext;
 use cairo_vm::cairo_run::CairoRunConfig;
+use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::types::program::Program;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
@@ -31,14 +32,13 @@ pub mod utils;
 
 pub fn run_os(
     os_path: String,
-    layout: String,
+    layout: LayoutName,
     os_input: StarknetOsInput,
     block_context: BlockContext,
     execution_helper: ExecutionHelperWrapper,
 ) -> Result<CairoPie, SnOsError> {
     // Init CairoRunConfig
-    let cairo_run_config =
-        CairoRunConfig { layout: layout.as_str(), relocate_mem: true, trace_enabled: true, ..Default::default() };
+    let cairo_run_config = CairoRunConfig { layout, relocate_mem: true, trace_enabled: true, ..Default::default() };
 
     // Load the Starknet OS Program
     let starknet_os = fs::read(os_path).map_err(|e| SnOsError::CatchAll(format!("{e}")))?;

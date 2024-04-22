@@ -62,8 +62,8 @@ mod tests {
 
         // Write the data and read it
         vm.insert_value(base_address, Felt252::ONE).unwrap();
-        vm.insert_value(&base_address + 1, Felt252::TWO).unwrap();
-        vm.insert_value(&base_address + 2, Felt252::THREE).unwrap();
+        vm.insert_value((base_address + 1usize).unwrap(), Felt252::TWO).unwrap();
+        vm.insert_value((base_address + 2usize).unwrap(), Felt252::THREE).unwrap();
 
         let m = MyType::from_memory(&vm, base_address).unwrap();
         assert_eq!(m.a, Felt252::ONE);
