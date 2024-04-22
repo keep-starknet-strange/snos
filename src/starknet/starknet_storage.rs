@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
 use crate::starkware_utils::commitment_tree::base_types::TreeIndex;
-use crate::starkware_utils::commitment_tree::binary_fact_tree::{BinaryFactDict, BinaryFactTree};
+use crate::starkware_utils::commitment_tree::binary_fact_tree::{
+    binary_fact_dict_to_felts, BinaryFactDict, BinaryFactTree,
+};
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::{PatriciaTree, EMPTY_NODE_HASH};
@@ -119,11 +121,14 @@ impl CommitmentInfo {
             return Err(CommitmentInfoError::UpdatedRootMismatch);
         }
 
+        // Note: unwrapping is safe here as we wrap the value ourselves a few lines above.
+        let commitment_facts = binary_fact_dict_to_felts(commitment_facts.unwrap());
+
         Ok(Self {
             previous_root: previous_tree_root,
             updated_root: actual_updated_root,
             tree_height: previous_tree.height.0 as usize,
-            commitment_facts: Default::default(),
+            commitment_facts,
         })
     }
 }
