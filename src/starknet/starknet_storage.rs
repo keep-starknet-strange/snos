@@ -116,10 +116,6 @@ impl CommitmentInfo {
         let actual_updated_root = Felt252::from_bytes_be_slice(&actual_updated_tree.root);
 
         if actual_updated_root != expected_updated_root {
-            println!(
-                "actual_updated_root != expected_updated_root ({} != {})",
-                actual_updated_root, expected_updated_root
-            );
             return Err(CommitmentInfoError::UpdatedRootMismatch);
         }
 

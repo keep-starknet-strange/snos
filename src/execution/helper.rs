@@ -189,13 +189,6 @@ impl ExecutionHelperWrapper {
         key: Felt252,
         value: Felt252,
     ) -> Result<(), StorageError> {
-        println!(
-            "writing storage for {} - key: {:#x}, value: {}",
-            address.to_biguint(),
-            key.to_biguint(),
-            value.to_biguint()
-        );
-
         let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
         if let Some(storage) = storage_by_address.get_mut(&address) {
             storage.write(key.to_biguint(), value);

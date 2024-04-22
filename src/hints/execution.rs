@@ -1517,11 +1517,6 @@ pub fn write_syscall_result(
     let storage_write_address = *vm.get_integer((request + NewStorageWriteRequest::key_offset())?)?;
     let storage_write_value = vm.get_integer((request + NewStorageWriteRequest::value_offset())?)?.into_owned();
 
-    println!(
-        "write_syscall_result hint wants to write {} to {}/{}",
-        storage_write_value, contract_address, storage_write_address
-    );
-
     // ids.prev_value = storage.read(key=ids.request.key)
     let prev_value =
         execution_helper.read_storage_for_address(contract_address, storage_write_address).unwrap_or_default();
