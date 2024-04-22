@@ -9,6 +9,7 @@ pub struct HashBuiltin {
     pub result: Felt252,
 }
 
+#[allow(unused)]
 #[derive(FieldOffsetGetters)]
 pub struct SpongeHashBuiltin {
     pub x: Felt252,
