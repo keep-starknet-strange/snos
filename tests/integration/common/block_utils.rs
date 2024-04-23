@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
@@ -167,13 +167,23 @@ pub fn os_hints(
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
-    let mut contracts: HashMap<Felt252, ContractState> = blockifier_state
-        .state
-        .address_to_class_hash
-        .keys()
+    let state_diff = blockifier_state.to_state_diff();
+    let deployed_addresses = state_diff.address_to_class_hash.keys().cloned().collect::<HashSet<_>>();
+
+    let initial_addresses = blockifier_state.state.address_to_class_hash.keys().cloned().collect::<HashSet<_>>();
+
+    let addresses = initial_addresses.union(&deployed_addresses);
+
+    let mut contracts: HashMap<Felt252, ContractState> = addresses
+        .into_iter()
         .map(|address| {
+            let contract_hash = if deployed_addresses.contains(address) {
+                Felt252::ZERO
+            } else {
+                to_felt252(&blockifier_state.get_class_hash_at(*address).unwrap().0)
+            };
             let contract_state = ContractState {
-                contract_hash: to_felt252(&blockifier_state.state.address_to_class_hash.get(address).unwrap().0),
+                contract_hash,
                 storage_commitment_tree: StorageCommitment::default(), // TODO
                 nonce: 0.into(),                                       // TODO
             };
@@ -186,11 +196,8 @@ pub fn os_hints(
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
     for c in contracts.keys() {
-        let class_hash = blockifier_state
-            .get_class_hash_at(
-                ContractAddress::try_from(StarkHash::try_from(c.to_hex_string().as_str()).unwrap()).unwrap(),
-            )
-            .unwrap();
+        let address = ContractAddress::try_from(StarkHash::try_from(c.to_bytes_be()).unwrap()).unwrap();
+        let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
             V0(_) => {

@@ -101,10 +101,10 @@ pub fn deploy(
     exec_wrapper: &mut ExecutionHelperWrapper,
     remaining_gas: &mut u64,
 ) -> SyscallResult<DeployResponse> {
-
     let execution_helper = &mut exec_wrapper.execution_helper.as_ref().borrow_mut();
 
-    let result = execution_helper.result_iter
+    let result = execution_helper
+        .result_iter
         .next()
         .ok_or(SyscallExecutionError::InternalError(Box::from("No result left in the result iterator.")))?;
 
@@ -121,11 +121,9 @@ pub fn deploy(
 
     let constructor_retdata = ReadOnlySegment { start_ptr, length: retdata.len() };
 
-    let contract_address = execution_helper.deployed_contracts_iter.next().ok_or(
-        HintError::SyscallError("n: No more deployed contracts available to replay".to_string().into_boxed_str()),
-    )?;
-
-    println!("new contract_address: {}", contract_address);
+    let contract_address = execution_helper.deployed_contracts_iter.next().ok_or(HintError::SyscallError(
+        "n: No more deployed contracts available to replay".to_string().into_boxed_str(),
+    ))?;
 
     Ok(DeployResponse { contract_address, constructor_retdata })
 }

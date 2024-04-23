@@ -145,13 +145,14 @@ fn syscalls_cairo1(block_context: BlockContext, initial_state: InitialState, max
     // calldata: Array::<felt252>,
     // deploy_from_zero: bool,
 
+    let test_contract_class_hash = FeatureContract::TestContract(CairoVersion::Cairo1).get_class_hash().0;
     let entrypoint_args = &[
-        FeatureContract::TestContract(CairoVersion::Cairo1).get_class_hash().0, // class hash
-        stark_felt!(123_u8),                                                  // contract_address_salt
-        stark_felt!(2_u8),                                                    // calldata length
-        stark_felt!(3_u8),                                                    // calldata: arg1
-        stark_felt!(3_u8),                                                    // calldata: arg2
-        stark_felt!(0_u8),                                                    // deploy_from_zero
+        test_contract_class_hash, // class hash
+        stark_felt!(255_u8),      // contract_address_salt
+        stark_felt!(2_u8),        // calldata length
+        stark_felt!(3_u8),        // calldata: arg1
+        stark_felt!(3_u8),        // calldata: arg2
+        stark_felt!(0_u8),        // deploy_from_zero
     ];
 
     let test_deploy_tx = test_utils::account_invoke_tx(invoke_tx_args! {
