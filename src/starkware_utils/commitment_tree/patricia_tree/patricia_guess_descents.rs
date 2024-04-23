@@ -66,7 +66,7 @@ fn get_children(preimage: &Preimage, node: &Triplet) -> Result<(Triplet, Triplet
         return Ok(((length - 1, word, node_hash), empty_triplet()));
     }
 
-    Ok((empty_triplet(), (length - 1, word - (1 << (length_u64 - 1)), node_hash)))
+    Ok((empty_triplet(), (length - 1, word - Felt252::from(BigUint::from(1u64) << (length_u64 - 1)), node_hash)))
 }
 
 #[allow(clippy::large_enum_variant)]
