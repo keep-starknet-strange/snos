@@ -248,6 +248,7 @@ pub fn prepare_preimage_validation_non_deterministic_hashes(
 
     exec_scopes.insert_value(vars::scopes::LEFT_CHILD, left_child.clone());
     exec_scopes.insert_value(vars::scopes::RIGHT_CHILD, right_child.clone());
+    exec_scopes.insert_value(vars::scopes::CASE, case.clone());
 
     let node_preimage =
         preimage.get(&ids_node).ok_or(HintError::CustomHint("Node preimage not found".to_string().into_boxed_str()))?;
