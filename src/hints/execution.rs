@@ -1673,7 +1673,7 @@ pub const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
 	) = execution_helper.get_old_block_number_and_hash()
 	assert old_block_number == ids.old_block_number,(
 	    "Inconsistent block number. "
-	    "The constant stored_block_hash_buffer is probably out of sync."
+	    "The constant STORED_BLOCK_HASH_BUFFER is probably out of sync."
 	)
 	ids.old_block_hash = old_block_hash"#
 };
