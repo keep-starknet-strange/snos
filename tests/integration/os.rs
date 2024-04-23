@@ -69,8 +69,36 @@ fn declare_and_deploy_account_cairo0_account(block_context: BlockContext, initia
 
     let r = execute_txs_and_run_os(state, block_context, vec![declare_tx]);
 
-    // temporarily expect test to break somewhere in the state_update function
-    // assert!(&format!("{:?}", r).contains(r#"CustomHint("Could not find commitment info"#));
+    let err_log = format!("{:?}", r);
+    assert!(err_log.contains(r#"Could not find commitment info for contract 1073743616"#), "{}", err_log);
+}
+
+#[rstest]
+fn declare_and_deploy_account_cairo1_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
+    let tx_version = TransactionVersion::TWO;
+    let mut nonce_manager = NonceManager::default();
+
+    let InitialState {
+        state,
+        account_without_validations_cairo0_address: sender_address,
+        // test_contract_cairo0_address: contract_address,
+        ..
+    } = initial_state;
+
+    let declare_tx = blockifier::test_utils::declare::declare_tx(
+        declare_tx_args! {
+            max_fee,
+            sender_address,
+            version: tx_version,
+            nonce: nonce_manager.next(sender_address),
+        },
+        FeatureContract::Empty(CairoVersion::Cairo1).get_class(),
+    );
+
+    let r = execute_txs_and_run_os(state, block_context, vec![declare_tx]);
+
+    let err_log = format!("{:?}", r);
+    assert!(err_log.contains(r#"Could not find commitment info for contract 1073743616"#), "{}", err_log);
 }
 
 #[rstest]
