@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
 use blockifier::state::cached_state::CachedState;
-use blockifier::state::state_api::StateReader;
+use blockifier::state::state_api::{State as _, StateReader};
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::contracts::FeatureContract::{
     AccountWithLongValidate, AccountWithoutValidations, Empty, FaultyAccount, SecurityTests, TestContract, ERC20,
@@ -156,9 +156,7 @@ pub fn test_state(
 
     let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
 
-    let storage_view = &mut state.state.storage_view;
-
-    storage_view.insert((block_hash_contract_address, block_number), block_hash);
+    state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
 
     state
 }
