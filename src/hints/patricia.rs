@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
-    insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
@@ -256,7 +255,7 @@ pub fn prepare_preimage_validation_non_deterministic_hashes(
     let right_hash = node_preimage[1];
 
     // Fill non deterministic hashes.
-    let hash_ptr = get_relocatable_from_var_name(vars::ids::CURRENT_HASH, vm, ids_data, ap_tracking)?;
+    let hash_ptr = get_ptr_from_var_name(vars::ids::CURRENT_HASH, vm, ids_data, ap_tracking)?;
     // memory[hash_ptr + ids.HashBuiltin.x] = left_hash
     vm.insert_value((hash_ptr + HashBuiltin::x_offset())?, left_hash)?;
     // memory[hash_ptr + ids.HashBuiltin.y] = right_hash
