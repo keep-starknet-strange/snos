@@ -151,7 +151,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                             // max_fee = Some(context.max_fee.0.into()); // handled above? is it equivalent?
                             sender_address = Some(felt_api2vm(*context.common_fields.sender_address.0.key()));
                             // hash_value = felt_api2vm(context.common_fields.transaction_hash.0); // TODO: this is empty
-                            hash_value = Felt252::from_hex("0x1fdf346b72be1234654540ec13497279008284c1bb8ca33880dd742934c5a84").unwrap(); // TODO
+                            hash_value = Felt252::from_hex("0x2589a365815f79cc92b70b007ecee77044af74b90a3f4f2ded8424fd07ed431").unwrap(); // TODO
                         }
                     }
 
