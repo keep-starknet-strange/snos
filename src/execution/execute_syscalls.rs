@@ -26,25 +26,12 @@ pub fn is_block_number_in_block_hash_buffer(
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let request_block_number = get_integer_from_var_name(REQUEST_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
-    let _current_block_number = get_integer_from_var_name(CURRENT_BLOCK_NUMBER, vm, ids_data, ap_tracking);
-    // TODO: above returns UnknownIdentifier("current_block_number"), seems like we have a cairo-vm
-    // issue here Relevant cairo code is here: https://github.com/starkware-libs/cairo-lang/blob/efa9648f57568aad8f8a13fbf027d2de7c63c2c0/src/starkware/starknet/core/os/execution/execute_syscalls.cairo#L800
-    // Hint reference in ids_data looks strange: HintReference { offset1: Value(0), offset2: Value(0),
-    // dereference: true, ap_tracking_data: None, cairo_type: Some("felt") } while from compiled
-    // json file, it looks like it should be: [cast([[fp + (-3)] + 5], felt*)]
-
-    // diagnostics
-    println!("hint reference for `current_block_number`: {:?}", ids_data.get(CURRENT_BLOCK_NUMBER).unwrap());
-
-    // workaround:
-    let current_block_number = vm.get_integer(vm.get_relocatable((vm.get_relocatable((vm.get_fp() - 3)?)? + 5)?)?)?;
-
+    let current_block_number = get_integer_from_var_name(CURRENT_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
     let stored_block_hash_buffer = constants
         .get(STORED_BLOCK_HASH_BUFFER)
         .ok_or_else(|| HintError::MissingConstant(Box::new(STORED_BLOCK_HASH_BUFFER)))?;
 
-    let result = request_block_number > *current_block_number - *stored_block_hash_buffer;
-
+    let result = request_block_number > current_block_number - *stored_block_hash_buffer;
     insert_value_into_ap(vm, Felt252::from(result))?;
 
     Ok(())
