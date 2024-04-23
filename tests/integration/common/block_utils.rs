@@ -16,8 +16,12 @@ use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
 use snos::execution::helper::ExecutionHelperWrapper;
-use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
+use snos::io::input::{StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
+use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
+use snos::starknet::starknet_storage::execute_coroutine_threadsafe;
+use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
+use snos::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use snos::storage::storage_utils::build_starknet_storage;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
@@ -173,9 +177,9 @@ pub fn os_hints(
         .keys()
         .map(|address| {
             let contract_state = ContractState {
-                contract_hash: to_felt252(&blockifier_state.state.address_to_class_hash.get(address).unwrap().0),
-                storage_commitment_tree: StorageCommitment::default(), // TODO
-                nonce: 0.into(),                                       // TODO
+                contract_hash: blockifier_state.state.address_to_class_hash.get(address).unwrap().0.bytes().to_vec(),
+                storage_commitment_tree: todo!(), // TODO
+                nonce: 0.into(),                  // TODO
             };
             (to_felt252(address.0.key()), contract_state)
         })

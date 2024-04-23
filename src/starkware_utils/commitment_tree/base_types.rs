@@ -6,6 +6,7 @@ use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
+use serde::{Deserialize, Serialize};
 
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
 use crate::storage::storage::HASH_BYTES;
@@ -64,7 +65,7 @@ impl Serializable for Length {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Default, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Eq, Hash, Serialize, Deserialize)]
 pub struct Height(pub u64);
 
 impl TryFrom<Felt252> for Height {
