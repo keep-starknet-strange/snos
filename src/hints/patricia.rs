@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
@@ -83,7 +84,7 @@ pub fn set_bit(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let edge_ptr = get_ptr_from_var_name(vars::ids::EDGE, vm, ids_data, ap_tracking)?;
+    let edge_ptr = get_relocatable_from_var_name(vars::ids::EDGE, vm, ids_data, ap_tracking)?;
     let edge_path = vm.get_integer((edge_ptr + NodeEdge::path_offset())?)?.into_owned();
     let new_length = {
         let new_length = get_integer_from_var_name(vars::ids::NEW_LENGTH, vm, ids_data, ap_tracking)?;
@@ -409,13 +410,13 @@ mod tests {
         let mut vm = VirtualMachine::new(false);
         vm.add_memory_segment();
         vm.add_memory_segment();
-        vm.set_fp(6);
+        vm.set_fp(5);
 
         let ap_tracking = ApTracking::new();
         let constants = HashMap::new();
 
         let ids_data = HashMap::from([
-            (vars::ids::EDGE.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::EDGE.to_string(), HintReference::new_simple(-5)),
             (vars::ids::NEW_LENGTH.to_string(), HintReference::new_simple(-2)),
             (vars::ids::BIT.to_string(), HintReference::new_simple(-1)),
         ]);
@@ -423,9 +424,6 @@ mod tests {
         let new_length = Felt252::from(3);
         let edge_path = Felt252::from(0x8);
 
-        // Set the NodeEdge struct to start at (1, 0)
-        insert_value_from_var_name(vars::ids::EDGE, Relocatable::from((1, 0)), &mut vm, &ids_data, &ap_tracking)
-            .unwrap();
         // edge.path is at offset 1
         vm.insert_value(Relocatable::from((1, 1)), edge_path).unwrap();
         insert_value_from_var_name(vars::ids::NEW_LENGTH, new_length, &mut vm, &ids_data, &ap_tracking).unwrap();
