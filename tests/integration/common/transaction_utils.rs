@@ -77,7 +77,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     let contract_address_salt: Option<Felt252> = None;
     let contract_hash: Option<Felt252> = None;
     let constructor_calldata: Option<Vec<Felt252>> = None;
-    let nonce: Option<Felt252> = None;
+    let nonce: Option<Felt252>;
     let sender_address: Option<Felt252>;
     let entry_point_selector: Option<Felt252>;
     let entry_point_type: Option<String> = Some("EXTERNAL".to_string());
@@ -97,6 +97,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     version = Some(Felt252::ZERO);
                     max_fee = Some(tx.max_fee.0.into());
                     signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
+                    nonce = Some(felt_api2vm(tx.nonce.0));
                     // entry_point_selector = Some(to_felt252(&tx.entry_point_selector.0));
                     // calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
                     // contract_address = Some(to_felt252(tx.contract_address.0.key()));
@@ -130,6 +131,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     version = Some(Felt252::ONE);
                     max_fee = Some(tx.max_fee.0.into());
                     signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
+                    nonce = Some(felt_api2vm(tx.nonce.0));
                     // entry_point_selector = Some(to_felt252(&tx.entry_point_selector.0));
                     // calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
                     // contract_address = Some(to_felt252(tx.contract_address.0.key()));
@@ -174,6 +176,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     entry_point_selector = Some(to_felt252(&tx.entry_point_selector.0));
                     calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
                     contract_address = Some(to_felt252(tx.contract_address.0.key()));
+                    nonce = None; // TODO: how did this ever work?
                     sender_address = contract_address;
                     hash_value = tx_hash_invoke_v0(
                         contract_address.unwrap(),
