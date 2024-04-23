@@ -196,7 +196,7 @@ pub fn os_hints(
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
     for c in contracts.keys() {
-        let address = ContractAddress::try_from(StarkHash::try_from(c.to_bytes_be()).unwrap()).unwrap();
+        let address = ContractAddress::try_from(StarkHash::new(c.to_bytes_be()).unwrap()).unwrap();
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
