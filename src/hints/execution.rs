@@ -1575,7 +1575,7 @@ pub fn gen_class_hash_arg(
     insert_value_from_var_name(vars::ids::TX_VERSION, tx_version, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::SENDER_ADDRESS, sender_address, vm, ids_data, ap_tracking)?;
 
-    let class_hash_ptr_arg = vm.gen_arg(&vec![class_hash])?;
+    let class_hash_ptr_arg = vm.gen_arg(&vec![MaybeRelocatable::Int(class_hash)])?;
     insert_value_from_var_name(vars::ids::CLASS_HASH_PTR, class_hash_ptr_arg, vm, ids_data, ap_tracking)?;
 
     let compiled_class_hash = if tx_version <= Felt252::ONE {

@@ -82,7 +82,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     let entry_point_selector: Option<Felt252>;
     let entry_point_type: Option<String> = Some("EXTERNAL".to_string());
     let signature: Option<Vec<Felt252>>;
-    let class_hash: Option<Felt252> = None;
+    let class_hash: Option<Felt252>;
     let compiled_class_hash: Option<Felt252> = None;
     let calldata: Option<Vec<Felt252>>;
     let paid_on_l1: Option<bool> = None;
@@ -123,6 +123,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     // TODO:
                     contract_address = None;
                     entry_point_selector = None;
+                    class_hash = Some(felt_api2vm(tx.class_hash.0));
                     calldata = None; // Calldata may be just the class hash? or that's just for validate()? see AccountTransaction::validate_entrypoint_calldata()
                 },
                 starknet_api::transaction::DeclareTransaction::V2(tx) => {
@@ -155,6 +156,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     // TODO:
                     contract_address = None;
                     entry_point_selector = None;
+                    class_hash = Some(felt_api2vm(tx.class_hash.0));
                     calldata = None; // Calldata may be just the class hash? or that's just for validate()? see AccountTransaction::validate_entrypoint_calldata()
                 },
                 _ => panic!("Not implemented"),
@@ -163,6 +165,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
         DeployAccount(_) => panic!("Not implemented"),
         Invoke(invoke_tx) => {
             r#type = "INVOKE_FUNCTION".to_string();
+            class_hash = None;
             match &invoke_tx.tx {
                 starknet_api::transaction::InvokeTransaction::V0(tx) => {
                     version = Some(Felt252::ZERO);
