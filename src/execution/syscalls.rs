@@ -63,12 +63,7 @@ pub fn call_contract(
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct DeployRequest {
-    // pub class_hash: Felt252,
-    // pub contract_address_salt: Felt252,
-    // pub constructor_calldata: Vec<Felt252>,
-    // pub deploy_from_zero: bool,
-}
+pub struct DeployRequest {}
 
 impl SyscallRequest for DeployRequest {
     fn read(_vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<DeployRequest> {

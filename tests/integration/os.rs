@@ -139,12 +139,6 @@ fn syscalls_cairo1(block_context: BlockContext, initial_state: InitialState, max
     });
 
     // test_deploy
-
-    // class_hash: ClassHash,
-    // contract_address_salt: felt252,
-    // calldata: Array::<felt252>,
-    // deploy_from_zero: bool,
-
     let test_contract_class_hash = FeatureContract::TestContract(CairoVersion::Cairo1).get_class_hash().0;
     let entrypoint_args = &[
         test_contract_class_hash, // class hash

@@ -432,8 +432,6 @@ pub fn initialize_state_changes(
         vm.insert_value((change_base + 1)?, storage_commitment_base)?;
         vm.insert_value((change_base + 2)?, contract_state.nonce)?;
 
-        println!("adding addr: {} to state changes dict", addr);
-
         state_dict.insert(MaybeRelocatable::from(addr), MaybeRelocatable::from(change_base));
     }
 
