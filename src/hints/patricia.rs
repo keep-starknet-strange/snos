@@ -39,10 +39,13 @@ pub fn set_siblings(
 ) -> Result<(), HintError> {
     let descend: DescentPath = exec_scopes.get(vars::scopes::DESCEND)?;
 
-    let siblings = get_ptr_from_var_name(vars::ids::SIBLINGS, vm, ids_data, ap_tracking)?;
-    vm.insert_value(siblings, Felt252::from(descend.0.0))?;
+    let length = descend.0;
+    let relative_path = descend.1;
 
-    insert_value_from_var_name(vars::ids::WORD, Felt252::from(descend.1.0), vm, ids_data, ap_tracking)?;
+    let siblings = get_ptr_from_var_name(vars::ids::SIBLINGS, vm, ids_data, ap_tracking)?;
+    vm.insert_value(siblings, Felt252::from(length.0))?;
+
+    insert_value_from_var_name(vars::ids::WORD, Felt252::from(relative_path.0), vm, ids_data, ap_tracking)?;
 
     Ok(())
 }
