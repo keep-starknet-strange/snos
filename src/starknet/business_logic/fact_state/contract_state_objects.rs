@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -39,6 +41,36 @@ impl ContractState {
             storage_commitment_tree: empty_tree,
             nonce: Felt252::ZERO,
         })
+    }
+
+    /// Returns a new ContractState object with the same contract object and a newly calculated
+    /// storage root, according to the given updates of its leaves.
+
+    pub async fn update<S, H>(
+        mut self,
+        ffc: &mut FactFetchingContext<S, H>,
+        updates: &HashMap<Felt252, Felt252>,
+        nonce: Option<Felt252>,
+        class_hash: Option<Felt252>,
+    ) -> Result<Self, TreeError>
+    where
+        S: Storage + 'static,
+        H: HashFunctionType + Send + Sync + 'static,
+    {
+        let class_hash_bytes = match class_hash {
+            Some(class_hash) => class_hash.to_bytes_be().to_vec(),
+            None => self.contract_hash,
+        };
+
+        let nonce = nonce.unwrap_or(self.nonce);
+        let modifications: Vec<_> =
+            updates.into_iter().map(|(key, value)| (key.to_biguint(), StorageLeaf::new(*value))).collect();
+
+        let mut facts = None;
+        let updated_storage_commitment_tree =
+            self.storage_commitment_tree.update(ffc, modifications, &mut facts).await?;
+
+        Ok(Self { contract_hash: class_hash_bytes, storage_commitment_tree: updated_storage_commitment_tree, nonce })
     }
 }
 

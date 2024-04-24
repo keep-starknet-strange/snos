@@ -161,6 +161,13 @@ where
         Self { storage: Arc::new(Mutex::new(storage)), _h: Default::default() }
     }
 
+    pub fn clone_with_different_hash<NH>(&self) -> FactFetchingContext<S, NH>
+    where
+        NH: HashFunctionType,
+    {
+        FactFetchingContext { storage: self.storage.clone(), _h: Default::default() }
+    }
+
     pub async fn acquire_storage(&self) -> tokio::sync::MutexGuard<S> {
         self.storage.lock().await
     }
