@@ -4,26 +4,25 @@ use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::{State as _, StateReader};
-use blockifier::test_utils::CairoVersion;
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::contracts::FeatureContract::{
-    AccountWithLongValidate, AccountWithoutValidations, Empty, ERC20, FaultyAccount, SecurityTests, TestContract,
+    AccountWithLongValidate, AccountWithoutValidations, Empty, FaultyAccount, SecurityTests, TestContract, ERC20,
 };
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::initial_test_state::fund_account;
+use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::hash::StarkHash;
-use starknet_crypto::FieldElement;
-
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
 use snos::storage::storage_utils::build_starknet_storage;
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
+use starknet_api::hash::StarkHash;
+use starknet_crypto::FieldElement;
 
 use crate::common::transaction_utils::to_felt252;
 
