@@ -10,7 +10,7 @@ python = "^3.9"
 ecdsa = "^0.18.0"
 fastecdsa = "^2.3.0"
 sympy = "^1.12"
-cairo-lang = "0.13.1a0"
+cairo-lang = "0.13.1"
 
 [build-system]
 requires = ["poetry-core"]
