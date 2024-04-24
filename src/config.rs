@@ -39,6 +39,9 @@ pub const SN_GOERLI: &str = "534e5f474f45524c49";
 pub const CONTRACT_ADDRESS_BITS: usize = 251;
 pub const CONTRACT_CLASS_LEAF_VERSION: &[u8] = "CONTRACT_CLASS_LEAF_V0".as_bytes();
 
+/// The version of the Starknet global state.
+pub const GLOBAL_STATE_VERSION: &[u8] = "STARKNET_STATE_V0".as_bytes();
+
 #[serde_as]
 #[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]
 pub struct StarknetOsConfig {

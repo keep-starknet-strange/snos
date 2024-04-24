@@ -1,7 +1,11 @@
+use cairo_vm::types::errors::math_errors::MathError;
+use cairo_vm::Felt252;
+
 use crate::config::{
     StarknetGeneralConfig, COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT, CONTRACT_ADDRESS_BITS,
-    CONTRACT_STATES_COMMITMENT_TREE_HEIGHT,
+    CONTRACT_STATES_COMMITMENT_TREE_HEIGHT, GLOBAL_STATE_VERSION,
 };
+use crate::crypto::poseidon::poseidon_hash_many_bytes;
 use crate::starknet::business_logic::fact_state::contract_class_objects::ContractClassLeaf;
 use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use crate::starknet::business_logic::state::state_api_objects::BlockInfo;
@@ -21,6 +25,10 @@ pub struct SharedState {
 }
 
 impl SharedState {
+    pub fn state_version() -> Felt252 {
+        Felt252::from_bytes_be_slice(GLOBAL_STATE_VERSION)
+    }
+
     /// Returns an empty contract state tree.
     pub async fn create_empty_contract_states<S, H>(
         ffc: &mut FactFetchingContext<S, H>,
@@ -68,22 +76,55 @@ impl SharedState {
             block_info: BlockInfo::empty(Some(felt_api2vm(*config.sequencer_address.0.key())), config.use_kzg_da),
         })
     }
+
+    /// Returns the state's contract class Patricia tree if it exists;
+    /// Otherwise returns an empty tree.
+    pub async fn get_contract_class_tree<S, H>(
+        &self,
+        ffc: &mut FactFetchingContext<S, H>,
+    ) -> Result<PatriciaTree, TreeError>
+    where
+        S: Storage + Send + Sync + 'static,
+        H: HashFunctionType + Send + Sync + 'static,
+    {
+        match &self.contract_classes {
+            Some(tree) => Ok(tree.clone()),
+            None => Self::create_empty_contract_class_tree(ffc).await,
+        }
+    }
+    /// Returns the global state root.
+    /// If both the contract class and contract state trees are empty, the global root is set to
+    /// 0. If no contract class state exists or if it is empty, the global state root is equal to
+    /// the contract state root (for backward compatibility);
+    /// Otherwise, the global root is obtained by:
+    /// global_root =  H(state_version, contract_state_root, contract_class_root).
+    fn get_global_state_root(&self) -> Result<Felt252, MathError> {
+        let contract_states_root = &self.contract_states.root;
+
+        let empty_tree_root = vec![0u8; 32];
+        let contract_classes_root = match &self.contract_classes {
+            Some(tree) => &tree.root,
+            None => &empty_tree_root,
+        };
+
+        if *contract_states_root == empty_tree_root && *contract_classes_root == empty_tree_root {
+            // The shared state is empty.
+            return Ok(Felt252::ZERO);
+        }
+
+        // Backward compatibility; Used during the migration from a state without a
+        // contract class tree to a state with a contract class tree.
+        if *contract_classes_root == empty_tree_root {
+            // The contract classes' state is empty.
+            return Ok(Felt252::from_bytes_be_slice(contract_states_root));
+        }
+
+        // Return H(contract_state_root, contract_class_root, state_version).
+        poseidon_hash_many_bytes(&[&Self::state_version().to_bytes_be(), contract_states_root, contract_classes_root])
+            .map(|x| Felt252::from_bytes_be_slice(&x))
+    }
 }
 
-//
-//     async def get_contract_class_tree(
-//         self, ffc: FactFetchingContext, general_config: StarknetGeneralConfig
-//     ) -> PatriciaTree:
-//         """
-//         Returns the state's contract class Patricia tree if it exists;
-//         Otherwise returns an empty tree.
-//         """
-//         return (
-//             self.contract_classes
-//             if self.contract_classes is not None
-//             else await self.create_empty_contract_class_tree(ffc=ffc)
-//         )
-//
 //     def get_global_state_root(self) -> int:
 //         """
 //         Returns the global state root.
