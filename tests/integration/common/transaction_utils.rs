@@ -1,5 +1,6 @@
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
+use blockifier::state::state_api::State;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::account_transaction::AccountTransaction::{Declare, DeployAccount, Invoke};
@@ -7,14 +8,17 @@ use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
-use snos::config::SN_GOERLI;
+use snos::config::{BLOCK_HASH_CONTRACT_ADDRESS, SN_GOERLI, STORED_BLOCK_HASH_BUFFER};
 use snos::error::SnOsError;
 use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
 use snos::{config, run_os};
+use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
+use starknet_api::state::StorageKey;
 use starknet_crypto::{pedersen_hash, FieldElement};
 
 use crate::common::block_utils::os_hints;
@@ -137,6 +141,14 @@ fn execute_txs(
     block_context: &BlockContext,
     txs: Vec<AccountTransaction>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
+    let upper_bound_block_number = block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER;
+    let block_number = StorageKey::from(upper_bound_block_number);
+    let block_hash = stark_felt!(66_u64);
+
+    let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
+
+    state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
+
     let internal_txs: Vec<_> = txs.iter().map(to_internal_tx).collect();
     let execution_infos =
         txs.into_iter().map(|tx| tx.execute(&mut state, block_context, true, true).unwrap()).collect();

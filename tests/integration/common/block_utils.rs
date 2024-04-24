@@ -14,16 +14,14 @@ use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
-use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
+use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
 use snos::storage::storage_utils::build_starknet_storage;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::stark_felt;
-use starknet_api::state::StorageKey;
+use starknet_api::hash::StarkHash;
 use starknet_crypto::FieldElement;
 
 use crate::common::transaction_utils::to_felt252;
@@ -149,15 +147,6 @@ pub fn test_state(
             }
         }
     }
-
-    let upper_bound_block_number = block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER;
-    let block_number = StorageKey::from(upper_bound_block_number);
-    let block_hash = stark_felt!(66_u64);
-
-    let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
-
-    state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
-
     state
 }
 
