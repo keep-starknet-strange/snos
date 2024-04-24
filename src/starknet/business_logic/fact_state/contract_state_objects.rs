@@ -95,4 +95,31 @@ mod tests {
 
         assert!(<ContractState as LeafFact<DictStorage, PedersenHash>>::is_empty(&contract_state));
     }
+
+    /// Tests that hashing a contract state generates the same result as the Python implementation.
+    #[test]
+    fn test_hash() {
+        let expected_hash = vec![
+            0, 230, 218, 235, 11, 21, 37, 88, 4, 90, 177, 187, 242, 196, 238, 86, 196, 121, 84, 108, 89, 96, 12, 235,
+            166, 11, 224, 7, 71, 12, 21, 229,
+        ];
+
+        let contract_hash = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 105, 45, 97, 109, 45, 97, 45, 99, 111, 110, 116, 114, 97, 99, 116, 45,
+            115, 116, 97, 116, 101,
+        ];
+        let patricia_tree = PatriciaTree {
+            root: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 99, 111, 110, 116, 114, 97, 99, 116, 45, 116, 114, 101, 101,
+                45, 114, 111, 111, 116,
+            ],
+            height: Height(251),
+        };
+
+        let contract_state_leaf = ContractState::create(contract_hash, patricia_tree, Felt252::from(27));
+
+        let hash = <ContractState as Fact<DictStorage, PedersenHash>>::hash(&contract_state_leaf);
+
+        assert_eq!(hash, expected_hash);
+    }
 }

@@ -70,25 +70,6 @@ impl SharedState {
     }
 }
 
-//     @classmethod
-//     async def empty(cls, ffc: FactFetchingContext, general_config: Config) -> "SharedState":
-//         """
-//         Returns an empty state. This is called before creating very first block.
-//         """
-//         # Downcast arguments to application-specific types.
-//         assert isinstance(general_config, StarknetGeneralConfig)
-//
-//         empty_contract_states = await cls.create_empty_contract_states(ffc=ffc)
-//         empty_contract_classes = await cls.create_empty_contract_class_tree(ffc=ffc)
-//
-//         return cls(
-//             contract_states=empty_contract_states,
-//             contract_classes=empty_contract_classes,
-//             block_info=BlockInfo.empty(
-//                 sequencer_address=general_config.sequencer_address,
-//                 use_kzg_da=general_config.use_kzg_da,
-//             ),
-//         )
 //
 //     async def get_contract_class_tree(
 //         self, ffc: FactFetchingContext, general_config: StarknetGeneralConfig
