@@ -3317,7 +3317,7 @@ dependencies = [
  "getset",
  "heck 0.4.1",
  "hex",
- "indexmap 1.9.3",
+ "indexmap 2.2.6",
  "indoc",
  "lazy_static",
  "log",

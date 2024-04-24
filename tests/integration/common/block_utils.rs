@@ -14,14 +14,12 @@ use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
 use snos::execution::helper::ExecutionHelperWrapper;
-use snos::io::input::{StarknetOsInput, StorageCommitment};
+use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
-use snos::starknet::starknet_storage::execute_coroutine_threadsafe;
-use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
-use snos::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use snos::storage::storage_utils::build_starknet_storage;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
@@ -210,14 +208,14 @@ pub fn os_hints(
         };
     }
 
-    contracts.insert(Felt252::from(0), ContractState::default());
-    contracts.insert(Felt252::from(1), ContractState::default());
+    // contracts.insert(Felt252::from(0), ContractState::empty());
+    // contracts.insert(Felt252::from(1), ContractState::default());
 
     println!("contracts: {:?}\ndeprecated_compiled_classes: {:?}", contracts.len(), deprecated_compiled_classes.len());
 
     println!("contracts to class_hash");
     for (a, c) in &contracts {
-        println!("\t{} -> {}", a, c.contract_hash);
+        println!("\t{} -> {}", a, BigUint::from_bytes_be(&c.contract_hash));
     }
 
     println!("deprecated classes");

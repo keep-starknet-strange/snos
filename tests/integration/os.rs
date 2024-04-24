@@ -1,5 +1,6 @@
 use blockifier::block_context::BlockContext;
 use blockifier::invoke_tx_args;
+use blockifier::state::state_api::State;
 use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
@@ -12,6 +13,14 @@ use starknet_api::transaction::{Fee, TransactionVersion};
 use crate::common::block_context;
 use crate::common::state::{initial_state, InitialState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
+
+#[rstest]
+fn test_initial_state(initial_state: InitialState) {
+    let InitialState { mut state, .. } = initial_state;
+
+    let state_diff = state.to_state_diff();
+    println!("{:?}", state_diff);
+}
 
 #[rstest]
 fn return_result_cairo0_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
