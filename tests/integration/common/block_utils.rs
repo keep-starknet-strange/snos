@@ -167,20 +167,17 @@ pub fn os_hints(
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
-    let state_diff = blockifier_state.to_state_diff();
-    let deployed_addresses = state_diff.address_to_class_hash.keys().cloned().collect::<HashSet<_>>();
-
+    let deployed_addresses = blockifier_state.to_state_diff().address_to_class_hash;
     let initial_addresses = blockifier_state.state.address_to_class_hash.keys().cloned().collect::<HashSet<_>>();
-
-    let addresses = initial_addresses.union(&deployed_addresses);
+    let addresses = deployed_addresses.keys().cloned().chain(initial_addresses);
 
     let mut contracts: HashMap<Felt252, ContractState> = addresses
-        .into_iter()
         .map(|address| {
-            let contract_hash = if deployed_addresses.contains(address) {
+            // os expects the contract hash to be 0 for just deployed contracts
+            let contract_hash = if deployed_addresses.contains_key(&address) {
                 Felt252::ZERO
             } else {
-                to_felt252(&blockifier_state.get_class_hash_at(*address).unwrap().0)
+                to_felt252(&blockifier_state.get_class_hash_at(address).unwrap().0)
             };
             let contract_state = ContractState {
                 contract_hash,
