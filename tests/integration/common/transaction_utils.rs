@@ -127,6 +127,40 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     class_hash = Some(felt_api2vm(tx.class_hash.0));
                     calldata = None; // Calldata may be just the class hash? or that's just for validate()? see AccountTransaction::validate_entrypoint_calldata()
                 },
+                starknet_api::transaction::DeclareTransaction::V1(tx) => {
+                    version = Some(Felt252::ONE);
+                    max_fee = Some(tx.max_fee.0.into());
+                    signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
+                    nonce = Some(felt_api2vm(tx.nonce.0));
+                    // entry_point_selector = Some(to_felt252(&tx.entry_point_selector.0));
+                    // calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
+                    // contract_address = Some(to_felt252(tx.contract_address.0.key()));
+                    // sender_address = contract_address;
+                    /*
+                    hash_value = tx_hash_invoke_v0(
+                        contract_address.unwrap(),
+                        entry_point_selector.unwrap(),
+                        calldata.clone().unwrap(),
+                        max_fee.unwrap(),
+                    );
+                    */
+
+                    match account_tx.get_account_tx_context() {
+                        AccountTransactionContext::Current(_) => panic!("Not implemented"),
+                        AccountTransactionContext::Deprecated(context) => {
+                            // max_fee = Some(context.max_fee.0.into()); // handled above? is it equivalent?
+                            sender_address = Some(felt_api2vm(*context.common_fields.sender_address.0.key()));
+                            // hash_value = felt_api2vm(context.common_fields.transaction_hash.0); // TODO: this is empty
+                            hash_value = Felt252::from_hex("0x2589a365815f79cc92b70b007ecee77044af74b90a3f4f2ded8424fd07ed431").unwrap(); // TODO
+                        }
+                    }
+
+                    // TODO:
+                    contract_address = None;
+                    entry_point_selector = None;
+                    class_hash = Some(felt_api2vm(tx.class_hash.0));
+                    calldata = None; // Calldata may be just the class hash? or that's just for validate()? see AccountTransaction::validate_entrypoint_calldata()
+                },
                 starknet_api::transaction::DeclareTransaction::V2(tx) => {
                     version = Some(Felt252::ONE);
                     max_fee = Some(tx.max_fee.0.into());

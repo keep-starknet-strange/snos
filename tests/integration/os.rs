@@ -47,7 +47,7 @@ fn return_result_cairo0_account(block_context: BlockContext, initial_state: Init
 
 #[rstest]
 fn declare_and_deploy_account_cairo0_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
-    let tx_version = TransactionVersion::ZERO;
+    let tx_version = TransactionVersion::ONE;
     let mut nonce_manager = NonceManager::default();
 
     let InitialState {
@@ -59,7 +59,7 @@ fn declare_and_deploy_account_cairo0_account(block_context: BlockContext, initia
 
     let declare_tx = blockifier::test_utils::declare::declare_tx(
         declare_tx_args! {
-            max_fee: Fee(0),
+            max_fee: max_fee,
             sender_address,
             version: tx_version,
             nonce: nonce_manager.next(sender_address),
