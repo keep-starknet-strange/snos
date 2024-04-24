@@ -6,10 +6,11 @@ use serde::{Deserialize, Serialize};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use crate::config::CONTRACT_CLASS_LEAF_VERSION;
+use crate::crypto::poseidon::PoseidonHash;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::starkware_utils::serializable::SerializationPrefix;
-use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage};
+use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
 
 /// Represents a single contract class which is stored in the Starknet state.
 #[derive(Debug, Serialize, Deserialize)]
@@ -136,3 +137,24 @@ where
         self.compiled_class_hash == Felt252::ZERO
     }
 }
+
+/// Replaces the given FactFetchingContext object with a corresponding one used for·
+/// fetching contract class facts.
+pub fn get_ffc_for_contract_class_facts<S, H>(
+    ffc: &mut FactFetchingContext<S, H>,
+) -> FactFetchingContext<S, PoseidonHash>
+where
+    S: Storage,
+    H: HashFunctionType,
+{
+    ffc.clone_with_different_hash::<PoseidonHash>()
+}
+
+// def get_ffc_for_contract_class_facts(ffc: FactFetchingContext) -> FactFetchingContext:
+// """
+//     Replaces the given FactFetchingContext object with a corresponding one used for·
+//     fetching contract class facts.
+//     """
+// return FactFetchingContext(
+// storage=ffc.storage, hash_func=poseidon_hash_func, n_workers=ffc.n_workers
+// )

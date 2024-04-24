@@ -1,3 +1,6 @@
+use std::collections::{HashMap, HashSet};
+
+use blockifier::state::cached_state::CommitmentStateDiff;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
 
@@ -6,10 +9,12 @@ use crate::config::{
     CONTRACT_STATES_COMMITMENT_TREE_HEIGHT, GLOBAL_STATE_VERSION,
 };
 use crate::crypto::poseidon::poseidon_hash_many_bytes;
-use crate::starknet::business_logic::fact_state::contract_class_objects::ContractClassLeaf;
+use crate::starknet::business_logic::fact_state::contract_class_objects::{
+    get_ffc_for_contract_class_facts, ContractClassLeaf,
+};
 use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use crate::starknet::business_logic::state::state_api_objects::BlockInfo;
-use crate::starkware_utils::commitment_tree::base_types::Height;
+use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
@@ -122,6 +127,135 @@ impl SharedState {
         // Return H(contract_state_root, contract_class_root, state_version).
         poseidon_hash_many_bytes(&[&Self::state_version().to_bytes_be(), contract_states_root, contract_classes_root])
             .map(|x| Felt252::from_bytes_be_slice(&x))
+    }
+
+    /// Updates the global state using a state diff generated with Blockifier.
+    async fn apply_commitment_state_diff<S, H>(
+        self,
+        ffc: &mut FactFetchingContext<S, H>,
+        state_diff: CommitmentStateDiff,
+        block_info: BlockInfo,
+    ) -> Result<Self, TreeError>
+    where
+        S: Storage + 'static,
+        H: HashFunctionType + Send + Sync + 'static,
+    {
+        // We just need to translate the Blockifier state diff to use Felt252 instead of
+        // the Blockifier types
+        let address_to_class_hash: HashMap<_, _> = state_diff
+            .address_to_class_hash
+            .into_iter()
+            .map(|(address, class_hash)| (felt_api2vm(*address.0.key()), felt_api2vm(class_hash.0)))
+            .collect();
+
+        let address_to_nonce: HashMap<_, _> = state_diff
+            .address_to_nonce
+            .into_iter()
+            .map(|(address, nonce)| (felt_api2vm(*address.0.key()), felt_api2vm(nonce.0)))
+            .collect();
+
+        let class_hash_to_compiled_class_hash: HashMap<_, _> = state_diff
+            .class_hash_to_compiled_class_hash
+            .into_iter()
+            .map(|(class_hash, compiled_class_hash)| (felt_api2vm(class_hash.0), felt_api2vm(compiled_class_hash.0)))
+            .collect();
+
+        let storage_updates: HashMap<_, HashMap<_, _>> = state_diff
+            .storage_updates
+            .into_iter()
+            .map(|(address, contract_storage_updates)| {
+                (
+                    felt_api2vm(*address.0.key()),
+                    contract_storage_updates
+                        .into_iter()
+                        .map(|(k, v)| (felt_api2vm(*k.0.key()), felt_api2vm(v)))
+                        .collect(),
+                )
+            })
+            .collect();
+
+        self.apply_state_updates(
+            ffc,
+            address_to_class_hash,
+            address_to_nonce,
+            class_hash_to_compiled_class_hash,
+            storage_updates,
+            block_info,
+        )
+        .await
+    }
+
+    async fn apply_state_updates<S, H>(
+        mut self,
+        ffc: &mut FactFetchingContext<S, H>,
+        address_to_class_hash: HashMap<Felt252, Felt252>,
+        address_to_nonce: HashMap<Felt252, Felt252>,
+        class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
+        storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>,
+        block_info: BlockInfo,
+    ) -> Result<Self, TreeError>
+    where
+        S: Storage + 'static,
+        H: HashFunctionType + Send + Sync + 'static,
+    {
+        let accessed_addresses_felts: HashSet<_> =
+            address_to_class_hash.keys().chain(address_to_nonce.keys().chain(storage_updates.keys())).collect();
+        let accessed_addresses: Vec<TreeIndex> = accessed_addresses_felts.iter().map(|x| x.to_biguint()).collect();
+
+        let mut facts = None;
+        let mut current_contract_states: HashMap<TreeIndex, ContractState> =
+            self.contract_states.get_leaves(ffc, &accessed_addresses, &mut facts).await?;
+
+        // Update contract storage roots with cached changes.
+        let empty_updates = HashMap::new();
+        let mut updated_contract_states = HashMap::new();
+        for address in accessed_addresses_felts {
+            // unwrap() is safe as an entry is guaranteed to be present with `get_leaves()`.
+            let tree_index = address.to_biguint();
+            let updates = storage_updates.get(&address).unwrap_or(&empty_updates);
+            let nonce = address_to_nonce.get(&address).cloned();
+            let class_hash = address_to_class_hash.get(&address).cloned();
+            let updated_contract_state =
+                current_contract_states.remove(&tree_index).unwrap().update(ffc, updates, nonce, class_hash).await?;
+
+            updated_contract_states.insert(tree_index, updated_contract_state);
+        }
+
+        // Apply contract changes on global root.
+        println!("Updating contract state tree with {} modifications...", accessed_addresses.len());
+        let global_state_modifications: Vec<_> = updated_contract_states.into_iter().map(|(k, v)| (k, v)).collect();
+        let updated_global_contract_root =
+            self.contract_states.update(ffc, global_state_modifications, &mut facts).await?;
+
+        let mut ffc_for_contract_class = get_ffc_for_contract_class_facts(ffc);
+
+        let updated_contract_classes = match self.contract_classes {
+            Some(mut tree) => {
+                println!(
+                    "Updating contract class tree with {} modifications...",
+                    class_hash_to_compiled_class_hash.len()
+                );
+                let modifications: Vec<_> = class_hash_to_compiled_class_hash
+                    .into_iter()
+                    .map(|(key, value)| (key.to_biguint(), ContractClassLeaf::create(value)))
+                    .collect();
+                Some(tree.update(&mut ffc_for_contract_class, modifications, &mut facts).await?)
+            }
+            None => {
+                assert_eq!(
+                    class_hash_to_compiled_class_hash.len(),
+                    0,
+                    "contract_classes must be concrete before update."
+                );
+                None
+            }
+        };
+
+        Ok(Self {
+            contract_states: updated_global_contract_root,
+            contract_classes: updated_contract_classes,
+            block_info,
+        })
     }
 }
 
@@ -269,4 +403,3 @@ impl SharedState {
 //             contract_classes=updated_contract_classes,
 //             block_info=block_info,
 //         )
-
