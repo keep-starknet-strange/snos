@@ -10,9 +10,13 @@ use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
-use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
+use num_bigint::BigUint;
+use snos::config::{
+    StarknetGeneralConfig, StarknetGeneralConfig, StarknetOsConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS,
+    STORED_BLOCK_HASH_BUFFER, STORED_BLOCK_HASH_BUFFER,
+};
 use snos::execution::helper::ExecutionHelperWrapper;
-use snos::io::input::{StarknetOsInput, StorageCommitment};
+use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::utils::{write_compiled_class_fact, write_deprecated_compiled_class_fact};
@@ -188,8 +192,8 @@ pub async fn os_hints(
             };
             let contract_state = ContractState {
                 contract_hash: contract_hash.to_bytes_be().to_vec(),
-                storage_commitment_tree: todo!(),                      // TODO
-                nonce: 0.into(),                                       // TODO
+                storage_commitment_tree: todo!(), // TODO
+                nonce: 0.into(),                  // TODO
             };
             (to_felt252(address.0.key()), contract_state)
         })
@@ -220,7 +224,7 @@ pub async fn os_hints(
 
     println!("contracts to class_hash");
     for (a, c) in &contracts {
-        println!("\t{} -> {:?}", a, c.contract_hash);
+        println!("\t{} -> {}", a, BigUint::from_bytes_be(&c.contract_hash));
     }
 
     println!("deprecated classes");

@@ -1,5 +1,6 @@
 use blockifier::block_context::BlockContext;
 use blockifier::invoke_tx_args;
+use blockifier::state::state_api::State;
 use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;

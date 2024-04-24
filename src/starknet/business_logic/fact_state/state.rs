@@ -1,8 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
-use blockifier::state::cached_state::CommitmentStateDiff;
+use blockifier::state::cached_state::{CachedState, CommitmentStateDiff, StorageEntry};
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
 
 use crate::config::{
     StarknetGeneralConfig, COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT, CONTRACT_ADDRESS_BITS,
@@ -97,6 +101,7 @@ impl SharedState {
             None => Self::create_empty_contract_class_tree(ffc).await,
         }
     }
+
     /// Returns the global state root.
     /// If both the contract class and contract state trees are empty, the global root is set to
     /// 0. If no contract class state exists or if it is empty, the global state root is equal to
@@ -129,6 +134,37 @@ impl SharedState {
             .map(|x| Felt252::from_bytes_be_slice(&x))
     }
 
+    pub async fn from_blockifier_state<S, H>(
+        ffc: &mut FactFetchingContext<S, H>,
+        blockifier_state: DictStateReader,
+        block_info: BlockInfo,
+        config: &StarknetGeneralConfig,
+    ) -> Result<Self, TreeError>
+    where
+        S: Storage + 'static,
+        H: HashFunctionType + Send + Sync + 'static,
+    {
+        let empty_state = Self::empty(ffc, config).await?;
+
+        let mut storage_updates: HashMap<ContractAddress, HashMap<StorageKey, StarkFelt>> = HashMap::new();
+        for ((address, key), value) in blockifier_state.storage_view {
+            storage_updates.entry(address).or_default().insert(key, value);
+        }
+
+        let shared_state = empty_state
+            .apply_state_updates_starknet_api(
+                ffc,
+                blockifier_state.address_to_class_hash,
+                blockifier_state.address_to_nonce,
+                blockifier_state.class_hash_to_compiled_class_hash,
+                storage_updates,
+                block_info,
+            )
+            .await?;
+
+        Ok(shared_state)
+    }
+
     /// Updates the global state using a state diff generated with Blockifier.
     async fn apply_commitment_state_diff<S, H>(
         self,
@@ -140,28 +176,52 @@ impl SharedState {
         S: Storage + 'static,
         H: HashFunctionType + Send + Sync + 'static,
     {
-        // We just need to translate the Blockifier state diff to use Felt252 instead of
-        // the Blockifier types
-        let address_to_class_hash: HashMap<_, _> = state_diff
-            .address_to_class_hash
+        // TODO: find a better solution than creating new hashmaps
+        self.apply_state_updates_starknet_api(
+            ffc,
+            state_diff.address_to_class_hash.into_iter().collect(),
+            state_diff.address_to_nonce.into_iter().collect(),
+            state_diff.class_hash_to_compiled_class_hash.into_iter().collect(),
+            state_diff
+                .storage_updates
+                .into_iter()
+                .map(|(address, updates)| (address, updates.into_iter().collect()))
+                .collect(),
+            block_info,
+        )
+        .await
+    }
+
+    /// A compatibility function to apply state updates specified in the Starknet API types.
+    async fn apply_state_updates_starknet_api<S, H>(
+        self,
+        ffc: &mut FactFetchingContext<S, H>,
+        address_to_class_hash: HashMap<ContractAddress, ClassHash>,
+        address_to_nonce: HashMap<ContractAddress, Nonce>,
+        class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash>,
+        storage_updates: HashMap<ContractAddress, HashMap<StorageKey, StarkFelt>>,
+        block_info: BlockInfo,
+    ) -> Result<Self, TreeError>
+    where
+        S: Storage + 'static,
+        H: HashFunctionType + Send + Sync + 'static,
+    {
+        let address_to_class_hash: HashMap<_, _> = address_to_class_hash
             .into_iter()
             .map(|(address, class_hash)| (felt_api2vm(*address.0.key()), felt_api2vm(class_hash.0)))
             .collect();
 
-        let address_to_nonce: HashMap<_, _> = state_diff
-            .address_to_nonce
+        let address_to_nonce: HashMap<_, _> = address_to_nonce
             .into_iter()
             .map(|(address, nonce)| (felt_api2vm(*address.0.key()), felt_api2vm(nonce.0)))
             .collect();
 
-        let class_hash_to_compiled_class_hash: HashMap<_, _> = state_diff
-            .class_hash_to_compiled_class_hash
+        let class_hash_to_compiled_class_hash: HashMap<_, _> = class_hash_to_compiled_class_hash
             .into_iter()
             .map(|(class_hash, compiled_class_hash)| (felt_api2vm(class_hash.0), felt_api2vm(compiled_class_hash.0)))
             .collect();
 
-        let storage_updates: HashMap<_, HashMap<_, _>> = state_diff
-            .storage_updates
+        let storage_updates: HashMap<_, HashMap<_, _>> = storage_updates
             .into_iter()
             .map(|(address, contract_storage_updates)| {
                 (
@@ -185,6 +245,7 @@ impl SharedState {
         .await
     }
 
+    /// Applies state updates and recomputes the per-contract and global trees.
     async fn apply_state_updates<S, H>(
         mut self,
         ffc: &mut FactFetchingContext<S, H>,
@@ -258,148 +319,3 @@ impl SharedState {
         })
     }
 }
-
-//     def get_global_state_root(self) -> int:
-//         """
-//         Returns the global state root.
-//         If both the contract class and contract state trees are empty, the global root is set to
-// 0. If no contract class state exists or if it is empty, the global state root is equal to
-// the         contract state root (for backward compatibility);
-//         Otherwise, the global root is obtained by:
-//             global_root =  H(state_version, contract_state_root, contract_class_root).
-//         """
-//         contract_states_root = self.contract_states.root
-//         contract_classes_root = (
-//             self.contract_classes.root if self.contract_classes is not None else to_bytes(0)
-//         )
-//
-//         if contract_states_root == to_bytes(0) and contract_classes_root == to_bytes(0):
-//             # The shared state is empty.
-//             return 0
-//
-//         # Backward compatibility; Used during the migration from a state without a
-//         # contract class tree to a state with a contract class tree.
-//         if contract_classes_root == to_bytes(0):
-//             # The contract classes' state is empty.
-//             return from_bytes(contract_states_root)
-//
-//         # Return H(contract_state_root, contract_class_root, state_version).
-//         hash_value = poseidon_hash_many(
-//             [
-//                 self.state_version,
-//                 from_bytes(contract_states_root),
-//                 from_bytes(contract_classes_root),
-//             ]
-//         )
-//         return hash_value
-//
-//     def to_carried_state(self, ffc: FactFetchingContext) -> CarriedState:
-//         state = CachedState(
-//             block_info=self.block_info,
-//             state_reader=PatriciaStateReader(
-//                 contract_state_root=self.contract_states,
-//                 contract_class_root=self.contract_classes,
-//                 ffc=ffc,
-//                 contract_class_storage=ffc.storage,
-//             ),
-//         )
-//         return CarriedState(parent_state=None, state=state)
-//
-//     async def get_filled_carried_state(
-//         self, ffc: FactFetchingContext, state_selector: StateSelectorBase
-//     ) -> CarriedState:
-//         raise NotImplementedError(
-//             "get_filled_carried_state() is not implemented on Starknet SharedState."
-//         )
-//
-//     async def apply_state_updates(
-//         self,
-//         ffc: FactFetchingContext,
-//         previous_carried_state: CarriedStateBase,
-//         current_carried_state: CarriedStateBase,
-//         facts: Optional[BinaryFactDict] = None,
-//     ) -> "SharedState":
-//         # Note that previous_carried_state is part of the API of
-//         # SharedStateBase.apply_state_updates().
-//
-//         # Downcast arguments to application-specific types.
-//         assert isinstance(previous_carried_state, CarriedState)
-//         assert isinstance(current_carried_state, CarriedState)
-//
-//         state_objects_logger.debug(
-//             f"Updating state from previous carried state: {previous_carried_state} "
-//             f"to current carried state: {current_carried_state}"
-//         )
-//
-//         # Prepare storage updates to apply.
-//         state_cache = current_carried_state.state.cache
-//         return await self.apply_updates(
-//             ffc=ffc,
-//             address_to_class_hash=state_cache._class_hash_writes,
-//             address_to_nonce=state_cache._nonce_writes,
-//             class_hash_to_compiled_class_hash=state_cache._compiled_class_hash_writes,
-//             storage_updates=to_state_diff_storage_mapping(
-//                 storage_writes=state_cache._storage_writes
-//             ),
-//             block_info=current_carried_state.state.block_info,
-//         )
-//
-//     async def apply_updates(
-//         self,
-//         ffc: FactFetchingContext,
-//         address_to_class_hash: Mapping[int, int],
-//         address_to_nonce: Mapping[int, int],
-//         class_hash_to_compiled_class_hash: Mapping[int, int],
-//         storage_updates: Mapping[int, Mapping[int, int]],
-//         block_info: BlockInfo,
-//     ) -> "SharedState":
-//         accessed_addresses = (
-//             address_to_class_hash.keys() | address_to_nonce.keys() | storage_updates.keys()
-//         )
-//         current_contract_states = await self.contract_states.get_leaves(
-//             ffc=ffc, indices=accessed_addresses, fact_cls=ContractState
-//         )
-//
-//         # Update contract storage roots with cached changes.
-//         updated_contract_states = await gather_in_chunks(
-//             awaitables=(
-//                 current_contract_states[address].update(
-//                     ffc=ffc,
-//                     updates=storage_updates.get(address, {}),
-//                     nonce=address_to_nonce.get(address, None),
-//                     class_hash=address_to_class_hash.get(address, None),
-//                 )
-//                 for address in accessed_addresses
-//             )
-//         )
-//
-//         # Apply contract changes on global root.
-//         logger.info(f"Updating contract state tree with {len(accessed_addresses)}
-// modifications...")         updated_global_contract_root = await
-// self.contract_states.update_efficiently(             ffc=ffc,
-// modifications=list(safe_zip(accessed_addresses, updated_contract_states))         )
-//
-//         ffc_for_contract_class = get_ffc_for_contract_class_facts(ffc=ffc)
-//         updated_contract_classes: Optional[PatriciaTree] = None
-//         if self.contract_classes is not None:
-//             logger.info(
-//                 f"Updating contract class tree with {len(class_hash_to_compiled_class_hash)} "
-//                 "modifications..."
-//             )
-//             updated_contract_classes = await self.contract_classes.update_efficiently(
-//                 ffc=ffc_for_contract_class,
-//                 modifications=[
-//                     (key, ContractClassLeaf.create(compiled_class_hash=value))
-//                     for key, value in class_hash_to_compiled_class_hash.items()
-//                 ],
-//             )
-//         else:
-//             assert (
-//                 len(class_hash_to_compiled_class_hash) == 0
-//             ), "contract_classes must be concrete before update."
-//
-//         return SharedState(
-//             contract_states=updated_global_contract_root,
-//             contract_classes=updated_contract_classes,
-//             block_info=block_info,
-//         )

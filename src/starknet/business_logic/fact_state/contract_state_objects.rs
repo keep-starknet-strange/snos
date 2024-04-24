@@ -158,4 +158,3 @@ mod tests {
         assert_eq!(hash, expected_hash);
     }
 }
-
