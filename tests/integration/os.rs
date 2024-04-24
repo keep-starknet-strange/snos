@@ -182,7 +182,6 @@ fn syscalls_cairo1(block_context: BlockContext, initial_state: InitialState, max
     });
 
     // test_send_message_to_l1
-
     let to_address = stark_felt!(1234_u16);
     let payload = vec![stark_felt!(2019_u16), stark_felt!(2020_u16), stark_felt!(2021_u16)];
     let entrypoint_args = &[vec![to_address, stark_felt!(payload.len() as u64)], payload].concat();
@@ -195,7 +194,32 @@ fn syscalls_cairo1(block_context: BlockContext, initial_state: InitialState, max
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![test_emit_event_tx, test_storage_read_write_tx, test_get_block_hash_tx, test_send_message_to_l1_tx];
+    // test_deploy
+    let test_contract_class_hash = FeatureContract::TestContract(CairoVersion::Cairo1).get_class_hash().0;
+    let entrypoint_args = &[
+        test_contract_class_hash, // class hash
+        stark_felt!(255_u8),      // contract_address_salt
+        stark_felt!(2_u8),        // calldata length
+        stark_felt!(3_u8),        // calldata: arg1
+        stark_felt!(3_u8),        // calldata: arg2
+        stark_felt!(0_u8),        // deploy_from_zero
+    ];
+
+    let test_deploy_tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_deploy", entrypoint_args),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let txs = vec![
+        test_emit_event_tx,
+        test_storage_read_write_tx,
+        test_get_block_hash_tx,
+        test_send_message_to_l1_tx,
+        test_deploy_tx,
+    ];
 
     let r = execute_txs_and_run_os(state, block_context, txs);
 

@@ -138,7 +138,6 @@ pub fn build_starknet_storage(blockifier_state: &mut CachedState<DictStateReader
 
     let mut ffc = FactFetchingContext::new(DictStorage::default());
     for contract_address in all_contracts {
-        println!("Creating initial state for contract {}", contract_address);
         let initial_contract_storage = initial_contract_storage_map.get(contract_address).unwrap_or(&empty_state);
         let final_contract_storage =
             final_contract_storage_map.get(contract_address).expect("any contract should appear in final storage");

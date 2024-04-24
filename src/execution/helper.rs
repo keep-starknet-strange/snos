@@ -132,7 +132,7 @@ impl ExecutionHelperWrapper {
             .iter()
             .filter_map(|call| {
                 if matches!(call.call.entry_point_type, EntryPointType::Constructor) {
-                    Some(Felt252::from_bytes_be_slice(call.call.caller_address.0.key().bytes()))
+                    Some(Felt252::from_bytes_be_slice(call.call.storage_address.0.key().bytes()))
                 } else {
                     None
                 }
