@@ -59,7 +59,7 @@ fn declare_and_deploy_account_cairo0_account(block_context: BlockContext, initia
 
     let declare_tx = blockifier::test_utils::declare::declare_tx(
         declare_tx_args! {
-            max_fee,
+            max_fee: Fee(0),
             sender_address,
             version: tx_version,
             nonce: nonce_manager.next(sender_address),
