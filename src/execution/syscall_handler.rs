@@ -68,8 +68,6 @@ impl OsSyscallHandlerWrapper {
 
         let selector = SyscallSelector::try_from(felt_from_ptr(vm, syscall_handler_syscall_ptr)?)?;
 
-        println!("about to execute: {:?}", selector);
-
         let ehw = &mut syscall_handler.exec_wrapper;
 
         match selector {

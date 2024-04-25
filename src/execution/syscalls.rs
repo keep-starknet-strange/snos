@@ -2,36 +2,31 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
+use cairo_type_derive::FieldOffsetGetters;
 
 use crate::execution::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::execution::helper::ExecutionHelperWrapper;
-use crate::execution::syscall_utils::{
-    felt_from_ptr, ignore_felt, ignore_felt_array, read_call_params, write_felt, write_maybe_relocatable,
-    write_segment, EmptyRequest, EmptyResponse, ReadOnlySegment, SingleSegmentResponse, SyscallExecutionError,
-    SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
-};
+use crate::execution::syscall_utils::{felt_from_ptr, ignore_felt, ignore_felt_array, write_felt, write_maybe_relocatable, write_segment, EmptyRequest, EmptyResponse, ReadOnlySegment, SingleSegmentResponse, SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult};
 use crate::utils::felt_api2vm;
 
 // CallContract syscall.
-#[derive(Debug, Eq, PartialEq)]
-pub struct CallContractRequest {
-    pub contract_address: Felt252,
-    pub function_selector: Felt252,
-    pub calldata: Vec<Felt252>,
-}
+#[derive(Debug)]
+pub struct CallContractRequest {}
 
 impl SyscallRequest for CallContractRequest {
-    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<CallContractRequest> {
-        let contract_address = felt_from_ptr(vm, ptr)?;
-        let (function_selector, calldata) = read_call_params(vm, ptr)?;
-        Ok(CallContractRequest { contract_address, function_selector, calldata })
+    fn read(_vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<CallContractRequest> {
+        ignore_felt(ptr)?; // contract_address
+        ignore_felt(ptr)?; // function_selector
+        ignore_felt_array(ptr)?; // calldata
+
+        Ok(CallContractRequest {})
     }
 }
 
 pub type CallContractResponse = SingleSegmentResponse;
 
 pub fn call_contract(
-    request: CallContractRequest,
+    _request: CallContractRequest,
     vm: &mut VirtualMachine,
     exec_wrapper: &mut ExecutionHelperWrapper,
     remaining_gas: &mut u64,
@@ -49,29 +44,31 @@ pub fn call_contract(
         return Err(SyscallExecutionError::SyscallError { error_data: retdata });
     }
 
-    println!(
-        "CallContract syscall, contract address: {}, selector: {} -> failed: {}, {:?}?",
-        request.contract_address,
-        request.function_selector.to_hex_string(),
-        result.failed,
-        result.retdata
-    );
-
     let start_ptr = vm.add_temporary_segment();
     vm.load_data(start_ptr, &retdata.iter().map(MaybeRelocatable::from).collect())?;
     Ok(CallContractResponse { segment: ReadOnlySegment { start_ptr, length: retdata.len() } })
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct DeployRequest {}
+
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+struct Cairo1DeployRequest {
+    // The hash of the class to deploy.
+    class_hash: Felt252,
+    // A salt for the new contract address calculation.
+    contract_address_salt: Felt252,
+    // The calldata for the constructor.
+    constructor_calldata_start: Felt252,
+    constructor_calldata_end: Felt252,
+    // Used for deterministic contract address deployment.
+    deploy_from_zero: Felt252,
+}
 
 impl SyscallRequest for DeployRequest {
     fn read(_vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<DeployRequest> {
-        ignore_felt(ptr)?; // class_hash
-        ignore_felt(ptr)?; // contract_address_salt
-        ignore_felt_array(ptr)?; // constructor_calldata
-        ignore_felt(ptr)?; // deploy_from_zero
-
+        *ptr = (*ptr + Cairo1DeployRequest::cairo_size())?;
         Ok(DeployRequest {})
     }
 }
@@ -117,13 +114,14 @@ pub fn deploy(
     let constructor_retdata = ReadOnlySegment { start_ptr, length: retdata.len() };
 
     let contract_address = execution_helper.deployed_contracts_iter.next().ok_or(HintError::SyscallError(
-        "n: No more deployed contracts available to replay".to_string().into_boxed_str(),
+        "No more deployed contracts available to replay".to_string().into_boxed_str(),
     ))?;
 
     Ok(DeployResponse { contract_address, constructor_retdata })
 }
 
-type EmitEventRequest = EmptyResponse;
+#[derive(Debug, Eq, PartialEq)]
+pub struct EmitEventRequest {}
 
 impl SyscallRequest for EmitEventRequest {
     fn read(_vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<EmitEventRequest> {
@@ -133,15 +131,13 @@ impl SyscallRequest for EmitEventRequest {
     }
 }
 
-type EmitEventResponse = EmptyResponse;
-
 pub fn emit_event(
     _request: EmitEventRequest,
     _vm: &mut VirtualMachine,
     _exec_wrapper: &mut ExecutionHelperWrapper,
     _remaining_gas: &mut u64,
-) -> SyscallResult<EmitEventResponse> {
-    Ok(EmitEventResponse {})
+) -> SyscallResult<EmptyResponse> {
+    Ok(EmptyResponse {})
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -294,15 +290,14 @@ impl SyscallRequest for SendMessageToL1Request {
         Ok(SendMessageToL1Request {})
     }
 }
-type SendMessageToL1Response = EmptyResponse;
 
 pub fn send_message_to_l1(
     _request: SendMessageToL1Request,
     _vm: &mut VirtualMachine,
     _exec_wrapper: &mut ExecutionHelperWrapper,
     _remaining_gas: &mut u64,
-) -> SyscallResult<SendMessageToL1Response> {
-    Ok(SendMessageToL1Response {})
+) -> SyscallResult<EmptyResponse> {
+    Ok(EmptyResponse {})
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -367,15 +362,13 @@ impl SyscallRequest for StorageWriteRequest {
     }
 }
 
-pub type StorageWriteResponse = EmptyResponse;
-
 pub fn storage_write(
     _request: StorageWriteRequest,
     _vm: &mut VirtualMachine,
     _exec_wrapper: &mut ExecutionHelperWrapper,
     _remaining_gas: &mut u64,
-) -> SyscallResult<StorageWriteResponse> {
-    Ok(StorageWriteResponse {})
+) -> SyscallResult<EmptyResponse> {
+    Ok(EmptyResponse {})
 }
 
 // TODO: Keccak syscall.
