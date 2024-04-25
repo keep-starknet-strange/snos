@@ -1,9 +1,13 @@
 use std::collections::{HashMap, HashSet};
 
+use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::{CachedState, CommitmentStateDiff, StorageEntry};
+use blockifier::state::errors::StateError;
+use blockifier::state::state_api::{StateReader, StateResult};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -12,18 +16,21 @@ use crate::config::{
     StarknetGeneralConfig, COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT, CONTRACT_ADDRESS_BITS,
     CONTRACT_STATES_COMMITMENT_TREE_HEIGHT, GLOBAL_STATE_VERSION,
 };
+use crate::crypto::pedersen::PedersenHash;
 use crate::crypto::poseidon::poseidon_hash_many_bytes;
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
     get_ffc_for_contract_class_facts, ContractClassLeaf,
 };
 use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use crate::starknet::business_logic::state::state_api_objects::BlockInfo;
+use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, StorageLeaf};
 use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+use crate::storage::dict_storage::DictStorage;
 use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
-use crate::utils::felt_api2vm;
+use crate::utils::{felt_api2vm, felt_vm2api};
 
 /// A class representing a combination of the onchain and offchain state.
 pub struct SharedState {
@@ -318,4 +325,72 @@ impl SharedState {
             block_info,
         })
     }
+}
+
+impl StateReader for SharedState {
+    /// Returns the storage value under the given key in the given contract instance (represented by
+    /// its address).
+    /// Default: 0 for an uninitialized contract address.
+    fn get_storage_at(
+        &mut self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<StarkFelt> {
+        let contract_address: TreeIndex = felt_api2vm(*contract_address.0.key()).to_biguint();
+        let storage_key: TreeIndex = felt_api2vm(*key.0.key()).to_biguint();
+
+        // TODO: FFC makes no sense here
+        let mut ffc = FactFetchingContext::<DictStorage, PedersenHash>::new(Default::default());
+
+        let contract_state = execute_coroutine_threadsafe(async {
+            let contract_states: HashMap<TreeIndex, ContractState> = self.contract_states
+                .get_leaves(&mut ffc, &[contract_address.clone()], &mut None)
+                .await
+                .unwrap(); // TODO: error
+            let contract_state = contract_states
+                .get(&contract_address.clone())
+                .ok_or(StateError::StateReadError(format!("{:?}", contract_address.clone())))?
+                .clone();
+            StateResult::Ok(contract_state)
+        })?;
+
+        let state = execute_coroutine_threadsafe(async {
+            let storage_items: HashMap<TreeIndex, StorageLeaf> = contract_state.storage_commitment_tree
+                .get_leaves(&mut ffc, &[storage_key.clone()], &mut None)
+                .await
+                .unwrap(); // TODO: error
+            let value = storage_items
+                .get(&storage_key.clone())
+                .ok_or(StateError::StateReadError(format!("{:?}", storage_key)))?
+                .clone();
+            StateResult::Ok(value)
+
+        })?;
+
+        Ok(felt_vm2api(state.value))
+    }
+
+    /// Returns the nonce of the given contract instance.
+    /// Default: 0 for an uninitialized contract address.
+    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        unimplemented!();
+    }
+
+    /// Returns the class hash of the contract class at the given contract instance.
+    /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
+    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        unimplemented!();
+    }
+
+    /// Returns the contract class of the given class hash.
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        unimplemented!();
+    }
+
+    /// Returns the compiled class hash of the given class hash.
+    fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        unimplemented!();
+    }
+
+    // TODO: do we care about `fn get_free_token_balance()`?
 }
