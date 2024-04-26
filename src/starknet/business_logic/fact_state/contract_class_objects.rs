@@ -95,7 +95,7 @@ where
 /// Represents a leaf in the Starknet contract class tree.
 #[derive(Deserialize, Clone, Debug, Serialize, PartialEq)]
 pub struct ContractClassLeaf {
-    compiled_class_hash: Felt252,
+    pub compiled_class_hash: Felt252,
 }
 
 impl SerializationPrefix for ContractClassLeaf {}

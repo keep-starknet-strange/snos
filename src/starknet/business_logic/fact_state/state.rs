@@ -328,6 +328,7 @@ impl SharedState {
 
     /// helper to get contract_state
     /// TODO: move? make async? (it helps to not be async...)
+    /// also doesn't take FFC like others here
     pub fn get_contract_state(
         &self,
         contract_address: ContractAddress,
@@ -351,10 +352,39 @@ impl SharedState {
 
         Ok(contract_state)
     }
+
+    /// helper to get contract_state
+    /// TODO: as above, this doesn't exactly fit well here
+    pub fn get_contract_class(
+        &self,
+        contract_address: ContractAddress,
+    ) -> StateResult<ContractClassLeaf> {
+        let contract_address: TreeIndex = felt_api2vm(*contract_address.0.key()).to_biguint();
+
+        if self.contract_classes.is_none() {
+            return Err(StateError::StateReadError(format!("{:?}", contract_address.clone())));
+        }
+
+        // TODO: FFC makes no sense here
+        let mut ffc = FactFetchingContext::<DictStorage, PedersenHash>::new(Default::default());
+
+        let contract_class = execute_coroutine_threadsafe(async {
+            let contract_classes: HashMap<TreeIndex, ContractClassLeaf> = self.contract_classes.as_ref().unwrap()
+                .get_leaves(&mut ffc, &[contract_address.clone()], &mut None)
+                .await
+                .unwrap(); // TODO: error
+            let contract_class = contract_classes
+                .get(&contract_address.clone())
+                .ok_or(StateError::StateReadError(format!("{:?}", contract_address.clone())))?
+                .clone();
+            StateResult::Ok(contract_class)
+        })?;
+
+        Ok(contract_class)
+    }
 }
 
 impl StateReader for SharedState {
-
 
     /// Returns the storage value under the given key in the given contract instance (represented by
     /// its address).
@@ -402,12 +432,19 @@ impl StateReader for SharedState {
 
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        let contract_address = ContractAddress(PatriciaKey::try_from(class_hash.0).unwrap());
+        let leaf = self.get_contract_class(contract_address)?;
+        // TODO: convert ContractClassLeaf -> ContractClass
+        // TODO: how can we know whether v0 or v1 here?
         unimplemented!();
     }
 
     /// Returns the compiled class hash of the given class hash.
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        unimplemented!();
+        let contract_address = ContractAddress(PatriciaKey::try_from(class_hash.0).unwrap());
+        let leaf = self.get_contract_class(contract_address)?;
+        let hash = felt_vm2api(leaf.compiled_class_hash);
+        Ok(CompiledClassHash(hash))
     }
 
     // TODO: do we care about `fn get_free_token_balance()`?
