@@ -1,6 +1,6 @@
-use cairo_vm::Felt252;
-use cairo_vm::types::relocatable::Relocatable;
 use cairo_type_derive::FieldOffsetGetters;
+use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::Felt252;
 
 #[allow(unused)]
 #[derive(FieldOffsetGetters)]

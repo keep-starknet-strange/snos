@@ -235,15 +235,19 @@ pub trait SyscallHandler {
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult;
 }
 
-fn write_failure(gas_counter: u64, error_data: Vec<Felt252>, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<()> {
+fn write_failure(
+    gas_counter: u64,
+    error_data: Vec<Felt252>,
+    vm: &mut VirtualMachine,
+    ptr: &mut Relocatable,
+) -> SyscallResult<()> {
     write_felt(vm, ptr, Felt252::from(gas_counter))?;
     // 1 to indicate failure.
     write_felt(vm, ptr, Felt252::ONE)?;
 
     // Write the error data to a new memory segment.
     let revert_reason_start = vm.add_memory_segment();
-    let revert_reason_end =
-        vm.load_data(revert_reason_start, &error_data.into_iter().map(Into::into).collect())?;
+    let revert_reason_end = vm.load_data(revert_reason_start, &error_data.into_iter().map(Into::into).collect())?;
 
     // Write the start and end pointers of the error data.
     write_maybe_relocatable(vm, ptr, revert_reason_start)?;

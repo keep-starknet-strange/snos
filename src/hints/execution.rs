@@ -20,14 +20,11 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
-use crate::cairo_types::new_syscalls;
 
-use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
+use crate::cairo_types::new_syscalls;
 use crate::cairo_types::structs::deprecated::CallContractResponse;
-use crate::cairo_types::syscalls::{
-    StorageRead,
-    StorageReadRequest, StorageWrite, TxInfo,
-};
+use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
+use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest, StorageWrite, TxInfo};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
@@ -1168,8 +1165,10 @@ pub fn check_response_return_value(
     let retdata_size = get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?;
 
     let response = get_ptr_from_var_name("response", vm, ids_data, ap_tracking)?;
-    let response_retdata_start = vm.get_relocatable((response + new_syscalls::CallContractResponse::retdata_start_offset())?)?;
-    let response_retdata_end = vm.get_relocatable((response + new_syscalls::CallContractResponse::retdata_end_offset())?)?;
+    let response_retdata_start =
+        vm.get_relocatable((response + new_syscalls::CallContractResponse::retdata_start_offset())?)?;
+    let response_retdata_end =
+        vm.get_relocatable((response + new_syscalls::CallContractResponse::retdata_end_offset())?)?;
 
     let expected = vm.get_range(response_retdata_start, (response_retdata_end - response_retdata_start)?);
     let actual = vm.get_range(
@@ -1518,7 +1517,8 @@ pub fn write_syscall_result(
     let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
     let request = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
     let storage_write_address = *vm.get_integer((request + new_syscalls::StorageWriteRequest::key_offset())?)?;
-    let storage_write_value = vm.get_integer((request + new_syscalls::StorageWriteRequest::value_offset())?)?.into_owned();
+    let storage_write_value =
+        vm.get_integer((request + new_syscalls::StorageWriteRequest::value_offset())?)?.into_owned();
 
     // ids.prev_value = storage.read(key=ids.request.key)
     let prev_value =

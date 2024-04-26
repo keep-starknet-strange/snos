@@ -2,15 +2,21 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use blockifier::execution::execution_utils::ReadOnlySegments;
-use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use crate::cairo_types::new_syscalls;
+use cairo_vm::Felt252;
 
 use super::helper::ExecutionHelperWrapper;
-use crate::execution::constants::{BLOCK_HASH_CONTRACT_ADDRESS, CALL_CONTRACT_GAS_COST, DEPLOY_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST, GET_EXECUTION_INFO_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST};
-use crate::execution::syscall_handler_utils::{EmptyRequest, EmptyResponse, run_handler, felt_from_ptr, ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult, SyscallSelector, write_felt, write_maybe_relocatable, write_segment, WriteResponseResult};
+use crate::cairo_types::new_syscalls;
+use crate::execution::constants::{
+    BLOCK_HASH_CONTRACT_ADDRESS, CALL_CONTRACT_GAS_COST, DEPLOY_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST,
+    GET_EXECUTION_INFO_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
+};
+use crate::execution::syscall_handler_utils::{
+    felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest, EmptyResponse,
+    ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult, SyscallSelector, WriteResponseResult,
+};
 use crate::utils::felt_api2vm;
 
 /// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
@@ -57,8 +63,7 @@ impl OsSyscallHandlerWrapper {
 
     pub fn execute_syscall(&self, vm: &mut VirtualMachine, syscall_ptr: Relocatable) -> Result<(), HintError> {
         let mut syscall_handler = self.syscall_handler.as_ref().borrow_mut();
-        let ptr =
-            &mut syscall_handler.syscall_ptr.ok_or(HintError::CustomHint(Box::from("syscall_ptr is None")))?;
+        let ptr = &mut syscall_handler.syscall_ptr.ok_or(HintError::CustomHint(Box::from("syscall_ptr is None")))?;
 
         assert_eq!(*ptr, syscall_ptr);
 
@@ -67,33 +72,21 @@ impl OsSyscallHandlerWrapper {
         let ehw = &mut syscall_handler.exec_wrapper;
 
         match selector {
-            SyscallSelector::CallContract => {
-                run_handler::<CallContractHandler>(ptr, vm, ehw, CALL_CONTRACT_GAS_COST)
-            }
-            SyscallSelector::Deploy => {
-                run_handler::<DeployHandler>(ptr, vm, ehw, DEPLOY_GAS_COST)
-            },
-            SyscallSelector::EmitEvent => {
-                run_handler::<EmitEventHandler>(ptr, vm, ehw, EMIT_EVENT_GAS_COST)
-            }
-            SyscallSelector::GetBlockHash => {
-                run_handler::<GetBlockHashHandler>(ptr, vm, ehw, GET_BLOCK_HASH_GAS_COST)
-            }
+            SyscallSelector::CallContract => run_handler::<CallContractHandler>(ptr, vm, ehw, CALL_CONTRACT_GAS_COST),
+            SyscallSelector::Deploy => run_handler::<DeployHandler>(ptr, vm, ehw, DEPLOY_GAS_COST),
+            SyscallSelector::EmitEvent => run_handler::<EmitEventHandler>(ptr, vm, ehw, EMIT_EVENT_GAS_COST),
+            SyscallSelector::GetBlockHash => run_handler::<GetBlockHashHandler>(ptr, vm, ehw, GET_BLOCK_HASH_GAS_COST),
             SyscallSelector::GetExecutionInfo => {
                 run_handler::<GetExecutionInfoHandler>(ptr, vm, ehw, GET_EXECUTION_INFO_GAS_COST)
             }
-            SyscallSelector::StorageRead => {
-                run_handler::<StorageReadHandler>(ptr, vm, ehw, STORAGE_READ_GAS_COST)
-            }
-            SyscallSelector::StorageWrite => {
-                run_handler::<StorageWriteHandler>(ptr, vm, ehw, STORAGE_WRITE_GAS_COST)
-            }
+            SyscallSelector::StorageRead => run_handler::<StorageReadHandler>(ptr, vm, ehw, STORAGE_READ_GAS_COST),
+            SyscallSelector::StorageWrite => run_handler::<StorageWriteHandler>(ptr, vm, ehw, STORAGE_WRITE_GAS_COST),
             SyscallSelector::SendMessageToL1 => {
                 run_handler::<SendMessageToL1Handler>(ptr, vm, ehw, SEND_MESSAGE_TO_L1_GAS_COST)
             }
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;
-        
+
         syscall_handler.syscall_ptr = Some(*ptr);
 
         Ok(())
@@ -134,7 +127,11 @@ impl SyscallHandler for CallContractHandler {
         Ok(ReadOnlySegment { start_ptr, length: retdata.len() })
     }
 
-    fn write_response(response: ReadOnlySegment, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+    fn write_response(
+        response: ReadOnlySegment,
+        vm: &mut VirtualMachine,
+        ptr: &mut Relocatable,
+    ) -> WriteResponseResult {
         write_segment(vm, ptr, response)
     }
 }
@@ -155,7 +152,12 @@ impl SyscallHandler for DeployHandler {
         Ok(EmptyRequest)
     }
 
-    fn execute(_request: Self::Request, vm: &mut VirtualMachine, exec_wrapper: &mut ExecutionHelperWrapper, remaining_gas: &mut u64) -> SyscallResult<Self::Response> {
+    fn execute(
+        _request: Self::Request,
+        vm: &mut VirtualMachine,
+        exec_wrapper: &mut ExecutionHelperWrapper,
+        remaining_gas: &mut u64,
+    ) -> SyscallResult<Self::Response> {
         let execution_helper = &mut exec_wrapper.execution_helper.as_ref().borrow_mut();
 
         let result = execution_helper
@@ -201,11 +203,20 @@ impl SyscallHandler for EmitEventHandler {
         Ok(EmptyRequest)
     }
 
-    fn execute(_request: Self::Request, _vm: &mut VirtualMachine, _exec_wrapper: &mut ExecutionHelperWrapper, _remaining_gas: &mut u64) -> SyscallResult<Self::Response> {
+    fn execute(
+        _request: Self::Request,
+        _vm: &mut VirtualMachine,
+        _exec_wrapper: &mut ExecutionHelperWrapper,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<Self::Response> {
         Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
     }
 
-    fn write_response(_response: Self::Response, _vm: &mut VirtualMachine, _ptr: &mut Relocatable) -> WriteResponseResult {
+    fn write_response(
+        _response: Self::Response,
+        _vm: &mut VirtualMachine,
+        _ptr: &mut Relocatable,
+    ) -> WriteResponseResult {
         Ok(())
     }
 }
@@ -229,7 +240,12 @@ impl SyscallHandler for GetBlockHashHandler {
         Ok(GetBlockHashRequest { block_number })
     }
 
-    fn execute(request: GetBlockHashRequest, _vm: &mut VirtualMachine, exec_wrapper: &mut ExecutionHelperWrapper, _remaining_gas: &mut u64) -> SyscallResult<Self::Response> {
+    fn execute(
+        request: GetBlockHashRequest,
+        _vm: &mut VirtualMachine,
+        exec_wrapper: &mut ExecutionHelperWrapper,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<Self::Response> {
         // # The syscall handler should not directly read from the storage during the execution of
         // # transactions because the order in which reads and writes occur is not strictly linear.
         // # However, for the "block hash contract," this rule does not apply. This contract is updated
@@ -260,7 +276,12 @@ impl SyscallHandler for GetExecutionInfoHandler {
         Ok(EmptyRequest)
     }
 
-    fn execute(_request: Self::Request, _vm: &mut VirtualMachine, exec_wrapper: &mut ExecutionHelperWrapper, _remaining_gas: &mut u64) -> SyscallResult<Self::Response> {
+    fn execute(
+        _request: Self::Request,
+        _vm: &mut VirtualMachine,
+        exec_wrapper: &mut ExecutionHelperWrapper,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<Self::Response> {
         let eh_ref = exec_wrapper.execution_helper.as_ref().borrow();
         let execution_info_ptr = eh_ref.call_execution_info_ptr.unwrap();
         Ok(GetExecutionInfoResponse { execution_info_ptr })
@@ -346,7 +367,6 @@ impl SyscallHandler for GetExecutionInfoHandler {
 // ) -> SyscallResult<ReplaceClassResponse> {
 // }
 
-
 struct SendMessageToL1Handler;
 
 impl SyscallHandler for SendMessageToL1Handler {
@@ -358,11 +378,20 @@ impl SyscallHandler for SendMessageToL1Handler {
         Ok(EmptyRequest)
     }
 
-    fn execute(_request: Self::Request, _vm: &mut VirtualMachine, _exec_wrapper: &mut ExecutionHelperWrapper, _remaining_gas: &mut u64) -> SyscallResult<Self::Response> {
+    fn execute(
+        _request: Self::Request,
+        _vm: &mut VirtualMachine,
+        _exec_wrapper: &mut ExecutionHelperWrapper,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<Self::Response> {
         Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
     }
 
-    fn write_response(_response: Self::Response, _vm: &mut VirtualMachine, _ptr: &mut Relocatable) -> WriteResponseResult {
+    fn write_response(
+        _response: Self::Response,
+        _vm: &mut VirtualMachine,
+        _ptr: &mut Relocatable,
+    ) -> WriteResponseResult {
         Ok(())
     }
 }
@@ -384,18 +413,26 @@ impl SyscallHandler for StorageReadHandler {
         *ptr = (*ptr + new_syscalls::StorageReadRequest::cairo_size())?;
         Ok(EmptyRequest)
     }
-    fn execute(_request: EmptyRequest, _vm: &mut VirtualMachine, exec_wrapper: &mut ExecutionHelperWrapper, _remaining_gas: &mut u64) -> SyscallResult<StorageReadResponse> {
+    fn execute(
+        _request: EmptyRequest,
+        _vm: &mut VirtualMachine,
+        exec_wrapper: &mut ExecutionHelperWrapper,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<StorageReadResponse> {
         let value = exec_wrapper.execution_helper.as_ref().borrow_mut().execute_code_read_iter.next().ok_or(
             HintError::SyscallError("n: No more storage reads available to replay".to_string().into_boxed_str()),
         )?;
         Ok(StorageReadResponse { value })
     }
-    fn write_response(response: StorageReadResponse, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+    fn write_response(
+        response: StorageReadResponse,
+        vm: &mut VirtualMachine,
+        ptr: &mut Relocatable,
+    ) -> WriteResponseResult {
         write_felt(vm, ptr, response.value)?;
         Ok(())
     }
 }
-
 
 pub struct StorageWriteHandler;
 impl SyscallHandler for StorageWriteHandler {
@@ -410,10 +447,19 @@ impl SyscallHandler for StorageWriteHandler {
         *ptr = (*ptr + new_syscalls::StorageWriteRequest::cairo_size())?;
         Ok(EmptyRequest)
     }
-    fn execute(_request: EmptyRequest, _vm: &mut VirtualMachine, _exec_wrapper: &mut ExecutionHelperWrapper, _remaining_gas: &mut u64) -> SyscallResult<EmptyResponse> {
+    fn execute(
+        _request: EmptyRequest,
+        _vm: &mut VirtualMachine,
+        _exec_wrapper: &mut ExecutionHelperWrapper,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<EmptyResponse> {
         Ok(EmptyResponse {})
     }
-    fn write_response(_response: Self::Response, _vm: &mut VirtualMachine, _ptr: &mut Relocatable) -> WriteResponseResult {
+    fn write_response(
+        _response: Self::Response,
+        _vm: &mut VirtualMachine,
+        _ptr: &mut Relocatable,
+    ) -> WriteResponseResult {
         Ok(())
     }
 }
@@ -631,6 +677,3 @@ impl SyscallHandler for StorageWriteHandler {
 //     _remaining_gas: &mut u64,
 // ) -> blockifier::execution::syscalls::SyscallResult<Secp256r1NewResponse> {
 // }
-
-
-
