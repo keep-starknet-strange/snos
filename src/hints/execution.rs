@@ -20,16 +20,18 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
+use crate::cairo_types::new_syscalls;
 
-use crate::cairo_types::structs::{CallContractResponse, EntryPointReturnValues, ExecutionContext};
+use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
+use crate::cairo_types::structs::deprecated::CallContractResponse;
 use crate::cairo_types::syscalls::{
-    NewDeployResponse, NewStorageRead, NewStorageWriteRequest, NewSyscallContractResponse, StorageRead,
-    StorageReadRequest, StorageWrite, SyscallContractResponse, TxInfo,
+    StorageRead,
+    StorageReadRequest, StorageWrite, TxInfo,
 };
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
-use crate::execution::syscall_utils::SyscallSelector;
+use crate::execution::syscall_handler_utils::SyscallSelector;
 use crate::hints::types::{PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
 use crate::hints::vars::ids::{
@@ -1011,9 +1013,9 @@ pub fn check_syscall_response(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let call_response_ptr = get_ptr_from_var_name(vars::ids::CALL_RESPONSE, vm, ids_data, ap_tracking)?;
-    let call_response_retdata = vm.get_relocatable((call_response_ptr + SyscallContractResponse::retdata_offset())?)?;
+    let call_response_retdata = vm.get_relocatable((call_response_ptr + CallContractResponse::retdata_offset())?)?;
     let call_response_retdata_size =
-        felt_to_usize(vm.get_integer((call_response_ptr + SyscallContractResponse::retdata_size_offset())?)?.as_ref())?;
+        felt_to_usize(vm.get_integer((call_response_ptr + CallContractResponse::retdata_size_offset())?)?.as_ref())?;
 
     let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
     let retdata_size =
@@ -1044,9 +1046,9 @@ pub fn check_new_syscall_response(
 ) -> Result<(), HintError> {
     let response_ptr = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
     let response_retdata_start =
-        vm.get_relocatable((response_ptr + NewSyscallContractResponse::retdata_start_offset())?)?;
+        vm.get_relocatable((response_ptr + new_syscalls::CallContractResponse::retdata_start_offset())?)?;
     let response_retdata_end =
-        vm.get_relocatable((response_ptr + NewSyscallContractResponse::retdata_end_offset())?)?;
+        vm.get_relocatable((response_ptr + new_syscalls::CallContractResponse::retdata_end_offset())?)?;
     let response_retdata_size = (response_retdata_end - response_retdata_start)?;
 
     let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
@@ -1077,9 +1079,9 @@ pub fn check_new_deploy_response(
 ) -> Result<(), HintError> {
     let response_ptr = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
     let constructor_retdata_start =
-        vm.get_relocatable((response_ptr + NewDeployResponse::constructor_retdata_start_offset())?)?;
+        vm.get_relocatable((response_ptr + new_syscalls::DeployResponse::constructor_retdata_start_offset())?)?;
     let constructor_retdata_end =
-        vm.get_relocatable((response_ptr + NewDeployResponse::constructor_retdata_end_offset())?)?;
+        vm.get_relocatable((response_ptr + new_syscalls::DeployResponse::constructor_retdata_end_offset())?)?;
     let response_retdata_size = (constructor_retdata_end - constructor_retdata_start)?;
 
     let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
@@ -1166,8 +1168,8 @@ pub fn check_response_return_value(
     let retdata_size = get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?;
 
     let response = get_ptr_from_var_name("response", vm, ids_data, ap_tracking)?;
-    let response_retdata_start = vm.get_relocatable((response + CallContractResponse::retdata_start_offset())?)?;
-    let response_retdata_end = vm.get_relocatable((response + CallContractResponse::retdata_end_offset())?)?;
+    let response_retdata_start = vm.get_relocatable((response + new_syscalls::CallContractResponse::retdata_start_offset())?)?;
+    let response_retdata_end = vm.get_relocatable((response + new_syscalls::CallContractResponse::retdata_end_offset())?)?;
 
     let expected = vm.get_range(response_retdata_start, (response_retdata_end - response_retdata_start)?);
     let actual = vm.get_range(
@@ -1515,8 +1517,8 @@ pub fn write_syscall_result(
 
     let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
     let request = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
-    let storage_write_address = *vm.get_integer((request + NewStorageWriteRequest::key_offset())?)?;
-    let storage_write_value = vm.get_integer((request + NewStorageWriteRequest::value_offset())?)?.into_owned();
+    let storage_write_address = *vm.get_integer((request + new_syscalls::StorageWriteRequest::key_offset())?)?;
+    let storage_write_value = vm.get_integer((request + new_syscalls::StorageWriteRequest::value_offset())?)?.into_owned();
 
     // ids.prev_value = storage.read(key=ids.request.key)
     let prev_value =
@@ -1641,7 +1643,7 @@ pub fn cache_contract_storage_request_key(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let request_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
-    let key = vm.get_integer((request_ptr + NewStorageRead::key_offset())?)?.into_owned();
+    let key = vm.get_integer((request_ptr + new_syscalls::StorageReadRequest::key_offset())?)?.into_owned();
 
     cache_contract_storage(key, vm, exec_scopes, ids_data, ap_tracking)
 }

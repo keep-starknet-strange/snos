@@ -5,3 +5,4 @@ pub(crate) mod structs;
 pub(crate) mod syscalls;
 pub(crate) mod traits;
 pub(crate) mod trie;
+pub (crate) mod new_syscalls;

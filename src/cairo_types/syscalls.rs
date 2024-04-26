@@ -24,13 +24,6 @@ pub struct StorageRead {
 
 #[allow(unused)]
 #[derive(FieldOffsetGetters)]
-pub struct NewStorageRead {
-    reserved: Felt252,
-    key: Felt252,
-}
-
-#[allow(unused)]
-#[derive(FieldOffsetGetters)]
 pub struct StorageWrite {
     pub selector: Felt252,
     pub address: Felt252,
@@ -39,29 +32,9 @@ pub struct StorageWrite {
 
 #[allow(unused)]
 #[derive(FieldOffsetGetters)]
-pub struct NewStorageWriteRequest {
-    pub reserved: Felt252,
-    pub key: Felt252,
-    pub value: Felt252,
-}
-
-#[derive(FieldOffsetGetters)]
-pub struct SyscallContractResponse {
+pub struct CallContractResponse {
     pub retdata_size: Felt252,
     pub retdata: Relocatable,
-}
-
-#[derive(FieldOffsetGetters)]
-pub struct NewSyscallContractResponse {
-    pub retdata_start: Relocatable,
-    pub retdata_end: Relocatable,
-}
-
-#[derive(FieldOffsetGetters)]
-pub struct NewDeployResponse {
-    pub contract_address: Felt252,
-    pub constructor_retdata_start: Relocatable,
-    pub constructor_retdata_end: Relocatable,
 }
 
 #[derive(FieldOffsetGetters)]
