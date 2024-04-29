@@ -168,9 +168,9 @@ mod tests {
         assert!(!conf.constant_gas_price);
         assert!(conf.enforce_l1_handler_fee);
 
-        assert_eq!(4000000, conf.invoke_tx_max_n_steps);
+        assert_eq!(1000000, conf.invoke_tx_max_n_steps);
         assert_eq!(1000000000000000000000, conf.default_eth_price_in_fri);
-        assert_eq!(4000000, conf.validate_max_n_steps);
+        assert_eq!(1000000, conf.validate_max_n_steps);
 
         assert_eq!(expected_seq_addr, conf.sequencer_address);
     }
