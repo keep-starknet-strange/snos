@@ -130,15 +130,11 @@ impl DeprecatedOsSyscallHandlerWrapper {
             HintError::SyscallError("d: No more storage reads available to replay".to_string().into_boxed_str()),
         )?;
 
-        println!("storage_read syscall, syscall_ptr = {}, value = {}", syscall_ptr, value);
-
         vm.insert_value((syscall_ptr + 2usize).unwrap(), value).unwrap();
 
         Ok(())
     }
-    pub fn storage_write(&self, syscall_ptr: Relocatable) {
-        println!("storage_write (TODO): {}", syscall_ptr);
-
+    pub fn storage_write(&self, _syscall_ptr: Relocatable) {
         let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
         sys_hand.exec_wrapper.execution_helper.as_ref().borrow_mut().execute_code_read_iter.next();
     }

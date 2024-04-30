@@ -359,7 +359,7 @@ impl HintProcessorLogic for SnosHintProcessor {
             if let Hint::Starknet(StarknetHint::SystemCall { system }) = hint {
                 let syscall_ptr = get_ptr_from_res_operand(vm, system)?;
                 let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?;
-                return syscall_handler.syscall(vm, syscall_ptr).map(|_| HintExtension::default());
+                return syscall_handler.execute_syscall(vm, syscall_ptr).map(|_| HintExtension::default());
             } else {
                 return self.cairo1_builtin_hint_proc.execute(vm, exec_scopes, hint).map(|_| HintExtension::default());
             }

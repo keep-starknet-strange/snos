@@ -199,97 +199,19 @@ impl From<StorageError> for SyscallExecutionError {
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type WriteResponseResult = SyscallResult<()>;
 
-// type SyscallSelector = DeprecatedSyscallSelector;
-
-pub trait SyscallRequest: Sized {
-    fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<Self>
-    where
-        Self: Sized;
-}
-
-pub trait SyscallResponse {
-    fn write(self, _vm: &mut VirtualMachine, _ptr: &mut Relocatable) -> WriteResponseResult;
-}
-
-// Syscall header structs.
-pub struct SyscallRequestWrapper<T: SyscallRequest> {
-    pub gas_counter: u64,
-    pub request: T,
-}
-impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
-    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self> {
-        let gas_counter = felt_from_ptr(vm, ptr)?;
-        let gas_counter = gas_counter.to_u64().ok_or_else(|| SyscallExecutionError::InvalidSyscallInput {
-            input: gas_counter,
-            info: String::from("Unexpected gas."),
-        })?;
-        let request = T::read(vm, ptr)?;
-        Ok(Self { gas_counter, request })
-    }
-}
-
-pub enum SyscallResponseWrapper<T: SyscallResponse> {
-    Success { gas_counter: u64, response: T },
-    Failure { gas_counter: u64, error_data: Vec<Felt252> },
-}
-impl<T: SyscallResponse> SyscallResponse for SyscallResponseWrapper<T> {
-    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        match self {
-            Self::Success { gas_counter, response } => {
-                write_felt(vm, ptr, Felt252::from(gas_counter))?;
-                // 0 to indicate success.
-                write_felt(vm, ptr, Felt252::ZERO)?;
-                response.write(vm, ptr)
-            }
-            Self::Failure { gas_counter, error_data } => {
-                write_felt(vm, ptr, Felt252::from(gas_counter))?;
-                // 1 to indicate failure.
-                write_felt(vm, ptr, Felt252::ONE)?;
-
-                // Write the error data to a new memory segment.
-                let revert_reason_start = vm.add_memory_segment();
-                let revert_reason_end =
-                    vm.load_data(revert_reason_start, &error_data.into_iter().map(Into::into).collect())?;
-
-                // Write the start and end pointers of the error data.
-                write_maybe_relocatable(vm, ptr, revert_reason_start)?;
-                write_maybe_relocatable(vm, ptr, revert_reason_end)?;
-                Ok(())
-            }
-        }
-    }
-}
-
 // Common structs.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct EmptyRequest;
 
-impl SyscallRequest for EmptyRequest {
-    fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<EmptyRequest> {
-        Ok(EmptyRequest)
-    }
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct EmptyResponse;
-
-impl SyscallResponse for EmptyResponse {
-    fn write(self, _vm: &mut VirtualMachine, _ptr: &mut Relocatable) -> WriteResponseResult {
-        Ok(())
-    }
-}
 
 #[derive(Debug)]
 // Invariant: read-only.
 pub struct ReadOnlySegment {
     pub start_ptr: Relocatable,
     pub length: usize,
-}
-
-#[derive(Debug)]
-pub struct SingleSegmentResponse {
-    pub segment: ReadOnlySegment,
 }
 
 pub fn write_segment(vm: &mut VirtualMachine, ptr: &mut Relocatable, segment: ReadOnlySegment) -> SyscallResult<()> {
@@ -300,54 +222,83 @@ pub fn write_segment(vm: &mut VirtualMachine, ptr: &mut Relocatable, segment: Re
     Ok(())
 }
 
-impl SyscallResponse for SingleSegmentResponse {
-    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_segment(vm, ptr, self.segment)
-    }
+pub trait SyscallHandler {
+    type Request;
+    type Response;
+    fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request>;
+    fn execute(
+        request: Self::Request,
+        vm: &mut VirtualMachine,
+        exec_wrapper: &mut ExecutionHelperWrapper,
+        remaining_gas: &mut u64,
+    ) -> SyscallResult<Self::Response>;
+    fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult;
+}
+
+fn write_failure(
+    gas_counter: u64,
+    error_data: Vec<Felt252>,
+    vm: &mut VirtualMachine,
+    ptr: &mut Relocatable,
+) -> SyscallResult<()> {
+    write_felt(vm, ptr, Felt252::from(gas_counter))?;
+    // 1 to indicate failure.
+    write_felt(vm, ptr, Felt252::ONE)?;
+
+    // Write the error data to a new memory segment.
+    let revert_reason_start = vm.add_memory_segment();
+    let revert_reason_end = vm.load_data(revert_reason_start, &error_data.into_iter().map(Into::into).collect())?;
+
+    // Write the start and end pointers of the error data.
+    write_maybe_relocatable(vm, ptr, revert_reason_start)?;
+    write_maybe_relocatable(vm, ptr, revert_reason_end)?;
+
+    Ok(())
 }
 
 pub const OUT_OF_GAS_ERROR: &str = "0x000000000000000000000000000000000000000000004f7574206f6620676173";
 
-pub fn execute_syscall<Request, Response, ExecuteCallback>(
+pub fn run_handler<S: SyscallHandler>(
     syscall_ptr: &mut Relocatable,
     vm: &mut VirtualMachine,
     exec_wrapper: &mut ExecutionHelperWrapper,
-    execute_callback: ExecuteCallback,
     syscall_gas_cost: u64,
-) -> Result<(), HintError>
-where
-    Request: SyscallRequest + std::fmt::Debug,
-    Response: SyscallResponse + std::fmt::Debug,
-    ExecuteCallback:
-        FnOnce(Request, &mut VirtualMachine, &mut ExecutionHelperWrapper, &mut u64) -> SyscallResult<Response>,
-{
+) -> Result<(), HintError> {
     // Refund `SYSCALL_BASE_GAS_COST` as it was pre-charged.
     let required_gas = syscall_gas_cost - SYSCALL_BASE_GAS_COST;
 
-    let SyscallRequestWrapper { gas_counter, request } = SyscallRequestWrapper::<Request>::read(vm, syscall_ptr)?;
+    let gas_counter = felt_from_ptr(vm, syscall_ptr)?;
+    let gas_counter = gas_counter.to_u64().ok_or_else(|| SyscallExecutionError::InvalidSyscallInput {
+        input: gas_counter,
+        info: String::from("Unexpected gas."),
+    })?;
 
     if gas_counter < required_gas {
         //  Out of gas failure.
         let out_of_gas_error = Felt252::from_hex(OUT_OF_GAS_ERROR).unwrap();
-        let response: SyscallResponseWrapper<Response> =
-            SyscallResponseWrapper::Failure { gas_counter, error_data: vec![out_of_gas_error] };
-        response.write(vm, syscall_ptr)?;
-
+        write_failure(gas_counter, vec![out_of_gas_error], vm, syscall_ptr)?;
         return Ok(());
     }
 
+    let request = S::read_request(vm, syscall_ptr)?;
+
     // Execute.
     let mut remaining_gas = gas_counter - required_gas;
-    let original_response = execute_callback(request, vm, exec_wrapper, &mut remaining_gas);
-    let response = match original_response {
-        Ok(response) => SyscallResponseWrapper::Success { gas_counter: remaining_gas, response },
+
+    let syscall_result = S::execute(request, vm, exec_wrapper, &mut remaining_gas);
+
+    match syscall_result {
+        Ok(response) => {
+            write_felt(vm, syscall_ptr, Felt252::from(remaining_gas))?;
+            // 0 to indicate success.
+            write_felt(vm, syscall_ptr, Felt252::ZERO)?;
+            S::write_response(response, vm, syscall_ptr)?
+        }
         Err(SyscallExecutionError::SyscallError { error_data: data }) => {
-            SyscallResponseWrapper::Failure { gas_counter: remaining_gas, error_data: data }
+            write_failure(remaining_gas, data, vm, syscall_ptr)?;
         }
         Err(error) => return Err(error.into()),
     };
-
-    response.write(vm, syscall_ptr)?;
 
     Ok(())
 }
