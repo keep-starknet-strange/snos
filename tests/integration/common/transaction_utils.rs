@@ -29,7 +29,7 @@ pub fn to_felt252(stark_felt: &StarkFelt) -> Felt252 {
     Felt252::from_bytes_be_slice(stark_felt.bytes())
 }
 
-// const DECLARE_PREFIX: &[u8] = b"declare";
+const DECLARE_PREFIX: &[u8] = b"declare";
 // const DEPLOY_ACCOUNT_PREFIX: &[u8] = b"deploy_account";
 const INVOKE_PREFIX: &[u8] = b"invoke";
 // const L1_HANDLER_PREFIX: &[u8] = b"l1_handler";
@@ -74,6 +74,57 @@ fn tx_hash_invoke_v0(
     ])
 }
 
+fn tx_hash_declare_v1(
+    sender_address: Felt252,
+    max_fee: Felt252,
+    class_hash: Felt252,
+    nonce: Felt252,
+) -> Felt252 {
+    hash_on_elements(vec![
+        Felt252::from_bytes_be_slice(DECLARE_PREFIX),
+        Felt252::ONE, // declare version
+        sender_address,
+        Felt252::ZERO, // placeholder
+        hash_on_elements(vec![class_hash]),
+        Felt252::from(max_fee),
+        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+        nonce,
+    ])
+}
+
+fn tx_hash_declare_v2(
+    sender_address: Felt252,
+    max_fee: Felt252,
+    class_hash: Felt252,
+    compiled_class_hash: Felt252,
+    nonce: Felt252,
+) -> Felt252 {
+    hash_on_elements(vec![
+        Felt252::from_bytes_be_slice(DECLARE_PREFIX),
+        Felt252::TWO, // declare version
+        sender_address,
+        Felt252::ZERO, // placeholder
+        hash_on_elements(vec![class_hash]),
+        Felt252::from(max_fee),
+        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+        nonce,
+        compiled_class_hash,
+    ])
+}
+/*
+declare_v2_tx_hash = h(
+    "declare",
+    version,
+    sender_address,
+    0,
+    h(class_hash),
+    max_fee,
+    chain_id,
+    nonce,
+    compiled_class_hash
+)
+*/
+
 pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     let hash_value: Felt252;
     let version: Option<Felt252>;
@@ -87,7 +138,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     let entry_point_type: Option<String> = Some("EXTERNAL".to_string());
     let signature: Option<Vec<Felt252>>;
     let class_hash: Option<Felt252>;
-    let compiled_class_hash: Option<Felt252> = None;
+    let mut compiled_class_hash: Option<Felt252> = None;
     let calldata: Option<Vec<Felt252>>;
     let paid_on_l1: Option<bool> = None;
     let r#type: String;
@@ -97,67 +148,29 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
         Declare(declare_tx) => {
             r#type = "DECLARE".to_string();
             match &declare_tx.tx() {
-                starknet_api::transaction::DeclareTransaction::V0(tx) => {
-                    version = Some(Felt252::ZERO);
-                    max_fee = Some(tx.max_fee.0.into());
-                    signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
-                    nonce = Some(felt_api2vm(tx.nonce.0));
-                    // entry_point_selector = Some(to_felt252(&tx.entry_point_selector.0));
-                    // calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
-                    // contract_address = Some(to_felt252(tx.contract_address.0.key()));
-                    // sender_address = contract_address;
-                    // hash_value = tx_hash_invoke_v0(
-                    // contract_address.unwrap(),
-                    // entry_point_selector.unwrap(),
-                    // calldata.clone().unwrap(),
-                    // max_fee.unwrap(),
-                    // );
-
-                    match account_tx.get_account_tx_context() {
-                        AccountTransactionContext::Current(_) => panic!("Not implemented"),
-                        AccountTransactionContext::Deprecated(context) => {
-                            // max_fee = Some(context.max_fee.0.into()); // handled above? is it equivalent?
-                            sender_address = Some(felt_api2vm(*context.common_fields.sender_address.0.key()));
-                            // hash_value = felt_api2vm(context.common_fields.transaction_hash.0); // TODO: this is
-                            // empty
-                            hash_value =
-                                Felt252::from_hex("0x1fdf346b72be1234654540ec13497279008284c1bb8ca33880dd742934c5a84")
-                                    .unwrap(); // TODO
-                        }
-                    }
-
-                    // TODO:
-                    contract_address = None;
-                    entry_point_selector = None;
-                    class_hash = Some(felt_api2vm(tx.class_hash.0));
-                    calldata = None; // Calldata may be just the class hash? or that's just for validate()? see AccountTransaction::validate_entrypoint_calldata()
+                starknet_api::transaction::DeclareTransaction::V0(_) => {
+                    // not supported in general
+                    panic!("Not implemented");
                 }
                 starknet_api::transaction::DeclareTransaction::V1(tx) => {
                     version = Some(Felt252::ONE);
                     max_fee = Some(tx.max_fee.0.into());
                     signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
-                    nonce = Some(felt_api2vm(tx.nonce.0));
-                    // entry_point_selector = Some(to_felt252(&tx.entry_point_selector.0));
-                    // calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
-                    // contract_address = Some(to_felt252(tx.contract_address.0.key()));
-                    // sender_address = contract_address;
-                    // hash_value = tx_hash_invoke_v0(
-                    // contract_address.unwrap(),
-                    // entry_point_selector.unwrap(),
-                    // calldata.clone().unwrap(),
-                    // max_fee.unwrap(),
-                    // );
+                    let nonce_felt = felt_api2vm(tx.nonce.0);
+                    nonce = Some(nonce_felt);
 
                     match account_tx.get_account_tx_context() {
                         AccountTransactionContext::Current(_) => panic!("Not implemented"),
                         AccountTransactionContext::Deprecated(context) => {
-                            // max_fee = Some(context.max_fee.0.into()); // handled above? is it equivalent?
-                            sender_address = Some(felt_api2vm(*context.common_fields.sender_address.0.key()));
-                            // hash_value = felt_api2vm(context.common_fields.transaction_hash.0); // TODO: this is
-                            // empty
-                            hash_value =
-                                Felt252::from_hex("0x2589a365815f79cc92b70b007ecee77044af74b90a3f4f2ded8424fd07ed431")
-                                    .unwrap(); // TODO
+                            let sender_address_felt = felt_api2vm(*context.common_fields.sender_address.0.key());
+                            sender_address = Some(sender_address_felt);
+
+                            hash_value = tx_hash_declare_v1(
+                                sender_address_felt,
+                                max_fee.unwrap_or_default(),
+                                felt_api2vm(tx.class_hash.0),
+                                nonce_felt,
+                            );
                         }
                     }
 
@@ -165,42 +178,37 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     contract_address = None;
                     entry_point_selector = None;
                     class_hash = Some(felt_api2vm(tx.class_hash.0));
-                    calldata = None; // Calldata may be just the class hash? or that's just for validate()? see AccountTransaction::validate_entrypoint_calldata()
+                    calldata = None;
                 }
                 starknet_api::transaction::DeclareTransaction::V2(tx) => {
-                    version = Some(Felt252::ONE);
+                    version = Some(Felt252::TWO);
                     max_fee = Some(tx.max_fee.0.into());
                     signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
-                    nonce = Some(felt_api2vm(tx.nonce.0));
-                    // entry_point_selector = Some(to_felt252(&tx.entry_point_selector.0));
-                    // calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
-                    // contract_address = Some(to_felt252(tx.contract_address.0.key()));
-                    // sender_address = contract_address;
-                    // hash_value = tx_hash_invoke_v0(
-                    // contract_address.unwrap(),
-                    // entry_point_selector.unwrap(),
-                    // calldata.clone().unwrap(),
-                    // max_fee.unwrap(),
-                    // );
+                    let nonce_felt = felt_api2vm(tx.nonce.0);
+                    nonce = Some(nonce_felt);
 
                     match account_tx.get_account_tx_context() {
                         AccountTransactionContext::Current(_) => panic!("Not implemented"),
                         AccountTransactionContext::Deprecated(context) => {
-                            // max_fee = Some(context.max_fee.0.into()); // handled above? is it equivalent?
-                            sender_address = Some(felt_api2vm(*context.common_fields.sender_address.0.key()));
-                            // hash_value = felt_api2vm(context.common_fields.transaction_hash.0); // TODO: this is
-                            // empty
-                            hash_value =
-                                Felt252::from_hex("0x2589a365815f79cc92b70b007ecee77044af74b90a3f4f2ded8424fd07ed431")
-                                    .unwrap(); // TODO
+                            let sender_address_felt = felt_api2vm(*context.common_fields.sender_address.0.key());
+                            sender_address = Some(sender_address_felt);
+
+                            hash_value = tx_hash_declare_v2(
+                                sender_address_felt,
+                                max_fee.unwrap_or_default(),
+                                felt_api2vm(tx.class_hash.0),
+                                nonce_felt,
+                                felt_api2vm(tx.compiled_class_hash.0),
+                            );
                         }
                     }
 
                     // TODO:
                     contract_address = None;
                     entry_point_selector = None;
+                    compiled_class_hash = Some(felt_api2vm(tx.compiled_class_hash.0));
                     class_hash = Some(felt_api2vm(tx.class_hash.0));
-                    calldata = None; // Calldata may be just the class hash? or that's just for validate()? see AccountTransaction::validate_entrypoint_calldata()
+                    calldata = None;
                 }
                 _ => panic!("Not implemented"),
             }
