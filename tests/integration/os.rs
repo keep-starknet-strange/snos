@@ -70,7 +70,7 @@ fn declare_and_deploy_account_cairo0_account(block_context: BlockContext, initia
     let r = execute_txs_and_run_os(state, block_context, vec![declare_tx]);
 
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 1073743616"#), "{}", err_log);
+    assert!(err_log.contains(r#"Could not find commitment info for contract 1073742336"#), "{}", err_log);
 }
 
 #[rstest]
@@ -98,7 +98,7 @@ fn declare_and_deploy_account_cairo1_account(block_context: BlockContext, initia
     let r = execute_txs_and_run_os(state, block_context, vec![declare_tx]);
 
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 1073743616"#), "{}", err_log);
+    assert!(err_log.contains(r#"Could not find commitment info for contract 1073742336"#), "{}", err_log);
 }
 
 #[rstest]
