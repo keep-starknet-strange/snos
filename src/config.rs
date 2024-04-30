@@ -1,9 +1,7 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
-use std::sync::Arc;
 
-use blockifier::abi::constants::{MAX_STEPS_PER_TX, N_STEPS_RESOURCE};
+use blockifier::abi::constants::MAX_STEPS_PER_TX;
 use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use blockifier::transaction::objects::FeeType;
 use cairo_vm::types::layout_name::LayoutName;
