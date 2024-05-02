@@ -313,7 +313,7 @@ where
     }
 
     /// helper to get contract_state
-    pub fn get_contract_class(&self, contract_address: ContractAddress) -> StateResult<ContractClassLeaf> {
+    async fn get_contract_class_async(&self, contract_address: ContractAddress) -> StateResult<ContractClassLeaf> {
         let contract_address: TreeIndex = felt_api2vm(*contract_address.0.key()).to_biguint();
 
         if self.contract_classes.is_none() {
@@ -322,22 +322,22 @@ where
 
         let mut ffc = self.ffc.clone();
 
-        let contract_class = execute_coroutine_threadsafe(async {
-            let contract_classes: HashMap<TreeIndex, ContractClassLeaf> = self
-                .contract_classes
-                .as_ref()
-                .unwrap()
-                .get_leaves(&mut ffc, &[contract_address.clone()], &mut None)
-                .await
-                .unwrap(); // TODO: error
-            let contract_class = contract_classes
-                .get(&contract_address.clone())
-                .ok_or(StateError::StateReadError(format!("{:?}", contract_address.clone())))?
-                .clone();
-            StateResult::Ok(contract_class)
-        })?;
+        let contract_classes: HashMap<TreeIndex, ContractClassLeaf> = self
+            .contract_classes
+            .as_ref()
+            .unwrap()
+            .get_leaves(&mut ffc, &[contract_address.clone()], &mut None)
+            .await
+            .unwrap(); // TODO: error
+        let contract_class = contract_classes
+            .get(&contract_address.clone())
+            .ok_or(StateError::StateReadError(format!("{:?}", contract_address.clone())))?
+            .clone();
 
         Ok(contract_class)
+    }
+    pub fn get_contract_class(&self, contract_address: ContractAddress) -> StateResult<ContractClassLeaf> {
+        execute_coroutine_threadsafe(self.get_contract_class_async(contract_address))
     }
 
     async fn get_storage_at_async(
