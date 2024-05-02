@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use blockifier::execution::contract_class::ContractClass;
+use blockifier::execution::contract_class::{ContractClass, ContractClassV1};
 use blockifier::state::cached_state::CommitmentStateDiff;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
@@ -387,10 +387,25 @@ where
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
         let contract_address = ContractAddress(PatriciaKey::try_from(class_hash.0).unwrap());
-        let leaf = self.get_contract_class(contract_address)?;
-        // TODO: convert ContractClassLeaf -> ContractClass
-        // TODO: how can we know whether v0 or v1 here?
-        unimplemented!();
+        let contract_bytes = execute_coroutine_threadsafe(async {
+            let leaf = self.get_contract_class_async(contract_address).await?;
+            let bytecode = self
+                .ffc
+                .acquire_storage()
+                .await
+                .get_value(leaf.compiled_class_hash.to_bytes_be())
+                .await
+                .map_err(|_| StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone())))?;
+            StateResult::Ok(bytecode)
+        })?
+        .ok_or(StateError::StateReadError(format!("Found no storage for {:?}", class_hash.clone())))?;
+
+        // TODO: consider from_utf8_unchecked (performance improvement)
+        let contract_bytes = std::str::from_utf8(&contract_bytes).unwrap();
+        let class_v1 = ContractClassV1::try_from_json_string(contract_bytes)?;
+
+        // TODO: support v0: if we found data for this class_hash but it wasn't a v1, try as v0
+        Ok(ContractClass::V1(class_v1))
     }
 
     /// Returns the compiled class hash of the given class hash.
