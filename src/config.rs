@@ -123,7 +123,7 @@ impl StarknetGeneralConfig {
                 eth_fee_token_address: self.starknet_os_config.fee_token_address,
                 strk_fee_token_address: contract_address!("0x0"),
             },
-            vm_resource_fee_cost: Default::default(), // TODO
+            vm_resource_fee_cost: Default::default(),
             gas_prices: GasPrices {
                 eth_l1_gas_price: 1, // TODO: update with 4844
                 strk_l1_gas_price: 1,
