@@ -142,7 +142,7 @@ pub trait DbObject: Serializable {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct FactFetchingContext<S, H>
 where
     S: Storage,
@@ -170,6 +170,16 @@ where
 
     pub async fn acquire_storage(&self) -> tokio::sync::MutexGuard<S> {
         self.storage.lock().await
+    }
+}
+
+impl<S, H> Clone for FactFetchingContext<S, H>
+where
+    S: Storage,
+    H: HashFunctionType,
+{
+    fn clone(&self) -> Self {
+        Self { storage: self.storage.clone(), _h: Default::default() }
     }
 }
 

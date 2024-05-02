@@ -1,13 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
 use blockifier::execution::contract_class::ContractClass;
-use blockifier::state::cached_state::{CachedState, CommitmentStateDiff, StorageEntry};
+use blockifier::state::cached_state::CommitmentStateDiff;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
-use num_bigint::BigUint;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -16,7 +15,6 @@ use crate::config::{
     StarknetGeneralConfig, COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT, CONTRACT_ADDRESS_BITS,
     CONTRACT_STATES_COMMITMENT_TREE_HEIGHT, GLOBAL_STATE_VERSION,
 };
-use crate::crypto::pedersen::PedersenHash;
 use crate::crypto::poseidon::poseidon_hash_many_bytes;
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
     get_ffc_for_contract_class_facts, ContractClassLeaf,
@@ -28,44 +26,40 @@ use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-use crate::storage::dict_storage::DictStorage;
 use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
 use crate::utils::{felt_api2vm, felt_vm2api};
 
 /// A class representing a combination of the onchain and offchain state.
-pub struct SharedState {
+pub struct SharedState<S, H>
+where
+    S: Storage + 'static,
+    H: HashFunctionType + Send + Sync + 'static,
+{
     contract_states: PatriciaTree,
     /// Leaf addresses are class hashes; leaf values contain compiled class hashes.
     contract_classes: Option<PatriciaTree>,
     block_info: BlockInfo,
+    ffc: FactFetchingContext<S, H>,
 }
 
-impl SharedState {
+impl<S, H> SharedState<S, H>
+where
+    S: Storage + 'static,
+    H: HashFunctionType + Send + Sync + 'static,
+{
     pub fn state_version() -> Felt252 {
         Felt252::from_bytes_be_slice(GLOBAL_STATE_VERSION)
     }
 
     /// Returns an empty contract state tree.
-    pub async fn create_empty_contract_states<S, H>(
-        ffc: &mut FactFetchingContext<S, H>,
-    ) -> Result<PatriciaTree, TreeError>
-    where
-        S: Storage + Send + Sync + 'static,
-        H: HashFunctionType + Send + Sync + 'static,
-    {
+    pub async fn create_empty_contract_states(ffc: &mut FactFetchingContext<S, H>) -> Result<PatriciaTree, TreeError> {
         let empty_contract_state =
             ContractState::empty(Height(CONTRACT_STATES_COMMITMENT_TREE_HEIGHT as u64), ffc).await?;
         PatriciaTree::empty_tree(ffc, Height(CONTRACT_ADDRESS_BITS as u64), empty_contract_state).await
     }
 
     /// Returns an empty contract class tree.
-    async fn create_empty_contract_class_tree<S, H>(
-        ffc: &mut FactFetchingContext<S, H>,
-    ) -> Result<PatriciaTree, TreeError>
-    where
-        S: Storage + Send + Sync + 'static,
-        H: HashFunctionType + Send + Sync + 'static,
-    {
+    async fn create_empty_contract_class_tree(ffc: &mut FactFetchingContext<S, H>) -> Result<PatriciaTree, TreeError> {
         PatriciaTree::empty_tree(
             ffc,
             Height(COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT as u64),
@@ -75,34 +69,24 @@ impl SharedState {
     }
 
     /// Returns an empty state. This is called before creating very first block.
-    pub async fn empty<S, H>(
-        ffc: &mut FactFetchingContext<S, H>,
-        config: &StarknetGeneralConfig,
-    ) -> Result<Self, TreeError>
-    where
-        S: Storage + Send + Sync + 'static,
-        H: HashFunctionType + Send + Sync + 'static,
-    {
-        let empty_contract_states = Self::create_empty_contract_states(ffc).await?;
-        let empty_contract_classes = Self::create_empty_contract_class_tree(ffc).await?;
+    pub async fn empty(mut ffc: FactFetchingContext<S, H>, config: &StarknetGeneralConfig) -> Result<Self, TreeError> {
+        let empty_contract_states = Self::create_empty_contract_states(&mut ffc).await?;
+        let empty_contract_classes = Self::create_empty_contract_class_tree(&mut ffc).await?;
 
         Ok(Self {
             contract_states: empty_contract_states,
             contract_classes: Some(empty_contract_classes),
             block_info: BlockInfo::empty(Some(felt_api2vm(*config.sequencer_address.0.key())), config.use_kzg_da),
+            ffc,
         })
     }
 
     /// Returns the state's contract class Patricia tree if it exists;
     /// Otherwise returns an empty tree.
-    pub async fn get_contract_class_tree<S, H>(
+    pub async fn get_contract_class_tree(
         &self,
         ffc: &mut FactFetchingContext<S, H>,
-    ) -> Result<PatriciaTree, TreeError>
-    where
-        S: Storage + Send + Sync + 'static,
-        H: HashFunctionType + Send + Sync + 'static,
-    {
+    ) -> Result<PatriciaTree, TreeError> {
         match &self.contract_classes {
             Some(tree) => Ok(tree.clone()),
             None => Self::create_empty_contract_class_tree(ffc).await,
@@ -141,16 +125,12 @@ impl SharedState {
             .map(|x| Felt252::from_bytes_be_slice(&x))
     }
 
-    pub async fn from_blockifier_state<S, H>(
-        ffc: &mut FactFetchingContext<S, H>,
+    pub async fn from_blockifier_state(
+        ffc: FactFetchingContext<S, H>,
         blockifier_state: DictStateReader,
         block_info: BlockInfo,
         config: &StarknetGeneralConfig,
-    ) -> Result<Self, TreeError>
-    where
-        S: Storage + 'static,
-        H: HashFunctionType + Send + Sync + 'static,
-    {
+    ) -> Result<Self, TreeError> {
         let empty_state = Self::empty(ffc, config).await?;
 
         let mut storage_updates: HashMap<ContractAddress, HashMap<StorageKey, StarkFelt>> = HashMap::new();
@@ -160,7 +140,6 @@ impl SharedState {
 
         let shared_state = empty_state
             .apply_state_updates_starknet_api(
-                ffc,
                 blockifier_state.address_to_class_hash,
                 blockifier_state.address_to_nonce,
                 blockifier_state.class_hash_to_compiled_class_hash,
@@ -173,19 +152,13 @@ impl SharedState {
     }
 
     /// Updates the global state using a state diff generated with Blockifier.
-    async fn apply_commitment_state_diff<S, H>(
+    async fn apply_commitment_state_diff(
         self,
-        ffc: &mut FactFetchingContext<S, H>,
         state_diff: CommitmentStateDiff,
         block_info: BlockInfo,
-    ) -> Result<Self, TreeError>
-    where
-        S: Storage + 'static,
-        H: HashFunctionType + Send + Sync + 'static,
-    {
+    ) -> Result<Self, TreeError> {
         // TODO: find a better solution than creating new hashmaps
         self.apply_state_updates_starknet_api(
-            ffc,
             state_diff.address_to_class_hash.into_iter().collect(),
             state_diff.address_to_nonce.into_iter().collect(),
             state_diff.class_hash_to_compiled_class_hash.into_iter().collect(),
@@ -200,19 +173,14 @@ impl SharedState {
     }
 
     /// A compatibility function to apply state updates specified in the Starknet API types.
-    async fn apply_state_updates_starknet_api<S, H>(
+    async fn apply_state_updates_starknet_api(
         self,
-        ffc: &mut FactFetchingContext<S, H>,
         address_to_class_hash: HashMap<ContractAddress, ClassHash>,
         address_to_nonce: HashMap<ContractAddress, Nonce>,
         class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash>,
         storage_updates: HashMap<ContractAddress, HashMap<StorageKey, StarkFelt>>,
         block_info: BlockInfo,
-    ) -> Result<Self, TreeError>
-    where
-        S: Storage + 'static,
-        H: HashFunctionType + Send + Sync + 'static,
-    {
+    ) -> Result<Self, TreeError> {
         let address_to_class_hash: HashMap<_, _> = address_to_class_hash
             .into_iter()
             .map(|(address, class_hash)| (felt_api2vm(*address.0.key()), felt_api2vm(class_hash.0)))
@@ -242,7 +210,6 @@ impl SharedState {
             .collect();
 
         self.apply_state_updates(
-            ffc,
             address_to_class_hash,
             address_to_nonce,
             class_hash_to_compiled_class_hash,
@@ -253,26 +220,21 @@ impl SharedState {
     }
 
     /// Applies state updates and recomputes the per-contract and global trees.
-    async fn apply_state_updates<S, H>(
+    async fn apply_state_updates(
         mut self,
-        ffc: &mut FactFetchingContext<S, H>,
         address_to_class_hash: HashMap<Felt252, Felt252>,
         address_to_nonce: HashMap<Felt252, Felt252>,
         class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
         storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>,
         block_info: BlockInfo,
-    ) -> Result<Self, TreeError>
-    where
-        S: Storage + 'static,
-        H: HashFunctionType + Send + Sync + 'static,
-    {
+    ) -> Result<Self, TreeError> {
         let accessed_addresses_felts: HashSet<_> =
             address_to_class_hash.keys().chain(address_to_nonce.keys().chain(storage_updates.keys())).collect();
         let accessed_addresses: Vec<TreeIndex> = accessed_addresses_felts.iter().map(|x| x.to_biguint()).collect();
 
         let mut facts = None;
         let mut current_contract_states: HashMap<TreeIndex, ContractState> =
-            self.contract_states.get_leaves(ffc, &accessed_addresses, &mut facts).await?;
+            self.contract_states.get_leaves(&mut self.ffc, &accessed_addresses, &mut facts).await?;
 
         // Update contract storage roots with cached changes.
         let empty_updates = HashMap::new();
@@ -283,8 +245,11 @@ impl SharedState {
             let updates = storage_updates.get(&address).unwrap_or(&empty_updates);
             let nonce = address_to_nonce.get(&address).cloned();
             let class_hash = address_to_class_hash.get(&address).cloned();
-            let updated_contract_state =
-                current_contract_states.remove(&tree_index).unwrap().update(ffc, updates, nonce, class_hash).await?;
+            let updated_contract_state = current_contract_states
+                .remove(&tree_index)
+                .unwrap()
+                .update(&mut self.ffc, updates, nonce, class_hash)
+                .await?;
 
             updated_contract_states.insert(tree_index, updated_contract_state);
         }
@@ -293,9 +258,9 @@ impl SharedState {
         println!("Updating contract state tree with {} modifications...", accessed_addresses.len());
         let global_state_modifications: Vec<_> = updated_contract_states.into_iter().map(|(k, v)| (k, v)).collect();
         let updated_global_contract_root =
-            self.contract_states.update(ffc, global_state_modifications, &mut facts).await?;
+            self.contract_states.update(&mut self.ffc, global_state_modifications, &mut facts).await?;
 
-        let mut ffc_for_contract_class = get_ffc_for_contract_class_facts(ffc);
+        let mut ffc_for_contract_class = get_ffc_for_contract_class_facts(&mut self.ffc);
 
         let updated_contract_classes = match self.contract_classes {
             Some(mut tree) => {
@@ -323,26 +288,20 @@ impl SharedState {
             contract_states: updated_global_contract_root,
             contract_classes: updated_contract_classes,
             block_info,
+            ffc: self.ffc,
         })
     }
 
     /// helper to get contract_state
     /// TODO: move? make async? (it helps to not be async...)
-    /// also doesn't take FFC like others here
-    pub fn get_contract_state(
-        &self,
-        contract_address: ContractAddress,
-    ) -> StateResult<ContractState> {
+    pub fn get_contract_state(&self, contract_address: ContractAddress) -> StateResult<ContractState> {
         let contract_address: TreeIndex = felt_api2vm(*contract_address.0.key()).to_biguint();
 
-        // TODO: FFC makes no sense here
-        let mut ffc = FactFetchingContext::<DictStorage, PedersenHash>::new(Default::default());
+        let mut ffc = self.ffc.clone();
 
         let contract_state = execute_coroutine_threadsafe(async {
-            let contract_states: HashMap<TreeIndex, ContractState> = self.contract_states
-                .get_leaves(&mut ffc, &[contract_address.clone()], &mut None)
-                .await
-                .unwrap(); // TODO: error
+            let contract_states: HashMap<TreeIndex, ContractState> =
+                self.contract_states.get_leaves(&mut ffc, &[contract_address.clone()], &mut None).await.unwrap(); // TODO: error
             let contract_state = contract_states
                 .get(&contract_address.clone())
                 .ok_or(StateError::StateReadError(format!("{:?}", contract_address.clone())))?
@@ -355,21 +314,20 @@ impl SharedState {
 
     /// helper to get contract_state
     /// TODO: as above, this doesn't exactly fit well here
-    pub fn get_contract_class(
-        &self,
-        contract_address: ContractAddress,
-    ) -> StateResult<ContractClassLeaf> {
+    pub fn get_contract_class(&self, contract_address: ContractAddress) -> StateResult<ContractClassLeaf> {
         let contract_address: TreeIndex = felt_api2vm(*contract_address.0.key()).to_biguint();
 
         if self.contract_classes.is_none() {
             return Err(StateError::StateReadError(format!("{:?}", contract_address.clone())));
         }
 
-        // TODO: FFC makes no sense here
-        let mut ffc = FactFetchingContext::<DictStorage, PedersenHash>::new(Default::default());
+        let mut ffc = self.ffc.clone();
 
         let contract_class = execute_coroutine_threadsafe(async {
-            let contract_classes: HashMap<TreeIndex, ContractClassLeaf> = self.contract_classes.as_ref().unwrap()
+            let contract_classes: HashMap<TreeIndex, ContractClassLeaf> = self
+                .contract_classes
+                .as_ref()
+                .unwrap()
                 .get_leaves(&mut ffc, &[contract_address.clone()], &mut None)
                 .await
                 .unwrap(); // TODO: error
@@ -384,25 +342,23 @@ impl SharedState {
     }
 }
 
-impl StateReader for SharedState {
-
+impl<S, H> StateReader for SharedState<S, H>
+where
+    S: Storage + 'static,
+    H: HashFunctionType + Send + Sync + 'static,
+{
     /// Returns the storage value under the given key in the given contract instance (represented by
     /// its address).
     /// Default: 0 for an uninitialized contract address.
-    fn get_storage_at(
-        &mut self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    fn get_storage_at(&mut self, contract_address: ContractAddress, key: StorageKey) -> StateResult<StarkFelt> {
         let storage_key: TreeIndex = felt_api2vm(*key.0.key()).to_biguint();
 
         let contract_state = self.get_contract_state(contract_address)?;
 
-        // TODO: FFC makes no sense here
-        let mut ffc = FactFetchingContext::<DictStorage, PedersenHash>::new(Default::default());
         let state = execute_coroutine_threadsafe(async {
-            let storage_items: HashMap<TreeIndex, StorageLeaf> = contract_state.storage_commitment_tree
-                .get_leaves(&mut ffc, &[storage_key.clone()], &mut None)
+            let storage_items: HashMap<TreeIndex, StorageLeaf> = contract_state
+                .storage_commitment_tree
+                .get_leaves(&mut self.ffc, &[storage_key.clone()], &mut None)
                 .await
                 .unwrap(); // TODO: error
             let value = storage_items
@@ -410,7 +366,6 @@ impl StateReader for SharedState {
                 .ok_or(StateError::StateReadError(format!("{:?}", storage_key)))?
                 .clone();
             StateResult::Ok(value)
-
         })?;
 
         Ok(felt_vm2api(state.value))
