@@ -1,3 +1,5 @@
+use blockifier::state::errors::StateError;
+use blockifier::state::state_api::StateResult;
 use cairo_vm::vm::errors::hint_errors::HintError;
 
 use crate::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
@@ -48,5 +50,12 @@ pub enum TreeError {
 impl From<TreeError> for HintError {
     fn from(error: TreeError) -> Self {
         HintError::CustomHint(error.to_string().into_boxed_str())
+    }
+}
+
+impl From<TreeError> for StateError {
+    fn from(tree_error: TreeError) -> Self {
+        // This will do for now, improve if necessary
+        StateError::StateReadError(tree_error.to_string())
     }
 }
