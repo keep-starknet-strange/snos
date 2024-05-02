@@ -1,9 +1,7 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
-use std::sync::Arc;
 
-use blockifier::abi::constants::{MAX_STEPS_PER_TX, N_STEPS_RESOURCE};
+use blockifier::abi::constants::MAX_STEPS_PER_TX;
 use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use blockifier::transaction::objects::FeeType;
 use cairo_vm::types::layout_name::LayoutName;
@@ -75,38 +73,33 @@ pub struct StarknetGeneralConfig {
     pub default_eth_price_in_fri: u128,
     pub constant_gas_price: bool,
     pub sequencer_address: ContractAddress,
-    pub cairo_resource_fee_weights: Arc<HashMap<String, f64>>,
     pub enforce_l1_handler_fee: bool,
     pub use_kzg_da: bool,
 }
 
 impl Default for StarknetGeneralConfig {
     fn default() -> Self {
-        match StarknetGeneralConfig::from_file(PathBuf::from(DEFAULT_CONFIG_PATH)) {
-            Ok(conf) => conf,
-            Err(_) => Self {
-                starknet_os_config: StarknetOsConfig {
-                    chain_id: ChainId(SN_GOERLI.to_string()),
-                    fee_token_address: contract_address!(DEFAULT_FEE_TOKEN_ADDR),
-                    deprecated_fee_token_address: contract_address!(DEFAULT_DEPRECATED_FEE_TOKEN_ADDR),
-                },
-                gas_price_bounds: GasPriceBounds {
-                    max_fri_l1_data_gas_price: 10000000000,
-                    max_fri_l1_gas_price: 100000000000000,
-                    min_fri_l1_data_gas_price: 10,
-                    min_fri_l1_gas_price: 100000000000,
-                    min_wei_l1_data_gas_price: 100000,
-                    min_wei_l1_gas_price: 10000000000,
-                },
-                invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
-                validate_max_n_steps: MAX_STEPS_PER_TX as u32,
-                default_eth_price_in_fri: 1_000_000_000_000_000_000_000,
-                constant_gas_price: false,
-                sequencer_address: contract_address!(SEQUENCER_ADDR_0_13_0),
-                cairo_resource_fee_weights: Arc::new(HashMap::from([(N_STEPS_RESOURCE.to_string(), 1.0)])),
-                enforce_l1_handler_fee: true,
-                use_kzg_da: false,
+        Self {
+            starknet_os_config: StarknetOsConfig {
+                chain_id: ChainId(SN_GOERLI.to_string()),
+                fee_token_address: contract_address!(DEFAULT_FEE_TOKEN_ADDR),
+                deprecated_fee_token_address: contract_address!(DEFAULT_DEPRECATED_FEE_TOKEN_ADDR),
             },
+            gas_price_bounds: GasPriceBounds {
+                max_fri_l1_data_gas_price: 10000000000,
+                max_fri_l1_gas_price: 100000000000000,
+                min_fri_l1_data_gas_price: 10,
+                min_fri_l1_gas_price: 100000000000,
+                min_wei_l1_data_gas_price: 100000,
+                min_wei_l1_gas_price: 10000000000,
+            },
+            invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
+            validate_max_n_steps: MAX_STEPS_PER_TX as u32,
+            default_eth_price_in_fri: 1_000_000_000_000_000_000_000,
+            constant_gas_price: false,
+            sequencer_address: contract_address!(SEQUENCER_ADDR_0_13_0),
+            enforce_l1_handler_fee: true,
+            use_kzg_da: false,
         }
     }
 }
@@ -115,6 +108,10 @@ impl StarknetGeneralConfig {
     pub fn from_file(f: PathBuf) -> Result<StarknetGeneralConfig, SnOsError> {
         let conf = File::open(f).map_err(|e| SnOsError::CatchAll(format!("config - {e}")))?;
         serde_yaml::from_reader(conf).map_err(|e| SnOsError::CatchAll(format!("config - {e}")))
+    }
+    /// Returns a config from the default config file, if it exists
+    pub fn from_default_file() -> Result<StarknetGeneralConfig, SnOsError> {
+        StarknetGeneralConfig::from_file(PathBuf::from(DEFAULT_CONFIG_PATH))
     }
     pub fn empty_block_context(&self) -> BlockContext {
         BlockContext {
@@ -126,7 +123,7 @@ impl StarknetGeneralConfig {
                 eth_fee_token_address: self.starknet_os_config.fee_token_address,
                 strk_fee_token_address: contract_address!("0x0"),
             },
-            vm_resource_fee_cost: self.cairo_resource_fee_weights.clone(),
+            vm_resource_fee_cost: Default::default(),
             gas_prices: GasPrices {
                 eth_l1_gas_price: 1, // TODO: update with 4844
                 strk_l1_gas_price: 1,
@@ -149,7 +146,6 @@ impl TryFrom<BlockContext> for StarknetGeneralConfig {
                 deprecated_fee_token_address: block_context.fee_token_addresses.get_by_fee_type(&FeeType::Strk),
             },
             sequencer_address: block_context.sequencer_address,
-            cairo_resource_fee_weights: block_context.vm_resource_fee_cost,
             ..Default::default()
         })
     }
@@ -163,14 +159,14 @@ mod tests {
     fn parse_starknet_config() {
         let expected_seq_addr = contract_address!(SEQUENCER_ADDR_0_13_0);
 
-        let conf = StarknetGeneralConfig::default();
+        let conf = StarknetGeneralConfig::from_default_file().expect("Failed to load default config file");
 
         assert!(!conf.constant_gas_price);
         assert!(conf.enforce_l1_handler_fee);
 
-        assert_eq!(4000000, conf.invoke_tx_max_n_steps);
+        assert_eq!(1000000, conf.invoke_tx_max_n_steps);
         assert_eq!(1000000000000000000000, conf.default_eth_price_in_fri);
-        assert_eq!(4000000, conf.validate_max_n_steps);
+        assert_eq!(1000000, conf.validate_max_n_steps);
 
         assert_eq!(expected_seq_addr, conf.sequencer_address);
     }
@@ -183,6 +179,5 @@ mod tests {
         assert_eq!(conf.starknet_os_config.chain_id, ctx.chain_id);
         assert_eq!(conf.starknet_os_config.fee_token_address, ctx.fee_token_addresses.get_by_fee_type(&FeeType::Eth));
         assert_eq!(conf.sequencer_address, ctx.sequencer_address);
-        assert_eq!(conf.cairo_resource_fee_weights, ctx.vm_resource_fee_cost);
     }
 }
