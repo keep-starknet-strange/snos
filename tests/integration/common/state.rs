@@ -2,14 +2,16 @@ use std::collections::HashMap;
 
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
+use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
-use blockifier::test_utils::BALANCE;
+use blockifier::test_utils::{CairoVersion, BALANCE, BALANCE};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use rstest::fixture;
 use snos::crypto::pedersen::PedersenHash;
+use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::FactFetchingContext;
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::core::{ClassHash, ContractAddress, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use super::block_utils::test_state;

@@ -21,13 +21,13 @@ use crate::starknet::business_logic::fact_state::contract_class_objects::{
 };
 use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use crate::starknet::business_logic::state::state_api_objects::BlockInfo;
-use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, StorageLeaf};
+use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
-use crate::utils::{felt_api2vm, felt_vm2api};
+use crate::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 
 /// A class representing a combination of the onchain and offchain state.
 pub struct SharedState<S, H>
@@ -309,7 +309,7 @@ where
 
     /// helper to get contract_state
     pub fn get_contract_state(&self, contract_address: ContractAddress) -> StateResult<ContractState> {
-        execute_coroutine_threadsafe(self.get_contract_state_async(contract_address))
+        execute_coroutine(self.get_contract_state_async(contract_address))
     }
 
     /// helper to get contract_state
@@ -337,7 +337,7 @@ where
         Ok(contract_class)
     }
     pub fn get_contract_class(&self, contract_address: ContractAddress) -> StateResult<ContractClassLeaf> {
-        execute_coroutine_threadsafe(self.get_contract_class_async(contract_address))
+        execute_coroutine(self.get_contract_class_async(contract_address))
     }
 
     async fn get_storage_at_async(
@@ -367,7 +367,7 @@ where
     /// its address).
     /// Default: 0 for an uninitialized contract address.
     fn get_storage_at(&mut self, contract_address: ContractAddress, key: StorageKey) -> StateResult<StarkFelt> {
-        execute_coroutine_threadsafe(self.get_storage_at_async(contract_address, key))
+        execute_coroutine(self.get_storage_at_async(contract_address, key))
     }
 
     /// Returns the nonce of the given contract instance.
@@ -387,15 +387,12 @@ where
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
         let contract_address = ContractAddress(PatriciaKey::try_from(class_hash.0).unwrap());
-        let contract_bytes = execute_coroutine_threadsafe(async {
+        let contract_bytes = execute_coroutine(async {
             let leaf = self.get_contract_class_async(contract_address).await?;
-            let bytecode = self
-                .ffc
-                .acquire_storage()
-                .await
-                .get_value(leaf.compiled_class_hash.to_bytes_be())
-                .await
-                .map_err(|_| StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone())))?;
+            let bytecode =
+                self.ffc.acquire_storage().await.get_value(leaf.compiled_class_hash.to_bytes_be()).await.map_err(
+                    |_| StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone())),
+                )?;
             StateResult::Ok(bytecode)
         })?
         .ok_or(StateError::StateReadError(format!("Found no storage for {:?}", class_hash.clone())))?;

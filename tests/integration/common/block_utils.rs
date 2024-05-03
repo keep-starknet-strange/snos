@@ -7,25 +7,32 @@ use blockifier::execution::contract_class::ContractClassV1;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::{State as _, StateReader};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
+use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use snos::config::{
-    StarknetGeneralConfig, StarknetGeneralConfig, StarknetOsConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS,
-    STORED_BLOCK_HASH_BUFFER, STORED_BLOCK_HASH_BUFFER,
+    StarknetGeneralConfig, StarknetGeneralConfig, StarknetOsConfig, StarknetOsConfig, StarknetOsConfig,
+    BLOCK_HASH_CONTRACT_ADDRESS, BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER, STORED_BLOCK_HASH_BUFFER,
+    STORED_BLOCK_HASH_BUFFER,
 };
+use snos::crypto::pedersen::PedersenHash;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
+use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::business_logic::utils::{write_compiled_class_fact, write_deprecated_compiled_class_fact};
-use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
+use snos::starknet::starknet_storage::execute_coroutine_threadsafe;
+use snos::storage::dict_storage::DictStorage;
+use snos::storage::storage::{FactFetchingContext, FactFetchingContext, HashFunctionType, Storage, StorageError};
 use snos::storage::storage_utils::build_starknet_storage;
 use snos::utils::felt_api2vm;
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, ClassHash, CompiledClassHash, ContractAddress, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedCompiledClass, ContractClass as DeprecatedContractClass,
+    ContractClass as DeprecatedContractClass,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::{contract_address, patricia_key, stark_felt};
@@ -71,7 +78,7 @@ pub fn fund_account(
     block_context: &BlockContext,
     account_address: ContractAddress,
     initial_balance: u128,
-    dict_state_reader: &mut DictStateReader,
+    state: &mut CachedState<SharedState<DictStorage, PedersenHash>>,
 ) {
     let storage_view = &mut dict_state_reader.storage_view;
     let balance_key = get_fee_token_var_address(account_address);
@@ -151,10 +158,34 @@ where
         addresses.insert(*address);
     }
 
+    // TODO:
+    let block_info = Default::default();
+
+    let mut ffc = FactFetchingContext::<_, PedersenHash>::new(Default::default());
+    let default_general_config = StarknetGeneralConfig::default(); // TODO
+    let mut shared_state = execute_coroutine_threadsafe(async {
+        let mut shared_state = SharedState::from_blockifier_state(ffc, state, block_info, &default_general_config)
+            .await
+            .expect("failed to apply initial state as updates to SharedState");
+
+        shared_state
+    });
+
+    let mut cached_state = CachedState::from(shared_state);
+
     // fund the accounts.
     for address in addresses.iter() {
-        fund_account(block_context, *address, initial_balance_all_accounts, &mut state);
+        fund_account(block_context, *address, initial_balance_all_accounts, &mut cached_state);
     }
+
+    let upper_bound_block_number = block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER;
+    let block_number = StorageKey::from(upper_bound_block_number);
+    let block_hash = stark_felt!(66_u64);
+
+    let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
+
+    // TODO: update state here
+    // state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
 
     Ok(TestState {
         cairo0_contracts,
@@ -164,7 +195,7 @@ where
             eth_fee_token_address: block_context.fee_token_address(&FeeType::Eth),
             strk_fee_token_address: block_context.fee_token_address(&FeeType::Strk),
         },
-        blockifier_state: CachedState::from(state),
+        blockifier_state: CachedState::from(state), // TODO: should work on SharedState now
         cairo0_compiled_classes: deployed_deprecated_contract_classes,
         cairo1_compiled_classes: deployed_contract_classes,
     })
@@ -172,7 +203,7 @@ where
 
 pub async fn os_hints(
     block_context: &BlockContext,
-    mut blockifier_state: CachedState<DictStateReader>,
+    mut blockifier_state: CachedState<SharedState<DictStorage, PedersenHash>>,
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
     deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
