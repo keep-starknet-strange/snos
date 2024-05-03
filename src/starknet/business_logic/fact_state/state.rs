@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use blockifier::execution::contract_class::{ContractClass, ContractClassV1};
+use blockifier::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use blockifier::state::cached_state::CommitmentStateDiff;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
@@ -402,10 +402,14 @@ where
 
         // TODO: consider from_utf8_unchecked (performance improvement)
         let contract_bytes = std::str::from_utf8(&contract_bytes).unwrap();
-        let class_v1 = ContractClassV1::try_from_json_string(contract_bytes)?;
 
-        // TODO: support v0: if we found data for this class_hash but it wasn't a v1, try as v0
-        Ok(ContractClass::V1(class_v1))
+        return if let Ok(class_v1) = ContractClassV1::try_from_json_string(contract_bytes) {
+            Ok(ContractClass::V1(class_v1))
+        } else if let Ok(class_v0) = ContractClassV0::try_from_json_string(contract_bytes) {
+            Ok(ContractClass::V0(class_v0))
+        } else {
+            Err(StateError::StateReadError(format!("Unable to parse contract {:?}", class_hash.clone())))
+        };
     }
 
     /// Returns the compiled class hash of the given class hash.
