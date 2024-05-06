@@ -16,7 +16,7 @@ use crate::config::{
     StarknetGeneralConfig, COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT, CONTRACT_ADDRESS_BITS,
     CONTRACT_STATES_COMMITMENT_TREE_HEIGHT, GLOBAL_STATE_VERSION,
 };
-use crate::crypto::poseidon::poseidon_hash_many_bytes;
+use crate::crypto::poseidon::{poseidon_hash_many_bytes, PoseidonHash};
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
     get_ffc_for_contract_class_facts, ContractClassLeaf,
 };
@@ -39,9 +39,11 @@ where
 {
     pub contract_states: PatriciaTree,
     /// Leaf addresses are class hashes; leaf values contain compiled class hashes.
+    /// Optional because some older states did not have class commitment.
     pub contract_classes: Option<PatriciaTree>,
     pub block_info: BlockInfo,
     pub ffc: FactFetchingContext<S, H>,
+    ffc_for_class_hash: FactFetchingContext<S, PoseidonHash>,
     /// Set of all the contracts in this state. Used to cache contract values to avoid
     /// traversing the tree.
     contract_addresses: HashSet<TreeIndex>,
@@ -60,6 +62,7 @@ where
             contract_classes: self.contract_classes.clone(),
             block_info: self.block_info.clone(),
             ffc: self.ffc.clone(),
+            ffc_for_class_hash: self.ffc_for_class_hash.clone(),
             contract_addresses: self.contract_addresses.clone(),
         }
     }
@@ -96,11 +99,14 @@ where
         let empty_contract_states = Self::create_empty_contract_states(&mut ffc).await?;
         let empty_contract_classes = Self::create_empty_contract_class_tree(&mut ffc).await?;
 
+        let ffc_for_class_hash = get_ffc_for_contract_class_facts(&ffc);
+
         Ok(Self {
             contract_states: empty_contract_states,
             contract_classes: Some(empty_contract_classes),
             block_info: BlockInfo::empty(Some(felt_api2vm(*config.sequencer_address.0.key())), config.use_kzg_da),
             ffc,
+            ffc_for_class_hash,
             contract_addresses: Default::default(),
         })
     }
@@ -321,6 +327,7 @@ where
             contract_classes: updated_contract_classes,
             block_info,
             ffc: self.ffc,
+            ffc_for_class_hash: self.ffc_for_class_hash,
             contract_addresses,
         })
     }
@@ -346,33 +353,30 @@ where
             .map_err(|e| StateError::StateReadError(format!("Failed to execute contract state coroutine: {e}")))?
     }
 
-    /// helper to get contract_state
-    async fn get_contract_class_async(&self, contract_address: ContractAddress) -> StateResult<ContractClassLeaf> {
-        let contract_address: TreeIndex = felt_api2vm(*contract_address.0.key()).to_biguint();
+    async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        let class_hash_as_index: TreeIndex = felt_api2vm(class_hash.0).to_biguint();
 
-        if self.contract_classes.is_none() {
-            return Err(StateError::StateReadError(format!("{:?}", contract_address.clone())));
-        }
+        let compiled_class_hash = match &self.contract_classes {
+            Some(contract_class_tree) => {
+                let mut ffc_for_class_hash = self.ffc_for_class_hash.clone();
 
-        let mut ffc = self.ffc.clone();
+                let contract_class_leaf =
+                    <PatriciaTree as BinaryFactTree<S, PoseidonHash, ContractClassLeaf>>::get_leaf(
+                        contract_class_tree,
+                        &mut ffc_for_class_hash,
+                        class_hash_as_index.clone(),
+                    )
+                    .await?
+                    .ok_or(StateError::UndeclaredClassHash(class_hash))?;
 
-        let contract_classes: HashMap<TreeIndex, ContractClassLeaf> = self
-            .contract_classes
-            .as_ref()
-            .unwrap()
-            .get_leaves(&mut ffc, &[contract_address.clone()], &mut None)
-            .await
-            .unwrap(); // TODO: error
-        let contract_class = contract_classes
-            .get(&contract_address.clone())
-            .ok_or(StateError::StateReadError(format!("{:?}", contract_address.clone())))?
-            .clone();
+                contract_class_leaf.compiled_class_hash
+            }
+            // The tree is not initialized; may happen if the reader is based on an old state
+            // without class commitment.
+            None => Felt252::ZERO,
+        };
 
-        Ok(contract_class)
-    }
-    pub fn get_contract_class(&self, contract_address: ContractAddress) -> StateResult<ContractClassLeaf> {
-        execute_coroutine(self.get_contract_class_async(contract_address))
-            .map_err(|e| StateError::StateReadError(format!("Failed to execute contract class coroutine: {e}")))?
+        Ok(CompiledClassHash(felt_vm2api(compiled_class_hash)))
     }
 
     async fn get_storage_at_async(
@@ -386,8 +390,9 @@ where
 
         let storage_items: HashMap<TreeIndex, StorageLeaf> =
             contract_state.storage_commitment_tree.get_leaves(&mut self.ffc, &[storage_key.clone()], &mut None).await?;
-        let state =
-            storage_items.get(&storage_key.clone()).ok_or(StateError::StateReadError(format!("{:?}", storage_key)))?;
+        let state = storage_items
+            .get(&storage_key)
+            .ok_or(StateError::StateReadError(format!("get_storage_at_async: {:?}", storage_key)))?;
 
         Ok(felt_vm2api(state.value))
     }
@@ -402,8 +407,7 @@ where
     /// its address).
     /// Default: 0 for an uninitialized contract address.
     fn get_storage_at(&mut self, contract_address: ContractAddress, key: StorageKey) -> StateResult<StarkFelt> {
-        execute_coroutine(self.get_storage_at_async(contract_address, key))
-            .map_err(|e| StateError::StateReadError(format!("Failed to execute storage coroutine: {e}")))?
+        execute_coroutine(self.get_storage_at_async(contract_address, key)).unwrap() // TODO: unwrap
     }
 
     /// Returns the nonce of the given contract instance.
@@ -425,16 +429,21 @@ where
 
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
-        let contract_address = ContractAddress(PatriciaKey::try_from(class_hash.0).unwrap());
         let contract_bytes = execute_coroutine(async {
-            let leaf = self.get_contract_class_async(contract_address).await?;
-            let bytecode =
-                self.ffc.acquire_storage().await.get_value(leaf.compiled_class_hash.to_bytes_be()).await.map_err(
-                    |_| StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone())),
-                )?;
+            let compiled_class_hash = self.get_compiled_class_hash_async(class_hash).await?;
+            let bytecode = self
+                .ffc_for_class_hash
+                .acquire_storage()
+                .await
+                .get_value(compiled_class_hash.0.bytes())
+                .await
+                .map_err(|_| {
+                    StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone()))
+                })?;
             StateResult::Ok(bytecode)
         })
-        .map_err(|e| StateError::StateReadError(format!("Failed to execute coroutine: {e}")))??
+        .unwrap() // TODO: unwrap
+        ?
         .ok_or(StateError::StateReadError(format!("Found no storage for {:?}", class_hash.clone())))?;
 
         // TODO: consider from_utf8_unchecked (performance improvement)
@@ -451,10 +460,7 @@ where
 
     /// Returns the compiled class hash of the given class hash.
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        let contract_address = ContractAddress(PatriciaKey::try_from(class_hash.0).unwrap());
-        let leaf = self.get_contract_class(contract_address)?;
-        let hash = felt_vm2api(leaf.compiled_class_hash);
-        Ok(CompiledClassHash(hash))
+        execute_coroutine(self.get_compiled_class_hash_async(class_hash)).unwrap() // TODO: unwrap
     }
 
     // TODO: do we care about `fn get_free_token_balance()`?

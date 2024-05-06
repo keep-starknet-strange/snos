@@ -140,21 +140,10 @@ where
 
 /// Replaces the given FactFetchingContext object with a corresponding one used for·
 /// fetching contract class facts.
-pub fn get_ffc_for_contract_class_facts<S, H>(
-    ffc: &mut FactFetchingContext<S, H>,
-) -> FactFetchingContext<S, PoseidonHash>
+pub fn get_ffc_for_contract_class_facts<S, H>(ffc: &FactFetchingContext<S, H>) -> FactFetchingContext<S, PoseidonHash>
 where
     S: Storage,
     H: HashFunctionType,
 {
     ffc.clone_with_different_hash::<PoseidonHash>()
 }
-
-// def get_ffc_for_contract_class_facts(ffc: FactFetchingContext) -> FactFetchingContext:
-// """
-//     Replaces the given FactFetchingContext object with a corresponding one used for·
-//     fetching contract class facts.
-//     """
-// return FactFetchingContext(
-// storage=ffc.storage, hash_func=poseidon_hash_func, n_workers=ffc.n_workers
-// )

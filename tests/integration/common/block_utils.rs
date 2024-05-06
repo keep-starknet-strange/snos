@@ -299,7 +299,7 @@ pub async fn os_hints(
     };
 
     // Convert the Blockifier storage into an OS-compatible one
-    let contract_storage_map = build_starknet_storage_async(&mut blockifier_state).await;
+    let contract_storage_map = build_starknet_storage_async(blockifier_state).await.unwrap();
 
     let execution_helper = ExecutionHelperWrapper::new(
         contract_storage_map,
