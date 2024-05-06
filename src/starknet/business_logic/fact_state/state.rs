@@ -7,7 +7,7 @@ use blockifier::state::state_api::{StateReader, StateResult};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce, PatriciaKey};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_crypto::FieldElement;
@@ -431,13 +431,8 @@ where
     fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
         let contract_bytes = execute_coroutine(async {
             let compiled_class_hash = self.get_compiled_class_hash_async(class_hash).await?;
-            let bytecode = self
-                .ffc_for_class_hash
-                .acquire_storage()
-                .await
-                .get_value(compiled_class_hash.0.bytes())
-                .await
-                .map_err(|_| {
+            let bytecode =
+                self.ffc.acquire_storage().await.get_value(compiled_class_hash.0.bytes()).await.map_err(|_| {
                     StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone()))
                 })?;
             StateResult::Ok(bytecode)

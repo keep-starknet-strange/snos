@@ -7,6 +7,7 @@ use blockifier::execution::contract_class::ContractClassV1;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::{State as _, StateReader};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
+use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
@@ -98,6 +99,14 @@ where
     // we use DictStateReader as a container for all the state we want to collect
     let mut state = DictStateReader::default();
 
+    // Steps to create the initial state:
+    // 1. Use the Blockifier primitives to create the initial contracts, fund accounts, etc. This avoids
+    //    recomputing the MPT roots for each modification, we can batch updates when creating the
+    //    `SharedState`. This also allows us to reuse some Blockifier test functions, ex:
+    //    `fund_account()`.
+    // 2. Create the initial `SharedState` object. This computes all the MPT roots.
+    // 3. Wrap this new shared state inside a Blockifier `CachedState` to prepare for further updates.
+
     // Declare and deploy account and ERC20 contracts.
     let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), ffc).await?;
     let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
@@ -130,6 +139,7 @@ where
         cairo0_contracts
             .insert(name.to_string(), DeprecatedContractDeployment { class: (*contract).clone(), class_hash, address });
     }
+
 
     // Deploy non-deprecated contracts
     for (name, contract) in contract_classes {
@@ -219,8 +229,18 @@ pub async fn os_hints(
 
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
-    contracts.insert(Felt252::from(0), ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap());
-    contracts.insert(Felt252::from(1), ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap());
+    contracts.insert(
+        Felt252::from(0),
+        execute_coroutine(async {
+            ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap()
+        }).unwrap(),
+    );
+    contracts.insert(
+        Felt252::from(1),
+        execute_coroutine(async {
+            ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap()
+        }).unwrap(),
+    );
 
     for c in contracts.keys() {
         let address = ContractAddress::try_from(StarkHash::new(c.to_bytes_be()).unwrap()).unwrap();
@@ -254,15 +274,6 @@ pub async fn os_hints(
     for (c, _) in &compiled_classes {
         println!("\t{}", c);
     }
-
-    // for h in deprecated_compiled_classes.keys() {
-    //     class_hash_to_compiled_class_hash.insert(h.clone(), h.clone());
-    // }
-
-    // for (h, c) in compiled_classes.iter() {
-    //     class_hash_to_compiled_class_hash
-    //         .insert(h.clone(), Felt252::from_bytes_be(&c.compiled_class_hash().to_be_bytes()));
-    // }
 
     println!("class_hash to compiled_class_hash");
     for (ch, cch) in &class_hash_to_compiled_class_hash {
