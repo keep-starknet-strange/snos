@@ -21,6 +21,7 @@ use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::business_logic::utils::{write_compiled_class_fact, write_deprecated_compiled_class_fact};
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
+use snos::storage::storage_utils::build_starknet_storage_async;
 use snos::utils::felt_api2vm;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
@@ -160,22 +161,23 @@ where
     // TODO:
     let block_info = Default::default();
 
-    let mut ffc = FactFetchingContext::<_, PedersenHash>::new(Default::default());
+    let ffc = FactFetchingContext::<_, PedersenHash>::new(Default::default());
     let default_general_config = StarknetGeneralConfig::default(); // TODO
-    let mut shared_state = SharedState::from_blockifier_state(ffc, state, block_info, &default_general_config)
+    let shared_state = SharedState::from_blockifier_state(ffc, state, block_info, &default_general_config)
         .await
         .expect("failed to apply initial state as updates to SharedState");
 
-    let mut cached_state = CachedState::from(shared_state);
+    let cached_state = CachedState::from(shared_state);
 
+    // Insert block-related storage data
     let upper_bound_block_number = block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER;
     let block_number = StorageKey::from(upper_bound_block_number);
     let block_hash = stark_felt!(66_u64);
 
     let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
 
-    // TODO: update state here
-    // state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
+    // TODO:
+    // initial_blockifier_state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
 
     Ok(TestState {
         cairo0_contracts,
@@ -199,10 +201,17 @@ pub async fn os_hints(
     deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
     compiled_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
+    // TODO:
+    todo!("build os_hints without DictStateReader");
+    /*
     let deployed_addresses = blockifier_state.to_state_diff().address_to_class_hash;
     let initial_addresses = blockifier_state.state.address_to_class_hash.keys().cloned().collect::<HashSet<_>>();
     let addresses = deployed_addresses.keys().cloned().chain(initial_addresses);
+    */
 
+    // TODO:
+    let mut contracts: HashMap<Felt252, ContractState> = Default::default();
+    /*
     let mut contracts: HashMap<Felt252, ContractState> = addresses
         .map(|address| {
             // os expects the contract hash to be 0 for just deployed contracts
@@ -219,6 +228,7 @@ pub async fn os_hints(
             (to_felt252(address.0.key()), contract_state)
         })
         .collect();
+    */
 
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
@@ -302,7 +312,7 @@ pub async fn os_hints(
     };
 
     // Convert the Blockifier storage into an OS-compatible one
-    let contract_storage_map = build_starknet_storage(&mut blockifier_state).await;
+    let contract_storage_map = build_starknet_storage_async(&mut blockifier_state).await;
 
     let execution_helper = ExecutionHelperWrapper::new(
         contract_storage_map,

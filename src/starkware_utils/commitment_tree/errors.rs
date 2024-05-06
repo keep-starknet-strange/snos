@@ -1,5 +1,4 @@
 use blockifier::state::errors::StateError;
-use blockifier::state::state_api::StateResult;
 use cairo_vm::vm::errors::hint_errors::HintError;
 
 use crate::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};

@@ -10,6 +10,7 @@ use cairo_vm::Felt252;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_crypto::FieldElement;
 
 use crate::config::{
     StarknetGeneralConfig, COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT, CONTRACT_ADDRESS_BITS,
@@ -36,11 +37,32 @@ where
     S: Storage + 'static,
     H: HashFunctionType + Send + Sync + 'static,
 {
-    contract_states: PatriciaTree,
+    pub contract_states: PatriciaTree,
     /// Leaf addresses are class hashes; leaf values contain compiled class hashes.
-    contract_classes: Option<PatriciaTree>,
-    block_info: BlockInfo,
-    ffc: FactFetchingContext<S, H>,
+    pub contract_classes: Option<PatriciaTree>,
+    pub block_info: BlockInfo,
+    pub ffc: FactFetchingContext<S, H>,
+    /// Set of all the contracts in this state. Used to cache contract values to avoid
+    /// traversing the tree.
+    contract_addresses: HashSet<TreeIndex>,
+}
+
+// For some reason, derive(Clone) wants to have S: Clone and H: Clone.
+// There is no reason to require that, so we implement Clone manually.
+impl<S, H> Clone for SharedState<S, H>
+where
+    S: Storage + 'static,
+    H: HashFunctionType + Send + Sync + 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            contract_states: self.contract_states.clone(),
+            contract_classes: self.contract_classes.clone(),
+            block_info: self.block_info.clone(),
+            ffc: self.ffc.clone(),
+            contract_addresses: self.contract_addresses.clone(),
+        }
+    }
 }
 
 impl<S, H> SharedState<S, H>
@@ -79,7 +101,13 @@ where
             contract_classes: Some(empty_contract_classes),
             block_info: BlockInfo::empty(Some(felt_api2vm(*config.sequencer_address.0.key())), config.use_kzg_da),
             ffc,
+            contract_addresses: Default::default(),
         })
+    }
+
+    /// Returns the set of all known contract addresses.
+    pub fn contract_addresses(&self) -> HashSet<TreeIndex> {
+        self.contract_addresses.clone()
     }
 
     /// Returns the state's contract class Patricia tree if it exists;
@@ -153,7 +181,7 @@ where
     }
 
     /// Updates the global state using a state diff generated with Blockifier.
-    async fn apply_commitment_state_diff(
+    pub async fn apply_commitment_state_diff(
         self,
         state_diff: CommitmentStateDiff,
         block_info: BlockInfo,
@@ -285,11 +313,15 @@ where
             }
         };
 
+        let accessed_addresses: HashSet<_> = accessed_addresses.into_iter().collect();
+        let contract_addresses: HashSet<_> = self.contract_addresses.union(&accessed_addresses).cloned().collect();
+
         Ok(Self {
             contract_states: updated_global_contract_root,
             contract_classes: updated_contract_classes,
             block_info,
             ffc: self.ffc,
+            contract_addresses,
         })
     }
 
@@ -350,7 +382,7 @@ where
     ) -> StateResult<StarkFelt> {
         let storage_key: TreeIndex = felt_api2vm(*key.0.key()).to_biguint();
 
-        let contract_state = self.get_contract_state(contract_address)?;
+        let contract_state = self.get_contract_state_async(contract_address).await?;
 
         let storage_items: HashMap<TreeIndex, StorageLeaf> =
             contract_state.storage_commitment_tree.get_leaves(&mut self.ffc, &[storage_key.clone()], &mut None).await?;
@@ -385,7 +417,10 @@ where
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
     fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         let contract_state = self.get_contract_state(contract_address)?;
-        Ok(ClassHash(felt_vm2api(contract_state.nonce)))
+        // TODO: this can be simplified once hashes are stored as [u8; 32]. Until then, this is fine.
+        let felt = FieldElement::from_byte_slice_be(&contract_state.contract_hash)
+            .expect("Conversion to felt should not fail");
+        Ok(ClassHash(StarkFelt::from(felt)))
     }
 
     /// Returns the contract class of the given class hash.

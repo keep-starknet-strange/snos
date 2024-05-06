@@ -1,13 +1,13 @@
 use cairo_vm::Felt252;
 use starknet_api::block::BlockTimestamp;
 
-#[derive(Debug, Default)]
+#[derive(Default, Clone, Debug)]
 pub struct ResourcePrice {
     pub price_in_wei: u128,
     pub price_in_fri: u128,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default, Clone, Debug)]
 pub struct BlockInfo {
     /// The sequence number of the last block created.
     pub block_number: i64,
