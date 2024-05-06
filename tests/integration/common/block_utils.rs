@@ -22,7 +22,7 @@ use snos::starknet::business_logic::utils::{write_compiled_class_fact, write_dep
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 use snos::storage::storage_utils::build_starknet_storage_async;
-use snos::utils::felt_api2vm;
+use snos::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedCompiledClass, ContractClass as DeprecatedContractClass,
@@ -201,34 +201,21 @@ pub async fn os_hints(
     deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
     compiled_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
-    // TODO:
-    todo!("build os_hints without DictStateReader");
-    /*
-    let deployed_addresses = blockifier_state.to_state_diff().address_to_class_hash;
-    let initial_addresses = blockifier_state.state.address_to_class_hash.keys().cloned().collect::<HashSet<_>>();
-    let addresses = deployed_addresses.keys().cloned().chain(initial_addresses);
-    */
+    let shared_state = &blockifier_state.state;
+    let mut contracts: HashMap<Felt252, ContractState> = shared_state
+        .contract_addresses()
+        .iter()
+        .map(|address_biguint| {
+            // TODO: biguint is exacerbating the type conversion problem, ideas...?
+            let address: ContractAddress =
+                ContractAddress(PatriciaKey::try_from(felt_vm2api(Felt252::from(address_biguint))).unwrap());
+            let contract_state = 
+                execute_coroutine(async { shared_state.get_contract_state(address) }).unwrap();
 
-    // TODO:
-    let mut contracts: HashMap<Felt252, ContractState> = Default::default();
-    /*
-    let mut contracts: HashMap<Felt252, ContractState> = addresses
-        .map(|address| {
-            // os expects the contract hash to be 0 for just deployed contracts
-            let contract_hash = if deployed_addresses.contains_key(&address) {
-                Felt252::ZERO
-            } else {
-                to_felt252(&blockifier_state.get_class_hash_at(address).unwrap().0)
-            };
-            let contract_state = ContractState {
-                contract_hash: contract_hash.to_bytes_be().to_vec(),
-                storage_commitment_tree: todo!(), // TODO
-                nonce: 0.into(),                  // TODO
-            };
             (to_felt252(address.0.key()), contract_state)
         })
         .collect();
-    */
+    let mut contracts: HashMap<Felt252, ContractState> = Default::default();
 
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
