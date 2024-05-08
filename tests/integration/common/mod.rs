@@ -11,6 +11,8 @@ use rstest::fixture;
 use snos::io::output::{decode_output, StarknetOsOutput};
 
 pub mod block_utils;
+mod blockifier_contracts;
+mod contract_fixtures;
 mod deprecated_hash_utils;
 pub mod serde_utils;
 pub mod state;
