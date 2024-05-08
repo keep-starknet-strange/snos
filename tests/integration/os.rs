@@ -18,7 +18,8 @@ use crate::common::transaction_utils::execute_txs_and_run_os;
 #[tokio::test]
 async fn test_cairo0_state(#[future] cairo0_initial_state: Cairo0InitialState) {
     let cairo0_initial_state = cairo0_initial_state.await;
-    println!("{:?}", cairo0_initial_state);
+
+    println!("{}", serde_json::to_string(&cairo0_initial_state.contracts.test_contract).unwrap());
 }
 
 #[rstest]

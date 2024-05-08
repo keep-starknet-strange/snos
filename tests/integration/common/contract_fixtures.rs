@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use snos::starknet::services::api::contract_class::contract_class::DeprecatedCompiledClass;
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 pub fn get_contracts_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").join("integration").join("contracts")
