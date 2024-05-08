@@ -1,13 +1,11 @@
-use std::path::{Path, PathBuf};
-
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::{CairoVersion, BALANCE};
 use rstest::fixture;
-use snos::starknet::services::api::contract_class::contract_class::DeprecatedCompiledClass;
 use starknet_api::core::ContractAddress;
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use crate::common::block_context;
 use crate::common::block_utils::test_state;
@@ -61,8 +59,8 @@ pub struct Cairo0Contracts {
 
 #[derive(Debug)]
 pub struct Cairo0InitialState {
-    pub state: CachedState<DictStateReader>,
-    contracts: Cairo0Contracts,
+    // pub state: CachedState<DictStateReader>,
+    pub contracts: Cairo0Contracts,
 }
 
 #[fixture]
@@ -79,5 +77,8 @@ pub async fn cairo0_initial_state(
     block_context: BlockContext,
     cairo0_contracts: Cairo0Contracts,
 ) -> Cairo0InitialState {
-    Cairo0InitialState { state: todo!(), contracts: cairo0_contracts }
+    Cairo0InitialState {
+        // state: todo!(),
+        contracts: cairo0_contracts,
+    }
 }

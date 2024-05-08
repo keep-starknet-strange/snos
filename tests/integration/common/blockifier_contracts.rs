@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use snos::starknet::services::api::contract_class::contract_class::DeprecatedCompiledClass;
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use crate::common::contract_fixtures::get_deprecated_compiled_class;
 
