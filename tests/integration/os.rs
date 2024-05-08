@@ -11,8 +11,15 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{initial_state, InitialState};
+use crate::common::state::{cairo0_initial_state, initial_state, Cairo0InitialState, InitialState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
+
+#[rstest]
+#[tokio::test]
+async fn test_cairo0_state(#[future] cairo0_initial_state: Cairo0InitialState) {
+    let cairo0_initial_state = cairo0_initial_state.await;
+    println!("{:?}", cairo0_initial_state);
+}
 
 #[rstest]
 fn return_result_cairo0_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
