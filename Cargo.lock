@@ -3333,6 +3333,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "serde_yaml",
+ "sha3",
  "starknet-crypto 0.6.1",
  "starknet_api",
  "thiserror",
