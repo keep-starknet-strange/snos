@@ -20,7 +20,8 @@ use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::deprecated_class_hash::calculate_deprecated_class_hash;
 use snos::storage::storage_utils::build_starknet_storage;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
+use starknet_api::{contract_address, patricia_key};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_crypto::FieldElement;
@@ -139,17 +140,21 @@ pub fn test_state_no_feature_contracts(
     for contract in contract_instances {
         let class_hash = calculate_deprecated_class_hash(contract);
         // assert!(!class_hash_to_class.contains_key(&class_hash));
-        state.class_hash_to_class.insert(class_hash, contract.get_class());
-        for instance in 0..*n_instances {
-            let instance_address = contract.get_instance_address(instance);
-            state.address_to_class_hash.insert(instance_address, class_hash);
-        }
+        let vm_class = deprecated_contract_class_api2vm(erc20_class).unwrap();
+        state.class_hash_to_class.insert(class_hash, vm_class);
+
+        // TODO: review -- this just seems to be generating a random address based on our seed
+        // so it should just need a unique input, which our class hash should give us
+        let address = contract_address!(class_hash.0);
+        state.address_to_class_hash.insert(address, class_hash);
     }
 
     // create CachedState from DictStateReader
     let mut state = CachedState::from(state);
 
+    // TODO:
     // fund the accounts.
+    /*
     for (contract, n_instances) in contract_instances.iter() {
         for instance in 0..*n_instances {
             let instance_address = contract.get_instance_address(instance);
@@ -163,6 +168,7 @@ pub fn test_state_no_feature_contracts(
             }
         }
     }
+    */
     state
 }
 
