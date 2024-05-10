@@ -28,7 +28,7 @@ pub fn calculate_deprecated_class_hash(class: &DeprecatedCompiledClass) -> Class
 
         let abi_keccak = sha3::Keccak256::default().chain_update(abi_serialized.as_bytes()).finalize();
         let as_bytes: [u8; 32] = abi_keccak[..32].try_into().unwrap();
-        hash_chain.push(StarkFelt::new(as_bytes).unwrap()); // TODO: should this be truncated to fit with in prime?
+        hash_chain.push(truncated_keccak(as_bytes));
     }
 
     // TODO: definitely wrong...
