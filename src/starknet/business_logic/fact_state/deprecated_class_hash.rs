@@ -1,10 +1,7 @@
 use lazy_static::lazy_static;
-use serde::{Deserialize, Serialize};
 use sha3::Digest as _;
 use starknet_api::{core::ClassHash, deprecated_contract_class::ContractClass as DeprecatedCompiledClass, hash::{pedersen_hash_array, poseidon_hash_array, StarkFelt}, deprecated_contract_class::EntryPointType};
 use starknet_crypto::FieldElement;
-
-use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage};
 
 lazy_static! {
     // TODO: is this the same for deprecated class hash?
@@ -14,8 +11,8 @@ lazy_static! {
     );
 }
 
-/// Calculate the hash of a contract (v0 or v1). Inspired by the Papyrus implementation.
-/// TODO: this needs to be rewritten, there are many details missing
+/// Calculate the hash of a contract v0. Inspired by the Papyrus implementation.
+/// TODO: WARNING: this needs to be rewritten, there are many details missing. It's definitely wrong.
 pub fn calculate_deprecated_class_hash(class: &DeprecatedCompiledClass) -> ClassHash {
     let mut hash_chain = Vec::new();
     hash_chain.push(*API_VERSION);
