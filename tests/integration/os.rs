@@ -16,10 +16,17 @@ use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
 #[tokio::test]
-async fn test_cairo0_state(#[future] cairo0_initial_state: Cairo0InitialState) {
+async fn test_cairo0_state(block_context: BlockContext, #[future] cairo0_initial_state: Cairo0InitialState) {
     let cairo0_initial_state = cairo0_initial_state.await;
 
-    println!("{}", serde_json::to_string(&cairo0_initial_state.contracts.test_contract).unwrap());
+    // println!("{}", serde_json::to_string(&cairo0_initial_state.contracts.test_contract).unwrap());
+
+    let r = execute_txs_and_run_os(cairo0_initial_state.state, block_context, vec![]);
+
+    // temporarily expect test to break in the descent code
+    let err_log = format!("{:?}", r);
+    assert!(err_log.contains(r#"Could not find commitment info for contract 1073742336"#), "{}", err_log);
+
 }
 
 #[rstest]

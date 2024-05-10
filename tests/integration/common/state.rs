@@ -11,6 +11,8 @@ use crate::common::block_context;
 use crate::common::block_utils::test_state;
 use crate::common::blockifier_contracts::{get_deprecated_erc20_contract_class, get_deprecated_feature_contract_class};
 
+use super::block_utils::test_state_no_feature_contracts;
+
 pub struct InitialState {
     pub state: CachedState<DictStateReader>,
     pub account_without_validations_cairo1_address: ContractAddress,
@@ -59,7 +61,7 @@ pub struct Cairo0Contracts {
 
 #[derive(Debug)]
 pub struct Cairo0InitialState {
-    // pub state: CachedState<DictStateReader>,
+    pub state: CachedState<DictStateReader>,
     pub contracts: Cairo0Contracts,
 }
 
@@ -77,8 +79,19 @@ pub async fn cairo0_initial_state(
     block_context: BlockContext,
     cairo0_contracts: Cairo0Contracts,
 ) -> Cairo0InitialState {
+
+    let state = test_state_no_feature_contracts(
+        &block_context,
+        BALANCE,
+        &cairo0_contracts.erc20_contract,
+        &[
+            &cairo0_contracts.account_without_validations,
+            &cairo0_contracts.test_contract,
+        ],
+    );
+
     Cairo0InitialState {
-        // state: todo!(),
+        state,
         contracts: cairo0_contracts,
     }
 }

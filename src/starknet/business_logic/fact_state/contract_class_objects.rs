@@ -1,8 +1,5 @@
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use sha3::Digest as _;
-use starknet_api::{core::ClassHash, deprecated_contract_class::ContractClass as DeprecatedCompiledClass, hash::{pedersen_hash_array, poseidon_hash_array, StarkFelt}, deprecated_contract_class::EntryPointType};
-use starknet_crypto::FieldElement;
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 use crate::starknet::business_logic::fact_state::deprecated_class_hash::calculate_deprecated_class_hash;
 
 use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage};
@@ -20,7 +17,9 @@ where
     H: HashFunctionType,
 {
     fn hash(&self) -> Vec<u8> {
-        calculate_deprecated_class_hash(&self.contract_definition).0.bytes().into()
+        let hash = calculate_deprecated_class_hash(&self.contract_definition).0.bytes().into();
+        println!("Calculated hash class for this DbObject: {:?}", hash);
+        hash
     }
 }
 

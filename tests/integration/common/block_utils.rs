@@ -18,11 +18,13 @@ use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BU
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
+use snos::starknet::business_logic::fact_state::deprecated_class_hash::calculate_deprecated_class_hash;
 use snos::storage::storage_utils::build_starknet_storage;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_crypto::FieldElement;
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use crate::common::transaction_utils::to_felt252;
 
@@ -97,6 +99,71 @@ fn override_class_hash(contract: &FeatureContract) -> StarkHash {
 
         _ => contract.get_class_hash().0,
     }
+}
+
+// TODO: move / organize, clean up types
+/// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v0 only).
+/// Note that this makes a serialize -> deserialize pass, so it is not cheap!
+pub fn deprecated_contract_class_api2vm(
+    api_class: &starknet_api::deprecated_contract_class::ContractClass
+) -> serde_json::Result<blockifier::execution::contract_class::ContractClass>  {
+    let serialized = serde_json::to_string(&api_class)?;
+
+    let vm_class_v0_inner: blockifier::execution::contract_class::ContractClassV0Inner
+        = serde_json::from_str(serialized.as_str())?;
+
+    let vm_class_v0 = blockifier::execution::contract_class::ContractClassV0(
+        std::sync::Arc::new(vm_class_v0_inner));
+    let vm_class = blockifier::execution::contract_class::ContractClass::V0(vm_class_v0);
+
+    Ok(vm_class)
+}
+
+pub fn test_state_no_feature_contracts(
+    block_context: &BlockContext,
+    initial_balance_all_accounts: u128,
+    erc20_class: &DeprecatedCompiledClass,
+    contract_instances: &[&DeprecatedCompiledClass],
+) -> CachedState<DictStateReader> {
+    // we use DictStateReader as a container for all of the state we want to collect and hand off
+    // to Blockifier
+    let mut state = DictStateReader::default();
+
+    // Declare and deploy account and ERC20 contracts.
+    let erc20_class_hash = calculate_deprecated_class_hash(&erc20_class);
+    state.class_hash_to_class.insert(erc20_class_hash, deprecated_contract_class_api2vm(erc20_class).unwrap());
+    state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
+    state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
+
+    // Set up the rest of the requested contracts.
+    for contract in contract_instances {
+        let class_hash = calculate_deprecated_class_hash(contract);
+        // assert!(!class_hash_to_class.contains_key(&class_hash));
+        state.class_hash_to_class.insert(class_hash, contract.get_class());
+        for instance in 0..*n_instances {
+            let instance_address = contract.get_instance_address(instance);
+            state.address_to_class_hash.insert(instance_address, class_hash);
+        }
+    }
+
+    // create CachedState from DictStateReader
+    let mut state = CachedState::from(state);
+
+    // fund the accounts.
+    for (contract, n_instances) in contract_instances.iter() {
+        for instance in 0..*n_instances {
+            let instance_address = contract.get_instance_address(instance);
+            match contract {
+                FeatureContract::AccountWithLongValidate(_)
+                | FeatureContract::AccountWithoutValidations(_)
+                | FeatureContract::FaultyAccount(_) => {
+                    fund_account(block_context, instance_address, initial_balance_all_accounts, &mut state);
+                }
+                _ => (),
+            }
+        }
+    }
+    state
 }
 
 pub fn test_state(
