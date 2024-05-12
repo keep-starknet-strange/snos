@@ -1,9 +1,10 @@
 use std::fs::File;
 use std::path::PathBuf;
 
-use blockifier::abi::constants::MAX_STEPS_PER_TX;
-use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
+use blockifier::blockifier::block::{BlockInfo, GasPrices};
+use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::transaction::objects::FeeType;
+use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -15,6 +16,9 @@ use starknet_crypto::FieldElement;
 
 use crate::error::SnOsError;
 use crate::utils::ChainIdNum;
+
+// https://github.com/starkware-libs/blockifier/blob/8da582b285bfbc7d4c21178609bbd43f80a69240/crates/native_blockifier/src/py_block_executor.rs#L44
+const MAX_STEPS_PER_TX: u32 = 4_000_000;
 
 pub fn default_layout() -> LayoutName {
     LayoutName::starknet_with_keccak
@@ -114,23 +118,32 @@ impl StarknetGeneralConfig {
         StarknetGeneralConfig::from_file(PathBuf::from(DEFAULT_CONFIG_PATH))
     }
     pub fn empty_block_context(&self) -> BlockContext {
+        let mut versioned_constants = VersionedConstants::default();
+        versioned_constants.invoke_tx_max_n_steps = self.invoke_tx_max_n_steps;
+        versioned_constants.validate_max_n_steps = self.validate_max_n_steps;
+        versioned_constants.max_recursion_depth = 50;
+
         BlockContext {
-            chain_id: self.starknet_os_config.chain_id.clone(),
-            block_number: BlockNumber(0),
-            block_timestamp: BlockTimestamp(0),
-            sequencer_address: self.sequencer_address,
-            fee_token_addresses: FeeTokenAddresses {
-                eth_fee_token_address: self.starknet_os_config.fee_token_address,
-                strk_fee_token_address: contract_address!("0x0"),
+            block_info: BlockInfo {
+                block_number: BlockNumber(0),
+                block_timestamp: BlockTimestamp(0),
+                sequencer_address: self.sequencer_address,
+                gas_prices: GasPrices {
+                    eth_l1_gas_price: 1u128.try_into().unwrap(), // TODO: update with 4844
+                    strk_l1_gas_price: 1u128.try_into().unwrap(),
+                    eth_l1_data_gas_price: 1u128.try_into().unwrap(),
+                    strk_l1_data_gas_price: 1u128.try_into().unwrap(),
+                },
+                use_kzg_da: false,
             },
-            vm_resource_fee_cost: Default::default(),
-            gas_prices: GasPrices {
-                eth_l1_gas_price: 1, // TODO: update with 4844
-                strk_l1_gas_price: 1,
+            chain_info: ChainInfo {
+                chain_id: self.starknet_os_config.chain_id.clone(),
+                fee_token_addresses: FeeTokenAddresses {
+                    eth_fee_token_address: self.starknet_os_config.fee_token_address,
+                    strk_fee_token_address: contract_address!("0x0"),
+                },
             },
-            invoke_tx_max_n_steps: self.invoke_tx_max_n_steps,
-            validate_max_n_steps: self.validate_max_n_steps,
-            max_recursion_depth: 50,
+            versioned_constants,
         }
     }
 }
@@ -141,11 +154,14 @@ impl TryFrom<BlockContext> for StarknetGeneralConfig {
     fn try_from(block_context: BlockContext) -> Result<Self, SnOsError> {
         Ok(Self {
             starknet_os_config: StarknetOsConfig {
-                chain_id: block_context.chain_id,
-                fee_token_address: block_context.fee_token_addresses.get_by_fee_type(&FeeType::Eth),
-                deprecated_fee_token_address: block_context.fee_token_addresses.get_by_fee_type(&FeeType::Strk),
+                chain_id: block_context.chain_info().chain_id.clone(),
+                fee_token_address: block_context.chain_info().fee_token_addresses.get_by_fee_type(&FeeType::Eth),
+                deprecated_fee_token_address: block_context
+                    .chain_info()
+                    .fee_token_addresses
+                    .get_by_fee_type(&FeeType::Strk),
             },
-            sequencer_address: block_context.sequencer_address,
+            sequencer_address: block_context.block_info().sequencer_address,
             ..Default::default()
         })
     }
@@ -176,8 +192,11 @@ mod tests {
         let conf = StarknetGeneralConfig::default();
         let ctx: BlockContext = conf.empty_block_context();
 
-        assert_eq!(conf.starknet_os_config.chain_id, ctx.chain_id);
-        assert_eq!(conf.starknet_os_config.fee_token_address, ctx.fee_token_addresses.get_by_fee_type(&FeeType::Eth));
-        assert_eq!(conf.sequencer_address, ctx.sequencer_address);
+        assert_eq!(conf.starknet_os_config.chain_id, ctx.chain_info().chain_id);
+        assert_eq!(
+            conf.starknet_os_config.fee_token_address,
+            ctx.chain_info().fee_token_addresses.get_by_fee_type(&FeeType::Eth)
+        );
+        assert_eq!(conf.sequencer_address, ctx.block_info().sequencer_address);
     }
 }

@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use blockifier::state::cached_state::{CachedState, StorageEntry};
-use blockifier::state::state_api::State;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use cairo_vm::Felt252;
 use starknet_api::hash::StarkFelt;

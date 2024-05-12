@@ -12,7 +12,7 @@ use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::initial_test_state::fund_account;
 use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use snos::execution::helper::ExecutionHelperWrapper;

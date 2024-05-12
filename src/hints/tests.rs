@@ -1,9 +1,9 @@
 #[cfg(test)]
 pub mod tests {
-    use std::sync::Arc;
-
-    use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
-    use blockifier::transaction::objects::TransactionExecutionInfo;
+    use blockifier::blockifier::block::{BlockInfo, GasPrices};
+    use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
+    use blockifier::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionInfo};
+    use blockifier::versioned_constants::VersionedConstants;
     use cairo_vm::serde::deserialize_program::ApTracking;
     use cairo_vm::types::exec_scope::ExecutionScopes;
     use num_bigint::BigInt;
@@ -44,26 +44,38 @@ pub mod tests {
 
     #[fixture]
     pub fn block_context() -> BlockContext {
+        let mut versioned_constants = VersionedConstants::default();
+        versioned_constants.invoke_tx_max_n_steps = 1;
+        versioned_constants.validate_max_n_steps = 1;
+        versioned_constants.max_recursion_depth = 50;
+
         BlockContext {
-            chain_id: ChainId("SN_GOERLI".to_string()),
-            block_number: BlockNumber(1_000_000),
-            block_timestamp: BlockTimestamp(1_704_067_200),
-            sequencer_address: contract_address!("0x0"),
-            fee_token_addresses: FeeTokenAddresses {
-                eth_fee_token_address: contract_address!("0x1"),
-                strk_fee_token_address: contract_address!("0x2"),
+            block_info: BlockInfo {
+                block_number: BlockNumber(1_000_000),
+                block_timestamp: BlockTimestamp(1_704_067_200),
+                sequencer_address: contract_address!("0x0"),
+                gas_prices: GasPrices {
+                    eth_l1_gas_price: 1u128.try_into().unwrap(), // TODO: update with 4844
+                    strk_l1_gas_price: 1u128.try_into().unwrap(),
+                    eth_l1_data_gas_price: 1u128.try_into().unwrap(),
+                    strk_l1_data_gas_price: 1u128.try_into().unwrap(),
+                },
+                use_kzg_da: false,
             },
-            vm_resource_fee_cost: Arc::new(HashMap::new()),
-            gas_prices: GasPrices { eth_l1_gas_price: 1, strk_l1_gas_price: 1 },
-            invoke_tx_max_n_steps: 1,
-            validate_max_n_steps: 1,
-            max_recursion_depth: 50,
+            chain_info: ChainInfo {
+                chain_id: ChainId("SN_GOERLI".to_string()),
+                fee_token_addresses: FeeTokenAddresses {
+                    eth_fee_token_address: contract_address!("0x1"),
+                    strk_fee_token_address: contract_address!("0x2"),
+                },
+            },
+            versioned_constants,
         }
     }
 
     #[fixture]
     pub fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
-        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+        (Felt252::from(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
     }
 
     #[fixture]
@@ -75,6 +87,8 @@ pub mod tests {
             actual_fee: Fee(1234),
             actual_resources: Default::default(),
             revert_error: None,
+            da_gas: GasVector::default(),
+            bouncer_resources: ResourcesMapping::default(),
         }
     }
 

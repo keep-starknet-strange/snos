@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::{fs, path};
 
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;

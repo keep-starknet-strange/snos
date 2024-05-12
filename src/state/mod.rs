@@ -4,10 +4,10 @@ pub mod trie;
 
 use std::collections::HashMap;
 
-use blockifier::block_context::BlockContext;
+use blockifier::context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::{CachedState, CommitmentStateDiff};
-use blockifier::state::state_api::{State, StateReader};
+use blockifier::state::state_api::StateReader;
 use cairo_vm::Felt252;
 use indexmap::{IndexMap, IndexSet};
 use starknet_api::block::BlockNumber;
@@ -41,11 +41,11 @@ impl<S: StateReader> SharedState<S> {
         }
     }
     pub fn get_block_num(&self) -> BlockNumber {
-        self.block_context.block_number
+        self.block_context.block_info().block_number
     }
 
     pub fn increment_block(&mut self) {
-        self.block_context.block_number = self.block_context.block_number.next();
+        self.block_context.block_info.block_number = self.block_context.block_info.block_number.next();
     }
 
     pub fn get_storage_root(&self, block_num: BlockNumber) -> (StarkFelt, u64) {

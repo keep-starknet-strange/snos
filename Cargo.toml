@@ -10,9 +10,6 @@ assert_matches = "1.5.0"
 async-stream = "0.3.5"
 base64 = "0.21.3"
 bitvec = { version = "1.0.1", features = ["serde"] }
-blockifier = { git = "https://github.com/keep-starknet-strange/blockifier", branch = "snos/callinfo-clone", features = ["clone", "testing"] }
-cairo-type-derive = { version = "0.1.0", path = "cairo-type-derive" }
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = ["extensive_hints", "cairo-1-hints"] }
 futures = "0.3.30"
 futures-util = "0.3.30"
 heck = "0.4.1"
@@ -30,23 +27,21 @@ serde = { version = "1.0.188", features = ["derive"] }
 serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
 serde_with = "3.3.0"
 serde_yaml = "0.9.25"
-starknet-crypto = "0.6.0"
-starknet_api = { version = "=0.7.0-dev.0", features = ["testing"] }
 thiserror = "1.0.48"
 tokio = { version = "1.36.0", features = ["rt-multi-thread"] }
 tokio-stream = "0.1.14"
 uuid = { version = "1.4.0", features = ["v4", "serde"] }
 zip = { version = "0.6.6", features = ["deflate-zlib"] }
 
-# These dependencies pin cairo-lang requirement versions because cairo-vm does not do it
-cairo-lang-starknet = { version = "~2.5.4" }
-cairo-lang-casm = { version = "~2.5.4" }
-cairo-lang-defs = { version = "~2.5.4" }
-cairo-lang-diagnostics = { version = "~2.5.4" }
-cairo-lang-filesystem = { version = "~2.5.4" }
-cairo-lang-semantic = { version = "~2.5.4" }
-cairo-lang-sierra = { version = "~2.5.4" }
-cairo-lang-syntax = { version = "~2.5.4" }
+# Starknet
+blockifier = { git = "https://github.com/unstark/blockifier", branch = "feat/derive-clone", features = ["testing"] }
+starknet_api = { git = "https://github.com/bidzyyys/starknet-api.git", branch = "feature/scale-codec" }
+starknet-crypto = "0.6.0"
+cairo-type-derive = { version = "0.1.0", path = "cairo-type-derive" }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", rev = "f87be4d9cfad2100d4a5c085cf2aabc9caced40f", features = ["extensive_hints", "cairo-1-hints"] }
+cairo-lang-starknet = { version = "2.6.3" }
+cairo-lang-starknet-classes = { version = "2.6.3" }
+cairo-lang-casm = { version = "2.6.3" }
 
 [dev-dependencies]
 getset = "0.1.2"

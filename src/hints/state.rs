@@ -350,7 +350,7 @@ pub fn write_split_result(
 mod tests {
     use std::borrow::Cow;
 
-    use blockifier::block_context::BlockContext;
+    use blockifier::context::BlockContext;
     use num_bigint::BigUint;
     use rstest::{fixture, rstest};
 
@@ -399,7 +399,7 @@ mod tests {
 
     #[fixture]
     fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
-        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+        (Felt252::from(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
     }
 
     #[fixture]
