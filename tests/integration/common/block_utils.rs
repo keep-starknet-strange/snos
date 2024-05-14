@@ -173,7 +173,7 @@ where
         let class_hash_bytes = write_deprecated_compiled_class_fact((*contract).clone(), ffc).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
 
-        let vm_class = deprecated_contract_class_api2vm(erc20_class).unwrap();
+        let vm_class = deprecated_contract_class_api2vm(contract).unwrap();
         state.class_hash_to_class.insert(class_hash, vm_class);
 
         // TODO: review -- this just seems to be generating a random address based on our seed
@@ -192,6 +192,27 @@ where
     for address in addresses.iter() {
         fund_account(block_context, *address, initial_balance_all_accounts, &mut state);
     }
+
+    println!("State dump:");
+    println!(" - address_to_nonce:");
+    for (k, v) in &state.address_to_nonce {
+        println!("   - {:?} -> {:?}", k, v);
+    }
+    println!(" - address_to_class_hash:");
+    for (k, v) in &state.address_to_class_hash {
+        println!("   - {:?} -> {:?}", k, v);
+    }
+    println!(" - class_hash_to_class:");
+    for (k, v) in &state.class_hash_to_class {
+        // println!("   - {:?} -> {:?}", k, v);
+        println!("   - {:?} -> <omitted>", k);
+    }
+    println!(" - class_hash_to_compiled_class_hash:");
+    for (k, v) in &state.class_hash_to_compiled_class_hash {
+        // println!("   - {:?} -> {:?}", k, v);
+        println!("   - {:?} -> <omitted>", k);
+    }
+
 
     Ok((CachedState::from(state), deployed_addresses))
 }
