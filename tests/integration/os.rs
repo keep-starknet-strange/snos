@@ -21,6 +21,7 @@ async fn test_cairo0_state(#[future] cairo0_initial_state: Cairo0InitialState) {
     let cairo0_initial_state = cairo0_initial_state.await;
 
     println!("{}", serde_json::to_string(&cairo0_initial_state.contracts.test_contract).unwrap());
+
 }
 
 #[rstest]
