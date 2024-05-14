@@ -177,22 +177,17 @@ where
         state.address_to_class_hash.insert(address, class_hash);
     }
 
-    // create CachedState from DictStateReader
-    let mut state = CachedState::from(state);
+    let mut addresses: HashSet<ContractAddress> = Default::default();
+    for address in state.address_to_class_hash.keys().chain(state.address_to_nonce.keys()) {
+        addresses.insert(*address);
+    }
 
     // fund the accounts.
-    for contract in contract_instances.iter() {
-        let instance_address = contract.get_instance_address(instance);
-        match contract {
-            FeatureContract::AccountWithLongValidate(_)
-            | FeatureContract::AccountWithoutValidations(_)
-            | FeatureContract::FaultyAccount(_) => {
-                fund_account(block_context, instance_address, initial_balance_all_accounts, &mut state);
-            }
-            _ => (),
-        }
+    for address in addresses.iter() {
+        fund_account(block_context, *address, initial_balance_all_accounts, &mut state);
     }
-    Ok(state)
+
+    Ok(CachedState::from(state))
 }
 
 pub fn test_state(
