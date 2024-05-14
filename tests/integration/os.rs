@@ -21,7 +21,38 @@ async fn test_cairo0_state(#[future] cairo0_initial_state: Cairo0InitialState) {
     let cairo0_initial_state = cairo0_initial_state.await;
 
     println!("{}", serde_json::to_string(&cairo0_initial_state.contracts.test_contract).unwrap());
+}
 
+#[rstest]
+#[tokio::test]
+async fn return_result_cairo0_account_no_feature_contracts(#[future] cairo0_initial_state: Cairo0InitialState, block_context: BlockContext, max_fee: Fee) {
+    let cairo0_initial_state = cairo0_initial_state.await;
+
+    // temp assertion about a brittle / WIP assumption (that we are deploying two contracts)
+    assert_eq!(cairo0_initial_state.deployed_addresses.len(), 2);
+    let sender_address = cairo0_initial_state.deployed_addresses[0];
+    let contract_address = cairo0_initial_state.deployed_addresses[1];
+
+    let tx_version = TransactionVersion::ZERO;
+    let mut nonce_manager = NonceManager::default();
+
+    let return_result_tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address,
+        calldata: create_calldata(
+            contract_address,
+            "return_result",
+            &[stark_felt!(2_u8)],
+        ),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let r = execute_txs_and_run_os(cairo0_initial_state.state, block_context, vec![return_result_tx]);
+
+    // temporarily expect test to break in the descent code
+    let err_log = format!("{:?}", r);
+    assert!(err_log.contains(r#"Could not find commitment info for contract 1073742336"#), "{}", err_log);
 }
 
 #[rstest]

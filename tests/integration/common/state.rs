@@ -66,6 +66,7 @@ pub struct Cairo0Contracts {
 pub struct Cairo0InitialState {
     pub state: CachedState<DictStateReader>,
     pub contracts: Cairo0Contracts,
+    pub deployed_addresses: Vec<ContractAddress>,
 }
 
 #[fixture]
@@ -83,7 +84,7 @@ pub async fn cairo0_initial_state(
     cairo0_contracts: Cairo0Contracts,
 ) -> Cairo0InitialState {
     let mut ffc = &mut FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());
-    let state = test_state_no_feature_contracts(
+    let (state, deployed_addresses) = test_state_no_feature_contracts(
         &block_context,
         BALANCE,
         &cairo0_contracts.erc20_contract,
@@ -96,5 +97,5 @@ pub async fn cairo0_initial_state(
     .await
     .unwrap();
 
-    Cairo0InitialState { state, contracts: cairo0_contracts }
+    Cairo0InitialState { state, deployed_addresses, contracts: cairo0_contracts }
 }

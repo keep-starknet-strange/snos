@@ -141,13 +141,16 @@ pub fn fund_account(
     }
 }
 
+/// Returns a tuple containing:
+///     * `CachedState`` suitable for Blockifier interaction
+///     * A Vec of `ContractAddress`es containing the deployed address for each contract in `contract_instances`
 pub async fn test_state_no_feature_contracts<S, H>(
     block_context: &BlockContext,
     initial_balance_all_accounts: u128,
     erc20_class: &DeprecatedCompiledClass,
     contract_instances: &[&DeprecatedCompiledClass],
     ffc: &mut FactFetchingContext<S, H>,
-) -> Result<CachedState<DictStateReader>, StorageError>
+) -> Result<(CachedState<DictStateReader>, Vec<ContractAddress>), StorageError>
 where
     S: Storage,
     H: HashFunctionType,
@@ -163,6 +166,8 @@ where
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
 
+    let mut deployed_addresses = Vec::new();
+
     // Set up the rest of the requested contracts.
     for contract in contract_instances {
         let class_hash_bytes = write_deprecated_compiled_class_fact((*contract).clone(), ffc).await?;
@@ -175,6 +180,7 @@ where
         // so it should just need a unique input, which our class hash should give us
         let address = contract_address!(class_hash.0);
         state.address_to_class_hash.insert(address, class_hash);
+        deployed_addresses.push(address);
     }
 
     let mut addresses: HashSet<ContractAddress> = Default::default();
@@ -187,7 +193,7 @@ where
         fund_account(block_context, *address, initial_balance_all_accounts, &mut state);
     }
 
-    Ok(CachedState::from(state))
+    Ok((CachedState::from(state), deployed_addresses))
 }
 
 pub fn test_state(
