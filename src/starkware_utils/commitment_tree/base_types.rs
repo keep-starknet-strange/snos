@@ -7,7 +7,7 @@ use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
-use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
+use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
 use crate::storage::storage::HASH_BYTES;
 
 pub type TreeIndex = BigUint;
@@ -20,6 +20,8 @@ impl Display for NodePath {
         self.0.fmt(f)
     }
 }
+
+impl SerializationPrefix for NodePath {}
 
 impl Serializable for NodePath {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
@@ -50,6 +52,8 @@ impl Display for Length {
         self.0.fmt(f)
     }
 }
+
+impl SerializationPrefix for Length {}
 
 impl Serializable for Length {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
