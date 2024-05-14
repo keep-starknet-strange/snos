@@ -59,7 +59,7 @@ pub struct Cairo0Contracts {
 
 #[derive(Debug)]
 pub struct Cairo0InitialState {
-    // pub state: CachedState<DictStateReader>,
+    pub state: CachedState<DictStateReader>,
     pub contracts: Cairo0Contracts,
 }
 
@@ -77,8 +77,13 @@ pub async fn cairo0_initial_state(
     block_context: BlockContext,
     cairo0_contracts: Cairo0Contracts,
 ) -> Cairo0InitialState {
-    Cairo0InitialState {
-        // state: todo!(),
-        contracts: cairo0_contracts,
-    }
+    let dict_state_reader = DictStateReader {
+        storage_view: Default::default(),
+        address_to_nonce: Default::default(),
+        address_to_class_hash: Default::default(),
+        class_hash_to_class: Default::default(),
+        class_hash_to_compiled_class_hash: Default::default(),
+    };
+
+    Cairo0InitialState { state: todo!(), contracts: cairo0_contracts }
 }
