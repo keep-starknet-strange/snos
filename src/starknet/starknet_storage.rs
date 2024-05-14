@@ -12,7 +12,7 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::{
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::{PatriciaTree, EMPTY_NODE_HASH};
-use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
+use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
 use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
 use crate::utils::{Felt252Num, Felt252Str};
 
@@ -46,10 +46,13 @@ where
 
 impl DbObject for StorageLeaf {}
 
-impl Serializable for StorageLeaf {
+impl SerializationPrefix for StorageLeaf {
     fn prefix() -> Vec<u8> {
         "starknet_storage_leaf".as_bytes().to_vec()
     }
+}
+
+impl Serializable for StorageLeaf {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(self.value.to_bytes_be().to_vec())
     }

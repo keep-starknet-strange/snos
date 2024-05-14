@@ -23,7 +23,9 @@ pub enum DeserializeError {
     LengthMismatch(usize, usize),
 }
 
-pub trait Serializable: Sized {
+/// Define a prefix for the storage key.
+/// The default implementation uses the struct name in snake case.
+pub trait SerializationPrefix {
     fn class_name_prefix() -> Vec<u8> {
         let type_name = std::any::type_name::<Self>().to_string();
         // unwrap() is safe here, there is always at least one element
@@ -36,7 +38,9 @@ pub trait Serializable: Sized {
     fn prefix() -> Vec<u8> {
         Self::class_name_prefix()
     }
+}
 
+pub trait Serializable: Sized + SerializationPrefix {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError>;
 
     fn deserialize(data: &[u8]) -> Result<Self, DeserializeError>;
@@ -44,7 +48,7 @@ pub trait Serializable: Sized {
 
 impl<T> Serializable for T
 where
-    T: serde::Serialize + serde::de::DeserializeOwned,
+    T: serde::Serialize + serde::de::DeserializeOwned + SerializationPrefix,
 {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         let serialized = serde_json::to_string(self)?;
@@ -62,6 +66,8 @@ mod tests {
     use super::*;
 
     struct MySerializable;
+
+    impl SerializationPrefix for MySerializable {}
 
     impl Serializable for MySerializable {
         fn serialize(&self) -> Result<Vec<u8>, SerializeError> {

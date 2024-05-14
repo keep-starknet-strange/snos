@@ -5,7 +5,7 @@ use crate::starkware_utils::commitment_tree::base_types::{Length, NodePath};
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
-use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
+use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
 use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage, HASH_BYTES};
 
 const PATRICIA_NODE_PREFIX: &[u8] = "patricia_node".as_bytes();
@@ -39,10 +39,13 @@ where
 
 impl DbObject for EmptyNodeFact {}
 
-impl Serializable for EmptyNodeFact {
+impl SerializationPrefix for EmptyNodeFact {
     fn prefix() -> Vec<u8> {
         PATRICIA_NODE_PREFIX.to_vec()
     }
+}
+
+impl Serializable for EmptyNodeFact {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok("".as_bytes().to_vec())
     }
@@ -106,10 +109,13 @@ where
 
 impl DbObject for BinaryNodeFact {}
 
-impl Serializable for BinaryNodeFact {
+impl SerializationPrefix for BinaryNodeFact {
     fn prefix() -> Vec<u8> {
         PATRICIA_NODE_PREFIX.to_vec()
     }
+}
+
+impl Serializable for BinaryNodeFact {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         let serialized = self.left_node.iter().cloned().chain(self.right_node.iter().cloned()).collect();
         Ok(serialized)
@@ -179,11 +185,13 @@ where
 
 impl DbObject for EdgeNodeFact {}
 
-impl Serializable for EdgeNodeFact {
+impl SerializationPrefix for EdgeNodeFact {
     fn prefix() -> Vec<u8> {
         PATRICIA_NODE_PREFIX.to_vec()
     }
+}
 
+impl Serializable for EdgeNodeFact {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         serialize_edge(&self.bottom_node, self.edge_path.clone(), self.edge_length)
     }
@@ -234,11 +242,13 @@ pub enum PatriciaNodeFact {
     Edge(EdgeNodeFact),
 }
 
-impl Serializable for PatriciaNodeFact {
+impl SerializationPrefix for PatriciaNodeFact {
     fn prefix() -> Vec<u8> {
         PATRICIA_NODE_PREFIX.to_vec()
     }
+}
 
+impl Serializable for PatriciaNodeFact {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         match self {
             Self::Empty(empty) => empty.serialize(),

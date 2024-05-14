@@ -13,7 +13,7 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
+use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
 use crate::storage::dict_storage::DictStorage;
 use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
 use crate::utils::felt_api2vm;
@@ -32,6 +32,8 @@ impl SimpleLeafFact {
         Self::new(Felt252::ZERO)
     }
 }
+
+impl SerializationPrefix for SimpleLeafFact {}
 
 impl<S, H> Fact<S, H> for SimpleLeafFact
 where
