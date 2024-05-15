@@ -23,6 +23,7 @@ use snos::io::InternalTransaction;
 use snos::starknet::business_logic::utils::write_deprecated_compiled_class_fact;
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 use snos::storage::storage_utils::build_starknet_storage;
+use snos::utils::felt_api2vm;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedCompiledClass, ContractClass as DeprecatedContractClass,
@@ -33,43 +34,16 @@ use starknet_crypto::FieldElement;
 
 use crate::common::transaction_utils::to_felt252;
 
-/// Guesses which `FeatureContract` corresponds to the given class_hash. This should only work
-/// if the given class_hash was created through a `FeatureContract` in the first place.
-pub fn deprecated_compiled_class_from_feature_contract(class_hash: ClassHash) -> Option<DeprecatedContractClass> {
-    let variants = vec![
-        AccountWithLongValidate(CairoVersion::Cairo0),
-        AccountWithoutValidations(CairoVersion::Cairo0),
-        ERC20,
-        Empty(CairoVersion::Cairo0),
-        FaultyAccount(CairoVersion::Cairo0),
-        // LegacyTestContract,
-        SecurityTests,
-        TestContract(CairoVersion::Cairo0),
-    ];
-
-    for c in variants {
-        if ClassHash(override_class_hash(&c)) == class_hash {
-            let result: Result<DeprecatedContractClass, serde_json::Error> =
-                serde_json::from_str(c.get_raw_class().as_str());
-            return Some(result.unwrap());
-        }
-    }
-
-    None
-}
-
 /// Converts the given ContractClassV0 to a DeprecatedContractClass.
 /// NOTE: This uses a serialization pass, so it is slow!
-/*
-pub fn deprecated_compiled_class_from_contract(contract_class: &ContractClassV0) -> DeprecatedContractClass {
-    let inner = &*contract_class;
-    let serialized = serde_json::to_string(inner).unwrap();
-    let serialized = 
-    let result: Result<DeprecatedContractClass, serde_json::Error> =
-        serde_json::from_str(c.get_raw_class().as_str());
-    return result.unwrap();
-}
-*/
+// pub fn deprecated_compiled_class_from_contract(contract_class: &ContractClassV0) ->
+// DeprecatedContractClass { let inner = &*contract_class;
+// let serialized = serde_json::to_string(inner).unwrap();
+// let serialized =
+// let result: Result<DeprecatedContractClass, serde_json::Error> =
+// serde_json::from_str(c.get_raw_class().as_str());
+// return result.unwrap();
+// }
 
 pub fn compiled_class(class_hash: ClassHash) -> CasmContractClass {
     let variants = vec![
@@ -161,14 +135,18 @@ pub fn fund_account(
 
 /// Returns a tuple containing:
 ///     * `CachedState`` suitable for Blockifier interaction
-///     * A Vec of `ContractAddress`es containing the deployed address for each contract in `contract_instances`
+///     * A Vec of `ContractAddress`es containing the deployed address for each contract in
+///       `contract_instances`
 pub async fn test_state_no_feature_contracts<S, H>(
     block_context: &BlockContext,
     initial_balance_all_accounts: u128,
     erc20_class: &DeprecatedCompiledClass,
     contract_instances: &[&DeprecatedCompiledClass],
     ffc: &mut FactFetchingContext<S, H>,
-) -> Result<(CachedState<DictStateReader>, Vec<ContractAddress>, HashMap<ClassHash, DeprecatedContractClass>), StorageError>
+) -> Result<
+    (CachedState<DictStateReader>, Vec<ContractAddress>, HashMap<ClassHash, DeprecatedContractClass>),
+    StorageError,
+>
 where
     S: Storage,
     H: HashFunctionType,
@@ -237,7 +215,6 @@ where
         println!("   - {:?} -> <omitted>", k);
     }
 
-
     Ok((CachedState::from(state), deployed_addresses, deprecated_contract_classes))
 }
 
@@ -297,10 +274,9 @@ pub async fn os_hints(
     mut blockifier_state: CachedState<DictStateReader>,
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
-    deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
+    deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
-    let state_diff = blockifier_state.to_state_diff();
-    let deployed_addresses = state_diff.address_to_class_hash;
+    let deployed_addresses = blockifier_state.to_state_diff().address_to_class_hash;
     let initial_addresses = blockifier_state.state.address_to_class_hash.keys().cloned().collect::<HashSet<_>>();
     let addresses = deployed_addresses.keys().cloned().chain(initial_addresses);
 
@@ -321,7 +297,6 @@ pub async fn os_hints(
         })
         .collect();
 
-    let mut used_deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass> = Default::default();
     let mut compiled_classes: HashMap<Felt252, CasmContractClass> = Default::default();
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
@@ -330,11 +305,8 @@ pub async fn os_hints(
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
-            V0(class_v0) => {
-                // used_deprecated_compiled_classes.insert(to_felt252(&class_hash.0), deprecated_compiled_class_from_feature_contract(class_hash).unwrap());
-                // we should have this in deprecated_contract_classes
-            }
-            V1(_class_v1) => {
+            V0(_) => {}
+            V1(_) => {
                 let class = compiled_class(class_hash);
                 let compiled_class_hash = class.compiled_class_hash();
                 compiled_classes.insert(Felt252::from_bytes_be(&class.compiled_class_hash().to_be_bytes()), class);
@@ -347,7 +319,7 @@ pub async fn os_hints(
     contracts.insert(Felt252::from(0), ContractState::default());
     contracts.insert(Felt252::from(1), ContractState::default());
 
-    println!("contracts: {:?}\ndeprecated_compiled_classes: {:?}", contracts.len(), used_deprecated_compiled_classes.len());
+    println!("contracts: {:?}\ndeprecated_compiled_classes: {:?}", contracts.len(), deprecated_compiled_classes.len());
 
     println!("contracts to class_hash");
     for (a, c) in &contracts {
@@ -355,7 +327,7 @@ pub async fn os_hints(
     }
 
     println!("deprecated classes");
-    for (c, _) in &used_deprecated_compiled_classes {
+    for (c, _) in &deprecated_compiled_classes {
         println!("\t{}", c);
     }
 
@@ -364,7 +336,7 @@ pub async fn os_hints(
         println!("\t{}", c);
     }
 
-    // for h in used_deprecated_compiled_classes.keys() {
+    // for h in deprecated_compiled_classes.keys() {
     //     class_hash_to_compiled_class_hash.insert(h.clone(), h.clone());
     // }
 
@@ -389,10 +361,13 @@ pub async fn os_hints(
         ..default_general_config
     };
 
+    let deprecated_compiled_classes: HashMap<_, _> =
+        deprecated_compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
+
     let os_input = StarknetOsInput {
         contract_state_commitment_info: Default::default(),
         contract_class_commitment_info: Default::default(),
-        deprecated_compiled_classes: used_deprecated_compiled_classes,
+        deprecated_compiled_classes,
         compiled_classes,
         compiled_class_visited_pcs: Default::default(),
         contracts,
