@@ -152,6 +152,7 @@ where
 
     let mut deployed_addresses = Vec::new();
     let mut deprecated_contract_classes = HashMap::new();
+    deprecated_contract_classes.insert(erc20_class_hash, (*erc20_class).clone());
 
     // Set up the rest of the requested contracts.
     for contract in contract_classes {

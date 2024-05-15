@@ -9,7 +9,6 @@ use blockifier::test_utils::{CairoVersion, BALANCE};
 use cairo_vm::Felt252;
 use rstest::fixture;
 use snos::crypto::pedersen::PedersenHash;
-use snos::crypto::poseidon::PoseidonHash;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::FactFetchingContext;
 use starknet_api::core::{ClassHash, ContractAddress};
