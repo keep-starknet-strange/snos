@@ -31,6 +31,7 @@ mod bls_field;
 mod bls_utils;
 pub mod builtins;
 mod compiled_class;
+mod deprecated_compiled_class;
 mod execute_transactions;
 pub mod execution;
 mod output;
@@ -78,8 +79,6 @@ static HINTS: [(&str, HintImpl); 171] = [
     (block_context::IS_LEAF, is_leaf),
     (block_context::LOAD_CLASS_FACTS, block_context::load_class_facts),
     (block_context::LOAD_CLASS_INNER, block_context::load_class_inner),
-    (block_context::LOAD_DEPRECATED_CLASS_FACTS, block_context::load_deprecated_class_facts),
-    (block_context::LOAD_DEPRECATED_CLASS_INNER, block_context::load_deprecated_class_inner),
     (block_context::SEQUENCER_ADDRESS, block_context::sequencer_address),
     (bls_field::COMPUTE_IDS_LOW, bls_field::compute_ids_low),
     (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
@@ -87,6 +86,8 @@ static HINTS: [(&str, HintImpl); 171] = [
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
     (compiled_class::ASSIGN_BYTECODE_SEGMENTS, compiled_class::assign_bytecode_segments),
     (compiled_class::ASSERT_END_OF_BYTECODE_SEGMENTS, compiled_class::assert_end_of_bytecode_segments),
+    (deprecated_compiled_class::LOAD_DEPRECATED_CLASS_FACTS, deprecated_compiled_class::load_deprecated_class_facts),
+    (deprecated_compiled_class::LOAD_DEPRECATED_CLASS_INNER, deprecated_compiled_class::load_deprecated_class_inner),
     (execute_syscalls::IS_BLOCK_NUMBER_IN_BLOCK_HASH_BUFFER, execute_syscalls::is_block_number_in_block_hash_buffer),
     (execute_transactions::START_TX_VALIDATE_DECLARE_EXECUTION_CONTEXT, execute_transactions::start_tx_validate_declare_execution_context),
     (execution::ADD_RELOCATION_RULE, execution::add_relocation_rule),
@@ -239,8 +240,8 @@ type ExtensiveHintImpl = fn(
 ) -> Result<HintExtension, HintError>;
 
 static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 2] = [
-    (block_context::LOAD_DEPRECATED_CLASS, block_context::load_deprecated_class),
     (block_context::LOAD_CLASS, block_context::load_class),
+    (deprecated_compiled_class::LOAD_DEPRECATED_CLASS, deprecated_compiled_class::load_deprecated_class),
 ];
 
 pub struct SnosHintProcessor {
