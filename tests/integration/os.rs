@@ -26,7 +26,11 @@ async fn test_cairo0_state(#[future] cairo0_initial_state: Cairo0InitialState) {
 
 #[rstest]
 #[tokio::test]
-async fn return_result_cairo0_account_no_feature_contracts(#[future] cairo0_initial_state: Cairo0InitialState, block_context: BlockContext, max_fee: Fee) {
+async fn return_result_cairo0_account_no_feature_contracts(
+    #[future] cairo0_initial_state: Cairo0InitialState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
     let cairo0_initial_state = cairo0_initial_state.await;
 
     // temp assertion about a brittle / WIP assumption (that we are deploying two contracts)
@@ -52,7 +56,13 @@ async fn return_result_cairo0_account_no_feature_contracts(#[future] cairo0_init
         nonce: nonce_manager.next(sender_address),
     });
 
-    let r = execute_txs_and_run_os(cairo0_initial_state.state, block_context, vec![return_result_tx], cairo0_initial_state.deprecated_contract_classes).await;
+    let r = execute_txs_and_run_os(
+        cairo0_initial_state.state,
+        block_context,
+        vec![return_result_tx],
+        cairo0_initial_state.deprecated_contract_classes,
+    )
+    .await;
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);

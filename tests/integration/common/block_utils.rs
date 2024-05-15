@@ -3,19 +3,17 @@ use std::collections::{HashMap, HashSet};
 use blockifier::abi::abi_utils::get_fee_token_var_address;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
-use blockifier::execution::contract_class::ContractClassV0;
-use blockifier::state::cached_state::{CachedState, StorageView};
+use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::{State as _, StateReader};
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::contracts::FeatureContract::{
-    AccountWithLongValidate, AccountWithoutValidations, Empty, FaultyAccount, SecurityTests, TestContract, ERC20,
+    AccountWithLongValidate, AccountWithoutValidations, Empty, FaultyAccount, TestContract,
 };
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
-use pathfinder_gateway_types::request::contract::EntryPointType;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
@@ -33,17 +31,6 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
 
 use crate::common::transaction_utils::to_felt252;
-
-/// Converts the given ContractClassV0 to a DeprecatedContractClass.
-/// NOTE: This uses a serialization pass, so it is slow!
-// pub fn deprecated_compiled_class_from_contract(contract_class: &ContractClassV0) ->
-// DeprecatedContractClass { let inner = &*contract_class;
-// let serialized = serde_json::to_string(inner).unwrap();
-// let serialized =
-// let result: Result<DeprecatedContractClass, serde_json::Error> =
-// serde_json::from_str(c.get_raw_class().as_str());
-// return result.unwrap();
-// }
 
 pub fn compiled_class(class_hash: ClassHash) -> CasmContractClass {
     let variants = vec![
@@ -141,7 +128,7 @@ pub async fn test_state_no_feature_contracts<S, H>(
     block_context: &BlockContext,
     initial_balance_all_accounts: u128,
     erc20_class: &DeprecatedCompiledClass,
-    contract_instances: &[&DeprecatedCompiledClass],
+    contract_classes: &[&DeprecatedCompiledClass],
     ffc: &mut FactFetchingContext<S, H>,
 ) -> Result<
     (CachedState<DictStateReader>, Vec<ContractAddress>, HashMap<ClassHash, DeprecatedContractClass>),
@@ -167,7 +154,7 @@ where
     let mut deprecated_contract_classes = HashMap::new();
 
     // Set up the rest of the requested contracts.
-    for contract in contract_instances {
+    for contract in contract_classes {
         println!("processing contract...");
         let class_hash_bytes = write_deprecated_compiled_class_fact((*contract).clone(), ffc).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
@@ -182,7 +169,7 @@ where
         state.address_to_class_hash.insert(address, class_hash);
         println!(" - address: {:?}", address);
         deployed_addresses.push(address);
-        deprecated_contract_classes.insert(class_hash, contract.clone().clone()); // TODO: remove
+        deprecated_contract_classes.insert(class_hash, (*contract).clone()); // TODO: remove
     }
 
     let mut addresses: HashSet<ContractAddress> = Default::default();
@@ -205,12 +192,12 @@ where
         println!("   - {:?} -> {:?}", k, v);
     }
     println!(" - class_hash_to_class:");
-    for (k, v) in &state.class_hash_to_class {
+    for (k, _v) in &state.class_hash_to_class {
         // println!("   - {:?} -> {:?}", k, v);
         println!("   - {:?} -> <omitted>", k);
     }
     println!(" - class_hash_to_compiled_class_hash:");
-    for (k, v) in &state.class_hash_to_compiled_class_hash {
+    for (k, _v) in &state.class_hash_to_compiled_class_hash {
         // println!("   - {:?} -> {:?}", k, v);
         println!("   - {:?} -> <omitted>", k);
     }
