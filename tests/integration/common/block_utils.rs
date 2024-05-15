@@ -71,7 +71,7 @@ fn override_class_hash(contract: &FeatureContract) -> StarkHash {
         // FeatureContract::AccountWithLongValidate(_) => ACCOUNT_LONG_VALIDATE_BASE,
         FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0) => {
             let fe = FieldElement::from_dec_str(
-                "3043522133089536593636086481152606703984151542874851197328605892177919922063",
+                "646245114977324210659279014519951538684823368221946044944492064370769527799",
             )
             .unwrap();
             StarkHash::from(fe)
@@ -79,7 +79,7 @@ fn override_class_hash(contract: &FeatureContract) -> StarkHash {
         // FeatureContract::Empty(_) => EMPTY_CONTRACT_BASE,
         FeatureContract::ERC20 => {
             let fe = FieldElement::from_dec_str(
-                "2553874082637258309275750418379019378586603706497644242041372159420778949015",
+                "561405978155448065164184136501758613494542063826668571171916978663245519697",
             )
             .unwrap();
             StarkHash::from(fe)
@@ -89,7 +89,7 @@ fn override_class_hash(contract: &FeatureContract) -> StarkHash {
         // FeatureContract::SecurityTests => SECURITY_TEST_CONTRACT_BASE,
         FeatureContract::TestContract(CairoVersion::Cairo0) => {
             let fe = FieldElement::from_dec_str(
-                "2847229557799212240700619257444410593768590640938595411219122975663286400357",
+                "2988696213549450938938462798157547750390790722284970546348726091875993395870",
             )
             .unwrap();
             StarkHash::from(fe)

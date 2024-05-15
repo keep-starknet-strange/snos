@@ -13,7 +13,7 @@ use cairo_vm::Felt252;
 use indoc::indoc;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
-use crate::io::classes::write_deprecated_class;
+use crate::io::classes::get_deprecated_contract_class_struct;
 use crate::io::input::StarknetOsInput;
 
 pub const LOAD_DEPRECATED_CLASS_FACTS: &str = indoc! {r##"
@@ -80,7 +80,7 @@ pub fn load_deprecated_class_inner(
     exec_scopes.insert_value("compiled_class", deprecated_class.clone());
 
     let dep_class_base = vm.add_memory_segment();
-    write_deprecated_class(vm, dep_class_base, deprecated_class)?;
+    get_deprecated_contract_class_struct(vm, dep_class_base, deprecated_class)?;
 
     insert_value_from_var_name("compiled_class", dep_class_base, vm, ids_data, ap_tracking)
 }
