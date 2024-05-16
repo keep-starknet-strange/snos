@@ -98,13 +98,48 @@ pub async fn cairo0_initial_state(
     .await
     .unwrap();
 
-    for (k, v) in ffc.acquire_storage().await.deref().db.iter() {
-        println!(
-            "FFC entry - {}:{}",
-            Felt252::from_bytes_be_slice(k).to_biguint(),
-            Felt252::from_bytes_be_slice(v).to_biguint()
-        );
-    }
-
     Cairo0InitialState { state, deployed_addresses, contracts: cairo0_contracts, deprecated_contract_classes }
+}
+
+#[derive(Debug)]
+pub struct Cairo1Contracts {
+    pub account_without_validations: DeprecatedCompiledClass,
+    pub test_contract: DeprecatedCompiledClass,
+    pub erc20_contract: DeprecatedCompiledClass,
+}
+
+#[derive(Debug)]
+pub struct Cairo1InitialState {
+    pub state: CachedState<DictStateReader>,
+    pub contracts: Cairo1Contracts,
+    pub deployed_addresses: Vec<ContractAddress>,
+    pub deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
+}
+
+#[fixture]
+pub fn cairo1_contracts() -> Cairo1Contracts {
+    let account_without_validations = get_deprecated_feature_contract_class("account_with_dummy_validate");
+    let test_contract = get_deprecated_feature_contract_class("test_contract");
+    let erc20_contract = get_deprecated_erc20_contract_class();
+
+    Cairo1Contracts { account_without_validations, test_contract, erc20_contract }
+}
+
+#[fixture]
+pub async fn cairo1_initial_state(
+    block_context: BlockContext,
+    cairo1_contracts: Cairo1Contracts,
+) -> Cairo1InitialState {
+    let ffc = &mut FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());
+    let (state, deployed_addresses, deprecated_contract_classes) = test_state_no_feature_contracts(
+        &block_context,
+        BALANCE,
+        &cairo1_contracts.erc20_contract,
+        &[&cairo1_contracts.account_without_validations, &cairo1_contracts.test_contract],
+        ffc,
+    )
+    .await
+    .unwrap();
+
+    Cairo1InitialState { state, deployed_addresses, contracts: cairo1_contracts, deprecated_contract_classes }
 }
