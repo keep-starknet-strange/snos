@@ -15,7 +15,9 @@ use crate::common::state::{initial_state, InitialState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
-fn return_result_cairo0_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn return_result_cairo0_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
@@ -38,7 +40,7 @@ fn return_result_cairo0_account(block_context: BlockContext, initial_state: Init
         nonce: nonce_manager.next(sender_address),
     });
 
-    let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]);
+    let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]).await;
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
@@ -46,7 +48,9 @@ fn return_result_cairo0_account(block_context: BlockContext, initial_state: Init
 }
 
 #[rstest]
-fn return_result_cairo1_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn return_result_cairo1_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
@@ -69,7 +73,7 @@ fn return_result_cairo1_account(block_context: BlockContext, initial_state: Init
         nonce: nonce_manager.next(sender_address),
     });
 
-    let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]);
+    let r = execute_txs_and_run_os(state, block_context, vec![return_result_tx]).await;
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
@@ -77,7 +81,9 @@ fn return_result_cairo1_account(block_context: BlockContext, initial_state: Init
 }
 
 #[rstest]
-fn syscalls_cairo1(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn syscalls_cairo1(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
@@ -165,7 +171,7 @@ fn syscalls_cairo1(block_context: BlockContext, initial_state: InitialState, max
         test_deploy_tx,
     ];
 
-    let r = execute_txs_and_run_os(state, block_context, txs);
+    let r = execute_txs_and_run_os(state, block_context, txs).await;
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);

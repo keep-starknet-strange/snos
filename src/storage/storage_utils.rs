@@ -7,7 +7,7 @@ use cairo_vm::Felt252;
 use starknet_api::hash::StarkFelt;
 
 use crate::execution::helper::ContractStorageMap;
-use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
+use crate::starknet::starknet_storage::{OsSingleStarknetStorage, StorageLeaf};
 use crate::starkware_utils::commitment_tree::base_types::Height;
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
@@ -127,7 +127,7 @@ where
 /// This function uses the fact that `CachedState` is a wrapper around a read-only `DictStateReader`
 /// object. The initial state is obtained through this read-only view while the final storage
 /// is obtained by extracting the state diff from the `CachedState` part.
-pub fn build_starknet_storage(blockifier_state: &mut CachedState<DictStateReader>) -> ContractStorageMap {
+pub async fn build_starknet_storage(blockifier_state: &mut CachedState<DictStateReader>) -> ContractStorageMap {
     let initial_contract_storage_map = get_contract_storage_map(&blockifier_state.state.storage_view);
     let final_contract_storage_map = build_final_storage_map(blockifier_state);
 
@@ -144,16 +144,12 @@ pub fn build_starknet_storage(blockifier_state: &mut CachedState<DictStateReader
         let final_contract_storage =
             final_contract_storage_map.get(contract_address).expect("any contract should appear in final storage");
 
-        execute_coroutine_threadsafe(async {
-            let initial_tree =
-                build_patricia_tree_from_contract_storage(&mut ffc, initial_contract_storage).await.unwrap();
-            let updated_tree =
-                build_patricia_tree_from_contract_storage(&mut ffc, final_contract_storage).await.unwrap();
+        let initial_tree = build_patricia_tree_from_contract_storage(&mut ffc, initial_contract_storage).await.unwrap();
+        let updated_tree = build_patricia_tree_from_contract_storage(&mut ffc, final_contract_storage).await.unwrap();
 
-            let contract_storage =
-                OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], ffc.clone()).await.unwrap();
-            storage_by_address.insert(*contract_address, contract_storage);
-        });
+        let contract_storage =
+            OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], ffc.clone()).await.unwrap();
+        storage_by_address.insert(*contract_address, contract_storage);
     }
 
     storage_by_address

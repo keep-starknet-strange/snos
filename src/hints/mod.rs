@@ -25,6 +25,7 @@ use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::block_context::is_leaf;
 use crate::io::input::StarknetOsInput;
+use crate::utils::execute_coroutine;
 
 pub mod block_context;
 mod bls_field;
@@ -360,7 +361,9 @@ impl HintProcessorLogic for SnosHintProcessor {
             if let Hint::Starknet(StarknetHint::SystemCall { system }) = hint {
                 let syscall_ptr = get_ptr_from_res_operand(vm, system)?;
                 let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?;
-                return syscall_handler.execute_syscall(vm, syscall_ptr).map(|_| HintExtension::default());
+
+                return execute_coroutine(syscall_handler.execute_syscall(vm, syscall_ptr))?
+                    .map(|_| HintExtension::default());
             } else {
                 return self.cairo1_builtin_hint_proc.execute(vm, exec_scopes, hint).map(|_| HintExtension::default());
             }
@@ -526,13 +529,14 @@ pub fn set_ap_to_actual_fee(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
-    let actual_fee = execution_helper
-        .execution_helper
-        .borrow()
-        .tx_execution_info
-        .as_ref()
-        .ok_or(HintError::CustomHint("ExecutionHelper should have tx_execution_info".to_owned().into_boxed_str()))?
-        .actual_fee;
+    let actual_fee = execute_coroutine(async {
+        let eh_ref = execution_helper.execution_helper.read().await;
+        eh_ref
+            .tx_execution_info
+            .as_ref()
+            .ok_or(HintError::CustomHint("ExecutionHelper should have tx_execution_info".to_owned().into_boxed_str()))
+            .map(|tx_execution_info| tx_execution_info.actual_fee)
+    })??;
 
     insert_value_into_ap(vm, Felt252::from(actual_fee.0))
 }
@@ -558,6 +562,21 @@ pub fn is_on_curve(
 
 const START_TX: &str = "execution_helper.start_tx(tx_info_ptr=ids.deprecated_tx_info.address_)";
 
+pub async fn start_tx_async(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+) -> Result<(), HintError> {
+    let deprecated_tx_info_ptr =
+        get_relocatable_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
+
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
+    execution_helper.start_tx(Some(deprecated_tx_info_ptr)).await;
+
+    Ok(())
+}
+
 pub fn start_tx(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -565,16 +584,17 @@ pub fn start_tx(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let deprecated_tx_info_ptr =
-        get_relocatable_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
-
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
-    execution_helper.start_tx(Some(deprecated_tx_info_ptr));
-
-    Ok(())
+    execute_coroutine(start_tx_async(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
 const SKIP_TX: &str = "execution_helper.skip_tx()";
+
+pub async fn skip_tx_async(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
+    execution_helper.skip_tx().await;
+
+    Ok(())
+}
 
 pub fn skip_tx(
     _vm: &mut VirtualMachine,
@@ -583,13 +603,17 @@ pub fn skip_tx(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
-    execution_helper.skip_tx();
-
-    Ok(())
+    execute_coroutine(skip_tx_async(exec_scopes))?
 }
 
 const SKIP_CALL: &str = "execution_helper.skip_call()";
+
+pub async fn skip_call_async(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
+    execution_helper.skip_call().await;
+
+    Ok(())
+}
 
 pub fn skip_call(
     _vm: &mut VirtualMachine,
@@ -598,10 +622,7 @@ pub fn skip_call(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
-    execution_helper.skip_call();
-
-    Ok(())
+    execute_coroutine(skip_call_async(exec_scopes))?
 }
 
 const OS_INPUT_TRANSACTIONS: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";

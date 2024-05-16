@@ -136,7 +136,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     };
 }
 
-fn execute_txs(
+async fn execute_txs(
     mut state: CachedState<DictStateReader>,
     block_context: &BlockContext,
     txs: Vec<AccountTransaction>,
@@ -152,15 +152,15 @@ fn execute_txs(
     let internal_txs: Vec<_> = txs.iter().map(to_internal_tx).collect();
     let execution_infos =
         txs.into_iter().map(|tx| tx.execute(&mut state, block_context, true, true).unwrap()).collect();
-    os_hints(&block_context, state, internal_txs, execution_infos)
+    os_hints(&block_context, state, internal_txs, execution_infos).await
 }
 
-pub fn execute_txs_and_run_os(
+pub async fn execute_txs_and_run_os(
     state: CachedState<DictStateReader>,
     block_context: BlockContext,
     txs: Vec<AccountTransaction>,
 ) -> Result<CairoPie, SnOsError> {
-    let (os_input, execution_helper) = execute_txs(state, &block_context, txs);
+    let (os_input, execution_helper) = execute_txs(state, &block_context, txs).await;
 
     let layout = config::default_layout();
     let result = run_os(config::DEFAULT_COMPILED_OS.to_string(), layout, os_input, block_context, execution_helper);
