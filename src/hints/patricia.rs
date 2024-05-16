@@ -27,6 +27,7 @@ use crate::starkware_utils::commitment_tree::patricia_tree::patricia_guess_desce
 use crate::starkware_utils::commitment_tree::update_tree::{
     build_update_tree, decode_node, DecodeNodeCase, DecodedNode, UpdateTree,
 };
+use crate::utils::get_variable_from_root_exec_scope;
 
 pub const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
 
@@ -350,12 +351,8 @@ pub fn build_descent_map(
     //    insert `__patricia_skip_validation_runner` and `descent_map`.
     exec_scopes.insert_value(vars::scopes::DESCENT_MAP, descent_map);
 
-    let patricia_skip_validation_runner = exec_scopes.data[0]
-        .get(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER)
-        .map(|var| var.downcast_ref::<PatriciaSkipValidationRunner>().cloned())
-        .ok_or(HintError::VariableNotInScopeError(
-            vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER.to_string().into_boxed_str(),
-        ))?;
+    let patricia_skip_validation_runner: Option<PatriciaSkipValidationRunner> =
+        get_variable_from_root_exec_scope(exec_scopes, vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER)?;
     exec_scopes.insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, patricia_skip_validation_runner);
 
     Ok(())
