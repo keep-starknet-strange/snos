@@ -150,7 +150,7 @@ pub fn test_state(
     state
 }
 
-pub fn os_hints(
+pub async fn os_hints(
     block_context: &BlockContext,
     mut blockifier_state: CachedState<DictStateReader>,
     transactions: Vec<InternalTransaction>,
@@ -258,7 +258,7 @@ pub fn os_hints(
     };
 
     // Convert the Blockifier storage into an OS-compatible one
-    let contract_storage_map = build_starknet_storage(&mut blockifier_state);
+    let contract_storage_map = build_starknet_storage(&mut blockifier_state).await;
 
     let execution_helper = ExecutionHelperWrapper::new(
         contract_storage_map,

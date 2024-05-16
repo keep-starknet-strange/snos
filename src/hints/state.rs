@@ -21,9 +21,9 @@ use crate::execution::helper::ExecutionHelperWrapper;
 use crate::hints::types::{skip_verification_if_configured, Preimage};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
-use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, CommitmentInfo, StorageLeaf};
+use crate::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
 use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, UpdateTree};
-use crate::utils::get_constant;
+use crate::utils::{execute_coroutine, get_constant};
 
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
     if tree_height != merkle_height {
@@ -313,7 +313,7 @@ pub fn enter_scope_commitment_info_by_address(
     let execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
     let os_input: StarknetOsInput = exec_scopes.get(vars::scopes::OS_INPUT)?;
 
-    let commitment_info_by_address = execute_coroutine_threadsafe(execution_helper.compute_storage_commitments())?;
+    let commitment_info_by_address = execute_coroutine(execution_helper.compute_storage_commitments())??;
 
     let new_scope = HashMap::from([
         (vars::scopes::COMMITMENT_INFO_BY_ADDRESS.to_string(), any_box!(commitment_info_by_address)),
@@ -350,21 +350,10 @@ pub fn write_split_result(
 mod tests {
     use std::borrow::Cow;
 
-    use blockifier::block_context::BlockContext;
-    use num_bigint::BigUint;
     use rstest::{fixture, rstest};
 
     use super::*;
-    use crate::config::STORED_BLOCK_HASH_BUFFER;
-    use crate::crypto::pedersen::PedersenHash;
-    use crate::execution::helper::ContractStorageMap;
     use crate::hints::types::PatriciaSkipValidationRunner;
-    use crate::starknet::starknet_storage::{OsSingleStarknetStorage, StorageLeaf};
-    use crate::starkware_utils::commitment_tree::base_types::Height;
-    use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
-    use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-    use crate::storage::dict_storage::DictStorage;
-    use crate::storage::storage::FactFetchingContext;
 
     #[fixture]
     fn os_input() -> StarknetOsInput {
@@ -390,56 +379,6 @@ mod tests {
             block_hash: Default::default(),
             compiled_class_visited_pcs: Default::default(),
         }
-    }
-
-    #[fixture]
-    pub fn block_context() -> BlockContext {
-        BlockContext::create_for_testing()
-    }
-
-    #[fixture]
-    fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
-        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
-    }
-
-    #[fixture]
-    fn execution_helper(
-        block_context: BlockContext,
-        old_block_number_and_hash: (Felt252, Felt252),
-    ) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(ContractStorageMap::default(), vec![], &block_context, old_block_number_and_hash)
-    }
-
-    #[fixture]
-    fn contract_address() -> Felt252 {
-        Felt252::from(1000)
-    }
-
-    #[fixture]
-    fn execution_helper_with_storage(
-        execution_helper: ExecutionHelperWrapper,
-        contract_address: Felt252,
-    ) -> ExecutionHelperWrapper {
-        let storage = DictStorage::default();
-        let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
-
-        // Run async functions in a dedicated runtime to keep the test functions sync.
-        // Otherwise, we run into "cannot spawn a runtime from another runtime" issues.
-        let os_single_starknet_storage = execute_coroutine_threadsafe(async {
-            let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
-            let modifications = vec![(BigUint::from(400u64), StorageLeaf::new(Felt252::from(160000)))];
-            let mut facts = None;
-            let tree = tree.update(&mut ffc, modifications, &mut facts).await.unwrap();
-            // We pass the same tree as previous and updated tree as this is enough for the tests.
-            OsSingleStarknetStorage::new(tree.clone(), tree, &vec![], ffc).await.unwrap()
-        });
-
-        {
-            let storage_by_address = &mut execution_helper.execution_helper.as_ref().borrow_mut().storage_by_address;
-            storage_by_address.insert(contract_address, os_single_starknet_storage);
-        }
-
-        execution_helper
     }
 
     #[rstest]

@@ -15,6 +15,7 @@ use starknet_api::core::{ChainId, ClassHash, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, Program as DeprecatedProgram};
 use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 use starknet_api::stark_felt;
+use tokio::task;
 
 use crate::config::DEFAULT_COMPILER_VERSION;
 use crate::error::SnOsError;
@@ -242,6 +243,22 @@ pub fn get_constant<'a>(
     constants: &'a HashMap<String, Felt252>,
 ) -> Result<&'a Felt252, HintError> {
     constants.get(identifier).ok_or(HintError::MissingConstant(Box::new(identifier)))
+}
+
+/// Gets the current Tokio runtime or fails gracefully with a HintError.
+fn get_tokio_runtime_handle() -> Result<tokio::runtime::Handle, HintError> {
+    tokio::runtime::Handle::try_current()
+        .map_err(|e| HintError::CustomHint(format!("Tokio runtime not found: {e}").into_boxed_str()))
+}
+
+/// Executes a coroutine from a synchronous context.
+/// Fails if no Tokio runtime is present.
+pub fn execute_coroutine<F, T>(coroutine: F) -> Result<T, HintError>
+where
+    F: std::future::Future<Output = T>,
+{
+    let tokio_runtime_handle = get_tokio_runtime_handle()?;
+    Ok(task::block_in_place(|| tokio_runtime_handle.block_on(coroutine)))
 }
 
 #[cfg(test)]

@@ -191,24 +191,16 @@ where
     }
 }
 
-pub fn execute_coroutine_threadsafe<F, T>(coroutine: F) -> T
-where
-    F: std::future::Future<Output = T>,
-{
-    let runtime = tokio::runtime::Runtime::new().unwrap();
-    runtime.block_on(coroutine)
-}
-
 impl<S, H> OsSingleStarknetStorage<S, H>
 where
     S: Storage + 'static,
     H: HashFunctionType + Sync + Send + 'static,
 {
-    pub fn read(&mut self, key: Felt252) -> Option<Felt252> {
+    pub async fn read(&mut self, key: Felt252) -> Option<Felt252> {
         let mut value = self.ongoing_storage_changes.get(&key.to_biguint()).cloned();
 
         if value.is_none() {
-            let leaf = self.fetch_storage_leaf(key);
+            let leaf = self.fetch_storage_leaf(key).await;
             let value_from_storage = leaf.value;
             self.ongoing_storage_changes.insert(key.to_biguint(), value_from_storage);
             value = Some(value_from_storage);
@@ -221,11 +213,11 @@ where
         self.ongoing_storage_changes.insert(key, value);
     }
 
-    fn fetch_storage_leaf(&mut self, key: Felt252) -> StorageLeaf {
-        let coroutine = self.previous_tree.get_leaf(&mut self.ffc, key.to_biguint());
-        let result: Result<Option<StorageLeaf>, _> = execute_coroutine_threadsafe(coroutine);
-
-        // TODO: resolve this double unwrap() somehow
-        result.unwrap().unwrap()
+    async fn fetch_storage_leaf(&mut self, key: Felt252) -> StorageLeaf {
+        let leaf = self.previous_tree.get_leaf(&mut self.ffc, key.to_biguint()).await;
+        // TODO: resolve this double expect() somehow
+        leaf.expect("Failed to retrieve leaf from storage").unwrap_or_else(|| {
+            panic!("Could not find leaf {}", key.to_biguint());
+        })
     }
 }

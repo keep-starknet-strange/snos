@@ -222,11 +222,12 @@ pub fn write_segment(vm: &mut VirtualMachine, ptr: &mut Relocatable, segment: Re
     Ok(())
 }
 
+#[allow(async_fn_in_trait)]
 pub trait SyscallHandler {
     type Request;
     type Response;
     fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request>;
-    fn execute(
+    async fn execute(
         request: Self::Request,
         vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper,
@@ -258,7 +259,7 @@ fn write_failure(
 
 pub const OUT_OF_GAS_ERROR: &str = "0x000000000000000000000000000000000000000000004f7574206f6620676173";
 
-pub fn run_handler<S: SyscallHandler>(
+pub async fn run_handler<S: SyscallHandler>(
     syscall_ptr: &mut Relocatable,
     vm: &mut VirtualMachine,
     exec_wrapper: &mut ExecutionHelperWrapper,
@@ -285,7 +286,7 @@ pub fn run_handler<S: SyscallHandler>(
     // Execute.
     let mut remaining_gas = gas_counter - required_gas;
 
-    let syscall_result = S::execute(request, vm, exec_wrapper, &mut remaining_gas);
+    let syscall_result = S::execute(request, vm, exec_wrapper, &mut remaining_gas).await;
 
     match syscall_result {
         Ok(response) => {
