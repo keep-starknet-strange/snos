@@ -1,5 +1,5 @@
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
-use cairo_lang_starknet::contract_class::ContractClass;
+use starknet_api::state::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
@@ -35,4 +35,16 @@ where
 {
     let deprecated_compiled_class_fact = DeprecatedCompiledClassFact { contract_definition: deprecated_compiled_class };
     deprecated_compiled_class_fact.set_fact(ffc).await
+}
+
+pub async fn write_contract_class_fact<S, H>(
+    contract_class: ContractClass,
+    ffc: &mut FactFetchingContext<S, H>,
+) -> Result<Vec<u8>, StorageError>
+where
+    S: Storage,
+    H: HashFunctionType,
+{
+    let contract_class_fact = ContractClassFact { contract_class };
+    contract_class_fact.set_fact(ffc).await
 }

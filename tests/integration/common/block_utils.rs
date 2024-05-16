@@ -18,10 +18,11 @@ use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BU
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
-use snos::starknet::business_logic::utils::write_deprecated_compiled_class_fact;
+use snos::starknet::business_logic::utils::{write_contract_class_fact, write_deprecated_compiled_class_fact};
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 use snos::storage::storage_utils::build_starknet_storage;
 use snos::utils::felt_api2vm;
+use starknet_api::state::ContractClass;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedCompiledClass, ContractClass as DeprecatedContractClass,
@@ -84,7 +85,7 @@ fn override_class_hash(contract: &FeatureContract) -> StarkHash {
 }
 
 // TODO: move / organize, clean up types
-/// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v0 only).
+/// Convert a starknet_api deprecated ContractClass to a cairo-vm ContractClass (v0 only).
 /// Note that this makes a serialize -> deserialize pass, so it is not cheap!
 pub fn deprecated_contract_class_api2vm(
     api_class: &starknet_api::deprecated_contract_class::ContractClass,
@@ -98,6 +99,27 @@ pub fn deprecated_contract_class_api2vm(
     let vm_class = blockifier::execution::contract_class::ContractClass::V0(vm_class_v0);
 
     Ok(vm_class)
+}
+
+/// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v1 only).
+/// Note that this makes a serialize -> deserialize pass, so it is not cheap!
+pub fn contract_class_api2vm(
+    api_class: &starknet_api::state::ContractClass,
+) -> serde_json::Result<blockifier::execution::contract_class::ContractClass> {
+    /*
+    let serialized = serde_json::to_string(&api_class)?;
+
+    let vm_class_v1_inner: blockifier::execution::contract_class::ContractClassV1Inner =
+        serde_json::from_str(serialized.as_str())?;
+
+    let vm_class_v1 = blockifier::execution::contract_class::ContractClassV1(std::sync::Arc::new(vm_class_v1_inner));
+    let vm_class = blockifier::execution::contract_class::ContractClass::V1(vm_class_v1);
+
+    Ok(vm_class)
+    */
+
+    // TODO: ContractClassV1Inner isn't Deserializable like ContractClassV0Inner is
+    todo!();
 }
 
 fn stark_felt_from_bytes(bytes: Vec<u8>) -> StarkFelt {
@@ -120,11 +142,8 @@ pub fn fund_account(
     }
 }
 
-/// Returns a tuple containing:
-///     * `CachedState`` suitable for Blockifier interaction
-///     * A Vec of `ContractAddress`es containing the deployed address for each contract in
-///       `contract_instances`
-pub async fn test_state_no_feature_contracts<S, H>(
+/// Returns test state for cairo0-based tests
+pub async fn test_state_cairo0<S, H>(
     block_context: &BlockContext,
     initial_balance_all_accounts: u128,
     erc20_class: &DeprecatedCompiledClass,
@@ -206,55 +225,87 @@ where
     Ok((CachedState::from(state), deployed_addresses, deprecated_contract_classes))
 }
 
-pub fn test_state(
+/// Returns test state for cairo1-based tests
+pub async fn test_state_cairo1<S, H>(
     block_context: &BlockContext,
-    initial_balances: u128,
-    contract_instances: &[(FeatureContract, u8)],
-) -> CachedState<DictStateReader> {
-    let mut class_hash_to_class = HashMap::new();
-    let mut address_to_class_hash = HashMap::new();
-    let class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash> = HashMap::new();
+    initial_balance_all_accounts: u128,
+    erc20_class: &ContractClass,
+    contract_classes: &[&ContractClass],
+    ffc: &mut FactFetchingContext<S, H>,
+) -> Result<
+    (CachedState<DictStateReader>, Vec<ContractAddress>, HashMap<ClassHash, ContractClass>),
+    StorageError,
+>
+where
+    S: Storage,
+    H: HashFunctionType,
+{
+    println!("test_state_no_feature_contracts()");
+    // we use DictStateReader as a container for all the state we want to collect
+    let mut state = DictStateReader::default();
 
     // Declare and deploy account and ERC20 contracts.
-    let erc20 = FeatureContract::ERC20;
-    let erc20_class_hash: ClassHash = ClassHash(override_class_hash(&erc20));
-    class_hash_to_class.insert(erc20_class_hash, erc20.get_class());
-    address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
-    address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
+    let erc20_class_hash_bytes = write_contract_class_fact(erc20_class.clone(), ffc).await?;
+    let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
+
+    state.class_hash_to_class.insert(erc20_class_hash, contract_class_api2vm(erc20_class).unwrap());
+    state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
+    state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
+
+    let mut deployed_addresses = Vec::new();
+    let mut deprecated_contract_classes = HashMap::new();
+    deprecated_contract_classes.insert(erc20_class_hash, (*erc20_class).clone());
 
     // Set up the rest of the requested contracts.
-    for (contract, n_instances) in contract_instances.iter() {
-        let class_hash = ClassHash(override_class_hash(contract));
-        // assert!(!class_hash_to_class.contains_key(&class_hash));
-        class_hash_to_class.insert(class_hash, contract.get_class());
-        for instance in 0..*n_instances {
-            let instance_address = contract.get_instance_address(instance);
-            address_to_class_hash.insert(instance_address, class_hash);
-        }
+    for contract in contract_classes {
+        println!("processing contract...");
+        let class_hash_bytes = write_contract_class_fact((*contract).clone(), ffc).await?;
+        let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
+        println!(" - class_hash: {:?}", class_hash);
+
+        let vm_class = contract_class_api2vm(contract).unwrap();
+        state.class_hash_to_class.insert(class_hash, vm_class);
+
+        // TODO: review -- this just seems to be generating a random address based on our seed
+        // so it should just need a unique input, which our class hash should give us
+        let address = contract_address!(class_hash.0);
+        state.address_to_class_hash.insert(address, class_hash);
+        println!(" - address: {:?}", address);
+        deployed_addresses.push(address);
+        deprecated_contract_classes.insert(class_hash, (*contract).clone()); // TODO: remove
     }
 
-    let mut state = DictStateReader {
-        address_to_class_hash,
-        class_hash_to_class,
-        class_hash_to_compiled_class_hash,
-        ..Default::default()
-    };
+    let mut addresses: HashSet<ContractAddress> = Default::default();
+    for address in state.address_to_class_hash.keys().chain(state.address_to_nonce.keys()) {
+        addresses.insert(*address);
+    }
 
     // fund the accounts.
-    for (contract, n_instances) in contract_instances.iter() {
-        for instance in 0..*n_instances {
-            let instance_address = contract.get_instance_address(instance);
-            match contract {
-                FeatureContract::AccountWithLongValidate(_)
-                | FeatureContract::AccountWithoutValidations(_)
-                | FeatureContract::FaultyAccount(_) => {
-                    fund_account(block_context, instance_address, initial_balances, &mut state);
-                }
-                _ => (),
-            }
-        }
+    for address in addresses.iter() {
+        fund_account(block_context, *address, initial_balance_all_accounts, &mut state);
     }
-    CachedState::from(state)
+
+    println!("State dump:");
+    println!(" - address_to_nonce:");
+    for (k, v) in &state.address_to_nonce {
+        println!("   - {:?} -> {:?}", k, v);
+    }
+    println!(" - address_to_class_hash:");
+    for (k, v) in &state.address_to_class_hash {
+        println!("   - {:?} -> {:?}", k, v);
+    }
+    println!(" - class_hash_to_class:");
+    for (k, _v) in &state.class_hash_to_class {
+        // println!("   - {:?} -> {:?}", k, v);
+        println!("   - {:?} -> <omitted>", k);
+    }
+    println!(" - class_hash_to_compiled_class_hash:");
+    for (k, _v) in &state.class_hash_to_compiled_class_hash {
+        // println!("   - {:?} -> {:?}", k, v);
+        println!("   - {:?} -> <omitted>", k);
+    }
+
+    Ok((CachedState::from(state), deployed_addresses, deprecated_contract_classes))
 }
 
 pub async fn os_hints(
