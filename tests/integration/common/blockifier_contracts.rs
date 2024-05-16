@@ -8,6 +8,7 @@ pub fn get_deprecated_feature_contract_class(contract_name: &str) -> DeprecatedC
     let filename = format!("{contract_name}_compiled.json");
     let contract_rel_path =
         Path::new("blockifier_contracts").join("feature_contracts").join("cairo0").join("compiled").join(filename);
+    println!("Getting contract at {:?}", contract_rel_path);
     get_deprecated_compiled_class(&contract_rel_path)
 }
 

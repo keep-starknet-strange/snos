@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::contracts::FeatureContract;
@@ -7,8 +9,8 @@ use rstest::fixture;
 use snos::crypto::pedersen::PedersenHash;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::FactFetchingContext;
-use starknet_api::core::ContractAddress;
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
+use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::deprecated_contract_class::{self, ContractClass as DeprecatedCompiledClass};
 
 use crate::common::block_context;
 use crate::common::block_utils::test_state;
@@ -67,6 +69,7 @@ pub struct Cairo0InitialState {
     pub state: CachedState<DictStateReader>,
     pub contracts: Cairo0Contracts,
     pub deployed_addresses: Vec<ContractAddress>,
+    pub deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
 }
 
 #[fixture]
@@ -84,7 +87,7 @@ pub async fn cairo0_initial_state(
     cairo0_contracts: Cairo0Contracts,
 ) -> Cairo0InitialState {
     let mut ffc = &mut FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());
-    let (state, deployed_addresses) = test_state_no_feature_contracts(
+    let (state, deployed_addresses, deprecated_contract_classes) = test_state_no_feature_contracts(
         &block_context,
         BALANCE,
         &cairo0_contracts.erc20_contract,
@@ -97,5 +100,5 @@ pub async fn cairo0_initial_state(
     .await
     .unwrap();
 
-    Cairo0InitialState { state, deployed_addresses, contracts: cairo0_contracts }
+    Cairo0InitialState { state, deployed_addresses, contracts: cairo0_contracts, deprecated_contract_classes }
 }
