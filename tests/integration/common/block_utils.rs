@@ -182,15 +182,11 @@ where
 pub async fn test_state_cairo1<S, H>(
     block_context: &BlockContext,
     initial_balance_all_accounts: u128,
-    erc20_class: &CasmContractClass,
+    erc20_class: &DeprecatedContractClass,
     contract_classes: &[&CasmContractClass],
     ffc: &mut FactFetchingContext<S, H>,
 ) -> Result<
-    (
-        CachedState<DictStateReader>,
-        Vec<ContractAddress>,
-        HashMap<ClassHash, CasmContractClass>
-    ),
+    (CachedState<DictStateReader>, Vec<ContractAddress>, HashMap<ClassHash, DeprecatedContractClass>),
     StorageError,
 >
 where
@@ -201,10 +197,10 @@ where
     let mut state = DictStateReader::default();
 
     // Declare and deploy account and ERC20 contracts.
-    let erc20_class_hash_bytes = write_compiled_class_fact(erc20_class.clone(), ffc).await?;
+    let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), ffc).await?;
     let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
 
-    state.class_hash_to_class.insert(erc20_class_hash, contract_class_cl2vm(erc20_class).unwrap());
+    state.class_hash_to_class.insert(erc20_class_hash, deprecated_contract_class_api2vm(erc20_class).unwrap());
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
 
@@ -228,7 +224,6 @@ where
         state.address_to_class_hash.insert(address, class_hash);
         println!(" - address: {:?}", address);
         deployed_addresses.push(address);
-        deprecated_contract_classes.insert(class_hash, (*contract).clone()); // TODO: remove
     }
 
     let mut addresses: HashSet<ContractAddress> = Default::default();

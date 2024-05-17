@@ -29,10 +29,3 @@ pub fn get_feature_contract_class(contract_name: &str) -> CasmContractClass {
     get_compiled_class(&contract_rel_path)
 }
 
-pub fn get_erc20_contract_class() -> CasmContractClass {
-    let contract_rel_path = Path::new("blockifier_contracts")
-        .join("ERC20_without_some_syscalls")
-        .join("ERC20")
-        .join("erc20_contract_without_some_syscalls.casm.json");
-    get_compiled_class(&contract_rel_path)
-}
