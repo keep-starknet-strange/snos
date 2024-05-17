@@ -49,7 +49,7 @@ where
     H: HashFunctionType,
 {
     fn hash(&self) -> Vec<u8> {
-        self.compiled_class.compiled_class_hash().to_bytes_be()
+        self.compiled_class.compiled_class_hash().to_be_bytes().to_vec()
     }
 }
 
