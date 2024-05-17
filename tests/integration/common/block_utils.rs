@@ -14,7 +14,7 @@ use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BU
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
-use snos::starknet::business_logic::utils::{write_contract_class_fact, write_deprecated_compiled_class_fact};
+use snos::starknet::business_logic::utils::{write_compiled_class_fact, write_deprecated_compiled_class_fact};
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 use snos::storage::storage_utils::build_starknet_storage;
 use snos::utils::felt_api2vm;
@@ -70,21 +70,8 @@ pub fn deprecated_contract_class_api2vm(
 /// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v1 only).
 /// Note that this makes a serialize -> deserialize pass, so it is not cheap!
 pub fn contract_class_cl2vm(
-    api_class: &cairo_lang_starknet::contract_class::ContractClass,
+    cl_class: &CasmContractClass,
 ) -> serde_json::Result<blockifier::execution::contract_class::ContractClass> {
-    /*
-    let serialized = serde_json::to_string(&api_class)?;
-
-    let vm_class_v1_inner: blockifier::execution::contract_class::ContractClassV1Inner =
-        serde_json::from_str(serialized.as_str())?;
-
-    let vm_class_v1 = blockifier::execution::contract_class::ContractClassV1(std::sync::Arc::new(vm_class_v1_inner));
-    let vm_class = blockifier::execution::contract_class::ContractClass::V1(vm_class_v1);
-
-    Ok(vm_class)
-    */
-
-    // TODO: ContractClassV1Inner isn't Deserializable like ContractClassV0Inner is
     todo!();
 }
 
@@ -195,14 +182,14 @@ where
 pub async fn test_state_cairo1<S, H>(
     block_context: &BlockContext,
     initial_balance_all_accounts: u128,
-    erc20_class: &cairo_lang_starknet::contract_class::ContractClass,
-    contract_classes: &[&cairo_lang_starknet::contract_class::ContractClass],
+    erc20_class: &CasmContractClass,
+    contract_classes: &[&CasmContractClass],
     ffc: &mut FactFetchingContext<S, H>,
 ) -> Result<
     (
         CachedState<DictStateReader>,
         Vec<ContractAddress>,
-        HashMap<ClassHash, cairo_lang_starknet::contract_class::ContractClass>
+        HashMap<ClassHash, CasmContractClass>
     ),
     StorageError,
 >
@@ -214,7 +201,7 @@ where
     let mut state = DictStateReader::default();
 
     // Declare and deploy account and ERC20 contracts.
-    let erc20_class_hash_bytes = write_contract_class_fact(erc20_class.clone(), ffc).await?;
+    let erc20_class_hash_bytes = write_compiled_class_fact(erc20_class.clone(), ffc).await?;
     let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
 
     state.class_hash_to_class.insert(erc20_class_hash, contract_class_cl2vm(erc20_class).unwrap());
@@ -228,7 +215,7 @@ where
     // Set up the rest of the requested contracts.
     for contract in contract_classes {
         println!("processing contract...");
-        let class_hash_bytes = write_contract_class_fact((*contract).clone(), ffc).await?;
+        let class_hash_bytes = write_compiled_class_fact((*contract).clone(), ffc).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
         println!(" - class_hash: {:?}", class_hash);
 

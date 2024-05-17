@@ -37,14 +37,14 @@ where
     deprecated_compiled_class_fact.set_fact(ffc).await
 }
 
-pub async fn write_contract_class_fact<S, H>(
-    contract_class: ContractClass,
+pub async fn write_compiled_class_fact<S, H>(
+    compiled_class: CasmContractClass,
     ffc: &mut FactFetchingContext<S, H>,
 ) -> Result<Vec<u8>, StorageError>
 where
     S: Storage,
     H: HashFunctionType,
 {
-    let contract_class_fact = ContractClassFact { contract_class };
-    contract_class_fact.set_fact(ffc).await
+    let compiled_class_fact = CompiledClassFact { compiled_class };
+    compiled_class_fact.set_fact(ffc).await
 }

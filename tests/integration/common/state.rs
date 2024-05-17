@@ -4,12 +4,12 @@ use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::BALANCE;
+use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use rstest::fixture;
 use snos::crypto::pedersen::PedersenHash;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::FactFetchingContext;
 use starknet_api::core::{ClassHash, ContractAddress};
-use starknet_api::state::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use super::block_utils::{test_state_cairo0, test_state_cairo1};
@@ -61,9 +61,9 @@ pub async fn cairo0_initial_state(
 
 #[derive(Debug)]
 pub struct Cairo1Contracts {
-    pub account_without_validations: cairo_lang_starknet::contract_class::ContractClass,
-    pub test_contract: cairo_lang_starknet::contract_class::ContractClass,
-    pub erc20_contract: cairo_lang_starknet::contract_class::ContractClass,
+    pub account_without_validations: CasmContractClass,
+    pub test_contract: CasmContractClass,
+    pub erc20_contract: CasmContractClass,
 }
 
 #[derive(Debug)]
@@ -71,7 +71,7 @@ pub struct Cairo1InitialState {
     pub state: CachedState<DictStateReader>,
     pub contracts: Cairo1Contracts,
     pub deployed_addresses: Vec<ContractAddress>,
-    pub contract_classes: HashMap<ClassHash, cairo_lang_starknet::contract_class::ContractClass>,
+    pub contract_classes: HashMap<ClassHash, CasmContractClass>,
 }
 
 #[fixture]
