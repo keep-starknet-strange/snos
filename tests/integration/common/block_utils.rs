@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use blockifier::abi::abi_utils::get_fee_token_var_address;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
+use blockifier::execution::contract_class::ContractClassV1;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::{State as _, StateReader};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
@@ -71,8 +72,9 @@ pub fn deprecated_contract_class_api2vm(
 /// Note that this makes a serialize -> deserialize pass, so it is not cheap!
 pub fn contract_class_cl2vm(
     cl_class: &CasmContractClass,
-) -> serde_json::Result<blockifier::execution::contract_class::ContractClass> {
-    todo!();
+) -> Result<blockifier::execution::contract_class::ContractClass, cairo_vm::types::errors::program_errors::ProgramError> {
+    let v1_class = ContractClassV1::try_from(cl_class.clone()).unwrap(); // TODO: type issue?
+    Ok(v1_class.into())
 }
 
 fn stark_felt_from_bytes(bytes: Vec<u8>) -> StarkFelt {
