@@ -1,8 +1,7 @@
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
-// use cairo_lang_starknet::contract_class::ContractClass;
+use cairo_lang_starknet::contract_class::ContractClass;
 use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::{Deserialize, Serialize};
-use starknet_api::state::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use crate::starkware_utils::serializable::SerializationPrefix;

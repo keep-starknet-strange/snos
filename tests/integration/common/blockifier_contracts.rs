@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use starknet_api::state::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use crate::common::contract_fixtures::{get_compiled_class, get_deprecated_compiled_class};
@@ -21,7 +20,7 @@ pub fn get_deprecated_erc20_contract_class() -> DeprecatedCompiledClass {
     get_deprecated_compiled_class(&contract_rel_path)
 }
 
-pub fn get_feature_contract_class(contract_name: &str) -> ContractClass {
+pub fn get_feature_contract_class(contract_name: &str) -> cairo_lang_starknet::contract_class::ContractClass {
     let filename = format!("{contract_name}_compiled.json");
     let contract_rel_path =
         Path::new("blockifier_contracts").join("feature_contracts").join("cairo1").join("compiled").join(filename);
@@ -29,7 +28,7 @@ pub fn get_feature_contract_class(contract_name: &str) -> ContractClass {
     get_compiled_class(&contract_rel_path)
 }
 
-pub fn get_erc20_contract_class() -> ContractClass {
+pub fn get_erc20_contract_class() -> cairo_lang_starknet::contract_class::ContractClass {
     let contract_rel_path = Path::new("blockifier_contracts")
         .join("ERC20_without_some_syscalls")
         .join("ERC20")

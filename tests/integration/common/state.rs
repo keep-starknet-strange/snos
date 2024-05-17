@@ -61,9 +61,9 @@ pub async fn cairo0_initial_state(
 
 #[derive(Debug)]
 pub struct Cairo1Contracts {
-    pub account_without_validations: ContractClass,
-    pub test_contract: ContractClass,
-    pub erc20_contract: ContractClass,
+    pub account_without_validations: cairo_lang_starknet::contract_class::ContractClass,
+    pub test_contract: cairo_lang_starknet::contract_class::ContractClass,
+    pub erc20_contract: cairo_lang_starknet::contract_class::ContractClass,
 }
 
 #[derive(Debug)]
@@ -71,7 +71,7 @@ pub struct Cairo1InitialState {
     pub state: CachedState<DictStateReader>,
     pub contracts: Cairo1Contracts,
     pub deployed_addresses: Vec<ContractAddress>,
-    pub contract_classes: HashMap<ClassHash, ContractClass>,
+    pub contract_classes: HashMap<ClassHash, cairo_lang_starknet::contract_class::ContractClass>,
 }
 
 #[fixture]

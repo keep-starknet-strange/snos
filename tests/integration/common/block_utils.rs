@@ -5,10 +5,6 @@ use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::{State as _, StateReader};
-use blockifier::test_utils::contracts::FeatureContract;
-use blockifier::test_utils::contracts::FeatureContract::{
-    AccountWithLongValidate, AccountWithoutValidations, Empty, FaultyAccount, TestContract,
-};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
@@ -34,6 +30,7 @@ use starknet_crypto::FieldElement;
 use crate::common::transaction_utils::to_felt252;
 
 pub fn compiled_class(class_hash: ClassHash) -> CasmContractClass {
+    /*
     let variants = vec![
         AccountWithLongValidate(CairoVersion::Cairo1),
         AccountWithoutValidations(CairoVersion::Cairo1),
@@ -49,39 +46,8 @@ pub fn compiled_class(class_hash: ClassHash) -> CasmContractClass {
         }
     }
     panic!("No class found for hash: {:?}", class_hash);
-}
-
-fn override_class_hash(contract: &FeatureContract) -> StarkHash {
-    match contract {
-        // FeatureContract::AccountWithLongValidate(_) => ACCOUNT_LONG_VALIDATE_BASE,
-        FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0) => {
-            let fe = FieldElement::from_dec_str(
-                "646245114977324210659279014519951538684823368221946044944492064370769527799",
-            )
-            .unwrap();
-            StarkHash::from(fe)
-        }
-        // FeatureContract::Empty(_) => EMPTY_CONTRACT_BASE,
-        FeatureContract::ERC20 => {
-            let fe = FieldElement::from_dec_str(
-                "561405978155448065164184136501758613494542063826668571171916978663245519697",
-            )
-            .unwrap();
-            StarkHash::from(fe)
-        }
-        // FeatureContract::FaultyAccount(_) => FAULTY_ACCOUNT_BASE,
-        // FeatureContract::LegacyTestContract => LEGACY_CONTRACT_BASE,
-        // FeatureContract::SecurityTests => SECURITY_TEST_CONTRACT_BASE,
-        FeatureContract::TestContract(CairoVersion::Cairo0) => {
-            let fe = FieldElement::from_dec_str(
-                "2988696213549450938938462798157547750390790722284970546348726091875993395870",
-            )
-            .unwrap();
-            StarkHash::from(fe)
-        }
-
-        _ => contract.get_class_hash().0,
-    }
+    */
+    todo!()
 }
 
 // TODO: move / organize, clean up types
@@ -103,8 +69,8 @@ pub fn deprecated_contract_class_api2vm(
 
 /// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v1 only).
 /// Note that this makes a serialize -> deserialize pass, so it is not cheap!
-pub fn contract_class_api2vm(
-    api_class: &starknet_api::state::ContractClass,
+pub fn contract_class_cl2vm(
+    api_class: &cairo_lang_starknet::contract_class::ContractClass,
 ) -> serde_json::Result<blockifier::execution::contract_class::ContractClass> {
     /*
     let serialized = serde_json::to_string(&api_class)?;
@@ -229,18 +195,21 @@ where
 pub async fn test_state_cairo1<S, H>(
     block_context: &BlockContext,
     initial_balance_all_accounts: u128,
-    erc20_class: &ContractClass,
-    contract_classes: &[&ContractClass],
+    erc20_class: &cairo_lang_starknet::contract_class::ContractClass,
+    contract_classes: &[&cairo_lang_starknet::contract_class::ContractClass],
     ffc: &mut FactFetchingContext<S, H>,
 ) -> Result<
-    (CachedState<DictStateReader>, Vec<ContractAddress>, HashMap<ClassHash, ContractClass>),
+    (
+        CachedState<DictStateReader>,
+        Vec<ContractAddress>,
+        HashMap<ClassHash, cairo_lang_starknet::contract_class::ContractClass>
+    ),
     StorageError,
 >
 where
     S: Storage,
     H: HashFunctionType,
 {
-    println!("test_state_no_feature_contracts()");
     // we use DictStateReader as a container for all the state we want to collect
     let mut state = DictStateReader::default();
 
@@ -248,7 +217,7 @@ where
     let erc20_class_hash_bytes = write_contract_class_fact(erc20_class.clone(), ffc).await?;
     let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
 
-    state.class_hash_to_class.insert(erc20_class_hash, contract_class_api2vm(erc20_class).unwrap());
+    state.class_hash_to_class.insert(erc20_class_hash, contract_class_cl2vm(erc20_class).unwrap());
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
 
@@ -263,7 +232,7 @@ where
         let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
         println!(" - class_hash: {:?}", class_hash);
 
-        let vm_class = contract_class_api2vm(contract).unwrap();
+        let vm_class = contract_class_cl2vm(contract).unwrap();
         state.class_hash_to_class.insert(class_hash, vm_class);
 
         // TODO: review -- this just seems to be generating a random address based on our seed
