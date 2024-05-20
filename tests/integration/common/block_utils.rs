@@ -28,7 +28,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::{contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
 
-use crate::common::state::FeeContracts;
+use crate::common::state::{ContractDeployment, DeprecatedContractDeployment, FeeContracts};
 use crate::common::transaction_utils::to_felt252;
 
 use super::state::TestState;
@@ -108,8 +108,8 @@ where
     deployed_deprecated_contract_classes.insert(erc20_class_hash, erc20_class.clone());
 
     let mut deployed_contract_classes = HashMap::new();
-    let mut cairo0_contracts = HashMap::<String, (DeprecatedCompiledClass, ContractAddress)>::new();
-    let mut cairo1_contracts = HashMap::<String, (CasmContractClass, ContractAddress)>::new();
+    let mut cairo0_contracts = HashMap::new();
+    let mut cairo1_contracts = HashMap::new();
 
     // Deploy deprecated contracts
     for (name, contract) in deprecated_contract_classes {
@@ -124,7 +124,11 @@ where
         deployed_addresses.push(address);
         deployed_deprecated_contract_classes.insert(class_hash, (*contract).clone()); // TODO: remove
 
-        cairo0_contracts.insert(name.to_string(), ((*contract).clone(), address));
+        cairo0_contracts.insert(name.to_string(), DeprecatedContractDeployment {
+            class: (*contract).clone(),
+            class_hash,
+            address,
+        });
     }
 
     // Deploy non-deprecated contracts
@@ -139,8 +143,12 @@ where
         state.address_to_class_hash.insert(address, class_hash);
         deployed_addresses.push(address);
 
-        cairo1_contracts.insert(name.to_string(), ((*contract).clone(), address));
         deployed_contract_classes.insert(class_hash, (*contract).clone());
+        cairo1_contracts.insert(name.to_string(), ContractDeployment {
+            class: (*contract).clone(),
+            class_hash,
+            address,
+        });
     }
 
     let mut addresses: HashSet<ContractAddress> = Default::default();

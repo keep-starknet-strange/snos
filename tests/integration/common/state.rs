@@ -18,14 +18,28 @@ use crate::common::blockifier_contracts::{get_deprecated_erc20_contract_class, g
 
 #[derive(Debug)]
 pub struct TestState {
-    pub cairo0_contracts: HashMap<String, (DeprecatedCompiledClass, ContractAddress)>,
-    pub cairo1_contracts: HashMap<String, (CasmContractClass, ContractAddress)>,
+    pub cairo0_contracts: HashMap<String, DeprecatedContractDeployment>,
+    pub cairo1_contracts: HashMap<String, ContractDeployment>,
     pub fee_contracts: FeeContracts,
 
     pub blockifier_state: CachedState<DictStateReader>,
     pub deployed_addresses: Vec<ContractAddress>,
     pub contract_classes: HashMap<ClassHash, CasmContractClass>,
     pub deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>
+}
+
+#[derive(Debug)]
+pub struct ContractDeployment {
+    pub class_hash: ClassHash,
+    pub address: ContractAddress,
+    pub class: CasmContractClass,
+}
+
+#[derive(Debug)]
+pub struct DeprecatedContractDeployment {
+    pub class_hash: ClassHash,
+    pub address: ContractAddress,
+    pub class: DeprecatedCompiledClass,
 }
 
 /// ERC20 contract deployments for Eth and Strk tokens

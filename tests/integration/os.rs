@@ -1,7 +1,6 @@
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::block_context::BlockContext;
 use blockifier::invoke_tx_args;
-use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::{create_calldata, CairoVersion, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
@@ -25,8 +24,8 @@ async fn return_result_cairo0_account(
 ) {
     let initial_state = initial_state.await;
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().1;
-    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().1;
+    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
@@ -70,8 +69,8 @@ async fn return_result_cairo1_account(
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
-    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().1;
-    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().1;
+    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
 
     let return_result_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
@@ -112,8 +111,8 @@ async fn syscalls_cairo1(
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
-    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().1;
-    let contract_address = initial_state.cairo1_contracts.get("test_contract").unwrap().1;
+    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.cairo1_contracts.get("test_contract").unwrap().address;
 
     // test_emit_event
     let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
@@ -166,7 +165,7 @@ async fn syscalls_cairo1(
     });
 
     // test_deploy
-    let test_contract_class_hash = FeatureContract::TestContract(CairoVersion::Cairo1).get_class_hash().0;
+    let test_contract_class_hash = initial_state.cairo1_contracts.get("test_contract").unwrap().class_hash.0;
     let entrypoint_args = &[
         test_contract_class_hash, // class hash
         stark_felt!(255_u8),      // contract_address_salt
