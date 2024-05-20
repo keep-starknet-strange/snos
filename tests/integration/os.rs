@@ -12,38 +12,25 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{cairo0_initial_state, cairo1_initial_state, Cairo0InitialState, Cairo1InitialState};
+use crate::common::state::{cairo1_initial_state, initial_state, Cairo0InitialState, Cairo1InitialState, TestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn test_cairo0_state(#[future] cairo0_initial_state: Cairo0InitialState) {
-    let cairo0_initial_state = cairo0_initial_state.await;
-
-    println!("{}", serde_json::to_string(&cairo0_initial_state.contracts.test_contract).unwrap());
-}
-
-#[rstest]
-// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn return_result_cairo0_account_no_feature_contracts(
-    #[future] cairo0_initial_state: Cairo0InitialState,
+async fn return_result_cairo0_account(
+    #[future] initial_state: TestState,
     block_context: BlockContext,
     max_fee: Fee,
 ) {
-    let cairo0_initial_state = cairo0_initial_state.await;
+    let initial_state = initial_state.await;
 
     // temp assertion about a brittle / WIP assumption (that we are deploying two contracts)
-    assert_eq!(cairo0_initial_state.deployed_addresses.len(), 2);
-    let sender_address = cairo0_initial_state.deployed_addresses[0];
-    let contract_address = cairo0_initial_state.deployed_addresses[1];
+    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().1;
+    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().1;
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
-
-    let selector = selector_from_name("__execute__");
-    println!("selector for {}: {:?}", "__execute__", selector);
 
     let return_result_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
@@ -58,10 +45,10 @@ async fn return_result_cairo0_account_no_feature_contracts(
     });
 
     let r = execute_txs_and_run_os(
-        cairo0_initial_state.state,
+        initial_state.blockifier_state,
         block_context,
         vec![return_result_tx],
-        cairo0_initial_state.deprecated_contract_classes,
+        initial_state.deprecated_contract_classes,
     )
     .await;
 

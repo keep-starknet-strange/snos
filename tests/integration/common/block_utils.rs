@@ -28,7 +28,10 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::{contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
 
+use crate::common::state::FeeContracts;
 use crate::common::transaction_utils::to_felt252;
+
+use super::state::TestState;
 
 pub fn compiled_class(class_hash: ClassHash) -> CasmContractClass {
     /*
@@ -97,22 +100,19 @@ pub fn fund_account(
     }
 }
 
-/// Returns test state for cairo0-based tests
-pub async fn test_state_cairo0<S, H>(
+/// Returns test state used for all tests
+pub async fn test_state<S, H>(
     block_context: &BlockContext,
     initial_balance_all_accounts: u128,
-    erc20_class: &DeprecatedCompiledClass,
-    contract_classes: &[&DeprecatedCompiledClass],
+    erc20_class: DeprecatedCompiledClass,
+    deprecated_contract_classes: &[(&str, &DeprecatedCompiledClass)],
+    contract_classes: &[(&str, &CasmContractClass)],
     ffc: &mut FactFetchingContext<S, H>,
-) -> Result<
-    (CachedState<DictStateReader>, Vec<ContractAddress>, HashMap<ClassHash, DeprecatedContractClass>),
-    StorageError,
->
+) -> Result<TestState, StorageError>
 where
     S: Storage,
     H: HashFunctionType,
 {
-    println!("test_state_no_feature_contracts()");
     // we use DictStateReader as a container for all the state we want to collect
     let mut state = DictStateReader::default();
 
@@ -120,31 +120,46 @@ where
     let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), ffc).await?;
     let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
 
-    state.class_hash_to_class.insert(erc20_class_hash, deprecated_contract_class_api2vm(erc20_class).unwrap());
+    state.class_hash_to_class.insert(erc20_class_hash, deprecated_contract_class_api2vm(&erc20_class).unwrap());
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
 
     let mut deployed_addresses = Vec::new();
-    let mut deprecated_contract_classes = HashMap::new();
-    deprecated_contract_classes.insert(erc20_class_hash, (*erc20_class).clone());
+    let mut deployed_deprecated_contract_classes = HashMap::new();
+    deployed_deprecated_contract_classes.insert(erc20_class_hash, erc20_class.clone());
 
-    // Set up the rest of the requested contracts.
-    for contract in contract_classes {
-        println!("processing contract...");
+    let mut cairo0_contracts = HashMap::<String, (DeprecatedCompiledClass, ContractAddress)>::new();
+    let mut cairo1_contracts = HashMap::<String, (CasmContractClass, ContractAddress)>::new();
+
+    // Deploy deprecated contracts
+    for (name, contract) in deprecated_contract_classes {
         let class_hash_bytes = write_deprecated_compiled_class_fact((*contract).clone(), ffc).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
-        println!(" - class_hash: {:?}", class_hash);
 
         let vm_class = deprecated_contract_class_api2vm(contract).unwrap();
         state.class_hash_to_class.insert(class_hash, vm_class);
 
-        // TODO: review -- this just seems to be generating a random address based on our seed
-        // so it should just need a unique input, which our class hash should give us
         let address = contract_address!(class_hash.0);
         state.address_to_class_hash.insert(address, class_hash);
-        println!(" - address: {:?}", address);
         deployed_addresses.push(address);
-        deprecated_contract_classes.insert(class_hash, (*contract).clone()); // TODO: remove
+        deployed_deprecated_contract_classes.insert(class_hash, (*contract).clone()); // TODO: remove
+
+        cairo0_contracts.insert(name.to_string(), ((*contract).clone(), address));
+    }
+
+    // Deploy non-deprecated contracts
+    for (name, contract) in contract_classes {
+        let class_hash_bytes = write_compiled_class_fact((*contract).clone(), ffc).await?;
+        let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
+
+        let vm_class = contract_class_cl2vm(contract).unwrap();
+        state.class_hash_to_class.insert(class_hash, vm_class);
+
+        let address = contract_address!(class_hash.0);
+        state.address_to_class_hash.insert(address, class_hash);
+        deployed_addresses.push(address);
+
+        cairo1_contracts.insert(name.to_string(), ((*contract).clone(), address));
     }
 
     let mut addresses: HashSet<ContractAddress> = Default::default();
@@ -177,7 +192,18 @@ where
         println!("   - {:?} -> <omitted>", k);
     }
 
-    Ok((CachedState::from(state), deployed_addresses, deprecated_contract_classes))
+    Ok(TestState {
+        cairo0_contracts,
+        cairo1_contracts,
+        fee_contracts: FeeContracts {
+            erc20_contract: erc20_class,
+            eth_fee_token_address: block_context.fee_token_address(&FeeType::Eth),
+            strk_fee_token_address: block_context.fee_token_address(&FeeType::Strk),
+        },
+        blockifier_state: CachedState::from(state),
+        deployed_addresses,
+        deprecated_contract_classes: deployed_deprecated_contract_classes,
+    })
 }
 
 /// Returns test state for cairo1-based tests
@@ -297,7 +323,7 @@ pub async fn os_hints(
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
-            V0(_) => {}
+            V0(_) => {} // deprecated_compiled_classes are passed in by caller
             V1(_) => {
                 let class = compiled_class(class_hash);
                 let compiled_class_hash = class.compiled_class_hash();
