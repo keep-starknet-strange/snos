@@ -12,7 +12,7 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{cairo1_initial_state, initial_state, Cairo1InitialState, TestState};
+use crate::common::state::{initial_state, TestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
@@ -25,7 +25,6 @@ async fn return_result_cairo0_account(
 ) {
     let initial_state = initial_state.await;
 
-    // temp assertion about a brittle / WIP assumption (that we are deploying two contracts)
     let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().1;
     let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().1;
 
@@ -62,17 +61,17 @@ async fn return_result_cairo0_account(
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn return_result_cairo1_account(
-    #[future] cairo1_initial_state: Cairo1InitialState,
+    #[future] initial_state: TestState,
     block_context: BlockContext,
     max_fee: Fee,
 ) {
-    let cairo1_initial_state = cairo1_initial_state.await;
+    let initial_state = initial_state.await;
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
-    let sender_address = cairo1_initial_state.deployed_addresses[0];
-    let contract_address = cairo1_initial_state.deployed_addresses[1];
+    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().1;
+    let contract_address = initial_state.cairo1_contracts.get("test_contract").unwrap().1;
 
     let return_result_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
@@ -87,12 +86,13 @@ async fn return_result_cairo1_account(
     });
 
     let r = execute_txs_and_run_os(
-        cairo1_initial_state.state,
+        initial_state.blockifier_state,
         block_context,
         vec![return_result_tx],
-        Default::default(), // TODO
-        Default::default(), // TODO
-    ).await;
+        initial_state.contract_classes,
+        initial_state.deprecated_contract_classes,
+    )
+    .await;
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
@@ -103,17 +103,17 @@ async fn return_result_cairo1_account(
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn syscalls_cairo1(
-    #[future] cairo1_initial_state: Cairo1InitialState,
+    #[future] initial_state: TestState,
     block_context: BlockContext,
     max_fee: Fee,
 ) {
-    let cairo1_initial_state = cairo1_initial_state.await;
+    let initial_state = initial_state.await;
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
-    let sender_address = cairo1_initial_state.deployed_addresses[0];
-    let contract_address = cairo1_initial_state.deployed_addresses[1];
+    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().1;
+    let contract_address = initial_state.cairo1_contracts.get("test_contract").unwrap().1;
 
     // test_emit_event
     let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
@@ -193,12 +193,13 @@ async fn syscalls_cairo1(
     ];
 
     let r = execute_txs_and_run_os(
-        cairo1_initial_state.state,
+        initial_state.blockifier_state,
         block_context,
         txs,
-        Default::default(), // TODO
-        Default::default(), // TODO
-    ).await;
+        initial_state.contract_classes,
+        initial_state.deprecated_contract_classes,
+    )
+    .await;
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
