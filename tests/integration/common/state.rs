@@ -47,29 +47,6 @@ pub struct Cairo0Contracts {
     pub erc20_contract_address: Option<ContractAddress>,
 }
 
-#[derive(Debug)]
-pub struct Cairo0InitialState {
-    pub state: CachedState<DictStateReader>,
-    pub contracts: Cairo0Contracts,
-    pub deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
-}
-
-#[fixture]
-pub fn cairo0_contracts() -> Cairo0Contracts {
-    let account_without_validations = get_deprecated_feature_contract_class("account_with_dummy_validate");
-    let test_contract = get_deprecated_feature_contract_class("test_contract");
-    let erc20_contract = get_deprecated_erc20_contract_class();
-
-    Cairo0Contracts {
-        account_without_validations,
-        test_contract,
-        erc20_contract,
-        account_without_validations_address: None,
-        test_contract_address: None,
-        erc20_contract_address: None,
-    }
-}
-
 #[fixture]
 pub async fn initial_state(block_context: BlockContext) -> TestState {
     let ffc = &mut FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());

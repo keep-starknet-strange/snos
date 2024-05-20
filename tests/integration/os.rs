@@ -12,7 +12,7 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{cairo1_initial_state, initial_state, Cairo0InitialState, Cairo1InitialState, TestState};
+use crate::common::state::{cairo1_initial_state, initial_state, Cairo1InitialState, TestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
