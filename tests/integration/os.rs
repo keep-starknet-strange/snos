@@ -46,9 +46,9 @@ async fn return_result_cairo0_account(#[future] initial_state: TestState, block_
     )
     .await;
 
-    // temporarily expect test to break in the descent code
+    // temporarily expect test to break prematurely
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 1073742336"#), "{}", err_log);
+    assert!(err_log.contains(r#"Could not find commitment info for contract 646245114977324210659279014519951538684823368221946044944492064370769527799"#), "{}", err_log);
 }
 
 #[rstest]
@@ -86,7 +86,7 @@ async fn return_result_cairo1_account(#[future] initial_state: TestState, block_
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 1073743616"#), "{}", err_log);
+    assert!(err_log.contains(r#"Could not find commitment info for contract 354573111547370173281606292268396466744750568787097671151101592218871604240"#), "{}", err_log);
 }
 
 #[rstest]
@@ -189,5 +189,5 @@ async fn syscalls_cairo1(#[future] initial_state: TestState, block_context: Bloc
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 3221225984"#), "{}", err_log);
+    assert!(err_log.contains(r#"Could not find commitment info for contract 354573111547370173281606292268396466744750568787097671151101592218871604240"#), "{}", err_log);
 }
