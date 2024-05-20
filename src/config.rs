@@ -28,12 +28,16 @@ pub const DEFAULT_COMPILED_OS: &str = "build/os_latest.json";
 pub const DEFAULT_INPUT_PATH: &str = "build/input.json";
 pub const DEFAULT_COMPILER_VERSION: &str = "0.12.2";
 pub const DEFAULT_STORAGE_TREE_HEIGHT: usize = 251;
+pub const COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT: usize = 251;
+pub const CONTRACT_STATES_COMMITMENT_TREE_HEIGHT: usize = 251;
 pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
 // TODO: update with relevant address
 pub const DEFAULT_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const DEFAULT_DEPRECATED_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const SEQUENCER_ADDR_0_13_0: &str = "0x4acb67f8e29379b475ccc408fc8269c116f64b4fe5a625644c507d7df07132";
 pub const SN_GOERLI: &str = "534e5f474f45524c49";
+pub const CONTRACT_ADDRESS_BITS: usize = 251;
+pub const CONTRACT_CLASS_LEAF_VERSION: &[u8] = "CONTRACT_CLASS_LEAF_V0".as_bytes();
 
 #[serde_as]
 #[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]

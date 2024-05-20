@@ -1,9 +1,13 @@
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet::contract_class::ContractClass;
+use cairo_vm::Felt252;
 use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::{Deserialize, Serialize};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
+use crate::config::CONTRACT_CLASS_LEAF_VERSION;
+use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
+use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::starkware_utils::serializable::SerializationPrefix;
 use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage};
 
@@ -84,5 +88,51 @@ where
             compute_class_hash(&contract_dump).unwrap_or_else(|e| panic!("Failed to compute class hash: {}", e));
 
         computed_class_hash.hash().0.to_be_bytes().to_vec()
+    }
+}
+
+/// Represents a leaf in the Starknet contract class tree.
+#[derive(Deserialize, Clone, Debug, Serialize, PartialEq)]
+pub struct ContractClassLeaf {
+    compiled_class_hash: Felt252,
+}
+
+impl SerializationPrefix for ContractClassLeaf {}
+
+impl ContractClassLeaf {
+    pub fn create(compiled_class_hash: Felt252) -> Self {
+        Self { compiled_class_hash }
+    }
+
+    pub fn empty() -> Self {
+        Self { compiled_class_hash: Felt252::ZERO }
+    }
+}
+
+impl<S, H> Fact<S, H> for ContractClassLeaf
+where
+    H: HashFunctionType,
+    S: Storage,
+{
+    /// Computes the hash of the contract class leaf.
+    fn hash(&self) -> Vec<u8> {
+        if <ContractClassLeaf as LeafFact<S, H>>::is_empty(self) {
+            return EMPTY_NODE_HASH.to_vec();
+        }
+
+        // Return H(CONTRACT_CLASS_LEAF_VERSION, compiled_class_hash).
+        H::hash(CONTRACT_CLASS_LEAF_VERSION, &self.compiled_class_hash.to_bytes_be())
+    }
+}
+
+impl DbObject for ContractClassLeaf {}
+
+impl<S, H> LeafFact<S, H> for ContractClassLeaf
+where
+    H: HashFunctionType,
+    S: Storage,
+{
+    fn is_empty(&self) -> bool {
+        self.compiled_class_hash == Felt252::ZERO
     }
 }

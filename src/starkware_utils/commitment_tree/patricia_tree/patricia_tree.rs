@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
+
 use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::{BinaryFactDict, BinaryFactTree};
 use crate::starkware_utils::commitment_tree::binary_fact_tree_node::BinaryFactTreeNode;
@@ -12,7 +14,7 @@ use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
 
 pub const EMPTY_NODE_HASH: [u8; 32] = [0; 32];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PatriciaTree {
     pub root: Vec<u8>,
     pub height: Height,

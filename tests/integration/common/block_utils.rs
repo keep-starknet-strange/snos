@@ -12,8 +12,9 @@ use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use snos::execution::helper::ExecutionHelperWrapper;
-use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
+use snos::io::input::{StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
+use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::utils::{write_compiled_class_fact, write_deprecated_compiled_class_fact};
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 use snos::storage::storage_utils::build_starknet_storage;
@@ -186,8 +187,8 @@ pub async fn os_hints(
                 to_felt252(&blockifier_state.get_class_hash_at(address).unwrap().0)
             };
             let contract_state = ContractState {
-                contract_hash,
-                storage_commitment_tree: StorageCommitment::default(), // TODO
+                contract_hash: contract_hash.to_bytes_be().to_vec(),
+                storage_commitment_tree: todo!(),                      // TODO
                 nonce: 0.into(),                                       // TODO
             };
             (to_felt252(address.0.key()), contract_state)
@@ -212,14 +213,14 @@ pub async fn os_hints(
         };
     }
 
-    contracts.insert(Felt252::from(0), ContractState::default());
-    contracts.insert(Felt252::from(1), ContractState::default());
+    contracts.insert(Felt252::from(0), todo!());
+    contracts.insert(Felt252::from(1), todo!());
 
     println!("contracts: {:?}\ndeprecated_compiled_classes: {:?}", contracts.len(), deprecated_compiled_classes.len());
 
     println!("contracts to class_hash");
     for (a, c) in &contracts {
-        println!("\t{} -> {}", a, c.contract_hash);
+        println!("\t{} -> {:?}", a, c.contract_hash);
     }
 
     println!("deprecated classes");
