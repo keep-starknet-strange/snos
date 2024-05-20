@@ -7,7 +7,6 @@ use blockifier::execution::contract_class::ContractClassV1;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::{State as _, StateReader};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
-use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
@@ -19,14 +18,12 @@ use snos::starknet::business_logic::utils::{write_compiled_class_fact, write_dep
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 use snos::storage::storage_utils::build_starknet_storage;
 use snos::utils::felt_api2vm;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedCompiledClass, ContractClass as DeprecatedContractClass,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::state::ContractClass;
 use starknet_api::{contract_address, patricia_key, stark_felt};
-use starknet_crypto::FieldElement;
 
 use super::state::TestState;
 use crate::common::state::{ContractDeployment, DeprecatedContractDeployment, FeeContracts};

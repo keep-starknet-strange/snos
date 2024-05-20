@@ -1,7 +1,6 @@
-use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::block_context::BlockContext;
 use blockifier::invoke_tx_args;
-use blockifier::test_utils::{create_calldata, CairoVersion, NonceManager};
+use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use rstest::rstest;
