@@ -161,26 +161,6 @@ where
         fund_account(block_context, *address, initial_balance_all_accounts, &mut state);
     }
 
-    println!("State dump:");
-    println!(" - address_to_nonce:");
-    for (k, v) in &state.address_to_nonce {
-        println!("   - {:?} -> {:?}", k, v);
-    }
-    println!(" - address_to_class_hash:");
-    for (k, v) in &state.address_to_class_hash {
-        println!("   - {:?} -> {:?}", k, v);
-    }
-    println!(" - class_hash_to_class:");
-    for (k, _v) in &state.class_hash_to_class {
-        // println!("   - {:?} -> {:?}", k, v);
-        println!("   - {:?} -> <omitted>", k);
-    }
-    println!(" - class_hash_to_compiled_class_hash:");
-    for (k, _v) in &state.class_hash_to_compiled_class_hash {
-        // println!("   - {:?} -> {:?}", k, v);
-        println!("   - {:?} -> <omitted>", k);
-    }
-
     Ok(TestState {
         cairo0_contracts,
         cairo1_contracts,
@@ -194,87 +174,6 @@ where
         contract_classes: deployed_contract_classes,
         deprecated_contract_classes: deployed_deprecated_contract_classes,
     })
-}
-
-/// Returns test state for cairo1-based tests
-pub async fn test_state_cairo1<S, H>(
-    block_context: &BlockContext,
-    initial_balance_all_accounts: u128,
-    erc20_class: &DeprecatedContractClass,
-    contract_classes: &[&CasmContractClass],
-    ffc: &mut FactFetchingContext<S, H>,
-) -> Result<
-    (CachedState<DictStateReader>, Vec<ContractAddress>, HashMap<ClassHash, DeprecatedContractClass>),
-    StorageError,
->
-where
-    S: Storage,
-    H: HashFunctionType,
-{
-    // we use DictStateReader as a container for all the state we want to collect
-    let mut state = DictStateReader::default();
-
-    // Declare and deploy account and ERC20 contracts.
-    let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), ffc).await?;
-    let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
-
-    state.class_hash_to_class.insert(erc20_class_hash, deprecated_contract_class_api2vm(erc20_class).unwrap());
-    state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
-    state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
-
-    let mut deployed_addresses = Vec::new();
-    let mut deprecated_contract_classes = HashMap::new();
-    deprecated_contract_classes.insert(erc20_class_hash, (*erc20_class).clone());
-
-    // Set up the rest of the requested contracts.
-    for contract in contract_classes {
-        println!("processing contract...");
-        let class_hash_bytes = write_compiled_class_fact((*contract).clone(), ffc).await?;
-        let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
-        println!(" - class_hash: {:?}", class_hash);
-
-        let vm_class = contract_class_cl2vm(contract).unwrap();
-        state.class_hash_to_class.insert(class_hash, vm_class);
-
-        // TODO: review -- this just seems to be generating a random address based on our seed
-        // so it should just need a unique input, which our class hash should give us
-        let address = contract_address!(class_hash.0);
-        state.address_to_class_hash.insert(address, class_hash);
-        println!(" - address: {:?}", address);
-        deployed_addresses.push(address);
-    }
-
-    let mut addresses: HashSet<ContractAddress> = Default::default();
-    for address in state.address_to_class_hash.keys().chain(state.address_to_nonce.keys()) {
-        addresses.insert(*address);
-    }
-
-    // fund the accounts.
-    for address in addresses.iter() {
-        fund_account(block_context, *address, initial_balance_all_accounts, &mut state);
-    }
-
-    println!("State dump:");
-    println!(" - address_to_nonce:");
-    for (k, v) in &state.address_to_nonce {
-        println!("   - {:?} -> {:?}", k, v);
-    }
-    println!(" - address_to_class_hash:");
-    for (k, v) in &state.address_to_class_hash {
-        println!("   - {:?} -> {:?}", k, v);
-    }
-    println!(" - class_hash_to_class:");
-    for (k, _v) in &state.class_hash_to_class {
-        // println!("   - {:?} -> {:?}", k, v);
-        println!("   - {:?} -> <omitted>", k);
-    }
-    println!(" - class_hash_to_compiled_class_hash:");
-    for (k, _v) in &state.class_hash_to_compiled_class_hash {
-        // println!("   - {:?} -> {:?}", k, v);
-        println!("   - {:?} -> <omitted>", k);
-    }
-
-    Ok((CachedState::from(state), deployed_addresses, deprecated_contract_classes))
 }
 
 pub async fn os_hints(

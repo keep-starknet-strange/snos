@@ -12,7 +12,7 @@ use snos::storage::storage::FactFetchingContext;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
-use super::block_utils::{test_state, test_state_cairo1};
+use super::block_utils::test_state;
 use crate::common::block_context;
 use crate::common::blockifier_contracts::{get_deprecated_erc20_contract_class, get_deprecated_feature_contract_class, get_feature_contract_class};
 
