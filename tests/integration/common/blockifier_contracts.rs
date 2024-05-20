@@ -28,4 +28,3 @@ pub fn get_feature_contract_class(contract_name: &str) -> CasmContractClass {
     println!("Getting contract at {:?}", contract_rel_path);
     get_compiled_class(&contract_rel_path)
 }
-

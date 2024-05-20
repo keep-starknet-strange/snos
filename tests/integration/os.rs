@@ -17,11 +17,7 @@ use crate::common::transaction_utils::execute_txs_and_run_os;
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn return_result_cairo0_account(
-    #[future] initial_state: TestState,
-    block_context: BlockContext,
-    max_fee: Fee,
-) {
+async fn return_result_cairo0_account(#[future] initial_state: TestState, block_context: BlockContext, max_fee: Fee) {
     let initial_state = initial_state.await;
 
     let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
@@ -59,11 +55,7 @@ async fn return_result_cairo0_account(
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn return_result_cairo1_account(
-    #[future] initial_state: TestState,
-    block_context: BlockContext,
-    max_fee: Fee,
-) {
+async fn return_result_cairo1_account(#[future] initial_state: TestState, block_context: BlockContext, max_fee: Fee) {
     let initial_state = initial_state.await;
 
     let tx_version = TransactionVersion::ZERO;
@@ -101,11 +93,7 @@ async fn return_result_cairo1_account(
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn syscalls_cairo1(
-    #[future] initial_state: TestState,
-    block_context: BlockContext,
-    max_fee: Fee,
-) {
+async fn syscalls_cairo1(#[future] initial_state: TestState, block_context: BlockContext, max_fee: Fee) {
     let initial_state = initial_state.await;
 
     let tx_version = TransactionVersion::ZERO;

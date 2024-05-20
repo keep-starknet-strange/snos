@@ -19,11 +19,11 @@ use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
 use snos::{config, run_os};
 use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::state::StorageKey;
 use starknet_crypto::{pedersen_hash, FieldElement};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use crate::common::block_utils::os_hints;
 
@@ -168,7 +168,8 @@ pub async fn execute_txs_and_run_os(
     contract_classes: HashMap<ClassHash, CasmContractClass>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
 ) -> Result<CairoPie, SnOsError> {
-    let (os_input, execution_helper) = execute_txs(state, &block_context, txs, contract_classes, deprecated_contract_classes).await;
+    let (os_input, execution_helper) =
+        execute_txs(state, &block_context, txs, contract_classes, deprecated_contract_classes).await;
 
     let layout = config::default_layout();
     let result = run_os(config::DEFAULT_COMPILED_OS.to_string(), layout, os_input, block_context, execution_helper);

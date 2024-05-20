@@ -14,7 +14,9 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiled
 
 use super::block_utils::test_state;
 use crate::common::block_context;
-use crate::common::blockifier_contracts::{get_deprecated_erc20_contract_class, get_deprecated_feature_contract_class, get_feature_contract_class};
+use crate::common::blockifier_contracts::{
+    get_deprecated_erc20_contract_class, get_deprecated_feature_contract_class, get_feature_contract_class,
+};
 
 #[derive(Debug)]
 pub struct TestState {
@@ -25,7 +27,7 @@ pub struct TestState {
     pub blockifier_state: CachedState<DictStateReader>,
     pub deployed_addresses: Vec<ContractAddress>,
     pub contract_classes: HashMap<ClassHash, CasmContractClass>,
-    pub deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>
+    pub deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
 }
 
 #[derive(Debug)]
