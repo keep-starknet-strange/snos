@@ -24,6 +24,7 @@ pub struct TestState {
 
     pub blockifier_state: CachedState<DictStateReader>,
     pub deployed_addresses: Vec<ContractAddress>,
+    pub contract_classes: HashMap<ClassHash, CasmContractClass>,
     pub deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>
 }
 

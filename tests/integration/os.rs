@@ -48,6 +48,7 @@ async fn return_result_cairo0_account(
         initial_state.blockifier_state,
         block_context,
         vec![return_result_tx],
+        initial_state.contract_classes,
         initial_state.deprecated_contract_classes,
     )
     .await;
@@ -85,7 +86,13 @@ async fn return_result_cairo1_account(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let r = execute_txs_and_run_os(cairo1_initial_state.state, block_context, vec![return_result_tx], Default::default()).await;
+    let r = execute_txs_and_run_os(
+        cairo1_initial_state.state,
+        block_context,
+        vec![return_result_tx],
+        Default::default(), // TODO
+        Default::default(), // TODO
+    ).await;
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
@@ -185,7 +192,13 @@ async fn syscalls_cairo1(
         test_deploy_tx,
     ];
 
-    let r = execute_txs_and_run_os(cairo1_initial_state.state, block_context, txs, Default::default()).await;
+    let r = execute_txs_and_run_os(
+        cairo1_initial_state.state,
+        block_context,
+        txs,
+        Default::default(), // TODO
+        Default::default(), // TODO
+    ).await;
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);

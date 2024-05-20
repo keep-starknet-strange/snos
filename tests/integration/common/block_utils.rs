@@ -33,27 +33,6 @@ use crate::common::transaction_utils::to_felt252;
 
 use super::state::TestState;
 
-pub fn compiled_class(class_hash: ClassHash) -> CasmContractClass {
-    /*
-    let variants = vec![
-        AccountWithLongValidate(CairoVersion::Cairo1),
-        AccountWithoutValidations(CairoVersion::Cairo1),
-        Empty(CairoVersion::Cairo1),
-        FaultyAccount(CairoVersion::Cairo1),
-        TestContract(CairoVersion::Cairo1),
-    ];
-
-    for c in variants {
-        if c.get_class_hash() == class_hash {
-            let result: Result<CasmContractClass, serde_json::Error> = serde_json::from_str(c.get_raw_class().as_str());
-            return result.unwrap();
-        }
-    }
-    panic!("No class found for hash: {:?}", class_hash);
-    */
-    todo!()
-}
-
 // TODO: move / organize, clean up types
 /// Convert a starknet_api deprecated ContractClass to a cairo-vm ContractClass (v0 only).
 /// Note that this makes a serialize -> deserialize pass, so it is not cheap!
@@ -128,6 +107,7 @@ where
     let mut deployed_deprecated_contract_classes = HashMap::new();
     deployed_deprecated_contract_classes.insert(erc20_class_hash, erc20_class.clone());
 
+    let mut deployed_contract_classes = HashMap::new();
     let mut cairo0_contracts = HashMap::<String, (DeprecatedCompiledClass, ContractAddress)>::new();
     let mut cairo1_contracts = HashMap::<String, (CasmContractClass, ContractAddress)>::new();
 
@@ -160,6 +140,7 @@ where
         deployed_addresses.push(address);
 
         cairo1_contracts.insert(name.to_string(), ((*contract).clone(), address));
+        deployed_contract_classes.insert(class_hash, (*contract).clone());
     }
 
     let mut addresses: HashSet<ContractAddress> = Default::default();
@@ -202,6 +183,7 @@ where
         },
         blockifier_state: CachedState::from(state),
         deployed_addresses,
+        contract_classes: deployed_contract_classes,
         deprecated_contract_classes: deployed_deprecated_contract_classes,
     })
 }
@@ -292,6 +274,7 @@ pub async fn os_hints(
     mut blockifier_state: CachedState<DictStateReader>,
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
+    compiled_classes: HashMap<ClassHash, CasmContractClass>,
     deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
     let deployed_addresses = blockifier_state.to_state_diff().address_to_class_hash;
@@ -315,7 +298,6 @@ pub async fn os_hints(
         })
         .collect();
 
-    let mut compiled_classes: HashMap<Felt252, CasmContractClass> = Default::default();
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
     for c in contracts.keys() {
@@ -325,9 +307,8 @@ pub async fn os_hints(
         match blockifier_class {
             V0(_) => {} // deprecated_compiled_classes are passed in by caller
             V1(_) => {
-                let class = compiled_class(class_hash);
+                let class = compiled_classes.get(&class_hash).expect(format!("No class given for {:?}", class_hash).as_str());
                 let compiled_class_hash = class.compiled_class_hash();
-                compiled_classes.insert(Felt252::from_bytes_be(&class.compiled_class_hash().to_be_bytes()), class);
                 class_hash_to_compiled_class_hash
                     .insert(to_felt252(&class_hash.0), Felt252::from_bytes_be(&compiled_class_hash.to_be_bytes()));
             }
@@ -381,6 +362,9 @@ pub async fn os_hints(
 
     let deprecated_compiled_classes: HashMap<_, _> =
         deprecated_compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
+
+    let compiled_classes: HashMap<_, _> =
+        compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info: Default::default(),
