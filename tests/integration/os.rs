@@ -71,7 +71,7 @@ async fn return_result_cairo1_account(
     let mut nonce_manager = NonceManager::default();
 
     let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().1;
-    let contract_address = initial_state.cairo1_contracts.get("test_contract").unwrap().1;
+    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().1;
 
     let return_result_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
