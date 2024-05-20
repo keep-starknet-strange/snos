@@ -144,8 +144,8 @@ async fn execute_txs(
     mut state: CachedState<DictStateReader>,
     block_context: &BlockContext,
     txs: Vec<AccountTransaction>,
-    contract_classes: HashMap<ClassHash, CasmContractClass>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
+    contract_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
     let upper_bound_block_number = block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER;
     let block_number = StorageKey::from(upper_bound_block_number);
@@ -158,18 +158,18 @@ async fn execute_txs(
     let internal_txs: Vec<_> = txs.iter().map(to_internal_tx).collect();
     let execution_infos =
         txs.into_iter().map(|tx| tx.execute(&mut state, block_context, true, true).unwrap()).collect();
-    os_hints(&block_context, state, internal_txs, execution_infos, contract_classes, deprecated_contract_classes).await
+    os_hints(&block_context, state, internal_txs, execution_infos, deprecated_contract_classes, contract_classes).await
 }
 
 pub async fn execute_txs_and_run_os(
     state: CachedState<DictStateReader>,
     block_context: BlockContext,
     txs: Vec<AccountTransaction>,
-    contract_classes: HashMap<ClassHash, CasmContractClass>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
+    contract_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> Result<CairoPie, SnOsError> {
     let (os_input, execution_helper) =
-        execute_txs(state, &block_context, txs, contract_classes, deprecated_contract_classes).await;
+        execute_txs(state, &block_context, txs, deprecated_contract_classes, contract_classes).await;
 
     let layout = config::default_layout();
     let result = run_os(config::DEFAULT_COMPILED_OS.to_string(), layout, os_input, block_context, execution_helper);

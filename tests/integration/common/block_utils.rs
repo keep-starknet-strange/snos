@@ -160,8 +160,8 @@ where
             strk_fee_token_address: block_context.fee_token_address(&FeeType::Strk),
         },
         blockifier_state: CachedState::from(state),
-        contract_classes: deployed_contract_classes,
-        deprecated_contract_classes: deployed_deprecated_contract_classes,
+        cairo0_compiled_classes: deployed_deprecated_contract_classes,
+        cairo1_compiled_classes: deployed_contract_classes,
     })
 }
 
@@ -170,8 +170,8 @@ pub async fn os_hints(
     mut blockifier_state: CachedState<DictStateReader>,
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
-    compiled_classes: HashMap<ClassHash, CasmContractClass>,
     deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
+    compiled_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
     let deployed_addresses = blockifier_state.to_state_diff().address_to_class_hash;
     let initial_addresses = blockifier_state.state.address_to_class_hash.keys().cloned().collect::<HashSet<_>>();

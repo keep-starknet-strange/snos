@@ -41,8 +41,8 @@ async fn return_result_cairo0_account(#[future] initial_state: TestState, block_
         initial_state.blockifier_state,
         block_context,
         vec![return_result_tx],
-        initial_state.contract_classes,
-        initial_state.deprecated_contract_classes,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
     )
     .await;
 
@@ -79,8 +79,8 @@ async fn return_result_cairo1_account(#[future] initial_state: TestState, block_
         initial_state.blockifier_state,
         block_context,
         vec![return_result_tx],
-        initial_state.contract_classes,
-        initial_state.deprecated_contract_classes,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
     )
     .await;
 
@@ -182,8 +182,8 @@ async fn syscalls_cairo1(#[future] initial_state: TestState, block_context: Bloc
         initial_state.blockifier_state,
         block_context,
         txs,
-        initial_state.contract_classes,
-        initial_state.deprecated_contract_classes,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
     )
     .await;
 

@@ -18,17 +18,31 @@ use crate::common::blockifier_contracts::{
     get_deprecated_erc20_contract_class, get_deprecated_feature_contract_class, get_feature_contract_class,
 };
 
+/// A struct to store all test state that must be maintained between initial setup, blockifier
+/// execution, and SNOS re-execution.
+///
+/// Some of this maintains the deployed contracts in a way that makes test writing easy, and some
+/// of it maintains state that is required for execution.
 #[derive(Debug)]
 pub struct TestState {
+    /// All deployed cairo0 contracts. Currently expects exactly one deploydment per class. String
+    /// represents the contract's name (such as file or class name, but is really arbitrary).
     pub cairo0_contracts: HashMap<String, DeprecatedContractDeployment>,
+    /// All deployed cairo1 contracts. Currently expects exactly one deploydment per class. String
+    /// represents the contract's name (such as file or class name, but is really arbitrary).
     pub cairo1_contracts: HashMap<String, ContractDeployment>,
+    /// The ERC20 fee contract deployments
     pub fee_contracts: FeeContracts,
 
+    /// State initially created for blockifier execution
     pub blockifier_state: CachedState<DictStateReader>,
-    pub contract_classes: HashMap<ClassHash, CasmContractClass>,
-    pub deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
+    /// All cairo0 compiled classes
+    pub cairo0_compiled_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
+    /// All cairo1 compiled classes
+    pub cairo1_compiled_classes: HashMap<ClassHash, CasmContractClass>,
 }
 
+/// Struct representing a deployed cairo1 class
 #[derive(Debug)]
 pub struct ContractDeployment {
     pub class_hash: ClassHash,
@@ -36,6 +50,7 @@ pub struct ContractDeployment {
     pub class: CasmContractClass,
 }
 
+/// Struct representing a deployed cairo0 class
 #[derive(Debug)]
 pub struct DeprecatedContractDeployment {
     pub class_hash: ClassHash,
@@ -43,7 +58,8 @@ pub struct DeprecatedContractDeployment {
     pub class: DeprecatedCompiledClass,
 }
 
-/// ERC20 contract deployments for Eth and Strk tokens
+/// ERC20 contract deployments for Eth and Strk tokens, as well as the compiled class. Note that
+/// this is always a cairo0 contract.
 #[derive(Debug)]
 pub struct FeeContracts {
     pub erc20_contract: DeprecatedCompiledClass,
