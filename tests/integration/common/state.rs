@@ -25,7 +25,6 @@ pub struct TestState {
     pub fee_contracts: FeeContracts,
 
     pub blockifier_state: CachedState<DictStateReader>,
-    pub deployed_addresses: Vec<ContractAddress>,
     pub contract_classes: HashMap<ClassHash, CasmContractClass>,
     pub deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
 }
@@ -52,6 +51,7 @@ pub struct FeeContracts {
     pub strk_fee_token_address: ContractAddress,
 }
 
+/// Fixture to create initial test state in which all test contracts are deployed.
 #[fixture]
 pub async fn initial_state(block_context: BlockContext) -> TestState {
     let ffc = &mut FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());

@@ -47,7 +47,6 @@ pub fn deprecated_contract_class_api2vm(
 }
 
 /// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v1 only).
-/// Note that this makes a serialize -> deserialize pass, so it is not cheap!
 pub fn contract_class_cl2vm(
     cl_class: &CasmContractClass,
 ) -> Result<blockifier::execution::contract_class::ContractClass, cairo_vm::types::errors::program_errors::ProgramError>
@@ -161,7 +160,6 @@ where
             strk_fee_token_address: block_context.fee_token_address(&FeeType::Strk),
         },
         blockifier_state: CachedState::from(state),
-        deployed_addresses,
         contract_classes: deployed_contract_classes,
         deprecated_contract_classes: deployed_deprecated_contract_classes,
     })
