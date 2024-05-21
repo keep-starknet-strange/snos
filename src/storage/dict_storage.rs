@@ -8,7 +8,7 @@ use crate::storage::storage::{Storage, StorageError};
 /// A dictionary-based storage, for testing.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct DictStorage {
-    db: HashMap<Vec<u8>, Vec<u8>>,
+    pub db: HashMap<Vec<u8>, Vec<u8>>,
 }
 
 impl Storage for DictStorage {

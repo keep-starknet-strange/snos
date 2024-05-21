@@ -1,16 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
+use blockifier::abi::abi_utils::get_fee_token_var_address;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
+use blockifier::execution::contract_class::ContractClassV1;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::{State as _, StateReader};
-use blockifier::test_utils::contracts::FeatureContract;
-use blockifier::test_utils::contracts::FeatureContract::{
-    AccountWithLongValidate, AccountWithoutValidations, Empty, FaultyAccount, SecurityTests, TestContract, ERC20,
-};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
-use blockifier::test_utils::initial_test_state::fund_account;
-use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
@@ -18,136 +14,155 @@ use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BU
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::{ContractState, StarknetOsInput, StorageCommitment};
 use snos::io::InternalTransaction;
+use snos::starknet::business_logic::utils::{write_compiled_class_fact, write_deprecated_compiled_class_fact};
+use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 use snos::storage::storage_utils::build_starknet_storage;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::hash::StarkHash;
-use starknet_crypto::FieldElement;
+use snos::utils::felt_api2vm;
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::deprecated_contract_class::{
+    ContractClass as DeprecatedCompiledClass, ContractClass as DeprecatedContractClass,
+};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::{contract_address, patricia_key, stark_felt};
 
+use super::state::TestState;
+use crate::common::state::{ContractDeployment, DeprecatedContractDeployment, FeeContracts};
 use crate::common::transaction_utils::to_felt252;
 
-pub fn deprecated_compiled_class(class_hash: ClassHash) -> DeprecatedContractClass {
-    let variants = vec![
-        AccountWithLongValidate(CairoVersion::Cairo0),
-        AccountWithoutValidations(CairoVersion::Cairo0),
-        ERC20,
-        Empty(CairoVersion::Cairo0),
-        FaultyAccount(CairoVersion::Cairo0),
-        // LegacyTestContract,
-        SecurityTests,
-        TestContract(CairoVersion::Cairo0),
-    ];
+// TODO: move / organize, clean up types
+/// Convert a starknet_api deprecated ContractClass to a cairo-vm ContractClass (v0 only).
+/// Note that this makes a serialize -> deserialize pass, so it is not cheap!
+pub fn deprecated_contract_class_api2vm(
+    api_class: &starknet_api::deprecated_contract_class::ContractClass,
+) -> serde_json::Result<blockifier::execution::contract_class::ContractClass> {
+    let serialized = serde_json::to_string(&api_class)?;
 
-    for c in variants {
-        if ClassHash(override_class_hash(&c)) == class_hash {
-            let result: Result<DeprecatedContractClass, serde_json::Error> =
-                serde_json::from_str(c.get_raw_class().as_str());
-            return result.unwrap();
-        }
-    }
-    panic!("No deprecated class found for hash: {:?}", class_hash);
+    let vm_class_v0_inner: blockifier::execution::contract_class::ContractClassV0Inner =
+        serde_json::from_str(serialized.as_str())?;
+
+    let vm_class_v0 = blockifier::execution::contract_class::ContractClassV0(std::sync::Arc::new(vm_class_v0_inner));
+    let vm_class = blockifier::execution::contract_class::ContractClass::V0(vm_class_v0);
+
+    Ok(vm_class)
 }
 
-pub fn compiled_class(class_hash: ClassHash) -> CasmContractClass {
-    let variants = vec![
-        AccountWithLongValidate(CairoVersion::Cairo1),
-        AccountWithoutValidations(CairoVersion::Cairo1),
-        Empty(CairoVersion::Cairo1),
-        FaultyAccount(CairoVersion::Cairo1),
-        TestContract(CairoVersion::Cairo1),
-    ];
-
-    for c in variants {
-        if c.get_class_hash() == class_hash {
-            let result: Result<CasmContractClass, serde_json::Error> = serde_json::from_str(c.get_raw_class().as_str());
-            return result.unwrap();
-        }
-    }
-    panic!("No class found for hash: {:?}", class_hash);
+/// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v1 only).
+pub fn contract_class_cl2vm(
+    cl_class: &CasmContractClass,
+) -> Result<blockifier::execution::contract_class::ContractClass, cairo_vm::types::errors::program_errors::ProgramError>
+{
+    let v1_class = ContractClassV1::try_from(cl_class.clone()).unwrap(); // TODO: type issue?
+    Ok(v1_class.into())
 }
 
-fn override_class_hash(contract: &FeatureContract) -> StarkHash {
-    match contract {
-        // FeatureContract::AccountWithLongValidate(_) => ACCOUNT_LONG_VALIDATE_BASE,
-        FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0) => {
-            let fe = FieldElement::from_dec_str(
-                "646245114977324210659279014519951538684823368221946044944492064370769527799",
-            )
-            .unwrap();
-            StarkHash::from(fe)
-        }
-        // FeatureContract::Empty(_) => EMPTY_CONTRACT_BASE,
-        FeatureContract::ERC20 => {
-            let fe = FieldElement::from_dec_str(
-                "561405978155448065164184136501758613494542063826668571171916978663245519697",
-            )
-            .unwrap();
-            StarkHash::from(fe)
-        }
-        // FeatureContract::FaultyAccount(_) => FAULTY_ACCOUNT_BASE,
-        // FeatureContract::LegacyTestContract => LEGACY_CONTRACT_BASE,
-        // FeatureContract::SecurityTests => SECURITY_TEST_CONTRACT_BASE,
-        FeatureContract::TestContract(CairoVersion::Cairo0) => {
-            let fe = FieldElement::from_dec_str(
-                "2988696213549450938938462798157547750390790722284970546348726091875993395870",
-            )
-            .unwrap();
-            StarkHash::from(fe)
-        }
-
-        _ => contract.get_class_hash().0,
-    }
+fn stark_felt_from_bytes(bytes: Vec<u8>) -> StarkFelt {
+    StarkFelt::new(bytes[..32].try_into().expect("Number is not 32-bytes"))
+        .expect("Number is too large to be a felt 252")
 }
 
-pub fn test_state(
+/// Utility to fund an account.
+/// Copied from Blockifier, but takes a DictStateReader directly.
+pub fn fund_account(
     block_context: &BlockContext,
-    initial_balances: u128,
-    contract_instances: &[(FeatureContract, u8)],
-) -> CachedState<DictStateReader> {
-    let mut class_hash_to_class = HashMap::new();
-    let mut address_to_class_hash = HashMap::new();
-    let class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash> = HashMap::new();
+    account_address: ContractAddress,
+    initial_balance: u128,
+    dict_state_reader: &mut DictStateReader,
+) {
+    let storage_view = &mut dict_state_reader.storage_view;
+    let balance_key = get_fee_token_var_address(account_address);
+    for fee_type in [FeeType::Strk, FeeType::Eth] {
+        storage_view.insert((block_context.fee_token_address(&fee_type), balance_key), stark_felt!(initial_balance));
+    }
+}
+
+/// Returns test state used for all tests
+pub async fn test_state<S, H>(
+    block_context: &BlockContext,
+    initial_balance_all_accounts: u128,
+    erc20_class: DeprecatedCompiledClass,
+    deprecated_contract_classes: &[(&str, &DeprecatedCompiledClass)],
+    contract_classes: &[(&str, &CasmContractClass)],
+    ffc: &mut FactFetchingContext<S, H>,
+) -> Result<TestState, StorageError>
+where
+    S: Storage,
+    H: HashFunctionType,
+{
+    // we use DictStateReader as a container for all the state we want to collect
+    let mut state = DictStateReader::default();
 
     // Declare and deploy account and ERC20 contracts.
-    let erc20 = FeatureContract::ERC20;
-    let erc20_class_hash: ClassHash = ClassHash(override_class_hash(&erc20));
-    class_hash_to_class.insert(erc20_class_hash, erc20.get_class());
-    address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
-    address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
+    let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), ffc).await?;
+    let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
 
-    // Set up the rest of the requested contracts.
-    for (contract, n_instances) in contract_instances.iter() {
-        let class_hash = ClassHash(override_class_hash(contract));
-        // assert!(!class_hash_to_class.contains_key(&class_hash));
-        class_hash_to_class.insert(class_hash, contract.get_class());
-        for instance in 0..*n_instances {
-            let instance_address = contract.get_instance_address(instance);
-            address_to_class_hash.insert(instance_address, class_hash);
-        }
+    state.class_hash_to_class.insert(erc20_class_hash, deprecated_contract_class_api2vm(&erc20_class).unwrap());
+    state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
+    state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
+
+    let mut deployed_addresses = Vec::new();
+    let mut deployed_deprecated_contract_classes = HashMap::new();
+    deployed_deprecated_contract_classes.insert(erc20_class_hash, erc20_class.clone());
+
+    let mut deployed_contract_classes = HashMap::new();
+    let mut cairo0_contracts = HashMap::new();
+    let mut cairo1_contracts = HashMap::new();
+
+    // Deploy deprecated contracts
+    for (name, contract) in deprecated_contract_classes {
+        let class_hash_bytes = write_deprecated_compiled_class_fact((*contract).clone(), ffc).await?;
+        let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
+
+        let vm_class = deprecated_contract_class_api2vm(contract).unwrap();
+        state.class_hash_to_class.insert(class_hash, vm_class);
+
+        let address = contract_address!(class_hash.0);
+        state.address_to_class_hash.insert(address, class_hash);
+        deployed_addresses.push(address);
+        deployed_deprecated_contract_classes.insert(class_hash, (*contract).clone()); // TODO: remove
+
+        cairo0_contracts
+            .insert(name.to_string(), DeprecatedContractDeployment { class: (*contract).clone(), class_hash, address });
     }
 
-    let mut state = CachedState::from(DictStateReader {
-        address_to_class_hash,
-        class_hash_to_class,
-        class_hash_to_compiled_class_hash,
-        ..Default::default()
-    });
+    // Deploy non-deprecated contracts
+    for (name, contract) in contract_classes {
+        let class_hash_bytes = write_compiled_class_fact((*contract).clone(), ffc).await?;
+        let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
+
+        let vm_class = contract_class_cl2vm(contract).unwrap();
+        state.class_hash_to_class.insert(class_hash, vm_class);
+
+        let address = contract_address!(class_hash.0);
+        state.address_to_class_hash.insert(address, class_hash);
+        deployed_addresses.push(address);
+
+        deployed_contract_classes.insert(class_hash, (*contract).clone());
+        cairo1_contracts
+            .insert(name.to_string(), ContractDeployment { class: (*contract).clone(), class_hash, address });
+    }
+
+    let mut addresses: HashSet<ContractAddress> = Default::default();
+    for address in state.address_to_class_hash.keys().chain(state.address_to_nonce.keys()) {
+        addresses.insert(*address);
+    }
 
     // fund the accounts.
-    for (contract, n_instances) in contract_instances.iter() {
-        for instance in 0..*n_instances {
-            let instance_address = contract.get_instance_address(instance);
-            match contract {
-                FeatureContract::AccountWithLongValidate(_)
-                | FeatureContract::AccountWithoutValidations(_)
-                | FeatureContract::FaultyAccount(_) => {
-                    fund_account(block_context, instance_address, initial_balances, &mut state);
-                }
-                _ => (),
-            }
-        }
+    for address in addresses.iter() {
+        fund_account(block_context, *address, initial_balance_all_accounts, &mut state);
     }
-    state
+
+    Ok(TestState {
+        cairo0_contracts,
+        cairo1_contracts,
+        fee_contracts: FeeContracts {
+            erc20_contract: erc20_class,
+            eth_fee_token_address: block_context.fee_token_address(&FeeType::Eth),
+            strk_fee_token_address: block_context.fee_token_address(&FeeType::Strk),
+        },
+        blockifier_state: CachedState::from(state),
+        cairo0_compiled_classes: deployed_deprecated_contract_classes,
+        cairo1_compiled_classes: deployed_contract_classes,
+    })
 }
 
 pub async fn os_hints(
@@ -155,6 +170,8 @@ pub async fn os_hints(
     mut blockifier_state: CachedState<DictStateReader>,
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
+    deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
+    compiled_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
     let deployed_addresses = blockifier_state.to_state_diff().address_to_class_hash;
     let initial_addresses = blockifier_state.state.address_to_class_hash.keys().cloned().collect::<HashSet<_>>();
@@ -177,8 +194,6 @@ pub async fn os_hints(
         })
         .collect();
 
-    let mut deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass> = Default::default();
-    let mut compiled_classes: HashMap<Felt252, CasmContractClass> = Default::default();
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
     for c in contracts.keys() {
@@ -186,13 +201,11 @@ pub async fn os_hints(
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
-            V0(_) => {
-                deprecated_compiled_classes.insert(to_felt252(&class_hash.0), deprecated_compiled_class(class_hash));
-            }
+            V0(_) => {} // deprecated_compiled_classes are passed in by caller
             V1(_) => {
-                let class = compiled_class(class_hash);
+                let class =
+                    compiled_classes.get(&class_hash).expect(format!("No class given for {:?}", class_hash).as_str());
                 let compiled_class_hash = class.compiled_class_hash();
-                compiled_classes.insert(Felt252::from_bytes_be(&class.compiled_class_hash().to_be_bytes()), class);
                 class_hash_to_compiled_class_hash
                     .insert(to_felt252(&class_hash.0), Felt252::from_bytes_be(&compiled_class_hash.to_be_bytes()));
             }
@@ -243,6 +256,11 @@ pub async fn os_hints(
         },
         ..default_general_config
     };
+
+    let deprecated_compiled_classes: HashMap<_, _> =
+        deprecated_compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
+
+    let compiled_classes: HashMap<_, _> = compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info: Default::default(),
