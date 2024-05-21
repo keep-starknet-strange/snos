@@ -30,6 +30,7 @@ use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
 use crate::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 
 /// A class representing a combination of the onchain and offchain state.
+#[derive(Debug)]
 pub struct SharedState<S, H>
 where
     S: Storage + 'static,
@@ -310,6 +311,7 @@ where
     /// helper to get contract_state
     pub fn get_contract_state(&self, contract_address: ContractAddress) -> StateResult<ContractState> {
         execute_coroutine(self.get_contract_state_async(contract_address))
+            .map_err(|e| StateError::StateReadError(format!("Failed to execute contract state coroutine: {e}")))?
     }
 
     /// helper to get contract_state
@@ -338,6 +340,7 @@ where
     }
     pub fn get_contract_class(&self, contract_address: ContractAddress) -> StateResult<ContractClassLeaf> {
         execute_coroutine(self.get_contract_class_async(contract_address))
+            .map_err(|e| StateError::StateReadError(format!("Failed to execute contract class coroutine: {e}")))?
     }
 
     async fn get_storage_at_async(
@@ -368,6 +371,7 @@ where
     /// Default: 0 for an uninitialized contract address.
     fn get_storage_at(&mut self, contract_address: ContractAddress, key: StorageKey) -> StateResult<StarkFelt> {
         execute_coroutine(self.get_storage_at_async(contract_address, key))
+            .map_err(|e| StateError::StateReadError(format!("Failed to execute storage coroutine: {e}")))?
     }
 
     /// Returns the nonce of the given contract instance.
@@ -394,7 +398,8 @@ where
                     |_| StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone())),
                 )?;
             StateResult::Ok(bytecode)
-        })?
+        })
+        .map_err(|e| StateError::StateReadError(format!("Failed to execute coroutine: {e}")))??
         .ok_or(StateError::StateReadError(format!("Found no storage for {:?}", class_hash.clone())))?;
 
         // TODO: consider from_utf8_unchecked (performance improvement)

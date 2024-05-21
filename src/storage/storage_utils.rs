@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use blockifier::state::cached_state::{CachedState, StorageEntry};
 use blockifier::state::state_api::State;
@@ -6,16 +6,13 @@ use blockifier::test_utils::dict_state_reader::DictStateReader;
 use cairo_vm::Felt252;
 use starknet_api::hash::StarkFelt;
 
-use crate::execution::helper::ContractStorageMap;
-use crate::starknet::business_logic::fact_state::state::SharedState;
-use crate::starknet::starknet_storage::{OsSingleStarknetStorage, StorageLeaf};
+use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::Height;
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
-use crate::storage::dict_storage::DictStorage;
 use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
 use crate::utils::felt_api2vm;
 
