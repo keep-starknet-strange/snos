@@ -19,6 +19,7 @@ use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::business_logic::utils::{write_compiled_class_fact, write_deprecated_compiled_class_fact};
+use snos::starkware_utils::commitment_tree::base_types::Height;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 use snos::storage::storage_utils::build_starknet_storage_async;
@@ -201,8 +202,8 @@ pub async fn os_hints(
     deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
     compiled_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
-    let shared_state = &blockifier_state.state;
-    let mut contracts: HashMap<Felt252, ContractState> = shared_state
+    let mut contracts: HashMap<Felt252, ContractState> = blockifier_state
+        .state
         .contract_addresses()
         .iter()
         .map(|address_biguint| {
@@ -210,14 +211,16 @@ pub async fn os_hints(
             let address: ContractAddress =
                 ContractAddress(PatriciaKey::try_from(felt_vm2api(Felt252::from(address_biguint))).unwrap());
             let contract_state = 
-                execute_coroutine(async { shared_state.get_contract_state(address) }).unwrap();
+                execute_coroutine(async { blockifier_state.state.get_contract_state(address) }).unwrap().unwrap();
 
             (to_felt252(address.0.key()), contract_state)
         })
         .collect();
-    let mut contracts: HashMap<Felt252, ContractState> = Default::default();
 
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
+
+    contracts.insert(Felt252::from(0), ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap());
+    contracts.insert(Felt252::from(1), ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap());
 
     for c in contracts.keys() {
         let address = ContractAddress::try_from(StarkHash::new(c.to_bytes_be()).unwrap()).unwrap();
@@ -234,9 +237,6 @@ pub async fn os_hints(
             }
         };
     }
-
-    contracts.insert(Felt252::from(0), todo!());
-    contracts.insert(Felt252::from(1), todo!());
 
     println!("contracts: {:?}\ndeprecated_compiled_classes: {:?}", contracts.len(), deprecated_compiled_classes.len());
 
