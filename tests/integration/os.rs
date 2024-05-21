@@ -1,6 +1,5 @@
 use blockifier::block_context::BlockContext;
 use blockifier::invoke_tx_args;
-use blockifier::state::state_api::State;
 use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
@@ -39,7 +38,7 @@ async fn return_result_cairo0_account(#[future] initial_state: TestState, block_
     });
 
     let r = execute_txs_and_run_os(
-        initial_state.blockifier_state,
+        initial_state.cached_state,
         block_context,
         vec![return_result_tx],
         initial_state.cairo0_compiled_classes,
@@ -77,7 +76,7 @@ async fn return_result_cairo1_account(#[future] initial_state: TestState, block_
     });
 
     let r = execute_txs_and_run_os(
-        initial_state.blockifier_state,
+        initial_state.cached_state,
         block_context,
         vec![return_result_tx],
         initial_state.cairo0_compiled_classes,
@@ -180,7 +179,7 @@ async fn syscalls_cairo1(#[future] initial_state: TestState, block_context: Bloc
     ];
 
     let r = execute_txs_and_run_os(
-        initial_state.blockifier_state,
+        initial_state.cached_state,
         block_context,
         txs,
         initial_state.cairo0_compiled_classes,
