@@ -221,7 +221,6 @@ pub async fn os_hints(
                 ContractAddress(PatriciaKey::try_from(felt_vm2api(Felt252::from(address_biguint))).unwrap());
             let contract_state = 
                 execute_coroutine(async { blockifier_state.state.get_contract_state(address) }).unwrap().unwrap();
-
             (to_felt252(address.0.key()), contract_state)
         })
         .collect();
