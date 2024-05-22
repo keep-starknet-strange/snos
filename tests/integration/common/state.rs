@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::BALANCE;
+use cairo_lang_starknet::contract_class::ContractClass;
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use rstest::fixture;
 use snos::crypto::pedersen::PedersenHash;
@@ -13,9 +14,10 @@ use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use super::block_utils::test_state;
+use super::blockifier_contracts::{get_feature_casm_contract_class, get_feature_sierra_contract_class};
 use crate::common::block_context;
 use crate::common::blockifier_contracts::{
-    get_deprecated_erc20_contract_class, get_deprecated_feature_contract_class, get_feature_contract_class,
+    get_deprecated_erc20_contract_class, get_deprecated_feature_contract_class,
 };
 
 /// A struct to store all test state that must be maintained between initial setup, blockifier
@@ -47,7 +49,8 @@ pub struct TestState {
 pub struct ContractDeployment {
     pub class_hash: ClassHash,
     pub address: ContractAddress,
-    pub class: CasmContractClass,
+    pub casm_class: CasmContractClass,
+    pub sierra_class: ContractClass,
 }
 
 /// Struct representing a deployed cairo0 class
@@ -67,6 +70,12 @@ pub struct FeeContracts {
     pub strk_fee_token_address: ContractAddress,
 }
 
+/// Helper to load cairo1 contract class and return a tuple of (name, casm, sierra) as used in
+/// TestState
+pub fn load_cairo1_classes(name: &str) -> (&str, CasmContractClass, ContractClass) {
+    (name, get_feature_casm_contract_class(name), get_feature_sierra_contract_class(name))
+}
+
 /// Fixture to create initial test state in which all test contracts are deployed.
 #[fixture]
 pub async fn initial_state(block_context: BlockContext) -> TestState {
@@ -76,12 +85,12 @@ pub async fn initial_state(block_context: BlockContext) -> TestState {
         BALANCE,
         get_deprecated_erc20_contract_class(),
         &[
-            ("account_with_dummy_validate", &get_deprecated_feature_contract_class("account_with_dummy_validate")),
-            ("test_contract", &get_deprecated_feature_contract_class("test_contract")),
+            ("account_with_dummy_validate", get_deprecated_feature_contract_class("account_with_dummy_validate")),
+            ("test_contract", get_deprecated_feature_contract_class("test_contract")),
         ],
         &[
-            ("account_with_dummy_validate", &get_feature_contract_class("account_with_dummy_validate")),
-            ("test_contract", &get_feature_contract_class("test_contract")),
+            load_cairo1_classes("account_with_dummy_validate"),
+            load_cairo1_classes("test_contract"),
         ],
         ffc,
     )

@@ -9,6 +9,7 @@ use blockifier::state::state_api::StateReader;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet::contract_class::ContractClass;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
@@ -87,8 +88,8 @@ pub async fn test_state<S, H>(
     block_context: &BlockContext,
     initial_balance_all_accounts: u128,
     erc20_class: DeprecatedCompiledClass,
-    deprecated_contract_classes: &[(&str, &DeprecatedCompiledClass)],
-    contract_classes: &[(&str, &CasmContractClass)],
+    deprecated_contract_classes: &[(&str, DeprecatedCompiledClass)],
+    contract_classes: &[(&str, CasmContractClass, ContractClass)],
     ffc: &mut FactFetchingContext<S, H>,
 ) -> Result<TestState, StorageError>
 where
@@ -141,20 +142,25 @@ where
 
 
     // Deploy non-deprecated contracts
-    for (name, contract) in contract_classes {
-        let class_hash_bytes = write_compiled_class_fact((*contract).clone(), ffc).await?;
+    for (name, casm_contract, sierra_contract) in contract_classes {
+        let class_hash_bytes = write_compiled_class_fact((*casm_contract).clone(), ffc).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
 
-        let vm_class = contract_class_cl2vm(contract).unwrap();
+        let vm_class = contract_class_cl2vm(casm_contract).unwrap();
         state.class_hash_to_class.insert(class_hash, vm_class);
 
         let address = contract_address!(class_hash.0);
         state.address_to_class_hash.insert(address, class_hash);
         deployed_addresses.push(address);
 
-        deployed_contract_classes.insert(class_hash, (*contract).clone());
+        deployed_contract_classes.insert(class_hash, (*casm_contract).clone());
         cairo1_contracts
-            .insert(name.to_string(), ContractDeployment { class: (*contract).clone(), class_hash, address });
+            .insert(name.to_string(), ContractDeployment {
+                casm_class: (*casm_contract).clone(),
+                sierra_class: (*sierra_contract).clone(),
+                class_hash,
+                address,
+            });
     }
 
     let mut addresses: HashSet<ContractAddress> = Default::default();
