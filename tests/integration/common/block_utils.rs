@@ -19,13 +19,13 @@ use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
-use snos::starknet::business_logic::utils::{write_compiled_class_fact, write_deprecated_compiled_class_fact};
+use snos::starknet::business_logic::utils::{write_class_facts, write_compiled_class_fact, write_deprecated_compiled_class_fact};
 use snos::starkware_utils::commitment_tree::base_types::Height;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 use snos::storage::storage_utils::build_starknet_storage_async;
 use snos::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedCompiledClass, ContractClass as DeprecatedContractClass,
 };
@@ -143,11 +143,14 @@ where
 
     // Deploy non-deprecated contracts
     for (name, casm_contract, sierra_contract) in contract_classes {
-        let class_hash_bytes = write_compiled_class_fact((*casm_contract).clone(), ffc).await?;
-        let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
+        let (contract_class_hash_bytes, compiled_class_hash_bytes) = write_class_facts(ffc, sierra_contract.clone(), casm_contract.clone()).await?;
+        let class_hash = ClassHash(stark_felt_from_bytes(contract_class_hash_bytes));
+        let compiled_class_hash = CompiledClassHash(stark_felt_from_bytes(compiled_class_hash_bytes));
 
         let vm_class = contract_class_cl2vm(casm_contract).unwrap();
         state.class_hash_to_class.insert(class_hash, vm_class);
+
+        state.class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash);
 
         let address = contract_address!(class_hash.0);
         state.address_to_class_hash.insert(address, class_hash);

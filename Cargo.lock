@@ -3448,6 +3448,8 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits 0.2.18",
+ "pathfinder-common",
+ "pathfinder-crypto",
  "pretty_assertions",
  "rand",
  "regex",
