@@ -13,6 +13,7 @@ pub struct DictStorage {
 
 impl Storage for DictStorage {
     async fn set_value(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StorageError> {
+        println!("writing value with key key {:x?}", key);
         self.db.insert(key.to_vec(), value.to_vec());
         Ok(())
     }
@@ -21,6 +22,7 @@ impl Storage for DictStorage {
         &self,
         key: K,
     ) -> impl futures::Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
+        // println!("looking up key {:x?}", key.as_ref());
         let result = Ok(self.db.get(key.as_ref()).cloned());
         async move { result }.boxed()
     }

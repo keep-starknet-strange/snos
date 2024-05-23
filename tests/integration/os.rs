@@ -58,6 +58,8 @@ async fn return_result_cairo0_account(#[future] initial_state: TestState, block_
 async fn return_result_cairo1_account(#[future] initial_state: TestState, block_context: BlockContext, max_fee: Fee) {
     let initial_state = initial_state.await;
 
+    panic!("TODO: cairo1 contracts are omitted in text fixture currently");
+
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
@@ -95,6 +97,8 @@ async fn return_result_cairo1_account(#[future] initial_state: TestState, block_
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn syscalls_cairo1(#[future] initial_state: TestState, block_context: BlockContext, max_fee: Fee) {
     let initial_state = initial_state.await;
+
+    panic!("TODO: cairo1 contracts are omitted in text fixture currently");
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
