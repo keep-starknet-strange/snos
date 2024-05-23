@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 
-use blockifier::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
+use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::CommitmentStateDiff;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
@@ -9,7 +9,6 @@ use blockifier::test_utils::dict_state_reader::DictStateReader;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::deprecated_contract_class;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_crypto::FieldElement;
@@ -20,7 +19,7 @@ use crate::config::{
 };
 use crate::crypto::poseidon::{poseidon_hash_many_bytes, PoseidonHash};
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
-    get_ffc_for_contract_class_facts, ContractClassLeaf, DeprecatedCompiledClassFact,
+    get_ffc_for_contract_class_facts, ContractClassLeaf, DeprecatedCompiledClassFact, CompiledClassFact,
 };
 use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use crate::starknet::business_logic::state::state_api_objects::BlockInfo;
@@ -30,7 +29,7 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use crate::storage::storage::{DbObject, FactFetchingContext, HashFunctionType, Storage};
-use crate::storage::storage_utils::deprecated_contract_class_api2vm;
+use crate::storage::storage_utils::{contract_class_cl2vm, deprecated_contract_class_api2vm};
 use crate::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 
 /// A class representing a combination of the onchain and offchain state.
@@ -395,40 +394,24 @@ where
     async fn get_compiled_contract_class_async(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
         println!("SharedState as StateReader: get_compiled_contract_class {:?}", class_hash);
 
-        let storage = self.ffc.acquire_storage().await;
+        {
+            let storage = self.ffc.acquire_storage().await;
 
-        // first try to read as a deprecated class (no class_hash -> compiled_class_hash indirection)
-        let deprecated_compiled_class_fact = DeprecatedCompiledClassFact::get(storage.deref(), class_hash.0.bytes()).await.unwrap();
-        // TODO: better conversion?
-        if let Some(deprecated_compiled_class_fact) = deprecated_compiled_class_fact {
-            return Ok(deprecated_contract_class_api2vm(&deprecated_compiled_class_fact.contract_definition).unwrap());
+            // first try to read as a deprecated class
+            let deprecated_compiled_class_fact = DeprecatedCompiledClassFact::get(storage.deref(), class_hash.0.bytes()).await.unwrap();
+            if let Some(deprecated_compiled_class_fact) = deprecated_compiled_class_fact {
+                return Ok(deprecated_contract_class_api2vm(&deprecated_compiled_class_fact.contract_definition).unwrap());
+            };
+        }
+
+        // if not deprecated, we need to look up the compiled_class_hash first
+        let storage = self.ffc_for_class_hash.acquire_storage().await;
+        let compiled_class_fact = CompiledClassFact::get(storage.deref(), class_hash.0.bytes()).await.unwrap();
+        if let Some(compiled_class_fact) = compiled_class_fact {
+            return Ok(contract_class_cl2vm(&compiled_class_fact.compiled_class).unwrap())
         };
 
-        // TODO: try v1 instead
-        todo!("try v1");
-
-        /*
-        let contract_bytes = {
-            let compiled_class_hash = self.get_compiled_class_hash_async(class_hash).await?;
-            println!("we got compiled_class_hash {:?}", compiled_class_hash);
-            let bytecode =
-                storage.get_value(compiled_class_hash.0.bytes()).await.map_err(|_| {
-                    StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone()))
-                })?;
-            StateResult::Ok(bytecode)
-        }?.ok_or(StateError::StateReadError(format!("Found no storage for {:?}", class_hash.clone())))?;
-
-        // TODO: consider from_utf8_unchecked (performance improvement)
-        let contract_bytes = std::str::from_utf8(&contract_bytes).unwrap();
-
-        return if let Ok(class_v1) = ContractClassV1::try_from_json_string(contract_bytes) {
-            Ok(ContractClass::V1(class_v1))
-        } else if let Ok(class_v0) = ContractClassV0::try_from_json_string(contract_bytes) {
-            Ok(ContractClass::V0(class_v0))
-        } else {
-            Err(StateError::StateReadError(format!("Unable to parse contract {:?}", class_hash.clone())))
-        };
-        */
+        Err(StateError::UndeclaredClassHash(class_hash))
     }
 
     async fn get_storage_at_async(

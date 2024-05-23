@@ -143,3 +143,12 @@ pub fn deprecated_contract_class_api2vm(
 
     Ok(vm_class)
 }
+
+/// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v1 only).
+pub fn contract_class_cl2vm(
+    cl_class: &CasmContractClass,
+) -> Result<blockifier::execution::contract_class::ContractClass, cairo_vm::types::errors::program_errors::ProgramError>
+{
+    let v1_class = ContractClassV1::try_from(cl_class.clone()).unwrap(); // TODO: type issue?
+    Ok(v1_class.into())
+}

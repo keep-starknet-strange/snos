@@ -23,7 +23,7 @@ use snos::starknet::business_logic::utils::{write_class_facts, write_compiled_cl
 use snos::starkware_utils::commitment_tree::base_types::Height;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
-use snos::storage::storage_utils::{build_starknet_storage_async, deprecated_contract_class_api2vm};
+use snos::storage::storage_utils::{build_starknet_storage_async, contract_class_cl2vm, deprecated_contract_class_api2vm};
 use snos::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
@@ -36,15 +36,6 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use super::state::TestState;
 use crate::common::state::{ContractDeployment, DeprecatedContractDeployment, FeeContracts};
 use crate::common::transaction_utils::to_felt252;
-
-/// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v1 only).
-pub fn contract_class_cl2vm(
-    cl_class: &CasmContractClass,
-) -> Result<blockifier::execution::contract_class::ContractClass, cairo_vm::types::errors::program_errors::ProgramError>
-{
-    let v1_class = ContractClassV1::try_from(cl_class.clone()).unwrap(); // TODO: type issue?
-    Ok(v1_class.into())
-}
 
 fn stark_felt_from_bytes(bytes: Vec<u8>) -> StarkFelt {
     StarkFelt::new(bytes[..32].try_into().expect("Number is not 32-bytes"))
@@ -94,9 +85,6 @@ pub async fn test_state(
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
 
-    // insert dummy
-    state.class_hash_to_compiled_class_hash.insert(erc20_class_hash, CompiledClassHash(5u64.into()));
-
     let mut deployed_addresses = Vec::new();
     let mut deployed_deprecated_contract_classes = HashMap::new();
     deployed_deprecated_contract_classes.insert(erc20_class_hash, erc20_class.clone());
@@ -136,6 +124,7 @@ pub async fn test_state(
         state.class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash);
 
         let address = ContractAddress::from(rand::random::<u128>());
+        println!("Inserting non-deprecated class_hash_to_class: {:?} -> {:?}", address, class_hash);
         state.address_to_class_hash.insert(address, class_hash);
         deployed_addresses.push(address);
 
