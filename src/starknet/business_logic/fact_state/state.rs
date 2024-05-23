@@ -264,7 +264,11 @@ where
         block_info: BlockInfo,
     ) -> Result<Self, TreeError> {
         let accessed_addresses_felts: HashSet<_> =
-            address_to_class_hash.keys().chain(address_to_nonce.keys().chain(storage_updates.keys())).collect();
+            address_to_class_hash.keys()
+            .chain(address_to_class_hash.values())
+            .chain(address_to_nonce.keys())
+            .chain(storage_updates.keys())
+            .collect();
         let accessed_addresses: Vec<TreeIndex> = accessed_addresses_felts.iter().map(|x| x.to_biguint()).collect();
 
         let mut facts = None;
