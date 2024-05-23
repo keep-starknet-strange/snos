@@ -84,18 +84,14 @@ pub fn fund_account(
 }
 
 /// Returns test state used for all tests
-pub async fn test_state<S, H>(
+pub async fn test_state(
     block_context: &BlockContext,
     initial_balance_all_accounts: u128,
     erc20_class: DeprecatedCompiledClass,
     deprecated_contract_classes: &[(&str, DeprecatedCompiledClass)],
     contract_classes: &[(&str, CasmContractClass, ContractClass)],
-    ffc: &mut FactFetchingContext<S, H>,
-) -> Result<TestState, StorageError>
-where
-    S: Storage,
-    H: HashFunctionType,
-{
+    mut ffc: FactFetchingContext<DictStorage, PedersenHash>
+) -> Result<TestState, StorageError> {
     // we use DictStateReader as a container for all the state we want to collect
     let mut state = DictStateReader::default();
 
@@ -108,7 +104,7 @@ where
     // 3. Wrap this new shared state inside a Blockifier `CachedState` to prepare for further updates.
 
     // Declare and deploy account and ERC20 contracts.
-    let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), ffc).await?;
+    let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), &mut ffc).await?;
     let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
 
     state.class_hash_to_class.insert(erc20_class_hash, deprecated_contract_class_api2vm(&erc20_class).unwrap());
@@ -128,7 +124,7 @@ where
 
     // Deploy deprecated contracts
     for (name, contract) in deprecated_contract_classes {
-        let class_hash_bytes = write_deprecated_compiled_class_fact((*contract).clone(), ffc).await?;
+        let class_hash_bytes = write_deprecated_compiled_class_fact((*contract).clone(), &mut ffc).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
 
         let vm_class = deprecated_contract_class_api2vm(contract).unwrap();
@@ -139,9 +135,6 @@ where
         state.address_to_class_hash.insert(address, class_hash);
         deployed_addresses.push(address);
         deployed_deprecated_contract_classes.insert(class_hash, (*contract).clone()); // TODO: remove
-                                                                                      //
-        // insert a dummy for now
-        state.class_hash_to_compiled_class_hash.insert(class_hash, CompiledClassHash(1u64.into()));
 
         cairo0_contracts
             .insert(name.to_string(), DeprecatedContractDeployment { class: (*contract).clone(), class_hash, address });
@@ -150,7 +143,7 @@ where
 
     // Deploy non-deprecated contracts
     for (name, casm_contract, sierra_contract) in contract_classes {
-        let (contract_class_hash_bytes, compiled_class_hash_bytes) = write_class_facts(ffc, sierra_contract.clone(), casm_contract.clone()).await?;
+        let (contract_class_hash_bytes, compiled_class_hash_bytes) = write_class_facts(&mut ffc, sierra_contract.clone(), casm_contract.clone()).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(contract_class_hash_bytes));
         let compiled_class_hash = CompiledClassHash(stark_felt_from_bytes(compiled_class_hash_bytes));
 
@@ -187,7 +180,6 @@ where
     // TODO:
     let block_info = Default::default();
 
-    let ffc = FactFetchingContext::<_, PedersenHash>::new(Default::default());
     let default_general_config = StarknetGeneralConfig::default(); // TODO
     let shared_state = SharedState::from_blockifier_state(ffc, state, block_info, &default_general_config)
         .await

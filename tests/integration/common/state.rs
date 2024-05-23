@@ -79,7 +79,7 @@ pub fn load_cairo1_classes(name: &str) -> (&str, CasmContractClass, ContractClas
 /// Fixture to create initial test state in which all test contracts are deployed.
 #[fixture]
 pub async fn initial_state(block_context: BlockContext) -> TestState {
-    let ffc = &mut FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());
+    let ffc = FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());
     let test_state = test_state(
         &block_context,
         BALANCE,
