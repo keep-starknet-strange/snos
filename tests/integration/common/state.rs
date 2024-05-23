@@ -89,8 +89,8 @@ pub async fn initial_state(block_context: BlockContext) -> TestState {
             ("test_contract", get_deprecated_feature_contract_class("test_contract")),
         ],
         &[
-            load_cairo1_classes("account_with_dummy_validate"),
-            load_cairo1_classes("test_contract"),
+            // load_cairo1_classes("account_with_dummy_validate"),
+            // load_cairo1_classes("test_contract"),
         ],
         ffc,
     )

@@ -350,6 +350,10 @@ where
             .get(&contract_address.clone())
             .ok_or(StateError::StateReadError(format!("{:?}", contract_address.clone())))?;
 
+        if contract_state.contract_hash.clone().into_iter().fold(0u64, |acc, b| acc + b as u64) == 0 {
+            println!("found contract state with no contract hash!");
+        }
+
         Ok(contract_state.clone())
     }
 

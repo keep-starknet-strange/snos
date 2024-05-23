@@ -81,6 +81,8 @@ pub async fn test_state(
     let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), &mut ffc).await?;
     let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
 
+    println!("ERC20 class_hash: {:?}", erc20_class_hash);
+
     state.class_hash_to_class.insert(erc20_class_hash, deprecated_contract_class_api2vm(&erc20_class).unwrap());
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
@@ -207,6 +209,7 @@ pub async fn os_hints(
 
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
+    /*
     contracts.insert(
         Felt252::from(0),
         execute_coroutine(async {
@@ -219,10 +222,21 @@ pub async fn os_hints(
             ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap()
         }).unwrap(),
     );
+    */
 
     for c in contracts.keys() {
         let address = ContractAddress::try_from(StarkHash::new(c.to_bytes_be()).unwrap()).unwrap();
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
+        // TODO: we sometimes get a class_hash of 0, perhaps because of a `ContractState::empty()`?
+        //       it's not clear whether this is actually problematic in general, but it currently causes get_compiled_contract_class()
+        //       to panic.
+        //
+        //       the latter might be the problem -- note that the blockifier impl of StateReader returns `unwrap_or_default()` in both
+        //       get_class_hash_at() and get_compiled_contract_class().
+        if class_hash.0.bytes().into_iter().fold(0u64, |acc, b| acc + *b as u64) == 0 {
+            println!("Warning: ContractAddress for {:?} gave us a 0 class hash; skipping", address);
+            continue;
+        }
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
             V0(_) => {} // deprecated_compiled_classes are passed in by caller
