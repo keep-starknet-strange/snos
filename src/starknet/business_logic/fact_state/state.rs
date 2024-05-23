@@ -388,6 +388,60 @@ where
         Ok(CompiledClassHash(felt_vm2api(compiled_class_hash)))
     }
 
+    /// Returns the contract class of the given class hash.
+    async fn get_compiled_contract_class_async(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        println!("SharedState as StateReader: get_compiled_contract_class {:?}", class_hash);
+
+        let storage = self.ffc_for_class_hash.acquire_storage().await;
+
+        // first try to read as a deprecated class (no class_hash -> compiled_class_hash indirection)
+        let contract_bytes = {
+            let bytecode =
+                storage.get_value(class_hash.0.bytes()).await.map_err(|_| {
+                    StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone()))
+                })?;
+            bytecode
+        };
+
+        if let Some(contract_bytes) = contract_bytes {
+            // we have a deprecated contract here
+            println!("Got deprecated class bytes");
+            // TODO: at this point we should not fail deserialization
+
+            // TODO: consider from_utf8_unchecked (performance improvement)
+            let contract_bytes = std::str::from_utf8(&contract_bytes).unwrap();
+
+            let contract_class = ContractClassV0::try_from_json_string(contract_bytes);
+            return Ok(ContractClass::V0(contract_class.unwrap()))
+        }
+
+        // TODO: try v1 instead
+        todo!("try v1");
+
+        /*
+        let contract_bytes = {
+            let compiled_class_hash = self.get_compiled_class_hash_async(class_hash).await?;
+            println!("we got compiled_class_hash {:?}", compiled_class_hash);
+            let bytecode =
+                storage.get_value(compiled_class_hash.0.bytes()).await.map_err(|_| {
+                    StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone()))
+                })?;
+            StateResult::Ok(bytecode)
+        }?.ok_or(StateError::StateReadError(format!("Found no storage for {:?}", class_hash.clone())))?;
+
+        // TODO: consider from_utf8_unchecked (performance improvement)
+        let contract_bytes = std::str::from_utf8(&contract_bytes).unwrap();
+
+        return if let Ok(class_v1) = ContractClassV1::try_from_json_string(contract_bytes) {
+            Ok(ContractClass::V1(class_v1))
+        } else if let Ok(class_v0) = ContractClassV0::try_from_json_string(contract_bytes) {
+            Ok(ContractClass::V0(class_v0))
+        } else {
+            Err(StateError::StateReadError(format!("Unable to parse contract {:?}", class_hash.clone())))
+        };
+        */
+    }
+
     async fn get_storage_at_async(
         &mut self,
         contract_address: ContractAddress,
@@ -446,31 +500,7 @@ where
 
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
-        println!("SharedState as StateReader: get_compiled_contract_class {:?}", class_hash);
-        let contract_bytes = execute_coroutine(async {
-            let compiled_class_hash = self.get_compiled_class_hash_async(class_hash).await?;
-            println!("we got compiled_class_hash {:?}", compiled_class_hash);
-            let storage = self.ffc_for_class_hash.acquire_storage().await;
-            let bytecode =
-                storage.get_value(compiled_class_hash.0.bytes()).await.map_err(|_| {
-                    StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone()))
-                })?;
-            StateResult::Ok(bytecode)
-        })
-        .unwrap() // TODO: unwrap
-        ?
-        .ok_or(StateError::StateReadError(format!("Found no storage for {:?}", class_hash.clone())))?;
-
-        // TODO: consider from_utf8_unchecked (performance improvement)
-        let contract_bytes = std::str::from_utf8(&contract_bytes).unwrap();
-
-        return if let Ok(class_v1) = ContractClassV1::try_from_json_string(contract_bytes) {
-            Ok(ContractClass::V1(class_v1))
-        } else if let Ok(class_v0) = ContractClassV0::try_from_json_string(contract_bytes) {
-            Ok(ContractClass::V0(class_v0))
-        } else {
-            Err(StateError::StateReadError(format!("Unable to parse contract {:?}", class_hash.clone())))
-        };
+        execute_coroutine(self.get_compiled_contract_class_async(class_hash)).unwrap() // TODO: unwrap
     }
 
     /// Returns the compiled class hash of the given class hash.
