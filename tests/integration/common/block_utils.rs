@@ -115,6 +115,9 @@ where
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
 
+    // insert dummy
+    state.class_hash_to_compiled_class_hash.insert(erc20_class_hash, CompiledClassHash(5u64.into()));
+
     let mut deployed_addresses = Vec::new();
     let mut deployed_deprecated_contract_classes = HashMap::new();
     deployed_deprecated_contract_classes.insert(erc20_class_hash, erc20_class.clone());
@@ -131,10 +134,14 @@ where
         let vm_class = deprecated_contract_class_api2vm(contract).unwrap();
         state.class_hash_to_class.insert(class_hash, vm_class);
 
-        let address = contract_address!(class_hash.0);
+        let address = ContractAddress::from(rand::random::<u128>());
+        println!("Inserting deprecated class_hash_to_class: {:?} -> {:?}", address, class_hash);
         state.address_to_class_hash.insert(address, class_hash);
         deployed_addresses.push(address);
         deployed_deprecated_contract_classes.insert(class_hash, (*contract).clone()); // TODO: remove
+                                                                                      //
+        // insert a dummy for now
+        state.class_hash_to_compiled_class_hash.insert(class_hash, CompiledClassHash(1u64.into()));
 
         cairo0_contracts
             .insert(name.to_string(), DeprecatedContractDeployment { class: (*contract).clone(), class_hash, address });
@@ -152,7 +159,7 @@ where
 
         state.class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash);
 
-        let address = contract_address!(class_hash.0);
+        let address = ContractAddress::from(rand::random::<u128>());
         state.address_to_class_hash.insert(address, class_hash);
         deployed_addresses.push(address);
 

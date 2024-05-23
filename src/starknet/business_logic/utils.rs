@@ -25,6 +25,24 @@ where
     Ok((contract_class_hash, compiled_class_hash))
 }
 
+pub async fn write_deprecated_class_facts<S, H>(
+    ffc: &mut FactFetchingContext<S, H>,
+    contract_class: DeprecatedCompiledClass,
+    deprecated_compiled_class: CasmContractClass,
+) -> Result<(Vec<u8>, Vec<u8>), StorageError>
+where
+    S: Storage,
+    H: HashFunctionType,
+{
+    let contract_class_fact = DeprecatedCompiledClassFact { contract_definition: contract_class };
+    let compiled_class_fact = CompiledClassFact { compiled_class: deprecated_compiled_class };
+
+    let contract_class_hash = contract_class_fact.set_fact(ffc).await?;
+    let compiled_class_hash = compiled_class_fact.set_fact(ffc).await?;
+
+    Ok((contract_class_hash, compiled_class_hash))
+}
+
 pub async fn write_deprecated_compiled_class_fact<S, H>(
     deprecated_compiled_class: DeprecatedCompiledClass,
     ffc: &mut FactFetchingContext<S, H>,
