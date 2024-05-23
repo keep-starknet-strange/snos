@@ -189,6 +189,7 @@ pub trait Fact<S: Storage, H: HashFunctionType>: DbObject {
 
     async fn set_fact(&self, ffc: &mut FactFetchingContext<S, H>) -> Result<Vec<u8>, StorageError> {
         let hash_val = self.hash();
+        println!("Writing fact with hash value {:02x?}", hash_val);
         let mut storage = ffc.acquire_storage().await;
         self.set(storage.deref_mut(), &hash_val).await?;
 

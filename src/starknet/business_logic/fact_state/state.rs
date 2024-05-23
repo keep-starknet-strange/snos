@@ -360,9 +360,14 @@ where
     async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         let class_hash_as_index: TreeIndex = felt_api2vm(class_hash.0).to_biguint();
 
+        println!("class_hash_as_index: {:?}", class_hash_as_index);
+        println!("have contract_class_tree? {:?}", self.contract_classes.is_some());
+
         let compiled_class_hash = match &self.contract_classes {
             Some(contract_class_tree) => {
                 let mut ffc_for_class_hash = self.ffc_for_class_hash.clone();
+
+                println!("Should get something from get_leaf()...");
 
                 let contract_class_leaf =
                     <PatriciaTree as BinaryFactTree<S, PoseidonHash, ContractClassLeaf>>::get_leaf(
@@ -411,32 +416,43 @@ where
     /// its address).
     /// Default: 0 for an uninitialized contract address.
     fn get_storage_at(&mut self, contract_address: ContractAddress, key: StorageKey) -> StateResult<StarkFelt> {
-        execute_coroutine(self.get_storage_at_async(contract_address, key)).unwrap() // TODO: unwrap
+        println!("SharedState as StateReader: get_storage_at {:?} / {:?}", contract_address, key);
+        let value = execute_coroutine(self.get_storage_at_async(contract_address, key)).unwrap(); // TODO: unwrap
+        println!("       -> {:?}", value);
+        value
     }
 
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
     fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        println!("SharedState as StateReader: get_nonce_at {:?}", contract_address);
         let contract_state = self.get_contract_state(contract_address)?;
-        Ok(Nonce(felt_vm2api(contract_state.nonce)))
+        let nonce = Nonce(felt_vm2api(contract_state.nonce));
+        println!("       -> {:?}", nonce);
+        Ok(nonce)
     }
 
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
     fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        println!("SharedState as StateReader: get_class_hash_at {:?}", contract_address);
         let contract_state = self.get_contract_state(contract_address)?;
         // TODO: this can be simplified once hashes are stored as [u8; 32]. Until then, this is fine.
         let felt = FieldElement::from_byte_slice_be(&contract_state.contract_hash)
             .expect("Conversion to felt should not fail");
+        println!("       -> {:?}", felt);
         Ok(ClassHash(StarkFelt::from(felt)))
     }
 
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        println!("SharedState as StateReader: get_compiled_contract_class {:?}", class_hash);
         let contract_bytes = execute_coroutine(async {
             let compiled_class_hash = self.get_compiled_class_hash_async(class_hash).await?;
+            println!("we got compiled_class_hash {:?}", compiled_class_hash);
+            let storage = self.ffc_for_class_hash.acquire_storage().await;
             let bytecode =
-                self.ffc.acquire_storage().await.get_value(compiled_class_hash.0.bytes()).await.map_err(|_| {
+                storage.get_value(compiled_class_hash.0.bytes()).await.map_err(|_| {
                     StateError::StateReadError(format!("Error reading storage value for {:?}", class_hash.clone()))
                 })?;
             StateResult::Ok(bytecode)
@@ -459,6 +475,7 @@ where
 
     /// Returns the compiled class hash of the given class hash.
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        println!("SharedState as StateReader: get_compiled_class_hash {:?}", class_hash);
         execute_coroutine(self.get_compiled_class_hash_async(class_hash)).unwrap() // TODO: unwrap
     }
 
