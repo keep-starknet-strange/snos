@@ -23,7 +23,7 @@ use snos::starknet::business_logic::utils::{write_class_facts, write_compiled_cl
 use snos::starkware_utils::commitment_tree::base_types::Height;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
-use snos::storage::storage_utils::build_starknet_storage_async;
+use snos::storage::storage_utils::{build_starknet_storage_async, deprecated_contract_class_api2vm};
 use snos::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
@@ -36,23 +36,6 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use super::state::TestState;
 use crate::common::state::{ContractDeployment, DeprecatedContractDeployment, FeeContracts};
 use crate::common::transaction_utils::to_felt252;
-
-// TODO: move / organize, clean up types
-/// Convert a starknet_api deprecated ContractClass to a cairo-vm ContractClass (v0 only).
-/// Note that this makes a serialize -> deserialize pass, so it is not cheap!
-pub fn deprecated_contract_class_api2vm(
-    api_class: &starknet_api::deprecated_contract_class::ContractClass,
-) -> serde_json::Result<blockifier::execution::contract_class::ContractClass> {
-    let serialized = serde_json::to_string(&api_class)?;
-
-    let vm_class_v0_inner: blockifier::execution::contract_class::ContractClassV0Inner =
-        serde_json::from_str(serialized.as_str())?;
-
-    let vm_class_v0 = blockifier::execution::contract_class::ContractClassV0(std::sync::Arc::new(vm_class_v0_inner));
-    let vm_class = blockifier::execution::contract_class::ContractClass::V0(vm_class_v0);
-
-    Ok(vm_class)
-}
 
 /// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v1 only).
 pub fn contract_class_cl2vm(
