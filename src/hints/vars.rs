@@ -27,7 +27,7 @@ pub mod ids {
     pub const BIT: &str = "bit";
     pub const CALL_RESPONSE: &str = "call_response";
     pub const CALLDATA: &str = "calldata";
-    pub const CHILD_BIT: &str = "CHILD_BIT";
+    pub const CHILD_BIT: &str = "child_bit";
     pub const CLASS_HASH_PTR: &str = "class_hash_ptr";
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACT: &str = "compiled_class_fact";
