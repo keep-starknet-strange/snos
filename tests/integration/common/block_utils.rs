@@ -12,6 +12,8 @@ use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet::contract_class::ContractClass;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
 use snos::crypto::pedersen::PedersenHash;
 use snos::execution::helper::ExecutionHelperWrapper;
@@ -23,6 +25,7 @@ use snos::starknet::business_logic::utils::{
     write_class_facts, write_compiled_class_fact, write_deprecated_compiled_class_fact,
 };
 use snos::starkware_utils::commitment_tree::base_types::Height;
+use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 use snos::storage::storage_utils::{
@@ -99,6 +102,11 @@ pub async fn test_state(
     let mut cairo0_contracts = HashMap::new();
     let mut cairo1_contracts = HashMap::new();
 
+    // use a predictable rand
+    // seed value 1: won't repro CHILD_BIT error
+    // seed value 123499999: will repro CHILD_BIT error
+    let mut rand = StdRng::seed_from_u64(1);
+
     // Deploy deprecated contracts
     for (name, contract) in deprecated_contract_classes {
         let class_hash_bytes = write_deprecated_compiled_class_fact((*contract).clone(), &mut ffc).await?;
@@ -107,7 +115,7 @@ pub async fn test_state(
         let vm_class = deprecated_contract_class_api2vm(contract).unwrap();
         state.class_hash_to_class.insert(class_hash, vm_class);
 
-        let address = ContractAddress::from(rand::random::<u128>());
+        let address = ContractAddress::from(rand.gen::<u128>());
         println!("Inserting deprecated class_hash_to_class: {:?} -> {:?}", address, class_hash);
         state.address_to_class_hash.insert(address, class_hash);
         deployed_addresses.push(address);
@@ -129,7 +137,7 @@ pub async fn test_state(
 
         state.class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash);
 
-        let address = ContractAddress::from(rand::random::<u128>());
+        let address = ContractAddress::from(rand.gen::<u128>());
         println!("Inserting non-deprecated class_hash_to_class: {:?} -> {:?}", address, class_hash);
         state.address_to_class_hash.insert(address, class_hash);
         deployed_addresses.push(address);
