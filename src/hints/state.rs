@@ -28,7 +28,7 @@ use crate::utils::{execute_coroutine, get_constant};
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
     if tree_height != merkle_height {
         return Err(HintError::AssertionFailed(
-            "Tree height does not match Merkle height".to_string().into_boxed_str(),
+            format!("Tree height ({}) does not match Merkle height", tree_height).to_string().into_boxed_str(),
         ));
     }
 
