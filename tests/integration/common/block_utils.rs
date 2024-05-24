@@ -8,6 +8,7 @@ use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::StateReader;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
+use cairo_lang_semantic::items::free_function::free_function_declaration_inline_config;
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet::contract_class::ContractClass;
 use cairo_vm::Felt252;
@@ -304,8 +305,22 @@ pub async fn os_hints(
 
     let compiled_classes: HashMap<_, _> = compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
 
-    let mut contract_state_commitment_info: CommitmentInfo = Default::default();
-    contract_state_commitment_info.tree_height = 251;
+    let mut ffc = blockifier_state.state.ffc.clone();
+
+    // Convert the Blockifier storage into an OS-compatible one
+    let (contract_storage_map, previous_state, updated_state) = build_starknet_storage_async(blockifier_state).await.unwrap();
+
+    let previous_tree = previous_state.contract_states;
+    let expected_update_root = Felt252::from_bytes_be_slice(&updated_state.contract_states.root);
+
+    let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<DictStorage, PedersenHash, ContractState>(
+        previous_tree,
+        expected_update_root,
+        Default::default(), // TODO
+        &mut ffc,
+    )
+    .await
+    .expect("Could not create contract state commitment info");
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
@@ -319,9 +334,6 @@ pub async fn os_hints(
         transactions,
         block_hash: Default::default(),
     };
-
-    // Convert the Blockifier storage into an OS-compatible one
-    let contract_storage_map = build_starknet_storage_async(blockifier_state).await.unwrap();
 
     let execution_helper = ExecutionHelperWrapper::new(
         contract_storage_map,

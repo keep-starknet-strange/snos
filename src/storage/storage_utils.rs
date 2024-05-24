@@ -87,7 +87,7 @@ async fn unpack_blockifier_state_async<S: Storage + Send + Sync, H: HashFunction
 /// is obtained by extracting the state diff from the `CachedState` part.
 pub async fn build_starknet_storage_async<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync>(
     blockifier_state: CachedState<SharedState<S, H>>,
-) -> Result<ContractStorageMap<S, H>, TreeError> {
+) -> Result<(ContractStorageMap<S, H>, SharedState<S, H>, SharedState<S, H>), TreeError> {
     let mut storage_by_address = ContractStorageMap::new();
 
     // TODO: would be cleaner if `get_leaf()` took &ffc instead of &mut ffc
@@ -115,7 +115,7 @@ pub async fn build_starknet_storage_async<S: Storage + Send + Sync, H: HashFunct
         storage_by_address.insert(Felt252::from(contract_address), contract_storage);
     }
 
-    Ok(storage_by_address)
+    Ok((storage_by_address, initial_state, final_state))
 }
 
 /// Translates the (final) Blockifier state into an OS-compatible structure.
@@ -125,7 +125,7 @@ pub async fn build_starknet_storage_async<S: Storage + Send + Sync, H: HashFunct
 /// is obtained by extracting the state diff from the `CachedState` part.
 pub fn build_starknet_storage<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync>(
     blockifier_state: CachedState<SharedState<S, H>>,
-) -> Result<ContractStorageMap<S, H>, TreeError> {
+) -> Result<(ContractStorageMap<S, H>, SharedState<S, H>, SharedState<S, H>), TreeError> {
     // TODO: unwrap
     execute_coroutine(build_starknet_storage_async(blockifier_state)).unwrap()
 }
