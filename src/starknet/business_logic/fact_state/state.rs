@@ -267,7 +267,7 @@ where
     ) -> Result<Self, TreeError> {
         let accessed_addresses_felts: HashSet<_> = address_to_class_hash
             .keys()
-            .chain(address_to_class_hash.values())
+            // .chain(address_to_class_hash.values()) // TODO: should this be included?
             .chain(address_to_nonce.keys())
             .chain(storage_updates.keys())
             .collect();

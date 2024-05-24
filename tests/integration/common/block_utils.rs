@@ -216,19 +216,6 @@ pub async fn os_hints(
 
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
-    // contracts.insert(
-    // Felt252::from(0),
-    // execute_coroutine(async {
-    // ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap()
-    // }).unwrap(),
-    // );
-    // contracts.insert(
-    // Felt252::from(1),
-    // execute_coroutine(async {
-    // ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap()
-    // }).unwrap(),
-    // );
-
     for c in contracts.keys() {
         let address = ContractAddress::try_from(StarkHash::new(c.to_bytes_be()).unwrap()).unwrap();
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
@@ -239,10 +226,13 @@ pub async fn os_hints(
         //       the latter might be the problem -- note that the blockifier impl of StateReader returns
         // `unwrap_or_default()` in both       get_class_hash_at() and
         // get_compiled_contract_class().
+
+        /*
         if class_hash.0.bytes().into_iter().fold(0u64, |acc, b| acc + *b as u64) == 0 {
             println!("Warning: ContractAddress for {:?} gave us a 0 class hash; skipping", address);
             continue;
         }
+        */
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
             V0(_) => {} // deprecated_compiled_classes are passed in by caller
@@ -255,6 +245,17 @@ pub async fn os_hints(
             }
         };
     }
+
+    contracts.insert(
+        Felt252::from(0),
+        execute_coroutine(async { ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap() })
+            .unwrap(),
+    );
+    contracts.insert(
+        Felt252::from(1),
+        execute_coroutine(async { ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap() })
+            .unwrap(),
+    );
 
     println!("contracts: {:?}\ndeprecated_compiled_classes: {:?}", contracts.len(), deprecated_compiled_classes.len());
 
