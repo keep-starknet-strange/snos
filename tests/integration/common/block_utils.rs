@@ -19,11 +19,15 @@ use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
-use snos::starknet::business_logic::utils::{write_class_facts, write_compiled_class_fact, write_deprecated_compiled_class_fact};
+use snos::starknet::business_logic::utils::{
+    write_class_facts, write_compiled_class_fact, write_deprecated_compiled_class_fact,
+};
 use snos::starkware_utils::commitment_tree::base_types::Height;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
-use snos::storage::storage_utils::{build_starknet_storage_async, contract_class_cl2vm, deprecated_contract_class_api2vm};
+use snos::storage::storage_utils::{
+    build_starknet_storage_async, contract_class_cl2vm, deprecated_contract_class_api2vm,
+};
 use snos::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
@@ -64,7 +68,7 @@ pub async fn test_state(
     erc20_class: DeprecatedCompiledClass,
     deprecated_contract_classes: &[(&str, DeprecatedCompiledClass)],
     contract_classes: &[(&str, CasmContractClass, ContractClass)],
-    mut ffc: FactFetchingContext<DictStorage, PedersenHash>
+    mut ffc: FactFetchingContext<DictStorage, PedersenHash>,
 ) -> Result<TestState, StorageError> {
     // we use DictStateReader as a container for all the state we want to collect
     let mut state = DictStateReader::default();
@@ -113,10 +117,10 @@ pub async fn test_state(
             .insert(name.to_string(), DeprecatedContractDeployment { class: (*contract).clone(), class_hash, address });
     }
 
-
     // Deploy non-deprecated contracts
     for (name, casm_contract, sierra_contract) in contract_classes {
-        let (contract_class_hash_bytes, compiled_class_hash_bytes) = write_class_facts(&mut ffc, sierra_contract.clone(), casm_contract.clone()).await?;
+        let (contract_class_hash_bytes, compiled_class_hash_bytes) =
+            write_class_facts(&mut ffc, sierra_contract.clone(), casm_contract.clone()).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(contract_class_hash_bytes));
         let compiled_class_hash = CompiledClassHash(stark_felt_from_bytes(compiled_class_hash_bytes));
 
@@ -131,13 +135,15 @@ pub async fn test_state(
         deployed_addresses.push(address);
 
         deployed_contract_classes.insert(class_hash, (*casm_contract).clone());
-        cairo1_contracts
-            .insert(name.to_string(), ContractDeployment {
+        cairo1_contracts.insert(
+            name.to_string(),
+            ContractDeployment {
                 casm_class: (*casm_contract).clone(),
                 sierra_class: (*sierra_contract).clone(),
                 class_hash,
                 address,
-            });
+            },
+        );
     }
 
     let mut addresses: HashSet<ContractAddress> = Default::default();
@@ -169,7 +175,8 @@ pub async fn test_state(
     let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
 
     // TODO:
-    // initial_blockifier_state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
+    // initial_blockifier_state.set_storage_at(block_hash_contract_address, block_number,
+    // block_hash).unwrap();
 
     Ok(TestState {
         cairo0_contracts,
@@ -201,7 +208,7 @@ pub async fn os_hints(
             // TODO: biguint is exacerbating the type conversion problem, ideas...?
             let address: ContractAddress =
                 ContractAddress(PatriciaKey::try_from(felt_vm2api(Felt252::from(address_biguint))).unwrap());
-            let contract_state = 
+            let contract_state =
                 execute_coroutine(async { blockifier_state.state.get_contract_state(address) }).unwrap().unwrap();
             (to_felt252(address.0.key()), contract_state)
         })
@@ -209,30 +216,29 @@ pub async fn os_hints(
 
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 
-    /*
-    contracts.insert(
-        Felt252::from(0),
-        execute_coroutine(async {
-            ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap()
-        }).unwrap(),
-    );
-    contracts.insert(
-        Felt252::from(1),
-        execute_coroutine(async {
-            ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap()
-        }).unwrap(),
-    );
-    */
+    // contracts.insert(
+    // Felt252::from(0),
+    // execute_coroutine(async {
+    // ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap()
+    // }).unwrap(),
+    // );
+    // contracts.insert(
+    // Felt252::from(1),
+    // execute_coroutine(async {
+    // ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap()
+    // }).unwrap(),
+    // );
 
     for c in contracts.keys() {
         let address = ContractAddress::try_from(StarkHash::new(c.to_bytes_be()).unwrap()).unwrap();
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
         // TODO: we sometimes get a class_hash of 0, perhaps because of a `ContractState::empty()`?
-        //       it's not clear whether this is actually problematic in general, but it currently causes get_compiled_contract_class()
-        //       to panic.
+        //       it's not clear whether this is actually problematic in general, but it currently causes
+        // get_compiled_contract_class()       to panic.
         //
-        //       the latter might be the problem -- note that the blockifier impl of StateReader returns `unwrap_or_default()` in both
-        //       get_class_hash_at() and get_compiled_contract_class().
+        //       the latter might be the problem -- note that the blockifier impl of StateReader returns
+        // `unwrap_or_default()` in both       get_class_hash_at() and
+        // get_compiled_contract_class().
         if class_hash.0.bytes().into_iter().fold(0u64, |acc, b| acc + *b as u64) == 0 {
             println!("Warning: ContractAddress for {:?} gave us a 0 class hash; skipping", address);
             continue;

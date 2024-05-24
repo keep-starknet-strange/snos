@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::BALANCE;
-use cairo_lang_starknet::contract_class::ContractClass;
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet::contract_class::ContractClass;
 use rstest::fixture;
 use snos::crypto::pedersen::PedersenHash;
 use snos::starknet::business_logic::fact_state::state::SharedState;
@@ -16,9 +16,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiled
 use super::block_utils::test_state;
 use super::blockifier_contracts::{get_feature_casm_contract_class, get_feature_sierra_contract_class};
 use crate::common::block_context;
-use crate::common::blockifier_contracts::{
-    get_deprecated_erc20_contract_class, get_deprecated_feature_contract_class,
-};
+use crate::common::blockifier_contracts::{get_deprecated_erc20_contract_class, get_deprecated_feature_contract_class};
 
 /// A struct to store all test state that must be maintained between initial setup, blockifier
 /// execution, and SNOS re-execution.

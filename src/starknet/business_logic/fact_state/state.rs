@@ -19,7 +19,7 @@ use crate::config::{
 };
 use crate::crypto::poseidon::{poseidon_hash_many_bytes, PoseidonHash};
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
-    get_ffc_for_contract_class_facts, ContractClassLeaf, DeprecatedCompiledClassFact, CompiledClassFact,
+    get_ffc_for_contract_class_facts, CompiledClassFact, ContractClassLeaf, DeprecatedCompiledClassFact,
 };
 use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use crate::starknet::business_logic::state::state_api_objects::BlockInfo;
@@ -265,8 +265,8 @@ where
         storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>,
         block_info: BlockInfo,
     ) -> Result<Self, TreeError> {
-        let accessed_addresses_felts: HashSet<_> =
-            address_to_class_hash.keys()
+        let accessed_addresses_felts: HashSet<_> = address_to_class_hash
+            .keys()
             .chain(address_to_class_hash.values())
             .chain(address_to_nonce.keys())
             .chain(storage_updates.keys())
@@ -402,9 +402,12 @@ where
             let storage = self.ffc.acquire_storage().await;
 
             // first try to read as a deprecated class
-            let deprecated_compiled_class_fact = DeprecatedCompiledClassFact::get(storage.deref(), class_hash.0.bytes()).await.unwrap();
+            let deprecated_compiled_class_fact =
+                DeprecatedCompiledClassFact::get(storage.deref(), class_hash.0.bytes()).await.unwrap();
             if let Some(deprecated_compiled_class_fact) = deprecated_compiled_class_fact {
-                return Ok(deprecated_contract_class_api2vm(&deprecated_compiled_class_fact.contract_definition).unwrap());
+                return Ok(
+                    deprecated_contract_class_api2vm(&deprecated_compiled_class_fact.contract_definition).unwrap()
+                );
             };
         }
 
@@ -412,7 +415,7 @@ where
         let storage = self.ffc_for_class_hash.acquire_storage().await;
         let compiled_class_fact = CompiledClassFact::get(storage.deref(), class_hash.0.bytes()).await.unwrap();
         if let Some(compiled_class_fact) = compiled_class_fact {
-            return Ok(contract_class_cl2vm(&compiled_class_fact.compiled_class).unwrap())
+            return Ok(contract_class_cl2vm(&compiled_class_fact.compiled_class).unwrap());
         };
 
         Err(StateError::UndeclaredClassHash(class_hash))

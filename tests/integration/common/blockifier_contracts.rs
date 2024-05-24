@@ -1,10 +1,12 @@
 use std::path::Path;
 
-use cairo_lang_starknet::contract_class::ContractClass;
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet::contract_class::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
-use crate::common::contract_fixtures::{get_compiled_casm_class, get_compiled_sierra_class, get_deprecated_compiled_class};
+use crate::common::contract_fixtures::{
+    get_compiled_casm_class, get_compiled_sierra_class, get_deprecated_compiled_class,
+};
 
 pub fn get_deprecated_feature_contract_class(contract_name: &str) -> DeprecatedCompiledClass {
     let filename = format!("{contract_name}_compiled.json");

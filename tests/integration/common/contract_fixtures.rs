@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use cairo_lang_starknet::contract_class::ContractClass;
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet::contract_class::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 pub fn get_contracts_dir() -> PathBuf {

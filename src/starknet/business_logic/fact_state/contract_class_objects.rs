@@ -5,8 +5,8 @@ use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet::contract_class::{ContractClass, ContractEntryPoint};
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
-use pathfinder_gateway_types::class_hash::{compute_class_hash, compute_sierra_class_hash};
 use pathfinder_gateway_types::class_hash::json::SierraContractDefinition;
+use pathfinder_gateway_types::class_hash::{compute_class_hash, compute_sierra_class_hash};
 use pathfinder_gateway_types::request::contract::{EntryPointType, SelectorAndFunctionIndex};
 use serde::{Deserialize, Serialize};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
@@ -41,36 +41,50 @@ where
         }
 
         fn convert_entry_points(entry_points: &Vec<ContractEntryPoint>) -> Vec<SelectorAndFunctionIndex> {
-            entry_points.into_iter().map(|ep| {
-                SelectorAndFunctionIndex {
+            entry_points
+                .into_iter()
+                .map(|ep| SelectorAndFunctionIndex {
                     selector: pathfinder_common::EntryPoint(felt_buint2pf(&ep.selector)),
-                    function_idx: ep.function_idx.try_into().unwrap()
-                }
-            }).collect()
+                    function_idx: ep.function_idx.try_into().unwrap(),
+                })
+                .collect()
         }
 
         let mut entry_points_map = HashMap::new();
-        entry_points_map.insert(EntryPointType::External, convert_entry_points(&self.contract_class.entry_points_by_type.external));
-        entry_points_map.insert(EntryPointType::L1Handler, convert_entry_points(&self.contract_class.entry_points_by_type.l1_handler));
-        entry_points_map.insert(EntryPointType::Constructor, convert_entry_points(&self.contract_class.entry_points_by_type.constructor));
+        entry_points_map
+            .insert(EntryPointType::External, convert_entry_points(&self.contract_class.entry_points_by_type.external));
+        entry_points_map.insert(
+            EntryPointType::L1Handler,
+            convert_entry_points(&self.contract_class.entry_points_by_type.l1_handler),
+        );
+        entry_points_map.insert(
+            EntryPointType::Constructor,
+            convert_entry_points(&self.contract_class.entry_points_by_type.constructor),
+        );
 
         let sierra_contract_definition = SierraContractDefinition {
             abi: Default::default(),
-            sierra_program: self.contract_class.sierra_program.clone().into_iter().map(|b| felt_buint2pf(&b.value)).collect(),
+            sierra_program: self
+                .contract_class
+                .sierra_program
+                .clone()
+                .into_iter()
+                .map(|b| felt_buint2pf(&b.value))
+                .collect(),
             contract_class_version: Cow::Borrowed(self.contract_class.contract_class_version.as_str()),
             entry_points_by_type: entry_points_map,
         };
 
-        /*
         // Panicking is okay-ish here, for now this code is test-only.
-        // let contract_dump = serde_json::to_vec(&self.contract_class).expect("JSON serialization failed unexpectedly.");
-        let contract_dump = serde_json::to_vec(&sierra_contract_definition).expect("JSON serialization failed unexpectedly.");
-        let computed_class_hash =
-            compute_class_hash(&contract_dump).unwrap_or_else(|e| panic!("Failed to compute class hash: {}", e));
-        */
+        // let contract_dump = serde_json::to_vec(&self.contract_class).expect("JSON serialization failed
+        // unexpectedly."); let contract_dump =
+        // serde_json::to_vec(&sierra_contract_definition).expect("JSON serialization failed
+        // unexpectedly."); let computed_class_hash =
+        // compute_class_hash(&contract_dump).unwrap_or_else(|e| panic!("Failed to compute class hash: {}",
+        // e));
 
-        let computed_class_hash =
-            compute_sierra_class_hash(sierra_contract_definition).unwrap_or_else(|e| panic!("Failed to compute class hash: {}", e));
+        let computed_class_hash = compute_sierra_class_hash(sierra_contract_definition)
+            .unwrap_or_else(|e| panic!("Failed to compute class hash: {}", e));
 
         computed_class_hash.0.to_be_bytes().to_vec()
     }
