@@ -24,6 +24,7 @@ use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::business_logic::utils::{
     write_class_facts, write_compiled_class_fact, write_deprecated_compiled_class_fact,
 };
+use snos::starknet::starknet_storage::CommitmentInfo;
 use snos::starkware_utils::commitment_tree::base_types::Height;
 use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use snos::storage::dict_storage::DictStorage;
@@ -303,8 +304,11 @@ pub async fn os_hints(
 
     let compiled_classes: HashMap<_, _> = compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
 
+    let mut contract_state_commitment_info: CommitmentInfo = Default::default();
+    contract_state_commitment_info.tree_height = 251;
+
     let os_input = StarknetOsInput {
-        contract_state_commitment_info: Default::default(),
+        contract_state_commitment_info,
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes,
         compiled_classes,
