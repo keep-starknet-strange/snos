@@ -266,7 +266,10 @@ pub fn get_block_mapping(
     let dict_ptr = get_ptr_from_var_name(CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
         Dictionary::SimpleDictionary(dict) => {
-            dict.get(&MaybeRelocatable::Int(*key)).expect("State changes dictionary shouldn't be None").clone()
+            dict.get(&MaybeRelocatable::Int(*key))
+                .ok_or_else(|| {
+                    HintError::CustomHint("State changes dictionary shouldn't be None".to_string().into_boxed_str())
+                })?.clone()
         }
         Dictionary::DefaultDictionary { dict: _d, default_value: _v } => {
             panic!("State changes dict shouldn't be a default dict")
