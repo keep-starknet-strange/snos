@@ -3,12 +3,10 @@ use std::collections::{HashMap, HashSet};
 use blockifier::abi::abi_utils::get_fee_token_var_address;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
-use blockifier::execution::contract_class::ContractClassV1;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::StateReader;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
-use cairo_lang_semantic::items::free_function::free_function_declaration_inline_config;
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet::contract_class::ContractClass;
 use cairo_vm::Felt252;
@@ -22,14 +20,11 @@ use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
-use snos::starknet::business_logic::utils::{
-    write_class_facts, write_compiled_class_fact, write_deprecated_compiled_class_fact,
-};
+use snos::starknet::business_logic::utils::{write_class_facts, write_deprecated_compiled_class_fact};
 use snos::starknet::starknet_storage::CommitmentInfo;
 use snos::starkware_utils::commitment_tree::base_types::Height;
-use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use snos::storage::dict_storage::DictStorage;
-use snos::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
+use snos::storage::storage::{FactFetchingContext, HashFunctionType, StorageError};
 use snos::storage::storage_utils::{
     build_starknet_storage_async, contract_class_cl2vm, deprecated_contract_class_api2vm,
 };
@@ -39,8 +34,8 @@ use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedCompiledClass, ContractClass as DeprecatedContractClass,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::stark_felt;
 use starknet_api::state::StorageKey;
-use starknet_api::{contract_address, patricia_key, stark_felt};
 
 use super::state::TestState;
 use crate::common::state::{ContractDeployment, DeprecatedContractDeployment, FeeContracts};
@@ -308,19 +303,21 @@ pub async fn os_hints(
     let mut ffc = blockifier_state.state.ffc.clone();
 
     // Convert the Blockifier storage into an OS-compatible one
-    let (contract_storage_map, previous_state, updated_state) = build_starknet_storage_async(blockifier_state).await.unwrap();
+    let (contract_storage_map, previous_state, updated_state) =
+        build_starknet_storage_async(blockifier_state).await.unwrap();
 
     let previous_tree = previous_state.contract_states;
     let expected_update_root = Felt252::from_bytes_be_slice(&updated_state.contract_states.root);
 
-    let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<DictStorage, PedersenHash, ContractState>(
-        previous_tree,
-        expected_update_root,
-        Default::default(), // TODO
-        &mut ffc,
-    )
-    .await
-    .expect("Could not create contract state commitment info");
+    let contract_state_commitment_info =
+        CommitmentInfo::create_from_modifications::<DictStorage, PedersenHash, ContractState>(
+            previous_tree,
+            expected_update_root,
+            Default::default(), // TODO
+            &mut ffc,
+        )
+        .await
+        .expect("Could not create contract state commitment info");
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info,

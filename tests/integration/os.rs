@@ -4,7 +4,6 @@ use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use rstest::rstest;
-use serde::Serialize;
 use snos::config::STORED_BLOCK_HASH_BUFFER;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
