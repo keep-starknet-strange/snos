@@ -10,7 +10,7 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{initial_state, TestState};
+use crate::common::state::{initial_state, initial_state_cairo1, TestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
@@ -48,22 +48,24 @@ async fn return_result_cairo0_account(#[future] initial_state: TestState, block_
 
     // temporarily expect test to break prematurely
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 646245114977324210659279014519951538684823368221946044944492064370769527799"#), "{}", err_log);
+    assert!(err_log.contains(r#"Tree height (0) does not match Merkle height"#), "{}", err_log);
 }
 
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn return_result_cairo1_account(#[future] initial_state: TestState, block_context: BlockContext, max_fee: Fee) {
-    let initial_state = initial_state.await;
-
-    panic!("TODO: cairo1 contracts are omitted in text fixture currently");
+async fn return_result_cairo1_account(
+    #[future] initial_state_cairo1: TestState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let initial_state = initial_state_cairo1.await;
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
     let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
-    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
+    let contract_address = initial_state.cairo1_contracts.get("test_contract").unwrap().address;
 
     let return_result_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
@@ -96,8 +98,6 @@ async fn return_result_cairo1_account(#[future] initial_state: TestState, block_
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn syscalls_cairo1(#[future] initial_state: TestState, block_context: BlockContext, max_fee: Fee) {
     let initial_state = initial_state.await;
-
-    panic!("TODO: cairo1 contracts are omitted in text fixture currently");
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();

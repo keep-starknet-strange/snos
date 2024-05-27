@@ -4,6 +4,7 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 
 use async_stream::try_stream;
+use blockifier::state::errors::StateError;
 use cairo_vm::Felt252;
 use tokio::sync::Mutex;
 use tokio_stream::Stream;
@@ -22,6 +23,12 @@ pub enum StorageError {
 
     #[error(transparent)]
     Serialize(#[from] SerializeError),
+}
+
+impl From<StorageError> for StateError {
+    fn from(storage_error: StorageError) -> Self {
+        StateError::StateReadError(format!("Storage error: {}", storage_error.to_string()))
+    }
 }
 
 #[allow(async_fn_in_trait)]

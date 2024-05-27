@@ -94,3 +94,25 @@ pub async fn initial_state(block_context: BlockContext) -> TestState {
 
     test_state
 }
+
+/// Initial state for basic Cairo 1 tests.
+/// Note that the ERC20 is a Cairo 0 contract. We reuse the ERC20 contract Blockifier
+/// out of simplicity for our first tests, this will eventually be replaced by an equivalent
+/// Cairo 1 contract if possible.
+
+#[fixture]
+pub async fn initial_state_cairo1(block_context: BlockContext) -> TestState {
+    let ffc = FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());
+    let test_state = test_state(
+        &block_context,
+        BALANCE,
+        get_deprecated_erc20_contract_class(),
+        &[],
+        &[load_cairo1_classes("account_with_dummy_validate"), load_cairo1_classes("test_contract")],
+        ffc,
+    )
+    .await
+    .unwrap();
+
+    test_state
+}
