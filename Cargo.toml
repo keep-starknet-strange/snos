@@ -24,9 +24,9 @@ log = "0.4.19"
 num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2.16"
-pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "bfc2a5c67247f94920a77d9ca7c8afff20de639b", package = "starknet-gateway-types" }
-pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "bfc2a5c67247f94920a77d9ca7c8afff20de639b", package = "pathfinder-crypto" }
-pathfinder-common = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "bfc2a5c67247f94920a77d9ca7c8afff20de639b", package = "pathfinder-common" }
+pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "starknet-gateway-types" }
+pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-crypto" }
+pathfinder-common = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-common" }
 regex = "1.10.0"
 reqwest = { version = "0.11.18", features = ["blocking", "json"] }
 serde = { version = "1.0.188", features = ["derive"] }

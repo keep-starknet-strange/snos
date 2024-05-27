@@ -2614,7 +2614,7 @@ checksum = "17359afc20d7ab31fdb42bb844c8b3bb1dabd7dcf7e68428492da7f16966fcef"
 [[package]]
 name = "pathfinder-common"
 version = "0.12.0"
-source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=bfc2a5c67247f94920a77d9ca7c8afff20de639b#bfc2a5c67247f94920a77d9ca7c8afff20de639b"
+source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=49a2de4ef52726d1fb5ef906ff95f48af8076169#49a2de4ef52726d1fb5ef906ff95f48af8076169"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -2636,7 +2636,7 @@ dependencies = [
 [[package]]
 name = "pathfinder-crypto"
 version = "0.12.0"
-source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=bfc2a5c67247f94920a77d9ca7c8afff20de639b#bfc2a5c67247f94920a77d9ca7c8afff20de639b"
+source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=49a2de4ef52726d1fb5ef906ff95f48af8076169#49a2de4ef52726d1fb5ef906ff95f48af8076169"
 dependencies = [
  "bitvec",
  "fake",
@@ -2647,7 +2647,7 @@ dependencies = [
 [[package]]
 name = "pathfinder-serde"
 version = "0.12.0"
-source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=bfc2a5c67247f94920a77d9ca7c8afff20de639b#bfc2a5c67247f94920a77d9ca7c8afff20de639b"
+source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=49a2de4ef52726d1fb5ef906ff95f48af8076169#49a2de4ef52726d1fb5ef906ff95f48af8076169"
 dependencies = [
  "anyhow",
  "num-bigint",
@@ -3580,7 +3580,7 @@ dependencies = [
 [[package]]
 name = "starknet-gateway-types"
 version = "0.12.0"
-source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=bfc2a5c67247f94920a77d9ca7c8afff20de639b#bfc2a5c67247f94920a77d9ca7c8afff20de639b"
+source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=49a2de4ef52726d1fb5ef906ff95f48af8076169#49a2de4ef52726d1fb5ef906ff95f48af8076169"
 dependencies = [
  "anyhow",
  "fake",
