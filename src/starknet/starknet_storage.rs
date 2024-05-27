@@ -134,6 +134,36 @@ impl CommitmentInfo {
             commitment_facts,
         })
     }
+
+    /// Returns a commitment info that corresponds to the expected modifications and updated tree.
+    pub async fn create_from_expected_updated_tree<S, H, LF>(
+        previous_tree: PatriciaTree,
+        expected_updated_tree: PatriciaTree,
+        expected_accessed_indices: &[TreeIndex],
+        ffc: &mut FactFetchingContext<S, H>,
+    ) -> Result<Self, CommitmentInfoError>
+    where
+        S: Storage + 'static,
+        H: HashFunctionType + Sync + Send + 'static,
+        LF: LeafFact<S, H> + Send + 'static,
+    {
+        if previous_tree.height != expected_updated_tree.height {
+            return Err(TreeError::TreeHeightsMismatch(previous_tree.height, expected_updated_tree.height).into());
+        }
+
+        // Perform the commitment to collect the facts needed by the OS.
+        let modifications: HashMap<_, LF> =
+            expected_updated_tree.get_leaves(ffc, expected_accessed_indices, &mut None).await?;
+        let modifications_vec: Vec<_> = modifications.into_iter().collect();
+
+        Self::create_from_modifications(
+            previous_tree,
+            Felt252::from_bytes_be_slice(&expected_updated_tree.root),
+            modifications_vec,
+            ffc,
+        )
+        .await
+    }
 }
 
 #[derive(Clone, Debug)]

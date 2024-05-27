@@ -22,7 +22,7 @@ use snos::starknet::business_logic::fact_state::contract_state_objects::Contract
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::business_logic::utils::{write_class_facts, write_deprecated_compiled_class_fact};
 use snos::starknet::starknet_storage::CommitmentInfo;
-use snos::starkware_utils::commitment_tree::base_types::Height;
+use snos::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::{FactFetchingContext, HashFunctionType, StorageError};
 use snos::storage::storage_utils::{
@@ -306,21 +306,21 @@ pub async fn os_hints(
     let (contract_storage_map, previous_state, updated_state) =
         build_starknet_storage_async(blockifier_state).await.unwrap();
 
-    let previous_tree = previous_state.contract_states;
-    let expected_update_root = Felt252::from_bytes_be_slice(&updated_state.contract_states.root);
+    // Pass all contract addresses as expected accessed indices
+    let contract_indices: Vec<TreeIndex> = contracts.keys().map(|address| address.to_biguint()).collect();
 
     let contract_state_commitment_info =
-        CommitmentInfo::create_from_modifications::<DictStorage, PedersenHash, ContractState>(
-            previous_tree,
-            expected_update_root,
-            Default::default(), // TODO
+        CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PedersenHash, ContractState>(
+            previous_state.contract_states.clone(),
+            updated_state.contract_states.clone(),
+            &contract_indices,
             &mut ffc,
         )
         .await
         .expect("Could not create contract state commitment info");
 
     let os_input = StarknetOsInput {
-        contract_state_commitment_info,
+        contract_state_commitment_info: Default::default(),
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes,
         compiled_classes,
