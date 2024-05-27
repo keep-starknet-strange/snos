@@ -169,3 +169,38 @@ where
 {
     ffc.clone_with_different_hash::<PoseidonHash>()
 }
+
+#[cfg(test)]
+mod tests {
+    use std::ops::Deref;
+
+    use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+    use rstest::rstest;
+
+    use crate::crypto::pedersen::PedersenHash;
+    use crate::starknet::business_logic::fact_state::contract_class_objects::CompiledClassFact;
+    use crate::storage::dict_storage::DictStorage;
+    use crate::storage::storage::{DbObject, Fact, FactFetchingContext};
+
+    #[rstest]
+    #[tokio::test]
+    /// Sanity check to test that serializing/deserializing compiled class facts to storage works.
+    async fn serialize_and_deserialize_compiled_class_fact() {
+        let mut ffc: FactFetchingContext<DictStorage, PedersenHash> = FactFetchingContext::new(DictStorage::default());
+
+        let casm_bytes = include_bytes!(
+            "../../../../tests/integration/contracts/blockifier_contracts/feature_contracts/cairo1/compiled/\
+             test_contract.casm.json"
+        );
+        let compiled_class: CasmContractClass =
+            serde_json::from_slice(casm_bytes).expect("Failed to deserialize CASM file");
+
+        let fact = CompiledClassFact { compiled_class };
+
+        let fact_hash = fact.set_fact(&mut ffc).await.unwrap();
+
+        let storage = ffc.acquire_storage().await;
+        let deserialized_fact = CompiledClassFact::get(storage.deref(), &fact_hash).await.unwrap();
+        assert!(deserialized_fact.is_some());
+    }
+}

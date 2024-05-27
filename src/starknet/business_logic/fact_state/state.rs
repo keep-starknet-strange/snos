@@ -500,8 +500,11 @@ where
 
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
-        let compiled_class_hash = CompiledClassHash(class_hash.0);
-        execute_coroutine(self.get_compiled_contract_class_async(compiled_class_hash)).unwrap() // TODO: unwrap
+        execute_coroutine(async {
+            let compiled_class_hash = self.get_compiled_class_hash_async(class_hash).await.unwrap();
+            self.get_compiled_contract_class_async(compiled_class_hash).await
+        })
+        .unwrap() // TODO: unwrap
     }
 
     /// Returns the compiled class hash of the given class hash.

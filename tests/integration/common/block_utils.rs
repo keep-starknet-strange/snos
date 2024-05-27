@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::ops::Deref;
 
 use blockifier::abi::abi_utils::get_fee_token_var_address;
 use blockifier::block_context::BlockContext;
@@ -18,13 +19,14 @@ use snos::crypto::pedersen::PedersenHash;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
+use snos::starknet::business_logic::fact_state::contract_class_objects::{CompiledClassFact, ContractClassFact};
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::business_logic::utils::{write_class_facts, write_deprecated_compiled_class_fact};
 use snos::starknet::starknet_storage::CommitmentInfo;
 use snos::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use snos::storage::dict_storage::DictStorage;
-use snos::storage::storage::{FactFetchingContext, StorageError};
+use snos::storage::storage::{DbObject, FactFetchingContext, StorageError};
 use snos::storage::storage_utils::{
     build_starknet_storage_async, contract_class_cl2vm, deprecated_contract_class_api2vm,
 };
@@ -108,7 +110,7 @@ pub async fn test_state(
 
     // Deploy deprecated contracts
     for (name, contract) in deprecated_contract_classes {
-        let class_hash_bytes = write_deprecated_compiled_class_fact((*contract).clone(), &mut ffc).await?;
+        let class_hash_bytes = write_deprecated_compiled_class_fact(contract.clone(), &mut ffc).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
 
         let vm_class = deprecated_contract_class_api2vm(contract).unwrap();
@@ -127,13 +129,12 @@ pub async fn test_state(
     // Deploy non-deprecated contracts
     for (name, casm_contract, sierra_contract) in contract_classes {
         let (contract_class_hash_bytes, compiled_class_hash_bytes) =
-            write_class_facts(&mut ffc, sierra_contract.clone(), casm_contract.clone()).await?;
+            write_class_facts(sierra_contract.clone(), casm_contract.clone(), &mut ffc).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(contract_class_hash_bytes));
         let compiled_class_hash = CompiledClassHash(stark_felt_from_bytes(compiled_class_hash_bytes));
 
         let vm_class = contract_class_cl2vm(casm_contract).unwrap();
         state.class_hash_to_class.insert(class_hash, vm_class);
-
         state.class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash);
 
         let address = ContractAddress::from(rand.gen::<u128>());
@@ -141,12 +142,12 @@ pub async fn test_state(
         state.address_to_class_hash.insert(address, class_hash);
         deployed_addresses.push(address);
 
-        deployed_contract_classes.insert(class_hash, (*casm_contract).clone());
+        deployed_contract_classes.insert(class_hash, casm_contract.clone());
         cairo1_contracts.insert(
             name.to_string(),
             ContractDeployment {
-                casm_class: (*casm_contract).clone(),
-                sierra_class: (*sierra_contract).clone(),
+                casm_class: casm_contract.clone(),
+                sierra_class: sierra_contract.clone(),
                 class_hash,
                 address,
             },
