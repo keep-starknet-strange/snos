@@ -278,7 +278,8 @@ pub async fn os_hints(
         build_starknet_storage_async(blockifier_state).await.unwrap();
 
     // Pass all contract addresses as expected accessed indices
-    let contract_indices: Vec<TreeIndex> = contracts.keys().map(|address| address.to_biguint()).collect();
+    let mut contract_indices: HashSet<TreeIndex> = contracts.keys().chain(contract_storage_map.keys()).map(|address| address.to_biguint()).collect();
+    let contract_indices: Vec<TreeIndex> = contract_indices.into_iter().collect();
     println!("Contract indices: {contract_indices:?}");
 
     let contract_state_commitment_info =
