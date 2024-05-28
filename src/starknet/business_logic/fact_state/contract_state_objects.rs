@@ -67,7 +67,7 @@ impl ContractState {
 
         let nonce = nonce.unwrap_or(self.nonce);
         let modifications: Vec<_> =
-            updates.into_iter().map(|(key, value)| (key.to_biguint(), StorageLeaf::new(*value))).collect();
+            updates.iter().map(|(key, value)| (key.to_biguint(), StorageLeaf::new(*value))).collect();
 
         let mut facts = None;
         let updated_storage_commitment_tree =

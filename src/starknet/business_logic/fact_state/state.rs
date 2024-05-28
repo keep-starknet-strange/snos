@@ -285,9 +285,9 @@ where
         for address in accessed_addresses_felts {
             // unwrap() is safe as an entry is guaranteed to be present with `get_leaves()`.
             let tree_index = address.to_biguint();
-            let updates = storage_updates.get(&address).unwrap_or(&empty_updates);
-            let nonce = address_to_nonce.get(&address).cloned();
-            let class_hash = address_to_class_hash.get(&address).cloned();
+            let updates = storage_updates.get(address).unwrap_or(&empty_updates);
+            let nonce = address_to_nonce.get(address).cloned();
+            let class_hash = address_to_class_hash.get(address).cloned();
             let updated_contract_state = current_contract_states
                 .remove(&tree_index)
                 .unwrap()
@@ -299,11 +299,11 @@ where
 
         // Apply contract changes on global root.
         println!("Updating contract state tree with {} modifications...", accessed_addresses.len());
-        let global_state_modifications: Vec<_> = updated_contract_states.into_iter().map(|(k, v)| (k, v)).collect();
+        let global_state_modifications: Vec<_> = updated_contract_states.into_iter().collect();
         let updated_global_contract_root =
             self.contract_states.update(&mut self.ffc, global_state_modifications, &mut facts).await?;
 
-        let mut ffc_for_contract_class = get_ffc_for_contract_class_facts(&mut self.ffc);
+        let mut ffc_for_contract_class = get_ffc_for_contract_class_facts(&self.ffc);
 
         let updated_contract_classes = match self.contract_classes {
             Some(mut tree) => {

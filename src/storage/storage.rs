@@ -27,7 +27,7 @@ pub enum StorageError {
 
 impl From<StorageError> for StateError {
     fn from(storage_error: StorageError) -> Self {
-        StateError::StateReadError(format!("Storage error: {}", storage_error.to_string()))
+        StateError::StateReadError(format!("Storage error: {}", storage_error))
     }
 }
 
