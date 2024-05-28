@@ -4,7 +4,7 @@ use blockifier::abi::abi_utils::get_fee_token_var_address;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
 use blockifier::state::cached_state::CachedState;
-use blockifier::state::state_api::StateReader;
+use blockifier::state::state_api::{State, StateReader};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
@@ -210,6 +210,14 @@ pub async fn os_hints(
             (to_felt252(address.0.key()), contract_state)
         })
         .collect();
+
+
+    // provide an empty ContractState for any newly deployed contract
+    // TODO: review -- what can to_state_diff() give us results we don't want to use here?
+    let deployed_addresses = blockifier_state.to_state_diff().address_to_class_hash;
+    for (address, class_hash) in deployed_addresses {
+        contracts.insert(to_felt252(address.0.key()), ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap());
+    }
 
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
 

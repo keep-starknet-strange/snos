@@ -193,5 +193,5 @@ async fn syscalls_cairo1(#[future] initial_state_syscalls: TestState, block_cont
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 354573111547370173281606292268396466744750568787097671151101592218871604240"#), "{}", err_log);
+    assert!(err_log.contains(r#"Tree height (0) does not match Merkle height"#), "{}", err_log);
 }
