@@ -211,12 +211,14 @@ pub async fn os_hints(
         })
         .collect();
 
-
     // provide an empty ContractState for any newly deployed contract
     // TODO: review -- what can to_state_diff() give us results we don't want to use here?
     let deployed_addresses = blockifier_state.to_state_diff().address_to_class_hash;
     for (address, class_hash) in deployed_addresses {
-        contracts.insert(to_felt252(address.0.key()), ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap());
+        contracts.insert(
+            to_felt252(address.0.key()),
+            ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap(),
+        );
     }
 
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
@@ -286,7 +288,8 @@ pub async fn os_hints(
         build_starknet_storage_async(blockifier_state).await.unwrap();
 
     // Pass all contract addresses as expected accessed indices
-    let mut contract_indices: HashSet<TreeIndex> = contracts.keys().chain(contract_storage_map.keys()).map(|address| address.to_biguint()).collect();
+    let mut contract_indices: HashSet<TreeIndex> =
+        contracts.keys().chain(contract_storage_map.keys()).map(|address| address.to_biguint()).collect();
     let contract_indices: Vec<TreeIndex> = contract_indices.into_iter().collect();
     println!("Contract indices: {contract_indices:?}");
 
