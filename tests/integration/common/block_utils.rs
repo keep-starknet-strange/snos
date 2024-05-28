@@ -13,7 +13,7 @@ use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
-use snos::config::{StarknetGeneralConfig, StarknetOsConfig, BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
+use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use snos::crypto::pedersen::PedersenHash;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
@@ -24,18 +24,17 @@ use snos::starknet::business_logic::utils::{write_class_facts, write_deprecated_
 use snos::starknet::starknet_storage::CommitmentInfo;
 use snos::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use snos::storage::dict_storage::DictStorage;
-use snos::storage::storage::{DbObject, FactFetchingContext, StorageError};
+use snos::storage::storage::{FactFetchingContext, StorageError};
 use snos::storage::storage_utils::{
     build_starknet_storage_async, contract_class_cl2vm, deprecated_contract_class_api2vm,
 };
-use snos::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
+use snos::utils::{felt_api2vm, felt_vm2api};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedCompiledClass, ContractClass as DeprecatedContractClass,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::stark_felt;
-use starknet_api::state::StorageKey;
 
 use super::state::TestState;
 use crate::common::state::{ContractDeployment, DeprecatedContractDeployment, FeeContracts};
@@ -175,17 +174,6 @@ pub async fn test_state(
 
     let cached_state = CachedState::from(shared_state);
 
-    // Insert block-related storage data
-    let upper_bound_block_number = block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER;
-    let block_number = StorageKey::from(upper_bound_block_number);
-    let block_hash = stark_felt!(66_u64);
-
-    let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
-
-    // TODO:
-    // initial_blockifier_state.set_storage_at(block_hash_contract_address, block_number,
-    // block_hash).unwrap();
-
     Ok(TestState {
         cairo0_contracts,
         cairo1_contracts,
@@ -282,8 +270,6 @@ pub async fn os_hints(
 
     let deprecated_compiled_classes: HashMap<_, _> =
         deprecated_compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
-
-    let compiled_classes: HashMap<_, _> = compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
 
     let mut ffc = blockifier_state.state.ffc.clone();
 

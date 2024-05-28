@@ -10,7 +10,7 @@ use snos::crypto::pedersen::PedersenHash;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::FactFetchingContext;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
+use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use super::block_utils::test_state;
