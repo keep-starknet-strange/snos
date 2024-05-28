@@ -10,7 +10,7 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{initial_state, initial_state_cairo1, TestState};
+use crate::common::state::{initial_state, initial_state_cairo1, initial_state_syscalls, TestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
@@ -65,7 +65,7 @@ async fn return_result_cairo1_account(
     let mut nonce_manager = NonceManager::default();
 
     let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
-    let contract_address = initial_state.cairo1_contracts.get("test_contract").unwrap().address;
+    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
 
     let return_result_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
@@ -90,14 +90,14 @@ async fn return_result_cairo1_account(
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 354573111547370173281606292268396466744750568787097671151101592218871604240"#), "{}", err_log);
+    assert!(err_log.contains(r#"Tree height (0) does not match Merkle height"#), "{}", err_log);
 }
 
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn syscalls_cairo1(#[future] initial_state: TestState, block_context: BlockContext, max_fee: Fee) {
-    let initial_state = initial_state.await;
+async fn syscalls_cairo1(#[future] initial_state_syscalls: TestState, block_context: BlockContext, max_fee: Fee) {
+    let initial_state = initial_state_syscalls.await;
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();

@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::ops::Deref;
 
 use blockifier::abi::abi_utils::get_fee_token_var_address;
 use blockifier::block_context::BlockContext;
@@ -19,7 +18,6 @@ use snos::crypto::pedersen::PedersenHash;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
-use snos::starknet::business_logic::fact_state::contract_class_objects::{CompiledClassFact, ContractClassFact};
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::business_logic::utils::{write_class_facts, write_deprecated_compiled_class_fact};
@@ -92,6 +90,7 @@ pub async fn test_state(
     println!("ERC20 class_hash: {:?}", erc20_class_hash);
 
     state.class_hash_to_class.insert(erc20_class_hash, deprecated_contract_class_api2vm(&erc20_class).unwrap());
+    state.class_hash_to_compiled_class_hash.insert(erc20_class_hash, CompiledClassHash(erc20_class_hash.0));
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
     state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
 
@@ -115,6 +114,7 @@ pub async fn test_state(
 
         let vm_class = deprecated_contract_class_api2vm(contract).unwrap();
         state.class_hash_to_class.insert(class_hash, vm_class);
+        state.class_hash_to_compiled_class_hash.insert(class_hash, CompiledClassHash(class_hash.0));
 
         let address = ContractAddress::from(rand.gen::<u128>());
         println!("Inserting deprecated class_hash_to_class: {:?} -> {:?}", address, class_hash);
@@ -208,6 +208,8 @@ pub async fn os_hints(
     deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
     compiled_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
+    let mut compiled_class_hash_to_compiled_class: HashMap<Felt252, CasmContractClass> = HashMap::new();
+
     let mut contracts: HashMap<Felt252, ContractState> = blockifier_state
         .state
         .contract_addresses()
@@ -216,8 +218,7 @@ pub async fn os_hints(
             // TODO: biguint is exacerbating the type conversion problem, ideas...?
             let address: ContractAddress =
                 ContractAddress(PatriciaKey::try_from(felt_vm2api(Felt252::from(address_biguint))).unwrap());
-            let contract_state =
-                execute_coroutine(async { blockifier_state.state.get_contract_state(address) }).unwrap().unwrap();
+            let contract_state = blockifier_state.state.get_contract_state(address).unwrap();
             (to_felt252(address.0.key()), contract_state)
         })
         .collect();
@@ -227,43 +228,24 @@ pub async fn os_hints(
     for c in contracts.keys() {
         let address = ContractAddress::try_from(StarkHash::new(c.to_bytes_be()).unwrap()).unwrap();
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
-        // TODO: we sometimes get a class_hash of 0, perhaps because of a `ContractState::empty()`?
-        //       it's not clear whether this is actually problematic in general, but it currently causes
-        // get_compiled_contract_class()       to panic.
-        //
-        //       the latter might be the problem -- note that the blockifier impl of StateReader returns
-        // `unwrap_or_default()` in both       get_class_hash_at() and
-        // get_compiled_contract_class().
-
-        /*
-        if class_hash.0.bytes().into_iter().fold(0u64, |acc, b| acc + *b as u64) == 0 {
-            println!("Warning: ContractAddress for {:?} gave us a 0 class hash; skipping", address);
-            continue;
-        }
-        */
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
             V0(_) => {} // deprecated_compiled_classes are passed in by caller
             V1(_) => {
                 let class =
                     compiled_classes.get(&class_hash).expect(format!("No class given for {:?}", class_hash).as_str());
-                let compiled_class_hash = class.compiled_class_hash();
-                class_hash_to_compiled_class_hash
-                    .insert(to_felt252(&class_hash.0), Felt252::from_bytes_be(&compiled_class_hash.to_be_bytes()));
+                let compiled_class_hash = Felt252::from_bytes_be(&class.compiled_class_hash().to_be_bytes());
+                class_hash_to_compiled_class_hash.insert(to_felt252(&class_hash.0), compiled_class_hash);
+
+                compiled_class_hash_to_compiled_class.insert(compiled_class_hash, class.clone());
             }
         };
     }
 
-    contracts.insert(
-        Felt252::from(0),
-        execute_coroutine(async { ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap() })
-            .unwrap(),
-    );
-    contracts.insert(
-        Felt252::from(1),
-        execute_coroutine(async { ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap() })
-            .unwrap(),
-    );
+    contracts
+        .insert(Felt252::from(0), ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap());
+    contracts
+        .insert(Felt252::from(1), ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap());
 
     println!("contracts: {:?}\ndeprecated_compiled_classes: {:?}", contracts.len(), deprecated_compiled_classes.len());
 
@@ -311,6 +293,7 @@ pub async fn os_hints(
 
     // Pass all contract addresses as expected accessed indices
     let contract_indices: Vec<TreeIndex> = contracts.keys().map(|address| address.to_biguint()).collect();
+    println!("Contract indices: {contract_indices:?}");
 
     let contract_state_commitment_info =
         CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PedersenHash, ContractState>(
@@ -326,7 +309,7 @@ pub async fn os_hints(
         contract_state_commitment_info: Default::default(),
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes,
-        compiled_classes,
+        compiled_classes: compiled_class_hash_to_compiled_class,
         compiled_class_visited_pcs: Default::default(),
         contracts,
         class_hash_to_compiled_class_hash,

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
@@ -91,8 +92,8 @@ pub enum CommitmentInfoError {
     #[error(transparent)]
     Tree(#[from] TreeError),
 
-    #[error("Inconsistent commitment tree roots")]
-    UpdatedRootMismatch,
+    #[error("Inconsistent commitment tree roots: expected {1}, got {0}")]
+    UpdatedRootMismatch(BigUint, BigUint),
 }
 
 impl From<CommitmentInfoError> for HintError {
@@ -121,7 +122,10 @@ impl CommitmentInfo {
         let actual_updated_root = Felt252::from_bytes_be_slice(&actual_updated_tree.root);
 
         if actual_updated_root != expected_updated_root {
-            return Err(CommitmentInfoError::UpdatedRootMismatch);
+            return Err(CommitmentInfoError::UpdatedRootMismatch(
+                actual_updated_root.to_biguint(),
+                expected_updated_root.to_biguint(),
+            ));
         }
 
         // Note: unwrapping is safe here as we wrap the value ourselves a few lines above.
