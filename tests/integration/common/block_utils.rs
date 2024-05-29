@@ -86,7 +86,7 @@ pub async fn test_state(
     let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), &mut ffc).await?;
     let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
 
-    println!("ERC20 class_hash: {:?}", erc20_class_hash);
+    log::debug!("ERC20 class_hash: {:?}", erc20_class_hash);
 
     state.class_hash_to_class.insert(erc20_class_hash, deprecated_contract_class_api2vm(&erc20_class).unwrap());
     state.class_hash_to_compiled_class_hash.insert(erc20_class_hash, CompiledClassHash(erc20_class_hash.0));
@@ -116,7 +116,7 @@ pub async fn test_state(
         state.class_hash_to_compiled_class_hash.insert(class_hash, CompiledClassHash(class_hash.0));
 
         let address = ContractAddress::from(rand.gen::<u128>());
-        println!("Inserting deprecated class_hash_to_class: {:?} -> {:?}", address, class_hash);
+        log::debug!("Inserting deprecated class_hash_to_class: {:?} -> {:?}", address, class_hash);
         state.address_to_class_hash.insert(address, class_hash);
         deployed_addresses.push(address);
         deployed_deprecated_contract_classes.insert(class_hash, (*contract).clone()); // TODO: remove
@@ -137,7 +137,7 @@ pub async fn test_state(
         state.class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash);
 
         let address = ContractAddress::from(rand.gen::<u128>());
-        println!("Inserting non-deprecated class_hash_to_class: {:?} -> {:?}", address, class_hash);
+        log::debug!("Inserting non-deprecated class_hash_to_class: {:?} -> {:?}", address, class_hash);
         state.address_to_class_hash.insert(address, class_hash);
         deployed_addresses.push(address);
 
@@ -245,26 +245,30 @@ pub async fn os_hints(
     contracts
         .insert(Felt252::from(1), ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap());
 
-    println!("contracts: {:?}\ndeprecated_compiled_classes: {:?}", contracts.len(), deprecated_compiled_classes.len());
+    log::debug!(
+        "contracts: {:?}\ndeprecated_compiled_classes: {:?}",
+        contracts.len(),
+        deprecated_compiled_classes.len()
+    );
 
-    println!("contracts to class_hash");
+    log::debug!("contracts to class_hash");
     for (a, c) in &contracts {
-        println!("\t{} -> {}", a, BigUint::from_bytes_be(&c.contract_hash));
+        log::debug!("\t{} -> {}", a, BigUint::from_bytes_be(&c.contract_hash));
     }
 
-    println!("deprecated classes");
+    log::debug!("deprecated classes");
     for (c, _) in &deprecated_compiled_classes {
-        println!("\t{}", c);
+        log::debug!("\t{}", c);
     }
 
-    println!("classes");
+    log::debug!("classes");
     for (c, _) in &compiled_classes {
-        println!("\t{}", c);
+        log::debug!("\t{}", c);
     }
 
-    println!("class_hash to compiled_class_hash");
+    log::debug!("class_hash to compiled_class_hash");
     for (ch, cch) in &class_hash_to_compiled_class_hash {
-        println!("\t{} -> {}", ch, cch);
+        log::debug!("\t{} -> {}", ch, cch);
     }
 
     let default_general_config = StarknetGeneralConfig::default();
@@ -291,7 +295,6 @@ pub async fn os_hints(
     let contract_indices: HashSet<TreeIndex> =
         contracts.keys().chain(contract_storage_map.keys()).map(|address| address.to_biguint()).collect();
     let contract_indices: Vec<TreeIndex> = contract_indices.into_iter().collect();
-    println!("Contract indices: {contract_indices:?}");
 
     let _contract_state_commitment_info =
         CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PedersenHash, ContractState>(

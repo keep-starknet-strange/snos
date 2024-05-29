@@ -216,7 +216,7 @@ pub fn fee_token_address(
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
     let fee_token_address = *os_input.general_config.starknet_os_config.fee_token_address.0.key();
-    println!("fee_token_address: {}", fee_token_address);
+    log::debug!("fee_token_address: {}", fee_token_address);
     insert_value_into_ap(vm, felt_api2vm(fee_token_address))
 }
 
@@ -231,7 +231,7 @@ pub fn deprecated_fee_token_address(
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
     let deprecated_fee_token_address = *os_input.general_config.starknet_os_config.deprecated_fee_token_address.0.key();
-    println!("deprecated_fee_token_address: {}", deprecated_fee_token_address);
+    log::debug!("deprecated_fee_token_address: {}", deprecated_fee_token_address);
     insert_value_into_ap(vm, felt_api2vm(deprecated_fee_token_address))
 }
 

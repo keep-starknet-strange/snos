@@ -50,6 +50,7 @@ cairo-lang-filesystem = { version = "~2.5.4" }
 cairo-lang-semantic = { version = "~2.5.4" }
 cairo-lang-sierra = { version = "~2.5.4" }
 cairo-lang-syntax = { version = "~2.5.4" }
+env_logger = "0.11.3"
 
 [dev-dependencies]
 getset = "0.1.2"

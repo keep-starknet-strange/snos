@@ -74,9 +74,19 @@ pub fn load_cairo1_classes(name: &str) -> (&str, CasmContractClass, ContractClas
     (name, get_feature_casm_contract_class(name), get_feature_sierra_contract_class(name))
 }
 
+#[fixture]
+fn init_logging() {
+    env_logger::builder()
+        .is_test(true)
+        .filter_level(log::LevelFilter::Debug)
+        .format_timestamp(None)
+        .try_init()
+        .expect("Failed to configure env_logger");
+}
+
 /// Fixture to create initial test state in which all test contracts are deployed.
 #[fixture]
-pub async fn initial_state(block_context: BlockContext) -> TestState {
+pub async fn initial_state(block_context: BlockContext, #[from(init_logging)] _logging: ()) -> TestState {
     let ffc = FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());
     let test_state = test_state(
         &block_context,
@@ -101,7 +111,7 @@ pub async fn initial_state(block_context: BlockContext) -> TestState {
 /// Cairo 1 contract if possible.
 
 #[fixture]
-pub async fn initial_state_cairo1(block_context: BlockContext) -> TestState {
+pub async fn initial_state_cairo1(block_context: BlockContext, #[from(init_logging)] _logging: ()) -> TestState {
     let ffc = FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());
     let test_state = test_state(
         &block_context,
@@ -119,7 +129,7 @@ pub async fn initial_state_cairo1(block_context: BlockContext) -> TestState {
 
 /// Initial state for the syscalls test.
 #[fixture]
-pub async fn initial_state_syscalls(block_context: BlockContext) -> TestState {
+pub async fn initial_state_syscalls(block_context: BlockContext, #[from(init_logging)] _logging: ()) -> TestState {
     let ffc = FactFetchingContext::<_, PedersenHash>::new(DictStorage::default());
     let test_state = test_state(
         &block_context,

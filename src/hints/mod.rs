@@ -500,8 +500,8 @@ pub fn breakpoint(
     let pc = vm.get_pc();
     let fp = vm.get_fp();
     let ap = vm.get_ap();
-    println!("-----------BEGIN BREAKPOINT-----------");
-    println!("\tpc -> {}, fp -> {}, ap -> {}", pc, fp, ap);
+    log::debug!("-----------BEGIN BREAKPOINT-----------");
+    log::debug!("\tpc -> {}, fp -> {}, ap -> {}", pc, fp, ap);
     // println!("\tnum_constants -> {:?}", constants.len());
 
     // print!("\tbuiltins -> ");
@@ -514,7 +514,7 @@ pub fn breakpoint(
     // println!("\tap_tracking -> {ap_tracking:?}");
     // println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
     // println!("\tids -> {:?}", ids_data);
-    println!("-----------END BREAKPOINT-----------");
+    log::debug!("-----------END BREAKPOINT-----------");
     Ok(())
 }
 

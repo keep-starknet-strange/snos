@@ -74,7 +74,7 @@ pub fn load_next_tx(
     let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>("transactions")?;
     // Safe to unwrap because the remaining number of txs is checked in the cairo code.
     let tx = transactions.next().unwrap();
-    println!("executing {} on: {}", tx.r#type, tx.sender_address.unwrap());
+    log::debug!("executing {} on: {}", tx.r#type, tx.sender_address.unwrap());
     exec_scopes.insert_value("transactions", transactions);
     exec_scopes.insert_value("tx", tx.clone());
     insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
@@ -358,7 +358,7 @@ pub fn check_is_deprecated(
     let execution_into_ptr = vm.get_relocatable((execution_context + 4usize)?).unwrap();
     let contract_address = vm.get_integer((execution_into_ptr + 3usize)?).unwrap();
 
-    println!(
+    log::debug!(
         "about to call contract_address: {}, class_hash: {}, is_deprecated: {}",
         contract_address,
         class_hash,
@@ -948,11 +948,11 @@ pub async fn check_execution_async(
         let execution_context = get_relocatable_from_var_name(EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
         let class_hash = vm.get_integer((execution_context + ExecutionContext::class_hash_offset())?)?;
         let selector = vm.get_integer((execution_context + ExecutionContext::execution_info_offset())?)?;
-        println!("Invalid return value in execute_entry_point:");
-        println!("  Class hash: {}", class_hash.to_hex_string());
-        println!("  Selector: {}", selector.to_hex_string());
-        println!("  Size: {}", retdata_size);
-        println!("  Error (at most 100 elements): {:?}", error);
+        log::debug!("Invalid return value in execute_entry_point:");
+        log::debug!("  Class hash: {}", class_hash.to_hex_string());
+        log::debug!("  Selector: {}", selector.to_hex_string());
+        log::debug!("  Size: {}", retdata_size);
+        log::debug!("  Error (at most 100 elements): {:?}", error);
     }
 
     let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(EXECUTION_HELPER)?;
@@ -1130,7 +1130,7 @@ pub fn log_enter_syscall(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let selector = get_integer_from_var_name(SELECTOR, _vm, ids_data, _ap_tracking)?;
-    println!("entering syscall: {:?} execution", SyscallSelector::try_from(selector)?);
+    log::debug!("entering syscall: {:?} execution", SyscallSelector::try_from(selector)?);
     // TODO: implement logging
     Ok(())
 }
@@ -1196,7 +1196,7 @@ pub fn check_response_return_value(
     assert_eq!(expected, actual, "Return value mismatch; expected={:?}, actual={:?}", expected, actual);
 
     // relocate_segment(src_ptr=response.retdata_start, dest_ptr=retdata);
-    println!("response_retdata_start: {}, retdata: {}", response_retdata_start, retdata);
+    log::debug!("response_retdata_start: {}, retdata: {}", response_retdata_start, retdata);
 
     Ok(())
 }
@@ -1655,7 +1655,7 @@ pub async fn write_old_block_to_storage_async(
     let old_block_number = get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
     let old_block_hash = get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?;
 
-    println!("writing block number: {} -> block hash: {}", old_block_number, old_block_hash);
+    log::debug!("writing block number: {} -> block hash: {}", old_block_number, old_block_hash);
     execution_helper
         .write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash)
         .await
@@ -1795,9 +1795,9 @@ pub fn fetch_result(
     // This hint is weird, there is absolutely no need to fetch 100 elements to do this.
     // Nonetheless, we implement it 1-1 with the Python version.
     if n_elements != 1 || result[0] != Some(Cow::Borrowed(&MaybeRelocatable::Int(*validated))) {
-        println!("Invalid return value from __validate__:");
-        println!("  Size: {n_elements}");
-        println!("  Result (at most 100 elements): {:?}", result);
+        log::info!("Invalid return value from __validate__:");
+        log::info!("  Size: {n_elements}");
+        log::info!("  Result (at most 100 elements): {:?}", result);
     }
 
     Ok(())
