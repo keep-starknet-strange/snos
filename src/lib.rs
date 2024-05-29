@@ -28,7 +28,6 @@ pub mod io;
 pub mod sharp;
 pub mod starknet;
 pub mod starkware_utils;
-pub mod state;
 pub mod storage;
 pub mod utils;
 
