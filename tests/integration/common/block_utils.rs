@@ -214,7 +214,7 @@ pub async fn os_hints(
     // provide an empty ContractState for any newly deployed contract
     // TODO: review -- what can to_state_diff() give us results we don't want to use here?
     let deployed_addresses = blockifier_state.to_state_diff().address_to_class_hash;
-    for (address, _class_hash) in deployed_addresses {
+    for (address, _class_hash) in &deployed_addresses {
         contracts.insert(
             to_felt252(address.0.key()),
             ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap(),
@@ -306,7 +306,12 @@ pub async fn os_hints(
         .await
         .unwrap_or_else(|e| panic!("Could not create contract state commitment info: {:?}", e));
 
-    let accessed_contracts: Vec<TreeIndex> = Default::default(); // TODO: build from `deployed_contracts` above...?
+    let accessed_contracts: Vec<TreeIndex> = deployed_addresses.iter().map(|(contract_address, _class_hash)| {
+        let felt = felt_api2vm(*contract_address.0.key());
+        println!("Adding accessed contract {:x}", felt);
+        BigUint::from_bytes_be(&felt.to_bytes_be())
+    })
+    .collect();
 
     let contract_class_commitment_info =
         CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PedersenHash, ContractState>(
