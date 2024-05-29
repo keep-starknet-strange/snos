@@ -138,6 +138,7 @@ where
     /// the contract state root (for backward compatibility);
     /// Otherwise, the global root is obtained by:
     /// global_root =  H(state_version, contract_state_root, contract_class_root).
+    #[allow(unused)] // TODO: remove
     fn get_global_state_root(&self) -> Result<Felt252, MathError> {
         let contract_states_root = &self.contract_states.root;
 

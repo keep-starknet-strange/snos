@@ -13,7 +13,6 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
 use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage};
-use crate::utils::execute_coroutine;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleLeafFact {
@@ -116,18 +115,6 @@ pub async fn build_starknet_storage_async<S: Storage + Send + Sync, H: HashFunct
     }
 
     Ok((storage_by_address, initial_state, final_state))
-}
-
-/// Translates the (final) Blockifier state into an OS-compatible structure.
-///
-/// This function uses the fact that `CachedState` is a wrapper around a read-only `DictStateReader`
-/// object. The initial state is obtained through this read-only view while the final storage
-/// is obtained by extracting the state diff from the `CachedState` part.
-pub fn build_starknet_storage<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync>(
-    blockifier_state: CachedState<SharedState<S, H>>,
-) -> Result<(ContractStorageMap<S, H>, SharedState<S, H>, SharedState<S, H>), TreeError> {
-    // TODO: unwrap
-    execute_coroutine(build_starknet_storage_async(blockifier_state)).unwrap()
 }
 
 /// Convert a starknet_api deprecated ContractClass to a cairo-vm ContractClass (v0 only).
