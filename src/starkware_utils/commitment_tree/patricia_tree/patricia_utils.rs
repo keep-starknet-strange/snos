@@ -74,8 +74,6 @@ where
     let mut height = Felt252::ZERO;
 
     while layer.len() > 1 {
-        let values: Vec<_> = layer.iter().map(|node| node.bottom.to_biguint()).collect();
-        println!("{:?}", values);
         for (i, x) in layer.iter().enumerate() {
             node_at_path.insert((height, Felt252::from(i)), x.clone());
         }

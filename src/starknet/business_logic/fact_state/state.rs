@@ -299,7 +299,7 @@ where
         }
 
         // Apply contract changes on global root.
-        println!("Updating contract state tree with {} modifications...", accessed_addresses.len());
+        log::debug!("Updating contract state tree with {} modifications...", accessed_addresses.len());
         let global_state_modifications: Vec<_> = updated_contract_states.into_iter().collect();
         let updated_global_contract_root =
             self.contract_states.update(&mut self.ffc, global_state_modifications, &mut facts).await?;
@@ -308,7 +308,7 @@ where
 
         let updated_contract_classes = match self.contract_classes {
             Some(mut tree) => {
-                println!(
+                log::debug!(
                     "Updating contract class tree with {} modifications...",
                     class_hash_to_compiled_class_hash.len()
                 );
@@ -354,7 +354,7 @@ where
             .ok_or(StateError::StateReadError(format!("{:?}", contract_address.clone())))?;
 
         if contract_state.contract_hash.clone().into_iter().fold(0u64, |acc, b| acc + b as u64) == 0 {
-            println!("found contract state with no contract hash!");
+            log::debug!("found contract state with no contract hash!");
         }
 
         Ok(contract_state.clone())
@@ -369,14 +369,14 @@ where
     async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         let class_hash_as_index: TreeIndex = felt_api2vm(class_hash.0).to_biguint();
 
-        println!("class_hash_as_index: {:?}", class_hash_as_index);
-        println!("have contract_class_tree? {:?}", self.contract_classes.is_some());
+        log::debug!("class_hash_as_index: {:?}", class_hash_as_index);
+        log::debug!("have contract_class_tree? {:?}", self.contract_classes.is_some());
 
         let compiled_class_hash = match &self.contract_classes {
             Some(contract_class_tree) => {
                 let mut ffc_for_class_hash = self.ffc_for_class_hash.clone();
 
-                println!("Should get something from get_leaf()...");
+                log::debug!("Should get something from get_leaf()...");
 
                 let contract_class_leaf =
                     <PatriciaTree as BinaryFactTree<S, PoseidonHash, ContractClassLeaf>>::get_leaf(
@@ -424,7 +424,7 @@ where
         &mut self,
         compiled_class_hash: CompiledClassHash,
     ) -> StateResult<ContractClass> {
-        println!("SharedState as StateReader: get_compiled_contract_class {:?}", compiled_class_hash);
+        log::debug!("SharedState as StateReader: get_compiled_contract_class {:?}", compiled_class_hash);
 
         // Try the deprecated compiled classes.
         let deprecated_compiled_class = self.get_deprecated_compiled_class(compiled_class_hash).await?;
@@ -471,31 +471,31 @@ where
     /// its address).
     /// Default: 0 for an uninitialized contract address.
     fn get_storage_at(&mut self, contract_address: ContractAddress, key: StorageKey) -> StateResult<StarkFelt> {
-        println!("SharedState as StateReader: get_storage_at {:?} / {:?}", contract_address, key);
+        log::debug!("SharedState as StateReader: get_storage_at {:?} / {:?}", contract_address, key);
         let value = execute_coroutine(self.get_storage_at_async(contract_address, key)).unwrap(); // TODO: unwrap
-        println!("       -> {:?}", value);
+        log::debug!("       -> {:?}", value);
         value
     }
 
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
     fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        println!("SharedState as StateReader: get_nonce_at {:?}", contract_address);
+        log::debug!("SharedState as StateReader: get_nonce_at {:?}", contract_address);
         let contract_state = self.get_contract_state(contract_address)?;
         let nonce = Nonce(felt_vm2api(contract_state.nonce));
-        println!("       -> {:?}", nonce);
+        log::debug!("       -> {:?}", nonce);
         Ok(nonce)
     }
 
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
     fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
-        println!("SharedState as StateReader: get_class_hash_at {:?}", contract_address);
+        log::debug!("SharedState as StateReader: get_class_hash_at {:?}", contract_address);
         let contract_state = self.get_contract_state(contract_address)?;
         // TODO: this can be simplified once hashes are stored as [u8; 32]. Until then, this is fine.
         let felt = FieldElement::from_byte_slice_be(&contract_state.contract_hash)
             .expect("Conversion to felt should not fail");
-        println!("       -> {:?}", felt);
+        log::debug!("       -> {:?}", felt);
         Ok(ClassHash(StarkFelt::from(felt)))
     }
 
@@ -510,7 +510,7 @@ where
 
     /// Returns the compiled class hash of the given class hash.
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        println!("SharedState as StateReader: get_compiled_class_hash {:?}", class_hash);
+        log::debug!("SharedState as StateReader: get_compiled_class_hash {:?}", class_hash);
         execute_coroutine(self.get_compiled_class_hash_async(class_hash)).unwrap() // TODO: unwrap
     }
 

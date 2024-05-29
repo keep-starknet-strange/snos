@@ -19,8 +19,6 @@ where
     let contract_class_fact = ContractClassFact { contract_class };
     let compiled_class_fact = CompiledClassFact { compiled_class };
 
-    println!("Writing cairo1 class facts");
-
     let contract_class_hash = contract_class_fact.set_fact(ffc).await?;
     let compiled_class_hash = compiled_class_fact.set_fact(ffc).await?;
 
