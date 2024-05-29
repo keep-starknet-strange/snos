@@ -75,6 +75,7 @@ pub fn load_cairo1_classes(name: &str) -> (&str, CasmContractClass, ContractClas
 }
 
 #[fixture]
+#[once]
 fn init_logging() {
     env_logger::builder()
         .is_test(true)
