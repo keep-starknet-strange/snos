@@ -304,11 +304,23 @@ pub async fn os_hints(
             &mut ffc,
         )
         .await
-        .expect("Could not create contract state commitment info");
+        .unwrap_or_else(|e| panic!("Could not create contract state commitment info: {:?}", e));
+
+    let accessed_contracts: Vec<TreeIndex> = Default::default(); // TODO: build from `deployed_contracts` above...?
+
+    let contract_class_commitment_info =
+        CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PedersenHash, ContractState>(
+            previous_state.contract_classes.clone().expect("previous state should have class trie"),
+            updated_state.contract_classes.clone().expect("updated state should have class trie"),
+            &accessed_contracts,
+            &mut ffc,
+        )
+        .await
+        .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
-        contract_class_commitment_info: Default::default(),
+        contract_class_commitment_info,
         deprecated_compiled_classes,
         compiled_classes: compiled_class_hash_to_compiled_class,
         compiled_class_visited_pcs: Default::default(),
