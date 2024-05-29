@@ -213,7 +213,8 @@ pub async fn os_hints(
 
     // provide an empty ContractState for any newly deployed contract
     // TODO: review -- what can to_state_diff() give us results we don't want to use here?
-    let deployed_addresses = blockifier_state.to_state_diff().address_to_class_hash;
+    let state_diff = blockifier_state.to_state_diff();
+    let deployed_addresses = state_diff.address_to_class_hash;
     for (address, _class_hash) in &deployed_addresses {
         contracts.insert(
             to_felt252(address.0.key()),
@@ -282,9 +283,6 @@ pub async fn os_hints(
         ..default_general_config
     };
 
-    let deprecated_compiled_classes: HashMap<_, _> =
-        deprecated_compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
-
     let mut ffc = blockifier_state.state.ffc.clone();
 
     // Convert the Blockifier storage into an OS-compatible one
@@ -306,12 +304,15 @@ pub async fn os_hints(
         .await
         .unwrap_or_else(|e| panic!("Could not create contract state commitment info: {:?}", e));
 
-    let accessed_contracts: Vec<TreeIndex> = deployed_addresses.iter().map(|(contract_address, _class_hash)| {
-        let felt = felt_api2vm(*contract_address.0.key());
-        println!("Adding accessed contract {:x}", felt);
-        BigUint::from_bytes_be(&felt.to_bytes_be())
-    })
-    .collect();
+    let accessed_contracts: Vec<TreeIndex> = state_diff
+        .class_hash_to_compiled_class_hash
+        .keys()
+        .chain(compiled_classes.keys())
+        .chain(deprecated_compiled_classes.keys())
+        .map(|class_hash| {
+            BigUint::from_bytes_be(class_hash.0.bytes())
+        })
+        .collect();
 
     let contract_class_commitment_info =
         CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PedersenHash, ContractState>(
@@ -322,6 +323,9 @@ pub async fn os_hints(
         )
         .await
         .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
+
+    let deprecated_compiled_classes: HashMap<_, _> =
+        deprecated_compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
