@@ -4,6 +4,7 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 
 use async_stream::try_stream;
+use blockifier::state::errors::StateError;
 use cairo_vm::Felt252;
 use tokio::sync::Mutex;
 use tokio_stream::Stream;
@@ -22,6 +23,12 @@ pub enum StorageError {
 
     #[error(transparent)]
     Serialize(#[from] SerializeError),
+}
+
+impl From<StorageError> for StateError {
+    fn from(storage_error: StorageError) -> Self {
+        StateError::StateReadError(format!("Storage error: {}", storage_error))
+    }
 }
 
 #[allow(async_fn_in_trait)]
@@ -142,7 +149,7 @@ pub trait DbObject: Serializable {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct FactFetchingContext<S, H>
 where
     S: Storage,
@@ -161,8 +168,25 @@ where
         Self { storage: Arc::new(Mutex::new(storage)), _h: Default::default() }
     }
 
+    pub fn clone_with_different_hash<NH>(&self) -> FactFetchingContext<S, NH>
+    where
+        NH: HashFunctionType,
+    {
+        FactFetchingContext { storage: self.storage.clone(), _h: Default::default() }
+    }
+
     pub async fn acquire_storage(&self) -> tokio::sync::MutexGuard<S> {
         self.storage.lock().await
+    }
+}
+
+impl<S, H> Clone for FactFetchingContext<S, H>
+where
+    S: Storage,
+    H: HashFunctionType,
+{
+    fn clone(&self) -> Self {
+        Self { storage: self.storage.clone(), _h: Default::default() }
     }
 }
 
@@ -172,6 +196,10 @@ pub trait Fact<S: Storage, H: HashFunctionType>: DbObject {
 
     async fn set_fact(&self, ffc: &mut FactFetchingContext<S, H>) -> Result<Vec<u8>, StorageError> {
         let hash_val = self.hash();
+        if hash_val.clone().into_iter().fold(0u64, |acc, x| acc + x as u64) == 0 {
+            println!("something hashed to 0!");
+        }
+        println!("Writing fact with hash value {:02x?}", hash_val);
         let mut storage = ffc.acquire_storage().await;
         self.set(storage.deref_mut(), &hash_val).await?;
 

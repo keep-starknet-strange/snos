@@ -11,8 +11,9 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContract
 use super::InternalTransaction;
 use crate::config::StarknetGeneralConfig;
 use crate::error::SnOsError;
+use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use crate::starknet::starknet_storage::CommitmentInfo;
-use crate::utils::{Felt252HexNoPrefix, Felt252Str};
+use crate::utils::Felt252HexNoPrefix;
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct StarknetOsInput {
@@ -41,16 +42,6 @@ impl StarknetOsInput {
 
         Ok(())
     }
-}
-
-#[serde_as]
-#[derive(Deserialize, Clone, Default, Debug, Serialize, PartialEq)]
-pub struct ContractState {
-    #[serde_as(as = "Felt252HexNoPrefix")]
-    pub contract_hash: Felt252,
-    pub storage_commitment_tree: StorageCommitment,
-    #[serde_as(as = "Felt252Str")]
-    pub nonce: Felt252,
 }
 
 #[serde_as]

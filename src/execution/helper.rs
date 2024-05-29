@@ -20,7 +20,7 @@ use crate::storage::dict_storage::DictStorage;
 use crate::storage::storage::StorageError;
 
 // TODO: make the execution helper generic over the storage and hash function types.
-pub type ContractStorageMap = HashMap<Felt252, OsSingleStarknetStorage<DictStorage, PedersenHash>>;
+pub type ContractStorageMap<S, H> = HashMap<Felt252, OsSingleStarknetStorage<S, H>>;
 
 /// Maintains the info for executing txns in the OS
 #[derive(Debug)]
@@ -51,7 +51,7 @@ pub struct ExecutionHelper {
     // Iter to the read_values array consumed when tx code is executed
     pub execute_code_read_iter: IntoIter<Felt252>,
     // Per-contract storage
-    pub storage_by_address: ContractStorageMap,
+    pub storage_by_address: ContractStorageMap<DictStorage, PedersenHash>,
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
@@ -63,7 +63,7 @@ pub struct ExecutionHelperWrapper {
 
 impl ExecutionHelperWrapper {
     pub fn new(
-        contract_storage_map: ContractStorageMap,
+        contract_storage_map: ContractStorageMap<DictStorage, PedersenHash>,
         tx_execution_infos: Vec<TransactionExecutionInfo>,
         block_context: &BlockContext,
         old_block_number_and_hash: (Felt252, Felt252),

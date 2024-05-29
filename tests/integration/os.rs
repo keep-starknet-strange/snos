@@ -10,7 +10,7 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{initial_state, TestState};
+use crate::common::state::{initial_state, initial_state_cairo1, initial_state_syscalls, TestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
@@ -38,7 +38,7 @@ async fn return_result_cairo0_account(#[future] initial_state: TestState, block_
     });
 
     let r = execute_txs_and_run_os(
-        initial_state.blockifier_state,
+        initial_state.cached_state,
         block_context,
         vec![return_result_tx],
         initial_state.cairo0_compiled_classes,
@@ -48,14 +48,18 @@ async fn return_result_cairo0_account(#[future] initial_state: TestState, block_
 
     // temporarily expect test to break prematurely
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 646245114977324210659279014519951538684823368221946044944492064370769527799"#), "{}", err_log);
+    assert!(err_log.contains(r#"Tree height (0) does not match Merkle height"#), "{}", err_log);
 }
 
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn return_result_cairo1_account(#[future] initial_state: TestState, block_context: BlockContext, max_fee: Fee) {
-    let initial_state = initial_state.await;
+async fn return_result_cairo1_account(
+    #[future] initial_state_cairo1: TestState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let initial_state = initial_state_cairo1.await;
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
@@ -76,7 +80,7 @@ async fn return_result_cairo1_account(#[future] initial_state: TestState, block_
     });
 
     let r = execute_txs_and_run_os(
-        initial_state.blockifier_state,
+        initial_state.cached_state,
         block_context,
         vec![return_result_tx],
         initial_state.cairo0_compiled_classes,
@@ -86,14 +90,14 @@ async fn return_result_cairo1_account(#[future] initial_state: TestState, block_
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 354573111547370173281606292268396466744750568787097671151101592218871604240"#), "{}", err_log);
+    assert!(err_log.contains(r#"Tree height (0) does not match Merkle height"#), "{}", err_log);
 }
 
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn syscalls_cairo1(#[future] initial_state: TestState, block_context: BlockContext, max_fee: Fee) {
-    let initial_state = initial_state.await;
+async fn syscalls_cairo1(#[future] initial_state_syscalls: TestState, block_context: BlockContext, max_fee: Fee) {
+    let initial_state = initial_state_syscalls.await;
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
@@ -179,7 +183,7 @@ async fn syscalls_cairo1(#[future] initial_state: TestState, block_context: Bloc
     ];
 
     let r = execute_txs_and_run_os(
-        initial_state.blockifier_state,
+        initial_state.cached_state,
         block_context,
         txs,
         initial_state.cairo0_compiled_classes,
@@ -189,5 +193,5 @@ async fn syscalls_cairo1(#[future] initial_state: TestState, block_context: Bloc
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 354573111547370173281606292268396466744750568787097671151101592218871604240"#), "{}", err_log);
+    assert!(err_log.contains(r#"Tree height (0) does not match Merkle height"#), "{}", err_log);
 }

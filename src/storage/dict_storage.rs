@@ -21,6 +21,7 @@ impl Storage for DictStorage {
         &self,
         key: K,
     ) -> impl futures::Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
+        // println!("looking up key {:x?}", key.as_ref());
         let result = Ok(self.db.get(key.as_ref()).cloned());
         async move { result }.boxed()
     }

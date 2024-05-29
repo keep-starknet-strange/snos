@@ -431,7 +431,7 @@ pub fn initialize_state_changes(
     let mut state_dict: HashMap<MaybeRelocatable, MaybeRelocatable> = HashMap::new();
     for (addr, contract_state) in os_input.contracts {
         let change_base = vm.add_memory_segment();
-        vm.insert_value(change_base, contract_state.contract_hash)?;
+        vm.insert_value(change_base, Felt252::from_bytes_be_slice(&contract_state.contract_hash))?;
         let storage_commitment_base = vm.add_memory_segment();
         vm.insert_value((change_base + 1)?, storage_commitment_base)?;
         vm.insert_value((change_base + 2)?, contract_state.nonce)?;

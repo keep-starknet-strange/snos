@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
-use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::account_transaction::AccountTransaction::{Declare, DeployAccount, Invoke};
 use blockifier::transaction::transactions::ExecutableTransaction;
@@ -12,11 +11,14 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use snos::config::{BLOCK_HASH_CONTRACT_ADDRESS, SN_GOERLI, STORED_BLOCK_HASH_BUFFER};
+use snos::crypto::pedersen::PedersenHash;
 use snos::error::SnOsError;
 use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
+use snos::starknet::business_logic::fact_state::state::SharedState;
+use snos::storage::dict_storage::DictStorage;
 use snos::{config, run_os};
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
@@ -141,7 +143,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
 }
 
 async fn execute_txs(
-    mut state: CachedState<DictStateReader>,
+    mut state: CachedState<SharedState<DictStorage, PedersenHash>>,
     block_context: &BlockContext,
     txs: Vec<AccountTransaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
@@ -162,7 +164,7 @@ async fn execute_txs(
 }
 
 pub async fn execute_txs_and_run_os(
-    state: CachedState<DictStateReader>,
+    state: CachedState<SharedState<DictStorage, PedersenHash>>,
     block_context: BlockContext,
     txs: Vec<AccountTransaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
