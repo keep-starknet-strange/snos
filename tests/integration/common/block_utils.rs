@@ -1,18 +1,13 @@
 use std::collections::{HashMap, HashSet};
 
-use blockifier::abi::abi_utils::get_fee_token_var_address;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::{State, StateReader};
-use blockifier::test_utils::dict_state_reader::DictStateReader;
-use blockifier::transaction::objects::{FeeType, TransactionExecutionInfo};
+use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
-use cairo_lang_starknet::contract_class::ContractClass;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use snos::crypto::pedersen::PedersenHash;
 use snos::execution::helper::ExecutionHelperWrapper;
@@ -20,169 +15,16 @@ use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
-use snos::starknet::business_logic::utils::{write_class_facts, write_deprecated_compiled_class_fact};
 use snos::starknet::starknet_storage::CommitmentInfo;
 use snos::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use snos::storage::dict_storage::DictStorage;
-use snos::storage::storage::{FactFetchingContext, StorageError};
-use snos::storage::storage_utils::{
-    build_starknet_storage_async, contract_class_cl2vm, deprecated_contract_class_api2vm,
-};
+use snos::storage::storage_utils::build_starknet_storage_async;
 use snos::utils::{felt_api2vm, felt_vm2api};
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
-use starknet_api::deprecated_contract_class::{
-    ContractClass as DeprecatedCompiledClass, ContractClass as DeprecatedContractClass,
-};
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::stark_felt;
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
+use starknet_api::hash::StarkHash;
 
-use super::state::TestState;
-use crate::common::state::{ContractDeployment, DeprecatedContractDeployment, FeeContracts};
 use crate::common::transaction_utils::to_felt252;
-
-/// Utility to fund an account.
-/// Copied from Blockifier, but takes a DictStateReader directly.
-pub fn fund_account(
-    block_context: &BlockContext,
-    account_address: ContractAddress,
-    initial_balance: u128,
-    dict_state_reader: &mut DictStateReader,
-) {
-    let storage_view = &mut dict_state_reader.storage_view;
-    let balance_key = get_fee_token_var_address(account_address);
-    for fee_type in [FeeType::Strk, FeeType::Eth] {
-        storage_view.insert((block_context.fee_token_address(&fee_type), balance_key), stark_felt!(initial_balance));
-    }
-}
-
-/// Creates an initial state for test cases.
-///
-/// Creates the initial global state for tests, based on the contracts and info passed as input.
-pub async fn test_state(
-    block_context: &BlockContext,
-    initial_balance_all_accounts: u128,
-    erc20_class: DeprecatedCompiledClass,
-    deprecated_contract_classes: &[(&str, DeprecatedCompiledClass)],
-    contract_classes: &[(&str, CasmContractClass, ContractClass)],
-    mut ffc: FactFetchingContext<DictStorage, PedersenHash>,
-) -> Result<TestState, StorageError> {
-    // we use DictStateReader as a container for all the state we want to collect
-    let mut state = DictStateReader::default();
-
-    // Steps to create the initial state:
-    // 1. Use the Blockifier primitives to create the initial contracts, fund accounts, etc. This avoids
-    //    recomputing the MPT roots for each modification, we can batch updates when creating the
-    //    `SharedState`. This also allows us to reuse some Blockifier test functions, ex:
-    //    `fund_account()`.
-    // 2. Create the initial `SharedState` object. This computes all the MPT roots.
-    // 3. Wrap this new shared state inside a Blockifier `CachedState` to prepare for further updates.
-
-    // Declare and deploy account and ERC20 contracts.
-    let erc20_class_hash = write_deprecated_compiled_class_fact(erc20_class.clone(), &mut ffc).await?;
-    let erc20_class_hash = ClassHash::try_from(erc20_class_hash).expect("Hash is not in prime field");
-
-    log::debug!("ERC20 class_hash: {:?}", erc20_class_hash);
-
-    state.class_hash_to_class.insert(erc20_class_hash, deprecated_contract_class_api2vm(&erc20_class).unwrap());
-    state.class_hash_to_compiled_class_hash.insert(erc20_class_hash, CompiledClassHash(erc20_class_hash.0));
-    state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Eth), erc20_class_hash);
-    state.address_to_class_hash.insert(block_context.fee_token_address(&FeeType::Strk), erc20_class_hash);
-
-    let mut deployed_addresses = Vec::new();
-    let mut deployed_deprecated_contract_classes = HashMap::new();
-    deployed_deprecated_contract_classes.insert(erc20_class_hash, erc20_class.clone());
-
-    let mut deployed_contract_classes = HashMap::new();
-    let mut cairo0_contracts = HashMap::new();
-    let mut cairo1_contracts = HashMap::new();
-
-    // use a predictable rand
-    // seed value 1: won't repro CHILD_BIT error
-    // seed value 123499999: will repro CHILD_BIT error
-    let mut rand = StdRng::seed_from_u64(1);
-
-    // Deploy deprecated contracts
-    for (name, contract) in deprecated_contract_classes {
-        let class_hash = write_deprecated_compiled_class_fact(contract.clone(), &mut ffc).await?;
-        let class_hash = ClassHash::try_from(class_hash).expect("Class hash is not in prime field");
-
-        let vm_class = deprecated_contract_class_api2vm(contract).unwrap();
-        state.class_hash_to_class.insert(class_hash, vm_class);
-        state.class_hash_to_compiled_class_hash.insert(class_hash, CompiledClassHash(class_hash.0));
-
-        let address = ContractAddress::from(rand.gen::<u128>());
-        log::debug!("Inserting deprecated class_hash_to_class: {:?} -> {:?}", address, class_hash);
-        state.address_to_class_hash.insert(address, class_hash);
-        deployed_addresses.push(address);
-        deployed_deprecated_contract_classes.insert(class_hash, (*contract).clone()); // TODO: remove
-
-        cairo0_contracts
-            .insert(name.to_string(), DeprecatedContractDeployment { class: (*contract).clone(), class_hash, address });
-    }
-
-    // Deploy non-deprecated contracts
-    for (name, casm_contract, sierra_contract) in contract_classes {
-        let (contract_class_hash, compiled_class_hash) =
-            write_class_facts(sierra_contract.clone(), casm_contract.clone(), &mut ffc).await?;
-        let class_hash = ClassHash::try_from(contract_class_hash).expect("Class hash is not in prime field");
-        let compiled_class_hash =
-            CompiledClassHash::try_from(compiled_class_hash).expect("Compiled class hash is not in prime field");
-
-        let vm_class = contract_class_cl2vm(casm_contract).unwrap();
-        state.class_hash_to_class.insert(class_hash, vm_class);
-        state.class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash);
-
-        let address = ContractAddress::from(rand.gen::<u128>());
-        log::debug!("Inserting non-deprecated class_hash_to_class: {:?} -> {:?}", address, class_hash);
-        state.address_to_class_hash.insert(address, class_hash);
-        deployed_addresses.push(address);
-
-        deployed_contract_classes.insert(class_hash, casm_contract.clone());
-        cairo1_contracts.insert(
-            name.to_string(),
-            ContractDeployment {
-                casm_class: casm_contract.clone(),
-                sierra_class: sierra_contract.clone(),
-                class_hash,
-                address,
-            },
-        );
-    }
-
-    let mut addresses: HashSet<ContractAddress> = Default::default();
-    for address in state.address_to_class_hash.keys().chain(state.address_to_nonce.keys()) {
-        addresses.insert(*address);
-    }
-
-    // fund the accounts.
-    for address in addresses.iter() {
-        fund_account(block_context, *address, initial_balance_all_accounts, &mut state);
-    }
-
-    // Build the shared state object
-    // TODO:
-    let block_info = Default::default();
-
-    let default_general_config = StarknetGeneralConfig::default(); // TODO
-    let shared_state = SharedState::from_blockifier_state(ffc, state, block_info, &default_general_config)
-        .await
-        .expect("failed to apply initial state as updates to SharedState");
-
-    let cached_state = CachedState::from(shared_state);
-
-    Ok(TestState {
-        cairo0_contracts,
-        cairo1_contracts,
-        fee_contracts: FeeContracts {
-            erc20_contract: erc20_class,
-            eth_fee_token_address: block_context.fee_token_address(&FeeType::Eth),
-            strk_fee_token_address: block_context.fee_token_address(&FeeType::Strk),
-        },
-        cached_state,
-        cairo0_compiled_classes: deployed_deprecated_contract_classes,
-        cairo1_compiled_classes: deployed_contract_classes,
-    })
-}
 
 pub async fn os_hints(
     block_context: &BlockContext,
