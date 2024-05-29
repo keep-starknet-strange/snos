@@ -84,10 +84,6 @@ pub const WRITE_NIBBLES_TO_MEM: &str = indoc! {r#"
     memory[fp + 0] = to_felt_or_relocatable(nibbles.pop())"#
 };
 
-#[allow(unused)]
-pub const WRITE_USE_ZKG_DA_TO_MEM: &str = indoc! {r#"
-    memory[fp + 15] = to_felt_or_relocatable(syscall_handler.block_info.use_kzg_da)"#
-};
 
 #[allow(unused)]
 pub const PACK_X_PRIME: &str = indoc! {r#"

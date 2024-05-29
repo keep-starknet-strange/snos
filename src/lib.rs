@@ -69,6 +69,7 @@ pub fn run_os(
     cairo_runner
         .exec_scopes
         .insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, None::<PatriciaSkipValidationRunner>);
+    cairo_runner.exec_scopes.insert_value(vars::scopes::CLASS_TRIE_MODE, false);
 
     // Run the Cairo VM
     let mut sn_hint_processor = hints::SnosHintProcessor::default();

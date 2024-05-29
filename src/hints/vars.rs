@@ -2,6 +2,7 @@ pub mod scopes {
     pub const BYTECODE_SEGMENT_STRUCTURE: &str = "bytecode_segment_structure";
     pub const BYTECODE_SEGMENTS: &str = "bytecode_segments";
     pub const CASE: &str = "case";
+    pub const CLASS_TRIE_MODE: &str = "class_tree_mode";
     pub const COMMITMENT_INFO: &str = "commitment_info";
     pub const COMMITMENT_INFO_BY_ADDRESS: &str = "commitment_info_by_address";
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
@@ -11,6 +12,7 @@ pub mod scopes {
     #[allow(unused)]
     pub const DICT_MANAGER: &str = "dict_manager";
     pub const EXECUTION_HELPER: &str = "execution_helper";
+    pub const INITIAL_DICT: &str = "initial_dict";
     pub const NODE: &str = "node";
     pub const LEFT_CHILD: &str = "left_child";
     pub const OS_INPUT: &str = "os_input";

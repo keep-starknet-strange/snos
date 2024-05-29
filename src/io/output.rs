@@ -46,7 +46,7 @@ impl StarknetOsOutput {
             .base();
         let size_bound_up = match builtin_end_ptrs.last().unwrap() {
             MaybeRelocatable::Int(val) => val,
-            _ => panic!("Value should be an int"),
+            _ => return Err(SnOsError::CatchAll("value should be an int".to_string())),
         };
 
         // Get is input and check that everything is an integer.

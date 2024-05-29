@@ -14,7 +14,7 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use super::bls_utils::split;
-use crate::cairo_types::builtins::HashBuiltin;
+use crate::cairo_types::builtins::{HashBuiltin, SpongeHashBuiltin};
 use crate::cairo_types::traits::CairoType;
 use crate::cairo_types::trie::NodeEdge;
 use crate::execution::helper::ExecutionHelperWrapper;
@@ -23,7 +23,7 @@ use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
 use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, UpdateTree};
-use crate::utils::{execute_coroutine, get_constant};
+use crate::utils::{execute_coroutine, get_constant, get_variable_from_root_exec_scope};
 
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
     if tree_height != merkle_height {
@@ -111,6 +111,9 @@ pub fn set_preimage_for_class_commitments(
         ap_tracking,
     )?;
 
+    log::debug!("Setting class trie mode");
+    exec_scopes.data[0].insert(vars::scopes::CLASS_TRIE_MODE.to_string(), any_box!(true));
+
     let preimage = os_input.contract_class_commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
@@ -191,6 +194,13 @@ pub fn load_edge(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let class_trie_mode: bool = get_variable_from_root_exec_scope(exec_scopes, vars::scopes::CLASS_TRIE_MODE)?;
+    log::debug!("Poseidon mode: {class_trie_mode}");
+    let result_offset = match class_trie_mode {
+        true => SpongeHashBuiltin::result_offset(),
+        false => HashBuiltin::result_offset(),
+    };
+
     let new_segment_base = vm.add_memory_segment();
     insert_value_from_var_name(vars::ids::EDGE, new_segment_base, vm, ids_data, ap_tracking)?;
 
@@ -214,7 +224,7 @@ pub fn load_edge(
 
     // ids.hash_ptr refers to SpongeHashBuiltin (see cairo-lang's sponge_as_hash.cairo)
     let hash_ptr = get_ptr_from_var_name(vars::ids::HASH_PTR, vm, ids_data, ap_tracking)?;
-    let hash_result_ptr: Relocatable = (hash_ptr + HashBuiltin::result_offset())?;
+    let hash_result_ptr: Relocatable = (hash_ptr + result_offset)?;
     vm.insert_value(hash_result_ptr, res)?;
 
     skip_verification_if_configured(exec_scopes, hash_result_ptr)?;
@@ -238,6 +248,13 @@ pub fn load_bottom(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let class_trie_mode: bool = get_variable_from_root_exec_scope(exec_scopes, vars::scopes::CLASS_TRIE_MODE)?;
+    log::debug!("Poseidon mode: {class_trie_mode}");
+    let (x_offset, y_offset, result_offset) = match class_trie_mode {
+        true => (SpongeHashBuiltin::x_offset(), SpongeHashBuiltin::y_offset(), SpongeHashBuiltin::result_offset()),
+        false => (HashBuiltin::x_offset(), HashBuiltin::y_offset(), HashBuiltin::result_offset()),
+    };
+
     let edge = get_relocatable_from_var_name(vars::ids::EDGE, vm, ids_data, ap_tracking)?;
     let edge_bottom = vm.get_integer((edge + NodeEdge::bottom_offset())?)?;
 
@@ -250,10 +267,10 @@ pub fn load_bottom(
     let y = preimage_vec[1];
 
     let hash_ptr = get_ptr_from_var_name(vars::ids::HASH_PTR, vm, ids_data, ap_tracking)?;
-    vm.insert_value((hash_ptr + HashBuiltin::x_offset())?, x)?;
-    vm.insert_value((hash_ptr + HashBuiltin::y_offset())?, y)?;
+    vm.insert_value((hash_ptr + x_offset)?, x)?;
+    vm.insert_value((hash_ptr + y_offset)?, y)?;
 
-    let hash_result_address = (hash_ptr + HashBuiltin::result_offset())?;
+    let hash_result_address = (hash_ptr + result_offset)?;
     skip_verification_if_configured(exec_scopes, hash_result_address)?;
 
     Ok(())

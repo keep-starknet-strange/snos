@@ -321,3 +321,22 @@ pub fn is_leaf(
     // ids_data, ap_tracking)?; TODO: complete when bytecode_segment_structure is implemented
     insert_value_from_var_name("is_leaf", 1, vm, ids_data, ap_tracking)
 }
+
+pub const WRITE_USE_ZKG_DA_TO_MEM: &str = indoc! {r#"
+    memory[fp + 15] = to_felt_or_relocatable(syscall_handler.block_info.use_kzg_da)"#
+};
+pub fn write_use_zkg_da_to_mem(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // TODO: add use_kzg_da to BlockContext
+    let value = Felt252::ZERO;
+
+    println!("Warning: skipping kzg_da (use_kzg_da = false)");
+
+    vm.insert_value((vm.get_fp() + 15)?, value)
+        .map_err(HintError::Memory)
+}
