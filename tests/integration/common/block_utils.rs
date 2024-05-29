@@ -296,7 +296,7 @@ pub async fn os_hints(
         contracts.keys().chain(contract_storage_map.keys()).map(|address| address.to_biguint()).collect();
     let contract_indices: Vec<TreeIndex> = contract_indices.into_iter().collect();
 
-    let _contract_state_commitment_info =
+    let contract_state_commitment_info =
         CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PedersenHash, ContractState>(
             previous_state.contract_states.clone(),
             updated_state.contract_states.clone(),
@@ -307,7 +307,7 @@ pub async fn os_hints(
         .expect("Could not create contract state commitment info");
 
     let os_input = StarknetOsInput {
-        contract_state_commitment_info: Default::default(),
+        contract_state_commitment_info,
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes,
         compiled_classes: compiled_class_hash_to_compiled_class,
