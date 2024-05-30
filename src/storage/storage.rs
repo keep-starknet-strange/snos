@@ -1,14 +1,20 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::ops::DerefMut;
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 use async_stream::try_stream;
 use blockifier::state::errors::StateError;
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
+use serde::{Deserialize, Serialize};
+use starknet_api::core::{ClassHash, CompiledClassHash};
+use starknet_api::hash::StarkFelt;
+use starknet_api::StarknetApiError;
 use tokio::sync::Mutex;
 use tokio_stream::Stream;
 
+use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
 
 pub const HASH_BYTES: usize = 32;
@@ -87,12 +93,106 @@ pub trait Storage: Sync + Send {
     }
 }
 
+/// Starknet hash type.
+/// Encapsulates the result of hash functions and provides conversion functions to Cairo VM
+/// and Starknet API types for convenience.
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Hash([u8; 32]);
+
+impl Hash {
+    pub fn empty() -> Self {
+        Self::from_bytes_be(EMPTY_NODE_HASH)
+    }
+
+    pub fn from_bytes_be(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    pub fn from_bytes_be_slice(bytes: &[u8]) -> Self {
+        let mut array = [0u8; 32];
+        let start = 32 - bytes.len();
+
+        for (i, &byte) in bytes.iter().enumerate() {
+            array[start + i] = byte;
+        }
+
+        Hash(array)
+    }
+}
+
+impl PartialEq<[u8; 32]> for Hash {
+    fn eq(&self, other: &[u8; 32]) -> bool {
+        &self.0 == other
+    }
+}
+
+impl Deref for Hash {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Hash> for cairo_vm::Felt252 {
+    fn from(hash: Hash) -> Self {
+        cairo_vm::Felt252::from_bytes_be(&hash.0)
+    }
+}
+
+impl From<&Hash> for BigUint {
+    fn from(hash: &Hash) -> Self {
+        BigUint::from_bytes_be(&hash.0)
+    }
+}
+
+impl From<&BigUint> for Hash {
+    fn from(value: &BigUint) -> Self {
+        // This conversion is safe, BigUint is 32 bytes max so this will always work.
+        // TODO: improve this
+        let felt252 = Felt252::from(value);
+        Self::from(felt252)
+    }
+}
+
+impl From<cairo_vm::Felt252> for Hash {
+    fn from(value: cairo_vm::Felt252) -> Self {
+        // This conversion is safe, BigUint is 32 bytes so this will always work.
+        Self::from_bytes_be(value.to_bytes_be())
+    }
+}
+
+impl TryFrom<Hash> for StarkFelt {
+    type Error = StarknetApiError;
+
+    fn try_from(hash: Hash) -> Result<Self, Self::Error> {
+        Self::new(hash.0)
+    }
+}
+
+impl TryFrom<Hash> for CompiledClassHash {
+    type Error = StarknetApiError;
+
+    fn try_from(hash: Hash) -> Result<Self, Self::Error> {
+        Ok(Self(hash.try_into()?))
+    }
+}
+
+impl TryFrom<Hash> for ClassHash {
+    type Error = StarknetApiError;
+
+    fn try_from(hash: Hash) -> Result<Self, Self::Error> {
+        Ok(Self(hash.try_into()?))
+    }
+}
+
 pub trait HashFunctionType {
-    fn hash(x: &[u8], y: &[u8]) -> Vec<u8>;
+    fn hash(x: &[u8], y: &[u8]) -> Hash;
 
     fn hash_felts(x: Felt252, y: Felt252) -> Felt252 {
         let hash = Self::hash(x.to_bytes_be().as_ref(), y.to_bytes_be().as_ref());
-        Felt252::from_bytes_be_slice(&hash)
+        hash.into()
     }
 }
 
@@ -192,9 +292,9 @@ where
 
 #[allow(async_fn_in_trait)]
 pub trait Fact<S: Storage, H: HashFunctionType>: DbObject {
-    fn hash(&self) -> Vec<u8>;
+    fn hash(&self) -> Hash;
 
-    async fn set_fact(&self, ffc: &mut FactFetchingContext<S, H>) -> Result<Vec<u8>, StorageError> {
+    async fn set_fact(&self, ffc: &mut FactFetchingContext<S, H>) -> Result<Hash, StorageError> {
         let hash_val = self.hash();
         let mut storage = ffc.acquire_storage().await;
         self.set(storage.deref_mut(), &hash_val).await?;

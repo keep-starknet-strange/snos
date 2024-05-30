@@ -8,9 +8,8 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiled
 use crate::config::CONTRACT_CLASS_LEAF_VERSION;
 use crate::crypto::poseidon::PoseidonHash;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
-use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::starkware_utils::serializable::SerializationPrefix;
-use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
+use crate::storage::storage::{DbObject, Fact, FactFetchingContext, Hash, HashFunctionType, Storage};
 
 /// Represents a single contract class which is stored in the Starknet state.
 #[derive(Debug, Serialize, Deserialize)]
@@ -45,7 +44,7 @@ where
     S: Storage,
     H: HashFunctionType,
 {
-    fn hash(&self) -> Vec<u8> {
+    fn hash(&self) -> Hash {
         // Dump the contract definition to JSON and let Pathfinder hashing code decide
         // what to do with it.
 
@@ -57,7 +56,7 @@ where
         let computed_class_hash =
             compute_class_hash(&contract_dump).unwrap_or_else(|e| panic!("Failed to compute class hash: {}", e));
 
-        computed_class_hash.hash().0.to_be_bytes().to_vec()
+        Hash::from_bytes_be(computed_class_hash.hash().0.to_be_bytes())
     }
 }
 
@@ -75,8 +74,8 @@ where
     S: Storage,
     H: HashFunctionType,
 {
-    fn hash(&self) -> Vec<u8> {
-        self.compiled_class.compiled_class_hash().to_be_bytes().to_vec()
+    fn hash(&self) -> Hash {
+        Hash::from_bytes_be(self.compiled_class.compiled_class_hash().to_be_bytes())
     }
 }
 
@@ -100,7 +99,7 @@ where
     S: Storage,
     H: HashFunctionType,
 {
-    fn hash(&self) -> Vec<u8> {
+    fn hash(&self) -> Hash {
         // Dump the contract definition to JSON and let Pathfinder hashing code decide
         // what to do with it.
 
@@ -110,7 +109,7 @@ where
         let computed_class_hash =
             compute_class_hash(&contract_dump).unwrap_or_else(|e| panic!("Failed to compute class hash: {}", e));
 
-        computed_class_hash.hash().0.to_be_bytes().to_vec()
+        Hash::from_bytes_be(computed_class_hash.hash().0.to_be_bytes())
     }
 }
 
@@ -138,9 +137,9 @@ where
     S: Storage,
 {
     /// Computes the hash of the contract class leaf.
-    fn hash(&self) -> Vec<u8> {
+    fn hash(&self) -> Hash {
         if <ContractClassLeaf as LeafFact<S, H>>::is_empty(self) {
-            return EMPTY_NODE_HASH.to_vec();
+            return Hash::empty();
         }
 
         // Return H(CONTRACT_CLASS_LEAF_VERSION, compiled_class_hash).

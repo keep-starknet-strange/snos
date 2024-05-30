@@ -10,13 +10,13 @@ use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::virtual_calculation_node::VirtualCalculationNode;
 use crate::starkware_utils::commitment_tree::patricia_tree::virtual_patricia_node::VirtualPatriciaNode;
 use crate::starkware_utils::commitment_tree::update_tree::update_tree;
-use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
+use crate::storage::storage::{FactFetchingContext, Hash, HashFunctionType, Storage};
 
 pub const EMPTY_NODE_HASH: [u8; 32] = [0; 32];
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PatriciaTree {
-    pub root: Vec<u8>,
+    pub root: Hash,
     pub height: Height,
 }
 
@@ -97,13 +97,12 @@ mod tests {
     /// the bottom node fact and the path, plus the path length.
     fn hash_preimage(preimage: &[BigUint]) -> BigUint {
         let hash = if preimage.len() == 2 {
-            let node_fact =
-                BinaryNodeFact::new(preimage[0].to_bytes_be().to_vec(), preimage[1].to_bytes_be().to_vec()).unwrap();
+            let node_fact = BinaryNodeFact::new(Hash::from(&preimage[0]), Hash::from(&preimage[1])).unwrap();
             <BinaryNodeFact as Fact<StorageType, HashFunction>>::hash(&node_fact)
         } else {
             let length = Length(preimage[0].to_u64().unwrap());
             let path = NodePath(preimage[1].clone());
-            let bottom = preimage[2].to_bytes_be().to_vec();
+            let bottom = Hash::from(&preimage[2]);
             let node_fact = EdgeNodeFact::new(bottom, path, length).unwrap();
             <EdgeNodeFact as Fact<StorageType, HashFunction>>::hash(&node_fact)
         };

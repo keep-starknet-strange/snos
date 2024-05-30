@@ -12,9 +12,9 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::{
 };
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
-use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::{PatriciaTree, EMPTY_NODE_HASH};
+use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
-use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
+use crate::storage::storage::{DbObject, Fact, FactFetchingContext, Hash, HashFunctionType, Storage};
 use crate::utils::{Felt252Num, Felt252Str};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -37,11 +37,11 @@ where
     H: HashFunctionType,
     S: Storage,
 {
-    fn hash(&self) -> Vec<u8> {
+    fn hash(&self) -> Hash {
         if <StorageLeaf as LeafFact<S, H>>::is_empty(self) {
-            return EMPTY_NODE_HASH.to_vec();
+            return Hash::empty();
         }
-        self.serialize().unwrap()
+        Hash::from_bytes_be_slice(&self.serialize().unwrap())
     }
 }
 

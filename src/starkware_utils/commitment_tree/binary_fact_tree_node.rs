@@ -11,7 +11,7 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::merkle_tree::traverse_tree::{traverse_tree, TreeTraverser};
-use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
+use crate::storage::storage::{FactFetchingContext, Hash, HashFunctionType, Storage, StorageError};
 
 #[derive(Debug, PartialEq)]
 pub struct BinaryFactTreeNodeDiff<S, H, LF>
@@ -146,8 +146,8 @@ where
     fn is_leaf(&self) -> bool {
         self.get_height_in_tree() == Height(0)
     }
-    fn _leaf_hash(&self) -> Vec<u8>;
-    fn leaf_hash(&self) -> Option<Vec<u8>> {
+    fn _leaf_hash(&self) -> Hash;
+    fn leaf_hash(&self) -> Option<Hash> {
         match self.is_leaf() {
             true => Some(self._leaf_hash()),
             false => None,
@@ -157,7 +157,7 @@ where
     /// Returns the height of the node in a tree.
     fn get_height_in_tree(&self) -> Height;
 
-    fn create_leaf(hash_value: Vec<u8>) -> Self;
+    fn create_leaf(hash_value: Hash) -> Self;
 
     /// Returns the two BinaryFactTreeNode objects which are the roots of the subtrees of the
     /// current BinaryFactTreeNode.
@@ -310,7 +310,7 @@ pub async fn write_node_fact<S, H, INF>(
     ffc: &mut FactFetchingContext<S, H>,
     inner_node_fact: INF,
     facts: &mut Option<BinaryFactDict>,
-) -> Result<Vec<u8>, StorageError>
+) -> Result<Hash, StorageError>
 where
     S: Storage,
     H: HashFunctionType,
