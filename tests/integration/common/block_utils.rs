@@ -14,7 +14,7 @@ use num_bigint::BigUint;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
-use snos::crypto::pedersen::PedersenHash;
+use snos::crypto::{pedersen::PedersenHash, poseidon::PoseidonHash};
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
@@ -83,7 +83,7 @@ pub async fn test_state(
     // 3. Wrap this new shared state inside a Blockifier `CachedState` to prepare for further updates.
 
     // Declare and deploy account and ERC20 contracts.
-    let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), &mut ffc).await?;
+    let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), &mut ffc.clone_with_different_hash()).await?;
     let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
 
     log::debug!("ERC20 class_hash: {:?}", erc20_class_hash);
@@ -108,7 +108,7 @@ pub async fn test_state(
 
     // Deploy deprecated contracts
     for (name, contract) in deprecated_contract_classes {
-        let class_hash_bytes = write_deprecated_compiled_class_fact(contract.clone(), &mut ffc).await?;
+        let class_hash_bytes = write_deprecated_compiled_class_fact(contract.clone(), &mut ffc.clone_with_different_hash()).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
 
         let vm_class = deprecated_contract_class_api2vm(contract).unwrap();
@@ -128,7 +128,7 @@ pub async fn test_state(
     // Deploy non-deprecated contracts
     for (name, casm_contract, sierra_contract) in contract_classes {
         let (contract_class_hash_bytes, compiled_class_hash_bytes) =
-            write_class_facts(sierra_contract.clone(), casm_contract.clone(), &mut ffc).await?;
+            write_class_facts(sierra_contract.clone(), casm_contract.clone(), &mut ffc.clone_with_different_hash()).await?;
         let class_hash = ClassHash(stark_felt_from_bytes(contract_class_hash_bytes));
         let compiled_class_hash = CompiledClassHash(stark_felt_from_bytes(compiled_class_hash_bytes));
 
@@ -315,11 +315,12 @@ pub async fn os_hints(
         .collect();
 
     let contract_class_commitment_info =
-        CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PedersenHash, ContractState>(
+        CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PoseidonHash, ContractState>(
             previous_state.contract_classes.clone().expect("previous state should have class trie"),
             updated_state.contract_classes.clone().expect("updated state should have class trie"),
             &accessed_contracts,
-            &mut ffc,
+            &mut ffc.clone_with_different_hash(),
+            // &mut ffc,
         )
         .await
         .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));

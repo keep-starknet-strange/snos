@@ -14,7 +14,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use tokio::sync::RwLock;
 
 use crate::config::STORED_BLOCK_HASH_BUFFER;
-use crate::crypto::pedersen::PedersenHash;
+use crate::crypto::{pedersen::PedersenHash, poseidon::PoseidonHash};
 use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage};
 use crate::storage::dict_storage::DictStorage;
 use crate::storage::storage::StorageError;
