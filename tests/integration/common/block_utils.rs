@@ -307,8 +307,6 @@ pub async fn os_hints(
     let accessed_contracts: Vec<TreeIndex> = state_diff
         .class_hash_to_compiled_class_hash
         .keys()
-        .chain(compiled_classes.keys())
-        .chain(deprecated_compiled_classes.keys())
         .map(|class_hash| {
             BigUint::from_bytes_be(class_hash.0.bytes())
         })
