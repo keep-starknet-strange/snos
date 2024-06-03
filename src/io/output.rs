@@ -49,7 +49,8 @@ impl StarknetOsOutput {
 /// Gets the output base segment and the output size from the VM return values and the VM
 /// output builtin.
 fn get_output_info(vm: &VirtualMachine) -> Result<(usize, usize), SnOsError> {
-    let builtin_end_ptrs = vm.get_return_values(8).map_err(|e| SnOsError::CatchAll(e.to_string()))?;
+    let n_builtins = vm.get_builtin_runners().len();
+    let builtin_end_ptrs = vm.get_return_values(n_builtins).map_err(|e| SnOsError::CatchAll(e.to_string()))?;
     let output_base = vm
         .get_builtin_runners()
         .iter()
@@ -84,7 +85,7 @@ fn get_raw_output(vm: &VirtualMachine, output_base: usize, output_size: usize) -
             if let MaybeRelocatable::Int(val) = x.clone().unwrap().into_owned() {
                 Ok(val)
             } else {
-                return Err(SnOsError::CatchAll("Output should be all integers".to_string()));
+                Err(SnOsError::CatchAll("Output should be all integers".to_string()))
             }
         })
         .collect();
