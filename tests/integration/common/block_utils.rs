@@ -148,11 +148,8 @@ pub async fn os_hints(
         .class_hash_to_compiled_class_hash
         .keys()
         .chain(compiled_classes.keys())
-        // .chain(deprecated_compiled_classes.keys())
         .map(|class_hash| BigUint::from_bytes_be(class_hash.0.bytes()))
         .collect();
-
-    log::debug!("Created classes: {accessed_contracts:?}");
 
     let contract_class_commitment_info =
         CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PoseidonHash, ContractClassLeaf>(
