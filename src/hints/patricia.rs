@@ -16,10 +16,11 @@ use indoc::indoc;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
-use crate::cairo_types::builtins::{HashBuiltin, SpongeHashBuiltin};
 use crate::cairo_types::dict_access::DictAccess;
 use crate::cairo_types::trie::NodeEdge;
-use crate::hints::types::{skip_verification_if_configured, PatriciaSkipValidationRunner, Preimage};
+use crate::hints::types::{
+    get_hash_builtin_fields, skip_verification_if_configured, PatriciaSkipValidationRunner, Preimage,
+};
 use crate::hints::vars;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentPath, DescentStart, Height, NodePath};
@@ -239,12 +240,7 @@ pub fn prepare_preimage_validation_non_deterministic_hashes(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let class_trie_mode: bool = get_variable_from_root_exec_scope(exec_scopes, vars::scopes::CLASS_TRIE_MODE)?;
-    log::debug!("Poseidon mode: {class_trie_mode}");
-    let (x_offset, y_offset, result_offset) = match class_trie_mode {
-        true => (SpongeHashBuiltin::x_offset(), SpongeHashBuiltin::y_offset(), SpongeHashBuiltin::result_offset()),
-        false => (HashBuiltin::x_offset(), HashBuiltin::y_offset(), HashBuiltin::result_offset()),
-    };
+    let (x_offset, y_offset, result_offset) = get_hash_builtin_fields(exec_scopes)?;
 
     let node: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
     let node = node.ok_or(HintError::AssertionFailed("'node' should not be None".to_string().into_boxed_str()))?;

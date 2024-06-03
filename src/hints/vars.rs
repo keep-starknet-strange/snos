@@ -2,7 +2,6 @@ pub mod scopes {
     pub const BYTECODE_SEGMENT_STRUCTURE: &str = "bytecode_segment_structure";
     pub const BYTECODE_SEGMENTS: &str = "bytecode_segments";
     pub const CASE: &str = "case";
-    pub const CLASS_TRIE_MODE: &str = "class_tree_mode";
     pub const COMMITMENT_INFO: &str = "commitment_info";
     pub const COMMITMENT_INFO_BY_ADDRESS: &str = "commitment_info_by_address";
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
@@ -17,6 +16,7 @@ pub mod scopes {
     pub const LEFT_CHILD: &str = "left_child";
     pub const OS_INPUT: &str = "os_input";
     pub const PATRICIA_SKIP_VALIDATION_RUNNER: &str = "__patricia_skip_validation_runner";
+    pub const PATRICIA_TREE_MODE: &str = "patricia_tree_mode";
     pub const PREIMAGE: &str = "preimage";
     pub const RIGHT_CHILD: &str = "right_child";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";

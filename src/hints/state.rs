@@ -14,11 +14,10 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use super::bls_utils::split;
-use crate::cairo_types::builtins::{HashBuiltin, SpongeHashBuiltin};
 use crate::cairo_types::traits::CairoType;
 use crate::cairo_types::trie::NodeEdge;
 use crate::execution::helper::ExecutionHelperWrapper;
-use crate::hints::types::{skip_verification_if_configured, Preimage};
+use crate::hints::types::{get_hash_builtin_fields, skip_verification_if_configured, PatriciaTreeMode, Preimage};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
@@ -112,7 +111,7 @@ pub fn set_preimage_for_class_commitments(
     )?;
 
     log::debug!("Setting class trie mode");
-    exec_scopes.data[0].insert(vars::scopes::CLASS_TRIE_MODE.to_string(), any_box!(true));
+    exec_scopes.data[0].insert(vars::scopes::PATRICIA_TREE_MODE.to_string(), any_box!(true));
 
     let preimage = os_input.contract_class_commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
@@ -194,12 +193,10 @@ pub fn load_edge(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let class_trie_mode: bool = get_variable_from_root_exec_scope(exec_scopes, vars::scopes::CLASS_TRIE_MODE)?;
-    log::debug!("Poseidon mode: {class_trie_mode}");
-    let result_offset = match class_trie_mode {
-        true => SpongeHashBuiltin::result_offset(),
-        false => HashBuiltin::result_offset(),
-    };
+    let patricia_tree_mode: PatriciaTreeMode =
+        get_variable_from_root_exec_scope(exec_scopes, vars::scopes::PATRICIA_TREE_MODE)?;
+    log::debug!("Patricia tree mode: {patricia_tree_mode:?}");
+    let (_, _, result_offset) = get_hash_builtin_fields(exec_scopes)?;
 
     let new_segment_base = vm.add_memory_segment();
     insert_value_from_var_name(vars::ids::EDGE, new_segment_base, vm, ids_data, ap_tracking)?;
@@ -248,12 +245,7 @@ pub fn load_bottom(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let class_trie_mode: bool = get_variable_from_root_exec_scope(exec_scopes, vars::scopes::CLASS_TRIE_MODE)?;
-    log::debug!("Poseidon mode: {class_trie_mode}");
-    let (x_offset, y_offset, result_offset) = match class_trie_mode {
-        true => (SpongeHashBuiltin::x_offset(), SpongeHashBuiltin::y_offset(), SpongeHashBuiltin::result_offset()),
-        false => (HashBuiltin::x_offset(), HashBuiltin::y_offset(), HashBuiltin::result_offset()),
-    };
+    let (x_offset, y_offset, result_offset) = get_hash_builtin_fields(exec_scopes)?;
 
     let edge = get_relocatable_from_var_name(vars::ids::EDGE, vm, ids_data, ap_tracking)?;
     let edge_bottom = vm.get_integer((edge + NodeEdge::bottom_offset())?)?;
