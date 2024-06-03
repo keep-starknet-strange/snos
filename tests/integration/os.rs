@@ -52,7 +52,7 @@ async fn return_result_cairo0_account(
 
     // temporarily expect test to break prematurely
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Tree height (0) does not match Merkle height"#), "{}", err_log);
+    assert!(err_log.contains(r#"value should be an int"#), "{}", err_log);
 }
 
 #[rstest]
@@ -94,7 +94,7 @@ async fn return_result_cairo1_account(
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Tree height (0) does not match Merkle height"#), "{}", err_log);
+    assert!(err_log.contains(r#"value should be an int"#), "{}", err_log);
 }
 
 #[rstest]
@@ -201,5 +201,5 @@ async fn syscalls_cairo1(
 
     // temporarily expect test to break in the descent code
     let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Tree height (0) does not match Merkle height"#), "{}", err_log);
+    assert!(err_log.contains(r#"value should be an int"#), "{}", err_log);
 }

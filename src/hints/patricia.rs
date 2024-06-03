@@ -16,10 +16,11 @@ use indoc::indoc;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
-use crate::cairo_types::builtins::HashBuiltin;
 use crate::cairo_types::dict_access::DictAccess;
 use crate::cairo_types::trie::NodeEdge;
-use crate::hints::types::{skip_verification_if_configured, PatriciaSkipValidationRunner, Preimage};
+use crate::hints::types::{
+    get_hash_builtin_fields, skip_verification_if_configured, PatriciaSkipValidationRunner, Preimage,
+};
 use crate::hints::vars;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentPath, DescentStart, Height, NodePath};
@@ -239,6 +240,8 @@ pub fn prepare_preimage_validation_non_deterministic_hashes(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let (x_offset, y_offset, result_offset) = get_hash_builtin_fields(exec_scopes)?;
+
     let node: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
     let node = node.ok_or(HintError::AssertionFailed("'node' should not be None".to_string().into_boxed_str()))?;
 
@@ -260,11 +263,11 @@ pub fn prepare_preimage_validation_non_deterministic_hashes(
     // Fill non deterministic hashes.
     let hash_ptr = get_ptr_from_var_name(vars::ids::CURRENT_HASH, vm, ids_data, ap_tracking)?;
     // memory[hash_ptr + ids.HashBuiltin.x] = left_hash
-    vm.insert_value((hash_ptr + HashBuiltin::x_offset())?, left_hash)?;
+    vm.insert_value((hash_ptr + x_offset)?, left_hash)?;
     // memory[hash_ptr + ids.HashBuiltin.y] = right_hash
-    vm.insert_value((hash_ptr + HashBuiltin::y_offset())?, right_hash)?;
+    vm.insert_value((hash_ptr + y_offset)?, right_hash)?;
 
-    let hash_result_address = (hash_ptr + HashBuiltin::result_offset())?;
+    let hash_result_address = (hash_ptr + result_offset)?;
     skip_verification_if_configured(exec_scopes, hash_result_address)?;
 
     // memory[ap] = int(case != 'both')"#

@@ -14,11 +14,10 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use super::bls_utils::split;
-use crate::cairo_types::builtins::HashBuiltin;
 use crate::cairo_types::traits::CairoType;
 use crate::cairo_types::trie::NodeEdge;
 use crate::execution::helper::ExecutionHelperWrapper;
-use crate::hints::types::{skip_verification_if_configured, Preimage};
+use crate::hints::types::{get_hash_builtin_fields, skip_verification_if_configured, PatriciaTreeMode, Preimage};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
@@ -111,6 +110,9 @@ pub fn set_preimage_for_class_commitments(
         ap_tracking,
     )?;
 
+    log::debug!("Setting class trie mode");
+    exec_scopes.data[0].insert(vars::scopes::PATRICIA_TREE_MODE.to_string(), any_box!(PatriciaTreeMode::Class));
+
     let preimage = os_input.contract_class_commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
@@ -191,6 +193,8 @@ pub fn load_edge(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let (_, _, result_offset) = get_hash_builtin_fields(exec_scopes)?;
+
     let new_segment_base = vm.add_memory_segment();
     insert_value_from_var_name(vars::ids::EDGE, new_segment_base, vm, ids_data, ap_tracking)?;
 
@@ -214,7 +218,7 @@ pub fn load_edge(
 
     // ids.hash_ptr refers to SpongeHashBuiltin (see cairo-lang's sponge_as_hash.cairo)
     let hash_ptr = get_ptr_from_var_name(vars::ids::HASH_PTR, vm, ids_data, ap_tracking)?;
-    let hash_result_ptr: Relocatable = (hash_ptr + HashBuiltin::result_offset())?;
+    let hash_result_ptr: Relocatable = (hash_ptr + result_offset)?;
     vm.insert_value(hash_result_ptr, res)?;
 
     skip_verification_if_configured(exec_scopes, hash_result_ptr)?;
@@ -238,6 +242,8 @@ pub fn load_bottom(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let (x_offset, y_offset, result_offset) = get_hash_builtin_fields(exec_scopes)?;
+
     let edge = get_relocatable_from_var_name(vars::ids::EDGE, vm, ids_data, ap_tracking)?;
     let edge_bottom = vm.get_integer((edge + NodeEdge::bottom_offset())?)?;
 
@@ -250,10 +256,10 @@ pub fn load_bottom(
     let y = preimage_vec[1];
 
     let hash_ptr = get_ptr_from_var_name(vars::ids::HASH_PTR, vm, ids_data, ap_tracking)?;
-    vm.insert_value((hash_ptr + HashBuiltin::x_offset())?, x)?;
-    vm.insert_value((hash_ptr + HashBuiltin::y_offset())?, y)?;
+    vm.insert_value((hash_ptr + x_offset)?, x)?;
+    vm.insert_value((hash_ptr + y_offset)?, y)?;
 
-    let hash_result_address = (hash_ptr + HashBuiltin::result_offset())?;
+    let hash_result_address = (hash_ptr + result_offset)?;
     skip_verification_if_configured(exec_scopes, hash_result_address)?;
 
     Ok(())
@@ -512,6 +518,7 @@ mod tests {
         let mut preimage: HashMap<Felt252, Vec<Felt252>> = Default::default();
         preimage.insert(1_usize.into(), vec![2_usize.into(), 3_usize.into(), 4_usize.into()]);
         exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
+        exec_scopes.insert_value(vars::scopes::PATRICIA_TREE_MODE, PatriciaTreeMode::State);
         exec_scopes
             .insert_value::<Option<PatriciaSkipValidationRunner>>(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, None);
 

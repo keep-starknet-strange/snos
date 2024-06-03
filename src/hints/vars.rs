@@ -11,10 +11,12 @@ pub mod scopes {
     #[allow(unused)]
     pub const DICT_MANAGER: &str = "dict_manager";
     pub const EXECUTION_HELPER: &str = "execution_helper";
+    pub const INITIAL_DICT: &str = "initial_dict";
     pub const NODE: &str = "node";
     pub const LEFT_CHILD: &str = "left_child";
     pub const OS_INPUT: &str = "os_input";
     pub const PATRICIA_SKIP_VALIDATION_RUNNER: &str = "__patricia_skip_validation_runner";
+    pub const PATRICIA_TREE_MODE: &str = "patricia_tree_mode";
     pub const PREIMAGE: &str = "preimage";
     pub const RIGHT_CHILD: &str = "right_child";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";
