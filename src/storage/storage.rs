@@ -109,6 +109,8 @@ impl Hash {
         Self(bytes)
     }
 
+    /// Builds a `Hash` from a bytes slice.
+    /// The slice length must be <= 32.
     pub fn from_bytes_be_slice(bytes: &[u8]) -> Self {
         let mut array = [0u8; 32];
         let start = 32 - bytes.len();
@@ -149,10 +151,9 @@ impl From<&Hash> for BigUint {
 
 impl From<&BigUint> for Hash {
     fn from(value: &BigUint) -> Self {
-        // This conversion is safe, BigUint is 32 bytes max so this will always work.
-        // TODO: improve this
-        let felt252 = Felt252::from(value);
-        Self::from(felt252)
+        // `BigUint.to_bytes_be()` only returns the minimum amount of bytes, so we need to use
+        // `from_bytes_be_slice` for this conversion.
+        Self::from_bytes_be_slice(&value.to_bytes_be())
     }
 }
 
