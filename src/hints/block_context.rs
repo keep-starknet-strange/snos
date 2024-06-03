@@ -337,6 +337,5 @@ pub fn write_use_zkg_da_to_mem(
 
     println!("Warning: skipping kzg_da (use_kzg_da = false)");
 
-    vm.insert_value((vm.get_fp() + 15)?, value)
-        .map_err(HintError::Memory)
+    vm.insert_value((vm.get_fp() + 15)?, value).map_err(HintError::Memory)
 }
