@@ -41,18 +41,15 @@ async fn return_result_cairo0_account(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let r = execute_txs_and_run_os(
+    let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
         vec![return_result_tx],
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
     )
-    .await;
-
-    // temporarily expect test to break prematurely
-    let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"value should be an int"#), "{}", err_log);
+    .await
+    .expect("OS run failed");
 }
 
 #[rstest]
@@ -83,18 +80,15 @@ async fn return_result_cairo1_account(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let r = execute_txs_and_run_os(
+    let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
         vec![return_result_tx],
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
     )
-    .await;
-
-    // temporarily expect test to break in the descent code
-    let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"value should be an int"#), "{}", err_log);
+    .await
+    .expect("OS run failed");
 }
 
 #[rstest]
@@ -190,16 +184,13 @@ async fn syscalls_cairo1(
         test_deploy_tx,
     ];
 
-    let r = execute_txs_and_run_os(
+    let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
     )
-    .await;
-
-    // temporarily expect test to break in the descent code
-    let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"value should be an int"#), "{}", err_log);
+    .await
+    .expect("OS run failed");
 }

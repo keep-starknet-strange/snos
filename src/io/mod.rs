@@ -61,25 +61,3 @@ pub struct InternalTransaction {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_fee: Option<Felt252>,
 }
-
-#[derive(Debug)]
-pub struct StarknetOsOutput {
-    /// The state commitment before this block.
-    pub prev_state_root: Felt252,
-    /// The state commitment after this block.
-    pub new_state_root: Felt252,
-    /// The number (height) of this block.
-    pub block_number: Felt252,
-    /// The hash of this block.
-    pub block_hash: Felt252,
-    /// The Starknet chain config hash
-    pub config_hash: Felt252,
-    /// List of messages sent to L1 in this block
-    pub messages_to_l1: Vec<Felt252>,
-    /// List of messages from L1 handled in this block
-    pub messages_to_l2: Vec<Felt252>,
-    /// List of the storage updates.
-    pub state_updates: Vec<Felt252>,
-    /// List of the newly declared contract classes.
-    pub contract_class_diff: Vec<Felt252>,
-}
