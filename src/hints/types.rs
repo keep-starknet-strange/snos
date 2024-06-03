@@ -33,7 +33,7 @@ pub enum PatriciaTreeMode {
 pub fn get_hash_builtin_fields(exec_scopes: &ExecutionScopes) -> Result<(usize, usize, usize), HintError> {
     let patricia_tree_mode: PatriciaTreeMode =
         get_variable_from_root_exec_scope(exec_scopes, vars::scopes::PATRICIA_TREE_MODE)?;
-    log::debug!("Patricia tree mode: {patricia_tree_mode:?}");
+    log::trace!("Patricia tree mode: {patricia_tree_mode:?}");
     Ok(match patricia_tree_mode {
         PatriciaTreeMode::Class => {
             (SpongeHashBuiltin::x_offset(), SpongeHashBuiltin::y_offset(), SpongeHashBuiltin::result_offset())
