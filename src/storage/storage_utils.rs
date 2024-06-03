@@ -134,7 +134,7 @@ pub fn deprecated_contract_class_api2vm(
 }
 
 /// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v1 only).
-pub fn contract_class_cl2vm(
+pub fn compiled_contract_class_cl2vm(
     cl_class: &CasmContractClass,
 ) -> Result<blockifier::execution::contract_class::ContractClass, cairo_vm::types::errors::program_errors::ProgramError>
 {
