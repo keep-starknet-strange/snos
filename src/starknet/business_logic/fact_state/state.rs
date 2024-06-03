@@ -30,7 +30,7 @@ use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-use crate::storage::storage::{DbObject, FactFetchingContext, HashFunctionType, Storage, StorageError};
+use crate::storage::storage::{DbObject, FactFetchingContext, Hash, HashFunctionType, Storage, StorageError};
 use crate::storage::storage_utils::{contract_class_cl2vm, deprecated_contract_class_api2vm};
 use crate::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 
@@ -142,7 +142,7 @@ where
     fn get_global_state_root(&self) -> Result<Felt252, MathError> {
         let contract_states_root = &self.contract_states.root;
 
-        let empty_tree_root = vec![0u8; 32];
+        let empty_tree_root = Hash::empty();
         let contract_classes_root = match &self.contract_classes {
             Some(tree) => &tree.root,
             None => &empty_tree_root,

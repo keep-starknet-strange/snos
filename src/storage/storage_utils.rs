@@ -12,7 +12,7 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
-use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage};
+use crate::storage::storage::{DbObject, Fact, Hash, HashFunctionType, Storage};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleLeafFact {
@@ -36,8 +36,8 @@ where
     H: HashFunctionType,
     S: Storage,
 {
-    fn hash(&self) -> Vec<u8> {
-        self.serialize().unwrap()
+    fn hash(&self) -> Hash {
+        Hash::from_bytes_be_slice(&self.serialize().unwrap())
     }
 }
 

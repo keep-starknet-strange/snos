@@ -6,7 +6,7 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
-use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage, HASH_BYTES};
+use crate::storage::storage::{DbObject, Fact, Hash, HashFunctionType, Storage, HASH_BYTES};
 
 const PATRICIA_NODE_PREFIX: &[u8] = "patricia_node".as_bytes();
 
@@ -32,8 +32,8 @@ where
     H: HashFunctionType,
     S: Storage,
 {
-    fn hash(&self) -> Vec<u8> {
-        EMPTY_NODE_HASH.to_vec()
+    fn hash(&self) -> Hash {
+        Hash::empty()
     }
 }
 
@@ -67,15 +67,15 @@ pub enum BinaryNodeError {
 
 /// A binary node in a Patricia-Merkle tree; this is a regular Merkle node.
 pub struct BinaryNodeFact {
-    pub left_node: Vec<u8>,
-    pub right_node: Vec<u8>,
+    pub left_node: Hash,
+    pub right_node: Hash,
 }
 
 impl BinaryNodeFact {
     const PREIMAGE_LENGTH: usize = 2 * HASH_BYTES;
 
     #[allow(unused)]
-    pub fn new(left_node: Vec<u8>, right_node: Vec<u8>) -> Result<Self, BinaryNodeError> {
+    pub fn new(left_node: Hash, right_node: Hash) -> Result<Self, BinaryNodeError> {
         if left_node == EMPTY_NODE_HASH {
             return Err(BinaryNodeError::LeftNodeIsEmpty);
         }
@@ -102,7 +102,7 @@ where
     H: HashFunctionType,
     S: Storage,
 {
-    fn hash(&self) -> Vec<u8> {
+    fn hash(&self) -> Hash {
         H::hash(&self.left_node, &self.right_node)
     }
 }
@@ -129,8 +129,8 @@ impl Serializable for BinaryNodeFact {
 
         let mut hashes = data.chunks(HASH_BYTES);
         // Unwrapping is safe thanks to the length check above
-        let left_node = hashes.next().unwrap().to_vec();
-        let right_node = hashes.next().unwrap().to_vec();
+        let left_node = Hash::from_bytes_be_slice(hashes.next().unwrap());
+        let right_node = Hash::from_bytes_be_slice(hashes.next().unwrap());
         Ok(Self { left_node, right_node })
     }
 }
@@ -142,7 +142,7 @@ impl Serializable for BinaryNodeFact {
 /// fused to a bigger edge node).
 pub struct EdgeNodeFact {
     /// The root of the subtree containing data with value != 0.
-    pub bottom_node: Vec<u8>,
+    pub bottom_node: Hash,
     /// The binary representation of the leaf index in the subtree that this node is root of.
     pub edge_path: NodePath,
     /// The height of the edge node (the length of the path to the leaf).
@@ -152,12 +152,12 @@ pub struct EdgeNodeFact {
 impl EdgeNodeFact {
     const PREIMAGE_LENGTH: usize = 2 * HASH_BYTES + 1;
 
-    pub fn new(bottom_node: Vec<u8>, path: NodePath, length: Length) -> Result<Self, TreeError> {
+    pub fn new(bottom_node: Hash, path: NodePath, length: Length) -> Result<Self, TreeError> {
         verify_path_value(&path, length)?;
         Ok(Self { bottom_node, edge_path: path, edge_length: length })
     }
 
-    pub fn new_unchecked(bottom_node: Vec<u8>, path: NodePath, length: Length) -> Self {
+    pub fn new_unchecked(bottom_node: Hash, path: NodePath, length: Length) -> Self {
         debug_assert!(verify_path_value(&path, length).is_ok());
         Self { bottom_node, edge_path: path, edge_length: length }
     }
@@ -169,7 +169,7 @@ where
     S: Storage,
 {
     fn to_tuple(&self) -> Vec<BigUint> {
-        vec![BigUint::from(self.edge_length.0), self.edge_path.0.clone(), BigUint::from_bytes_be(&self.bottom_node)]
+        vec![BigUint::from(self.edge_length.0), self.edge_path.0.clone(), BigUint::from(&self.bottom_node)]
     }
 }
 
@@ -178,7 +178,7 @@ where
     H: HashFunctionType,
     S: Storage,
 {
-    fn hash(&self) -> Vec<u8> {
+    fn hash(&self) -> Hash {
         hash_edge::<H>(&self.bottom_node, self.edge_path.clone(), self.edge_length)
     }
 }
@@ -204,11 +204,11 @@ impl Serializable for EdgeNodeFact {
 
         // Unwrapping is safe thanks to the length check above
         let mut data_iter = data.chunks(HASH_BYTES);
-        let bottom = data_iter.next().unwrap();
+        let bottom = Hash::from_bytes_be_slice(data_iter.next().unwrap());
         let path = NodePath::deserialize(data_iter.next().unwrap())?;
         let length = Length::deserialize(data_iter.next().unwrap())?;
 
-        Ok(Self::new_unchecked(bottom.to_vec(), path, length))
+        Ok(Self::new_unchecked(bottom, path, length))
     }
 }
 
@@ -228,12 +228,12 @@ fn serialize_edge(bottom: &[u8], path: NodePath, length: Length) -> Result<Vec<u
     Ok(serialized)
 }
 
-fn hash_edge<H: HashFunctionType>(bottom: &[u8], path: NodePath, length: Length) -> Vec<u8> {
+fn hash_edge<H: HashFunctionType>(bottom: &[u8], path: NodePath, length: Length) -> Hash {
     let bottom_path_hash = H::hash(bottom, path.0.to_bytes_be().as_ref());
 
     // Warning: this may be too small?
     let hash_value = Felt252::from_bytes_be_slice(&bottom_path_hash) + length.0;
-    hash_value.to_bytes_be().to_vec()
+    Hash::from(hash_value)
 }
 
 pub enum PatriciaNodeFact {
@@ -275,7 +275,7 @@ where
     H: HashFunctionType,
     S: Storage,
 {
-    fn hash(&self) -> Vec<u8> {
+    fn hash(&self) -> Hash {
         match self {
             Self::Empty(empty) => <EmptyNodeFact as Fact<S, H>>::hash(empty),
             Self::Binary(binary) => <BinaryNodeFact as Fact<S, H>>::hash(binary),

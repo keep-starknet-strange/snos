@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use std::collections::HashMap;
 
 use cairo_vm::Felt252;
@@ -11,7 +12,7 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::{PatriciaTree, EMPTY_NODE_HASH};
 use crate::starkware_utils::serializable::SerializationPrefix;
-use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
+use crate::storage::storage::{DbObject, Fact, FactFetchingContext, Hash, HashFunctionType, Storage};
 
 pub const UNINITIALIZED_CLASS_HASH: [u8; 32] = [0; 32];
 
@@ -84,9 +85,9 @@ where
 {
     /// Computes the hash of the node containing the contract's information, including the contract
     /// definition and storage.
-    fn hash(&self) -> Vec<u8> {
+    fn hash(&self) -> Hash {
         if <ContractState as LeafFact<S, H>>::is_empty(self) {
-            return EMPTY_NODE_HASH.to_vec();
+            return Hash::empty();
         }
 
         let contract_state_hash_version = Felt252::ZERO;
@@ -134,20 +135,20 @@ mod tests {
     /// Tests that hashing a contract state generates the same result as the Python implementation.
     #[test]
     fn test_hash() {
-        let expected_hash = vec![
+        let expected_hash = Hash::from_bytes_be([
             0, 230, 218, 235, 11, 21, 37, 88, 4, 90, 177, 187, 242, 196, 238, 86, 196, 121, 84, 108, 89, 96, 12, 235,
             166, 11, 224, 7, 71, 12, 21, 229,
-        ];
+        ]);
 
         let contract_hash = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 105, 45, 97, 109, 45, 97, 45, 99, 111, 110, 116, 114, 97, 99, 116, 45,
             115, 116, 97, 116, 101,
         ];
         let patricia_tree = PatriciaTree {
-            root: vec![
+            root: Hash::from_bytes_be([
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 99, 111, 110, 116, 114, 97, 99, 116, 45, 116, 114, 101, 101,
                 45, 114, 111, 111, 116,
-            ],
+            ]),
             height: Height(251),
         };
 

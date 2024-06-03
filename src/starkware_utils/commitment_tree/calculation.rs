@@ -6,7 +6,7 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactDict;
 use crate::starkware_utils::commitment_tree::errors::CombineError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::nodes::PatriciaNodeFact;
-use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
+use crate::storage::storage::{FactFetchingContext, Hash, HashFunctionType, Storage};
 
 // These enums are used instead of trait objects because the conditions to turn
 // LeafFact and InnerNodeFact into object safe traits are complex to lift: multiple places where
@@ -19,8 +19,8 @@ pub type CalculationInnerNodeFact = PatriciaNodeFact;
 /// A mapping between a hash and its corresponding fact. Split into two maps, one for leaves and
 /// one for inner nodes.
 pub struct NodeFactDict<LF> {
-    pub inner_nodes: HashMap<Vec<u8>, CalculationInnerNodeFact>,
-    pub leaves: HashMap<Vec<u8>, LF>,
+    pub inner_nodes: HashMap<Hash, CalculationInnerNodeFact>,
+    pub leaves: HashMap<Hash, LF>,
 }
 
 impl<LF> Default for NodeFactDict<LF> {
@@ -116,7 +116,7 @@ where
     }
 }
 
-pub(crate) trait HashCalculation<LF>: Calculation<Vec<u8>, LF> {
+pub(crate) trait HashCalculation<LF>: Calculation<Hash, LF> {
     /// Method that allows cloning a Box<dyn HashCalculation> despite not being able to
     /// require Clone.
     /// Note that we could use https://github.com/dtolnay/dyn-clone for a more generic
@@ -156,19 +156,19 @@ where
     }
 }
 
-impl<LF> HashCalculation<LF> for ConstantCalculation<Vec<u8>> {
+impl<LF> HashCalculation<LF> for ConstantCalculation<Hash> {
     fn clone_box(&self) -> Box<dyn HashCalculation<LF>> {
         Box::new(self.clone())
     }
 }
 
 // Required for the implementation of VirtualCalculationNode
-impl<LF> Calculation<Vec<u8>, LF> for Box<dyn HashCalculation<LF>> {
+impl<LF> Calculation<Hash, LF> for Box<dyn HashCalculation<LF>> {
     fn get_dependency_calculations(&self) -> Vec<Box<dyn Calculation<Box<dyn Any>, LF>>> {
         (**self).get_dependency_calculations()
     }
 
-    fn calculate(&self, dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Vec<u8> {
+    fn calculate(&self, dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Hash {
         (**self).calculate(dependency_results, fact_nodes)
     }
 }
@@ -215,7 +215,7 @@ where
     }
 }
 
-impl<S, H, LF> Calculation<Vec<u8>, LF> for LeafFactCalculation<S, H, LF>
+impl<S, H, LF> Calculation<Hash, LF> for LeafFactCalculation<S, H, LF>
 where
     S: Storage,
     H: HashFunctionType,
@@ -225,7 +225,7 @@ where
         vec![]
     }
 
-    fn calculate(&self, _dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Vec<u8> {
+    fn calculate(&self, _dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Hash {
         let hash_result = self.fact.hash();
         fact_nodes.leaves.insert(hash_result.clone(), self.fact.clone());
         hash_result

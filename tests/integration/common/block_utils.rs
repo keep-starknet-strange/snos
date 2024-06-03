@@ -40,11 +40,6 @@ use super::state::TestState;
 use crate::common::state::{ContractDeployment, DeprecatedContractDeployment, FeeContracts};
 use crate::common::transaction_utils::to_felt252;
 
-fn stark_felt_from_bytes(bytes: Vec<u8>) -> StarkFelt {
-    StarkFelt::new(bytes[..32].try_into().expect("Number is not 32-bytes"))
-        .expect("Number is too large to be a felt 252")
-}
-
 /// Utility to fund an account.
 /// Copied from Blockifier, but takes a DictStateReader directly.
 pub fn fund_account(
@@ -83,8 +78,8 @@ pub async fn test_state(
     // 3. Wrap this new shared state inside a Blockifier `CachedState` to prepare for further updates.
 
     // Declare and deploy account and ERC20 contracts.
-    let erc20_class_hash_bytes = write_deprecated_compiled_class_fact(erc20_class.clone(), &mut ffc).await?;
-    let erc20_class_hash = ClassHash(stark_felt_from_bytes(erc20_class_hash_bytes));
+    let erc20_class_hash = write_deprecated_compiled_class_fact(erc20_class.clone(), &mut ffc).await?;
+    let erc20_class_hash = ClassHash::try_from(erc20_class_hash).expect("Hash is not in prime field");
 
     log::debug!("ERC20 class_hash: {:?}", erc20_class_hash);
 
@@ -108,8 +103,8 @@ pub async fn test_state(
 
     // Deploy deprecated contracts
     for (name, contract) in deprecated_contract_classes {
-        let class_hash_bytes = write_deprecated_compiled_class_fact(contract.clone(), &mut ffc).await?;
-        let class_hash = ClassHash(stark_felt_from_bytes(class_hash_bytes));
+        let class_hash = write_deprecated_compiled_class_fact(contract.clone(), &mut ffc).await?;
+        let class_hash = ClassHash::try_from(class_hash).expect("Class hash is not in prime field");
 
         let vm_class = deprecated_contract_class_api2vm(contract).unwrap();
         state.class_hash_to_class.insert(class_hash, vm_class);
@@ -127,10 +122,11 @@ pub async fn test_state(
 
     // Deploy non-deprecated contracts
     for (name, casm_contract, sierra_contract) in contract_classes {
-        let (contract_class_hash_bytes, compiled_class_hash_bytes) =
+        let (contract_class_hash, compiled_class_hash) =
             write_class_facts(sierra_contract.clone(), casm_contract.clone(), &mut ffc).await?;
-        let class_hash = ClassHash(stark_felt_from_bytes(contract_class_hash_bytes));
-        let compiled_class_hash = CompiledClassHash(stark_felt_from_bytes(compiled_class_hash_bytes));
+        let class_hash = ClassHash::try_from(contract_class_hash).expect("Class hash is not in prime field");
+        let compiled_class_hash =
+            CompiledClassHash::try_from(compiled_class_hash).expect("Compiled class hash is not in prime field");
 
         let vm_class = contract_class_cl2vm(casm_contract).unwrap();
         state.class_hash_to_class.insert(class_hash, vm_class);

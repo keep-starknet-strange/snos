@@ -259,10 +259,7 @@ where
     if let Some(facts) = facts {
         // The leaves aren't stored in `facts`. Only nodes are stored there.
         for (fact_hash, node_fact) in new_facts.inner_nodes.iter() {
-            facts.insert(
-                BigUint::from_bytes_be(fact_hash),
-                <PatriciaNodeFact as InnerNodeFact<S, H>>::to_tuple(node_fact),
-            );
+            facts.insert(BigUint::from(fact_hash), <PatriciaNodeFact as InnerNodeFact<S, H>>::to_tuple(node_fact));
         }
     }
 

@@ -5,13 +5,13 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiled
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
     CompiledClassFact, ContractClassFact, DeprecatedCompiledClassFact,
 };
-use crate::storage::storage::{Fact, FactFetchingContext, HashFunctionType, Storage, StorageError};
+use crate::storage::storage::{Fact, FactFetchingContext, Hash, HashFunctionType, Storage, StorageError};
 
 pub async fn write_class_facts<S, H>(
     contract_class: ContractClass,
     compiled_class: CasmContractClass,
     ffc: &mut FactFetchingContext<S, H>,
-) -> Result<(Vec<u8>, Vec<u8>), StorageError>
+) -> Result<(Hash, Hash), StorageError>
 where
     S: Storage,
     H: HashFunctionType,
@@ -28,7 +28,7 @@ where
 pub async fn write_deprecated_compiled_class_fact<S, H>(
     deprecated_compiled_class: DeprecatedCompiledClass,
     ffc: &mut FactFetchingContext<S, H>,
-) -> Result<Vec<u8>, StorageError>
+) -> Result<Hash, StorageError>
 where
     S: Storage,
     H: HashFunctionType,
