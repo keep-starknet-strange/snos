@@ -1,4 +1,4 @@
-use blockifier::block_context::BlockContext;
+use blockifier::context::BlockContext;
 use blockifier::invoke_tx_args;
 use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
@@ -139,7 +139,7 @@ async fn syscalls_cairo1(
     let test_get_block_hash_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: sender_address,
-        calldata: create_calldata(contract_address, "test_get_block_hash", &[stark_felt!(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER)]),
+        calldata: create_calldata(contract_address, "test_get_block_hash", &[stark_felt!(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER)]),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
     });

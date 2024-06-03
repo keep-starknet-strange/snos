@@ -1,6 +1,6 @@
 use std::fs;
 
-use blockifier::block_context::BlockContext;
+use blockifier::context::BlockContext;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_vm::types::layout_name::LayoutName;
@@ -20,7 +20,7 @@ pub mod transaction_utils;
 pub mod utils;
 
 #[fixture]
-pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
+pub fn setup_runner() -> CairoRunner {
     let program_content = fs::read("build/programs/fact.json").unwrap();
 
     let mut hint_processor = BuiltinHintProcessor::new_empty();
@@ -44,11 +44,11 @@ pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
 }
 
 #[fixture]
-pub fn setup_pie(setup_runner: (CairoRunner, VirtualMachine)) -> CairoPie {
+pub fn setup_pie(setup_runner: CairoRunner) -> CairoPie {
     // Run the runner
-    let (runner, vm) = setup_runner;
+    let runner = setup_runner;
 
-    runner.get_cairo_pie(&vm).unwrap()
+    runner.get_cairo_pie().unwrap()
 }
 
 #[fixture]

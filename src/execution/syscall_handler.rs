@@ -19,7 +19,7 @@ use crate::execution::syscall_handler_utils::{
 };
 use crate::utils::felt_api2vm;
 
-/// DeprecatedSyscallHandlerimplementation for execution of system calls in the StarkNet OS
+/// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
 pub struct OsSyscallHandler {
     pub exec_wrapper: ExecutionHelperWrapper,
@@ -28,7 +28,7 @@ pub struct OsSyscallHandler {
 }
 
 /// OsSyscallHandler is wrapped in Rc<RefCell<_>> in order
-/// to clone the refrence when entering and exiting vm scopes
+/// to clone the reference when entering and exiting vm scopes
 #[derive(Clone, Debug)]
 pub struct OsSyscallHandlerWrapper {
     pub syscall_handler: Rc<RwLock<OsSyscallHandler>>,

@@ -1,13 +1,12 @@
 use std::fs;
 
-use blockifier::block_context::BlockContext;
+use blockifier::context::BlockContext;
 use cairo_vm::cairo_run::CairoRunConfig;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::types::program::Program;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
-use cairo_vm::vm::vm_core::VirtualMachine;
 use error::SnOsError;
 use execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use execution::helper::ExecutionHelperWrapper;
@@ -40,6 +39,7 @@ pub fn run_os(
 ) -> Result<CairoPie, SnOsError> {
     // Init CairoRunConfig
     let cairo_run_config = CairoRunConfig { layout, relocate_mem: true, trace_enabled: true, ..Default::default() };
+    let allow_missing_builtins = cairo_run_config.allow_missing_builtins.unwrap_or(false);
 
     // Load the Starknet OS Program
     let starknet_os = fs::read(os_path).map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
@@ -47,16 +47,20 @@ pub fn run_os(
         .map_err(|e| SnOsError::Runner(e.into()))?;
 
     // Init cairo runner
-    let mut cairo_runner = CairoRunner::new(&program, cairo_run_config.layout, cairo_run_config.proof_mode)
-        .map_err(|e| SnOsError::Runner(e.into()))?;
+    let mut cairo_runner = CairoRunner::new(
+        &program,
+        cairo_run_config.layout,
+        cairo_run_config.proof_mode,
+        cairo_run_config.trace_enabled,
+    )
+    .map_err(|e| SnOsError::Runner(e.into()))?;
 
     // Init the Cairo VM
-    let mut vm = VirtualMachine::new(cairo_run_config.trace_enabled);
-    let end = cairo_runner.initialize(&mut vm, false).map_err(|e| SnOsError::Runner(e.into()))?;
+    let end = cairo_runner.initialize(allow_missing_builtins).map_err(|e| SnOsError::Runner(e.into()))?;
 
     // Setup Depsyscall Handler
     let deprecated_syscall_handler =
-        DeprecatedOsSyscallHandlerWrapper::new(execution_helper.clone(), vm.add_memory_segment());
+        DeprecatedOsSyscallHandlerWrapper::new(execution_helper.clone(), cairo_runner.vm.add_memory_segment());
 
     let syscall_handler = OsSyscallHandlerWrapper::new(execution_helper.clone());
 
@@ -74,30 +78,30 @@ pub fn run_os(
     // Run the Cairo VM
     let mut sn_hint_processor = hints::SnosHintProcessor::default();
     cairo_runner
-        .run_until_pc(end, &mut vm, &mut sn_hint_processor)
-        .map_err(|err| VmException::from_vm_error(&cairo_runner, &vm, err))
+        .run_until_pc(end, &mut sn_hint_processor)
+        .map_err(|err| VmException::from_vm_error(&cairo_runner, err))
         .map_err(|e| SnOsError::Runner(e.into()))?;
 
     // End the Cairo VM run
     cairo_runner
-        .end_run(cairo_run_config.disable_trace_padding, false, &mut vm, &mut sn_hint_processor)
+        .end_run(cairo_run_config.disable_trace_padding, false, &mut sn_hint_processor)
         .map_err(|e| SnOsError::Runner(e.into()))?;
 
     if cairo_run_config.proof_mode {
-        cairo_runner.finalize_segments(&mut vm).map_err(|e| SnOsError::Runner(e.into()))?;
+        cairo_runner.finalize_segments().map_err(|e| SnOsError::Runner(e.into()))?;
     }
 
     // Prepare and check expected output.
-    let os_output = StarknetOsOutput::from_run(&vm)?;
+    let os_output = StarknetOsOutput::from_run(&cairo_runner.vm)?;
 
     log::debug!("output: {:?}", os_output);
 
-    vm.verify_auto_deductions().map_err(|e| SnOsError::Runner(e.into()))?;
-    cairo_runner.read_return_values(&mut vm, false).map_err(|e| SnOsError::Runner(e.into()))?;
-    cairo_runner.relocate(&mut vm, cairo_run_config.relocate_mem).map_err(|e| SnOsError::Runner(e.into()))?;
+    cairo_runner.vm.verify_auto_deductions().map_err(|e| SnOsError::Runner(e.into()))?;
+    cairo_runner.read_return_values(allow_missing_builtins).map_err(|e| SnOsError::Runner(e.into()))?;
+    cairo_runner.relocate(cairo_run_config.relocate_mem).map_err(|e| SnOsError::Runner(e.into()))?;
 
     // Parse the Cairo VM output
-    let pie = cairo_runner.get_cairo_pie(&vm).map_err(|e| SnOsError::PieParsing(format!("{e}")))?;
+    let pie = cairo_runner.get_cairo_pie().map_err(|e| SnOsError::PieParsing(format!("{e}")))?;
 
     Ok(pie)
 }

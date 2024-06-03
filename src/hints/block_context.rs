@@ -3,8 +3,8 @@ use std::any::Any;
 use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
 
-use blockifier::block_context::BlockContext;
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use blockifier::context::BlockContext;
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name, insert_value_into_ap,
@@ -177,7 +177,7 @@ pub fn block_number(
 ) -> Result<(), HintError> {
     // TODO: replace w/ block context from syscall handler
     let block_context = exec_scopes.get_ref::<BlockContext>("block_context")?;
-    insert_value_into_ap(vm, Felt252::from(block_context.block_number.0))
+    insert_value_into_ap(vm, Felt252::from(block_context.block_info().block_number.0))
 }
 
 pub const BLOCK_TIMESTAMP: &str = "memory[ap] = to_felt_or_relocatable(syscall_handler.block_info.block_timestamp)";
@@ -189,7 +189,7 @@ pub fn block_timestamp(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let block_context = exec_scopes.get_ref::<BlockContext>("block_context")?;
-    insert_value_into_ap(vm, Felt252::from(block_context.block_timestamp.0))
+    insert_value_into_ap(vm, Felt252::from(block_context.block_info().block_timestamp.0))
 }
 
 pub const CHAIN_ID: &str = "memory[ap] = to_felt_or_relocatable(os_input.general_config.chain_id.value)";
@@ -244,7 +244,7 @@ pub fn sequencer_address(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let block_context = exec_scopes.get_ref::<BlockContext>("block_context")?;
-    insert_value_into_ap(vm, felt_api2vm(*block_context.sequencer_address.0.key()))
+    insert_value_into_ap(vm, felt_api2vm(*block_context.block_info().sequencer_address.0.key()))
 }
 
 pub const GET_BLOCK_MAPPING: &str = indoc! {r#"

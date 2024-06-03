@@ -4,7 +4,7 @@ name = "examples"
 version = "0.1.0"
 
 [dependencies]
-blockifier = { git = "https://github.com/keep-starknet-strange/blockifier", branch = "snos/callinfo-clone", features = ["clone", "testing"] }
+blockifier = { version = "0.7.0-dev.1" }
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = ["extensive_hints", "cairo-1-hints"] }
 clap = { version = "4.5.4", features = ["derive"] }
 serde = { version = "1.0.188", features = ["derive"] }

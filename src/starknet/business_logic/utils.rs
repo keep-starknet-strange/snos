@@ -1,5 +1,5 @@
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
-use cairo_lang_starknet::contract_class::ContractClass;
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet_classes::contract_class::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use crate::starknet::business_logic::fact_state::contract_class_objects::{

@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
-use blockifier::block_context::BlockContext;
+use blockifier::context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
@@ -117,8 +117,8 @@ pub async fn os_hints(
     let general_config = StarknetGeneralConfig {
         starknet_os_config: StarknetOsConfig {
             chain_id: default_general_config.starknet_os_config.chain_id,
-            fee_token_address: block_context.fee_token_addresses.strk_fee_token_address,
-            deprecated_fee_token_address: block_context.fee_token_addresses.eth_fee_token_address,
+            fee_token_address: block_context.chain_info().fee_token_addresses.strk_fee_token_address,
+            deprecated_fee_token_address: block_context.chain_info().fee_token_addresses.eth_fee_token_address,
         },
         ..default_general_config
     };
@@ -181,7 +181,7 @@ pub async fn os_hints(
         contract_storage_map,
         tx_execution_infos,
         &block_context,
-        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64)),
+        (Felt252::from(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64)),
     );
 
     (os_input, execution_helper)
