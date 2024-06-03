@@ -22,7 +22,7 @@ use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
 use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, UpdateTree};
-use crate::utils::{execute_coroutine, get_constant, get_variable_from_root_exec_scope};
+use crate::utils::{execute_coroutine, get_constant};
 
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
     if tree_height != merkle_height {
@@ -111,7 +111,7 @@ pub fn set_preimage_for_class_commitments(
     )?;
 
     log::debug!("Setting class trie mode");
-    exec_scopes.data[0].insert(vars::scopes::PATRICIA_TREE_MODE.to_string(), any_box!(true));
+    exec_scopes.data[0].insert(vars::scopes::PATRICIA_TREE_MODE.to_string(), any_box!(PatriciaTreeMode::Class));
 
     let preimage = os_input.contract_class_commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
@@ -193,9 +193,6 @@ pub fn load_edge(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let patricia_tree_mode: PatriciaTreeMode =
-        get_variable_from_root_exec_scope(exec_scopes, vars::scopes::PATRICIA_TREE_MODE)?;
-    log::debug!("Patricia tree mode: {patricia_tree_mode:?}");
     let (_, _, result_offset) = get_hash_builtin_fields(exec_scopes)?;
 
     let new_segment_base = vm.add_memory_segment();
@@ -521,6 +518,7 @@ mod tests {
         let mut preimage: HashMap<Felt252, Vec<Felt252>> = Default::default();
         preimage.insert(1_usize.into(), vec![2_usize.into(), 3_usize.into(), 4_usize.into()]);
         exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
+        exec_scopes.insert_value(vars::scopes::PATRICIA_TREE_MODE, PatriciaTreeMode::State);
         exec_scopes
             .insert_value::<Option<PatriciaSkipValidationRunner>>(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, None);
 

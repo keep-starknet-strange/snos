@@ -14,7 +14,7 @@ use execution::helper::ExecutionHelperWrapper;
 use io::output::StarknetOsOutput;
 
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
-use crate::hints::types::PatriciaSkipValidationRunner;
+use crate::hints::types::{PatriciaSkipValidationRunner, PatriciaTreeMode};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 
@@ -69,7 +69,7 @@ pub fn run_os(
     cairo_runner
         .exec_scopes
         .insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, None::<PatriciaSkipValidationRunner>);
-    cairo_runner.exec_scopes.insert_value(vars::scopes::PATRICIA_TREE_MODE, false);
+    cairo_runner.exec_scopes.insert_value(vars::scopes::PATRICIA_TREE_MODE, PatriciaTreeMode::State);
 
     // Run the Cairo VM
     let mut sn_hint_processor = hints::SnosHintProcessor::default();
