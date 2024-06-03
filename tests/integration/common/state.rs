@@ -142,7 +142,7 @@ struct StarknetStateBuilder<'a> {
 }
 
 impl<'a> StarknetStateBuilder<'a> {
-    fn new(block_context: &'a BlockContext) -> Self {
+    pub fn new(block_context: &'a BlockContext) -> Self {
         Self {
             cairo0_contracts: Default::default(),
             cairo1_contracts: Default::default(),
@@ -152,7 +152,7 @@ impl<'a> StarknetStateBuilder<'a> {
         }
     }
 
-    async fn build(self) -> StarknetTestState {
+    pub async fn build(self) -> StarknetTestState {
         let mut dict_state_reader = DictStateReader::default();
         let mut ffc: FactFetchingContext<DictStorage, PedersenHash> = FactFetchingContext::new(DictStorage::default());
 
@@ -308,7 +308,7 @@ impl<'a> StarknetStateBuilder<'a> {
     }
 
     /// Add a Cairo 0 contract to the test state.
-    fn add_cairo0_contract(mut self, name: String, deprecated_compiled_class: DeprecatedCompiledClass) -> Self {
+    pub fn add_cairo0_contract(mut self, name: String, deprecated_compiled_class: DeprecatedCompiledClass) -> Self {
         let contract_address = self.generate_contract_address();
         self.add_cairo0_contract_with_fixed_address(name, deprecated_compiled_class, contract_address)
     }
@@ -326,7 +326,7 @@ impl<'a> StarknetStateBuilder<'a> {
     }
 
     /// Add a Cairo 1 contract to the test state.
-    fn add_cairo1_contract(
+    pub fn add_cairo1_contract(
         mut self,
         name: String,
         contract_class: ContractClass,
@@ -337,7 +337,7 @@ impl<'a> StarknetStateBuilder<'a> {
     }
 
     /// Add a Cairo 1 contract to the test state with a fixed contract address.
-    fn add_cairo1_contract_with_fixed_address(
+    pub fn add_cairo1_contract_with_fixed_address(
         mut self,
         name: String,
         contract_class: ContractClass,
@@ -349,7 +349,7 @@ impl<'a> StarknetStateBuilder<'a> {
         self
     }
 
-    fn set_initial_balance(mut self, balance: u128) -> Self {
+    pub fn set_initial_balance(mut self, balance: u128) -> Self {
         let erc20_contract = get_deprecated_erc20_contract_class();
         let eth_fee_token_address = self.block_context.fee_token_addresses.eth_fee_token_address;
         let strk_fee_token_address = self.block_context.fee_token_addresses.strk_fee_token_address;
