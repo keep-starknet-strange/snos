@@ -1,11 +1,11 @@
 use blockifier::block_context::BlockContext;
-use blockifier::invoke_tx_args;
 use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use blockifier::{declare_tx_args, invoke_tx_args};
 use rstest::rstest;
 use snos::config::STORED_BLOCK_HASH_BUFFER;
+use snos::storage::storage_utils::compiled_contract_class_cl2vm;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
@@ -93,44 +93,54 @@ async fn return_result_cairo1_account(
 }
 
 #[rstest]
-fn declare_and_deploy_account_cairo0_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
-    let tx_version = TransactionVersion::ONE;
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn declare_and_deploy_account_cairo0_account(
+    #[future] initial_state_cairo0: StarknetTestState,
+    block_context: BlockContext,
+    max_fee: Fee
+) {
+    let initial_state = initial_state_cairo0.await;
+
+    let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
-    let InitialState {
-        state,
-        account_without_validations_cairo0_address: sender_address,
-        // test_contract_cairo0_address: contract_address,
-        ..
-    } = initial_state;
+    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
 
-    let declare_tx = blockifier::test_utils::declare::declare_tx(
-        declare_tx_args! {
-            max_fee: max_fee,
-            sender_address,
-            version: tx_version,
-            nonce: nonce_manager.next(sender_address),
-        },
-        FeatureContract::Empty(CairoVersion::Cairo0).get_class(),
-    );
+    todo!("Need ContractClass to declare...");
 
-    let r = execute_txs_and_run_os(state, block_context, vec![declare_tx]);
+    /*
+    let _result = execute_txs_and_run_os(
+        initial_state.cached_state,
+        block_context,
+        vec![declare_tx],
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+    )
+    .await
+    .expect("OS run failed");
+    */
 
-    let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 1073742336"#), "{}", err_log);
 }
 
 #[rstest]
-fn declare_and_deploy_account_cairo1_account(block_context: BlockContext, initial_state: InitialState, max_fee: Fee) {
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn declare_and_deploy_account_cairo1_account(
+    #[future] initial_state_cairo1: StarknetTestState,
+    block_context: BlockContext,
+    max_fee: Fee
+) {
+    let initial_state = initial_state_cairo1.await;
+
     let tx_version = TransactionVersion::TWO;
     let mut nonce_manager = NonceManager::default();
 
-    let InitialState {
-        state,
-        account_without_validations_cairo0_address: sender_address,
-        // test_contract_cairo0_address: contract_address,
-        ..
-    } = initial_state;
+    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+
+    let casm_class = &initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().casm_class;
+    let contract_class = compiled_contract_class_cl2vm(casm_class).unwrap();
 
     let declare_tx = blockifier::test_utils::declare::declare_tx(
         declare_tx_args! {
@@ -139,13 +149,18 @@ fn declare_and_deploy_account_cairo1_account(block_context: BlockContext, initia
             version: tx_version,
             nonce: nonce_manager.next(sender_address),
         },
-        FeatureContract::Empty(CairoVersion::Cairo1).get_class(),
+        contract_class,
     );
 
-    let r = execute_txs_and_run_os(state, block_context, vec![declare_tx]);
-
-    let err_log = format!("{:?}", r);
-    assert!(err_log.contains(r#"Could not find commitment info for contract 1073742336"#), "{}", err_log);
+    let _result = execute_txs_and_run_os(
+        initial_state.cached_state,
+        block_context,
+        vec![declare_tx],
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+    )
+    .await
+    .expect("OS run failed");
 }
 
 #[rstest]
