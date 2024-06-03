@@ -122,7 +122,12 @@ struct FeeConfig {
 
 /// Builds the initial state for OS integration tests.
 ///
-/// This builder allows to deploy contracts and configure account balances and then generates
+/// This builder allows to define the contracts in the initial state as well as an initial balance
+/// for all accounts. For each contract specified, the builder will create an instance of
+/// the contract in the contract state trie and will ensure that an entry is present for each
+/// class defined in the class trie.
+///
+/// Check the tests for usage examples.
 #[derive(Debug)]
 struct StarknetStateBuilder<'a> {
     /// Cairo 0 contracts (name -> contract class).
