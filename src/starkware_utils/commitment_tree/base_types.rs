@@ -6,8 +6,9 @@ use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
+use serde::{Deserialize, Serialize};
 
-use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
+use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
 use crate::storage::storage::HASH_BYTES;
 
 pub type TreeIndex = BigUint;
@@ -20,6 +21,8 @@ impl Display for NodePath {
         self.0.fmt(f)
     }
 }
+
+impl SerializationPrefix for NodePath {}
 
 impl Serializable for NodePath {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
@@ -51,6 +54,8 @@ impl Display for Length {
     }
 }
 
+impl SerializationPrefix for Length {}
+
 impl Serializable for Length {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         if self.0 > u8::MAX as u64 {
@@ -64,7 +69,7 @@ impl Serializable for Length {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Default, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Eq, Hash, Serialize, Deserialize)]
 pub struct Height(pub u64);
 
 impl TryFrom<Felt252> for Height {

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
@@ -11,9 +12,9 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::{
 };
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
-use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::{PatriciaTree, EMPTY_NODE_HASH};
-use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
-use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
+use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
+use crate::storage::storage::{DbObject, Fact, FactFetchingContext, Hash, HashFunctionType, Storage};
 use crate::utils::{Felt252Num, Felt252Str};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -36,20 +37,23 @@ where
     H: HashFunctionType,
     S: Storage,
 {
-    fn hash(&self) -> Vec<u8> {
+    fn hash(&self) -> Hash {
         if <StorageLeaf as LeafFact<S, H>>::is_empty(self) {
-            return EMPTY_NODE_HASH.to_vec();
+            return Hash::empty();
         }
-        self.serialize().unwrap()
+        Hash::from_bytes_be_slice(&self.serialize().unwrap())
     }
 }
 
 impl DbObject for StorageLeaf {}
 
-impl Serializable for StorageLeaf {
+impl SerializationPrefix for StorageLeaf {
     fn prefix() -> Vec<u8> {
         "starknet_storage_leaf".as_bytes().to_vec()
     }
+}
+
+impl Serializable for StorageLeaf {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(self.value.to_bytes_be().to_vec())
     }
@@ -88,8 +92,8 @@ pub enum CommitmentInfoError {
     #[error(transparent)]
     Tree(#[from] TreeError),
 
-    #[error("Inconsistent commitment tree roots")]
-    UpdatedRootMismatch,
+    #[error("Inconsistent commitment tree roots: expected {1}, got {0}")]
+    UpdatedRootMismatch(BigUint, BigUint),
 }
 
 impl From<CommitmentInfoError> for HintError {
@@ -118,7 +122,10 @@ impl CommitmentInfo {
         let actual_updated_root = Felt252::from_bytes_be_slice(&actual_updated_tree.root);
 
         if actual_updated_root != expected_updated_root {
-            return Err(CommitmentInfoError::UpdatedRootMismatch);
+            return Err(CommitmentInfoError::UpdatedRootMismatch(
+                actual_updated_root.to_biguint(),
+                expected_updated_root.to_biguint(),
+            ));
         }
 
         // Note: unwrapping is safe here as we wrap the value ourselves a few lines above.
@@ -130,6 +137,36 @@ impl CommitmentInfo {
             tree_height: previous_tree.height.0 as usize,
             commitment_facts,
         })
+    }
+
+    /// Returns a commitment info that corresponds to the expected modifications and updated tree.
+    pub async fn create_from_expected_updated_tree<S, H, LF>(
+        previous_tree: PatriciaTree,
+        expected_updated_tree: PatriciaTree,
+        expected_accessed_indices: &[TreeIndex],
+        ffc: &mut FactFetchingContext<S, H>,
+    ) -> Result<Self, CommitmentInfoError>
+    where
+        S: Storage + 'static,
+        H: HashFunctionType + Sync + Send + 'static,
+        LF: LeafFact<S, H> + Send + 'static,
+    {
+        if previous_tree.height != expected_updated_tree.height {
+            return Err(TreeError::TreeHeightsMismatch(previous_tree.height, expected_updated_tree.height).into());
+        }
+
+        // Perform the commitment to collect the facts needed by the OS.
+        let modifications: HashMap<_, LF> =
+            expected_updated_tree.get_leaves(ffc, expected_accessed_indices, &mut None).await?;
+        let modifications_vec: Vec<_> = modifications.into_iter().collect();
+
+        Self::create_from_modifications(
+            previous_tree,
+            Felt252::from_bytes_be_slice(&expected_updated_tree.root),
+            modifications_vec,
+            ffc,
+        )
+        .await
     }
 }
 
@@ -188,24 +225,16 @@ where
     }
 }
 
-pub fn execute_coroutine_threadsafe<F, T>(coroutine: F) -> T
-where
-    F: std::future::Future<Output = T>,
-{
-    let runtime = tokio::runtime::Runtime::new().unwrap();
-    runtime.block_on(coroutine)
-}
-
 impl<S, H> OsSingleStarknetStorage<S, H>
 where
     S: Storage + 'static,
     H: HashFunctionType + Sync + Send + 'static,
 {
-    pub fn read(&mut self, key: Felt252) -> Option<Felt252> {
+    pub async fn read(&mut self, key: Felt252) -> Option<Felt252> {
         let mut value = self.ongoing_storage_changes.get(&key.to_biguint()).cloned();
 
         if value.is_none() {
-            let leaf = self.fetch_storage_leaf(key);
+            let leaf = self.fetch_storage_leaf(key).await;
             let value_from_storage = leaf.value;
             self.ongoing_storage_changes.insert(key.to_biguint(), value_from_storage);
             value = Some(value_from_storage);
@@ -218,11 +247,11 @@ where
         self.ongoing_storage_changes.insert(key, value);
     }
 
-    fn fetch_storage_leaf(&mut self, key: Felt252) -> StorageLeaf {
-        let coroutine = self.previous_tree.get_leaf(&mut self.ffc, key.to_biguint());
-        let result: Result<Option<StorageLeaf>, _> = execute_coroutine_threadsafe(coroutine);
-
-        // TODO: resolve this double unwrap() somehow
-        result.unwrap().unwrap()
+    async fn fetch_storage_leaf(&mut self, key: Felt252) -> StorageLeaf {
+        let leaf = self.previous_tree.get_leaf(&mut self.ffc, key.to_biguint()).await;
+        // TODO: resolve this double expect() somehow
+        leaf.expect("Failed to retrieve leaf from storage").unwrap_or_else(|| {
+            panic!("Could not find leaf {}", key.to_biguint());
+        })
     }
 }

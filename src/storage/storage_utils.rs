@@ -1,22 +1,18 @@
-use std::collections::{HashMap, HashSet};
-
-use blockifier::state::cached_state::{CachedState, StorageEntry};
+use blockifier::execution::contract_class::ContractClassV1;
+use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
-use blockifier::test_utils::dict_state_reader::DictStateReader;
+use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
-use starknet_api::hash::StarkFelt;
 
 use crate::execution::helper::ContractStorageMap;
-use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, OsSingleStarknetStorage, StorageLeaf};
-use crate::starkware_utils::commitment_tree::base_types::Height;
+use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
+use crate::starknet::business_logic::fact_state::state::SharedState;
+use crate::starknet::starknet_storage::OsSingleStarknetStorage;
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
-use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializeError};
-use crate::storage::dict_storage::DictStorage;
-use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
-use crate::utils::felt_api2vm;
+use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
+use crate::storage::storage::{DbObject, Fact, Hash, HashFunctionType, Storage};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleLeafFact {
@@ -33,13 +29,15 @@ impl SimpleLeafFact {
     }
 }
 
+impl SerializationPrefix for SimpleLeafFact {}
+
 impl<S, H> Fact<S, H> for SimpleLeafFact
 where
     H: HashFunctionType,
     S: Storage,
 {
-    fn hash(&self) -> Vec<u8> {
-        self.serialize().unwrap()
+    fn hash(&self) -> Hash {
+        Hash::from_bytes_be_slice(&self.serialize().unwrap())
     }
 }
 
@@ -66,58 +64,19 @@ where
     }
 }
 
-/// An intermediate contract -> [(key, value), ...] map representation.
-type StorageMap = HashMap<Felt252, Vec<(Felt252, Felt252)>>;
+async fn unpack_blockifier_state_async<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync>(
+    mut blockifier_state: CachedState<SharedState<S, H>>,
+) -> Result<(SharedState<S, H>, SharedState<S, H>), TreeError> {
+    let final_state = {
+        let state = blockifier_state.state.clone();
+        let block_info = state.block_info.clone();
+        // TODO: block_info seems useless in SharedState, get rid of it
+        state.apply_commitment_state_diff(blockifier_state.to_state_diff(), block_info).await?
+    };
 
-/// CachedState's `state.state.storage_view` is a mapping of (contract, storage_key) -> value
-/// but we need a mapping of (contract) -> [(storage_key, value)] so we can build the tree
-/// in one go.
-fn get_contract_storage_map(storage_view: &HashMap<StorageEntry, StarkFelt>) -> StorageMap {
-    let mut contract_storage_map: HashMap<Felt252, Vec<(Felt252, Felt252)>> = Default::default();
-    for ((contract_address, storage_key), value) in storage_view {
-        let contract_address = felt_api2vm(*contract_address.0.key());
-        let storage_key = felt_api2vm(*storage_key.0.key());
-        let value = felt_api2vm(*value);
+    let initial_state = blockifier_state.state;
 
-        contract_storage_map.entry(contract_address).or_default();
-        contract_storage_map.get_mut(&contract_address).unwrap().push((storage_key, value));
-    }
-
-    contract_storage_map
-}
-
-/// Builds the final state storage map.
-fn build_final_storage_map(final_state: &mut CachedState<DictStateReader>) -> StorageMap {
-    let mut storage = final_state.state.storage_view.clone();
-    let storage_updates = final_state.to_state_diff().storage_updates;
-
-    for (contract_address, contract_storage_updates) in storage_updates {
-        for (key, value) in contract_storage_updates {
-            storage.insert((contract_address, key), value);
-        }
-    }
-
-    get_contract_storage_map(&storage)
-}
-
-/// Builds a Patricia tree for a specific contract.
-///
-/// Applies the `contract_storage` values as modifications to an empty Patricia tree and returns
-/// the updated tree.
-async fn build_patricia_tree_from_contract_storage<S, H>(
-    ffc: &mut FactFetchingContext<S, H>,
-    contract_storage: &[(Felt252, Felt252)],
-) -> Result<PatriciaTree, TreeError>
-where
-    S: Storage + Send + Sync + 'static,
-    H: HashFunctionType + Send + Sync + 'static,
-{
-    let modifications: Vec<_> =
-        contract_storage.iter().map(|(key, value)| (key.to_biguint(), StorageLeaf::new(*value))).collect();
-
-    let mut facts = None;
-    let mut tree = PatriciaTree::empty_tree(ffc, Height(251), StorageLeaf::empty()).await.unwrap();
-    tree.update(ffc, modifications, &mut facts).await
+    Ok((initial_state, final_state))
 }
 
 /// Translates the (final) Blockifier state into an OS-compatible structure.
@@ -125,34 +84,60 @@ where
 /// This function uses the fact that `CachedState` is a wrapper around a read-only `DictStateReader`
 /// object. The initial state is obtained through this read-only view while the final storage
 /// is obtained by extracting the state diff from the `CachedState` part.
-pub fn build_starknet_storage(blockifier_state: &mut CachedState<DictStateReader>) -> ContractStorageMap {
-    let initial_contract_storage_map = get_contract_storage_map(&blockifier_state.state.storage_view);
-    let final_contract_storage_map = build_final_storage_map(blockifier_state);
-
-    let all_contracts =
-        initial_contract_storage_map.keys().chain(final_contract_storage_map.keys()).collect::<HashSet<&Felt252>>();
-
+pub async fn build_starknet_storage_async<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync>(
+    blockifier_state: CachedState<SharedState<S, H>>,
+) -> Result<(ContractStorageMap<S, H>, SharedState<S, H>, SharedState<S, H>), TreeError> {
     let mut storage_by_address = ContractStorageMap::new();
 
-    let empty_state = Default::default();
+    // TODO: would be cleaner if `get_leaf()` took &ffc instead of &mut ffc
+    let (mut initial_state, mut final_state) = unpack_blockifier_state_async(blockifier_state).await?;
 
-    let mut ffc = FactFetchingContext::new(DictStorage::default());
+    let all_contracts = final_state.contract_addresses();
+
     for contract_address in all_contracts {
-        let initial_contract_storage = initial_contract_storage_map.get(contract_address).unwrap_or(&empty_state);
-        let final_contract_storage =
-            final_contract_storage_map.get(contract_address).expect("any contract should appear in final storage");
+        let initial_contract_state: ContractState = initial_state
+            .contract_states
+            .get_leaf(&mut initial_state.ffc, contract_address.clone())
+            .await?
+            .expect("There should be an initial state");
+        let final_contract_state: ContractState = final_state
+            .contract_states
+            .get_leaf(&mut final_state.ffc, contract_address.clone())
+            .await?
+            .expect("There should be a final state");
 
-        execute_coroutine_threadsafe(async {
-            let initial_tree =
-                build_patricia_tree_from_contract_storage(&mut ffc, initial_contract_storage).await.unwrap();
-            let updated_tree =
-                build_patricia_tree_from_contract_storage(&mut ffc, final_contract_storage).await.unwrap();
+        let initial_tree = initial_contract_state.storage_commitment_tree;
+        let updated_tree = final_contract_state.storage_commitment_tree;
 
-            let contract_storage =
-                OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], ffc.clone()).await.unwrap();
-            storage_by_address.insert(*contract_address, contract_storage);
-        });
+        let contract_storage =
+            OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], final_state.ffc.clone()).await.unwrap();
+        storage_by_address.insert(Felt252::from(contract_address), contract_storage);
     }
 
-    storage_by_address
+    Ok((storage_by_address, initial_state, final_state))
+}
+
+/// Convert a starknet_api deprecated ContractClass to a cairo-vm ContractClass (v0 only).
+/// Note that this makes a serialize -> deserialize pass, so it is not cheap!
+pub fn deprecated_contract_class_api2vm(
+    api_class: &starknet_api::deprecated_contract_class::ContractClass,
+) -> serde_json::Result<blockifier::execution::contract_class::ContractClass> {
+    let serialized = serde_json::to_string(&api_class)?;
+
+    let vm_class_v0_inner: blockifier::execution::contract_class::ContractClassV0Inner =
+        serde_json::from_str(serialized.as_str())?;
+
+    let vm_class_v0 = blockifier::execution::contract_class::ContractClassV0(std::sync::Arc::new(vm_class_v0_inner));
+    let vm_class = blockifier::execution::contract_class::ContractClass::V0(vm_class_v0);
+
+    Ok(vm_class)
+}
+
+/// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v1 only).
+pub fn compiled_contract_class_cl2vm(
+    cl_class: &CasmContractClass,
+) -> Result<blockifier::execution::contract_class::ContractClass, cairo_vm::types::errors::program_errors::ProgramError>
+{
+    let v1_class = ContractClassV1::try_from(cl_class.clone()).unwrap(); // TODO: type issue?
+    Ok(v1_class.into())
 }

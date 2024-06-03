@@ -14,21 +14,20 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use super::bls_utils::split;
-use crate::cairo_types::builtins::HashBuiltin;
 use crate::cairo_types::traits::CairoType;
 use crate::cairo_types::trie::NodeEdge;
 use crate::execution::helper::ExecutionHelperWrapper;
-use crate::hints::types::{skip_verification_if_configured, Preimage};
+use crate::hints::types::{get_hash_builtin_fields, skip_verification_if_configured, PatriciaTreeMode, Preimage};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
-use crate::starknet::starknet_storage::{execute_coroutine_threadsafe, CommitmentInfo, StorageLeaf};
+use crate::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
 use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, UpdateTree};
-use crate::utils::get_constant;
+use crate::utils::{execute_coroutine, get_constant};
 
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
     if tree_height != merkle_height {
         return Err(HintError::AssertionFailed(
-            "Tree height does not match Merkle height".to_string().into_boxed_str(),
+            format!("Tree height ({}) does not match Merkle height", tree_height).to_string().into_boxed_str(),
         ));
     }
 
@@ -111,6 +110,9 @@ pub fn set_preimage_for_class_commitments(
         ap_tracking,
     )?;
 
+    log::debug!("Setting class trie mode");
+    exec_scopes.data[0].insert(vars::scopes::PATRICIA_TREE_MODE.to_string(), any_box!(PatriciaTreeMode::Class));
+
     let preimage = os_input.contract_class_commitment_info.commitment_facts;
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
@@ -191,6 +193,8 @@ pub fn load_edge(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let (_, _, result_offset) = get_hash_builtin_fields(exec_scopes)?;
+
     let new_segment_base = vm.add_memory_segment();
     insert_value_from_var_name(vars::ids::EDGE, new_segment_base, vm, ids_data, ap_tracking)?;
 
@@ -214,7 +218,7 @@ pub fn load_edge(
 
     // ids.hash_ptr refers to SpongeHashBuiltin (see cairo-lang's sponge_as_hash.cairo)
     let hash_ptr = get_ptr_from_var_name(vars::ids::HASH_PTR, vm, ids_data, ap_tracking)?;
-    let hash_result_ptr: Relocatable = (hash_ptr + HashBuiltin::result_offset())?;
+    let hash_result_ptr: Relocatable = (hash_ptr + result_offset)?;
     vm.insert_value(hash_result_ptr, res)?;
 
     skip_verification_if_configured(exec_scopes, hash_result_ptr)?;
@@ -238,6 +242,8 @@ pub fn load_bottom(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let (x_offset, y_offset, result_offset) = get_hash_builtin_fields(exec_scopes)?;
+
     let edge = get_relocatable_from_var_name(vars::ids::EDGE, vm, ids_data, ap_tracking)?;
     let edge_bottom = vm.get_integer((edge + NodeEdge::bottom_offset())?)?;
 
@@ -250,10 +256,10 @@ pub fn load_bottom(
     let y = preimage_vec[1];
 
     let hash_ptr = get_ptr_from_var_name(vars::ids::HASH_PTR, vm, ids_data, ap_tracking)?;
-    vm.insert_value((hash_ptr + HashBuiltin::x_offset())?, x)?;
-    vm.insert_value((hash_ptr + HashBuiltin::y_offset())?, y)?;
+    vm.insert_value((hash_ptr + x_offset)?, x)?;
+    vm.insert_value((hash_ptr + y_offset)?, y)?;
 
-    let hash_result_address = (hash_ptr + HashBuiltin::result_offset())?;
+    let hash_result_address = (hash_ptr + result_offset)?;
     skip_verification_if_configured(exec_scopes, hash_result_address)?;
 
     Ok(())
@@ -313,7 +319,7 @@ pub fn enter_scope_commitment_info_by_address(
     let execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
     let os_input: StarknetOsInput = exec_scopes.get(vars::scopes::OS_INPUT)?;
 
-    let commitment_info_by_address = execute_coroutine_threadsafe(execution_helper.compute_storage_commitments())?;
+    let commitment_info_by_address = execute_coroutine(execution_helper.compute_storage_commitments())??;
 
     let new_scope = HashMap::from([
         (vars::scopes::COMMITMENT_INFO_BY_ADDRESS.to_string(), any_box!(commitment_info_by_address)),
@@ -350,21 +356,10 @@ pub fn write_split_result(
 mod tests {
     use std::borrow::Cow;
 
-    use blockifier::block_context::BlockContext;
-    use num_bigint::BigUint;
     use rstest::{fixture, rstest};
 
     use super::*;
-    use crate::config::STORED_BLOCK_HASH_BUFFER;
-    use crate::crypto::pedersen::PedersenHash;
-    use crate::execution::helper::ContractStorageMap;
     use crate::hints::types::PatriciaSkipValidationRunner;
-    use crate::starknet::starknet_storage::{OsSingleStarknetStorage, StorageLeaf};
-    use crate::starkware_utils::commitment_tree::base_types::Height;
-    use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
-    use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-    use crate::storage::dict_storage::DictStorage;
-    use crate::storage::storage::FactFetchingContext;
 
     #[fixture]
     fn os_input() -> StarknetOsInput {
@@ -390,56 +385,6 @@ mod tests {
             block_hash: Default::default(),
             compiled_class_visited_pcs: Default::default(),
         }
-    }
-
-    #[fixture]
-    pub fn block_context() -> BlockContext {
-        BlockContext::create_for_testing()
-    }
-
-    #[fixture]
-    fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
-        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
-    }
-
-    #[fixture]
-    fn execution_helper(
-        block_context: BlockContext,
-        old_block_number_and_hash: (Felt252, Felt252),
-    ) -> ExecutionHelperWrapper {
-        ExecutionHelperWrapper::new(ContractStorageMap::default(), vec![], &block_context, old_block_number_and_hash)
-    }
-
-    #[fixture]
-    fn contract_address() -> Felt252 {
-        Felt252::from(1000)
-    }
-
-    #[fixture]
-    fn execution_helper_with_storage(
-        execution_helper: ExecutionHelperWrapper,
-        contract_address: Felt252,
-    ) -> ExecutionHelperWrapper {
-        let storage = DictStorage::default();
-        let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
-
-        // Run async functions in a dedicated runtime to keep the test functions sync.
-        // Otherwise, we run into "cannot spawn a runtime from another runtime" issues.
-        let os_single_starknet_storage = execute_coroutine_threadsafe(async {
-            let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
-            let modifications = vec![(BigUint::from(400u64), StorageLeaf::new(Felt252::from(160000)))];
-            let mut facts = None;
-            let tree = tree.update(&mut ffc, modifications, &mut facts).await.unwrap();
-            // We pass the same tree as previous and updated tree as this is enough for the tests.
-            OsSingleStarknetStorage::new(tree.clone(), tree, &vec![], ffc).await.unwrap()
-        });
-
-        {
-            let storage_by_address = &mut execution_helper.execution_helper.as_ref().borrow_mut().storage_by_address;
-            storage_by_address.insert(contract_address, os_single_starknet_storage);
-        }
-
-        execution_helper
     }
 
     #[rstest]
@@ -573,6 +518,7 @@ mod tests {
         let mut preimage: HashMap<Felt252, Vec<Felt252>> = Default::default();
         preimage.insert(1_usize.into(), vec![2_usize.into(), 3_usize.into(), 4_usize.into()]);
         exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
+        exec_scopes.insert_value(vars::scopes::PATRICIA_TREE_MODE, PatriciaTreeMode::State);
         exec_scopes
             .insert_value::<Option<PatriciaSkipValidationRunner>>(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, None);
 

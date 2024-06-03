@@ -16,10 +16,11 @@ use indoc::indoc;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
-use crate::cairo_types::builtins::HashBuiltin;
 use crate::cairo_types::dict_access::DictAccess;
 use crate::cairo_types::trie::NodeEdge;
-use crate::hints::types::{skip_verification_if_configured, PatriciaSkipValidationRunner, Preimage};
+use crate::hints::types::{
+    get_hash_builtin_fields, skip_verification_if_configured, PatriciaSkipValidationRunner, Preimage,
+};
 use crate::hints::vars;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentPath, DescentStart, Height, NodePath};
@@ -27,6 +28,7 @@ use crate::starkware_utils::commitment_tree::patricia_tree::patricia_guess_desce
 use crate::starkware_utils::commitment_tree::update_tree::{
     build_update_tree, decode_node, DecodeNodeCase, DecodedNode, UpdateTree,
 };
+use crate::utils::get_variable_from_root_exec_scope;
 
 pub const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
 
@@ -238,6 +240,8 @@ pub fn prepare_preimage_validation_non_deterministic_hashes(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let (x_offset, y_offset, result_offset) = get_hash_builtin_fields(exec_scopes)?;
+
     let node: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
     let node = node.ok_or(HintError::AssertionFailed("'node' should not be None".to_string().into_boxed_str()))?;
 
@@ -259,11 +263,11 @@ pub fn prepare_preimage_validation_non_deterministic_hashes(
     // Fill non deterministic hashes.
     let hash_ptr = get_ptr_from_var_name(vars::ids::CURRENT_HASH, vm, ids_data, ap_tracking)?;
     // memory[hash_ptr + ids.HashBuiltin.x] = left_hash
-    vm.insert_value((hash_ptr + HashBuiltin::x_offset())?, left_hash)?;
+    vm.insert_value((hash_ptr + x_offset)?, left_hash)?;
     // memory[hash_ptr + ids.HashBuiltin.y] = right_hash
-    vm.insert_value((hash_ptr + HashBuiltin::y_offset())?, right_hash)?;
+    vm.insert_value((hash_ptr + y_offset)?, right_hash)?;
 
-    let hash_result_address = (hash_ptr + HashBuiltin::result_offset())?;
+    let hash_result_address = (hash_ptr + result_offset)?;
     skip_verification_if_configured(exec_scopes, hash_result_address)?;
 
     // memory[ap] = int(case != 'both')"#
@@ -350,12 +354,8 @@ pub fn build_descent_map(
     //    insert `__patricia_skip_validation_runner` and `descent_map`.
     exec_scopes.insert_value(vars::scopes::DESCENT_MAP, descent_map);
 
-    let patricia_skip_validation_runner = exec_scopes.data[0]
-        .get(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER)
-        .map(|var| var.downcast_ref::<PatriciaSkipValidationRunner>().cloned())
-        .ok_or(HintError::VariableNotInScopeError(
-            vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER.to_string().into_boxed_str(),
-        ))?;
+    let patricia_skip_validation_runner: Option<PatriciaSkipValidationRunner> =
+        get_variable_from_root_exec_scope(exec_scopes, vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER)?;
     exec_scopes.insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, patricia_skip_validation_runner);
 
     Ok(())

@@ -79,7 +79,8 @@ pub mod tests {
     }
 
     #[rstest]
-    fn test_set_ap_to_actual_fee_hint(
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_set_ap_to_actual_fee_hint(
         block_context: BlockContext,
         transaction_execution_info: TransactionExecutionInfo,
         old_block_number_and_hash: (Felt252, Felt252),
@@ -102,7 +103,7 @@ pub mod tests {
             &block_context,
             old_block_number_and_hash,
         );
-        exec_helper.start_tx(None);
+        exec_helper.start_tx(None).await;
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, Box::new(exec_helper));
 
         set_ap_to_actual_fee(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
@@ -148,7 +149,8 @@ pub mod tests {
     }
 
     #[rstest]
-    fn test_start_tx(
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_start_tx(
         block_context: BlockContext,
         transaction_execution_info: TransactionExecutionInfo,
         old_block_number_and_hash: (Felt252, Felt252),
@@ -175,16 +177,17 @@ pub mod tests {
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
         // before starting tx, tx_execution_info should be none
-        assert!(exec_helper_box.execution_helper.borrow().tx_execution_info.is_none());
+        assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
 
         start_tx(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("start_tx");
 
         // after starting tx, tx_execution_info should be some
-        assert!(exec_helper_box.execution_helper.borrow().tx_execution_info.is_some());
+        assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_some());
     }
 
     #[rstest]
-    fn test_skip_tx(
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_skip_tx(
         block_context: BlockContext,
         transaction_execution_info: TransactionExecutionInfo,
         old_block_number_and_hash: (Felt252, Felt252),
@@ -212,18 +215,23 @@ pub mod tests {
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
         // before skipping a tx, tx_execution_info should be none and iter should have a next()
-        assert!(exec_helper_box.execution_helper.borrow().tx_execution_info.is_none());
-        assert!(exec_helper_box.execution_helper.borrow().tx_execution_info_iter.clone().peekable().peek().is_some());
+        assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
+        assert!(
+            exec_helper_box.execution_helper.read().await.tx_execution_info_iter.clone().peekable().peek().is_some()
+        );
 
         skip_tx(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_tx");
 
         // after skipping a tx, tx_execution_info should be some and iter should not have a next()
-        assert!(exec_helper_box.execution_helper.borrow().tx_execution_info.is_none());
-        assert!(exec_helper_box.execution_helper.borrow().tx_execution_info_iter.clone().peekable().peek().is_none());
+        assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
+        assert!(
+            exec_helper_box.execution_helper.read().await.tx_execution_info_iter.clone().peekable().peek().is_none()
+        );
     }
 
     #[rstest]
-    fn test_skip_call(
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_skip_call(
         block_context: BlockContext,
         transaction_execution_info: TransactionExecutionInfo,
         old_block_number_and_hash: (Felt252, Felt252),
@@ -255,12 +263,12 @@ pub mod tests {
         start_tx(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("start_tx");
 
         // we should have a call next
-        assert!(exec_helper_box.execution_helper.borrow().call_iter.clone().peekable().peek().is_some());
+        assert!(exec_helper_box.execution_helper.read().await.call_iter.clone().peekable().peek().is_some());
 
         skip_call(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_call");
 
         // our only call should have been consumed
-        assert!(exec_helper_box.execution_helper.borrow().call_iter.clone().peekable().peek().is_none());
+        assert!(exec_helper_box.execution_helper.read().await.call_iter.clone().peekable().peek().is_none());
     }
 
     #[test]

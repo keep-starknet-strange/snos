@@ -1,10 +1,10 @@
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use blockifier::execution::execution_utils::ReadOnlySegments;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::structs::deprecated::{CallContract, CallContractResponse};
@@ -22,27 +22,27 @@ pub struct DeprecatedOsSyscallHandler {
 /// to clone the refrence when entering and exiting vm scopes
 #[derive(Clone, Debug)]
 pub struct DeprecatedOsSyscallHandlerWrapper {
-    pub deprecated_syscall_handler: Rc<RefCell<DeprecatedOsSyscallHandler>>,
+    pub deprecated_syscall_handler: Rc<RwLock<DeprecatedOsSyscallHandler>>,
 }
 
 impl DeprecatedOsSyscallHandlerWrapper {
     // TODO(#69): implement the syscalls
     pub fn new(exec_wrapper: ExecutionHelperWrapper, syscall_ptr: Relocatable) -> Self {
         Self {
-            deprecated_syscall_handler: Rc::new(RefCell::new(DeprecatedOsSyscallHandler {
+            deprecated_syscall_handler: Rc::new(RwLock::new(DeprecatedOsSyscallHandler {
                 exec_wrapper,
                 syscall_ptr,
                 _segments: ReadOnlySegments::default(),
             })),
         }
     }
-    pub fn call_contract(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
-        let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
+    pub async fn call_contract(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
+        let sys_hand = self.deprecated_syscall_handler.write().await;
         let result = sys_hand
             .exec_wrapper
             .execution_helper
-            .as_ref()
-            .borrow_mut()
+            .write()
+            .await
             .result_iter
             .next()
             .expect("A call execution should have a corresponding result");
@@ -69,26 +69,26 @@ impl DeprecatedOsSyscallHandlerWrapper {
     }
     #[allow(unused)]
     pub fn delegate_call(&self, syscall_ptr: Relocatable) {
-        println!("delegate_call (TODO): {}", syscall_ptr);
+        log::error!("delegate_call (TODO): {}", syscall_ptr);
     }
     pub fn delegate_l1_handler(&self, syscall_ptr: Relocatable) {
-        println!("delegate_l1_handler (TODO): {}", syscall_ptr);
+        log::error!("delegate_l1_handler (TODO): {}", syscall_ptr);
     }
     pub fn deploy(&self, syscall_ptr: Relocatable) {
-        println!("deploy (TODO): {}", syscall_ptr);
+        log::error!("deploy (TODO): {}", syscall_ptr);
     }
     pub fn emit_event(&self, syscall_ptr: Relocatable) {
-        println!("emit_event (TODO): {}", syscall_ptr);
+        log::error!("emit_event (TODO): {}", syscall_ptr);
     }
     pub fn get_block_number(&self, syscall_ptr: Relocatable) {
-        println!("get_block_number (TODO): {}", syscall_ptr);
+        log::error!("get_block_number (TODO): {}", syscall_ptr);
     }
     pub fn get_block_timestamp(&self, syscall_ptr: Relocatable) {
-        println!("get_block_timestamp (TODO): {}", syscall_ptr);
+        log::error!("get_block_timestamp (TODO): {}", syscall_ptr);
     }
-    pub fn get_caller_address(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) {
-        let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
-        let exec_helper = sys_hand.exec_wrapper.execution_helper.as_ref().borrow();
+    pub async fn get_caller_address(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) {
+        let sys_hand = self.deprecated_syscall_handler.read().await;
+        let exec_helper = sys_hand.exec_wrapper.execution_helper.read().await;
         let caller_address =
             exec_helper.call_info.as_ref().expect("A call should have some call info").call.caller_address.0.key();
         let caller_address = felt_api2vm(*caller_address);
@@ -96,61 +96,57 @@ impl DeprecatedOsSyscallHandlerWrapper {
         // TODO: create proper struct for this (similar to GetCallerAddress and friends)
         // TODO: abstract this similar to pythonic _write_syscall_response()
 
-        println!("get_caller_address() syscall, syscall_ptr = {}, caller_address = {}", syscall_ptr, caller_address);
+        log::debug!("get_caller_address() syscall, syscall_ptr = {}, caller_address = {}", syscall_ptr, caller_address);
 
         vm.insert_value((syscall_ptr + 1usize).unwrap(), caller_address).unwrap();
     }
     pub fn get_contract_address(&self, syscall_ptr: Relocatable) {
-        println!("get_contract_address (TODO): {}", syscall_ptr);
+        log::error!("get_contract_address (TODO): {}", syscall_ptr);
     }
     pub fn get_sequencer_address(&self, syscall_ptr: Relocatable) {
-        println!("get_sequencer_address (TODO): {}", syscall_ptr);
+        log::error!("get_sequencer_address (TODO): {}", syscall_ptr);
     }
     pub fn get_tx_info(&self, syscall_ptr: Relocatable) {
-        println!("get_tx_info (TODO): {}", syscall_ptr);
+        log::error!("get_tx_info (TODO): {}", syscall_ptr);
     }
     pub fn get_tx_signature(&self, syscall_ptr: Relocatable) {
-        println!("get_tx_signature (TODO): {}", syscall_ptr);
+        log::error!("get_tx_signature (TODO): {}", syscall_ptr);
     }
     pub fn library_call(&self, syscall_ptr: Relocatable) {
-        println!("library_call (TODO): {}", syscall_ptr);
+        log::error!("library_call (TODO): {}", syscall_ptr);
     }
     pub fn library_call_l1_handler(&self, syscall_ptr: Relocatable) {
-        println!("library_call (TODO): {}", syscall_ptr);
+        log::error!("library_call (TODO): {}", syscall_ptr);
     }
     pub fn replace_class(&self, syscall_ptr: Relocatable) {
-        println!("replace_class (TODO): {}", syscall_ptr);
+        log::error!("replace_class (TODO): {}", syscall_ptr);
     }
     pub fn send_message_to_l1(&self, syscall_ptr: Relocatable) {
-        println!("send_message_to_l1 (TODO): {}", syscall_ptr);
+        log::error!("send_message_to_l1 (TODO): {}", syscall_ptr);
     }
-    pub fn storage_read(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
-        let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
-        let value = sys_hand.exec_wrapper.execution_helper.as_ref().borrow_mut().execute_code_read_iter.next().ok_or(
+    pub async fn storage_read(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
+        let sys_hand = self.deprecated_syscall_handler.write().await;
+        let value = sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next().ok_or(
             HintError::SyscallError("d: No more storage reads available to replay".to_string().into_boxed_str()),
         )?;
-
-        println!("storage_read syscall, syscall_ptr = {}, value = {}", syscall_ptr, value);
 
         vm.insert_value((syscall_ptr + 2usize).unwrap(), value).unwrap();
 
         Ok(())
     }
-    pub fn storage_write(&self, syscall_ptr: Relocatable) {
-        println!("storage_write (TODO): {}", syscall_ptr);
-
-        let sys_hand = self.deprecated_syscall_handler.as_ref().borrow();
-        sys_hand.exec_wrapper.execution_helper.as_ref().borrow_mut().execute_code_read_iter.next();
+    pub async fn storage_write(&self, _syscall_ptr: Relocatable) {
+        let sys_hand = self.deprecated_syscall_handler.write().await;
+        sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next();
     }
 
-    pub fn set_syscall_ptr(&self, syscall_ptr: Relocatable) {
-        let mut syscall_handler = self.deprecated_syscall_handler.as_ref().borrow_mut();
+    pub async fn set_syscall_ptr(&self, syscall_ptr: Relocatable) {
+        let mut syscall_handler = self.deprecated_syscall_handler.write().await;
         syscall_handler.syscall_ptr = syscall_ptr;
     }
 
     #[allow(unused)]
-    pub fn syscall_ptr(&self) -> Relocatable {
-        self.deprecated_syscall_handler.as_ref().borrow().syscall_ptr
+    pub async fn syscall_ptr(&self) -> Relocatable {
+        self.deprecated_syscall_handler.read().await.syscall_ptr
     }
 }
 
@@ -203,7 +199,8 @@ mod test {
     }
 
     #[rstest]
-    fn test_call_contract(block_context: BlockContext, old_block_number_and_hash: (Felt252, Felt252)) {
+    #[tokio::test]
+    async fn test_call_contract(block_context: BlockContext, old_block_number_and_hash: (Felt252, Felt252)) {
         let mut vm = VirtualMachine::new(false);
         vm.set_fp(1);
         vm.add_memory_segment();
@@ -228,14 +225,14 @@ mod test {
             retdata: Retdata(vec![StarkFelt::THREE, StarkFelt::TWO, StarkFelt::ONE]),
             gas_consumed: 1,
         }];
-        exec_helper.execution_helper.as_ref().borrow_mut().result_iter = call_results.into_iter();
+        exec_helper.execution_helper.write().await.result_iter = call_results.into_iter();
 
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
         let syscall_handler = DeprecatedOsSyscallHandlerWrapper::new(*exec_helper_box, syscall_ptr);
 
-        syscall_handler.call_contract(syscall_ptr, &mut vm).unwrap();
+        syscall_handler.call_contract(syscall_ptr, &mut vm).await.unwrap();
 
         // syscall_ptr should have been filled out syscall_ptr segment with a CallContractResponse
         let syscall_data_raw = vm.get_range(syscall_ptr, 7); // TODO: derive from struct size?

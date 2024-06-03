@@ -85,11 +85,6 @@ pub const WRITE_NIBBLES_TO_MEM: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const WRITE_USE_ZKG_DA_TO_MEM: &str = indoc! {r#"
-    memory[fp + 15] = to_felt_or_relocatable(syscall_handler.block_info.use_kzg_da)"#
-};
-
-#[allow(unused)]
 pub const PACK_X_PRIME: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_P
     from starkware.cairo.common.cairo_secp.secp_utils import pack

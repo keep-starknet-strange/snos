@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -16,7 +17,7 @@ use crate::starkware_utils::commitment_tree::patricia_tree::nodes::{
     verify_path_value, EdgeNodeFact, PatriciaNodeFact,
 };
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
-use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
+use crate::storage::storage::{FactFetchingContext, Hash, HashFunctionType, Storage};
 
 #[derive(Debug)]
 pub struct VirtualPatriciaNode<S, H, LF>
@@ -25,7 +26,7 @@ where
     H: HashFunctionType,
     LF: LeafFact<S, H>,
 {
-    pub bottom_node: Vec<u8>,
+    pub bottom_node: Hash,
     pub path: NodePath,
     pub length: Length,
     /// The height of the subtree rooted at this node.
@@ -42,19 +43,19 @@ where
     LF: LeafFact<S, H> + Send,
 {
     #[allow(unused)]
-    pub fn new(bottom_node: Vec<u8>, path: NodePath, length: Length, height: Height) -> Result<Self, TreeError> {
+    pub fn new(bottom_node: Hash, path: NodePath, length: Length, height: Height) -> Result<Self, TreeError> {
         verify_path_value(&path, length)?;
         Ok(Self::new_unchecked(bottom_node, path, length, height))
     }
 
-    pub fn new_unchecked(bottom_node: Vec<u8>, path: NodePath, length: Length, height: Height) -> Self {
+    pub fn new_unchecked(bottom_node: Hash, path: NodePath, length: Length, height: Height) -> Self {
         debug_assert!(verify_path_value(&path, length).is_ok());
         Self { bottom_node, path: path.clone(), length, height, _phantom: Default::default() }
     }
 
     fn empty_node(height: Height) -> Self {
         Self {
-            bottom_node: EMPTY_NODE_HASH.to_vec(),
+            bottom_node: Hash::empty(),
             path: NodePath(0u64.into()),
             length: Length(0),
             height,
@@ -62,7 +63,7 @@ where
         }
     }
 
-    pub fn from_hash(hash_value: Vec<u8>, height: Height) -> Self {
+    pub fn from_hash(hash_value: Hash, height: Height) -> Self {
         Self::new_unchecked(hash_value, NodePath(0u64.into()), Length(0), height)
     }
 
@@ -80,7 +81,7 @@ where
         &self,
         ffc: &mut FactFetchingContext<S, H>,
         facts: &mut Option<BinaryFactDict>,
-    ) -> Result<Vec<u8>, TreeError> {
+    ) -> Result<Hash, TreeError> {
         if !self.is_virtual_edge() {
             // Node is already of form (hash, 0, 0); no work to be done.
             return Ok(self.bottom_node.clone());
@@ -192,7 +193,7 @@ where
     H: HashFunctionType + Sync + Send,
     LF: LeafFact<S, H> + Send,
 {
-    fn _leaf_hash(&self) -> Vec<u8> {
+    fn _leaf_hash(&self) -> Hash {
         self.bottom_node.clone()
     }
 
@@ -200,7 +201,7 @@ where
         self.height
     }
 
-    fn create_leaf(hash_value: Vec<u8>) -> Self {
+    fn create_leaf(hash_value: Hash) -> Self {
         Self::from_hash(hash_value, Height(0))
     }
 

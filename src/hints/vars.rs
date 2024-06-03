@@ -11,10 +11,12 @@ pub mod scopes {
     #[allow(unused)]
     pub const DICT_MANAGER: &str = "dict_manager";
     pub const EXECUTION_HELPER: &str = "execution_helper";
+    pub const INITIAL_DICT: &str = "initial_dict";
     pub const NODE: &str = "node";
     pub const LEFT_CHILD: &str = "left_child";
     pub const OS_INPUT: &str = "os_input";
     pub const PATRICIA_SKIP_VALIDATION_RUNNER: &str = "__patricia_skip_validation_runner";
+    pub const PATRICIA_TREE_MODE: &str = "patricia_tree_mode";
     pub const PREIMAGE: &str = "preimage";
     pub const RIGHT_CHILD: &str = "right_child";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";
@@ -27,7 +29,7 @@ pub mod ids {
     pub const BIT: &str = "bit";
     pub const CALL_RESPONSE: &str = "call_response";
     pub const CALLDATA: &str = "calldata";
-    pub const CHILD_BIT: &str = "CHILD_BIT";
+    pub const CHILD_BIT: &str = "child_bit";
     pub const CLASS_HASH_PTR: &str = "class_hash_ptr";
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACT: &str = "compiled_class_fact";

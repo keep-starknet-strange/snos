@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use bitvec::prelude::{BitSlice, BitVec, Msb0};
 use bitvec::view::BitView;
 use blockifier::execution::contract_class::ContractClassV0Inner;
+use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
 use lazy_static::lazy_static;
@@ -15,6 +16,7 @@ use starknet_api::core::{ChainId, ClassHash, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, Program as DeprecatedProgram};
 use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 use starknet_api::stark_felt;
+use tokio::task;
 
 use crate::config::DEFAULT_COMPILER_VERSION;
 use crate::error::SnOsError;
@@ -242,6 +244,37 @@ pub fn get_constant<'a>(
     constants: &'a HashMap<String, Felt252>,
 ) -> Result<&'a Felt252, HintError> {
     constants.get(identifier).ok_or(HintError::MissingConstant(Box::new(identifier)))
+}
+
+/// Gets the current Tokio runtime or fails gracefully with a HintError.
+fn get_tokio_runtime_handle() -> Result<tokio::runtime::Handle, HintError> {
+    tokio::runtime::Handle::try_current()
+        .map_err(|e| HintError::CustomHint(format!("Tokio runtime not found: {e}").into_boxed_str()))
+}
+
+/// Executes a coroutine from a synchronous context.
+/// Fails if no Tokio runtime is present.
+pub fn execute_coroutine<F, T>(coroutine: F) -> Result<T, HintError>
+where
+    F: std::future::Future<Output = T>,
+{
+    let tokio_runtime_handle = get_tokio_runtime_handle()?;
+    Ok(task::block_in_place(|| tokio_runtime_handle.block_on(coroutine)))
+}
+
+/// Retrieve a variable from the root execution scope.
+///
+/// Some global variables are stored in the root execution scope on startup. We sometimes
+/// need access to these variables from a hint where we are already in a nested scope.
+/// This function retrieves the variable from the root scope regardless of the current scope.
+pub fn get_variable_from_root_exec_scope<T>(exec_scopes: &ExecutionScopes, name: &str) -> Result<T, HintError>
+where
+    T: Clone + 'static,
+{
+    exec_scopes.data[0]
+        .get(name)
+        .and_then(|var| var.downcast_ref::<T>().cloned())
+        .ok_or(HintError::VariableNotInScopeError(name.to_string().into_boxed_str()))
 }
 
 #[cfg(test)]

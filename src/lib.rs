@@ -14,7 +14,7 @@ use execution::helper::ExecutionHelperWrapper;
 use io::output::StarknetOsOutput;
 
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
-use crate::hints::types::PatriciaSkipValidationRunner;
+use crate::hints::types::{PatriciaSkipValidationRunner, PatriciaTreeMode};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 
@@ -28,7 +28,6 @@ pub mod io;
 pub mod sharp;
 pub mod starknet;
 pub mod starkware_utils;
-pub mod state;
 pub mod storage;
 pub mod utils;
 
@@ -70,6 +69,7 @@ pub fn run_os(
     cairo_runner
         .exec_scopes
         .insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, None::<PatriciaSkipValidationRunner>);
+    cairo_runner.exec_scopes.insert_value(vars::scopes::PATRICIA_TREE_MODE, PatriciaTreeMode::State);
 
     // Run the Cairo VM
     let mut sn_hint_processor = hints::SnosHintProcessor::default();
@@ -90,7 +90,7 @@ pub fn run_os(
     // Prepare and check expected output.
     let os_output = StarknetOsOutput::from_run(&vm)?;
 
-    println!("output: {:?}", os_output);
+    log::debug!("output: {:?}", os_output);
 
     vm.verify_auto_deductions().map_err(|e| SnOsError::Runner(e.into()))?;
     cairo_runner.read_return_values(&mut vm, false).map_err(|e| SnOsError::Runner(e.into()))?;

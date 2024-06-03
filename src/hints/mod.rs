@@ -25,12 +25,14 @@ use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::block_context::is_leaf;
 use crate::io::input::StarknetOsInput;
+use crate::utils::execute_coroutine;
 
 pub mod block_context;
 mod bls_field;
 mod bls_utils;
 pub mod builtins;
 mod compiled_class;
+mod deprecated_compiled_class;
 mod execute_transactions;
 pub mod execution;
 mod output;
@@ -53,7 +55,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 171] = [
+static HINTS: [(&str, HintImpl); 172] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -78,8 +80,6 @@ static HINTS: [(&str, HintImpl); 171] = [
     (block_context::IS_LEAF, is_leaf),
     (block_context::LOAD_CLASS_FACTS, block_context::load_class_facts),
     (block_context::LOAD_CLASS_INNER, block_context::load_class_inner),
-    (block_context::LOAD_DEPRECATED_CLASS_FACTS, block_context::load_deprecated_class_facts),
-    (block_context::LOAD_DEPRECATED_CLASS_INNER, block_context::load_deprecated_class_inner),
     (block_context::SEQUENCER_ADDRESS, block_context::sequencer_address),
     (bls_field::COMPUTE_IDS_LOW, bls_field::compute_ids_low),
     (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
@@ -87,6 +87,8 @@ static HINTS: [(&str, HintImpl); 171] = [
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
     (compiled_class::ASSIGN_BYTECODE_SEGMENTS, compiled_class::assign_bytecode_segments),
     (compiled_class::ASSERT_END_OF_BYTECODE_SEGMENTS, compiled_class::assert_end_of_bytecode_segments),
+    (deprecated_compiled_class::LOAD_DEPRECATED_CLASS_FACTS, deprecated_compiled_class::load_deprecated_class_facts),
+    (deprecated_compiled_class::LOAD_DEPRECATED_CLASS_INNER, deprecated_compiled_class::load_deprecated_class_inner),
     (execute_syscalls::IS_BLOCK_NUMBER_IN_BLOCK_HASH_BUFFER, execute_syscalls::is_block_number_in_block_hash_buffer),
     (execute_transactions::START_TX_VALIDATE_DECLARE_EXECUTION_CONTEXT, execute_transactions::start_tx_validate_declare_execution_context),
     (execution::ADD_RELOCATION_RULE, execution::add_relocation_rule),
@@ -225,6 +227,7 @@ static HINTS: [(&str, HintImpl); 171] = [
     (syscalls::STORAGE_WRITE, syscalls::storage_write),
     (transaction_hash::ADDITIONAL_DATA_NEW_SEGMENT, transaction_hash::additional_data_new_segment),
     (transaction_hash::DATA_TO_HASH_NEW_SEGMENT, transaction_hash::data_to_hash_new_segment),
+    (block_context::WRITE_USE_ZKG_DA_TO_MEM, block_context::write_use_zkg_da_to_mem),
 ];
 
 /// Hint Extensions extend the current map of hints used by the VM.
@@ -239,8 +242,8 @@ type ExtensiveHintImpl = fn(
 ) -> Result<HintExtension, HintError>;
 
 static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 2] = [
-    (block_context::LOAD_DEPRECATED_CLASS, block_context::load_deprecated_class),
     (block_context::LOAD_CLASS, block_context::load_class),
+    (deprecated_compiled_class::LOAD_DEPRECATED_CLASS, deprecated_compiled_class::load_deprecated_class),
 ];
 
 pub struct SnosHintProcessor {
@@ -359,7 +362,9 @@ impl HintProcessorLogic for SnosHintProcessor {
             if let Hint::Starknet(StarknetHint::SystemCall { system }) = hint {
                 let syscall_ptr = get_ptr_from_res_operand(vm, system)?;
                 let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?;
-                return syscall_handler.syscall(vm, syscall_ptr).map(|_| HintExtension::default());
+
+                return execute_coroutine(syscall_handler.execute_syscall(vm, syscall_ptr))?
+                    .map(|_| HintExtension::default());
             } else {
                 return self.cairo1_builtin_hint_proc.execute(vm, exec_scopes, hint).map(|_| HintExtension::default());
             }
@@ -427,7 +432,7 @@ pub fn initialize_state_changes(
     let mut state_dict: HashMap<MaybeRelocatable, MaybeRelocatable> = HashMap::new();
     for (addr, contract_state) in os_input.contracts {
         let change_base = vm.add_memory_segment();
-        vm.insert_value(change_base, contract_state.contract_hash)?;
+        vm.insert_value(change_base, Felt252::from_bytes_be_slice(&contract_state.contract_hash))?;
         let storage_commitment_base = vm.add_memory_segment();
         vm.insert_value((change_base + 1)?, storage_commitment_base)?;
         vm.insert_value((change_base + 2)?, contract_state.nonce)?;
@@ -496,8 +501,8 @@ pub fn breakpoint(
     let pc = vm.get_pc();
     let fp = vm.get_fp();
     let ap = vm.get_ap();
-    println!("-----------BEGIN BREAKPOINT-----------");
-    println!("\tpc -> {}, fp -> {}, ap -> {}", pc, fp, ap);
+    log::debug!("-----------BEGIN BREAKPOINT-----------");
+    log::debug!("\tpc -> {}, fp -> {}, ap -> {}", pc, fp, ap);
     // println!("\tnum_constants -> {:?}", constants.len());
 
     // print!("\tbuiltins -> ");
@@ -510,7 +515,7 @@ pub fn breakpoint(
     // println!("\tap_tracking -> {ap_tracking:?}");
     // println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
     // println!("\tids -> {:?}", ids_data);
-    println!("-----------END BREAKPOINT-----------");
+    log::debug!("-----------END BREAKPOINT-----------");
     Ok(())
 }
 
@@ -525,13 +530,14 @@ pub fn set_ap_to_actual_fee(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
-    let actual_fee = execution_helper
-        .execution_helper
-        .borrow()
-        .tx_execution_info
-        .as_ref()
-        .ok_or(HintError::CustomHint("ExecutionHelper should have tx_execution_info".to_owned().into_boxed_str()))?
-        .actual_fee;
+    let actual_fee = execute_coroutine(async {
+        let eh_ref = execution_helper.execution_helper.read().await;
+        eh_ref
+            .tx_execution_info
+            .as_ref()
+            .ok_or(HintError::CustomHint("ExecutionHelper should have tx_execution_info".to_owned().into_boxed_str()))
+            .map(|tx_execution_info| tx_execution_info.actual_fee)
+    })??;
 
     insert_value_into_ap(vm, Felt252::from(actual_fee.0))
 }
@@ -557,6 +563,21 @@ pub fn is_on_curve(
 
 const START_TX: &str = "execution_helper.start_tx(tx_info_ptr=ids.deprecated_tx_info.address_)";
 
+pub async fn start_tx_async(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+) -> Result<(), HintError> {
+    let deprecated_tx_info_ptr =
+        get_relocatable_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
+
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
+    execution_helper.start_tx(Some(deprecated_tx_info_ptr)).await;
+
+    Ok(())
+}
+
 pub fn start_tx(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -564,16 +585,17 @@ pub fn start_tx(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let deprecated_tx_info_ptr =
-        get_relocatable_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
-
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
-    execution_helper.start_tx(Some(deprecated_tx_info_ptr));
-
-    Ok(())
+    execute_coroutine(start_tx_async(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
 const SKIP_TX: &str = "execution_helper.skip_tx()";
+
+pub async fn skip_tx_async(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
+    execution_helper.skip_tx().await;
+
+    Ok(())
+}
 
 pub fn skip_tx(
     _vm: &mut VirtualMachine,
@@ -582,13 +604,17 @@ pub fn skip_tx(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
-    execution_helper.skip_tx();
-
-    Ok(())
+    execute_coroutine(skip_tx_async(exec_scopes))?
 }
 
 const SKIP_CALL: &str = "execution_helper.skip_call()";
+
+pub async fn skip_call_async(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
+    execution_helper.skip_call().await;
+
+    Ok(())
+}
 
 pub fn skip_call(
     _vm: &mut VirtualMachine,
@@ -597,10 +623,7 @@ pub fn skip_call(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
-    execution_helper.skip_call();
-
-    Ok(())
+    execute_coroutine(skip_call_async(exec_scopes))?
 }
 
 const OS_INPUT_TRANSACTIONS: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";

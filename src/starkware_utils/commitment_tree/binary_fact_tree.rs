@@ -41,6 +41,7 @@ where
     ) -> Result<HashMap<TreeIndex, LF>, TreeError>;
 
     async fn get_leaf(&self, ffc: &mut FactFetchingContext<S, H>, index: TreeIndex) -> Result<Option<LF>, TreeError> {
+        log::debug!("Getting fact with hash value {:x}", index);
         let mut facts = None;
         let leaves = self.get_leaves(ffc, vec![index.clone()].as_ref(), &mut facts).await?;
         Ok(leaves.get(&index).cloned())

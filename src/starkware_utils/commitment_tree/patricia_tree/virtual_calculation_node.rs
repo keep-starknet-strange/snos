@@ -17,7 +17,7 @@ use crate::starkware_utils::commitment_tree::patricia_tree::nodes::{
 };
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::starkware_utils::commitment_tree::patricia_tree::virtual_patricia_node::VirtualPatriciaNode;
-use crate::storage::storage::{Fact, FactFetchingContext, HashFunctionType, Storage, StorageError};
+use crate::storage::storage::{Fact, FactFetchingContext, Hash, HashFunctionType, Storage, StorageError};
 
 #[derive(Debug, PartialEq)]
 pub struct BinaryCalculation<S, H, LF>
@@ -55,7 +55,7 @@ where
     }
 }
 
-impl<S, H, LF> Calculation<Vec<u8>, LF> for BinaryCalculation<S, H, LF>
+impl<S, H, LF> Calculation<Hash, LF> for BinaryCalculation<S, H, LF>
 where
     S: Storage + 'static,
     H: HashFunctionType + 'static,
@@ -68,9 +68,9 @@ where
         ]
     }
 
-    fn calculate(&self, dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Vec<u8> {
-        let left_hash: &Vec<u8> = dependency_results[0].downcast_ref().unwrap();
-        let right_hash: &Vec<u8> = dependency_results[1].downcast_ref().unwrap();
+    fn calculate(&self, dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Hash {
+        let left_hash: &Hash = dependency_results[0].downcast_ref().unwrap();
+        let right_hash: &Hash = dependency_results[1].downcast_ref().unwrap();
 
         let fact = BinaryNodeFact { left_node: left_hash.clone(), right_node: right_hash.clone() };
         let fact_hash = <BinaryNodeFact as Fact<S, H>>::hash(&fact);
@@ -130,7 +130,7 @@ where
     }
 }
 
-impl<S, H, LF> Calculation<Vec<u8>, LF> for EdgeCalculation<S, H, LF>
+impl<S, H, LF> Calculation<Hash, LF> for EdgeCalculation<S, H, LF>
 where
     H: HashFunctionType + 'static,
     S: Storage,
@@ -140,8 +140,8 @@ where
         vec![Box::new(DependencyWrapper::new(self.bottom.clone_box()))]
     }
 
-    fn calculate(&self, dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Vec<u8> {
-        let bottom_hash: &Vec<u8> = dependency_results[0].downcast_ref().unwrap();
+    fn calculate(&self, dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Hash {
+        let bottom_hash: &Hash = dependency_results[0].downcast_ref().unwrap();
         let fact = EdgeNodeFact::new_unchecked(bottom_hash.clone(), self.path.clone(), self.length);
         let fact_hash = <EdgeNodeFact as Fact<S, H>>::hash(&fact);
         fact_nodes.inner_nodes.insert(fact_hash.clone(), PatriciaNodeFact::Edge(fact));
@@ -176,7 +176,7 @@ where
     Binary(BinaryCalculation<S, H, LF>),
     Edge(EdgeCalculation<S, H, LF>),
     LeafFact(LeafFactCalculation<S, H, LF>),
-    Constant(ConstantCalculation<Vec<u8>>),
+    Constant(ConstantCalculation<Hash>),
 }
 
 impl<S, H, LF> HashCalculationImpl<S, H, LF>
@@ -212,7 +212,7 @@ where
 
 // impl<S, H> Clone for
 
-impl<S, H, LF> Calculation<Vec<u8>, LF> for HashCalculationImpl<S, H, LF>
+impl<S, H, LF> Calculation<Hash, LF> for HashCalculationImpl<S, H, LF>
 where
     H: 'static + HashFunctionType,
     S: Storage,
@@ -227,7 +227,7 @@ where
         }
     }
 
-    fn calculate(&self, dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Vec<u8> {
+    fn calculate(&self, dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Hash {
         match self {
             HashCalculationImpl::Binary(binary) => binary.calculate(dependency_results, fact_nodes),
             HashCalculationImpl::Edge(edge) => edge.calculate(dependency_results, fact_nodes),
@@ -297,7 +297,7 @@ where
     }
 
     pub fn empty_node(height: Height) -> Self {
-        let bottom_calculation = HashCalculationImpl::Constant(ConstantCalculation::new(EMPTY_NODE_HASH.to_vec()));
+        let bottom_calculation = HashCalculationImpl::Constant(ConstantCalculation::new(Hash::empty()));
         VirtualCalculationNode::new_unchecked(bottom_calculation, NodePath(0u64.into()), Length(0), height)
     }
 

@@ -11,6 +11,8 @@ use rstest::fixture;
 use snos::io::output::{decode_output, StarknetOsOutput};
 
 pub mod block_utils;
+mod blockifier_contracts;
+mod contract_fixtures;
 mod deprecated_hash_utils;
 pub mod serde_utils;
 pub mod state;
@@ -54,7 +56,7 @@ pub fn load_output() -> StarknetOsOutput {
     let buf = fs::read_to_string("tests/integration/common/data/os_output.json").unwrap();
     let raw_output: serde_utils::RawOsOutput = serde_json::from_str(&buf).unwrap();
 
-    decode_output(raw_output.0).unwrap()
+    decode_output(raw_output.0.into_iter()).unwrap()
 }
 
 #[fixture]

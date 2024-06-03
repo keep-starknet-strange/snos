@@ -17,13 +17,16 @@ futures = "0.3.30"
 futures-util = "0.3.30"
 heck = "0.4.1"
 hex = "0.4.3"
-indexmap = "1.9.2"
+indexmap = "2.2.6"
 indoc = "2"
 lazy_static = "1.4.0"
 log = "0.4.19"
 num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2.16"
+pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "starknet-gateway-types" }
+pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-crypto" }
+pathfinder-common = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-common" }
 regex = "1.10.0"
 reqwest = { version = "0.11.18", features = ["blocking", "json"] }
 serde = { version = "1.0.188", features = ["derive"] }
@@ -33,7 +36,7 @@ serde_yaml = "0.9.25"
 starknet-crypto = "0.6.0"
 starknet_api = { version = "=0.7.0-dev.0", features = ["testing"] }
 thiserror = "1.0.48"
-tokio = { version = "1.36.0", features = ["rt-multi-thread"] }
+tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
 tokio-stream = "0.1.14"
 uuid = { version = "1.4.0", features = ["v4", "serde"] }
 zip = { version = "0.6.6", features = ["deflate-zlib"] }
@@ -47,6 +50,7 @@ cairo-lang-filesystem = { version = "~2.5.4" }
 cairo-lang-semantic = { version = "~2.5.4" }
 cairo-lang-sierra = { version = "~2.5.4" }
 cairo-lang-syntax = { version = "~2.5.4" }
+env_logger = "0.11.3"
 
 [dev-dependencies]
 getset = "0.1.2"

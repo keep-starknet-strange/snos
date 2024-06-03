@@ -1,5 +1,5 @@
-use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::vec::IntoIter;
 
@@ -11,6 +11,7 @@ use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
 use starknet_api::deprecated_contract_class::EntryPointType;
+use tokio::sync::RwLock;
 
 use crate::config::STORED_BLOCK_HASH_BUFFER;
 use crate::crypto::pedersen::PedersenHash;
@@ -19,7 +20,7 @@ use crate::storage::dict_storage::DictStorage;
 use crate::storage::storage::StorageError;
 
 // TODO: make the execution helper generic over the storage and hash function types.
-pub type ContractStorageMap = HashMap<Felt252, OsSingleStarknetStorage<DictStorage, PedersenHash>>;
+pub type ContractStorageMap<S, H> = HashMap<Felt252, OsSingleStarknetStorage<S, H>>;
 
 /// Maintains the info for executing txns in the OS
 #[derive(Debug)]
@@ -50,19 +51,19 @@ pub struct ExecutionHelper {
     // Iter to the read_values array consumed when tx code is executed
     pub execute_code_read_iter: IntoIter<Felt252>,
     // Per-contract storage
-    pub storage_by_address: ContractStorageMap,
+    pub storage_by_address: ContractStorageMap<DictStorage, PedersenHash>,
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
-/// to clone the refrence when entering and exiting vm scopes  
+/// to clone the refrence when entering and exiting vm scopes
 #[derive(Clone, Debug)]
 pub struct ExecutionHelperWrapper {
-    pub execution_helper: Rc<RefCell<ExecutionHelper>>,
+    pub execution_helper: Rc<RwLock<ExecutionHelper>>,
 }
 
 impl ExecutionHelperWrapper {
     pub fn new(
-        contract_storage_map: ContractStorageMap,
+        contract_storage_map: ContractStorageMap<DictStorage, PedersenHash>,
         tx_execution_infos: Vec<TransactionExecutionInfo>,
         block_context: &BlockContext,
         old_block_number_and_hash: (Felt252, Felt252),
@@ -73,7 +74,7 @@ impl ExecutionHelperWrapper {
             block_context.block_number.0.checked_sub(STORED_BLOCK_HASH_BUFFER).map(|_| block_context.clone());
 
         Self {
-            execution_helper: Rc::new(RefCell::new(ExecutionHelper {
+            execution_helper: Rc::new(RwLock::new(ExecutionHelper {
                 _prev_block_context: prev_block_context,
                 tx_execution_info_iter: tx_execution_infos.into_iter(),
                 tx_execution_info: None,
@@ -90,38 +91,38 @@ impl ExecutionHelperWrapper {
         }
     }
 
-    pub fn get_old_block_number_and_hash(&self) -> Result<(Felt252, Felt252), HintError> {
-        let eh_ref = self.execution_helper.as_ref().borrow();
+    pub async fn get_old_block_number_and_hash(&self) -> Result<(Felt252, Felt252), HintError> {
+        let eh_ref = self.execution_helper.read().await;
         eh_ref.old_block_number_and_hash.ok_or(HintError::AssertionFailed(
             format!("Block number is probably < {STORED_BLOCK_HASH_BUFFER}.").into_boxed_str(),
         ))
     }
 
-    pub fn start_tx(&self, tx_info_ptr: Option<Relocatable>) {
-        let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
+    pub async fn start_tx(&self, tx_info_ptr: Option<Relocatable>) {
+        let mut eh_ref = self.execution_helper.write().await;
         assert!(eh_ref.tx_info_ptr.is_none());
         eh_ref.tx_info_ptr = tx_info_ptr;
         assert!(eh_ref.tx_execution_info.is_none());
         eh_ref.tx_execution_info = eh_ref.tx_execution_info_iter.next();
         eh_ref.call_iter = eh_ref.tx_execution_info.as_ref().unwrap().gen_call_iterator();
     }
-    pub fn end_tx(&self) {
-        let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
+    pub async fn end_tx(&self) {
+        let mut eh_ref = self.execution_helper.write().await;
         assert!(eh_ref.call_iter.clone().peekable().peek().is_none());
         eh_ref.tx_info_ptr = None;
         assert!(eh_ref.tx_execution_info.is_some());
         eh_ref.tx_execution_info = None;
     }
-    pub fn skip_tx(&self) {
-        self.start_tx(None);
-        self.end_tx()
+    pub async fn skip_tx(&self) {
+        self.start_tx(None).await;
+        self.end_tx().await
     }
-    pub fn enter_call(&self, execution_info_ptr: Option<Relocatable>) {
-        let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
+    pub async fn enter_call(&self, execution_info_ptr: Option<Relocatable>) {
+        let mut eh_ref = self.execution_helper.write().await;
         assert!(eh_ref.call_execution_info_ptr.is_none());
         eh_ref.call_execution_info_ptr = execution_info_ptr;
 
-        assert_iterators_exhausted(&eh_ref);
+        assert_iterators_exhausted(eh_ref.deref());
 
         assert!(eh_ref.call_info.is_none());
         let call_info = eh_ref.call_iter.next().unwrap();
@@ -162,34 +163,36 @@ impl ExecutionHelperWrapper {
 
         eh_ref.call_info = Some(call_info);
     }
-    pub fn exit_call(&mut self) {
-        let mut eh_ref = self.execution_helper.as_ref().borrow_mut();
+    pub async fn exit_call(&mut self) {
+        let mut eh_ref = self.execution_helper.write().await;
         eh_ref.call_execution_info_ptr = None;
         assert_iterators_exhausted(&eh_ref);
         assert!(eh_ref.call_info.is_some());
         eh_ref.call_info = None;
     }
-    pub fn skip_call(&mut self) {
-        self.enter_call(None);
-        self.exit_call();
+    pub async fn skip_call(&mut self) {
+        self.enter_call(None).await;
+        self.exit_call().await;
     }
 
-    pub fn read_storage_for_address(&mut self, address: Felt252, key: Felt252) -> Result<Felt252, StorageError> {
-        let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
+    pub async fn read_storage_for_address(&mut self, address: Felt252, key: Felt252) -> Result<Felt252, StorageError> {
+        let mut eh_ref = self.execution_helper.write().await;
+        let storage_by_address = &mut eh_ref.storage_by_address;
         if let Some(storage) = storage_by_address.get_mut(&address) {
-            return storage.read(key).ok_or(StorageError::ContentNotFound);
+            return storage.read(key).await.ok_or(StorageError::ContentNotFound);
         }
 
         Err(StorageError::ContentNotFound)
     }
 
-    pub fn write_storage_for_address(
+    pub async fn write_storage_for_address(
         &mut self,
         address: Felt252,
         key: Felt252,
         value: Felt252,
     ) -> Result<(), StorageError> {
-        let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
+        let mut eh_ref = self.execution_helper.write().await;
+        let storage_by_address = &mut eh_ref.storage_by_address;
         if let Some(storage) = storage_by_address.get_mut(&address) {
             storage.write(key.to_biguint(), value);
             Ok(())
@@ -200,7 +203,8 @@ impl ExecutionHelperWrapper {
 
     #[allow(clippy::await_holding_refcell_ref)]
     pub async fn compute_storage_commitments(&self) -> Result<HashMap<Felt252, CommitmentInfo>, CommitmentInfoError> {
-        let storage_by_address = &mut self.execution_helper.as_ref().borrow_mut().storage_by_address;
+        let mut eh_ref = self.execution_helper.write().await;
+        let storage_by_address = &mut eh_ref.storage_by_address;
 
         let mut commitments = HashMap::new();
         for (key, storage) in storage_by_address.iter_mut() {
@@ -212,7 +216,7 @@ impl ExecutionHelperWrapper {
     }
 }
 
-fn assert_iterators_exhausted(eh_ref: &RefMut<'_, ExecutionHelper>) {
+fn assert_iterators_exhausted(eh_ref: &ExecutionHelper) {
     assert!(eh_ref.deployed_contracts_iter.clone().peekable().peek().is_none());
     assert!(eh_ref.result_iter.clone().peekable().peek().is_none());
     assert!(eh_ref.execute_code_read_iter.clone().peekable().peek().is_none());
