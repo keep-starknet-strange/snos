@@ -4,12 +4,12 @@ name = "examples"
 version = "0.1.0"
 
 [dependencies]
-blockifier = { version = "0.7.0-dev.1" }
+blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", branch = "msl/derive-clone", features = ["testing"] }
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = ["extensive_hints", "cairo-1-hints"] }
 clap = { version = "4.5.4", features = ["derive"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
-snos = { path = "../../" }
+snos = { path = "../.." }
 
 [[bin]]
 name = "hint_tool"
