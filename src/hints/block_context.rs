@@ -19,12 +19,10 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use crate::cairo_types::structs::{CompiledClass, CompiledClassFact};
-use crate::hints::vars::constants::BLOCK_HASH_CONTRACT_ADDRESS;
-use crate::hints::vars::ids::{COMPILED_CLASS, COMPILED_CLASS_FACT, CONTRACT_STATE_CHANGES, STATE_ENTRY};
-use crate::hints::vars::scopes::COMPILED_CLASS_HASH;
+use crate::hints::vars;
 use crate::io::classes::write_class;
 use crate::io::input::StarknetOsInput;
-use crate::utils::felt_api2vm;
+use crate::utils::{felt_api2vm, get_constant};
 
 pub const LOAD_CLASS_FACTS: &str = indoc! {r#"
     ids.compiled_class_facts = segments.add()
@@ -41,17 +39,23 @@ pub fn load_class_facts(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let compiled_class_facts_ptr = vm.add_memory_segment();
-    insert_value_from_var_name("compiled_class_facts", compiled_class_facts_ptr, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::COMPILED_CLASS_FACTS, compiled_class_facts_ptr, vm, ids_data, ap_tracking)?;
 
-    insert_value_from_var_name("n_compiled_class_facts", os_input.compiled_classes.len(), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::N_COMPILED_CLASS_FACTS,
+        os_input.compiled_classes.len(),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     let compiled_class_facts: Box<dyn Any> = Box::new(os_input.compiled_classes.into_iter());
     let compiled_class_visited_pcs: Box<dyn Any> = Box::new(os_input.compiled_class_visited_pcs);
     exec_scopes.enter_scope(HashMap::from([
-        (String::from("compiled_class_facts"), compiled_class_facts),
-        (String::from("compiled_class_visited_pcs"), compiled_class_visited_pcs),
+        (String::from(vars::scopes::COMPILED_CLASS_FACTS), compiled_class_facts),
+        (String::from(vars::scopes::COMPILED_CLASS_VISITED_PCS), compiled_class_visited_pcs),
     ]));
     Ok(())
 }
@@ -85,21 +89,22 @@ pub fn load_class_inner(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let class_iter = exec_scopes.get_mut_ref::<IntoIter<Felt252, CasmContractClass>>("compiled_class_facts")?;
+    let class_iter =
+        exec_scopes.get_mut_ref::<IntoIter<Felt252, CasmContractClass>>(vars::ids::COMPILED_CLASS_FACTS)?;
 
     let (compiled_class_hash, class) = class_iter
         .next()
         .ok_or(HintError::CustomHint("Compiled class iterator exhausted".to_string().into_boxed_str()))?;
 
-    exec_scopes.insert_value("compiled_class_hash", compiled_class_hash);
-    exec_scopes.insert_value("compiled_class", class.clone()); //TODO: is this clone necessary?
+    exec_scopes.insert_value(vars::scopes::COMPILED_CLASS_HASH, compiled_class_hash);
+    exec_scopes.insert_value(vars::scopes::COMPILED_CLASS, class.clone()); //TODO: is this clone necessary?
 
     // TODO: implement create_bytecode_segment_structure (for partial code loading)
 
     let class_base = vm.add_memory_segment();
     write_class(vm, class_base, class.clone())?; //TODO: clone unnecessary
 
-    insert_value_from_var_name("compiled_class", class_base, vm, ids_data, ap_tracking)
+    insert_value_from_var_name(vars::ids::COMPILED_CLASS, class_base, vm, ids_data, ap_tracking)
 }
 
 pub const BYTECODE_SEGMENT_STRUCTURE: &str = indoc! {r#"
@@ -138,9 +143,10 @@ pub fn load_class(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<HintExtension, HintError> {
-    let compiled_class_fact_addr = get_relocatable_from_var_name(COMPILED_CLASS_FACT, vm, ids_data, ap_tracking)?;
+    let compiled_class_fact_addr =
+        get_relocatable_from_var_name(vars::ids::COMPILED_CLASS_FACT, vm, ids_data, ap_tracking)?;
     let computed_hash = vm.get_integer((compiled_class_fact_addr + CompiledClassFact::hash_offset())?)?;
-    let expected_hash = exec_scopes.get::<Felt252>(COMPILED_CLASS_HASH).unwrap();
+    let expected_hash = exec_scopes.get::<Felt252>(vars::scopes::COMPILED_CLASS_HASH).unwrap();
 
     if computed_hash.as_ref() != &expected_hash {
         return Err(HintError::AssertionFailed(
@@ -152,9 +158,9 @@ pub fn load_class(
         ));
     }
 
-    let class = exec_scopes.get::<CasmContractClass>(COMPILED_CLASS)?;
+    let class = exec_scopes.get::<CasmContractClass>(vars::scopes::COMPILED_CLASS)?;
 
-    let compiled_class_ptr = get_ptr_from_var_name(COMPILED_CLASS, vm, ids_data, ap_tracking)?;
+    let compiled_class_ptr = get_ptr_from_var_name(vars::ids::COMPILED_CLASS, vm, ids_data, ap_tracking)?;
     let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + CompiledClass::bytecode_ptr_offset())?)?;
 
     let mut hint_extension = HintExtension::new();
@@ -176,7 +182,7 @@ pub fn block_number(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // TODO: replace w/ block context from syscall handler
-    let block_context = exec_scopes.get_ref::<BlockContext>("block_context")?;
+    let block_context = exec_scopes.get_ref::<BlockContext>(vars::scopes::BLOCK_CONTEXT)?;
     insert_value_into_ap(vm, Felt252::from(block_context.block_info().block_number.0))
 }
 
@@ -188,7 +194,7 @@ pub fn block_timestamp(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let block_context = exec_scopes.get_ref::<BlockContext>("block_context")?;
+    let block_context = exec_scopes.get_ref::<BlockContext>(vars::scopes::BLOCK_CONTEXT)?;
     insert_value_into_ap(vm, Felt252::from(block_context.block_info().block_timestamp.0))
 }
 
@@ -200,7 +206,7 @@ pub fn chain_id(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let chain_id =
         Felt252::from(u128::from_str_radix(&os_input.general_config.starknet_os_config.chain_id.0, 16).unwrap());
     insert_value_into_ap(vm, chain_id)
@@ -214,7 +220,7 @@ pub fn fee_token_address(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let fee_token_address = *os_input.general_config.starknet_os_config.fee_token_address.0.key();
     log::debug!("fee_token_address: {}", fee_token_address);
     insert_value_into_ap(vm, felt_api2vm(fee_token_address))
@@ -229,7 +235,7 @@ pub fn deprecated_fee_token_address(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let deprecated_fee_token_address = *os_input.general_config.starknet_os_config.deprecated_fee_token_address.0.key();
     log::debug!("deprecated_fee_token_address: {}", deprecated_fee_token_address);
     insert_value_into_ap(vm, felt_api2vm(deprecated_fee_token_address))
@@ -243,7 +249,7 @@ pub fn sequencer_address(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let block_context = exec_scopes.get_ref::<BlockContext>("block_context")?;
+    let block_context = exec_scopes.get_ref::<BlockContext>(vars::scopes::BLOCK_CONTEXT)?;
     insert_value_into_ap(vm, felt_api2vm(*block_context.block_info().sequencer_address.0.key()))
 }
 
@@ -260,10 +266,8 @@ pub fn get_block_mapping(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let key = constants
-        .get(BLOCK_HASH_CONTRACT_ADDRESS)
-        .ok_or_else(|| HintError::MissingConstant(Box::new(BLOCK_HASH_CONTRACT_ADDRESS)))?;
-    let dict_ptr = get_ptr_from_var_name(CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let key = get_constant(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS, constants)?;
+    let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
         Dictionary::SimpleDictionary(dict) => dict
             .get(&MaybeRelocatable::Int(*key))
@@ -275,7 +279,7 @@ pub fn get_block_mapping(
             panic!("State changes dict shouldn't be a default dict")
         }
     };
-    insert_value_from_var_name(STATE_ENTRY, val, vm, ids_data, ap_tracking)
+    insert_value_from_var_name(vars::ids::STATE_ENTRY, val, vm, ids_data, ap_tracking)
 }
 
 pub const ELEMENTS_GE_10: &str = "memory[ap] = to_felt_or_relocatable(ids.elements_end - ids.elements >= 10)";
@@ -286,8 +290,8 @@ pub fn elements_ge_10(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let elements_end = get_ptr_from_var_name("elements_end", vm, ids_data, _ap_tracking)?;
-    let elements = get_ptr_from_var_name("elements", vm, ids_data, _ap_tracking)?;
+    let elements_end = get_ptr_from_var_name(vars::ids::ELEMENTS_END, vm, ids_data, _ap_tracking)?;
+    let elements = get_ptr_from_var_name(vars::ids::ELEMENTS, vm, ids_data, _ap_tracking)?;
     insert_value_into_ap(vm, Felt252::from((elements_end - elements)? >= 10))
 }
 
@@ -299,8 +303,8 @@ pub fn elements_ge_2(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let elements_end = get_ptr_from_var_name("elements_end", vm, ids_data, _ap_tracking)?;
-    let elements = get_ptr_from_var_name("elements", vm, ids_data, _ap_tracking)?;
+    let elements_end = get_ptr_from_var_name(vars::ids::ELEMENTS_END, vm, ids_data, _ap_tracking)?;
+    let elements = get_ptr_from_var_name(vars::ids::ELEMENTS, vm, ids_data, _ap_tracking)?;
     insert_value_into_ap(vm, Felt252::from((elements_end - elements)? >= 2))
 }
 
@@ -319,7 +323,7 @@ pub fn is_leaf(
 ) -> Result<(), HintError> {
     // let bytecode_segment_structure = get_ptr_from_var_name("bytecode_segment_structure", vm,
     // ids_data, ap_tracking)?; TODO: complete when bytecode_segment_structure is implemented
-    insert_value_from_var_name("is_leaf", 1, vm, ids_data, ap_tracking)
+    insert_value_from_var_name(vars::ids::IS_LEAF, 1, vm, ids_data, ap_tracking)
 }
 
 pub const WRITE_USE_ZKG_DA_TO_MEM: &str = indoc! {r#"

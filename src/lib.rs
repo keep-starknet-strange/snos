@@ -65,11 +65,11 @@ pub fn run_os(
     let syscall_handler = OsSyscallHandlerWrapper::new(execution_helper.clone());
 
     // Setup Globals
-    cairo_runner.exec_scopes.insert_value("os_input", os_input);
-    cairo_runner.exec_scopes.insert_box("block_context", Box::new(block_context));
-    cairo_runner.exec_scopes.insert_value("execution_helper", execution_helper);
-    cairo_runner.exec_scopes.insert_value("deprecated_syscall_handler", deprecated_syscall_handler);
-    cairo_runner.exec_scopes.insert_value("syscall_handler", syscall_handler);
+    cairo_runner.exec_scopes.insert_value(vars::scopes::OS_INPUT, os_input);
+    cairo_runner.exec_scopes.insert_box(vars::scopes::BLOCK_CONTEXT, Box::new(block_context));
+    cairo_runner.exec_scopes.insert_value(vars::scopes::EXECUTION_HELPER, execution_helper);
+    cairo_runner.exec_scopes.insert_value(vars::scopes::DEPRECATED_SYSCALL_HANDLER, deprecated_syscall_handler);
+    cairo_runner.exec_scopes.insert_value(vars::scopes::SYSCALL_HANDLER, syscall_handler);
     cairo_runner
         .exec_scopes
         .insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, None::<PatriciaSkipValidationRunner>);
