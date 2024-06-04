@@ -8,13 +8,10 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use rstest::fixture;
-use snos::io::output::{decode_output, StarknetOsOutput};
 
 pub mod block_utils;
 mod blockifier_contracts;
 mod contract_fixtures;
-mod deprecated_hash_utils;
-pub mod serde_utils;
 pub mod state;
 pub mod transaction_utils;
 pub mod utils;
@@ -49,14 +46,6 @@ pub fn setup_pie(setup_runner: CairoRunner) -> CairoPie {
     let runner = setup_runner;
 
     runner.get_cairo_pie().unwrap()
-}
-
-#[fixture]
-pub fn load_output() -> StarknetOsOutput {
-    let buf = fs::read_to_string("tests/integration/common/data/os_output.json").unwrap();
-    let raw_output: serde_utils::RawOsOutput = serde_json::from_str(&buf).unwrap();
-
-    decode_output(raw_output.0.into_iter()).unwrap()
 }
 
 #[fixture]
