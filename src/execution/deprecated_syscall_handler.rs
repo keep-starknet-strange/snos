@@ -7,7 +7,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
-use crate::cairo_types::structs::deprecated::{CallContract, CallContractResponse};
+use crate::cairo_types::syscalls::{CallContract, CallContractResponse};
 use crate::utils::felt_api2vm;
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS

@@ -30,11 +30,25 @@ pub struct StorageWrite {
     pub value: Felt252,
 }
 
-#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct CallContractRequest {
+    pub selector: Felt252,
+    pub contract_address: Felt252,
+    pub function_selector: Felt252,
+    pub calldata_size: Felt252,
+    pub calldata: Relocatable,
+}
+
 #[derive(FieldOffsetGetters)]
 pub struct CallContractResponse {
     pub retdata_size: Felt252,
     pub retdata: Relocatable,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct CallContract {
+    pub request: CallContractRequest,
+    pub response: CallContractResponse,
 }
 
 #[derive(FieldOffsetGetters)]
