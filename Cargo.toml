@@ -47,7 +47,6 @@ zip = { version = "0.6.6", features = ["deflate-zlib"] }
 
 
 [dev-dependencies]
-getset = "0.1.2"
 pretty_assertions = "1.4.0"
 rand = "0.8.5"
 rstest = "0.18.2"
