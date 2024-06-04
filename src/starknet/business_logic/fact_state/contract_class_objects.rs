@@ -1,5 +1,5 @@
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
-use cairo_lang_starknet::contract_class::{ContractClass, ContractEntryPoints};
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet_classes::contract_class::{ContractClass, ContractEntryPoints};
 use cairo_vm::Felt252;
 use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::{Deserialize, Serialize};
@@ -173,7 +173,7 @@ where
 mod tests {
     use std::ops::Deref;
 
-    use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+    use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
     use rstest::rstest;
 
     use crate::crypto::pedersen::PedersenHash;

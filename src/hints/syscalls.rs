@@ -428,7 +428,7 @@ pub fn os_logger_enter_syscall_preprare_exit_syscall(
 
 #[cfg(test)]
 mod tests {
-    use blockifier::block_context::BlockContext;
+    use blockifier::context::BlockContext;
     use cairo_vm::types::relocatable::Relocatable;
     use rstest::{fixture, rstest};
 

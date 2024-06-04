@@ -153,12 +153,12 @@ impl DeprecatedOsSyscallHandlerWrapper {
 #[cfg(test)]
 mod test {
     use std::borrow::Cow;
-    use std::collections::HashMap;
-    use std::sync::Arc;
 
-    use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
+    use blockifier::block::{BlockInfo, GasPrices};
+    use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
     use blockifier::execution::call_info::Retdata;
     use blockifier::execution::entry_point_execution::CallResult;
+    use blockifier::versioned_constants::VersionedConstants;
     use cairo_vm::types::exec_scope::ExecutionScopes;
     use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
     use cairo_vm::vm::vm_core::VirtualMachine;
@@ -176,26 +176,33 @@ mod test {
 
     #[fixture]
     fn block_context() -> BlockContext {
-        BlockContext {
+        let chain_info = ChainInfo {
             chain_id: ChainId("SN_GOERLI".to_string()),
+            fee_token_addresses: FeeTokenAddresses {
+                strk_fee_token_address: contract_address!("0x1"),
+                eth_fee_token_address: contract_address!("0x2"),
+            },
+        };
+
+        let block_info = BlockInfo {
             block_number: BlockNumber(1_000_000),
             block_timestamp: BlockTimestamp(1_704_067_200),
             sequencer_address: contract_address!("0x0"),
-            fee_token_addresses: FeeTokenAddresses {
-                eth_fee_token_address: contract_address!("0x1"),
-                strk_fee_token_address: contract_address!("0x2"),
+            gas_prices: GasPrices {
+                eth_l1_gas_price: 1u128.try_into().unwrap(),
+                strk_l1_gas_price: 1u128.try_into().unwrap(),
+                eth_l1_data_gas_price: 1u128.try_into().unwrap(),
+                strk_l1_data_gas_price: 1u128.try_into().unwrap(),
             },
-            vm_resource_fee_cost: Arc::new(HashMap::new()),
-            gas_prices: GasPrices { eth_l1_gas_price: 1, strk_l1_gas_price: 1 },
-            invoke_tx_max_n_steps: 1,
-            validate_max_n_steps: 1,
-            max_recursion_depth: 50,
-        }
+            use_kzg_da: false,
+        };
+
+        BlockContext::new_unchecked(&block_info, &chain_info, &VersionedConstants::latest_constants())
     }
 
     #[fixture]
     fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
-        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+        (Felt252::from(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
     }
 
     #[rstest]

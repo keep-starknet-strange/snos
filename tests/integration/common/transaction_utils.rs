@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use blockifier::block_context::BlockContext;
+use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::account_transaction::AccountTransaction::{Declare, DeployAccount, Invoke};
 use blockifier::transaction::transactions::ExecutableTransaction;
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
@@ -149,7 +149,7 @@ async fn execute_txs(
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
-    let upper_bound_block_number = block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER;
+    let upper_bound_block_number = block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER;
     let block_number = StorageKey::from(upper_bound_block_number);
     let block_hash = stark_felt!(66_u64);
 

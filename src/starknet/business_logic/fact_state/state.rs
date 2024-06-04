@@ -5,8 +5,7 @@ use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::CommitmentStateDiff;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
-use blockifier::test_utils::dict_state_reader::DictStateReader;
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -167,7 +166,7 @@ where
 
     pub async fn from_blockifier_state(
         ffc: FactFetchingContext<S, H>,
-        blockifier_state: DictStateReader,
+        blockifier_state: blockifier::test_utils::dict_state_reader::DictStateReader,
         block_info: BlockInfo,
         config: &StarknetGeneralConfig,
     ) -> Result<Self, TreeError> {
