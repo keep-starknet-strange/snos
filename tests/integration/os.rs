@@ -103,7 +103,7 @@ async fn return_result_cairo1_account(
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn declare_and_deploy_account_cairo1_account(
+async fn declare_cairo1_account(
     #[future] initial_state_cairo1: StarknetTestState,
     block_context: BlockContext,
     max_fee: Fee,
