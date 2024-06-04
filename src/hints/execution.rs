@@ -22,9 +22,8 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
 use crate::cairo_types::new_syscalls;
-use crate::cairo_types::structs::deprecated::CallContractResponse;
 use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
-use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest, StorageWrite, TxInfo};
+use crate::cairo_types::syscalls::{CallContractResponse, StorageRead, StorageReadRequest, StorageWrite, TxInfo};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
