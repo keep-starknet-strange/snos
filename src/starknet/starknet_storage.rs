@@ -105,7 +105,7 @@ impl From<CommitmentInfoError> for HintError {
 impl CommitmentInfo {
     /// Returns a commitment info that corresponds to the given modifications.
     pub async fn create_from_modifications<S, H, LF>(
-        mut previous_tree: PatriciaTree,
+        previous_tree: PatriciaTree,
         expected_updated_root: Felt252,
         modifications: Vec<(TreeIndex, LF)>,
         ffc: &mut FactFetchingContext<S, H>,
@@ -116,6 +116,7 @@ impl CommitmentInfo {
         LF: LeafFact<S, H> + Send + 'static,
     {
         let previous_tree_root = Felt252::from_bytes_be_slice(&previous_tree.root);
+        let previous_tree_height = previous_tree.height;
 
         let mut commitment_facts = Some(BinaryFactDict::new());
         let actual_updated_tree = previous_tree.update(ffc, modifications, &mut commitment_facts).await?;
@@ -134,7 +135,7 @@ impl CommitmentInfo {
         Ok(Self {
             previous_root: previous_tree_root,
             updated_root: actual_updated_root,
-            tree_height: previous_tree.height.0 as usize,
+            tree_height: previous_tree_height.0 as usize,
             commitment_facts,
         })
     }

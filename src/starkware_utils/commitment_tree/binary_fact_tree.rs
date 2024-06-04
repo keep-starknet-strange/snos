@@ -53,7 +53,7 @@ where
     /// If facts argument is not None, this dictionary is filled during traversal through the tree
     /// by the facts of their paths from the leaves up.
     async fn update(
-        &mut self,
+        self,
         ffc: &mut FactFetchingContext<S, H>,
         modifications: Vec<(TreeIndex, LF)>,
         facts: &mut Option<BinaryFactDict>,

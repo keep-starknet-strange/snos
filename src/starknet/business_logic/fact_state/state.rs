@@ -306,7 +306,7 @@ where
         let mut ffc_for_contract_class = get_ffc_for_contract_class_facts(&self.ffc);
 
         let updated_contract_classes = match self.contract_classes {
-            Some(mut tree) => {
+            Some(tree) => {
                 log::debug!(
                     "Updating contract class tree with {} modifications...",
                     class_hash_to_compiled_class_hash.len()
