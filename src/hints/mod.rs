@@ -278,7 +278,7 @@ impl Default for SnosHintProcessor {
         let extensive_hints = EXTENSIVE_HINTS.into_iter().map(|(h, i)| (h.to_string(), i)).collect();
         Self {
             builtin_hint_proc: BuiltinHintProcessor::new_empty(),
-            cairo1_builtin_hint_proc: Cairo1HintProcessor::new(Default::default(), Default::default()),
+            cairo1_builtin_hint_proc: Cairo1HintProcessor::new(Default::default(), Default::default(), false),
             hints,
             extensive_hints,
             run_resources: Default::default(),
@@ -361,7 +361,7 @@ impl HintProcessorLogic for SnosHintProcessor {
         if let Some(hint) = hint_data.downcast_ref::<Hint>() {
             if let Hint::Starknet(StarknetHint::SystemCall { system }) = hint {
                 let syscall_ptr = get_ptr_from_res_operand(vm, system)?;
-                let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?;
+                let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
 
                 return execute_coroutine(syscall_handler.execute_syscall(vm, syscall_ptr))?
                     .map(|_| HintExtension::default());
@@ -400,7 +400,8 @@ pub fn starknet_os_input(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let initial_carried_outputs_ptr = get_ptr_from_var_name("initial_carried_outputs", vm, ids_data, ap_tracking)?;
+    let initial_carried_outputs_ptr =
+        get_ptr_from_var_name(vars::ids::INITIAL_CARRIED_OUTPUTS, vm, ids_data, ap_tracking)?;
 
     let messages_to_l1 = initial_carried_outputs_ptr;
     let temp_segment = vm.add_temporary_segment();
@@ -428,7 +429,7 @@ pub fn initialize_state_changes(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let mut state_dict: HashMap<MaybeRelocatable, MaybeRelocatable> = HashMap::new();
     for (addr, contract_state) in os_input.contracts {
         let change_base = vm.add_memory_segment();
@@ -440,7 +441,7 @@ pub fn initialize_state_changes(
         state_dict.insert(MaybeRelocatable::from(addr), MaybeRelocatable::from(change_base));
     }
 
-    exec_scopes.insert_box("initial_dict", Box::new(state_dict));
+    exec_scopes.insert_box(vars::scopes::INITIAL_DICT, Box::new(state_dict));
     Ok(())
 }
 
@@ -453,13 +454,13 @@ pub fn initialize_class_hashes(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let mut class_dict: HashMap<MaybeRelocatable, MaybeRelocatable> = HashMap::new();
     for (class_hash, compiled_class_hash) in os_input.class_hash_to_compiled_class_hash {
         class_dict.insert(MaybeRelocatable::from(class_hash), MaybeRelocatable::from(compiled_class_hash));
     }
 
-    exec_scopes.insert_box("initial_dict", Box::new(class_dict));
+    exec_scopes.insert_box(vars::scopes::INITIAL_DICT, Box::new(class_dict));
     Ok(())
 }
 
@@ -635,7 +636,7 @@ pub fn os_input_transactions(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let num_txns = os_input.transactions.len();
     vm.insert_value((vm.get_fp() + 8)?, num_txns).map_err(HintError::Memory)
 }

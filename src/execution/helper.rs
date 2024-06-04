@@ -3,7 +3,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 use std::vec::IntoIter;
 
-use blockifier::block_context::BlockContext;
+use blockifier::context::BlockContext;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point_execution::CallResult;
 use blockifier::transaction::objects::TransactionExecutionInfo;
@@ -70,8 +70,12 @@ impl ExecutionHelperWrapper {
     ) -> Self {
         // Block number and block hash (current_block_number - buffer) block buffer=STORED_BLOCK_HASH_BUFFER
         // Hash that is going to be written by this OS run
-        let prev_block_context =
-            block_context.block_number.0.checked_sub(STORED_BLOCK_HASH_BUFFER).map(|_| block_context.clone());
+        let prev_block_context = block_context
+            .block_info()
+            .block_number
+            .0
+            .checked_sub(STORED_BLOCK_HASH_BUFFER)
+            .map(|_| block_context.clone());
 
         Self {
             execution_helper: Rc::new(RwLock::new(ExecutionHelper {

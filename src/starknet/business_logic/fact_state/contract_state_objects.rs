@@ -51,7 +51,7 @@ impl ContractState {
     /// storage root, according to the given updates of its leaves.
 
     pub async fn update<S, H>(
-        mut self,
+        self,
         ffc: &mut FactFetchingContext<S, H>,
         updates: &HashMap<Felt252, Felt252>,
         nonce: Option<Felt252>,

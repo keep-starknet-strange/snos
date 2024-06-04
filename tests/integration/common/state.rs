@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
 use blockifier::abi::abi_utils::get_fee_token_var_address;
-use blockifier::block_context::BlockContext;
+use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::BALANCE;
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
-use cairo_lang_starknet::contract_class::ContractClass;
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet_classes::contract_class::ContractClass;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rstest::fixture;
@@ -351,8 +351,8 @@ impl<'a> StarknetStateBuilder<'a> {
 
     pub fn set_initial_balance(mut self, balance: u128) -> Self {
         let erc20_contract = get_deprecated_erc20_contract_class();
-        let eth_fee_token_address = self.block_context.fee_token_addresses.eth_fee_token_address;
-        let strk_fee_token_address = self.block_context.fee_token_addresses.strk_fee_token_address;
+        let eth_fee_token_address = self.block_context.chain_info().fee_token_addresses.eth_fee_token_address;
+        let strk_fee_token_address = self.block_context.chain_info().fee_token_addresses.strk_fee_token_address;
 
         self.fee_config = Some(FeeConfig { strk_fee_token_address, eth_fee_token_address, initial_balance: balance });
         self.add_cairo0_contract_with_fixed_address(

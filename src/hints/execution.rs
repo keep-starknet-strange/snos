@@ -22,19 +22,14 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
 use crate::cairo_types::new_syscalls;
-use crate::cairo_types::structs::deprecated::CallContractResponse;
 use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
-use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest, StorageWrite, TxInfo};
+use crate::cairo_types::syscalls::{CallContractResponse, StorageRead, StorageReadRequest, StorageWrite, TxInfo};
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::execution::syscall_handler_utils::SyscallSelector;
 use crate::hints::types::{PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
-use crate::hints::vars::ids::{
-    ENTRY_POINT_RETURN_VALUES, EXECUTION_CONTEXT, INITIAL_GAS, SELECTOR, SIGNATURE_LEN, SIGNATURE_START,
-};
-use crate::hints::vars::scopes::{EXECUTION_HELPER, SYSCALL_HANDLER};
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
 use crate::starknet::starknet_storage::StorageLeaf;
@@ -71,13 +66,19 @@ pub fn load_next_tx(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>("transactions")?;
+    let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>(vars::scopes::TRANSACTIONS)?;
     // Safe to unwrap because the remaining number of txs is checked in the cairo code.
     let tx = transactions.next().unwrap();
     log::debug!("executing {} on: {}", tx.r#type, tx.sender_address.unwrap());
-    exec_scopes.insert_value("transactions", transactions);
-    exec_scopes.insert_value("tx", tx.clone());
-    insert_value_from_var_name("tx_type", Felt252::from_bytes_be_slice(tx.r#type.as_bytes()), vm, ids_data, ap_tracking)
+    exec_scopes.insert_value(vars::scopes::TRANSACTIONS, transactions);
+    exec_scopes.insert_value(vars::scopes::TX, tx.clone());
+    insert_value_from_var_name(
+        vars::ids::TX_TYPE,
+        Felt252::from_bytes_be_slice(tx.r#type.as_bytes()),
+        vm,
+        ids_data,
+        ap_tracking,
+    )
     // TODO: add logger
 }
 
@@ -106,7 +107,7 @@ pub fn prepare_constructor_execution(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     insert_value_from_var_name(
         "contract_address_salt",
         tx.contract_address_salt.expect("`contract_address_salt` must be present"),
@@ -128,12 +129,18 @@ pub fn prepare_constructor_execution(
         None => 0,
         Some(calldata) => calldata.len(),
     };
-    insert_value_from_var_name("constructor_calldata_size", constructor_calldata_size, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::CONSTRUCTOR_CALLDATA_SIZE,
+        constructor_calldata_size,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     let constructor_calldata = tx.constructor_calldata.unwrap_or_default().iter().map(|felt| felt.into()).collect();
     let constructor_calldata_base = vm.add_memory_segment();
     vm.load_data(constructor_calldata_base, &constructor_calldata)?;
-    insert_value_from_var_name("constructor_calldata", constructor_calldata_base, vm, ids_data, ap_tracking)
+    insert_value_from_var_name(vars::ids::CONSTRUCTOR_CALLDATA, constructor_calldata_base, vm, ids_data, ap_tracking)
 }
 
 pub const TRANSACTION_VERSION: &str = "memory[ap] = to_felt_or_relocatable(tx.version)";
@@ -144,7 +151,7 @@ pub fn transaction_version(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     insert_value_into_ap(vm, tx.version.expect("Transaction version should be set"))
 }
 
@@ -160,8 +167,8 @@ pub fn assert_transaction_hash(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
-    let transaction_hash = get_integer_from_var_name("transaction_hash", vm, ids_data, ap_tracking)?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
+    let transaction_hash = get_integer_from_var_name(vars::ids::TRANSACTION_HASH, vm, ids_data, ap_tracking)?;
 
     assert_eq!(
         tx.hash_value,
@@ -183,9 +190,10 @@ pub fn enter_scope_deprecated_syscall_handler(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let dep_sys = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("deprecated_syscall_handler")?;
+    let dep_sys = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::DEPRECATED_SYSCALL_HANDLER)?;
     let deprecated_syscall_handler: Box<dyn Any> = Box::new(dep_sys);
-    exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), deprecated_syscall_handler)]));
+    exec_scopes
+        .enter_scope(HashMap::from_iter([(String::from(vars::scopes::SYSCALL_HANDLER), deprecated_syscall_handler)]));
     Ok(())
 }
 
@@ -197,9 +205,9 @@ pub fn enter_scope_syscall_handler(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let sys = exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?;
+    let sys = exec_scopes.get::<OsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_handler: Box<dyn Any> = Box::new(sys);
-    exec_scopes.enter_scope(HashMap::from_iter([(String::from("syscall_handler"), syscall_handler)]));
+    exec_scopes.enter_scope(HashMap::from_iter([(String::from(vars::scopes::SYSCALL_HANDLER), syscall_handler)]));
     Ok(())
 }
 
@@ -347,13 +355,13 @@ pub fn check_is_deprecated(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let execution_context = get_ptr_from_var_name("execution_context", vm, ids_data, ap_tracking)?;
+    let execution_context = get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
     let class_hash = vm.get_integer((execution_context + 1usize)?).map_err(|_| {
-        HintError::IdentifierHasNoMember(Box::new(("execution_context".to_string(), "class_hash".to_string())))
+        HintError::IdentifierHasNoMember(Box::new((vars::ids::EXECUTION_CONTEXT.to_string(), "class_hash".to_string())))
     })?;
     let is_deprecated_class =
-        exec_scopes.get_ref::<HashSet<Felt252>>("__deprecated_class_hashes")?.contains(&class_hash);
-    exec_scopes.insert_value("is_deprecated", if is_deprecated_class { 1u8 } else { 0u8 });
+        exec_scopes.get_ref::<HashSet<Felt252>>(vars::scopes::DEPRECATED_CLASS_HASHES)?.contains(&class_hash);
+    exec_scopes.insert_value(vars::scopes::IS_DEPRECATED, if is_deprecated_class { 1u8 } else { 0u8 });
 
     let execution_into_ptr = vm.get_relocatable((execution_context + 4usize)?).unwrap();
     let contract_address = vm.get_integer((execution_into_ptr + 3usize)?).unwrap();
@@ -376,7 +384,7 @@ pub fn is_deprecated(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    insert_value_into_ap(vm, Felt252::from(exec_scopes.get::<u8>("is_deprecated")?))?;
+    insert_value_into_ap(vm, Felt252::from(exec_scopes.get::<u8>(vars::scopes::IS_DEPRECATED)?))?;
     Ok(())
 }
 
@@ -391,8 +399,8 @@ pub fn os_context_segments(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    insert_value_from_var_name("os_context", vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name("syscall_ptr", vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::OS_CONTEXT, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::SYSCALL_PTR, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
     Ok(())
 }
 
@@ -415,21 +423,23 @@ pub fn enter_syscall_scopes(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>("os_input")?;
+    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let deprecated_class_hashes: Box<dyn Any> =
-        Box::new(exec_scopes.get::<HashSet<Felt252>>("__deprecated_class_hashes")?);
+        Box::new(exec_scopes.get::<HashSet<Felt252>>(vars::scopes::DEPRECATED_CLASS_HASHES)?);
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
-    let execution_helper: Box<dyn Any> = Box::new(exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?);
+    let execution_helper: Box<dyn Any> =
+        Box::new(exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?);
     let deprecated_syscall_handler: Box<dyn Any> =
-        Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>("deprecated_syscall_handler")?);
-    let syscall_handler: Box<dyn Any> = Box::new(exec_scopes.get::<OsSyscallHandlerWrapper>("syscall_handler")?);
+        Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::DEPRECATED_SYSCALL_HANDLER)?);
+    let syscall_handler: Box<dyn Any> =
+        Box::new(exec_scopes.get::<OsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?);
     let dict_manager: Box<dyn Any> = Box::new(exec_scopes.get_dict_manager()?);
     exec_scopes.enter_scope(HashMap::from_iter([
-        (String::from("__deprecated_class_hashes"), deprecated_class_hashes),
+        (String::from(vars::scopes::DEPRECATED_CLASS_HASHES), deprecated_class_hashes),
         (String::from("transactions"), transactions),
-        (String::from("execution_helper"), execution_helper),
-        (String::from("deprecated_syscall_handler"), deprecated_syscall_handler),
-        (String::from("syscall_handler"), syscall_handler),
+        (String::from(vars::scopes::EXECUTION_HELPER), execution_helper),
+        (String::from(vars::scopes::DEPRECATED_SYSCALL_HANDLER), deprecated_syscall_handler),
+        (String::from(vars::scopes::SYSCALL_HANDLER), syscall_handler),
         (String::from("dict_manager"), dict_manager),
     ]));
     Ok(())
@@ -437,7 +447,7 @@ pub fn enter_syscall_scopes(
 
 pub const END_TX: &str = "execution_helper.end_tx()";
 pub async fn end_tx_async(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.end_tx().await;
     Ok(())
 }
@@ -462,10 +472,11 @@ pub async fn enter_call_async(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError> {
-    let execution_info_ptr =
-        vm.get_relocatable((get_ptr_from_var_name("execution_context", vm, ids_data, ap_tracking)? + 4i32).unwrap())?;
+    let execution_info_ptr = vm.get_relocatable(
+        (get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)? + 4i32).unwrap(),
+    )?;
 
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.enter_call(Some(execution_info_ptr)).await;
     Ok(())
 }
@@ -482,7 +493,7 @@ pub fn enter_call(
 
 pub const EXIT_CALL: &str = "execution_helper.exit_call()";
 pub async fn exit_call_async(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
-    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.exit_call().await;
     Ok(())
 }
@@ -513,7 +524,7 @@ pub fn contract_address(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let contract_address = if tx.r#type == "L1_HANDLER" {
         tx.contract_address
             .ok_or(HintError::CustomHint("tx.contract_address is None".to_string().into_boxed_str()))
@@ -523,7 +534,7 @@ pub fn contract_address(
             .ok_or(HintError::CustomHint("tx.sender_address is None".to_string().into_boxed_str()))
             .unwrap()
     };
-    insert_value_from_var_name("contract_address", contract_address, vm, ids_data, ap_tracking)
+    insert_value_from_var_name(vars::ids::CONTRACT_ADDRESS, contract_address, vm, ids_data, ap_tracking)
 }
 
 pub const TX_CALLDATA_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(tx.calldata))";
@@ -535,7 +546,7 @@ pub fn tx_calldata_len(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let len = tx.calldata.unwrap_or_default().len();
     insert_value_into_ap(vm, Felt252::from(len))
 }
@@ -549,7 +560,7 @@ pub fn tx_calldata(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let calldata = tx.calldata.unwrap_or_default().iter().map(|felt| felt.into()).collect();
     let calldata_base = vm.add_memory_segment();
     vm.load_data(calldata_base, &calldata)?;
@@ -564,7 +575,7 @@ pub fn tx_entry_point_selector(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let entry_point_selector = tx
         .entry_point_selector
         .ok_or(HintError::CustomHint("tx.entry_point_selector is None".to_string().into_boxed_str()))
@@ -591,7 +602,7 @@ pub fn resource_bounds(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or_default();
     assert!(version < 3.into(), "tx.version >= 3 is not supported yet");
 
@@ -606,7 +617,7 @@ pub fn resource_bounds(
     // };
 
     let resource_bounds = 0;
-    insert_value_from_var_name("resource_bounds", resource_bounds, vm, ids_data, ap_tracking)
+    insert_value_from_var_name(vars::ids::RESOURCE_BOUNDS, resource_bounds, vm, ids_data, ap_tracking)
 }
 
 pub const TX_MAX_FEE: &str = "memory[ap] = to_felt_or_relocatable(tx.max_fee if tx.version < 3 else 0)";
@@ -617,7 +628,7 @@ pub fn tx_max_fee(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     // TODO: implement tx.version >= 3
     assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
 
@@ -640,7 +651,7 @@ pub fn tx_nonce(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let nonce = if tx.nonce.is_none() { 0.into() } else { tx.nonce.unwrap() };
     insert_value_into_ap(vm, nonce)
 }
@@ -653,7 +664,7 @@ pub fn tx_tip(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     // TODO: implement tx.version >= 3
     assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
 
@@ -677,7 +688,7 @@ pub fn tx_resource_bounds_len(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     // TODO: implement tx.version >= 3
     assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
 
@@ -700,7 +711,7 @@ pub fn tx_paymaster_data_len(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     // TODO: implement tx.version >= 3
     assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
 
@@ -723,7 +734,7 @@ pub fn tx_paymaster_data(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     // TODO: implement tx.version >= 3
     assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
 
@@ -748,7 +759,7 @@ pub fn tx_nonce_data_availability_mode(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     // TODO: implement tx.version >= 3
     assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
 
@@ -771,7 +782,7 @@ pub fn tx_fee_data_availability_mode(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     // TODO: implement tx.version >= 3
     assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
 
@@ -794,7 +805,7 @@ pub fn tx_account_deployment_data_len(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     // TODO: implement tx.version >= 3
     assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
 
@@ -817,7 +828,7 @@ pub fn tx_account_deployment_data(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     // TODO: implement tx.version >= 3
     assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
 
@@ -846,14 +857,14 @@ pub fn gen_signature_arg(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>("tx")?;
+    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let signature = tx.signature.ok_or(HintError::CustomHint("tx.signature is none".to_owned().into_boxed_str()))?;
     let signature_start_base = vm.add_memory_segment();
     let signature = signature.iter().map(|f| MaybeRelocatable::Int(*f)).collect();
     vm.load_data(signature_start_base, &signature)?;
 
-    insert_value_from_var_name(SIGNATURE_START, signature_start_base, vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(SIGNATURE_LEN, signature.len(), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::SIGNATURE_START, signature_start_base, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::SIGNATURE_LEN, signature.len(), vm, ids_data, ap_tracking)?;
 
     Ok(())
 }
@@ -868,8 +879,9 @@ pub async fn start_tx_async(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError> {
-    let tx_execution_context = get_relocatable_from_var_name("tx_execution_context", vm, ids_data, ap_tracking)?;
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+    let tx_execution_context =
+        get_relocatable_from_var_name(vars::ids::TX_EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
     let tx_info_ptr = (tx_execution_context + ExecutionContext::deprecated_tx_info_offset())?;
     execution_helper.start_tx(Some(tx_info_ptr)).await;
     Ok(())
@@ -894,7 +906,8 @@ pub fn is_reverted(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // TODO: implement is_reverted when tx_execution_info abstraction is ready
-    // let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>("execution_helper")?;
+    // let execution_helper =
+    // exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
     // insert_value_into_ap(vm, Felt252::from(execution_helper. tx_execution_info.is_reverted))
     insert_value_into_ap(vm, Felt252::ZERO)
 }
@@ -936,7 +949,7 @@ pub async fn check_execution_async(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError> {
-    let return_values_ptr = get_ptr_from_var_name(ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
+    let return_values_ptr = get_ptr_from_var_name(vars::ids::ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
 
     let failure_flag = vm.get_integer((return_values_ptr + EntryPointReturnValues::failure_flag_offset())?)?;
     if failure_flag.into_owned() != Felt252::ZERO {
@@ -945,7 +958,7 @@ pub async fn check_execution_async(
             vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_start_offset())?)?;
         let retdata_size = (retdata_end - retdata_start)?;
         let error = vm.get_range(retdata_start, std::cmp::min(100, retdata_size as usize));
-        let execution_context = get_relocatable_from_var_name(EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
+        let execution_context = get_relocatable_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
         let class_hash = vm.get_integer((execution_context + ExecutionContext::class_hash_offset())?)?;
         let selector = vm.get_integer((execution_context + ExecutionContext::execution_info_offset())?)?;
         log::debug!("Invalid return value in execute_entry_point:");
@@ -955,7 +968,7 @@ pub async fn check_execution_async(
         log::debug!("  Error (at most 100 elements): {:?}", error);
     }
 
-    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(EXECUTION_HELPER)?;
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
     // TODO: make sure it is necessary to check the gas costs
     // if execution_helper.debug_mode {
     //     let actual = get_integer_from_var_name("remaining_gas", vm, ids_data, ap_tracking)?;
@@ -970,7 +983,7 @@ pub async fn check_execution_async(
     // }
 
     let syscall_ptr_end = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::syscall_ptr_offset())?)?;
-    let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper>(SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     execute_coroutine(syscall_handler.validate_and_discard_syscall_ptr(syscall_ptr_end))??;
     execution_helper.exit_call().await;
 
@@ -1129,7 +1142,7 @@ pub fn log_enter_syscall(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let selector = get_integer_from_var_name(SELECTOR, _vm, ids_data, _ap_tracking)?;
+    let selector = get_integer_from_var_name(vars::ids::SELECTOR, _vm, ids_data, _ap_tracking)?;
     log::debug!("entering syscall: {:?} execution", SyscallSelector::try_from(selector)?);
     // TODO: implement logging
     Ok(())
@@ -1153,7 +1166,7 @@ pub fn initial_ge_required_gas(
     // workaround
     let required_gas = *vm.get_integer((vm.get_fp() - 4)?)? - 10000;
 
-    let initial_gas = get_integer_from_var_name(INITIAL_GAS, vm, ids_data, ap_tracking)?;
+    let initial_gas = get_integer_from_var_name(vars::ids::INITIAL_GAS, vm, ids_data, ap_tracking)?;
     insert_value_into_ap(vm, Felt252::from(initial_gas.as_ref() >= &required_gas))
 }
 
@@ -1175,10 +1188,10 @@ pub fn check_response_return_value(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let retdata = get_ptr_from_var_name("retdata", vm, ids_data, ap_tracking)?;
-    let retdata_size = get_integer_from_var_name("retdata_size", vm, ids_data, ap_tracking)?;
+    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
+    let retdata_size = get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?;
 
-    let response = get_ptr_from_var_name("response", vm, ids_data, ap_tracking)?;
+    let response = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
     let response_retdata_start =
         vm.get_relocatable((response + new_syscalls::CallContractResponse::retdata_start_offset())?)?;
     let response_retdata_end =
@@ -1808,12 +1821,11 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use blockifier::block_context::BlockContext;
+    use blockifier::context::BlockContext;
     use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::DictManager;
     use cairo_vm::types::relocatable::Relocatable;
     use num_bigint::BigUint;
     use rstest::{fixture, rstest};
-    use starknet_api::block::BlockNumber;
 
     use super::*;
     use crate::config::STORED_BLOCK_HASH_BUFFER;
@@ -1829,12 +1841,12 @@ mod tests {
 
     #[fixture]
     pub fn block_context() -> BlockContext {
-        BlockContext { block_number: BlockNumber(10), ..BlockContext::create_for_account_testing() }
+        BlockContext::create_for_account_testing()
     }
 
     #[fixture]
     fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
-        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+        (Felt252::from(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
     }
 
     #[fixture]
@@ -1858,7 +1870,7 @@ mod tests {
         let storage = DictStorage::default();
         let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
 
-        let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+        let tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
         let modifications = vec![(BigUint::from(42u32), StorageLeaf::new(Felt252::from(8000)))];
         let mut facts = None;
         let tree = tree.update(&mut ffc, modifications, &mut facts).await.unwrap();

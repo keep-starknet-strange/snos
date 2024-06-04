@@ -1,24 +1,8 @@
-use std::{env, path};
+use std::env;
 
-use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 
 use super::*;
-
-#[allow(unused)]
-pub fn load_class_v0(path: &str) -> ContractClass {
-    ContractClassV0::try_from_json_string(&load_class_raw(path)).unwrap().into()
-}
-
-#[allow(unused)]
-pub fn load_deprecated_class(path: &str) -> DeprecatedContractClass {
-    serde_json::from_str(&load_class_raw(path)).unwrap()
-}
-
-pub fn load_class_raw(path: &str) -> String {
-    fs::read_to_string(path::PathBuf::from(path)).unwrap()
-}
 
 #[allow(unused)]
 pub fn check_output_vs_python(

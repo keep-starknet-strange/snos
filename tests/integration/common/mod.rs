@@ -1,6 +1,6 @@
 use std::fs;
 
-use blockifier::block_context::BlockContext;
+use blockifier::context::BlockContext;
 use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_vm::types::layout_name::LayoutName;
@@ -8,19 +8,16 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use rstest::fixture;
-use snos::io::output::{decode_output, StarknetOsOutput};
 
 pub mod block_utils;
 mod blockifier_contracts;
 mod contract_fixtures;
-mod deprecated_hash_utils;
-pub mod serde_utils;
 pub mod state;
 pub mod transaction_utils;
 pub mod utils;
 
 #[fixture]
-pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
+pub fn setup_runner() -> CairoRunner {
     let program_content = fs::read("build/programs/fact.json").unwrap();
 
     let mut hint_processor = BuiltinHintProcessor::new_empty();
@@ -44,19 +41,11 @@ pub fn setup_runner() -> (CairoRunner, VirtualMachine) {
 }
 
 #[fixture]
-pub fn setup_pie(setup_runner: (CairoRunner, VirtualMachine)) -> CairoPie {
+pub fn setup_pie(setup_runner: CairoRunner) -> CairoPie {
     // Run the runner
-    let (runner, vm) = setup_runner;
+    let runner = setup_runner;
 
-    runner.get_cairo_pie(&vm).unwrap()
-}
-
-#[fixture]
-pub fn load_output() -> StarknetOsOutput {
-    let buf = fs::read_to_string("tests/integration/common/data/os_output.json").unwrap();
-    let raw_output: serde_utils::RawOsOutput = serde_json::from_str(&buf).unwrap();
-
-    decode_output(raw_output.0.into_iter()).unwrap()
+    runner.get_cairo_pie().unwrap()
 }
 
 #[fixture]

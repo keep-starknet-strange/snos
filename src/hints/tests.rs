@@ -1,18 +1,12 @@
 #[cfg(test)]
 pub mod tests {
-    use std::sync::Arc;
-
-    use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
+    use blockifier::context::BlockContext;
     use blockifier::transaction::objects::TransactionExecutionInfo;
     use cairo_vm::serde::deserialize_program::ApTracking;
     use cairo_vm::types::exec_scope::ExecutionScopes;
     use num_bigint::BigInt;
     use rstest::{fixture, rstest};
-    use starknet_api::block::{BlockNumber, BlockTimestamp};
-    use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
-    use starknet_api::hash::StarkHash;
     use starknet_api::transaction::Fee;
-    use starknet_api::{contract_address, patricia_key};
 
     use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::execution::helper::ContractStorageMap;
@@ -44,26 +38,12 @@ pub mod tests {
 
     #[fixture]
     pub fn block_context() -> BlockContext {
-        BlockContext {
-            chain_id: ChainId("SN_GOERLI".to_string()),
-            block_number: BlockNumber(1_000_000),
-            block_timestamp: BlockTimestamp(1_704_067_200),
-            sequencer_address: contract_address!("0x0"),
-            fee_token_addresses: FeeTokenAddresses {
-                eth_fee_token_address: contract_address!("0x1"),
-                strk_fee_token_address: contract_address!("0x2"),
-            },
-            vm_resource_fee_cost: Arc::new(HashMap::new()),
-            gas_prices: GasPrices { eth_l1_gas_price: 1, strk_l1_gas_price: 1 },
-            invoke_tx_max_n_steps: 1,
-            validate_max_n_steps: 1,
-            max_recursion_depth: 50,
-        }
+        BlockContext::create_for_account_testing()
     }
 
     #[fixture]
     pub fn old_block_number_and_hash(block_context: BlockContext) -> (Felt252, Felt252) {
-        (Felt252::from(block_context.block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
+        (Felt252::from(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64))
     }
 
     #[fixture]
@@ -73,6 +53,7 @@ pub mod tests {
             execute_call_info: None,
             fee_transfer_call_info: None,
             actual_fee: Fee(1234),
+            da_gas: Default::default(),
             actual_resources: Default::default(),
             revert_error: None,
         }
@@ -273,7 +254,7 @@ pub mod tests {
 
     #[test]
     fn test_built_in_hints_have_no_duplicates() {
-        // find all occurences of a hint in HINTS
+        // find all occurrences of a hint in HINTS
         fn find_matching_indices(hint_to_match: &str) -> Vec<usize> {
             let mut indices = Vec::new();
             let mut i = 0;
@@ -286,7 +267,7 @@ pub mod tests {
             indices
         }
 
-        // look for any duplicatses in HINTS and print out all occurences if found
+        // look for any duplicatses in HINTS and print out all occurrences if found
         let mut hints: HashMap<String, HintImpl> = HashMap::new();
         for (hint, hint_impl) in &HINTS {
             let hint_str = hint.to_string();
@@ -302,7 +283,7 @@ pub mod tests {
 
     #[test]
     fn test_built_in_extensive_hints_have_no_duplicates() {
-        // find all occurences of a hint in EXTENSIVE_HINTS
+        // find all occurrences of a hint in EXTENSIVE_HINTS
         fn find_matching_indices(hint_to_match: &str) -> Vec<usize> {
             let mut indices = Vec::new();
             let mut i = 0;
@@ -315,7 +296,7 @@ pub mod tests {
             indices
         }
 
-        // look for any duplicatses in EXTENSIVE_HINTS and print out all occurences if found
+        // look for any duplicatses in EXTENSIVE_HINTS and print out all occurrences if found
         let mut hints: HashMap<String, ExtensiveHintImpl> = HashMap::new();
         for (hint, hint_impl) in &EXTENSIVE_HINTS {
             let hint_str = hint.to_string();
