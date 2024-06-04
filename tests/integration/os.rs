@@ -103,35 +103,6 @@ async fn return_result_cairo1_account(
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn declare_and_deploy_account_cairo0_account(
-    #[future] initial_state_cairo0: StarknetTestState,
-    block_context: BlockContext,
-    max_fee: Fee,
-) {
-    let initial_state = initial_state_cairo0.await;
-
-    let tx_version = TransactionVersion::ZERO;
-    let mut nonce_manager = NonceManager::default();
-
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
-
-    todo!("Need ContractClass to declare...");
-
-    // let _result = execute_txs_and_run_os(
-    // initial_state.cached_state,
-    // block_context,
-    // vec![declare_tx],
-    // initial_state.cairo0_compiled_classes,
-    // initial_state.cairo1_compiled_classes,
-    // )
-    // .await
-    // .expect("OS run failed");
-}
-
-#[rstest]
-// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn declare_and_deploy_account_cairo1_account(
     #[future] initial_state_cairo1: StarknetTestState,
     block_context: BlockContext,
