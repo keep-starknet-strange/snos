@@ -1,5 +1,5 @@
 use blockifier::context::BlockContext;
-use blockifier::invoke_tx_args;
+use blockifier::execution::contract_class::ClassInfo;
 use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
@@ -158,6 +158,8 @@ async fn declare_and_deploy_account_cairo1_account(
     let class_hash = starknet_api::core::ClassHash::try_from(contract_class_hash).unwrap();
     let compiled_class_hash = CompiledClassHash::try_from(compiled_class_hash).unwrap();
 
+    let class_info = ClassInfo::new(&contract_class, sierra_class.sierra_program.len(), 0).unwrap();
+
     let declare_tx = blockifier::test_utils::declare::declare_tx(
         declare_tx_args! {
             max_fee,
@@ -167,7 +169,7 @@ async fn declare_and_deploy_account_cairo1_account(
             class_hash: class_hash.into(),
             compiled_class_hash,
         },
-        contract_class,
+        class_info,
     );
 
     initial_state.cairo1_compiled_classes.insert(class_hash, casm_class);

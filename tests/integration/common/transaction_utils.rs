@@ -5,7 +5,7 @@ use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::account_transaction::AccountTransaction::{Declare, DeployAccount, Invoke};
-use blockifier::transaction::objects::AccountTransactionContext;
+use blockifier::transaction::objects::{TransactionInfo, TransactionInfoCreator};
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
@@ -158,9 +158,9 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     let nonce_felt = felt_api2vm(tx.nonce.0);
                     nonce = Some(nonce_felt);
 
-                    match account_tx.get_account_tx_context() {
-                        AccountTransactionContext::Current(_) => panic!("Not implemented"),
-                        AccountTransactionContext::Deprecated(context) => {
+                    match account_tx.create_tx_info() {
+                        TransactionInfo::Current(_) => panic!("Not implemented"),
+                        TransactionInfo::Deprecated(context) => {
                             let sender_address_felt = felt_api2vm(*context.common_fields.sender_address.0.key());
                             sender_address = Some(sender_address_felt);
 
@@ -186,9 +186,9 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     let nonce_felt = felt_api2vm(tx.nonce.0);
                     nonce = Some(nonce_felt);
 
-                    match account_tx.get_account_tx_context() {
-                        AccountTransactionContext::Current(_) => panic!("Not implemented"),
-                        AccountTransactionContext::Deprecated(context) => {
+                    match account_tx.create_tx_info() {
+                        TransactionInfo::Current(_) => panic!("Not implemented"),
+                        TransactionInfo::Deprecated(context) => {
                             let sender_address_felt = felt_api2vm(*context.common_fields.sender_address.0.key());
                             sender_address = Some(sender_address_felt);
 
