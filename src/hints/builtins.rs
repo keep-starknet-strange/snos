@@ -17,6 +17,7 @@ use indoc::indoc;
 use num_traits::Zero;
 
 use crate::cairo_types::structs::BuiltinParams;
+use crate::hints::vars;
 
 pub const SELECTED_BUILTINS: &str = "vm_enter_scope({'n_selected_builtins': ids.n_selected_builtins})";
 pub fn selected_builtins(
@@ -27,8 +28,9 @@ pub fn selected_builtins(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let n_selected_builtins: Box<dyn Any> =
-        Box::new(get_integer_from_var_name("n_selected_builtins", vm, ids_data, ap_tracking)?);
-    exec_scopes.enter_scope(HashMap::from_iter([(String::from("n_selected_builtins"), n_selected_builtins)]));
+        Box::new(get_integer_from_var_name(vars::ids::N_SELECTED_BUILTINS, vm, ids_data, ap_tracking)?);
+    exec_scopes
+        .enter_scope(HashMap::from_iter([(String::from(vars::scopes::N_SELECTED_BUILTINS), n_selected_builtins)]));
     Ok(())
 }
 
@@ -48,12 +50,12 @@ pub fn select_builtin(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let selected_encodings = get_ptr_from_var_name("selected_encodings", vm, ids_data, ap_tracking)?;
-    let all_encodings = get_ptr_from_var_name("all_encodings", vm, ids_data, ap_tracking)?;
-    let n_selected_builtins = exec_scopes.get_mut_ref::<Felt252>("n_selected_builtins")?;
+    let selected_encodings = get_ptr_from_var_name(vars::ids::SELECTED_ENCODINGS, vm, ids_data, ap_tracking)?;
+    let all_encodings = get_ptr_from_var_name(vars::ids::ALL_ENCODINGS, vm, ids_data, ap_tracking)?;
+    let n_selected_builtins = exec_scopes.get_mut_ref::<Felt252>(vars::scopes::N_SELECTED_BUILTINS)?;
     let select_builtin = n_selected_builtins > &mut Felt252::zero()
         && vm.get_maybe(&selected_encodings).unwrap() == vm.get_maybe(&all_encodings).unwrap();
-    insert_value_from_var_name("select_builtin", Felt252::from(select_builtin), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::SELECT_BUILTIN, Felt252::from(select_builtin), vm, ids_data, ap_tracking)?;
     if select_builtin {
         n_selected_builtins.add_assign(-Felt252::ONE);
     }
@@ -84,20 +86,20 @@ pub fn update_builtin_ptrs(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let n_builtins = get_integer_from_var_name("n_builtins", vm, ids_data, ap_tracking)?;
+    let n_builtins = get_integer_from_var_name(vars::ids::N_BUILTINS, vm, ids_data, ap_tracking)?;
 
-    let builtin_params = get_ptr_from_var_name("builtin_params", vm, ids_data, ap_tracking)?;
+    let builtin_params = get_ptr_from_var_name(vars::ids::BUILTIN_PARAMS, vm, ids_data, ap_tracking)?;
     let builtins_encoding_addr = vm.get_relocatable((builtin_params + BuiltinParams::builtin_encodings_offset())?)?;
 
-    let n_selected_builtins = get_integer_from_var_name("n_selected_builtins", vm, ids_data, ap_tracking)?;
+    let n_selected_builtins = get_integer_from_var_name(vars::ids::N_SELECTED_BUILTINS, vm, ids_data, ap_tracking)?;
 
-    let selected_encodings = get_ptr_from_var_name("selected_encodings", vm, ids_data, ap_tracking)?;
+    let selected_encodings = get_ptr_from_var_name(vars::ids::SELECTED_ENCODINGS, vm, ids_data, ap_tracking)?;
 
-    let builtin_ptrs = get_ptr_from_var_name("builtin_ptrs", vm, ids_data, ap_tracking)?;
+    let builtin_ptrs = get_ptr_from_var_name(vars::ids::BUILTIN_PTRS, vm, ids_data, ap_tracking)?;
 
     let orig_builtin_ptrs = builtin_ptrs;
 
-    let selected_ptrs = get_ptr_from_var_name("selected_ptrs", vm, ids_data, ap_tracking)?;
+    let selected_ptrs = get_ptr_from_var_name(vars::ids::SELECTED_PTRS, vm, ids_data, ap_tracking)?;
 
     let all_builtins = vm.get_continuous_range(builtins_encoding_addr, felt_to_usize(&n_builtins)?)?;
 
@@ -117,5 +119,5 @@ pub fn update_builtin_ptrs(
 
     let return_builtin_ptrs_base = vm.add_memory_segment();
     vm.load_data(return_builtin_ptrs_base, &returned_builtins)?;
-    insert_value_from_var_name("return_builtin_ptrs", return_builtin_ptrs_base, vm, ids_data, ap_tracking)
+    insert_value_from_var_name(vars::ids::RETURN_BUILTIN_PTRS, return_builtin_ptrs_base, vm, ids_data, ap_tracking)
 }
