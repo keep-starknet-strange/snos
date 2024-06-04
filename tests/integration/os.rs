@@ -137,7 +137,7 @@ async fn declare_and_deploy_account_cairo1_account(
     block_context: BlockContext,
     max_fee: Fee
 ) {
-    let initial_state = initial_state_cairo1.await;
+    let mut initial_state = initial_state_cairo1.await;
 
     let tx_version = TransactionVersion::TWO;
     let mut nonce_manager = NonceManager::default();
@@ -169,6 +169,8 @@ async fn declare_and_deploy_account_cairo1_account(
         },
         contract_class,
     );
+
+    initial_state.cairo1_compiled_classes.insert(class_hash, casm_class);
 
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
