@@ -58,7 +58,6 @@ where
     LF: LeafFact<S, H> + Send,
     N: BinaryFactTreeNode<S, H, LF> + Send,
 {
-    #[allow(unused)]
     pub fn new(ffc: &'trav mut FactFetchingContext<S, H>, facts: &'trav mut Option<BinaryFactDict>) -> Self {
         Self { ffc, facts, result: vec![], _n: Default::default() }
     }

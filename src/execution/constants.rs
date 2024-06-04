@@ -2,9 +2,7 @@
 // See documentation in core/os/constants.cairo.
 pub const BLOCK_HASH_CONTRACT_ADDRESS: u64 = 1;
 
-#[allow(unused)]
 pub const STEP_GAS_COST: u64 = 100;
-#[allow(unused)]
 pub const RANGE_CHECK_GAS_COST: u64 = 70;
 
 #[allow(unused)]
@@ -19,25 +17,18 @@ pub const INITIAL_GAS_COST: u64 = 10_u64.pow(8) * STEP_GAS_COST;
 pub const ENTRY_POINT_INITIAL_BUDGET: u64 = 100 * STEP_GAS_COST;
 // The initial gas budget for a system call (this value is hard-coded by the compiler).
 // This needs to be high enough to cover OS costs in the case of failure due to out of gas.
-#[allow(unused)]
 pub const SYSCALL_BASE_GAS_COST: u64 = 100 * STEP_GAS_COST;
 // OS gas costs.
-#[allow(unused)]
 pub const ENTRY_POINT_GAS_COST: u64 = ENTRY_POINT_INITIAL_BUDGET + 500 * STEP_GAS_COST;
 #[allow(unused)]
 pub const FEE_TRANSFER_GAS_COST: u64 = ENTRY_POINT_GAS_COST + 100 * STEP_GAS_COST;
 #[allow(unused)]
 pub const TRANSACTION_GAS_COST: u64 = (2 * ENTRY_POINT_GAS_COST) + FEE_TRANSFER_GAS_COST + (100 * STEP_GAS_COST);
 // The required gas for each syscall.
-#[allow(unused)]
 pub const CALL_CONTRACT_GAS_COST: u64 = SYSCALL_BASE_GAS_COST + 10 * STEP_GAS_COST + ENTRY_POINT_GAS_COST;
-#[allow(unused)]
 pub const DEPLOY_GAS_COST: u64 = SYSCALL_BASE_GAS_COST + 200 * STEP_GAS_COST + ENTRY_POINT_GAS_COST;
-#[allow(unused)]
 pub const EMIT_EVENT_GAS_COST: u64 = SYSCALL_BASE_GAS_COST + 10 * STEP_GAS_COST;
-#[allow(unused)]
 pub const GET_BLOCK_HASH_GAS_COST: u64 = SYSCALL_BASE_GAS_COST + 50 * STEP_GAS_COST;
-#[allow(unused)]
 pub const GET_EXECUTION_INFO_GAS_COST: u64 = SYSCALL_BASE_GAS_COST + 10 * STEP_GAS_COST;
 #[allow(unused)]
 pub const KECCAK_GAS_COST: u64 = SYSCALL_BASE_GAS_COST;

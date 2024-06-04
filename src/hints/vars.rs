@@ -8,7 +8,6 @@ pub mod scopes {
     pub const DESCEND: &str = "descend";
 
     pub const DESCENT_MAP: &str = "descent_map";
-    #[allow(unused)]
     pub const DICT_MANAGER: &str = "dict_manager";
     pub const EXECUTION_HELPER: &str = "execution_helper";
     pub const INITIAL_DICT: &str = "initial_dict";
