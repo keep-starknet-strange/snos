@@ -66,9 +66,7 @@ pub async fn os_hints(
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = state_diff
         .class_hash_to_compiled_class_hash
         .iter()
-        .map(|(class_hash, _compiled_class_hash)| {
-            (felt_api2vm(class_hash.0), Felt252::ZERO)
-        })
+        .map(|(class_hash, _compiled_class_hash)| (felt_api2vm(class_hash.0), Felt252::ZERO))
         .collect();
 
     for c in contracts.keys() {

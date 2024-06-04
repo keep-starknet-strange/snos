@@ -18,9 +18,9 @@ use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
-use snos::utils::felt_api2vm;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::storage::dict_storage::DictStorage;
+use snos::utils::felt_api2vm;
 use snos::{config, run_os};
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
@@ -80,12 +80,7 @@ fn tx_hash_invoke_v0(
     ])
 }
 
-fn tx_hash_declare_v1(
-    sender_address: Felt252,
-    max_fee: Felt252,
-    class_hash: Felt252,
-    nonce: Felt252,
-) -> Felt252 {
+fn tx_hash_declare_v1(sender_address: Felt252, max_fee: Felt252, class_hash: Felt252, nonce: Felt252) -> Felt252 {
     hash_on_elements(vec![
         Felt252::from_bytes_be_slice(DECLARE_PREFIX),
         Felt252::ONE, // declare version
@@ -117,19 +112,17 @@ fn tx_hash_declare_v2(
         compiled_class_hash,
     ])
 }
-/*
-declare_v2_tx_hash = h(
-    "declare",
-    version,
-    sender_address,
-    0,
-    h(class_hash),
-    max_fee,
-    chain_id,
-    nonce,
-    compiled_class_hash
-)
-*/
+// declare_v2_tx_hash = h(
+// "declare",
+// version,
+// sender_address,
+// 0,
+// h(class_hash),
+// max_fee,
+// chain_id,
+// nonce,
+// compiled_class_hash
+// )
 
 pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     let hash_value: Felt252;

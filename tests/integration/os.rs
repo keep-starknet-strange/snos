@@ -16,7 +16,9 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{initial_state_cairo0, initial_state_cairo1, initial_state_syscalls, load_cairo1_contract, StarknetTestState};
+use crate::common::state::{
+    initial_state_cairo0, initial_state_cairo1, initial_state_syscalls, load_cairo1_contract, StarknetTestState,
+};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
@@ -103,7 +105,7 @@ async fn return_result_cairo1_account(
 async fn declare_and_deploy_account_cairo0_account(
     #[future] initial_state_cairo0: StarknetTestState,
     block_context: BlockContext,
-    max_fee: Fee
+    max_fee: Fee,
 ) {
     let initial_state = initial_state_cairo0.await;
 
@@ -115,18 +117,15 @@ async fn declare_and_deploy_account_cairo0_account(
 
     todo!("Need ContractClass to declare...");
 
-    /*
-    let _result = execute_txs_and_run_os(
-        initial_state.cached_state,
-        block_context,
-        vec![declare_tx],
-        initial_state.cairo0_compiled_classes,
-        initial_state.cairo1_compiled_classes,
-    )
-    .await
-    .expect("OS run failed");
-    */
-
+    // let _result = execute_txs_and_run_os(
+    // initial_state.cached_state,
+    // block_context,
+    // vec![declare_tx],
+    // initial_state.cairo0_compiled_classes,
+    // initial_state.cairo1_compiled_classes,
+    // )
+    // .await
+    // .expect("OS run failed");
 }
 
 #[rstest]
@@ -135,13 +134,13 @@ async fn declare_and_deploy_account_cairo0_account(
 async fn declare_and_deploy_account_cairo1_account(
     #[future] initial_state_cairo1: StarknetTestState,
     block_context: BlockContext,
-    max_fee: Fee
+    max_fee: Fee,
 ) {
     let mut initial_state = initial_state_cairo1.await;
 
     let tx_version = TransactionVersion::TWO;
     let mut nonce_manager = NonceManager::default();
-    
+
     let account_contract = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap();
 
     // we want to declare a fresh (never-before-declared) contract, so we don't want to reuse
