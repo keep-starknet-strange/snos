@@ -592,12 +592,12 @@ mod tests {
     #[tokio::test]
     async fn test_binary_fact_tree_node_create_diff(mut ffc: FFC) {
         let mut facts = None;
-        let mut empty_tree = PatriciaTree::empty_tree(&mut ffc, Height(251), SimpleLeafFact::empty()).await.unwrap();
+        let empty_tree = PatriciaTree::empty_tree(&mut ffc, Height(251), SimpleLeafFact::empty()).await.unwrap();
         let virtual_empty_tree_node = VPN::from_hash(empty_tree.root.clone(), empty_tree.height);
 
         // All tree values are zero except for the fifth leaf, which has a value of 8.
         let modifications = vec![(BigUint::from(5u64), SimpleLeafFact::new(Felt252::from(8)))];
-        let mut one_change_tree = empty_tree.update(&mut ffc, modifications, &mut facts).await.unwrap();
+        let one_change_tree = empty_tree.clone().update(&mut ffc, modifications, &mut facts).await.unwrap();
         let virtual_one_change_node = VPN::from_hash(one_change_tree.root.clone(), empty_tree.height);
 
         // All tree values are zero except for the fifth leaf, which has a value of 8.

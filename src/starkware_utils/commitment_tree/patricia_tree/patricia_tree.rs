@@ -42,12 +42,12 @@ where
     }
 
     async fn update(
-        &mut self,
+        self,
         ffc: &mut FactFetchingContext<S, H>,
         modifications: Vec<(TreeIndex, LF)>,
         facts: &mut Option<BinaryFactDict>,
     ) -> Result<Self, TreeError> {
-        let virtual_root_node = VirtualPatriciaNode::from_hash(self.root.clone(), self.height);
+        let virtual_root_node = VirtualPatriciaNode::from_hash(self.root, self.height);
         let updated_virtual_root_node = update_tree::<
             S,
             H,
@@ -161,7 +161,7 @@ mod tests {
     async fn test_update_and_decommit(mut ffc: FFC, #[case] height: Height, #[case] n_leaves: usize) {
         let mut rng = rand::thread_rng();
 
-        let mut tree = PatriciaTree::empty_tree(&mut ffc, height, SimpleLeafFact::empty()).await.unwrap();
+        let tree = PatriciaTree::empty_tree(&mut ffc, height, SimpleLeafFact::empty()).await.unwrap();
 
         // Create some random modifications, store the facts and update the tree.
         // Note that leaves with value 0 are not modifications (hence, range(1, ...)).
@@ -198,7 +198,7 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_update_and_get_leaf(mut ffc: FFC) {
-        let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+        let tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
 
         let index = BigUint::from(1000u64);
         let leaf = StorageLeaf::new(Felt252::from(2000));

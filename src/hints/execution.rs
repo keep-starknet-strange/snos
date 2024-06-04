@@ -1871,7 +1871,7 @@ mod tests {
         let storage = DictStorage::default();
         let mut ffc = FactFetchingContext::<_, PedersenHash>::new(storage);
 
-        let mut tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
+        let tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await.unwrap();
         let modifications = vec![(BigUint::from(42u32), StorageLeaf::new(Felt252::from(8000)))];
         let mut facts = None;
         let tree = tree.update(&mut ffc, modifications, &mut facts).await.unwrap();
