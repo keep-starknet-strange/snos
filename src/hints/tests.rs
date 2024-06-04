@@ -273,7 +273,7 @@ pub mod tests {
 
     #[test]
     fn test_built_in_hints_have_no_duplicates() {
-        // find all occurences of a hint in HINTS
+        // find all occurrences of a hint in HINTS
         fn find_matching_indices(hint_to_match: &str) -> Vec<usize> {
             let mut indices = Vec::new();
             let mut i = 0;
@@ -286,7 +286,7 @@ pub mod tests {
             indices
         }
 
-        // look for any duplicatses in HINTS and print out all occurences if found
+        // look for any duplicatses in HINTS and print out all occurrences if found
         let mut hints: HashMap<String, HintImpl> = HashMap::new();
         for (hint, hint_impl) in &HINTS {
             let hint_str = hint.to_string();
@@ -302,7 +302,7 @@ pub mod tests {
 
     #[test]
     fn test_built_in_extensive_hints_have_no_duplicates() {
-        // find all occurences of a hint in EXTENSIVE_HINTS
+        // find all occurrences of a hint in EXTENSIVE_HINTS
         fn find_matching_indices(hint_to_match: &str) -> Vec<usize> {
             let mut indices = Vec::new();
             let mut i = 0;
@@ -315,7 +315,7 @@ pub mod tests {
             indices
         }
 
-        // look for any duplicatses in EXTENSIVE_HINTS and print out all occurences if found
+        // look for any duplicatses in EXTENSIVE_HINTS and print out all occurrences if found
         let mut hints: HashMap<String, ExtensiveHintImpl> = HashMap::new();
         for (hint, hint_impl) in &EXTENSIVE_HINTS {
             let hint_str = hint.to_string();
