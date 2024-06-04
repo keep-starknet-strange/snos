@@ -196,8 +196,8 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                                 sender_address_felt,
                                 max_fee.unwrap_or_default(),
                                 felt_api2vm(tx.class_hash.0),
-                                nonce_felt,
                                 felt_api2vm(tx.compiled_class_hash.0),
+                                nonce_felt,
                             );
                         }
                     }
