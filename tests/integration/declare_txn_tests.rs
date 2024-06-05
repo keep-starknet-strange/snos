@@ -29,9 +29,13 @@ async fn declare_cairo1_account(
 
     let account_contract = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap();
 
-    // we want to declare a fresh (never-before-declared) contract, so we don't want to reuse
-    // anything from the test fixtures, and we need to do it "by hand"
+    // We want to declare a fresh (never-before-declared) contract, so we don't want to reuse
+    // anything from the test fixtures, and we need to do it "by hand". The transaction will
+    // error if the class trie already contains the class we are trying to deploy.
     let (_, sierra_class, casm_class) = load_cairo1_contract("empty_contract");
+
+    // We also need to write the class and compiled class facts so that the FFC will contain them
+    // during block re-execution.
     let mut ffc = initial_state.clone_ffc::<PoseidonHash>();
     let (contract_class_hash, compiled_class_hash) =
         write_class_facts(sierra_class.clone(), casm_class.clone(), &mut ffc).await.unwrap();
