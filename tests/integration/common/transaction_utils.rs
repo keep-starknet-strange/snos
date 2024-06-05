@@ -153,21 +153,15 @@ pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTr
     InternalTransaction {
         hash_value,
         version: Some(Felt252::TWO),
-        contract_address: None,
-        contract_address_salt: None,
-        contract_hash: None,
-        constructor_calldata: None,
         nonce: Some(nonce),
         sender_address: Some(sender_address),
-        entry_point_selector: None,
         entry_point_type: Some("EXTERNAL".to_string()),
         signature: Some(signature),
         class_hash: Some(class_hash),
         compiled_class_hash: Some(felt_api2vm(tx.compiled_class_hash.0)),
-        calldata: None,
-        paid_on_l1: None,
         r#type: "DECLARE".to_string(),
         max_fee: Some(max_fee),
+        ..Default::default()
     }
 }
 
