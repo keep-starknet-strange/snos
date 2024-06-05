@@ -82,20 +82,6 @@ fn tx_hash_invoke_v0(
     ])
 }
 
-/// Produce a hash for a Declare V1 TXN with the provided elements
-fn tx_hash_declare_v1(sender_address: Felt252, max_fee: Felt252, class_hash: Felt252, nonce: Felt252) -> Felt252 {
-    hash_on_elements(vec![
-        Felt252::from_bytes_be_slice(DECLARE_PREFIX),
-        Felt252::ONE, // declare version
-        sender_address,
-        Felt252::ZERO, // placeholder
-        hash_on_elements(vec![class_hash]),
-        Felt252::from(max_fee),
-        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
-        nonce,
-    ])
-}
-
 /// Produce a hash for a Declare V2 TXN with the provided elements
 fn tx_hash_declare_v2(
     sender_address: Felt252,
@@ -117,8 +103,8 @@ fn tx_hash_declare_v2(
     ])
 }
 
+/// Convert an AccountTransaction to a SNOS InternalTransaction
 pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
-
     return match account_tx {
         Declare(declare_tx) => {
             match &declare_tx.tx() {
@@ -126,92 +112,63 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     // explicitly not supported
                     panic!("Declare V0 is not supported");
                 }
-                starknet_api::transaction::DeclareTransaction::V1(tx) => {
-                    todo!()
-                }
                 starknet_api::transaction::DeclareTransaction::V2(tx) => to_internal_declare_v2_tx(account_tx, tx),
-                _ => unimplemented!()
+                _ => unimplemented!("Declare txn version not yet supported"),
             }
         },
-        DeployAccount(_) => panic!("Not implemented"),
+        DeployAccount(_) => unimplemented!("Deploy txns not yet supported"),
         Invoke(invoke_tx) => {
             match &invoke_tx.tx {
                 starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(account_tx, tx),
-                starknet_api::transaction::InvokeTransaction::V1(_) => panic!("Not implemented"),
-                starknet_api::transaction::InvokeTransaction::V3(_) => panic!("Not implemented"),
+                _ => unimplemented!("Invoke txn version not yet supported"),
             }
         },
-        _ => unimplemented!()
     }
 }
 
 pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTransactionV2) -> InternalTransaction {
-    let hash_value: Felt252;
-    let version: Option<Felt252>;
-    let contract_address: Option<Felt252>;
-    let contract_address_salt: Option<Felt252> = None;
-    let contract_hash: Option<Felt252> = None;
-    let constructor_calldata: Option<Vec<Felt252>> = None;
-    let nonce: Option<Felt252>;
-    let sender_address: Option<Felt252>;
-    let entry_point_selector: Option<Felt252>;
-    let entry_point_type: Option<String> = Some("EXTERNAL".to_string());
-    let signature: Option<Vec<Felt252>>;
-    let class_hash: Option<Felt252>;
-    let mut compiled_class_hash: Option<Felt252> = None;
-    let calldata: Option<Vec<Felt252>>;
-    let paid_on_l1: Option<bool> = None;
-    let r#type: String;
-    let max_fee: Option<Felt252>;
-            r#type = "DECLARE".to_string();
-                    version = Some(Felt252::TWO);
-                    max_fee = Some(tx.max_fee.0.into());
-                    signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
-                    let nonce_felt = felt_api2vm(tx.nonce.0);
-                    nonce = Some(nonce_felt);
+    let hash_value;
+    let sender_address;
+    let class_hash;
+    let max_fee = tx.max_fee.0.into();
+    let signature = tx.signature.0.iter().map(|x| to_felt252(x)).collect();
+    let nonce = felt_api2vm(tx.nonce.0);
 
-                    match account_tx.create_tx_info() {
-                        TransactionInfo::Current(_) => panic!("Not implemented"),
-                        TransactionInfo::Deprecated(context) => {
-                            let sender_address_felt = felt_api2vm(*context.common_fields.sender_address.0.key());
-                            sender_address = Some(sender_address_felt);
+    match account_tx.create_tx_info() {
+        TransactionInfo::Current(_) => panic!("Not implemented"),
+        TransactionInfo::Deprecated(context) => {
+            sender_address = felt_api2vm(*context.common_fields.sender_address.0.key());
+            class_hash = felt_api2vm(tx.class_hash.0);
 
-                            hash_value = tx_hash_declare_v2(
-                                sender_address_felt,
-                                max_fee.unwrap_or_default(),
-                                felt_api2vm(tx.class_hash.0),
-                                felt_api2vm(tx.compiled_class_hash.0),
-                                nonce_felt,
-                            );
-                        }
-                    }
+            hash_value = tx_hash_declare_v2(
+                sender_address,
+                max_fee,
+                class_hash,
+                felt_api2vm(tx.compiled_class_hash.0),
+                nonce,
+            );
+        }
+    }
 
-                    // TODO:
-                    contract_address = None;
-                    entry_point_selector = None;
-                    compiled_class_hash = Some(felt_api2vm(tx.compiled_class_hash.0));
-                    class_hash = Some(felt_api2vm(tx.class_hash.0));
-                    calldata = None;
-
-    return InternalTransaction {
+    InternalTransaction {
         hash_value,
-        version,
-        contract_address,
-        contract_address_salt,
-        contract_hash,
-        constructor_calldata,
-        nonce,
-        sender_address,
-        entry_point_selector,
-        entry_point_type,
-        signature,
-        class_hash,
-        compiled_class_hash,
-        calldata,
-        paid_on_l1,
-        r#type,
-        max_fee,
-    };
+        version: Some(Felt252::TWO),
+        contract_address: None,
+        contract_address_salt: None,
+        contract_hash: None,
+        constructor_calldata: None,
+        nonce: Some(nonce),
+        sender_address: Some(sender_address),
+        entry_point_selector: None,
+        entry_point_type: Some("EXTERNAL".to_string()),
+        signature: Some(signature),
+        class_hash: Some(class_hash),
+        compiled_class_hash: Some(felt_api2vm(tx.compiled_class_hash.0)),
+        calldata: None,
+        paid_on_l1: None,
+        r#type: "DECLARE".to_string(),
+        max_fee: Some(max_fee),
+    }
 }
 
 pub fn to_internal_invoke_v0_tx(account_tx: &AccountTransaction, tx: &InvokeTransactionV0) -> InternalTransaction {
