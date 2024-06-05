@@ -1,8 +1,8 @@
 use blockifier::context::BlockContext;
+use blockifier::declare_tx_args;
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::test_utils::NonceManager;
 use blockifier::transaction::test_utils::max_fee;
-use blockifier::declare_tx_args;
 use rstest::rstest;
 use snos::crypto::poseidon::PoseidonHash;
 use snos::starknet::business_logic::utils::write_class_facts;
@@ -11,9 +11,7 @@ use starknet_api::core::CompiledClassHash;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{
-    initial_state_cairo1, load_cairo1_contract, StarknetTestState,
-};
+use crate::common::state::{initial_state_cairo1, load_cairo1_contract, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
@@ -68,4 +66,3 @@ async fn declare_cairo1_account(
     .await
     .expect("OS run failed");
 }
-

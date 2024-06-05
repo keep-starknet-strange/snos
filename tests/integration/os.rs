@@ -1,8 +1,8 @@
 use blockifier::context::BlockContext;
+use blockifier::invoke_tx_args;
 use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
-use blockifier::invoke_tx_args;
 use rstest::rstest;
 use snos::config::STORED_BLOCK_HASH_BUFFER;
 use starknet_api::hash::StarkFelt;
@@ -10,9 +10,7 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{
-    initial_state_cairo0, initial_state_cairo1, initial_state_syscalls, StarknetTestState,
-};
+use crate::common::state::{initial_state_cairo0, initial_state_cairo1, initial_state_syscalls, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]
