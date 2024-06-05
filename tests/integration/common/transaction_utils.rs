@@ -165,59 +165,32 @@ pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTr
     }
 }
 
-pub fn to_internal_invoke_v0_tx(account_tx: &AccountTransaction, tx: &InvokeTransactionV0) -> InternalTransaction {
-    let hash_value: Felt252;
-    let version: Option<Felt252>;
-    let contract_address: Option<Felt252>;
-    let contract_address_salt: Option<Felt252> = None;
-    let contract_hash: Option<Felt252> = None;
-    let constructor_calldata: Option<Vec<Felt252>> = None;
-    let nonce: Option<Felt252>;
-    let sender_address: Option<Felt252>;
-    let entry_point_selector: Option<Felt252>;
-    let entry_point_type: Option<String> = Some("EXTERNAL".to_string());
-    let signature: Option<Vec<Felt252>>;
-    let class_hash: Option<Felt252>;
-    let mut compiled_class_hash: Option<Felt252> = None;
-    let calldata: Option<Vec<Felt252>>;
-    let paid_on_l1: Option<bool> = None;
-    let r#type: String;
-    let max_fee: Option<Felt252>;
-            r#type = "INVOKE_FUNCTION".to_string();
-            class_hash = None;
-                    version = Some(Felt252::ZERO);
-                    max_fee = Some(tx.max_fee.0.into());
-                    signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
-                    entry_point_selector = Some(to_felt252(&tx.entry_point_selector.0));
-                    calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
-                    contract_address = Some(to_felt252(tx.contract_address.0.key()));
-                    nonce = None; // TODO: how did this ever work?
-                    sender_address = contract_address;
-                    hash_value = tx_hash_invoke_v0(
-                        contract_address.unwrap(),
-                        entry_point_selector.unwrap(),
-                        calldata.clone().unwrap(),
-                        max_fee.unwrap(),
-                    );
+pub fn to_internal_invoke_v0_tx(_account_tx: &AccountTransaction, tx: &InvokeTransactionV0) -> InternalTransaction {
+    let max_fee = tx.max_fee.0.into();
+    let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
+    let entry_point_selector = Some(to_felt252(&tx.entry_point_selector.0));
+    let calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
+    let contract_address = to_felt252(tx.contract_address.0.key());
+    let hash_value = tx_hash_invoke_v0(
+        contract_address,
+        entry_point_selector.unwrap(),
+        calldata.clone().unwrap(),
+        max_fee,
+    );
 
     return InternalTransaction {
         hash_value,
-        version,
-        contract_address,
-        contract_address_salt,
-        contract_hash,
-        constructor_calldata,
-        nonce,
-        sender_address,
+        version: Some(Felt252::ZERO),
+        contract_address: Some(contract_address),
+        nonce: None, // TODO: this can't be right...
+        sender_address: Some(contract_address),
         entry_point_selector,
-        entry_point_type,
+        entry_point_type: Some("EXTERNAL".to_string()),
         signature,
-        class_hash,
-        compiled_class_hash,
         calldata,
-        paid_on_l1,
-        r#type,
-        max_fee,
+        r#type: "INVOKE_FUNCTION".to_string(),
+        max_fee: Some(max_fee),
+        ..Default::default()
     };
 }
 
