@@ -8,8 +8,6 @@ use rstest::rstest;
 use snos::config::STORED_BLOCK_HASH_BUFFER;
 use snos::crypto::poseidon::PoseidonHash;
 use snos::starknet::business_logic::utils::write_class_facts;
-use snos::storage::dict_storage::DictStorage;
-use snos::storage::storage::FactFetchingContext;
 use snos::storage::storage_utils::compiled_contract_class_cl2vm;
 use starknet_api::core::CompiledClassHash;
 use starknet_api::hash::StarkFelt;
@@ -108,7 +106,7 @@ async fn declare_cairo1_account(
     block_context: BlockContext,
     max_fee: Fee,
 ) {
-    let mut initial_state = initial_state_cairo1.await;
+    let initial_state = initial_state_cairo1.await;
 
     let tx_version = TransactionVersion::TWO;
     let mut nonce_manager = NonceManager::default();
@@ -118,8 +116,7 @@ async fn declare_cairo1_account(
     // we want to declare a fresh (never-before-declared) contract, so we don't want to reuse
     // anything from the test fixtures, and we need to do it "by hand"
     let (_, sierra_class, casm_class) = load_cairo1_contract("empty_contract");
-    let mut ffc: FactFetchingContext<DictStorage, PoseidonHash> =
-        initial_state.cached_state.state.ffc.clone_with_different_hash();
+    let mut ffc = initial_state.clone_ffc::<PoseidonHash>();
     let (contract_class_hash, compiled_class_hash) =
         write_class_facts(sierra_class.clone(), casm_class.clone(), &mut ffc).await.unwrap();
 

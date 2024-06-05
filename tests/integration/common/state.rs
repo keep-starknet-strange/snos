@@ -16,7 +16,7 @@ use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::business_logic::utils::{write_class_facts, write_deprecated_compiled_class_fact};
 use snos::starkware_utils::commitment_tree::errors::TreeError;
 use snos::storage::dict_storage::DictStorage;
-use snos::storage::storage::{FactFetchingContext, StorageError};
+use snos::storage::storage::{FactFetchingContext, HashFunctionType, StorageError};
 use snos::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
@@ -46,6 +46,17 @@ pub struct StarknetTestState {
     pub cairo0_compiled_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     /// All cairo1 compiled classes
     pub cairo1_compiled_classes: HashMap<ClassHash, CasmContractClass>,
+}
+
+impl StarknetTestState {
+    /// Clone the FFC stored in cached_state's SharedState with the provided hasher.
+    /// Reminder: although we are cloning FFC, we keep the underlying resource (e.g. the database).
+    pub fn clone_ffc<NH>(&self) -> FactFetchingContext<DictStorage, NH>
+    where
+        NH: HashFunctionType,
+    {
+        self.cached_state.state.ffc.clone_with_different_hash::<NH>()
+    }
 }
 
 /// Struct representing a deployed cairo1 class
