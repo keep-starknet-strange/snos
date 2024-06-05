@@ -115,15 +115,13 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                 starknet_api::transaction::DeclareTransaction::V2(tx) => to_internal_declare_v2_tx(account_tx, tx),
                 _ => unimplemented!("Declare txn version not yet supported"),
             }
-        },
+        }
         DeployAccount(_) => unimplemented!("Deploy txns not yet supported"),
-        Invoke(invoke_tx) => {
-            match &invoke_tx.tx {
-                starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(account_tx, tx),
-                _ => unimplemented!("Invoke txn version not yet supported"),
-            }
+        Invoke(invoke_tx) => match &invoke_tx.tx {
+            starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(account_tx, tx),
+            _ => unimplemented!("Invoke txn version not yet supported"),
         },
-    }
+    };
 }
 
 pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTransactionV2) -> InternalTransaction {
@@ -140,13 +138,8 @@ pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTr
             sender_address = felt_api2vm(*context.common_fields.sender_address.0.key());
             class_hash = felt_api2vm(tx.class_hash.0);
 
-            hash_value = tx_hash_declare_v2(
-                sender_address,
-                max_fee,
-                class_hash,
-                felt_api2vm(tx.compiled_class_hash.0),
-                nonce,
-            );
+            hash_value =
+                tx_hash_declare_v2(sender_address, max_fee, class_hash, felt_api2vm(tx.compiled_class_hash.0), nonce);
         }
     }
 
@@ -171,12 +164,8 @@ pub fn to_internal_invoke_v0_tx(_account_tx: &AccountTransaction, tx: &InvokeTra
     let entry_point_selector = Some(to_felt252(&tx.entry_point_selector.0));
     let calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
     let contract_address = to_felt252(tx.contract_address.0.key());
-    let hash_value = tx_hash_invoke_v0(
-        contract_address,
-        entry_point_selector.unwrap(),
-        calldata.clone().unwrap(),
-        max_fee,
-    );
+    let hash_value =
+        tx_hash_invoke_v0(contract_address, entry_point_selector.unwrap(), calldata.clone().unwrap(), max_fee);
 
     return InternalTransaction {
         hash_value,
