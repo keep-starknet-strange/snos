@@ -143,8 +143,6 @@ async fn declare_cairo1_account(
         class_info,
     );
 
-    initial_state.cairo1_compiled_classes.insert(class_hash, casm_class);
-
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
