@@ -27,6 +27,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiled
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::state::StorageKey;
+use starknet_api::transaction::{DeclareTransactionV2, InvokeTransactionV0};
 use starknet_crypto::{pedersen_hash, FieldElement};
 
 use crate::common::block_utils::os_hints;
@@ -117,6 +118,34 @@ fn tx_hash_declare_v2(
 }
 
 pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
+
+    return match account_tx {
+        Declare(declare_tx) => {
+            match &declare_tx.tx() {
+                starknet_api::transaction::DeclareTransaction::V0(_) => {
+                    // explicitly not supported
+                    panic!("Declare V0 is not supported");
+                }
+                starknet_api::transaction::DeclareTransaction::V1(tx) => {
+                    todo!()
+                }
+                starknet_api::transaction::DeclareTransaction::V2(tx) => to_internal_declare_v2_tx(account_tx, tx),
+                _ => unimplemented!()
+            }
+        },
+        DeployAccount(_) => panic!("Not implemented"),
+        Invoke(invoke_tx) => {
+            match &invoke_tx.tx {
+                starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(account_tx, tx),
+                starknet_api::transaction::InvokeTransaction::V1(_) => panic!("Not implemented"),
+                starknet_api::transaction::InvokeTransaction::V3(_) => panic!("Not implemented"),
+            }
+        },
+        _ => unimplemented!()
+    }
+}
+
+pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTransactionV2) -> InternalTransaction {
     let hash_value: Felt252;
     let version: Option<Felt252>;
     let contract_address: Option<Felt252>;
@@ -134,44 +163,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     let paid_on_l1: Option<bool> = None;
     let r#type: String;
     let max_fee: Option<Felt252>;
-
-    match account_tx {
-        Declare(declare_tx) => {
             r#type = "DECLARE".to_string();
-            match &declare_tx.tx() {
-                starknet_api::transaction::DeclareTransaction::V0(_) => {
-                    // not supported in general
-                    panic!("Not implemented");
-                }
-                starknet_api::transaction::DeclareTransaction::V1(tx) => {
-                    version = Some(Felt252::ONE);
-                    max_fee = Some(tx.max_fee.0.into());
-                    signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
-                    let nonce_felt = felt_api2vm(tx.nonce.0);
-                    nonce = Some(nonce_felt);
-
-                    match account_tx.create_tx_info() {
-                        TransactionInfo::Current(_) => panic!("Not implemented"),
-                        TransactionInfo::Deprecated(context) => {
-                            let sender_address_felt = felt_api2vm(*context.common_fields.sender_address.0.key());
-                            sender_address = Some(sender_address_felt);
-
-                            hash_value = tx_hash_declare_v1(
-                                sender_address_felt,
-                                max_fee.unwrap_or_default(),
-                                felt_api2vm(tx.class_hash.0),
-                                nonce_felt,
-                            );
-                        }
-                    }
-
-                    // TODO:
-                    contract_address = None;
-                    entry_point_selector = None;
-                    class_hash = Some(felt_api2vm(tx.class_hash.0));
-                    calldata = None;
-                }
-                starknet_api::transaction::DeclareTransaction::V2(tx) => {
                     version = Some(Felt252::TWO);
                     max_fee = Some(tx.max_fee.0.into());
                     signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
@@ -200,16 +192,48 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     compiled_class_hash = Some(felt_api2vm(tx.compiled_class_hash.0));
                     class_hash = Some(felt_api2vm(tx.class_hash.0));
                     calldata = None;
-                }
-                _ => panic!("Not implemented"),
-            }
-        }
-        DeployAccount(_) => panic!("Not implemented"),
-        Invoke(invoke_tx) => {
+
+    return InternalTransaction {
+        hash_value,
+        version,
+        contract_address,
+        contract_address_salt,
+        contract_hash,
+        constructor_calldata,
+        nonce,
+        sender_address,
+        entry_point_selector,
+        entry_point_type,
+        signature,
+        class_hash,
+        compiled_class_hash,
+        calldata,
+        paid_on_l1,
+        r#type,
+        max_fee,
+    };
+}
+
+pub fn to_internal_invoke_v0_tx(account_tx: &AccountTransaction, tx: &InvokeTransactionV0) -> InternalTransaction {
+    let hash_value: Felt252;
+    let version: Option<Felt252>;
+    let contract_address: Option<Felt252>;
+    let contract_address_salt: Option<Felt252> = None;
+    let contract_hash: Option<Felt252> = None;
+    let constructor_calldata: Option<Vec<Felt252>> = None;
+    let nonce: Option<Felt252>;
+    let sender_address: Option<Felt252>;
+    let entry_point_selector: Option<Felt252>;
+    let entry_point_type: Option<String> = Some("EXTERNAL".to_string());
+    let signature: Option<Vec<Felt252>>;
+    let class_hash: Option<Felt252>;
+    let mut compiled_class_hash: Option<Felt252> = None;
+    let calldata: Option<Vec<Felt252>>;
+    let paid_on_l1: Option<bool> = None;
+    let r#type: String;
+    let max_fee: Option<Felt252>;
             r#type = "INVOKE_FUNCTION".to_string();
             class_hash = None;
-            match &invoke_tx.tx {
-                starknet_api::transaction::InvokeTransaction::V0(tx) => {
                     version = Some(Felt252::ZERO);
                     max_fee = Some(tx.max_fee.0.into());
                     signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
@@ -224,12 +248,6 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                         calldata.clone().unwrap(),
                         max_fee.unwrap(),
                     );
-                }
-                starknet_api::transaction::InvokeTransaction::V1(_) => panic!("Not implemented"),
-                starknet_api::transaction::InvokeTransaction::V3(_) => panic!("Not implemented"),
-            }
-        }
-    }
 
     return InternalTransaction {
         hash_value,
