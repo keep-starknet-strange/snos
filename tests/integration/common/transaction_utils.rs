@@ -63,6 +63,7 @@ pub fn hash(a: &Felt252, b: &Felt252) -> Felt252 {
     Felt252::from_bytes_be(&result.to_bytes_be())
 }
 
+/// Produce a hash for an Invoke V0 TXN with the provided elements
 fn tx_hash_invoke_v0(
     contract_address: Felt252,
     entry_point_selector: Felt252,
@@ -80,6 +81,7 @@ fn tx_hash_invoke_v0(
     ])
 }
 
+/// Produce a hash for a Declare V1 TXN with the provided elements
 fn tx_hash_declare_v1(sender_address: Felt252, max_fee: Felt252, class_hash: Felt252, nonce: Felt252) -> Felt252 {
     hash_on_elements(vec![
         Felt252::from_bytes_be_slice(DECLARE_PREFIX),
@@ -93,6 +95,7 @@ fn tx_hash_declare_v1(sender_address: Felt252, max_fee: Felt252, class_hash: Fel
     ])
 }
 
+/// Produce a hash for a Declare V2 TXN with the provided elements
 fn tx_hash_declare_v2(
     sender_address: Felt252,
     max_fee: Felt252,
