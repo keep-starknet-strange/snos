@@ -112,17 +112,6 @@ fn tx_hash_declare_v2(
         compiled_class_hash,
     ])
 }
-// declare_v2_tx_hash = h(
-// "declare",
-// version,
-// sender_address,
-// 0,
-// h(class_hash),
-// max_fee,
-// chain_id,
-// nonce,
-// compiled_class_hash
-// )
 
 pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     let hash_value: Felt252;
