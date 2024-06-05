@@ -118,12 +118,13 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
         }
         DeployAccount(_) => unimplemented!("Deploy txns not yet supported"),
         Invoke(invoke_tx) => match &invoke_tx.tx {
-            starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(account_tx, tx),
+            starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(tx),
             _ => unimplemented!("Invoke txn version not yet supported"),
         },
     };
 }
 
+/// Convert a DeclareTransactionV2 to a SNOS InternalTransaction
 pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTransactionV2) -> InternalTransaction {
     let hash_value;
     let sender_address;
@@ -158,7 +159,8 @@ pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTr
     }
 }
 
-pub fn to_internal_invoke_v0_tx(_account_tx: &AccountTransaction, tx: &InvokeTransactionV0) -> InternalTransaction {
+/// Convert a InvokeTransactionV0 to a SNOS InternalTransaction
+pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0) -> InternalTransaction {
     let max_fee = tx.max_fee.0.into();
     let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
     let entry_point_selector = Some(to_felt252(&tx.entry_point_selector.0));
