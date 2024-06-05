@@ -16,7 +16,7 @@ use crate::utils::execute_coroutine;
 
 pub const START_TX_VALIDATE_DECLARE_EXECUTION_CONTEXT: &str = indoc! {r#"
     execution_helper.start_tx(
-           tx_info_ptr=ids.validate_declare_execution_context.deprecated_tx_info.address_
+        tx_info_ptr=ids.validate_declare_execution_context.deprecated_tx_info.address_
     )"#
 };
 pub async fn start_tx_validate_declare_execution_context_async(

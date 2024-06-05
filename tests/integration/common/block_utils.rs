@@ -52,7 +52,6 @@ pub async fn os_hints(
         .collect();
 
     // provide an empty ContractState for any newly deployed contract
-    // TODO: review -- what can to_state_diff() give us results we don't want to use here?
     let state_diff = blockifier_state.to_state_diff();
     let deployed_addresses = state_diff.address_to_class_hash;
     for (address, _class_hash) in &deployed_addresses {
@@ -62,7 +61,13 @@ pub async fn os_hints(
         );
     }
 
-    let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = Default::default();
+    // Initialize class_hash_to_compiled_class_hash with zero so that newly declared contracts
+    // will have an initial value of 0, which is required for dict_updates
+    let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = state_diff
+        .class_hash_to_compiled_class_hash
+        .iter()
+        .map(|(class_hash, _compiled_class_hash)| (felt_api2vm(class_hash.0), Felt252::ZERO))
+        .collect();
 
     for c in contracts.keys() {
         let address = ContractAddress::try_from(StarkHash::new(c.to_bytes_be()).unwrap()).unwrap();
