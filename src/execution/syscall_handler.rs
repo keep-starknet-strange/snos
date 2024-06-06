@@ -11,7 +11,8 @@ use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::new_syscalls;
 use crate::execution::constants::{
     BLOCK_HASH_CONTRACT_ADDRESS, CALL_CONTRACT_GAS_COST, DEPLOY_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST,
-    GET_EXECUTION_INFO_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
+    GET_EXECUTION_INFO_GAS_COST, LIBRARY_CALL_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST,
+    STORAGE_WRITE_GAS_COST,
 };
 use crate::execution::syscall_handler_utils::{
     felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest, EmptyResponse,
@@ -80,6 +81,9 @@ impl OsSyscallHandlerWrapper {
             SyscallSelector::EmitEvent => run_handler::<EmitEventHandler>(ptr, vm, ehw, EMIT_EVENT_GAS_COST).await,
             SyscallSelector::GetBlockHash => {
                 run_handler::<GetBlockHashHandler>(ptr, vm, ehw, GET_BLOCK_HASH_GAS_COST).await
+            }
+            SyscallSelector::LibraryCall => {
+                run_handler::<LibraryCallHandler>(ptr, vm, ehw, LIBRARY_CALL_GAS_COST).await
             }
             SyscallSelector::GetExecutionInfo => {
                 run_handler::<GetExecutionInfoHandler>(ptr, vm, ehw, GET_EXECUTION_INFO_GAS_COST).await
@@ -304,33 +308,46 @@ impl SyscallHandler for GetExecutionInfoHandler {
     }
 }
 
-// TODO: LibraryCall syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct LibraryCallRequest {
-//     pub class_hash: ClassHash,
-//     pub function_selector: EntryPointSelector,
-//     pub calldata: Calldata,
-// }
-//
-// impl SyscallRequest for LibraryCallRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<LibraryCallRequest> {
-//         let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
-//         let (function_selector, calldata) = read_call_params(vm, ptr)?;
-//
-//         Ok(LibraryCallRequest { class_hash, function_selector, calldata })
-//     }
-// }
-//
-// type LibraryCallResponse = CallContractResponse;
-//
-// pub fn library_call(
-//     request: LibraryCallRequest,
-//     vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     remaining_gas: &mut u64,
-// ) -> SyscallResult<LibraryCallResponse> {
-//     Ok(LibraryCallResponse { segment: retdata_segment })
-// }
+struct LibraryCallHandler;
+
+impl SyscallHandler for LibraryCallHandler {
+    type Request = EmptyRequest;
+    type Response = ReadOnlySegment;
+
+    fn read_request(_vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request> {
+        *ptr = (*ptr + new_syscalls::LibraryCallRequest::cairo_size())?;
+        Ok(EmptyRequest)
+    }
+
+    async fn execute(
+        _request: Self::Request,
+        vm: &mut VirtualMachine,
+        exec_wrapper: &mut ExecutionHelperWrapper,
+        remaining_gas: &mut u64,
+    ) -> SyscallResult<Self::Response> {
+        let mut eh_ref = exec_wrapper.execution_helper.write().await;
+        let result_iter = &mut eh_ref.result_iter;
+        let result = result_iter
+            .next()
+            .ok_or(SyscallExecutionError::InternalError(Box::from("No result left in the result iterator.")))?;
+
+        *remaining_gas -= result.gas_consumed;
+
+        let retdata = result.retdata.0.iter().map(|sf| felt_api2vm(*sf)).collect();
+
+        if result.failed {
+            return Err(SyscallExecutionError::SyscallError { error_data: retdata });
+        }
+
+        let start_ptr = vm.add_temporary_segment();
+        vm.load_data(start_ptr, &retdata.iter().map(MaybeRelocatable::from).collect())?;
+        Ok(ReadOnlySegment { start_ptr, length: retdata.len() })
+    }
+
+    fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_segment(vm, ptr, response)
+    }
+}
 
 // TODO: LibraryCallL1Handler syscall.
 // pub fn library_call_l1_handler(
