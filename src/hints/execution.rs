@@ -629,17 +629,8 @@ pub fn tx_max_fee(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let max_fee = if tx.version.unwrap_or_default() < 3.into() {
-    //     tx.max_fee.unwrap_or_default()
-    // } else {
-    //     0
-    // };
-
-    let max_fee = tx.max_fee.unwrap();
-
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let max_fee = if version < Felt252::THREE { tx.max_fee.unwrap() } else { Felt252::ZERO };
     insert_value_into_ap(vm, max_fee)
 }
 

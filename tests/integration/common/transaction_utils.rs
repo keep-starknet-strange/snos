@@ -27,7 +27,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiled
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{DeclareTransactionV2, InvokeTransactionV0};
+use starknet_api::transaction::{DeclareTransactionV2, DeclareTransactionV3, InvokeTransactionV0};
 use starknet_crypto::{pedersen_hash, FieldElement};
 
 use crate::common::block_utils::os_hints;
@@ -87,8 +87,8 @@ fn tx_hash_declare_v2(
     sender_address: Felt252,
     max_fee: Felt252,
     class_hash: Felt252,
-    compiled_class_hash: Felt252,
     nonce: Felt252,
+    compiled_class_hash: Felt252,
 ) -> Felt252 {
     hash_on_elements(vec![
         Felt252::from_bytes_be_slice(DECLARE_PREFIX),
@@ -103,6 +103,31 @@ fn tx_hash_declare_v2(
     ])
 }
 
+/// Produce a hash for a Declare V3 TXN with the provided elements
+fn tx_hash_declare_v3(
+    sender_address: Felt252,
+    tip: Felt252,
+    l1_gas_bounds: Felt252,
+    l2_gas_bounds: Felt252,
+    nonce: Felt252,
+    class_hash: Felt252,
+    compiled_class_hash: Felt252,
+) -> Felt252 {
+    hash_on_elements(vec![
+        Felt252::from_bytes_be_slice(DECLARE_PREFIX),
+        Felt252::THREE, // declare version
+        sender_address,
+        hash_on_elements(vec![tip, l1_gas_bounds, l2_gas_bounds]),
+        hash_on_elements(vec![]), // paymaster_data -- "for future use"
+        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+        nonce,
+        Felt252::ZERO, // TODO: data_availability_modes
+        hash_on_elements(vec![]), // TODO: account_deployment_data, 
+        class_hash,
+        compiled_class_hash,
+    ])
+}
+
 /// Convert an AccountTransaction to a SNOS InternalTransaction
 pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     return match account_tx {
@@ -113,6 +138,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     panic!("Declare V0 is not supported");
                 }
                 starknet_api::transaction::DeclareTransaction::V2(tx) => to_internal_declare_v2_tx(account_tx, tx),
+                starknet_api::transaction::DeclareTransaction::V3(tx) => to_internal_declare_v3_tx(account_tx, tx),
                 _ => unimplemented!("Declare txn version not yet supported"),
             }
         }
@@ -140,7 +166,7 @@ pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTr
             class_hash = felt_api2vm(tx.class_hash.0);
 
             hash_value =
-                tx_hash_declare_v2(sender_address, max_fee, class_hash, felt_api2vm(tx.compiled_class_hash.0), nonce);
+                tx_hash_declare_v2(sender_address, max_fee, class_hash, nonce, felt_api2vm(tx.compiled_class_hash.0));
         }
     }
 
@@ -154,7 +180,46 @@ pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTr
         class_hash: Some(class_hash),
         compiled_class_hash: Some(felt_api2vm(tx.compiled_class_hash.0)),
         r#type: "DECLARE".to_string(),
-        max_fee: Some(max_fee),
+        ..Default::default()
+    }
+}
+
+/// Convert a DeclareTransactionV3 to a SNOS InternalTransaction
+pub fn to_internal_declare_v3_tx(account_tx: &AccountTransaction, tx: &DeclareTransactionV3) -> InternalTransaction {
+    let hash_value;
+    let sender_address;
+    let class_hash;
+    let signature = tx.signature.0.iter().map(|x| to_felt252(x)).collect();
+    let nonce = felt_api2vm(tx.nonce.0);
+
+    match account_tx.create_tx_info() {
+        TransactionInfo::Current(context) => {
+            sender_address = felt_api2vm(*context.common_fields.sender_address.0.key());
+            class_hash = felt_api2vm(tx.class_hash.0);
+
+            hash_value = tx_hash_declare_v3(
+                sender_address,
+                Felt252::ZERO, // TODO: tip
+                Felt252::ZERO, // TODO: l1_gas_bounds
+                Felt252::ZERO, // TODO: l2_gas_bounds
+                nonce,
+                class_hash,
+                felt_api2vm(tx.compiled_class_hash.0),
+            );
+        },
+        TransactionInfo::Deprecated(_) => panic!("Not implemented"),
+    }
+
+    InternalTransaction {
+        hash_value,
+        version: Some(Felt252::THREE),
+        nonce: Some(nonce),
+        sender_address: Some(sender_address),
+        entry_point_type: Some("EXTERNAL".to_string()),
+        signature: Some(signature),
+        class_hash: Some(class_hash),
+        compiled_class_hash: Some(felt_api2vm(tx.compiled_class_hash.0)),
+        r#type: "DECLARE".to_string(),
         ..Default::default()
     }
 }
