@@ -59,8 +59,11 @@ pub fn run_os(
     let end = cairo_runner.initialize(allow_missing_builtins).map_err(|e| SnOsError::Runner(e.into()))?;
 
     // Setup Depsyscall Handler
-    let deprecated_syscall_handler =
-        DeprecatedOsSyscallHandlerWrapper::new(execution_helper.clone(), cairo_runner.vm.add_memory_segment());
+    let deprecated_syscall_handler = DeprecatedOsSyscallHandlerWrapper::new(
+        execution_helper.clone(),
+        cairo_runner.vm.add_memory_segment(),
+        block_context.block_info().clone(),
+    );
 
     let syscall_handler = OsSyscallHandlerWrapper::new(execution_helper.clone());
 
