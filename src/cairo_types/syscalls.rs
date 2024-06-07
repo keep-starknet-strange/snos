@@ -52,6 +52,22 @@ pub struct CallContract {
 }
 
 #[derive(FieldOffsetGetters)]
+pub struct GetBlockNumberRequest {
+    pub selector: Felt252,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetBlockNumberResponse {
+    pub block_number: Felt252,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetBlockNumber {
+    pub request: GetBlockNumberRequest,
+    pub response: GetBlockNumberResponse,
+}
+
+#[derive(FieldOffsetGetters)]
 pub struct LibraryCallRequest {
     /// The system library call selector
     /// (= LIBRARY_CALL_SELECTOR or LIBRARY_CALL_L1_HANDLER_SELECTOR).
