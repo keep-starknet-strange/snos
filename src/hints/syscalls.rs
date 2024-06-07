@@ -128,9 +128,7 @@ pub fn get_block_number(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.get_block_number(syscall_ptr);
-
-    Ok(())
+    execute_coroutine(syscall_handler.get_block_number(syscall_ptr, vm))?
 }
 
 pub const GET_BLOCK_TIMESTAMP: &str =
@@ -146,9 +144,7 @@ pub fn get_block_timestamp(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.get_block_timestamp(syscall_ptr);
-
-    Ok(())
+    execute_coroutine(syscall_handler.get_block_timestamp(syscall_ptr, vm))?
 }
 
 pub const GET_CALLER_ADDRESS: &str =

@@ -112,3 +112,79 @@ async fn test_syscall_library_call_cairo1(
     .await
     .expect("OS run failed");
 }
+
+#[rstest]
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_syscall_get_block_number_cairo0(
+    #[future] initial_state_cairo1: StarknetTestState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let initial_state = initial_state_cairo1.await;
+
+    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
+
+    let expected_block_number = stark_felt!(block_context.block_info().block_number.0);
+
+    let tx_version = TransactionVersion::ZERO;
+    let mut nonce_manager = NonceManager::default();
+    let test_get_block_number = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_get_block_number", &[expected_block_number]),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let txs = vec![test_get_block_number];
+
+    let _result = execute_txs_and_run_os(
+        initial_state.cached_state,
+        block_context,
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+    )
+    .await
+    .expect("OS run failed");
+}
+
+#[rstest]
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_syscall_get_block_timestamp_cairo0(
+    #[future] initial_state_cairo1: StarknetTestState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let initial_state = initial_state_cairo1.await;
+
+    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
+
+    let expected_block_timestamp = stark_felt!(block_context.block_info().block_timestamp.0);
+
+    let tx_version = TransactionVersion::ZERO;
+    let mut nonce_manager = NonceManager::default();
+    let test_get_block_timestamp = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_get_block_timestamp", &[expected_block_timestamp]),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let txs = vec![test_get_block_timestamp];
+
+    let _result = execute_txs_and_run_os(
+        initial_state.cached_state,
+        block_context,
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+    )
+    .await
+    .expect("OS run failed");
+}

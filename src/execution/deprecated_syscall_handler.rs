@@ -1,13 +1,16 @@
 use std::rc::Rc;
 
-use blockifier::execution::execution_utils::ReadOnlySegments;
+use blockifier::block::BlockInfo;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
-use crate::cairo_types::syscalls::{CallContract, CallContractResponse, LibraryCall};
+use crate::cairo_types::syscalls::{
+    CallContract, CallContractResponse, GetBlockNumber, GetBlockNumberResponse, LibraryCall,
+};
 use crate::utils::felt_api2vm;
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
@@ -15,7 +18,7 @@ use crate::utils::felt_api2vm;
 pub struct DeprecatedOsSyscallHandler {
     pub exec_wrapper: ExecutionHelperWrapper,
     pub syscall_ptr: Relocatable,
-    pub _segments: ReadOnlySegments,
+    block_info: BlockInfo,
 }
 
 /// DeprecatedOsSyscallHandler is wrapped in Rc<RefCell<_>> in order
@@ -27,12 +30,12 @@ pub struct DeprecatedOsSyscallHandlerWrapper {
 
 impl DeprecatedOsSyscallHandlerWrapper {
     // TODO(#69): implement the syscalls
-    pub fn new(exec_wrapper: ExecutionHelperWrapper, syscall_ptr: Relocatable) -> Self {
+    pub fn new(exec_wrapper: ExecutionHelperWrapper, syscall_ptr: Relocatable, block_info: BlockInfo) -> Self {
         Self {
             deprecated_syscall_handler: Rc::new(RwLock::new(DeprecatedOsSyscallHandler {
                 exec_wrapper,
                 syscall_ptr,
-                _segments: ReadOnlySegments::default(),
+                block_info,
             })),
         }
     }
@@ -91,12 +94,33 @@ impl DeprecatedOsSyscallHandlerWrapper {
     pub fn emit_event(&self, syscall_ptr: Relocatable) {
         log::error!("emit_event (TODO): {}", syscall_ptr);
     }
-    pub fn get_block_number(&self, syscall_ptr: Relocatable) {
-        log::error!("get_block_number (TODO): {}", syscall_ptr);
+
+    pub async fn get_block_number(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
+        let syscall_handler = self.deprecated_syscall_handler.read().await;
+
+        let block_number = syscall_handler.block_info.block_number;
+
+        let response_offset = GetBlockNumber::response_offset() + GetBlockNumberResponse::block_number_offset();
+        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(block_number.0))?;
+
+        Ok(())
     }
-    pub fn get_block_timestamp(&self, syscall_ptr: Relocatable) {
-        log::error!("get_block_timestamp (TODO): {}", syscall_ptr);
+
+    pub async fn get_block_timestamp(
+        &self,
+        syscall_ptr: Relocatable,
+        vm: &mut VirtualMachine,
+    ) -> Result<(), HintError> {
+        let syscall_handler = self.deprecated_syscall_handler.read().await;
+
+        let block_number = syscall_handler.block_info.block_timestamp;
+
+        let response_offset = GetBlockNumber::response_offset() + GetBlockNumberResponse::block_number_offset();
+        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(block_number.0))?;
+
+        Ok(())
     }
+
     pub async fn get_caller_address(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) {
         let sys_hand = self.deprecated_syscall_handler.read().await;
         let exec_helper = sys_hand.exec_wrapper.execution_helper.read().await;
@@ -252,7 +276,8 @@ mod test {
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
-        let syscall_handler = DeprecatedOsSyscallHandlerWrapper::new(*exec_helper_box, syscall_ptr);
+        let syscall_handler =
+            DeprecatedOsSyscallHandlerWrapper::new(*exec_helper_box, syscall_ptr, block_context.block_info().clone());
 
         syscall_handler.call_contract(syscall_ptr, &mut vm).await.unwrap();
 
