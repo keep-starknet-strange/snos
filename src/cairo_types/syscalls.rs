@@ -52,6 +52,27 @@ pub struct CallContract {
 }
 
 #[derive(FieldOffsetGetters)]
+pub struct LibraryCallRequest {
+    /// The system library call selector
+    /// (= LIBRARY_CALL_SELECTOR or LIBRARY_CALL_L1_HANDLER_SELECTOR).
+    pub selector: Felt252,
+    /// The hash of the class to run.
+    pub class_hash: Felt252,
+    /// The selector of the function to call.
+    pub function_selector: Felt252,
+    /// The size of the calldata.
+    pub calldata_size: Felt252,
+    /// The calldata.
+    pub calldata: Relocatable,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct LibraryCall {
+    pub request: LibraryCallRequest,
+    pub response: CallContractResponse,
+}
+
+#[derive(FieldOffsetGetters)]
 pub struct TxInfo {
     /// The version of the transaction. It is fixed (currently, 1) in the OS, and should be
     /// signed by the account contract.
