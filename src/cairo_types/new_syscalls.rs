@@ -57,6 +57,17 @@ pub struct GetBlockHashRequest {
     pub block_number: Felt252,
 }
 
+#[derive(FieldOffsetGetters)]
+pub struct LibraryCallRequest {
+    /// The hash of the class to run.
+    pub class_hash: Felt252,
+    /// The selector of the function to call.
+    pub selector: Felt252,
+    /// The calldata.
+    pub calldata_start: Relocatable,
+    pub calldata_end: Relocatable,
+}
+
 #[allow(unused)]
 #[derive(FieldOffsetGetters)]
 pub struct SendMessageToL1Request {
