@@ -79,9 +79,7 @@ pub fn delegate_l1_handler(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.delegate_l1_handler(syscall_ptr);
-
-    Ok(())
+    execute_coroutine(syscall_handler.delegate_l1_handler(syscall_ptr, vm))?
 }
 
 pub const DEPLOY: &str = "syscall_handler.deploy(segments=segments, syscall_ptr=ids.syscall_ptr)";
@@ -262,9 +260,7 @@ pub fn library_call(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.library_call(syscall_ptr);
-
-    Ok(())
+    execute_coroutine(syscall_handler.library_call(syscall_ptr, vm))?
 }
 
 pub const LIBRARY_CALL_L1_HANDLER: &str =
@@ -280,9 +276,7 @@ pub fn library_call_l1_handler(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.library_call_l1_handler(syscall_ptr);
-
-    Ok(())
+    execute_coroutine(syscall_handler.library_call_l1_handler(syscall_ptr, vm))?
 }
 
 pub const REPLACE_CLASS: &str = "syscall_handler.replace_class(segments=segments, syscall_ptr=ids.syscall_ptr)";

@@ -7,7 +7,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
-use crate::cairo_types::syscalls::{CallContract, CallContractResponse};
+use crate::cairo_types::syscalls::{CallContract, CallContractResponse, LibraryCall};
 use crate::utils::felt_api2vm;
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
@@ -19,7 +19,7 @@ pub struct DeprecatedOsSyscallHandler {
 }
 
 /// DeprecatedOsSyscallHandler is wrapped in Rc<RefCell<_>> in order
-/// to clone the refrence when entering and exiting vm scopes
+/// to clone the reference when entering and exiting vm scopes
 #[derive(Clone, Debug)]
 pub struct DeprecatedOsSyscallHandlerWrapper {
     pub deprecated_syscall_handler: Rc<RwLock<DeprecatedOsSyscallHandler>>,
@@ -36,22 +36,25 @@ impl DeprecatedOsSyscallHandlerWrapper {
             })),
         }
     }
-    pub async fn call_contract(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
-        let sys_hand = self.deprecated_syscall_handler.write().await;
-        let result = sys_hand
-            .exec_wrapper
-            .execution_helper
-            .write()
-            .await
-            .result_iter
-            .next()
-            .expect("A call execution should have a corresponding result");
 
-        let response_offset = CallContract::response_offset();
+    async fn call_contract_and_write_response(
+        &self,
+        syscall_ptr: Relocatable,
+        response_offset: usize,
+        vm: &mut VirtualMachine,
+    ) -> Result<(), HintError> {
+        let syscall_handler = self.deprecated_syscall_handler.write().await;
+        let result =
+            syscall_handler.exec_wrapper.execution_helper.write().await.result_iter.next().ok_or(
+                HintError::SyscallError("Expected a result when calling contract".to_string().into_boxed_str()),
+            )?;
+
         let retdata_size_offset = response_offset + CallContractResponse::retdata_size_offset();
         let retdata_offset = response_offset + CallContractResponse::retdata_offset();
 
-        vm.insert_value((syscall_ptr + retdata_size_offset).unwrap(), result.retdata.0.len()).unwrap();
+        // Write the result to the VM memory. First write the length of the result then
+        // the result array.
+        vm.insert_value((syscall_ptr + retdata_size_offset)?, result.retdata.0.len())?;
         let new_segment = vm.add_temporary_segment();
         let retdata = result
             .retdata
@@ -63,16 +66,24 @@ impl DeprecatedOsSyscallHandlerWrapper {
             })
             .collect();
         vm.load_data(new_segment, &retdata)?;
-        vm.insert_value((syscall_ptr + retdata_offset).unwrap(), new_segment)?;
+        vm.insert_value((syscall_ptr + retdata_offset)?, new_segment)?;
 
         Ok(())
     }
-    #[allow(unused)]
-    pub fn delegate_call(&self, syscall_ptr: Relocatable) {
-        log::error!("delegate_call (TODO): {}", syscall_ptr);
+
+    pub async fn call_contract(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
+        self.call_contract_and_write_response(syscall_ptr, CallContract::response_offset(), vm).await
     }
-    pub fn delegate_l1_handler(&self, syscall_ptr: Relocatable) {
-        log::error!("delegate_l1_handler (TODO): {}", syscall_ptr);
+    #[allow(unused)]
+    pub async fn delegate_call(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
+        self.call_contract_and_write_response(syscall_ptr, CallContract::response_offset(), vm).await
+    }
+    pub async fn delegate_l1_handler(
+        &self,
+        syscall_ptr: Relocatable,
+        vm: &mut VirtualMachine,
+    ) -> Result<(), HintError> {
+        self.call_contract_and_write_response(syscall_ptr, CallContract::response_offset(), vm).await
     }
     pub fn deploy(&self, syscall_ptr: Relocatable) {
         log::error!("deploy (TODO): {}", syscall_ptr);
@@ -112,11 +123,15 @@ impl DeprecatedOsSyscallHandlerWrapper {
     pub fn get_tx_signature(&self, syscall_ptr: Relocatable) {
         log::error!("get_tx_signature (TODO): {}", syscall_ptr);
     }
-    pub fn library_call(&self, syscall_ptr: Relocatable) {
-        log::error!("library_call (TODO): {}", syscall_ptr);
+    pub async fn library_call(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
+        self.call_contract_and_write_response(syscall_ptr, LibraryCall::response_offset(), vm).await
     }
-    pub fn library_call_l1_handler(&self, syscall_ptr: Relocatable) {
-        log::error!("library_call (TODO): {}", syscall_ptr);
+    pub async fn library_call_l1_handler(
+        &self,
+        syscall_ptr: Relocatable,
+        vm: &mut VirtualMachine,
+    ) -> Result<(), HintError> {
+        self.call_contract_and_write_response(syscall_ptr, LibraryCall::response_offset(), vm).await
     }
     pub fn replace_class(&self, syscall_ptr: Relocatable) {
         log::error!("replace_class (TODO): {}", syscall_ptr);
