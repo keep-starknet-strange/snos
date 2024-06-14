@@ -222,9 +222,7 @@ pub fn get_tx_info(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.get_tx_info(syscall_ptr);
-
-    Ok(())
+    execute_coroutine(syscall_handler.get_tx_info(syscall_ptr, vm))?
 }
 
 pub const GET_TX_SIGNATURE: &str = "syscall_handler.get_tx_signature(segments=segments, syscall_ptr=ids.syscall_ptr)";
