@@ -170,6 +170,8 @@ pub fn assert_transaction_hash(
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let transaction_hash = get_integer_from_var_name(vars::ids::TRANSACTION_HASH, vm, ids_data, ap_tracking)?;
 
+    println!("tx.hash_value: {}, transaction_hash: {}", tx.hash_value.to_biguint(), transaction_hash.to_biguint());
+
     assert_eq!(
         tx.hash_value,
         transaction_hash,
@@ -879,10 +881,11 @@ pub async fn start_tx_async(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError> {
-    let tx_execution_context =
-        get_relocatable_from_var_name(vars::ids::TX_EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
+    let tx_execution_context = get_ptr_from_var_name(vars::ids::TX_EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
-    let tx_info_ptr = (tx_execution_context + ExecutionContext::deprecated_tx_info_offset())?;
+
+    let tx_info_ptr = vm.get_relocatable((tx_execution_context + ExecutionContext::deprecated_tx_info_offset())?)?;
+
     execution_helper.start_tx(Some(tx_info_ptr)).await;
     Ok(())
 }

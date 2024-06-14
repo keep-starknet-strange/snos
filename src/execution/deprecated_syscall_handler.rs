@@ -9,7 +9,8 @@ use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::syscalls::{
-    CallContract, CallContractResponse, GetBlockNumber, GetBlockNumberResponse, LibraryCall,
+    CallContract, CallContractResponse, GetBlockNumber, GetBlockNumberResponse, GetTxInfo, GetTxInfoResponse,
+    LibraryCall, TxInfo,
 };
 use crate::utils::felt_api2vm;
 
@@ -141,8 +142,21 @@ impl DeprecatedOsSyscallHandlerWrapper {
     pub fn get_sequencer_address(&self, syscall_ptr: Relocatable) {
         log::error!("get_sequencer_address (TODO): {}", syscall_ptr);
     }
-    pub fn get_tx_info(&self, syscall_ptr: Relocatable) {
-        log::error!("get_tx_info (TODO): {}", syscall_ptr);
+    pub async fn get_tx_info(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
+        let syscall_handler = self.deprecated_syscall_handler.read().await;
+        let execution_helper = syscall_handler.exec_wrapper.execution_helper.read().await;
+
+        let tx_info_ptr = execution_helper
+            .tx_info_ptr
+            .ok_or(HintError::SyscallError("Tx info pointer not set".to_string().into_boxed_str()))?;
+
+        let tx_info = vm.get_range(tx_info_ptr, TxInfo::cairo_size());
+        println!("Tx info {:?}", tx_info);
+
+        let response_offset = GetTxInfo::response_offset() + GetTxInfoResponse::tx_info_offset();
+        vm.insert_value((syscall_ptr + response_offset)?, tx_info_ptr)?;
+
+        Ok(())
     }
     pub fn get_tx_signature(&self, syscall_ptr: Relocatable) {
         log::error!("get_tx_signature (TODO): {}", syscall_ptr);
