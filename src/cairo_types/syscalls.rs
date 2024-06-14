@@ -110,3 +110,22 @@ pub struct TxInfo {
     /// The transaction's nonce.
     pub nonce: Felt252,
 }
+
+/// Describes the GetTxInfo system call format.
+#[derive(FieldOffsetGetters)]
+pub struct GetTxInfoRequest {
+    /// The system call selector (= GET_TX_INFO_SELECTOR).
+    pub selector: Felt252,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetTxInfoResponse {
+    /// Points to a TxInfo struct.
+    pub tx_info: Relocatable,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetTxInfo {
+    pub request: GetTxInfoRequest,
+    pub response: GetTxInfoResponse,
+}
