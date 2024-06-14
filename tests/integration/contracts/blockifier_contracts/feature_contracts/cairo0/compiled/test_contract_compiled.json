@@ -497,6 +497,33 @@
                 {
                     "name": "expected_version",
                     "type": "felt"
+                },
+                {
+                    "name": "expected_account_contract_address",
+                    "type": "felt"
+                },
+                {
+                    "name": "expected_max_fee",
+                    "type": "felt"
+                },
+                {
+                    "name": "expected_chain_id",
+                    "type": "felt"
+                },
+                {
+                    "name": "expected_nonce",
+                    "type": "felt"
+                }
+            ],
+            "name": "test_get_tx_info_no_tx_hash_check",
+            "outputs": [],
+            "type": "function"
+        },
+        {
+            "inputs": [
+                {
+                    "name": "expected_version",
+                    "type": "felt"
                 }
             ],
             "name": "test_tx_version",
@@ -600,11 +627,11 @@
                 "selector": "0x600c98a299d72ef1e09a2e1503206fbc76081233172c65f7e2438ef0069d8d"
             },
             {
-                "offset": 1652,
+                "offset": 1711,
                 "selector": "0x679c22735055a10db4f275395763a3752a1e3a3043c192299ab6b574fba8d6"
             },
             {
-                "offset": 1576,
+                "offset": 1635,
                 "selector": "0x7772be8b80a8a33dc6c1f9a6ab820c02e537c73e859de67f288c70f92571bb"
             },
             {
@@ -612,7 +639,7 @@
                 "selector": "0xad451bd0dba3d8d97104e1bfc474f88605ccc7acbe1c846839a120fdf30d95"
             },
             {
-                "offset": 1402,
+                "offset": 1461,
                 "selector": "0xd47144c49bce05b6de6bce9d5ff0cc8da9420f8945453e20ef779cbea13ad4"
             },
             {
@@ -628,11 +655,11 @@
                 "selector": "0x120c24672855cfe872cb35256ea85172417f2aada7a22c15908906dc5f3c69d"
             },
             {
-                "offset": 1369,
+                "offset": 1428,
                 "selector": "0x127a04cfe41aceb22fc022bce0c5c70f2d860a7c7c054681bd821cdc18e6dbc"
             },
             {
-                "offset": 1729,
+                "offset": 1788,
                 "selector": "0x12ead94ae9d3f9d2bdb6b847cf255f1f398193a1f88884a0ae8e18f24a037b6"
             },
             {
@@ -648,7 +675,11 @@
                 "selector": "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f"
             },
             {
-                "offset": 1693,
+                "offset": 1399,
+                "selector": "0x1adcdcb33a596be81f91fef162e5b5c4280cc8a5ec9ce61fff28ae1cf1c6bc7"
+            },
+            {
+                "offset": 1752,
                 "selector": "0x1ae1a515cf2d214b29bdf63a79ee2d490efd4dd1acc99d383a8e549c3cecb5d"
             },
             {
@@ -672,11 +703,11 @@
                 "selector": "0x309687d54611a7db521175c78ba48b082df1372350d2529981a8c0dd09a6529"
             },
             {
-                "offset": 1608,
+                "offset": 1667,
                 "selector": "0x30f842021fbf02caf80d09a113997c1e00a32870eee0c6136bed27acb348bea"
             },
             {
-                "offset": 1528,
+                "offset": 1587,
                 "selector": "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f"
             },
             {
@@ -734,7 +765,7 @@
             "bitwise",
             "ec_op"
         ],
-        "compiler_version": "0.12.2",
+        "compiler_version": "0.13.0",
         "data": [
             "0x40780017fff7fff",
             "0x1",
@@ -2099,9 +2130,68 @@
             "0x0",
             "0x48127ff97fff8000",
             "0x208b7fff7fff7ffe",
-            "0x480a7ffc7fff8000",
+            "0x480a7ff77fff8000",
             "0x1104800180018000",
             "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb23",
+            "0x480080007fff8000",
+            "0x480080017ffe8000",
+            "0x480080027ffd8000",
+            "0x480080037ffc8000",
+            "0x480080047ffb8000",
+            "0x480080057ffa8000",
+            "0x480080067ff98000",
+            "0x480080077ff88000",
+            "0x400a7ff97fff7ff8",
+            "0x400a7ffa7fff7ff9",
+            "0x400a7ffb7fff7ffa",
+            "0x400a7ffc7fff7ffe",
+            "0x400a7ffd7fff7fff",
+            "0x400680017fff7ffb",
+            "0x0",
+            "0x48127ff67fff8000",
+            "0x480680017fff8000",
+            "0x12c",
+            "0x48127ffb7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb06",
+            "0x480680017fff8000",
+            "0x137",
+            "0x48127ff67fff8000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb01",
+            "0x480680017fff8000",
+            "0x142",
+            "0x48127ff17fff8000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffafc",
+            "0x480a7ff87fff8000",
+            "0x208b7fff7fff7ffe",
+            "0x482680017ffd8000",
+            "0x5",
+            "0x402a7ffd7ffc7fff",
+            "0x480280007ffb8000",
+            "0x480280027ffb8000",
+            "0x480280007ffd8000",
+            "0x480280017ffd8000",
+            "0x480280027ffd8000",
+            "0x480280037ffd8000",
+            "0x480280047ffd8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffd3",
+            "0x40780017fff7fff",
+            "0x1",
+            "0x48127ffd7fff8000",
+            "0x480280017ffb8000",
+            "0x48127ffc7fff8000",
+            "0x480280037ffb8000",
+            "0x480280047ffb8000",
+            "0x480680017fff8000",
+            "0x0",
+            "0x48127ff97fff8000",
+            "0x208b7fff7fff7ffe",
+            "0x480a7ffc7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffae8",
             "0x400180007fff7ffd",
             "0x48127ffe7fff8000",
             "0x208b7fff7fff7ffe",
@@ -2129,13 +2219,13 @@
             "0x480680017fff8000",
             "0x0",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaff",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffac4",
             "0x480680017fff8000",
             "0xf",
             "0x480680017fff8000",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaf9",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffabe",
             "0x480a7ffd7fff8000",
             "0x208b7fff7fff7ffe",
             "0x402b7ffd7ffc7ffd",
@@ -2157,7 +2247,7 @@
             "0x40780017fff7fff",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa75",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa3a",
             "0x40137fff7fff8000",
             "0x4003800080007ffb",
             "0x4003800180007ffc",
@@ -2171,7 +2261,7 @@
             "0x4828800080007ffc",
             "0x480a80007fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa85",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa4a",
             "0x48127ffd7fff8000",
             "0x480a7ff97fff8000",
             "0x208b7fff7fff7ffe",
@@ -2180,11 +2270,11 @@
             "0x2691cb735b18f3f656c3b82bd97a32b65d15019b64117513f8604d1e06fe58b",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa61",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa26",
             "0x480a7ffc7fff8000",
             "0x48127ffe7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaeb",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffab0",
             "0x48127fe17fff8000",
             "0x48127ffd7fff8000",
             "0x48127ffd7fff8000",
@@ -2197,12 +2287,12 @@
             "0x480a7ffa7fff8000",
             "0x48127ffe7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffab3",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa78",
             "0x48127ffe7fff8000",
             "0x482480017ff78000",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaae",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa73",
             "0x48127ffe7fff8000",
             "0x48127fee7fff8000",
             "0x48127fee7fff8000",
@@ -2218,12 +2308,12 @@
             "0x48127ffe7fff8000",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaa6",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa6b",
             "0x482480017ff88000",
             "0x1",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaa1",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa66",
             "0x48127ff07fff8000",
             "0x48127ff07fff8000",
             "0x208b7fff7fff7ffe",
@@ -2240,12 +2330,12 @@
             "0x48127ffe7fff8000",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa90",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa55",
             "0x482480017ff88000",
             "0x1",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa8b",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa50",
             "0x48127ff07fff8000",
             "0x48127ff07fff8000",
             "0x208b7fff7fff7ffe",
@@ -2296,12 +2386,12 @@
             "0x48127ffd7fff8000",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaa3",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa68",
             "0x48127ffe7fff8000",
             "0x48127ff77fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa9e",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa63",
             "0x48127fed7fff8000",
             "0x48127fed7fff8000",
             "0x48127fed7fff8000",
@@ -2378,7 +2468,7 @@
             "0x480680017fff8000",
             "0x4b5810004d9272776dec83ecc20c19353453b956e594188890b48467cb53c19",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa93",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa58",
             "0x480a7ffa7fff8000",
             "0x480a7ffb7fff8000",
             "0x480a7ffc7fff8000",
@@ -2408,7 +2498,7 @@
             "0x208b7fff7fff7ffe",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9d8",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff99d",
             "0x400680017fff7ffe",
             "0x2",
             "0x48127ffd7fff8000",
@@ -2456,14 +2546,14 @@
             "0x400780017fff8001",
             "0x22",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff962",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff927",
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x480680017fff8000",
             "0x2",
             "0x48127ffb7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa5d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa22",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
             "0x1",
@@ -3319,7 +3409,25 @@
                     }
                 }
             ],
-            "1376": [
+            "1411": [
+                {
+                    "accessible_scopes": [
+                        "__main__",
+                        "__main__",
+                        "__wrappers__",
+                        "__wrappers__.test_get_tx_info_no_tx_hash_check"
+                    ],
+                    "code": "memory[ap] = segments.add()",
+                    "flow_tracking_data": {
+                        "ap_tracking": {
+                            "group": 113,
+                            "offset": 44
+                        },
+                        "reference_ids": {}
+                    }
+                }
+            ],
+            "1435": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3330,14 +3438,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 113,
+                            "group": 115,
                             "offset": 12
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "1407": [
+            "1466": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3348,14 +3456,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 115,
+                            "group": 117,
                             "offset": 18
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "1539": [
+            "1598": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3366,14 +3474,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 123,
+                            "group": 125,
                             "offset": 145
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "1588": [
+            "1647": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3384,14 +3492,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 125,
+                            "group": 127,
                             "offset": 161
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "1619": [
+            "1678": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3402,14 +3510,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 127,
+                            "group": 129,
                             "offset": 35
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "1659": [
+            "1718": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3420,14 +3528,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 131,
+                            "group": 133,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "1702": [
+            "1761": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3438,14 +3546,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 133,
+                            "group": 135,
                             "offset": 153
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "1736": [
+            "1795": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3456,7 +3564,7 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 135,
+                            "group": 137,
                             "offset": 17
                         },
                         "reference_ids": {}
@@ -3545,7 +3653,7 @@
             },
             "__main__.MyContract.xor_counters": {
                 "decorators": [],
-                "pc": 1418,
+                "pc": 1477,
                 "type": "function"
             },
             "__main__.MyContract.xor_counters.Args": {
@@ -3598,7 +3706,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1670,
+                "pc": 1729,
                 "type": "function"
             },
             "__main__.add_signature_to_counters.Args": {
@@ -3643,7 +3751,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1513,
+                "pc": 1572,
                 "type": "function"
             },
             "__main__.advance_counter.Args": {
@@ -3745,7 +3853,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1599,
+                "pc": 1658,
                 "type": "function"
             },
             "__main__.call_xor_counters.Args": {
@@ -3864,7 +3972,7 @@
             },
             "__main__.ec_point.addr": {
                 "decorators": [],
-                "pc": 1491,
+                "pc": 1550,
                 "type": "function"
             },
             "__main__.ec_point.addr.Args": {
@@ -3914,7 +4022,7 @@
             },
             "__main__.ec_point.write": {
                 "decorators": [],
-                "pc": 1496,
+                "pc": 1555,
                 "type": "function"
             },
             "__main__.ec_point.write.Args": {
@@ -4339,7 +4447,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1713,
+                "pc": 1772,
                 "type": "function"
             },
             "__main__.send_message.Args": {
@@ -4562,7 +4670,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1387,
+                "pc": 1446,
                 "type": "function"
             },
             "__main__.test_count_actual_storage_changes.Args": {
@@ -4655,7 +4763,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1630,
+                "pc": 1689,
                 "type": "function"
             },
             "__main__.test_ec_op.Args": {
@@ -4864,6 +4972,63 @@
                 "type": "type_definition"
             },
             "__main__.test_get_tx_info.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__main__.test_get_tx_info_no_tx_hash_check": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 1363,
+                "type": "function"
+            },
+            "__main__.test_get_tx_info_no_tx_hash_check.Args": {
+                "full_name": "__main__.test_get_tx_info_no_tx_hash_check.Args",
+                "members": {
+                    "expected_account_contract_address": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    },
+                    "expected_chain_id": {
+                        "cairo_type": "felt",
+                        "offset": 3
+                    },
+                    "expected_max_fee": {
+                        "cairo_type": "felt",
+                        "offset": 2
+                    },
+                    "expected_nonce": {
+                        "cairo_type": "felt",
+                        "offset": 4
+                    },
+                    "expected_version": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    }
+                },
+                "size": 5,
+                "type": "struct"
+            },
+            "__main__.test_get_tx_info_no_tx_hash_check.ImplicitArgs": {
+                "full_name": "__main__.test_get_tx_info_no_tx_hash_check.ImplicitArgs",
+                "members": {
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    },
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 2,
+                "type": "struct"
+            },
+            "__main__.test_get_tx_info_no_tx_hash_check.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "__main__.test_get_tx_info_no_tx_hash_check.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
@@ -5119,7 +5284,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1363,
+                "pc": 1422,
                 "type": "function"
             },
             "__main__.test_tx_version.Args": {
@@ -5234,7 +5399,7 @@
             },
             "__main__.two_counters.addr": {
                 "decorators": [],
-                "pc": 1439,
+                "pc": 1498,
                 "type": "function"
             },
             "__main__.two_counters.addr.Args": {
@@ -5281,7 +5446,7 @@
             },
             "__main__.two_counters.read": {
                 "decorators": [],
-                "pc": 1453,
+                "pc": 1512,
                 "type": "function"
             },
             "__main__.two_counters.read.Args": {
@@ -5332,7 +5497,7 @@
             },
             "__main__.two_counters.write": {
                 "decorators": [],
-                "pc": 1473,
+                "pc": 1532,
                 "type": "function"
             },
             "__main__.two_counters.write.Args": {
@@ -5522,7 +5687,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1550,
+                "pc": 1609,
                 "type": "function"
             },
             "__main__.xor_counters.Args": {
@@ -5571,7 +5736,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1693,
+                "pc": 1752,
                 "type": "function"
             },
             "__wrappers__.add_signature_to_counters.Args": {
@@ -5606,7 +5771,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1528,
+                "pc": 1587,
                 "type": "function"
             },
             "__wrappers__.advance_counter.Args": {
@@ -5676,7 +5841,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1608,
+                "pc": 1667,
                 "type": "function"
             },
             "__wrappers__.call_xor_counters.Args": {
@@ -5955,7 +6120,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1729,
+                "pc": 1788,
                 "type": "function"
             },
             "__wrappers__.send_message.Args": {
@@ -6130,7 +6295,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1402,
+                "pc": 1461,
                 "type": "function"
             },
             "__wrappers__.test_count_actual_storage_changes.Args": {
@@ -6234,7 +6399,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1652,
+                "pc": 1711,
                 "type": "function"
             },
             "__wrappers__.test_ec_op.Args": {
@@ -6402,6 +6567,41 @@
                 "type": "alias"
             },
             "__wrappers__.test_get_tx_info_encode_return.memcpy": {
+                "destination": "starkware.cairo.common.memcpy.memcpy",
+                "type": "alias"
+            },
+            "__wrappers__.test_get_tx_info_no_tx_hash_check": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 1399,
+                "type": "function"
+            },
+            "__wrappers__.test_get_tx_info_no_tx_hash_check.Args": {
+                "full_name": "__wrappers__.test_get_tx_info_no_tx_hash_check.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_get_tx_info_no_tx_hash_check.ImplicitArgs": {
+                "full_name": "__wrappers__.test_get_tx_info_no_tx_hash_check.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_get_tx_info_no_tx_hash_check.Return": {
+                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, ec_op_ptr: felt, size: felt, retdata: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.test_get_tx_info_no_tx_hash_check.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__wrappers__.test_get_tx_info_no_tx_hash_check.__wrapped_func": {
+                "destination": "__main__.test_get_tx_info_no_tx_hash_check",
+                "type": "alias"
+            },
+            "__wrappers__.test_get_tx_info_no_tx_hash_check_encode_return.memcpy": {
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
@@ -6722,7 +6922,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1369,
+                "pc": 1428,
                 "type": "function"
             },
             "__wrappers__.test_tx_version.Args": {
@@ -6966,7 +7166,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1576,
+                "pc": 1635,
                 "type": "function"
             },
             "__wrappers__.xor_counters.Args": {

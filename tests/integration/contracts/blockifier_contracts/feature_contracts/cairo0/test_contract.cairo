@@ -321,6 +321,34 @@ func test_get_tx_info{syscall_ptr: felt*, range_check_ptr}(
     return ();
 }
 
+// Same as text_get_tx_info() but does not check the tx hash, which is impossible to do
+// for SNOS tests (the tx hash must be the same as a hash provided in the calldata).
+@external
+func test_get_tx_info_no_tx_hash_check{syscall_ptr: felt*, range_check_ptr}(
+    expected_version: felt,
+    expected_account_contract_address: felt,
+    expected_max_fee: felt,
+    expected_chain_id: felt,
+    expected_nonce: felt,
+) {
+    let (tx_info_ptr: TxInfo*) = get_tx_info();
+    // Copy tx_info fields to make sure they were assigned a value during the system call.
+    tempvar tx_info = [tx_info_ptr];
+
+    assert tx_info.version = expected_version;
+    assert tx_info.account_contract_address = expected_account_contract_address;
+    assert tx_info.max_fee = expected_max_fee;
+    assert tx_info.chain_id = expected_chain_id;
+    assert tx_info.nonce = expected_nonce;
+    assert tx_info.signature_len = 0;
+
+    storage_write(address=300, value=tx_info.transaction_hash);
+    storage_write(address=311, value=tx_info.chain_id);
+    storage_write(address=322, value=tx_info.nonce);
+
+    return ();
+}
+
 @external
 func test_tx_version{syscall_ptr: felt*}(expected_version: felt) {
     let (tx_info: TxInfo*) = get_tx_info();
