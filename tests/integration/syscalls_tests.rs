@@ -227,7 +227,7 @@ async fn test_syscall_get_tx_info_cairo0(
                 nonce.0, // expected nonce
             ]),
             version: tx_version,
-            nonce: nonce_manager.next(sender_address),
+            nonce,
         });
         // Blockifier does not compute tx hashes. Insert the correct tx hash here to make
         // the storage updates match between Blockifier and the OS.
@@ -238,6 +238,47 @@ async fn test_syscall_get_tx_info_cairo0(
     };
 
     let txs = vec![test_get_tx_info];
+
+    let _result = execute_txs_and_run_os(
+        initial_state.cached_state,
+        block_context,
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+    )
+    .await
+    .expect("OS run failed");
+}
+
+#[rstest]
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_syscall_get_tx_signature_cairo0(
+    #[future] initial_state_cairo1: StarknetTestState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let initial_state = initial_state_cairo1.await;
+
+    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
+
+    let tx_version = TransactionVersion::ZERO;
+
+    let mut nonce_manager = NonceManager::default();
+
+    // Note: we use `test_get_tx_info_no_tx_hash_check()` instead of `test_get_tx_info()`
+    // because it is pretty much impossible to generate a tx whose hash is equal to the expected
+    // hash that must be set in the calldata.
+    let test_get_tx_signature = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_get_tx_signature", &[]),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let txs = vec![test_get_tx_signature];
 
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
