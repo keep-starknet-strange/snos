@@ -129,3 +129,21 @@ pub struct GetTxInfo {
     pub request: GetTxInfoRequest,
     pub response: GetTxInfoResponse,
 }
+
+#[derive(FieldOffsetGetters)]
+pub struct GetTxSignatureRequest {
+    // The system call selector (= GET_TX_SIGNATURE_SELECTOR).
+    pub selector: Felt252,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetTxSignatureResponse {
+    pub signature_len: Felt252,
+    pub signature: Relocatable,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetTxSignature {
+    pub request: GetTxSignatureRequest,
+    pub response: GetTxSignatureResponse,
+}
