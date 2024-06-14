@@ -349,6 +349,15 @@ func test_get_tx_info_no_tx_hash_check{syscall_ptr: felt*, range_check_ptr}(
     return ();
 }
 
+// This test validates that the get_tx_signature() syscall is implemented.
+@external
+func test_get_tx_signature{syscall_ptr: felt*}() {
+    let (signature_len: felt, signature: felt*) = get_tx_signature();
+    assert signature_len = 0;
+
+    return ();
+}
+
 @external
 func test_tx_version{syscall_ptr: felt*}(expected_version: felt) {
     let (tx_info: TxInfo*) = get_tx_info();
