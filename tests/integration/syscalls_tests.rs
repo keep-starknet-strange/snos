@@ -7,6 +7,7 @@ use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use rstest::rstest;
+use snos::config::SN_GOERLI;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionHash, TransactionVersion};
@@ -206,7 +207,7 @@ async fn test_syscall_get_tx_info_cairo0(
 
     let tx_version = TransactionVersion::ZERO;
 
-    let expected_chain_id = stark_felt!(1536727068981429685321u128);
+    let expected_chain_id = stark_felt!(SN_GOERLI);
 
     let mut nonce_manager = NonceManager::default();
     let nonce = nonce_manager.next(sender_address);
