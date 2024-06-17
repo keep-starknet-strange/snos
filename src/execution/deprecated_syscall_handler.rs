@@ -184,8 +184,8 @@ impl DeprecatedOsSyscallHandlerWrapper {
     ) -> Result<(), HintError> {
         self.call_contract_and_write_response(syscall_ptr, LibraryCall::response_offset(), vm).await
     }
-    pub fn replace_class(&self, syscall_ptr: Relocatable) {
-        log::error!("replace_class (TODO): {}", syscall_ptr);
+    pub fn replace_class(&self) {
+        // Nothing to do.
     }
     pub fn send_message_to_l1(&self, syscall_ptr: Relocatable) {
         log::error!("send_message_to_l1 (TODO): {}", syscall_ptr);
