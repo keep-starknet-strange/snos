@@ -666,38 +666,29 @@ pub fn tx_resource_bounds_len(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let len = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.resource_bounds.unwrap_or_default().len().into()
-    // };
-
-    let len = Felt252::ZERO;
-    insert_value_into_ap(vm, len)
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let resource_bounds = if version < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        log::warn!("TODO: should inject tx.resource_bounds here");
+        Felt252::ZERO
+    };
+    insert_value_into_ap(vm, resource_bounds)
 }
 
 pub const TX_PAYMASTER_DATA_LEN: &str =
     "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else len(tx.paymaster_data))";
 pub fn tx_paymaster_data_len(
     vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let len = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.paymaster_data.unwrap_or_default().len().into()
-    // };
-
+    // TODO: paymaster data is "for future use"
+    // let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
+    // let version = tx.version.unwrap_or(Felt252::ZERO);
+    // let len = if version < Felt252::THREE { Felt252::ZERO } else { tx.paymaster_data.len() };
     let len = Felt252::ZERO;
     insert_value_into_ap(vm, len)
 }
@@ -712,18 +703,14 @@ pub fn tx_paymaster_data(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let paymaster_data = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     let paymaster_data = tx.paymaster_data.unwrap_or_default().iter().map(|felt|
-    // felt.into()).collect();     let paymaster_data_base = vm.add_memory_segment();
-    //     vm.load_data(paymaster_data_base, &paymaster_data)?;
-    //     paymaster_data_base
-    // };
-    let paymaster_data = Felt252::ZERO;
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let paymaster_data = if version < Felt252::THREE {
+        MaybeRelocatable::Int(Felt252::ZERO)
+    } else {
+        // TODO: add paymaster data to InternalTransaction
+        let paymaster_data_base = vm.add_memory_segment();
+        MaybeRelocatable::RelocatableValue(paymaster_data_base)
+    };
     insert_value_into_ap(vm, paymaster_data)
 }
 
@@ -737,16 +724,13 @@ pub fn tx_nonce_data_availability_mode(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let nonce_data_availability_mode = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.nonce_data_availability_mode.unwrap_or_default()
-    // };
-
-    let nonce_data_availability_mode = Felt252::ZERO;
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let nonce_data_availability_mode = if version < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        log::warn!("TODO: use tx.nonce_data_availability_mode here (using zero instead)");
+        Felt252::ZERO
+    };
     insert_value_into_ap(vm, nonce_data_availability_mode)
 }
 
@@ -760,16 +744,13 @@ pub fn tx_fee_data_availability_mode(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let fee_data_availability_mode = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.fee_data_availability_mode.unwrap_or_default()
-    // };
-
-    let fee_data_availability_mode = Felt252::ZERO;
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let fee_data_availability_mode = if version < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        log::warn!("TODO: use tx.fee_data_availability_mode here (using zero instead)");
+        Felt252::ZERO
+    };
     insert_value_into_ap(vm, fee_data_availability_mode)
 }
 
