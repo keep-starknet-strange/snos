@@ -651,17 +651,8 @@ pub fn tx_tip(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let tip = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.tip.unwrap_or_default()
-    // };
-
-    let tip = Felt252::ZERO;
-
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let tip = if version < Felt252::THREE { Felt252::ZERO } else { tx.tip.unwrap_or_default() };
     insert_value_into_ap(vm, tip)
 }
 
