@@ -405,3 +405,50 @@ async fn test_syscall_deploy_cairo0(
     let use_kzg_da = os_output.use_kzg_da != Felt252::ZERO;
     assert_eq!(use_kzg_da, block_context.block_info().use_kzg_da);
 }
+
+#[rstest]
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_syscall_get_sequencer_address_cairo0(
+    #[future] initial_state_cairo1: StarknetTestState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let initial_state = initial_state_cairo1.await;
+
+    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
+
+    let tx_version = TransactionVersion::ZERO;
+    let expected_sequencer_address = block_context.block_info().sequencer_address;
+
+    let mut nonce_manager = NonceManager::default();
+    let tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_get_sequencer_address", &[*expected_sequencer_address.0.key()]),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let txs = vec![tx];
+
+    let (_pie, os_output) = execute_txs_and_run_os(
+        initial_state.cached_state,
+        block_context.clone(),
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+    )
+    .await
+    .expect("OS run failed");
+
+    assert_eq!(os_output.block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
+    // TODO: finer-grained contract changes checks
+    assert_eq!(os_output.contracts.len(), 2);
+    assert!(os_output.classes.is_empty());
+    assert!(os_output.messages_to_l1.is_empty());
+    assert!(os_output.messages_to_l2.is_empty());
+    let use_kzg_da = os_output.use_kzg_da != Felt252::ZERO;
+    assert_eq!(use_kzg_da, block_context.block_info().use_kzg_da);
+}
