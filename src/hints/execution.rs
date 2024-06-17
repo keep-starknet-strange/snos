@@ -604,19 +604,14 @@ pub fn resource_bounds(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or_default();
-    assert!(version < 3.into(), "tx.version >= 3 is not supported yet");
 
-    // TODO: implement resource_bounds for tx.version >= 3
-    // let resource_bounds = if tx.version < 3 {
-    //     0
-    // } else {
-    //     let resource_bounds = tx.resource_bounds.unwrap_or_default().iter().map(|felt|
-    // felt.into()).collect();     let resource_bounds_base = vm.add_memory_segment();
-    //     vm.load_data(resource_bounds_base, &resource_bounds)?;
-    //     resource_bounds_base
-    // };
+    let resource_bounds = if version < Felt252::THREE {
+        MaybeRelocatable::Int(Felt252::ZERO)
+    } else {
+        // TODO: impl create_resource_bounds_list()
+        MaybeRelocatable::RelocatableValue(vm.add_memory_segment())
+    };
 
-    let resource_bounds = 0;
     insert_value_from_var_name(vars::ids::RESOURCE_BOUNDS, resource_bounds, vm, ids_data, ap_tracking)
 }
 
@@ -791,21 +786,15 @@ pub const TX_ACCOUNT_DEPLOYMENT_DATA_LEN: &str =
     "memory[ap] = to_felt_or_relocatable(0 if tx.version < 3 else len(tx.account_deployment_data))";
 pub fn tx_account_deployment_data_len(
     vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let len = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.account_deployment_data.unwrap_or_default().len().into()
-    // };
-
+    // TODO: account_deployment_data is "for future use" currently, needs to be added to InternalTransaction
+    // let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
+    // let version = tx.version.unwrap_or(Felt252::ZERO);
+    // let len = if version < Felt252::THREE { Felt252::ZERO } else { tx.account_deployment_data.len() };
     let len = Felt252::ZERO;
     insert_value_into_ap(vm, len)
 }
@@ -820,21 +809,15 @@ pub fn tx_account_deployment_data(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    if version < Felt252::THREE {
+        insert_value_into_ap(vm, Felt252::ZERO)?;
+    } else {
+        let mem_seg = vm.add_memory_segment();
+        insert_value_into_ap(vm, mem_seg)?;
+    };
 
-    // let account_deployment_data = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     let account_deployment_data =
-    // tx.account_deployment_data.unwrap_or_default().iter().map(|felt| felt.into()).collect();
-    //     let account_deployment_data_base = vm.add_memory_segment();
-    //     vm.load_data(account_deployment_data_base, &account_deployment_data)?;
-    //     account_deployment_data_base
-    // };
-
-    let account_deployment_data = Felt252::ZERO;
-    insert_value_into_ap(vm, account_deployment_data)
+    Ok(())
 }
 
 pub const GEN_SIGNATURE_ARG: &str = indoc! {r#"
