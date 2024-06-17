@@ -191,6 +191,7 @@ pub fn to_internal_declare_v3_tx(account_tx: &AccountTransaction, tx: &DeclareTr
     let class_hash;
     let signature = tx.signature.0.iter().map(|x| to_felt252(x)).collect();
     let nonce = felt_api2vm(tx.nonce.0);
+    let resource_bounds;
 
     match account_tx.create_tx_info() {
         TransactionInfo::Current(context) => {
@@ -206,6 +207,7 @@ pub fn to_internal_declare_v3_tx(account_tx: &AccountTransaction, tx: &DeclareTr
                 class_hash,
                 felt_api2vm(tx.compiled_class_hash.0),
             );
+            resource_bounds = context.resource_bounds;
         },
         TransactionInfo::Deprecated(_) => panic!("Not implemented"),
     }
@@ -220,6 +222,7 @@ pub fn to_internal_declare_v3_tx(account_tx: &AccountTransaction, tx: &DeclareTr
         class_hash: Some(class_hash),
         compiled_class_hash: Some(felt_api2vm(tx.compiled_class_hash.0)),
         r#type: "DECLARE".to_string(),
+        resource_bounds: Some(resource_bounds),
         ..Default::default()
     }
 }

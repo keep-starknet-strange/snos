@@ -8,11 +8,22 @@ use snos::crypto::poseidon::PoseidonHash;
 use snos::starknet::business_logic::utils::write_class_facts;
 use snos::storage::storage_utils::compiled_contract_class_cl2vm;
 use starknet_api::core::CompiledClassHash;
-use starknet_api::transaction::{Fee, TransactionVersion};
+use starknet_api::transaction::{Fee, Resource, ResourceBounds, ResourceBoundsMapping, TransactionVersion};
 
 use crate::common::block_context;
 use crate::common::state::{initial_state_cairo1, load_cairo1_contract, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
+
+// Copied from the non-public Blockifier fn
+pub fn default_testing_resource_bounds() -> ResourceBoundsMapping {
+    ResourceBoundsMapping::try_from(vec![
+        (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
+        // TODO(Dori, 1/2/2024): When fee market is developed, change the default price of
+        //   L2 gas.
+        (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
+    ])
+    .unwrap()
+}
 
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
@@ -56,6 +67,7 @@ async fn declare_v3_cairo1_account(
             nonce: nonce_manager.next(sender_address),
             class_hash: class_hash.into(),
             compiled_class_hash,
+            resource_bounds: default_testing_resource_bounds(),
         },
         class_info,
     );

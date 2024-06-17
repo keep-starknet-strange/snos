@@ -2,9 +2,12 @@ pub mod classes;
 pub mod input;
 pub mod output;
 
+use std::collections::HashMap;
+
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use starknet_api::transaction::{ResourceBounds, ResourceBoundsMapping};
 
 use crate::utils::{Felt252HexNoPrefix, Felt252Str};
 
@@ -62,4 +65,6 @@ pub struct InternalTransaction {
     pub max_fee: Option<Felt252>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tip: Option<Felt252>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_bounds: Option<ResourceBoundsMapping>,
 }
