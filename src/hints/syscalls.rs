@@ -185,9 +185,7 @@ pub fn get_contract_address(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.get_contract_address(syscall_ptr);
-
-    Ok(())
+    execute_coroutine(syscall_handler.get_contract_address(syscall_ptr, vm))?
 }
 
 pub const GET_SEQUENCER_ADDRESS: &str =

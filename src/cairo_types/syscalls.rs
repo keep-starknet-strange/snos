@@ -97,6 +97,24 @@ pub struct GetBlockNumber {
     pub response: GetBlockNumberResponse,
 }
 
+// Describes the GetContractAddress system call format.
+#[derive(FieldOffsetGetters)]
+pub struct GetContractAddressRequest {
+    // The system call selector (= GET_CONTRACT_ADDRESS_SELECTOR).
+    pub selector: Felt252,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetContractAddressResponse {
+    pub contract_address: Felt252,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetContractAddress {
+    pub request: GetContractAddressRequest,
+    pub response: GetContractAddressResponse,
+}
+
 #[derive(FieldOffsetGetters)]
 pub struct LibraryCallRequest {
     /// The system library call selector
