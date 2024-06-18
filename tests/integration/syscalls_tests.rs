@@ -12,6 +12,7 @@ use cairo_vm::Felt252;
 use num_traits::ToPrimitive;
 use rstest::rstest;
 use snos::config::SN_GOERLI;
+use snos::io::output::StarknetOsOutput;
 use snos::utils::felt_api2vm;
 use starknet_api::core::calculate_contract_address;
 use starknet_api::hash::StarkFelt;
@@ -21,6 +22,20 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionH
 use crate::common::block_context;
 use crate::common::state::{initial_state_cairo1, initial_state_syscalls, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
+
+fn check_os_output_read_only_syscall(os_output: StarknetOsOutput, block_context: BlockContext) {
+    // TODO: finer-grained contract changes checks
+    // Just check that the two contracts have been modified, these should be storage changes
+    // related to the fees.
+    assert_eq!(os_output.contracts.len(), 2);
+
+    assert_eq!(os_output.block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
+    assert!(os_output.classes.is_empty());
+    assert!(os_output.messages_to_l1.is_empty());
+    assert!(os_output.messages_to_l2.is_empty());
+    let use_kzg_da = os_output.use_kzg_da != Felt252::ZERO;
+    assert_eq!(use_kzg_da, block_context.block_info().use_kzg_da);
+}
 
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
@@ -443,12 +458,62 @@ async fn test_syscall_get_sequencer_address_cairo0(
     .await
     .expect("OS run failed");
 
-    assert_eq!(os_output.block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
-    // TODO: finer-grained contract changes checks
-    assert_eq!(os_output.contracts.len(), 2);
-    assert!(os_output.classes.is_empty());
-    assert!(os_output.messages_to_l1.is_empty());
-    assert!(os_output.messages_to_l2.is_empty());
-    let use_kzg_da = os_output.use_kzg_da != Felt252::ZERO;
-    assert_eq!(use_kzg_da, block_context.block_info().use_kzg_da);
+    check_os_output_read_only_syscall(os_output, block_context);
+}
+
+#[rstest]
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_syscall_get_contract_address_cairo0(
+    #[future] initial_state_cairo1: StarknetTestState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let initial_state = initial_state_cairo1.await;
+
+    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.cairo0_contracts.get("test_contract").unwrap();
+    let contract_address = test_contract.address;
+
+    let class_hash = test_contract.class_hash;
+
+    let contract_address_salt = ContractAddressSalt::default();
+    let constructor_args = vec![StarkFelt::from(100u64), StarkFelt::from(200u64)];
+
+    // Build the args required for calling test_contract_address. Check the Cairo code for
+    // more details.
+    let test_contract_address_args = &[
+        vec![contract_address_salt.0, class_hash.0],
+        vec![StarkFelt::from(constructor_args.len() as u64)],
+        constructor_args.clone(),
+        vec![StarkFelt::ZERO], // deployer_address
+    ]
+    .concat();
+
+    let tx_version = TransactionVersion::ZERO;
+
+    let mut nonce_manager = NonceManager::default();
+    let tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_contract_address", &test_contract_address_args),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let txs = vec![tx];
+
+    let (_pie, os_output) = execute_txs_and_run_os(
+        initial_state.cached_state,
+        block_context.clone(),
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+    )
+    .await
+    .expect("OS run failed");
+
+    // The way tests are structured, we cannot check the result of the tx directly.
+    // We can only verify that the syscall is implemented and goes through.
+    check_os_output_read_only_syscall(os_output, block_context);
 }

@@ -10,8 +10,8 @@ use tokio::sync::RwLock;
 use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::syscalls::{
     CallContract, CallContractResponse, Deploy, DeployResponse, GetBlockNumber, GetBlockNumberResponse,
-    GetSequencerAddress, GetSequencerAddressResponse, GetTxInfo, GetTxInfoResponse, GetTxSignature,
-    GetTxSignatureResponse, LibraryCall, TxInfo,
+    GetContractAddress, GetContractAddressResponse, GetSequencerAddress, GetSequencerAddressResponse, GetTxInfo,
+    GetTxInfoResponse, GetTxSignature, GetTxSignatureResponse, LibraryCall, TxInfo,
 };
 use crate::utils::felt_api2vm;
 
@@ -158,8 +158,25 @@ impl DeprecatedOsSyscallHandlerWrapper {
 
         vm.insert_value((syscall_ptr + 1usize).unwrap(), caller_address).unwrap();
     }
-    pub fn get_contract_address(&self, syscall_ptr: Relocatable) {
-        log::error!("get_contract_address (TODO): {}", syscall_ptr);
+    pub async fn get_contract_address(
+        &self,
+        syscall_ptr: Relocatable,
+        vm: &mut VirtualMachine,
+    ) -> Result<(), HintError> {
+        let syscall_handler = self.deprecated_syscall_handler.read().await;
+        let exec_helper = syscall_handler.exec_wrapper.execution_helper.read().await;
+
+        let contract_address =
+            exec_helper.call_info.as_ref().map(|info| info.call.storage_address).ok_or(HintError::SyscallError(
+                "Missing storage address from call info".to_string().into_boxed_str(),
+            ))?;
+        let contract_address_felt = felt_api2vm(*contract_address.0.key());
+
+        let response_offset =
+            GetContractAddress::response_offset() + GetContractAddressResponse::contract_address_offset();
+        vm.insert_value((syscall_ptr + response_offset)?, contract_address_felt)?;
+
+        Ok(())
     }
     pub async fn get_sequencer_address(
         &self,
