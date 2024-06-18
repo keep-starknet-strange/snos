@@ -9,8 +9,8 @@ use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::syscalls::{
-    CallContract, CallContractResponse, GetBlockNumber, GetBlockNumberResponse, GetTxInfo, GetTxInfoResponse,
-    GetTxSignature, GetTxSignatureResponse, LibraryCall, TxInfo,
+    CallContract, CallContractResponse, Deploy, DeployResponse, GetBlockNumber, GetBlockNumberResponse, GetTxInfo,
+    GetTxInfoResponse, GetTxSignature, GetTxSignatureResponse, LibraryCall, TxInfo,
 };
 use crate::utils::felt_api2vm;
 
@@ -89,9 +89,30 @@ impl DeprecatedOsSyscallHandlerWrapper {
     ) -> Result<(), HintError> {
         self.call_contract_and_write_response(syscall_ptr, CallContract::response_offset(), vm).await
     }
-    pub fn deploy(&self, syscall_ptr: Relocatable) {
-        log::error!("deploy (TODO): {}", syscall_ptr);
+    pub async fn deploy(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
+        let syscall_handler = self.deprecated_syscall_handler.read().await;
+        let mut execution_helper = syscall_handler.exec_wrapper.execution_helper.write().await;
+
+        // Advance the result iterator
+        let _ = execution_helper.result_iter.next();
+
+        let contract_address = execution_helper
+            .deployed_contracts_iter
+            .next()
+            .ok_or(HintError::SyscallError("Could not find matching deployed contract".to_string().into_boxed_str()))?;
+
+        let contract_address_offset = Deploy::response_offset() + DeployResponse::contract_address_offset();
+        let constructor_retdata_size_offset =
+            Deploy::response_offset() + DeployResponse::constructor_retdata_size_offset();
+        let constructor_retdata_offset = Deploy::response_offset() + DeployResponse::constructor_retdata_offset();
+
+        vm.insert_value((syscall_ptr + contract_address_offset)?, contract_address)?;
+        vm.insert_value((syscall_ptr + constructor_retdata_size_offset)?, Felt252::ZERO)?;
+        vm.insert_value((syscall_ptr + constructor_retdata_offset)?, Felt252::ZERO)?;
+
+        Ok(())
     }
+
     pub fn emit_event(&self, syscall_ptr: Relocatable) {
         log::error!("emit_event (TODO): {}", syscall_ptr);
     }
@@ -155,6 +176,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
 
         Ok(())
     }
+
     pub async fn get_tx_signature(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         let syscall_handler = self.deprecated_syscall_handler.read().await;
         let execution_helper = syscall_handler.exec_wrapper.execution_helper.read().await;

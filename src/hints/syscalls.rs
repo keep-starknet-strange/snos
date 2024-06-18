@@ -94,9 +94,7 @@ pub fn deploy(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.deploy(syscall_ptr);
-
-    Ok(())
+    execute_coroutine(syscall_handler.deploy(syscall_ptr, vm))?
 }
 
 pub const EMIT_EVENT: &str = "syscall_handler.emit_event(segments=segments, syscall_ptr=ids.syscall_ptr)";

@@ -51,6 +51,36 @@ pub struct CallContract {
     pub response: CallContractResponse,
 }
 
+/// Describes the Deploy system call format.
+#[derive(FieldOffsetGetters)]
+pub struct DeployRequest {
+    /// The system call selector (= DEPLOY_SELECTOR).
+    pub selector: Felt252,
+    /// The hash of the class to deploy.
+    pub class_hash: Felt252,
+    /// A salt for the new contract address calculation.
+    pub contract_address_salt: Felt252,
+    /// The size of the calldata for the constructor.
+    pub constructor_calldata_size: Felt252,
+    /// The calldata for the constructor.
+    pub constructor_calldata: Relocatable,
+    /// Used for deterministic contract address deployment.
+    pub deploy_from_zero: Felt252,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct DeployResponse {
+    pub contract_address: Felt252,
+    pub constructor_retdata_size: Felt252,
+    pub constructor_retdata: Relocatable,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct Deploy {
+    pub request: DeployRequest,
+    pub response: DeployResponse,
+}
+
 #[derive(FieldOffsetGetters)]
 pub struct GetBlockNumberRequest {
     pub selector: Felt252,
