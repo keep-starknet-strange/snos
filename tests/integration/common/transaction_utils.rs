@@ -17,6 +17,7 @@ use snos::error::SnOsError;
 use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
+use snos::io::output::StarknetOsOutput;
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::storage::dict_storage::DictStorage;
@@ -212,7 +213,7 @@ pub async fn execute_txs_and_run_os(
     txs: Vec<AccountTransaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, CasmContractClass>,
-) -> Result<CairoPie, SnOsError> {
+) -> Result<(CairoPie, StarknetOsOutput), SnOsError> {
     let (os_input, execution_helper) =
         execute_txs(state, &block_context, txs, deprecated_contract_classes, contract_classes).await;
 

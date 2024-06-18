@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::BuiltinRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
@@ -14,28 +16,41 @@ const CONFIG_HASH_OFFSET: usize = 4;
 const USE_KZG_DA_OFFSET: usize = 5;
 const HEADER_SIZE: usize = 6;
 
+/// Represents the changes in a contract instance.
+#[derive(Debug)]
+pub struct ContractChanges {
+    /// The address of the contract.
+    pub addr: Felt252,
+    /// The new nonce of the contract (for account contracts).
+    pub nonce: Felt252,
+    /// The new class hash (if changed).
+    pub class_hash: Option<Felt252>,
+    /// A map from storage key to its new value.
+    pub storage_changes: HashMap<Felt252, Felt252>,
+}
+
 #[derive(Debug)]
 pub struct StarknetOsOutput {
-    /// The state commitment before this block.
+    /// The root before.
     pub initial_root: Felt252,
-    /// The state commitment after this block.
+    /// The root after.
     pub final_root: Felt252,
-    /// The number (height) of this block.
+    /// The block number.
     pub block_number: Felt252,
-    /// The hash of this block.
+    /// The block hash.
     pub block_hash: Felt252,
-    /// The Starknet chain config hash
+    /// The hash of the OS config.
     pub starknet_os_config_hash: Felt252,
     /// Whether KZG data availability was used.
     pub use_kzg_da: Felt252,
-    /// List of messages sent to L1 in this block
+    /// Messages from L2 to L1.
     pub messages_to_l1: Vec<Felt252>,
-    /// List of messages from L1 handled in this block
+    /// Messages from L1 to L2.
     pub messages_to_l2: Vec<Felt252>,
-    /// List of the storage updates.
-    pub contracts: Vec<Felt252>,
-    /// List of the newly declared contract classes.
-    pub classes: Vec<Felt252>,
+    /// The list of contracts that were changed.
+    pub contracts: Vec<ContractChanges>,
+    /// The list of classes that were declared. A map from class hash to compiled class hash.
+    pub classes: HashMap<Felt252, Felt252>,
 }
 
 impl StarknetOsOutput {
@@ -93,6 +108,78 @@ fn get_raw_output(vm: &VirtualMachine, output_base: usize, output_size: usize) -
     raw_output
 }
 
+fn next_or_fail<T, I: Iterator<Item = T>>(output_iter: &mut I, item_name: &str) -> Result<T, SnOsError> {
+    output_iter.next().ok_or(SnOsError::CatchAll(format!("Could not read {item_name} field")))
+}
+
+fn next_as_usize<I: Iterator<Item = Felt252>>(output_iter: &mut I, item_name: &str) -> Result<usize, SnOsError> {
+    output_iter
+        .next()
+        .ok_or(SnOsError::CatchAll(format!("Could not read {item_name} segment size")))?
+        .to_usize()
+        .ok_or(SnOsError::CatchAll(format!("{item_name} segment size is too large")))
+}
+
+fn parse_contract_changes<I: Iterator<Item = Felt252>>(output_iter: &mut I) -> Result<ContractChanges, SnOsError> {
+    let addr = next_or_fail(output_iter, "contract change addr")?;
+    let class_nonce_n_changes = next_or_fail(output_iter, "contract change class_nonce_n_changes")?;
+
+    // unwrap() is safe here, we now the value is non zero.
+    let two_exp_64 = Felt252::from(1u128 << 64).try_into().unwrap();
+    let (class_nonce, n_changes) = class_nonce_n_changes.div_rem(&two_exp_64);
+    let (class_updated, nonce) = class_nonce.div_rem(&two_exp_64);
+
+    let class_hash = if class_updated != Felt252::ZERO {
+        Some(next_or_fail(output_iter, "contract change class_hash")?)
+    } else {
+        None
+    };
+
+    // unwrap() is safe because we know that n_changes fits in 64 bits by definition
+    // of the format above.
+    let n_changes = n_changes.to_usize().unwrap();
+    let mut storage_changes = HashMap::with_capacity(n_changes);
+
+    for i in 0..n_changes {
+        let key = next_or_fail(output_iter, &format!("contract change key #{i}"))?;
+        let value = next_or_fail(output_iter, &format!("contract change value #{i}"))?;
+
+        storage_changes.insert(key, value);
+    }
+
+    Ok(ContractChanges { addr, nonce, class_hash, storage_changes })
+}
+
+fn parse_all_contract_changes<I: Iterator<Item = Felt252>>(
+    output_iter: &mut I,
+) -> Result<Vec<ContractChanges>, SnOsError> {
+    let n_contract_changes = next_as_usize(output_iter, "contracts")?;
+    let mut contracts = Vec::with_capacity(n_contract_changes);
+
+    for _ in 0..n_contract_changes {
+        contracts.push(parse_contract_changes(output_iter)?)
+    }
+
+    Ok(contracts)
+}
+
+fn parse_all_class_changes<I: Iterator<Item = Felt252>>(
+    output_iter: &mut I,
+) -> Result<HashMap<Felt252, Felt252>, SnOsError> {
+    let n_class_changes = next_as_usize(output_iter, "classes")?;
+
+    let mut classes = HashMap::new();
+
+    for i in 0..n_class_changes {
+        let class_hash = next_or_fail(output_iter, &format!("class hash #{i}"))?;
+        let compiled_class_hash = next_or_fail(output_iter, &format!("compiled class hash #{i}"))?;
+
+        classes.insert(class_hash, compiled_class_hash);
+    }
+
+    Ok(classes)
+}
+
 pub fn decode_output<I: Iterator<Item = Felt252>>(mut output_iter: I) -> Result<StarknetOsOutput, SnOsError> {
     /// Reads a section with a variable length from the iterator.
     /// Some sections start with a length field N followed by N items.
@@ -100,11 +187,7 @@ pub fn decode_output<I: Iterator<Item = Felt252>>(mut output_iter: I) -> Result<
         output_iter: &mut I,
         item_name: &str,
     ) -> Result<Vec<Felt252>, SnOsError> {
-        let n_items = output_iter
-            .next()
-            .ok_or(SnOsError::CatchAll(format!("Could not read {item_name} segment size")))?
-            .to_usize()
-            .ok_or(SnOsError::CatchAll(format!("{item_name} segment size is too large")))?;
+        let n_items = next_as_usize(output_iter, item_name)?;
         let items = output_iter.by_ref().take(n_items).collect();
 
         Ok(items)
@@ -139,11 +222,11 @@ pub fn decode_output<I: Iterator<Item = Felt252>>(mut output_iter: I) -> Result<
     let messages_to_l2 = read_variable_length_segment(&mut output_iter, "L2 messages")?;
 
     let (contracts, classes) = if !use_kzg_da {
-        let contracts = read_variable_length_segment(&mut output_iter, "contracts")?;
-        let classes = read_variable_length_segment(&mut output_iter, "classes")?;
+        let contracts = parse_all_contract_changes(&mut output_iter)?;
+        let classes = parse_all_class_changes(&mut output_iter)?;
         (contracts, classes)
     } else {
-        (vec![], vec![])
+        (vec![], HashMap::default())
     };
 
     Ok(StarknetOsOutput {

@@ -36,7 +36,7 @@ pub fn run_os(
     os_input: StarknetOsInput,
     block_context: BlockContext,
     execution_helper: ExecutionHelperWrapper,
-) -> Result<CairoPie, SnOsError> {
+) -> Result<(CairoPie, StarknetOsOutput), SnOsError> {
     // Init CairoRunConfig
     let cairo_run_config = CairoRunConfig { layout, relocate_mem: true, trace_enabled: true, ..Default::default() };
     let allow_missing_builtins = cairo_run_config.allow_missing_builtins.unwrap_or(false);
@@ -103,5 +103,5 @@ pub fn run_os(
     // Parse the Cairo VM output
     let pie = cairo_runner.get_cairo_pie().map_err(|e| SnOsError::PieParsing(format!("{e}")))?;
 
-    Ok(pie)
+    Ok((pie, os_output))
 }
