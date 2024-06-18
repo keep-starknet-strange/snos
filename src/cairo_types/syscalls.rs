@@ -118,6 +118,24 @@ pub struct LibraryCall {
     pub response: CallContractResponse,
 }
 
+/// Describes the GetSequencerAddress system call format.
+#[derive(FieldOffsetGetters)]
+pub struct GetSequencerAddressRequest {
+    // The system call selector (= GET_SEQUENCER_ADDRESS_SELECTOR).
+    pub selector: Felt252,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetSequencerAddressResponse {
+    pub sequencer_address: Felt252,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetSequencerAddress {
+    pub request: GetSequencerAddressRequest,
+    pub response: GetSequencerAddressResponse,
+}
+
 #[derive(FieldOffsetGetters)]
 pub struct TxInfo {
     /// The version of the transaction. It is fixed (currently, 1) in the OS, and should be
