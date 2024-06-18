@@ -124,8 +124,8 @@ fn parse_contract_changes<I: Iterator<Item = Felt252>>(output_iter: &mut I) -> R
     let addr = next_or_fail(output_iter, "contract change addr")?;
     let class_nonce_n_changes = next_or_fail(output_iter, "contract change class_nonce_n_changes")?;
 
-    // unwrap() is safe here, we now the value is non zero.
-    let two_exp_64 = Felt252::from(1u128 << 64).try_into().unwrap();
+    let two_exp_64 =
+        Felt252::from(1u128 << 64).try_into().expect("2**64 should be considered non-zero. Did you change the value?");
     let (class_nonce, n_changes) = class_nonce_n_changes.div_rem(&two_exp_64);
     let (class_updated, nonce) = class_nonce.div_rem(&two_exp_64);
 
@@ -135,9 +135,8 @@ fn parse_contract_changes<I: Iterator<Item = Felt252>>(output_iter: &mut I) -> R
         None
     };
 
-    // unwrap() is safe because we know that n_changes fits in 64 bits by definition
-    // of the format above.
-    let n_changes = n_changes.to_usize().unwrap();
+    let n_changes =
+        n_changes.to_usize().expect("n_changes should be 64-bit by definition. Did you modify the parsing above?");
     let mut storage_changes = HashMap::with_capacity(n_changes);
 
     for i in 0..n_changes {
