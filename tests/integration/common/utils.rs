@@ -1,6 +1,9 @@
 use std::env;
 
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::Felt252;
+use num_traits::ToPrimitive;
+use snos::io::output::StarknetOsOutput;
 
 use super::*;
 
@@ -46,4 +49,21 @@ pub fn deprecated_cairo_python_run(program: &str, with_input: bool) -> String {
     raw.push_str(&String::from_utf8(cmd_out.stderr).unwrap());
 
     raw.trim_start_matches("Program output:").trim_start_matches("\n  ").trim_end_matches("\n\n").replace(' ', "")
+}
+
+/// Check that we do not declare any new class, send messages to L1 or L2 etc if the syscall
+/// is supposed to be read-only.
+/// Note that this check expects that only two contracts have been involved in the test.
+pub fn check_os_output_read_only_syscall(os_output: StarknetOsOutput, block_context: BlockContext) {
+    // TODO: finer-grained contract changes checks
+    // Just check that the two contracts have been modified, these should be storage changes
+    // related to the fees.
+    assert_eq!(os_output.contracts.len(), 2);
+
+    assert_eq!(os_output.block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
+    assert!(os_output.classes.is_empty());
+    assert!(os_output.messages_to_l1.is_empty());
+    assert!(os_output.messages_to_l2.is_empty());
+    let use_kzg_da = os_output.use_kzg_da != Felt252::ZERO;
+    assert_eq!(use_kzg_da, block_context.block_info().use_kzg_da);
 }
