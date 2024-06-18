@@ -9,8 +9,9 @@ use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::syscalls::{
-    CallContract, CallContractResponse, Deploy, DeployResponse, GetBlockNumber, GetBlockNumberResponse, GetTxInfo,
-    GetTxInfoResponse, GetTxSignature, GetTxSignatureResponse, LibraryCall, TxInfo,
+    CallContract, CallContractResponse, Deploy, DeployResponse, GetBlockNumber, GetBlockNumberResponse,
+    GetSequencerAddress, GetSequencerAddressResponse, GetTxInfo, GetTxInfoResponse, GetTxSignature,
+    GetTxSignatureResponse, LibraryCall, TxInfo,
 };
 use crate::utils::felt_api2vm;
 
@@ -160,8 +161,20 @@ impl DeprecatedOsSyscallHandlerWrapper {
     pub fn get_contract_address(&self, syscall_ptr: Relocatable) {
         log::error!("get_contract_address (TODO): {}", syscall_ptr);
     }
-    pub fn get_sequencer_address(&self, syscall_ptr: Relocatable) {
-        log::error!("get_sequencer_address (TODO): {}", syscall_ptr);
+    pub async fn get_sequencer_address(
+        &self,
+        syscall_ptr: Relocatable,
+        vm: &mut VirtualMachine,
+    ) -> Result<(), HintError> {
+        let syscall_handler = self.deprecated_syscall_handler.read().await;
+
+        let sequencer_address = felt_api2vm(*syscall_handler.block_info.sequencer_address.0.key());
+
+        let response_offset =
+            GetSequencerAddress::response_offset() + GetSequencerAddressResponse::sequencer_address_offset();
+        vm.insert_value((syscall_ptr + response_offset)?, sequencer_address)?;
+
+        Ok(())
     }
     pub async fn get_tx_info(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         let syscall_handler = self.deprecated_syscall_handler.read().await;
