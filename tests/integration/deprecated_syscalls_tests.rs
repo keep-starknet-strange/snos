@@ -556,7 +556,8 @@ async fn test_syscall_send_message_to_l1_cairo0(
 
     let tx_version = TransactionVersion::ZERO;
 
-    let to_address = stark_felt!(1234_u16);
+    let address = 1234_u16;
+    let to_address = stark_felt!(address);
 
     let entrypoint_args = &[vec![to_address]].concat();
 
@@ -582,7 +583,12 @@ async fn test_syscall_send_message_to_l1_cairo0(
     .expect("OS run failed");
     let output: Vec<BigUint> =
         os_output.messages_to_l1.iter().map(|msg| BigUint::from_bytes_le(&msg.to_bytes_le())).collect();
-    for expected in [12u16, 34] {
-        assert!(&output.contains(&expected.try_into().unwrap()));
+
+    // assert the address is returned    
+    assert!(&output.contains(&address.try_into().unwrap()));
+
+    // assert the payload
+    for expected_payload in [12u16, 34] {
+        assert!(&output.contains(&expected_payload.try_into().unwrap()));
     }
 }
