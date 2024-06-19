@@ -15,6 +15,7 @@ use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use rstest::rstest;
 use snos::config::SN_GOERLI;
@@ -570,7 +571,7 @@ async fn test_syscall_send_message_to_l1_cairo0(
 
     let txs = vec![tx];
 
-    let (_pie, _os_output) = execute_txs_and_run_os(
+    let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context.clone(),
         txs,
@@ -579,4 +580,9 @@ async fn test_syscall_send_message_to_l1_cairo0(
     )
     .await
     .expect("OS run failed");
+    let output: Vec<BigUint> =
+        os_output.messages_to_l1.iter().map(|msg| BigUint::from_bytes_le(&msg.to_bytes_le())).collect();
+    for expected in [12u16, 34] {
+        assert!(&output.contains(&expected.try_into().unwrap()));
+    }
 }
