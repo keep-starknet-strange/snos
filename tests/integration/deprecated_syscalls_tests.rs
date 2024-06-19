@@ -584,7 +584,7 @@ async fn test_syscall_send_message_to_l1_cairo0(
     let output: Vec<BigUint> =
         os_output.messages_to_l1.iter().map(|msg| BigUint::from_bytes_le(&msg.to_bytes_le())).collect();
 
-    // assert the address is returned    
+    // assert the address is returned
     assert!(&output.contains(&address.try_into().unwrap()));
 
     // assert the payload
