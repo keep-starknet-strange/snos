@@ -194,3 +194,12 @@ async fn syscalls_cairo1(
     .await
     .expect("OS run failed");
 }
+
+/// This test is similar to `return_result_cairo1_account` with the difference that it
+/// compiles the Sierra classes instead of using precompiled CASM files. This validates
+/// the flow of compilation -> Blockifier -> OS that is used for production runs, as
+/// the Starknet API does not provide CASM code.
+#[rstest]
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_return_result_cairo1_compile_sierra_classes() {}
