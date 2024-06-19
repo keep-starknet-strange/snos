@@ -117,8 +117,8 @@ impl DeprecatedOsSyscallHandlerWrapper {
         Ok(())
     }
 
-    pub fn emit_event(&self, syscall_ptr: Relocatable) {
-        log::error!("emit_event (TODO): {}", syscall_ptr);
+    pub fn emit_event(&self, _syscall_ptr: Relocatable) {
+        // Nothing to do
     }
 
     pub async fn get_block_number(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
