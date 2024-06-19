@@ -117,7 +117,7 @@ impl DeprecatedOsSyscallHandlerWrapper {
         Ok(())
     }
 
-    pub fn emit_event(&self, _syscall_ptr: Relocatable) {
+    pub fn emit_event(&self) {
         // Nothing to do
     }
 
