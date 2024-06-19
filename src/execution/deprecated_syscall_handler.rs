@@ -95,7 +95,10 @@ impl DeprecatedOsSyscallHandlerWrapper {
         let mut execution_helper = syscall_handler.exec_wrapper.execution_helper.write().await;
 
         // Advance the result iterator
-        let _ = execution_helper.result_iter.next();
+        execution_helper
+            .result_iter
+            .next()
+            .ok_or(HintError::SyscallError("No matching result for deploy syscall".to_string().into_boxed_str()))?;
 
         let contract_address = execution_helper
             .deployed_contracts_iter
