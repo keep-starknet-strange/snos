@@ -528,7 +528,6 @@ async fn test_syscall_emit_event_cairo0(
 
     let txs = vec![tx];
 
-    // TODO: use a different class hash and check that it is reflected in the OS output.
     let (_pie, _os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context.clone(),
