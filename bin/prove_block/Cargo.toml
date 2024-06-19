@@ -1,0 +1,21 @@
+[package]
+name = "prove_block"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", branch = "msl/derive-clone", features = ["testing"] }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = ["extensive_hints", "cairo-1-hints"] }
+clap = { version = "4.5.7", features = ["derive"] }
+pathfinder-common = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-common" }
+pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-crypto" }
+pathfinder-serde = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-serde" }
+serde = { version = "1.0.203", features = ["derive"] }
+serde_json = { version = "1.0.117", features = ["arbitrary_precision"] }
+serde_with = { version = "3.8.1" }
+snos = { path = "../.." }
+reqwest = "0.11.27"
+tokio = "1.38.0"
+starknet_api = "0.10.0"
