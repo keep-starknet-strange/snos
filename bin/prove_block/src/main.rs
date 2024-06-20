@@ -8,13 +8,12 @@ use clap::Parser;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
-use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
 
-// use snos::{config, run_os};
 use crate::types::Block;
+// use snos::{config, run_os};
 
 mod types;
 
@@ -60,29 +59,25 @@ async fn get_block_with_txs(client: &reqwest::Client, block_number: u64) -> Resu
         .await
 }
 
-async fn get_block_context(client: &reqwest::Client, block_number: u64) -> Result<BlockContext, reqwest::Error> {
-    let block = get_block_with_txs(client, block_number).await.unwrap();
+async fn build_block_context(chain_id: String, block: &Block) -> Result<BlockContext, reqwest::Error> {
     println!("{:?}", block);
 
-    let sequencer_address =
-        ContractAddress::try_from(StarkFelt::new(block.sequencer_address.to_be_bytes()).unwrap()).unwrap();
-
     let block_info = BlockInfo {
-        block_number: BlockNumber(block.block_number),
-        block_timestamp: BlockTimestamp(block.timestamp),
-        sequencer_address,
+        block_number: block.header.block_number,
+        block_timestamp: block.header.timestamp,
+        sequencer_address: block.header.sequencer.0,
         gas_prices: GasPrices {
-            eth_l1_gas_price: block.l1_gas_price.price_in_wei.0.try_into().unwrap(),
-            strk_l1_gas_price: block.l1_gas_price.price_in_fri.0.try_into().unwrap(),
-            eth_l1_data_gas_price: block.l1_data_gas_price.price_in_wei.0.try_into().unwrap(),
-            strk_l1_data_gas_price: block.l1_data_gas_price.price_in_fri.0.try_into().unwrap(),
+            eth_l1_gas_price: block.header.l1_gas_price.price_in_wei.0.try_into().unwrap(),
+            strk_l1_gas_price: block.header.l1_gas_price.price_in_fri.0.try_into().unwrap(),
+            eth_l1_data_gas_price: block.header.l1_data_gas_price.price_in_wei.0.try_into().unwrap(),
+            strk_l1_data_gas_price: block.header.l1_data_gas_price.price_in_fri.0.try_into().unwrap(),
         },
         use_kzg_da: false,
     };
 
-    let chain_id = get_chain_id(client).await?;
     let chain_info = ChainInfo {
         chain_id: starknet_api::core::ChainId(chain_id),
+        // cf. https://docs.starknet.io/tools/important-addresses/
         fee_token_addresses: FeeTokenAddresses {
             strk_fee_token_address: contract_address!(
                 "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
@@ -109,7 +104,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         reqwest::ClientBuilder::new().build().unwrap_or_else(|e| panic!("Could not build reqwest client: {e}"));
 
     // Step 1: build the block context
-    let _block_context = get_block_context(&client, block_number).await.unwrap();
+    let chain_id = get_chain_id(&client).await?;
+    let block_with_txs = get_block_with_txs(&client, block_number).await?;
+    let _block_context = build_block_context(chain_id, &block_with_txs).await.unwrap();
 
     // let os =
     //
