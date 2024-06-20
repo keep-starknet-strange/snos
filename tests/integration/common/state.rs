@@ -10,7 +10,6 @@ use cairo_lang_starknet_classes::contract_class::ContractClass;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rstest::fixture;
-use snos::config::StarknetGeneralConfig;
 use snos::crypto::pedersen::PedersenHash;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::business_logic::utils::{write_class_facts, write_deprecated_compiled_class_fact};
@@ -323,13 +322,7 @@ impl<'a> StarknetStateBuilder<'a> {
         dict_state_reader: DictStateReader,
         ffc: FactFetchingContext<DictStorage, PedersenHash>,
     ) -> Result<SharedState<DictStorage, PedersenHash>, TreeError> {
-        // Build the shared state object
-        // TODO: block info is not really needed in SharedState, it's a relic of the Python code.
-        //       check how it can be removed.
-        let block_info = Default::default();
-
-        let default_general_config = StarknetGeneralConfig::default(); // TODO
-        SharedState::from_blockifier_state(ffc, dict_state_reader, block_info, &default_general_config).await
+        SharedState::from_blockifier_state(ffc, dict_state_reader).await
     }
 
     /// Add a Cairo 0 contract to the test state.

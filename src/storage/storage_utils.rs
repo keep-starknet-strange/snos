@@ -69,9 +69,7 @@ async fn unpack_blockifier_state_async<S: Storage + Send + Sync, H: HashFunction
 ) -> Result<(SharedState<S, H>, SharedState<S, H>), TreeError> {
     let final_state = {
         let state = blockifier_state.state.clone();
-        let block_info = state.block_info.clone();
-        // TODO: block_info seems useless in SharedState, get rid of it
-        state.apply_commitment_state_diff(blockifier_state.to_state_diff(), block_info).await?
+        state.apply_commitment_state_diff(blockifier_state.to_state_diff()).await?
     };
 
     let initial_state = blockifier_state.state;
