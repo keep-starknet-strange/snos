@@ -37,8 +37,8 @@ serde = { version = "1.0.188", features = ["derive"] }
 serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
 serde_with = "3.3.0"
 serde_yaml = "0.9.25"
-starknet-crypto = "0.6.2"
 starknet_api = { version = "=0.10", features = ["testing"] }
+starknet-crypto = "0.6.2"
 thiserror = "1.0.48"
 tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
 tokio-stream = "0.1.14"

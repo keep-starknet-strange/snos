@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet_classes::contract_class::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
@@ -19,11 +18,6 @@ fn read_contract(contract_rel_path: &Path) -> Vec<u8> {
 }
 
 pub fn get_deprecated_compiled_class(contract_rel_path: &Path) -> DeprecatedCompiledClass {
-    let content = read_contract(contract_rel_path);
-    serde_json::from_slice(&content).unwrap_or_else(|e| panic!("Failed to load deprecated compiled class: {e}"))
-}
-
-pub fn get_compiled_casm_class(contract_rel_path: &Path) -> CasmContractClass {
     let content = read_contract(contract_rel_path);
     serde_json::from_slice(&content).unwrap_or_else(|e| panic!("Failed to load deprecated compiled class: {e}"))
 }

@@ -5,12 +5,11 @@ use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::BALANCE;
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, StarknetSierraCompilationError};
 use cairo_lang_starknet_classes::contract_class::ContractClass;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rstest::fixture;
-use snos::config::StarknetGeneralConfig;
 use snos::crypto::pedersen::PedersenHash;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::business_logic::utils::{write_class_facts, write_deprecated_compiled_class_fact};
@@ -23,7 +22,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiled
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 
-use super::blockifier_contracts::{get_feature_casm_contract_class, get_feature_sierra_contract_class};
+use super::blockifier_contracts::get_feature_sierra_contract_class;
 use crate::common::block_context;
 use crate::common::blockifier_contracts::{get_deprecated_erc20_contract_class, get_deprecated_feature_contract_class};
 
@@ -90,9 +89,23 @@ pub fn load_cairo0_contract(name: &str) -> (String, DeprecatedCompiledClass) {
     (name.to_string(), get_deprecated_feature_contract_class(name))
 }
 
+/// Compiles a Sierra class to CASM.
+fn compile_sierra_contract_class(
+    sierra_contract_class: ContractClass,
+) -> Result<CasmContractClass, StarknetSierraCompilationError> {
+    // Values taken from the defaults of `starknet-sierra-compile`, see here:
+    // https://github.com/starkware-libs/cairo/blob/main/crates/bin/starknet-sierra-compile/src/main.rs
+    let add_pythonic_hints = false;
+    let max_bytecode_size = 180000;
+    CasmContractClass::from_contract_class(sierra_contract_class, add_pythonic_hints, max_bytecode_size)
+}
+
 /// Helper to load a Cairo1 contract class.
 pub fn load_cairo1_contract(name: &str) -> (String, ContractClass, CasmContractClass) {
-    (name.to_string(), get_feature_sierra_contract_class(name), get_feature_casm_contract_class(name))
+    let sierra_contract_class = get_feature_sierra_contract_class(name);
+    let casm_contract_class = compile_sierra_contract_class(sierra_contract_class.clone())
+        .unwrap_or_else(|e| panic!("Failed to compile Sierra contract {}: {}", name, e));
+    (name.to_string(), sierra_contract_class, casm_contract_class)
 }
 
 /// Configures the logging for integration tests.
@@ -309,13 +322,7 @@ impl<'a> StarknetStateBuilder<'a> {
         dict_state_reader: DictStateReader,
         ffc: FactFetchingContext<DictStorage, PedersenHash>,
     ) -> Result<SharedState<DictStorage, PedersenHash>, TreeError> {
-        // Build the shared state object
-        // TODO: block info is not really needed in SharedState, it's a relic of the Python code.
-        //       check how it can be removed.
-        let block_info = Default::default();
-
-        let default_general_config = StarknetGeneralConfig::default(); // TODO
-        SharedState::from_blockifier_state(ffc, dict_state_reader, block_info, &default_general_config).await
+        SharedState::from_blockifier_state(ffc, dict_state_reader).await
     }
 
     /// Add a Cairo 0 contract to the test state.
