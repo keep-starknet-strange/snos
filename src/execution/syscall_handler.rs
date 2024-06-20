@@ -11,8 +11,8 @@ use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::new_syscalls;
 use crate::execution::constants::{
     BLOCK_HASH_CONTRACT_ADDRESS, CALL_CONTRACT_GAS_COST, DEPLOY_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST,
-    GET_EXECUTION_INFO_GAS_COST, LIBRARY_CALL_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST,
-    STORAGE_WRITE_GAS_COST,
+    GET_EXECUTION_INFO_GAS_COST, LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST,
+    STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
 };
 use crate::execution::syscall_handler_utils::{
     felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest, EmptyResponse,
@@ -96,6 +96,9 @@ impl OsSyscallHandlerWrapper {
             }
             SyscallSelector::SendMessageToL1 => {
                 run_handler::<SendMessageToL1Handler>(ptr, vm, ehw, SEND_MESSAGE_TO_L1_GAS_COST).await
+            }
+            SyscallSelector::ReplaceClass => {
+                run_handler::<ReplaceClassHandler>(ptr, vm, ehw, REPLACE_CLASS_GAS_COST).await
             }
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;
@@ -370,30 +373,34 @@ impl SyscallHandler for LibraryCallHandler {
 //     Ok(LibraryCallResponse { segment: retdata_segment })
 // }
 
-// TODO: ReplaceClass syscall.
-//
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct ReplaceClassRequest {
-//     pub class_hash: ClassHash,
-// }
-//
-// impl SyscallRequest for ReplaceClassRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<ReplaceClassRequest> {
-//         let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
-//
-//         Ok(ReplaceClassRequest { class_hash })
-//     }
-// }
-//
-// pub type ReplaceClassResponse = EmptyResponse;
-//
-// pub fn replace_class(
-//     request: ReplaceClassRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> SyscallResult<ReplaceClassResponse> {
-// }
+#[derive(Debug, Eq, PartialEq)]
+pub struct ReplaceClassHandler;
+
+impl SyscallHandler for ReplaceClassHandler {
+    type Request = EmptyRequest;
+    type Response = EmptyResponse;
+    fn read_request(_vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request> {
+        *ptr = (*ptr + new_syscalls::ReplaceClassRequest::cairo_size())?;
+        Ok(EmptyRequest)
+    }
+
+    async fn execute(
+        _request: Self::Request,
+        _vm: &mut VirtualMachine,
+        _exec_wrapper: &mut ExecutionHelperWrapper,
+        _remaining_gas: &mut u64,
+    ) -> SyscallResult<Self::Response> {
+        Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
+    }
+
+    fn write_response(
+        _response: Self::Response,
+        _vm: &mut VirtualMachine,
+        _ptr: &mut Relocatable,
+    ) -> WriteResponseResult {
+        Ok(())
+    }
+}
 
 struct SendMessageToL1Handler;
 
