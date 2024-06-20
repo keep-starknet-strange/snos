@@ -195,7 +195,6 @@ async fn syscalls_cairo1(
     .expect("OS run failed");
 }
 
-
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
