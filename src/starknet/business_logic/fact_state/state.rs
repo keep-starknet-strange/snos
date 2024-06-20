@@ -15,15 +15,14 @@ use starknet_api::state::StorageKey;
 use starknet_crypto::FieldElement;
 
 use crate::config::{
-    StarknetGeneralConfig, COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT, CONTRACT_ADDRESS_BITS,
-    CONTRACT_STATES_COMMITMENT_TREE_HEIGHT, GLOBAL_STATE_VERSION,
+    COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT, CONTRACT_ADDRESS_BITS, CONTRACT_STATES_COMMITMENT_TREE_HEIGHT,
+    GLOBAL_STATE_VERSION,
 };
 use crate::crypto::poseidon::{poseidon_hash_many_bytes, PoseidonHash};
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
     get_ffc_for_contract_class_facts, CompiledClassFact, ContractClassLeaf, DeprecatedCompiledClassFact,
 };
 use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
-use crate::starknet::business_logic::state::state_api_objects::BlockInfo;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
@@ -44,7 +43,6 @@ where
     /// Leaf addresses are class hashes; leaf values contain compiled class hashes.
     /// Optional because some older states did not have class commitment.
     pub contract_classes: Option<PatriciaTree>,
-    pub block_info: BlockInfo,
     pub ffc: FactFetchingContext<S, H>,
     ffc_for_class_hash: FactFetchingContext<S, PoseidonHash>,
     /// Set of all the contracts in this state. Used to cache contract values to avoid
@@ -63,7 +61,6 @@ where
         Self {
             contract_states: self.contract_states.clone(),
             contract_classes: self.contract_classes.clone(),
-            block_info: self.block_info.clone(),
             ffc: self.ffc.clone(),
             ffc_for_class_hash: self.ffc_for_class_hash.clone(),
             contract_addresses: self.contract_addresses.clone(),
@@ -98,7 +95,7 @@ where
     }
 
     /// Returns an empty state. This is called before creating very first block.
-    pub async fn empty(mut ffc: FactFetchingContext<S, H>, config: &StarknetGeneralConfig) -> Result<Self, TreeError> {
+    pub async fn empty(mut ffc: FactFetchingContext<S, H>) -> Result<Self, TreeError> {
         let empty_contract_states = Self::create_empty_contract_states(&mut ffc).await?;
         let empty_contract_classes = Self::create_empty_contract_class_tree(&mut ffc).await?;
 
@@ -107,7 +104,6 @@ where
         Ok(Self {
             contract_states: empty_contract_states,
             contract_classes: Some(empty_contract_classes),
-            block_info: BlockInfo::empty(Some(felt_api2vm(*config.sequencer_address.0.key())), config.use_kzg_da),
             ffc,
             ffc_for_class_hash,
             contract_addresses: Default::default(),
@@ -167,10 +163,8 @@ where
     pub async fn from_blockifier_state(
         ffc: FactFetchingContext<S, H>,
         blockifier_state: blockifier::test_utils::dict_state_reader::DictStateReader,
-        block_info: BlockInfo,
-        config: &StarknetGeneralConfig,
     ) -> Result<Self, TreeError> {
-        let empty_state = Self::empty(ffc, config).await?;
+        let empty_state = Self::empty(ffc).await?;
 
         let mut storage_updates: HashMap<ContractAddress, HashMap<StorageKey, StarkFelt>> = HashMap::new();
         for ((address, key), value) in blockifier_state.storage_view {
@@ -183,7 +177,6 @@ where
                 blockifier_state.address_to_nonce,
                 blockifier_state.class_hash_to_compiled_class_hash,
                 storage_updates,
-                block_info,
             )
             .await?;
 
@@ -191,11 +184,7 @@ where
     }
 
     /// Updates the global state using a state diff generated with Blockifier.
-    pub async fn apply_commitment_state_diff(
-        self,
-        state_diff: CommitmentStateDiff,
-        block_info: BlockInfo,
-    ) -> Result<Self, TreeError> {
+    pub async fn apply_commitment_state_diff(self, state_diff: CommitmentStateDiff) -> Result<Self, TreeError> {
         // TODO: find a better solution than creating new hashmaps
         self.apply_state_updates_starknet_api(
             state_diff.address_to_class_hash.into_iter().collect(),
@@ -206,7 +195,6 @@ where
                 .into_iter()
                 .map(|(address, updates)| (address, updates.into_iter().collect()))
                 .collect(),
-            block_info,
         )
         .await
     }
@@ -218,7 +206,6 @@ where
         address_to_nonce: HashMap<ContractAddress, Nonce>,
         class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash>,
         storage_updates: HashMap<ContractAddress, HashMap<StorageKey, StarkFelt>>,
-        block_info: BlockInfo,
     ) -> Result<Self, TreeError> {
         let address_to_class_hash: HashMap<_, _> = address_to_class_hash
             .into_iter()
@@ -253,7 +240,6 @@ where
             address_to_nonce,
             class_hash_to_compiled_class_hash,
             storage_updates,
-            block_info,
         )
         .await
     }
@@ -265,7 +251,6 @@ where
         address_to_nonce: HashMap<Felt252, Felt252>,
         class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
         storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>,
-        block_info: BlockInfo,
     ) -> Result<Self, TreeError> {
         let accessed_addresses_felts: HashSet<_> = address_to_class_hash
             .keys()
@@ -333,7 +318,6 @@ where
         Ok(Self {
             contract_states: updated_global_contract_root,
             contract_classes: updated_contract_classes,
-            block_info,
             ffc: self.ffc,
             ffc_for_class_hash: self.ffc_for_class_hash,
             contract_addresses,
