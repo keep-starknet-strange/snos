@@ -5,7 +5,9 @@
 //! simplified and are missing fields that are irrelevant for load tests.
 use pathfinder_common::GasPrice;
 use pathfinder_crypto::Felt;
+use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use starknet_api::block::{BlockBody, BlockHeader};
 
 #[serde_as]
 #[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
@@ -16,17 +18,12 @@ pub struct ResourcePrice {
     pub price_in_fri: GasPrice,
 }
 
-#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub struct Block {
-    pub block_hash: Felt,
-    pub parent_hash: Felt,
-    pub block_number: u64,
-    pub new_root: Felt,
-    pub timestamp: u64,
-    pub sequencer_address: Felt,
-    pub l1_gas_price: ResourcePrice,
-    pub l1_data_gas_price: ResourcePrice,
-    // pub transactions: Vec<Felt>,
+    #[serde(flatten)]
+    pub header: BlockHeader,
+    #[serde(flatten)]
+    pub body: BlockBody,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
