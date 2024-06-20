@@ -554,10 +554,10 @@ async fn test_syscall_send_message_to_l1_cairo0(
     let contract_address = test_contract.address;
 
     // test constants
-    const ADDRESS: u16 = 1298;
-    const PAYLOAD_SIZE: u16 = 2;
-    const PAYLOAD_1: u16 = 12;
-    const PAYLOAD_2: u16 = 34;
+    const ADDRESS: u64 = 1298;
+    const PAYLOAD_SIZE: u64 = 2;
+    const PAYLOAD_1: u64 = 12;
+    const PAYLOAD_2: u64 = 34;
 
     let tx_version = TransactionVersion::ZERO;
     let to_address = stark_felt!(ADDRESS);
