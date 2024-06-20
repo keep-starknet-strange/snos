@@ -97,6 +97,9 @@ impl OsSyscallHandlerWrapper {
             SyscallSelector::SendMessageToL1 => {
                 run_handler::<SendMessageToL1Handler>(ptr, vm, ehw, SEND_MESSAGE_TO_L1_GAS_COST).await
             }
+            SyscallSelector::LibraryCallL1Handler => {
+                run_handler::<LibraryCallHandler>(ptr, vm, ehw, LIBRARY_CALL_GAS_COST).await
+            }
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;
 
@@ -348,27 +351,6 @@ impl SyscallHandler for LibraryCallHandler {
         write_segment(vm, ptr, response)
     }
 }
-
-// TODO: LibraryCallL1Handler syscall.
-// pub fn library_call_l1_handler(
-//     request: LibraryCallRequest,
-//     vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     remaining_gas: &mut u64,
-// ) -> SyscallResult<LibraryCallResponse> {
-//     let call_to_external = false;
-//     let retdata_segment = execute_library_call(
-//         syscall_handler,
-//         vm,
-//         request.class_hash,
-//         call_to_external,
-//         request.function_selector,
-//         request.calldata,
-//         remaining_gas,
-//     )?;
-//
-//     Ok(LibraryCallResponse { segment: retdata_segment })
-// }
 
 // TODO: ReplaceClass syscall.
 //
