@@ -283,16 +283,15 @@ pub const SEND_MESSAGE_TO_L1: &str =
     "syscall_handler.send_message_to_l1(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 pub fn send_message_to_l1(
-    vm: &mut VirtualMachine,
+    _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
-    let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.send_message_to_l1(syscall_ptr);
+    syscall_handler.send_message_to_l1();
 
     Ok(())
 }

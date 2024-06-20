@@ -242,8 +242,8 @@ impl DeprecatedOsSyscallHandlerWrapper {
     pub fn replace_class(&self) {
         // Nothing to do.
     }
-    pub fn send_message_to_l1(&self, syscall_ptr: Relocatable) {
-        log::error!("send_message_to_l1 (TODO): {}", syscall_ptr);
+    pub fn send_message_to_l1(&self) {
+        // Nothing to do
     }
     pub async fn storage_read(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         let sys_hand = self.deprecated_syscall_handler.write().await;
