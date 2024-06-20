@@ -90,3 +90,9 @@ pub struct StorageWriteRequest {
     pub key: Felt252,
     pub value: Felt252,
 }
+
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct ReplaceClassRequest {
+    pub class_hash: Felt252,
+}
