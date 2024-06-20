@@ -15,7 +15,6 @@ use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use cairo_vm::Felt252;
-use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use rstest::rstest;
 use snos::config::SN_GOERLI;
