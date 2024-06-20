@@ -554,10 +554,14 @@ async fn test_syscall_send_message_to_l1_cairo0(
     let test_contract = initial_state.cairo0_contracts.get("test_contract").unwrap();
     let contract_address = test_contract.address;
 
-    let tx_version = TransactionVersion::ZERO;
+    // test constants
+    const ADDRESS: u16 = 1298;
+    const PAYLOAD_SIZE: u16 = 2;
+    const PAYLOAD_1: u16 = 12;
+    const PAYLOAD_2: u16 = 34;
 
-    let address = 1234_u16;
-    let to_address = stark_felt!(address);
+    let tx_version = TransactionVersion::ZERO;
+    let to_address = stark_felt!(ADDRESS);
 
     let entrypoint_args = &[vec![to_address]].concat();
 
@@ -571,7 +575,6 @@ async fn test_syscall_send_message_to_l1_cairo0(
     });
 
     let txs = vec![tx];
-
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context.clone(),
@@ -581,14 +584,14 @@ async fn test_syscall_send_message_to_l1_cairo0(
     )
     .await
     .expect("OS run failed");
-    let output: Vec<BigUint> =
-        os_output.messages_to_l1.iter().map(|msg| BigUint::from_bytes_le(&msg.to_bytes_le())).collect();
+    let output = os_output.messages_to_l1;
 
-    // assert the address is returned
-    assert!(&output.contains(&address.try_into().unwrap()));
-
-    // assert the payload
-    for expected_payload in [12u16, 34] {
-        assert!(&output.contains(&expected_payload.try_into().unwrap()));
-    }
+    let expected: [Felt252; 5] = [
+        felt_api2vm(*contract_address.0.key()),
+        ADDRESS.into(),
+        PAYLOAD_SIZE.into(),
+        PAYLOAD_1.into(),
+        PAYLOAD_2.into(),
+    ];
+    assert_eq!(&*output, expected);
 }
