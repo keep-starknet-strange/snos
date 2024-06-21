@@ -202,7 +202,7 @@ pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0) -> InternalTransaction
     };
 }
 
-/// Convert a InvokeTransactionV0 to a SNOS InternalTransaction
+/// Convert a InvokeTransactionV1 to a SNOS InternalTransaction
 pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1) -> InternalTransaction {
     let max_fee = tx.max_fee.0.into();
     let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
