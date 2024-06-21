@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
@@ -28,7 +29,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiled
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{DeclareTransactionV2, InvokeTransactionV0};
+use starknet_api::transaction::{DeclareTransactionV2, InvokeTransactionV0, InvokeTransactionV1};
 use starknet_crypto::{pedersen_hash, FieldElement};
 
 use crate::common::block_utils::os_hints;
@@ -83,6 +84,20 @@ fn tx_hash_invoke_v0(
     ])
 }
 
+/// Produce a hash for an Invoke V1 TXN with the provided elements
+fn tx_hash_invoke_v1(contract_address: Felt252, calldata: Vec<Felt252>, max_fee: Felt252, nonce: Felt252) -> Felt252 {
+    hash_on_elements(vec![
+        Felt252::from_bytes_be_slice(INVOKE_PREFIX),
+        Felt252::ONE,
+        contract_address,
+        Felt252::ZERO,
+        hash_on_elements(calldata),
+        Felt252::from(max_fee),
+        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+        nonce,
+    ])
+}
+
 /// Produce a hash for a Declare V2 TXN with the provided elements
 fn tx_hash_declare_v2(
     sender_address: Felt252,
@@ -120,6 +135,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
         DeployAccount(_) => unimplemented!("Deploy txns not yet supported"),
         Invoke(invoke_tx) => match &invoke_tx.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(tx),
+            starknet_api::transaction::InvokeTransaction::V1(tx) => to_internal_invoke_v1_tx(tx),
             _ => unimplemented!("Invoke txn version not yet supported"),
         },
     };
@@ -175,6 +191,32 @@ pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0) -> InternalTransaction
         version: Some(Felt252::ZERO),
         contract_address: Some(contract_address),
         nonce: None, // TODO: this can't be right...
+        sender_address: Some(contract_address),
+        entry_point_selector,
+        entry_point_type: Some("EXTERNAL".to_string()),
+        signature,
+        calldata,
+        r#type: "INVOKE_FUNCTION".to_string(),
+        max_fee: Some(max_fee),
+        ..Default::default()
+    };
+}
+
+/// Convert a InvokeTransactionV1 to a SNOS InternalTransaction
+pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1) -> InternalTransaction {
+    let max_fee = tx.max_fee.0.into();
+    let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
+    let entry_point_selector = Some(to_felt252(&selector_from_name("__execute__").0));
+    let calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
+    let contract_address = to_felt252(tx.sender_address.0.key());
+    let nonce = felt_api2vm(tx.nonce.0);
+    let hash_value = tx_hash_invoke_v1(contract_address, calldata.clone().unwrap(), max_fee, nonce);
+
+    return InternalTransaction {
+        hash_value,
+        version: Some(Felt252::ONE),
+        contract_address: Some(contract_address),
+        nonce: Some(nonce),
         sender_address: Some(contract_address),
         entry_point_selector,
         entry_point_type: Some("EXTERNAL".to_string()),

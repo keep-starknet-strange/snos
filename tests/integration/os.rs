@@ -91,17 +91,18 @@ async fn return_result_cairo1_account(
     .expect("OS run failed");
 }
 
-#[rstest]
+#[rstest(
+    tx_version => [TransactionVersion::ZERO, TransactionVersion::ONE]
+)]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn syscalls_cairo1(
     #[future] initial_state_syscalls: StarknetTestState,
     block_context: BlockContext,
     max_fee: Fee,
+    tx_version: TransactionVersion,
 ) {
     let initial_state = initial_state_syscalls.await;
-
-    let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
     let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
