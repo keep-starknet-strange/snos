@@ -35,7 +35,7 @@ use starknet_os::execution::helper::ExecutionHelperWrapper;
 use starknet_os::io::input::StarknetOsInput;
 use starknet_os::io::output::StarknetOsOutput;
 use starknet_os::io::InternalTransaction;
-use starknet_os::starknet::business_logic::fact_state::state::SharedState;
+use starknet_os::starknet::business_logic::fact_state::test_shared_state::TestSharedState;
 use starknet_os::starknet::core::os::transaction_hash::{L1_GAS, L2_GAS};
 use starknet_os::storage::storage::Storage;
 use starknet_os::utils::felt_api2vm;
@@ -773,7 +773,7 @@ pub fn to_internal_deploy_v3_tx(
 }
 
 async fn execute_txs<S>(
-    mut state: CachedState<SharedState<S, PedersenHash>>,
+    mut state: CachedState<TestSharedState<S, PedersenHash>>,
     block_context: &BlockContext,
     txs: Vec<Transaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
@@ -813,7 +813,7 @@ where
 }
 
 pub async fn execute_txs_and_run_os<S>(
-    state: CachedState<SharedState<S, PedersenHash>>,
+    state: CachedState<TestSharedState<S, PedersenHash>>,
     block_context: BlockContext,
     txs: Vec<Transaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
