@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::context::BlockContext;
+use blockifier::execution::syscalls::hint_processor::{L1_GAS, L2_GAS};
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -12,6 +13,7 @@ use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
 use snos::config::{BLOCK_HASH_CONTRACT_ADDRESS, SN_GOERLI, STORED_BLOCK_HASH_BUFFER};
 use snos::crypto::pedersen::PedersenHash;
 use snos::error::SnOsError;
@@ -29,8 +31,10 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiled
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{DeclareTransactionV2, InvokeTransactionV0, InvokeTransactionV1};
-use starknet_crypto::{pedersen_hash, FieldElement};
+use starknet_api::transaction::{
+    DeclareTransactionV2, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, Resource,
+};
+use starknet_crypto::{pedersen_hash, poseidon_hash, FieldElement};
 
 use crate::common::block_utils::os_hints;
 
@@ -54,6 +58,28 @@ pub fn hash_on_elements(data: Vec<Felt252>) -> Felt252 {
 
     let result = hash(&current_hash, &data_len);
 
+    result
+}
+
+pub fn poseidon_hash_on_elements(data: Vec<Felt252>) -> Felt252 {
+    let mut current_hash = Felt252::ZERO;
+
+    for item in data.iter() {
+        current_hash = hash(&current_hash, item);
+    }
+
+    let data_len = Felt252::from(data.len());
+
+    let result = _poseidon_hash(&current_hash, &data_len);
+    pub fn _poseidon_hash(a: &Felt252, b: &Felt252) -> Felt252 {
+        let a_be_bytes = a.to_bytes_be();
+        let b_be_bytes = b.to_bytes_be();
+        let (x, y) =
+            (FieldElement::from_bytes_be(&a_be_bytes).unwrap(), FieldElement::from_bytes_be(&b_be_bytes).unwrap());
+
+        let result = poseidon_hash(x, y);
+        Felt252::from_bytes_be(&result.to_bytes_be())
+    }
     result
 }
 
@@ -98,6 +124,43 @@ fn tx_hash_invoke_v1(contract_address: Felt252, calldata: Vec<Felt252>, max_fee:
     ])
 }
 
+/// Produce a hash for an Invoke V3 TXN with the provided elements
+fn tx_hash_invoke_v3(
+    contract_address: Felt252,
+    resource_bounds: Vec<Felt252>,
+    paymaster_data: Vec<Felt252>,
+    nonce: Felt252,
+    data_availability_modes: Felt252,
+    calldata: Vec<Felt252>,
+    account_deployment_data: Vec<Felt252>,
+) -> Felt252 {
+    // invoke_v3_tx_hash = h(
+    //     "invoke",
+    //     version,
+    //     sender_address,
+    //     h(tip, l1_gas_bounds, l2_gas_bounds),
+    //     h(paymaster_data),
+    //     chain_id,
+    //     nonce,
+    //     data_availability_modes,
+    //     h(account_deployment_data),
+    //     h(calldata),
+    //     class_hash
+    // )
+    poseidon_hash_on_elements(vec![
+        Felt252::from_bytes_be_slice(INVOKE_PREFIX),
+        Felt252::THREE,
+        contract_address,
+        poseidon_hash_on_elements(resource_bounds),
+        poseidon_hash_on_elements(paymaster_data),
+        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+        nonce,
+        data_availability_modes,
+        poseidon_hash_on_elements(account_deployment_data),
+        poseidon_hash_on_elements(calldata),
+    ])
+}
+
 /// Produce a hash for a Declare V2 TXN with the provided elements
 fn tx_hash_declare_v2(
     sender_address: Felt252,
@@ -136,7 +199,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
         Invoke(invoke_tx) => match &invoke_tx.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(tx),
             starknet_api::transaction::InvokeTransaction::V1(tx) => to_internal_invoke_v1_tx(tx),
-            _ => unimplemented!("Invoke txn version not yet supported"),
+            starknet_api::transaction::InvokeTransaction::V3(tx) => to_internal_invoke_v3_tx(tx),
         },
     };
 }
@@ -228,6 +291,66 @@ pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1) -> InternalTransaction
     };
 }
 
+/// Convert a InvokeTransactionV3 to a SNOS InternalTransaction
+pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3) -> InternalTransaction {
+    let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
+    let entry_point_selector = Some(to_felt252(&selector_from_name("__execute__").0));
+    let calldata = Some(tx.calldata.0.iter().map(|x| to_felt252(x.into())).collect());
+    let contract_address = to_felt252(tx.sender_address.0.key());
+    let nonce = felt_api2vm(tx.nonce.0);
+    let tip = felt_api2vm(tx.tip.0.into());
+
+    fn calculate_bounds(resource: &Resource, tx: &InvokeTransactionV3) -> Felt252 {
+        let l_bound_str = match resource {
+            Resource::L1Gas => L1_GAS,
+            Resource::L2Gas => L2_GAS,
+        };
+        let l_bound = BigUint::from_bytes_be(StarkFelt::try_from(l_bound_str).unwrap().bytes());
+        let max_amount = BigUint::from(tx.resource_bounds.0.get(resource).unwrap().max_amount);
+        let max_price_per_unit = BigUint::from(tx.resource_bounds.0.get(resource).unwrap().max_price_per_unit);
+        let bound: BigUint = l_bound << 192 | max_amount << 128 | max_price_per_unit;
+        Felt252::from_bytes_be_slice(&bound.to_bytes_be())
+    }
+    let l1_bounds = calculate_bounds(&Resource::L1Gas, tx);
+    let l2_bounds = calculate_bounds(&Resource::L2Gas, tx);
+
+    let data_availability_modes: BigUint = BigUint::from(tx.nonce_data_availability_mode as u32) << 32
+        | BigUint::from(tx.fee_data_availability_mode as u32);
+
+    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().map(|x| to_felt252(x.into())).collect();
+    let account_deployment_data: Vec<Felt252> =
+        tx.account_deployment_data.0.iter().map(|x| to_felt252(x.into())).collect();
+    let hash_value = tx_hash_invoke_v3(
+        contract_address,
+        vec![tip, l1_bounds, l2_bounds],
+        paymaster_data.clone(),
+        nonce,
+        Felt252::from_bytes_be_slice(&data_availability_modes.to_bytes_be()),
+        calldata.clone().unwrap(),
+        account_deployment_data.clone(),
+    );
+
+    return InternalTransaction {
+        hash_value,
+        version: Some(Felt252::THREE),
+        contract_address: Some(contract_address),
+        nonce: Some(nonce),
+        sender_address: Some(contract_address),
+        entry_point_selector,
+        entry_point_type: Some("EXTERNAL".to_string()),
+        signature,
+        calldata,
+        r#type: "INVOKE_FUNCTION".to_string(),
+        resource_bounds: Some(tx.resource_bounds.clone()),
+        paymaster_data: Some(paymaster_data),
+        account_deployment_data: Some(account_deployment_data),
+        tip: Some(tip),
+        fee_data_availability_mode: Some((tx.fee_data_availability_mode as u32).into()),
+        nonce_data_availability_mode: Some((tx.nonce_data_availability_mode as u32).into()),
+        ..Default::default()
+    };
+}
+
 async fn execute_txs(
     mut state: CachedState<SharedState<DictStorage, PedersenHash>>,
     block_context: &BlockContext,
@@ -242,7 +365,6 @@ async fn execute_txs(
     let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
 
     state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
-
     let internal_txs: Vec<_> = txs.iter().map(to_internal_tx).collect();
     let execution_infos =
         txs.into_iter().map(|tx| tx.execute(&mut state, block_context, true, true).unwrap()).collect();
