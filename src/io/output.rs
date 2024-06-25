@@ -5,6 +5,7 @@ use cairo_vm::vm::runners::builtin_runner::BuiltinRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use num_traits::ToPrimitive;
+use serde::{Deserialize, Serialize};
 
 use crate::error::SnOsError;
 
@@ -17,7 +18,7 @@ const USE_KZG_DA_OFFSET: usize = 5;
 const HEADER_SIZE: usize = 6;
 
 /// Represents the changes in a contract instance.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct ContractChanges {
     /// The address of the contract.
     pub addr: Felt252,
@@ -29,7 +30,7 @@ pub struct ContractChanges {
     pub storage_changes: HashMap<Felt252, Felt252>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct StarknetOsOutput {
     /// The root before.
     pub initial_root: Felt252,
@@ -240,4 +241,62 @@ pub fn decode_output<I: Iterator<Item = Felt252>>(mut output_iter: I) -> Result<
         contracts,
         classes,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// Tests that the OS output can be serialized and deserialized properly to JSON.
+    fn os_output_serde_json() {
+        let os_output = StarknetOsOutput {
+            initial_root: Felt252::from_hex_unchecked(
+                "0x5594a2d89ad4eff183ea6a7f4d4bf247fb799f3db54bc6d94ea441e0c99a4ac",
+            ),
+            final_root: Felt252::from_hex_unchecked(
+                "0x12b31d0ff0c0f5aa076d2e7039d2e19329a8a4a4ada68f42f2e0b6b8af304fd",
+            ),
+            block_number: Felt252::from(10000),
+            block_hash: Felt252::from_hex_unchecked("0x123456"),
+            starknet_os_config_hash: Felt252::from_hex_unchecked(
+                "0x5d4d0b87442f4c6c120e8d207e27c0e01796ad1e57c5323292ecaf655b53b05",
+            ),
+            use_kzg_da: Felt252::ONE,
+            messages_to_l1: vec![
+                Felt252::from(1234),
+                Felt252::from(5678),
+                Felt252::from(2),
+                Felt252::from(42),
+                Felt252::from(27),
+            ],
+            messages_to_l2: vec![],
+            contracts: vec![ContractChanges {
+                addr: Felt252::ONE,
+                nonce: Felt252::from(100),
+                class_hash: None,
+                storage_changes: HashMap::from([
+                    (
+                        Felt252::from_hex_unchecked(
+                            "0x723973208639b7839ce298f7ffea61e3f9533872defd7abdb91023db4658812",
+                        ),
+                        Felt252::from_hex_unchecked("0x1f67eee3d0800"),
+                    ),
+                    (
+                        Felt252::from_hex_unchecked(
+                            "0x27e66af6f5df3e043d32367d68ece7e13645cca1ca9f80dfdaff9013fddf0c5",
+                        ),
+                        Felt252::from_hex_unchecked("0xddec034b926f800"),
+                    ),
+                ]),
+            }],
+            classes: Default::default(),
+        };
+
+        let os_output_str = serde_json::to_string(&os_output).expect("OS output serialization failed");
+        let deserialized_os_output: StarknetOsOutput =
+            serde_json::from_str(&os_output_str).expect("OS output deserialization failed");
+
+        assert_eq!(deserialized_os_output, os_output);
+    }
 }

@@ -7,7 +7,6 @@ use cairo_vm::types::program::Program;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
-use cairo_vm::Felt252;
 use error::SnOsError;
 use execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use execution::helper::ExecutionHelperWrapper;
@@ -17,7 +16,6 @@ use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::types::{PatriciaSkipValidationRunner, PatriciaTreeMode};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
-use crate::io::output::ContractChanges;
 
 mod cairo_types;
 pub mod config;
@@ -31,35 +29,6 @@ pub mod starknet;
 pub mod starkware_utils;
 pub mod storage;
 pub mod utils;
-
-fn log_contract_changes(contract_changes: &ContractChanges) {
-    log::debug!("  contract address: {}", contract_changes.addr.to_hex_string());
-    log::debug!("    nonce: {}", contract_changes.nonce.to_biguint());
-    log::debug!("    class_hash: {:?}", contract_changes.class_hash.map(|felt| felt.to_biguint()));
-    log::debug!("    # storage changes: {}", contract_changes.storage_changes.len());
-}
-
-fn log_output(os_output: &StarknetOsOutput) {
-    log::debug!("OS output:");
-    log::debug!("  initial root: {}", os_output.initial_root.to_hex_string());
-    log::debug!("  final root: {}", os_output.final_root.to_hex_string());
-    log::debug!("  block number: {}", os_output.block_number.to_biguint());
-    log::debug!("  block hash: {}", os_output.block_hash.to_hex_string());
-    log::debug!("  starknet os config hash: {}", os_output.starknet_os_config_hash.to_hex_string());
-    let use_kzg_da = os_output.use_kzg_da != Felt252::ZERO;
-    log::debug!("  use kzg da: {}", use_kzg_da);
-    log::debug!("  # messages to L1: {} - {:?}", os_output.messages_to_l1.len(), os_output.messages_to_l1);
-    log::debug!("  # messages to L2: {} - {:?}", os_output.messages_to_l2.len(), os_output.messages_to_l2);
-    log::debug!("  # contract changes: {}", os_output.contracts.len());
-    for contract_changes in &os_output.contracts {
-        log_contract_changes(contract_changes);
-    }
-
-    log::debug!("  # class changes: {}", os_output.classes.len());
-    for (class_hash, compiled_class_hash) in &os_output.classes {
-        log::debug!("    {} -> {}", class_hash.to_hex_string(), compiled_class_hash.to_hex_string());
-    }
-}
 
 pub fn run_os(
     os_path: String,
@@ -128,8 +97,7 @@ pub fn run_os(
     // Prepare and check expected output.
     let os_output = StarknetOsOutput::from_run(&cairo_runner.vm)?;
 
-    log::debug!("output: {:?}", os_output);
-    log_output(&os_output);
+    log::debug!("output: {}", serde_json::to_string_pretty(&os_output).unwrap());
 
     cairo_runner.vm.verify_auto_deductions().map_err(|e| SnOsError::Runner(e.into()))?;
     cairo_runner.read_return_values(allow_missing_builtins).map_err(|e| SnOsError::Runner(e.into()))?;
