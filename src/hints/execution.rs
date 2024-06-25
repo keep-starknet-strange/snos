@@ -20,7 +20,6 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
-use starknet_api::transaction::{Resource, ResourceBoundsMapping};
 
 use crate::cairo_types::new_syscalls;
 use crate::cairo_types::structs::{EntryPointReturnValues, ExecutionContext};
@@ -33,6 +32,7 @@ use crate::hints::types::{PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
+use crate::starknet::core::os::transaction_hash::transaction_hash::create_resource_bounds_list;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::DescentMap;
 use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, TreeUpdate, UpdateTree};
@@ -611,34 +611,11 @@ pub fn resource_bounds(
     let resource_bounds = if version < Felt252::THREE {
         MaybeRelocatable::Int(Felt252::ZERO)
     } else {
-        fn create_resource_bounds_list(resource_bounds: &ResourceBoundsMapping) -> Vec<Felt252> {
-            // TODO: organize as constants
-            let l1_gas = Felt252::from_bytes_be_slice(b"L1_GAS");
-            let l2_gas = Felt252::from_bytes_be_slice(b"L2_GAS");
-
-            let mut resource_bounds_vec = vec![];
-
-            let resource_types = [(Resource::L1Gas, l1_gas), (Resource::L2Gas, l2_gas)];
-
-            for (resource, name_as_felt) in resource_types {
-                let bounds = resource_bounds.0.get(&resource).expect("Expect to find well-known resource types");
-                resource_bounds_vec.push(name_as_felt);
-                resource_bounds_vec.push(bounds.max_amount.into());
-                resource_bounds_vec.push(bounds.max_price_per_unit.into());
-            }
-
-            resource_bounds_vec
-        }
-
-        let resource_bounds = create_resource_bounds_list(&tx.resource_bounds.unwrap_or_default())
+        let resource_bounds: Vec<_> = create_resource_bounds_list(&tx.resource_bounds.unwrap_or_default())
             .iter()
             .map(|f| MaybeRelocatable::Int(*f))
             .collect();
-        // TODO: why temporary segment?
-        let resource_bounds_base = vm.add_temporary_segment();
-        vm.load_data(resource_bounds_base, &resource_bounds)?;
-
-        MaybeRelocatable::RelocatableValue(resource_bounds_base)
+        vm.gen_arg(&resource_bounds)?
     };
 
     insert_value_from_var_name(vars::ids::RESOURCE_BOUNDS, resource_bounds, vm, ids_data, ap_tracking)
