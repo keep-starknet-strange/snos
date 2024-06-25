@@ -20,7 +20,7 @@ use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::output::StarknetOsOutput;
 use snos::io::InternalTransaction;
-use snos::starknet::business_logic::fact_state::state::SharedState;
+use snos::starknet::business_logic::fact_state::test_shared_state::TestSharedState;
 use snos::storage::dict_storage::DictStorage;
 use snos::utils::felt_api2vm;
 use snos::{config, run_os};
@@ -229,7 +229,7 @@ pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1) -> InternalTransaction
 }
 
 async fn execute_txs(
-    mut state: CachedState<SharedState<DictStorage, PedersenHash>>,
+    mut state: CachedState<TestSharedState<DictStorage, PedersenHash>>,
     block_context: &BlockContext,
     txs: Vec<AccountTransaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
@@ -250,7 +250,7 @@ async fn execute_txs(
 }
 
 pub async fn execute_txs_and_run_os(
-    state: CachedState<SharedState<DictStorage, PedersenHash>>,
+    state: CachedState<TestSharedState<DictStorage, PedersenHash>>,
     block_context: BlockContext,
     txs: Vec<AccountTransaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
