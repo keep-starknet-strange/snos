@@ -92,7 +92,7 @@ async fn return_result_cairo1_account(
 }
 
 #[rstest(
-    tx_version => [TransactionVersion::ZERO, TransactionVersion::ONE]
+    tx_version => [TransactionVersion::ZERO, TransactionVersion::ONE, TransactionVersion::THREE]
 )]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
