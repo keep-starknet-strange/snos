@@ -8,7 +8,10 @@ use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
-use snos::storage::storage::{Storage, StorageError};
+use snos::crypto::pedersen::PedersenHash;
+use snos::starknet::business_logic::fact_state::state::SharedState;
+use snos::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+use snos::storage::storage::{FactFetchingContext, Storage, StorageError};
 use starknet::core::types::{BlockId, BlockWithTxs, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
@@ -16,11 +19,8 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
-use snos::starknet::business_logic::fact_state::state::SharedState;
 
 // use snos::{config, run_os};
-
-mod types;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -36,6 +36,12 @@ fn felt_to_u128(felt: &starknet_types_core::felt::Felt) -> u128 {
 
 struct RpcStorage {
     provider: JsonRpcClient<HttpTransport>,
+}
+
+impl RpcStorage {
+    pub fn new(provider: JsonRpcClient<HttpTransport>) -> Self {
+        Self { provider }
+    }
 }
 
 impl Storage for RpcStorage {
@@ -119,6 +125,24 @@ fn init_logging() {
         .expect("Failed to configure env_logger");
 }
 
+fn build_shared_state(
+    block: &BlockWithTxs,
+    provider: JsonRpcClient<HttpTransport>,
+) -> SharedState<RpcStorage, PedersenHash> {
+    let ffc = FactFetchingContext::new(RpcStorage::new(provider));
+    let ffc_for_class_hash = ffc.clone_with_different_hash();
+
+
+
+    // SharedState {
+    //     contract_states: PatriciaTree { root: (), height: Default::default() },
+    //     contract_classes: None,
+    //     ffc,
+    //     ffc_for_class_hash,
+    // }
+    todo!()
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     init_logging();
@@ -138,16 +162,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
             panic!("Block is still pending!");
         }
     };
-    let previous_block = match provider.get_block_with_tx_hashes(BlockId::Number(block_number - 1)).await.unwrap() {
-        MaybePendingBlockWithTxHashes::Block(block_with_txs) => block_with_txs,
-        MaybePendingBlockWithTxHashes::PendingBlock(_) => {
+    let previous_block = match provider.get_block_with_txs(BlockId::Number(block_number - 1)).await.unwrap() {
+        MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
+        MaybePendingBlockWithTxs::PendingBlock(_) => {
             panic!("Block is still pending!");
         }
     };
 
     let _block_context = build_block_context(chain_id, &block_with_txs).await.unwrap();
 
-    let initial_state = SharedState {}
+    let ffc = FactFetchingContext::new(RpcStorage::new(provider));
+    let initial_state = build_shared_state(&previous_block, )
 
     // let os =
     //
