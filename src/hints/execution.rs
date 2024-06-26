@@ -709,8 +709,9 @@ pub fn tx_paymaster_data(
     let paymaster_data = if tx.version.unwrap_or_default() < Felt252::THREE {
         MaybeRelocatable::Int(Felt252::ZERO)
     } else {
-        let paymaster_data_base = vm.add_memory_segment();
-        MaybeRelocatable::RelocatableValue(paymaster_data_base)
+        let data: Vec<MaybeRelocatable> =
+            tx.paymaster_data.unwrap().iter().map(|f| MaybeRelocatable::Int(*f)).collect();
+        vm.gen_arg(&data)?
     };
     insert_value_into_ap(vm, paymaster_data)
 }
@@ -778,12 +779,15 @@ pub fn tx_account_deployment_data(
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
 
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    if version < Felt252::THREE {
-        insert_value_into_ap(vm, Felt252::ZERO)
+    let account_deployment_data = if version < Felt252::THREE {
+        MaybeRelocatable::Int(Felt252::ZERO)
     } else {
-        let mem_seg = vm.add_memory_segment();
-        insert_value_into_ap(vm, mem_seg)
-    }
+        let data: Vec<MaybeRelocatable> =
+            tx.account_deployment_data.unwrap().iter().map(|f| MaybeRelocatable::Int(*f)).collect();
+        vm.gen_arg(&data)?
+    };
+
+    insert_value_into_ap(vm, account_deployment_data)
 }
 
 pub const GEN_SIGNATURE_ARG: &str = indoc! {r#"
