@@ -32,7 +32,7 @@ use crate::hints::types::{PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
-use crate::starknet::core::os::transaction_hash::transaction_hash::create_resource_bounds_list;
+use crate::starknet::core::os::transaction_hash::create_resource_bounds_list;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::DescentMap;
 use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, TreeUpdate, UpdateTree};

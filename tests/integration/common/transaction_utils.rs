@@ -23,6 +23,7 @@ use snos::io::input::StarknetOsInput;
 use snos::io::output::StarknetOsOutput;
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::state::SharedState;
+use snos::starknet::core::os::transaction_hash::{L1_GAS, L2_GAS};
 use snos::storage::dict_storage::DictStorage;
 use snos::utils::felt_api2vm;
 use snos::{config, run_os};
@@ -62,8 +63,8 @@ fn hash_fee_related_fields(tip: Felt252, resource_bounds: &ResourceBoundsMapping
     let resource_value_offset = MAX_AMOUNT_BITS + MAX_PRICE_PER_UNIT_BITS;
 
     for (resource, resource_value) in [
-        (Resource::L1Gas, Felt252::from_bytes_be_slice(b"L1_GAS").to_biguint()),
-        (Resource::L2Gas, Felt252::from_bytes_be_slice(b"L2_GAS").to_biguint()),
+        (Resource::L1Gas, Felt252::from_bytes_be_slice(L1_GAS.as_bytes()).to_biguint()),
+        (Resource::L2Gas, Felt252::from_bytes_be_slice(L2_GAS.as_bytes()).to_biguint()),
     ] {
         let bounds = resource_bounds.0.get(&resource).unwrap();
         let value = (resource_value << resource_value_offset)
