@@ -758,11 +758,12 @@ pub fn tx_account_deployment_data_len(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let len = if tx.version.unwrap_or(Felt252::ZERO) < Felt252::THREE {
-        Felt252::ZERO
+        0usize
     } else {
-        tx.account_deployment_data.unwrap().len().into()
+        tx.account_deployment_data.unwrap().len()
     };
-    insert_value_into_ap(vm, len)
+
+    insert_value_into_ap(vm, Felt252::from(len))
 }
 
 pub const TX_ACCOUNT_DEPLOYMENT_DATA: &str =
