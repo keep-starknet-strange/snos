@@ -5,6 +5,7 @@ pub mod output;
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use starknet_api::transaction::ResourceBoundsMapping;
 
 use crate::utils::{Felt252HexNoPrefix, Felt252Str};
 
@@ -58,6 +59,24 @@ pub struct InternalTransaction {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub paid_on_l1: Option<bool>,
     pub r#type: String,
+    #[serde_as(as = "Option<Felt252Str>")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_fee: Option<Felt252>,
+    #[serde_as(as = "Option<Felt252Str>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tip: Option<Felt252>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_bounds: Option<ResourceBoundsMapping>,
+    #[serde_as(as = "Option<Vec<Felt252Str>>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub paymaster_data: Option<Vec<Felt252>>,
+    #[serde_as(as = "Option<Felt252Str>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce_data_availability_mode: Option<Felt252>,
+    #[serde_as(as = "Option<Felt252Str>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fee_data_availability_mode: Option<Felt252>,
+    #[serde_as(as = "Option<Vec<Felt252Str>>")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_deployment_data: Option<Vec<Felt252>>,
 }

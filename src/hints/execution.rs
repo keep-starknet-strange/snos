@@ -32,6 +32,7 @@ use crate::hints::types::{PatriciaSkipValidationRunner, Preimage};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::io::InternalTransaction;
+use crate::starknet::core::os::transaction_hash::create_resource_bounds_list;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::DescentMap;
 use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, TreeUpdate, UpdateTree};
@@ -606,19 +607,17 @@ pub fn resource_bounds(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or_default();
-    assert!(version < 3.into(), "tx.version >= 3 is not supported yet");
 
-    // TODO: implement resource_bounds for tx.version >= 3
-    // let resource_bounds = if tx.version < 3 {
-    //     0
-    // } else {
-    //     let resource_bounds = tx.resource_bounds.unwrap_or_default().iter().map(|felt|
-    // felt.into()).collect();     let resource_bounds_base = vm.add_memory_segment();
-    //     vm.load_data(resource_bounds_base, &resource_bounds)?;
-    //     resource_bounds_base
-    // };
+    let resource_bounds = if version < Felt252::THREE {
+        MaybeRelocatable::Int(Felt252::ZERO)
+    } else {
+        let resource_bounds: Vec<_> = create_resource_bounds_list(&tx.resource_bounds.unwrap_or_default())
+            .iter()
+            .map(|f| MaybeRelocatable::Int(*f))
+            .collect();
+        vm.gen_arg(&resource_bounds)?
+    };
 
-    let resource_bounds = 0;
     insert_value_from_var_name(vars::ids::RESOURCE_BOUNDS, resource_bounds, vm, ids_data, ap_tracking)
 }
 
@@ -631,16 +630,8 @@ pub fn tx_max_fee(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let max_fee = if tx.version.unwrap_or_default() < 3.into() {
-    //     tx.max_fee.unwrap_or_default()
-    // } else {
-    //     0
-    // };
-
-    let max_fee = tx.max_fee.unwrap();
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let max_fee = if version < Felt252::THREE { tx.max_fee.unwrap() } else { Felt252::ZERO };
 
     insert_value_into_ap(vm, max_fee)
 }
@@ -667,16 +658,8 @@ pub fn tx_tip(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let tip = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.tip.unwrap_or_default()
-    // };
-
-    let tip = Felt252::ZERO;
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let tip = if version < Felt252::THREE { Felt252::ZERO } else { tx.tip.unwrap() };
 
     insert_value_into_ap(vm, tip)
 }
@@ -691,17 +674,10 @@ pub fn tx_resource_bounds_len(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let len = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.resource_bounds.unwrap_or_default().len().into()
-    // };
-
-    let len = Felt252::ZERO;
-    insert_value_into_ap(vm, len)
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let resource_bounds =
+        if version < Felt252::THREE { Felt252::ZERO } else { tx.resource_bounds.unwrap().0.len().into() };
+    insert_value_into_ap(vm, resource_bounds)
 }
 
 pub const TX_PAYMASTER_DATA_LEN: &str =
@@ -714,16 +690,8 @@ pub fn tx_paymaster_data_len(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let len = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.paymaster_data.unwrap_or_default().len().into()
-    // };
-
-    let len = Felt252::ZERO;
+    let len =
+        if tx.version.unwrap() < Felt252::THREE { Felt252::ZERO } else { tx.paymaster_data.unwrap().len().into() };
     insert_value_into_ap(vm, len)
 }
 
@@ -737,18 +705,14 @@ pub fn tx_paymaster_data(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
 
-    // let paymaster_data = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     let paymaster_data = tx.paymaster_data.unwrap_or_default().iter().map(|felt|
-    // felt.into()).collect();     let paymaster_data_base = vm.add_memory_segment();
-    //     vm.load_data(paymaster_data_base, &paymaster_data)?;
-    //     paymaster_data_base
-    // };
-    let paymaster_data = Felt252::ZERO;
+    let paymaster_data = if tx.version.unwrap_or_default() < Felt252::THREE {
+        MaybeRelocatable::Int(Felt252::ZERO)
+    } else {
+        let data: Vec<MaybeRelocatable> =
+            tx.paymaster_data.unwrap().iter().map(|f| MaybeRelocatable::Int(*f)).collect();
+        vm.gen_arg(&data)?
+    };
     insert_value_into_ap(vm, paymaster_data)
 }
 
@@ -762,16 +726,9 @@ pub fn tx_nonce_data_availability_mode(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let nonce_data_availability_mode = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.nonce_data_availability_mode.unwrap_or_default()
-    // };
-
-    let nonce_data_availability_mode = Felt252::ZERO;
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let nonce_data_availability_mode =
+        if version < Felt252::THREE { Felt252::ZERO } else { tx.nonce_data_availability_mode.unwrap() };
     insert_value_into_ap(vm, nonce_data_availability_mode)
 }
 
@@ -785,16 +742,9 @@ pub fn tx_fee_data_availability_mode(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
-
-    // let fee_data_availability_mode = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.fee_data_availability_mode.unwrap_or_default()
-    // };
-
-    let fee_data_availability_mode = Felt252::ZERO;
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let fee_data_availability_mode =
+        if version < Felt252::THREE { Felt252::ZERO } else { tx.fee_data_availability_mode.unwrap() };
     insert_value_into_ap(vm, fee_data_availability_mode)
 }
 
@@ -808,17 +758,13 @@ pub fn tx_account_deployment_data_len(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
+    let len = if tx.version.unwrap_or(Felt252::ZERO) < Felt252::THREE {
+        0usize
+    } else {
+        tx.account_deployment_data.unwrap().len()
+    };
 
-    // let len = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     tx.account_deployment_data.unwrap_or_default().len().into()
-    // };
-
-    let len = Felt252::ZERO;
-    insert_value_into_ap(vm, len)
+    insert_value_into_ap(vm, Felt252::from(len))
 }
 
 pub const TX_ACCOUNT_DEPLOYMENT_DATA: &str =
@@ -831,20 +777,16 @@ pub fn tx_account_deployment_data(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    // TODO: implement tx.version >= 3
-    assert!(tx.version.unwrap_or_default() < 3.into(), "tx.version >= 3 is not supported yet");
 
-    // let account_deployment_data = if tx.version.unwrap_or_default() < 3.into() {
-    //     0.into()
-    // } else {
-    //     let account_deployment_data =
-    // tx.account_deployment_data.unwrap_or_default().iter().map(|felt| felt.into()).collect();
-    //     let account_deployment_data_base = vm.add_memory_segment();
-    //     vm.load_data(account_deployment_data_base, &account_deployment_data)?;
-    //     account_deployment_data_base
-    // };
+    let version = tx.version.unwrap_or(Felt252::ZERO);
+    let account_deployment_data = if version < Felt252::THREE {
+        MaybeRelocatable::Int(Felt252::ZERO)
+    } else {
+        let data: Vec<MaybeRelocatable> =
+            tx.account_deployment_data.unwrap().iter().map(|f| MaybeRelocatable::Int(*f)).collect();
+        vm.gen_arg(&data)?
+    };
 
-    let account_deployment_data = Felt252::ZERO;
     insert_value_into_ap(vm, account_deployment_data)
 }
 
