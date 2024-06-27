@@ -33,8 +33,8 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    DeclareTransactionV2, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, Resource,
-    ResourceBoundsMapping,
+    DeclareTransactionV0V1, DeclareTransactionV2, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3,
+    Resource, ResourceBoundsMapping,
 };
 use starknet_crypto::{pedersen_hash, FieldElement};
 
@@ -216,6 +216,20 @@ fn tx_hash_invoke_v3(
     )
 }
 
+/// Produce a hash for a Declare V1 TXN with the provided elements
+fn tx_hash_declare_v1(sender_address: Felt252, max_fee: Felt252, class_hash: Felt252, nonce: Felt252) -> Felt252 {
+    hash_on_elements(vec![
+        Felt252::from_bytes_be_slice(DECLARE_PREFIX),
+        Felt252::ONE, // declare version
+        sender_address,
+        Felt252::ZERO,
+        hash_on_elements(vec![class_hash]),
+        Felt252::from(max_fee),
+        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+        nonce,
+    ])
+}
+
 /// Produce a hash for a Declare V2 TXN with the provided elements
 fn tx_hash_declare_v2(
     sender_address: Felt252,
@@ -246,6 +260,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     // explicitly not supported
                     panic!("Declare V0 is not supported");
                 }
+                starknet_api::transaction::DeclareTransaction::V1(tx) => to_internal_declare_v1_tx(account_tx, tx),
                 starknet_api::transaction::DeclareTransaction::V2(tx) => to_internal_declare_v2_tx(account_tx, tx),
                 _ => unimplemented!("Declare txn version not yet supported"),
             }
@@ -257,6 +272,39 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
             starknet_api::transaction::InvokeTransaction::V3(tx) => to_internal_invoke_v3_tx(tx),
         },
     };
+}
+
+/// Convert a DeclareTransactionV1 to a SNOS InternalTransaction
+pub fn to_internal_declare_v1_tx(account_tx: &AccountTransaction, tx: &DeclareTransactionV0V1) -> InternalTransaction {
+    let hash_value;
+    let sender_address;
+    let class_hash;
+    let max_fee = tx.max_fee.0.into();
+    let signature = tx.signature.0.iter().map(|x| to_felt252(x)).collect();
+    let nonce = felt_api2vm(tx.nonce.0);
+
+    match account_tx.create_tx_info() {
+        TransactionInfo::Current(_) => panic!("Not implemented"),
+        TransactionInfo::Deprecated(context) => {
+            sender_address = felt_api2vm(*context.common_fields.sender_address.0.key());
+            class_hash = felt_api2vm(tx.class_hash.0);
+
+            hash_value = tx_hash_declare_v1(sender_address, max_fee, class_hash, nonce);
+        }
+    }
+
+    InternalTransaction {
+        hash_value,
+        version: Some(Felt252::ONE),
+        nonce: Some(nonce),
+        sender_address: Some(sender_address),
+        entry_point_type: Some("EXTERNAL".to_string()),
+        signature: Some(signature),
+        class_hash: Some(class_hash),
+        r#type: "DECLARE".to_string(),
+        max_fee: Some(max_fee),
+        ..Default::default()
+    }
 }
 
 /// Convert a DeclareTransactionV2 to a SNOS InternalTransaction
