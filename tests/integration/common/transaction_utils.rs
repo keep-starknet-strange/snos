@@ -33,8 +33,8 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    DeclareTransactionV0V1, DeclareTransactionV2, DeclareTransactionV3, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3,
-    Resource, ResourceBoundsMapping,
+    DeclareTransactionV0V1, DeclareTransactionV2, DeclareTransactionV3, InvokeTransactionV0, InvokeTransactionV1,
+    InvokeTransactionV3, Resource, ResourceBoundsMapping,
 };
 use starknet_crypto::{pedersen_hash, FieldElement};
 
@@ -294,7 +294,6 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                 starknet_api::transaction::DeclareTransaction::V1(tx) => to_internal_declare_v1_tx(account_tx, tx),
                 starknet_api::transaction::DeclareTransaction::V2(tx) => to_internal_declare_v2_tx(account_tx, tx),
                 starknet_api::transaction::DeclareTransaction::V3(tx) => to_internal_declare_v3_tx(tx),
-                _ => unimplemented!("Declare txn version not yet supported"),
             }
         }
         DeployAccount(_) => unimplemented!("Deploy txns not yet supported"),
