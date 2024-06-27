@@ -33,8 +33,8 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    DeclareTransactionV2, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, Resource,
-    ResourceBoundsMapping,
+    DeclareTransactionV2, DeclareTransactionV3, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3,
+    Resource, ResourceBoundsMapping,
 };
 use starknet_crypto::{pedersen_hash, FieldElement};
 
@@ -237,6 +237,37 @@ fn tx_hash_declare_v2(
     ])
 }
 
+/// Produce a hash for an Declare V3 TXN with the provided elements
+fn tx_hash_declare_v3(
+    nonce: Felt252,
+    sender_address: Felt252,
+    nonce_data_availability_mode: Felt252,
+    fee_data_availability_mode: Felt252,
+    resource_bounds: &ResourceBoundsMapping,
+    tip: Felt252,
+    paymaster_data: &[Felt252],
+    account_deployment_data: &[Felt252],
+    class_hash: Felt252,
+    compiled_class_hash: Felt252,
+) -> Felt252 {
+    let tx_specific_fields = [poseidon_hash_on_elements(account_deployment_data), class_hash, compiled_class_hash];
+    let chain_id = Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap());
+
+    calculate_transaction_v3_hash_common(
+        DECLARE_PREFIX,
+        Felt252::THREE,
+        sender_address,
+        chain_id,
+        nonce,
+        &tx_specific_fields,
+        tip,
+        paymaster_data,
+        nonce_data_availability_mode,
+        fee_data_availability_mode,
+        resource_bounds,
+    )
+}
+
 /// Convert an AccountTransaction to a SNOS InternalTransaction
 pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     return match account_tx {
@@ -247,6 +278,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     panic!("Declare V0 is not supported");
                 }
                 starknet_api::transaction::DeclareTransaction::V2(tx) => to_internal_declare_v2_tx(account_tx, tx),
+                starknet_api::transaction::DeclareTransaction::V3(tx) => to_internal_declare_v3_tx(tx),
                 _ => unimplemented!("Declare txn version not yet supported"),
             }
         }
@@ -292,6 +324,57 @@ pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTr
         max_fee: Some(max_fee),
         ..Default::default()
     }
+}
+
+/// Convert a DeclareTransactionV2 to a SNOS InternalTransaction
+pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3) -> InternalTransaction {
+    let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
+    let entry_point_selector = to_felt252(&selector_from_name("__execute__").0);
+    let sender_address = to_felt252(tx.sender_address.0.key());
+    let nonce = felt_api2vm(tx.nonce.0);
+    let tip = felt_api2vm(tx.tip.0.into());
+
+    let nonce_data_availability_mode = Felt252::from(tx.nonce_data_availability_mode as u64);
+    let fee_data_availability_mode = Felt252::from(tx.fee_data_availability_mode as u64);
+    let resource_bounds = &tx.resource_bounds;
+
+    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().map(|x| to_felt252(x.into())).collect();
+    let account_deployment_data: Vec<Felt252> =
+        tx.account_deployment_data.0.iter().map(|x| to_felt252(x.into())).collect();
+    let class_hash = felt_api2vm(tx.class_hash.0);
+    let compiled_class_hash = felt_api2vm(tx.compiled_class_hash.0);
+    let hash_value = tx_hash_declare_v3(
+        nonce,
+        sender_address,
+        nonce_data_availability_mode,
+        fee_data_availability_mode,
+        resource_bounds,
+        tip,
+        &paymaster_data,
+        &account_deployment_data,
+        class_hash,
+        compiled_class_hash,
+    );
+
+    return InternalTransaction {
+        hash_value,
+        version: Some(Felt252::THREE),
+        nonce: Some(nonce),
+        sender_address: Some(sender_address),
+        entry_point_selector: Some(entry_point_selector),
+        entry_point_type: Some("EXTERNAL".to_string()),
+        signature,
+        r#type: "DECLARE".to_string(),
+        resource_bounds: Some(tx.resource_bounds.clone()),
+        paymaster_data: Some(paymaster_data),
+        account_deployment_data: Some(account_deployment_data),
+        tip: Some(tip),
+        fee_data_availability_mode: Some(fee_data_availability_mode),
+        nonce_data_availability_mode: Some(nonce_data_availability_mode),
+        class_hash: Some(class_hash),
+        compiled_class_hash: Some(compiled_class_hash),
+        ..Default::default()
+    };
 }
 
 /// Convert a InvokeTransactionV0 to a SNOS InternalTransaction
