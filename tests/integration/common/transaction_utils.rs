@@ -315,7 +315,7 @@ pub fn to_internal_declare_v1_tx(account_tx: &AccountTransaction, tx: &DeclareTr
     let nonce = felt_api2vm(tx.nonce.0);
 
     match account_tx.create_tx_info() {
-        TransactionInfo::Current(_) => panic!("Not implemented"),
+        TransactionInfo::Current(_) => unreachable!("v1 transactions can only contain a `Deprecated` variant"),
         TransactionInfo::Deprecated(context) => {
             sender_address = felt_api2vm(*context.common_fields.sender_address.0.key());
             class_hash = felt_api2vm(tx.class_hash.0);
