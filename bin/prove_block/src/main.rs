@@ -7,20 +7,23 @@ use blockifier::block::{BlockInfo, GasPrices};
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
+use cairo_vm::Felt252;
 use clap::Parser;
-use snos::crypto::pedersen::PedersenHash;
+use snos::config::{StarknetGeneralConfig, StarknetOsConfig};
+use snos::error::SnOsError::Runner;
+use snos::execution::helper::ExecutionHelperWrapper;
+use snos::io::input::StarknetOsInput;
 use snos::starknet::business_logic::fact_state::state::SharedState;
-use snos::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-use snos::storage::storage::{FactFetchingContext, Storage, StorageError};
-use starknet::core::types::{BlockId, BlockWithTxs, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs};
+use snos::storage::storage::{Storage, StorageError};
+use snos::{config, run_os};
+use starknet::core::types::{BlockId, BlockWithTxs, MaybePendingBlockWithTxs};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
-
-// use snos::{config, run_os};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -82,9 +85,8 @@ impl Storage for RpcStorage {
 }
 
 async fn build_block_context(chain_id: String, block: &BlockWithTxs) -> Result<BlockContext, reqwest::Error> {
-    println!("{:?}", block);
-
-    let sequencer_address = contract_address!(block.sequencer_address.to_string().as_str());
+    let sequencer_address_hex = block.sequencer_address.to_hex_string();
+    let sequencer_address = contract_address!(sequencer_address_hex.as_str());
 
     let block_info = BlockInfo {
         block_number: BlockNumber(block.block_number),
@@ -125,24 +127,6 @@ fn init_logging() {
         .expect("Failed to configure env_logger");
 }
 
-fn build_shared_state(
-    block: &BlockWithTxs,
-    provider: JsonRpcClient<HttpTransport>,
-) -> SharedState<RpcStorage, PedersenHash> {
-    let ffc = FactFetchingContext::new(RpcStorage::new(provider));
-    let ffc_for_class_hash = ffc.clone_with_different_hash();
-
-
-
-    // SharedState {
-    //     contract_states: PatriciaTree { root: (), height: Default::default() },
-    //     contract_classes: None,
-    //     ffc,
-    //     ffc_for_class_hash,
-    // }
-    todo!()
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     init_logging();
@@ -150,7 +134,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let block_number = args.block_number;
-    let _layout = LayoutName::starknet_with_keccak;
+    let layout = LayoutName::starknet_with_keccak;
 
     let provider = JsonRpcClient::new(HttpTransport::new(Url::parse("http://localhost:9545/rpc/v0_7").unwrap()));
 
@@ -169,15 +153,63 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let _block_context = build_block_context(chain_id, &block_with_txs).await.unwrap();
+    let block_context = build_block_context(chain_id, &block_with_txs).await.unwrap();
 
-    let ffc = FactFetchingContext::new(RpcStorage::new(provider));
-    let initial_state = build_shared_state(&previous_block, )
+    let old_block_number = Felt252::from(previous_block.block_number);
+    let old_block_hash = Felt252::from_bytes_be(&previous_block.block_hash.to_bytes_be());
 
-    // let os =
-    //
-    // let result = run_os(config::DEFAULT_COMPILED_OS.to_string(), layout, os_input, block_context,
-    // execution_helper);
+    // let ffc = FactFetchingContext::new(RpcStorage::new(provider));
+    // let initial_state = build_shared_state(&previous_block, )
+
+    let default_general_config = StarknetGeneralConfig::default();
+
+    let general_config = StarknetGeneralConfig {
+        starknet_os_config: StarknetOsConfig {
+            chain_id: default_general_config.starknet_os_config.chain_id,
+            fee_token_address: block_context.chain_info().fee_token_addresses.strk_fee_token_address,
+            deprecated_fee_token_address: block_context.chain_info().fee_token_addresses.eth_fee_token_address,
+        },
+        ..default_general_config
+    };
+
+    let os_input = StarknetOsInput {
+        contract_state_commitment_info: Default::default(),
+        contract_class_commitment_info: Default::default(),
+        deprecated_compiled_classes: Default::default(),
+        compiled_classes: Default::default(),
+        compiled_class_visited_pcs: Default::default(),
+        contracts: Default::default(),
+        class_hash_to_compiled_class_hash: Default::default(),
+        general_config,
+        transactions: vec![],
+        block_hash: Default::default(),
+    };
+    let execution_helper = ExecutionHelperWrapper::new(
+        Default::default(),
+        Default::default(),
+        &block_context,
+        (old_block_number, old_block_hash),
+    );
+
+    let result = run_os(config::DEFAULT_COMPILED_OS.to_string(), layout, os_input, block_context, execution_helper);
+
+    match &result {
+        Err(Runner(VmException(vme))) => {
+            if let Some(traceback) = vme.traceback.as_ref() {
+                log::error!("traceback:\n{}", traceback);
+            }
+            if let Some(inst_location) = &vme.inst_location {
+                log::error!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
+                log::error!("inst_location:\n{:?}", inst_location);
+            }
+        }
+        Err(_) => {
+            println!("exception:\n{:#?}", result);
+        }
+        _ => {}
+    }
+
+    result.unwrap();
 
     Ok(())
 }
