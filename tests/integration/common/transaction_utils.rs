@@ -13,6 +13,7 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
+use pathfinder_gateway_types::request::add_transaction::DeployAccountV3;
 use snos::config::{BLOCK_HASH_CONTRACT_ADDRESS, SN_GOERLI, STORED_BLOCK_HASH_BUFFER};
 use snos::crypto::pedersen::PedersenHash;
 use snos::crypto::poseidon::poseidon_hash_many_bytes;
@@ -27,15 +28,15 @@ use snos::starknet::core::os::transaction_hash::{L1_GAS, L2_GAS};
 use snos::storage::dict_storage::DictStorage;
 use snos::utils::felt_api2vm;
 use snos::{config, run_os};
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    DeclareTransactionV2, DeclareTransactionV3, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3,
-    Resource, ResourceBoundsMapping,
+    DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransactionV3, InvokeTransactionV0, InvokeTransactionV1,
+    InvokeTransactionV3, Resource, ResourceBoundsMapping,
 };
+use starknet_api::{contract_address, stark_felt};
 use starknet_crypto::{pedersen_hash, FieldElement};
 
 use crate::common::block_utils::os_hints;
@@ -45,7 +46,7 @@ pub fn to_felt252(stark_felt: &StarkFelt) -> Felt252 {
 }
 
 const DECLARE_PREFIX: &[u8] = b"declare";
-// const DEPLOY_ACCOUNT_PREFIX: &[u8] = b"deploy_account";
+const DEPLOY_ACCOUNT_PREFIX: &[u8] = b"deploy_account";
 const INVOKE_PREFIX: &[u8] = b"invoke";
 // const L1_HANDLER_PREFIX: &[u8] = b"l1_handler";
 
@@ -186,6 +187,37 @@ fn tx_hash_invoke_v1(contract_address: Felt252, calldata: Vec<Felt252>, max_fee:
     ])
 }
 
+/// Produce a hash for an Deploy V3 TXN with the provided elements
+fn tx_hash_deploy_v3(
+    nonce: Felt252,
+    sender_address: Felt252,
+    nonce_data_availability_mode: Felt252,
+    fee_data_availability_mode: Felt252,
+    resource_bounds: &ResourceBoundsMapping,
+    tip: Felt252,
+    paymaster_data: &[Felt252],
+    contract_address_salt: Felt252,
+    class_hash: Felt252,
+    constructor_calldata: &[Felt252],
+) -> Felt252 {
+    let tx_specific_fields = [poseidon_hash_on_elements(constructor_calldata), class_hash, contract_address_salt];
+    let chain_id = Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap());
+
+    calculate_transaction_v3_hash_common(
+        DEPLOY_ACCOUNT_PREFIX,
+        Felt252::THREE,
+        sender_address,
+        chain_id,
+        nonce,
+        &tx_specific_fields,
+        tip,
+        paymaster_data,
+        nonce_data_availability_mode,
+        fee_data_availability_mode,
+        resource_bounds,
+    )
+}
+
 /// Produce a hash for an Invoke V3 TXN with the provided elements
 fn tx_hash_invoke_v3(
     nonce: Felt252,
@@ -282,7 +314,10 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                 _ => unimplemented!("Declare txn version not yet supported"),
             }
         }
-        DeployAccount(_) => unimplemented!("Deploy txns not yet supported"),
+        DeployAccount(deploy_tx) => match &deploy_tx.tx() {
+            starknet_api::transaction::DeployAccountTransaction::V3(tx) => to_internal_deploy_v3_tx(tx),
+            _ => unimplemented!("Declare txn version not yet supported"),
+        },
         Invoke(invoke_tx) => match &invoke_tx.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(tx),
             starknet_api::transaction::InvokeTransaction::V1(tx) => to_internal_invoke_v1_tx(tx),
@@ -470,6 +505,68 @@ pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3) -> InternalTransaction
         resource_bounds: Some(tx.resource_bounds.clone()),
         paymaster_data: Some(paymaster_data),
         account_deployment_data: Some(account_deployment_data),
+        tip: Some(tip),
+        fee_data_availability_mode: Some(fee_data_availability_mode),
+        nonce_data_availability_mode: Some(nonce_data_availability_mode),
+        ..Default::default()
+    };
+}
+
+pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
+use starknet_api::patricia_key;
+use starknet_api::core::PatriciaKey;
+use starknet_api::hash::StarkHash;
+/// Convert a InvokeTransactionV3 to a SNOS InternalTransaction
+pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTransaction {
+    let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
+    let entry_point_selector = to_felt252(&selector_from_name("__execute__").0);
+    let calldata: Vec<_> = tx.constructor_calldata.0.iter().map(|x| to_felt252(x.into())).collect();
+
+    let nonce = felt_api2vm(tx.nonce.0);
+    let tip = felt_api2vm(tx.tip.0.into());
+
+    let nonce_data_availability_mode = Felt252::from(tx.nonce_data_availability_mode as u64);
+    let fee_data_availability_mode = Felt252::from(tx.fee_data_availability_mode as u64);
+    let resource_bounds = &tx.resource_bounds;
+
+    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().map(|x| to_felt252(x.into())).collect();
+
+    let sender_address = calculate_contract_address(
+        tx.contract_address_salt,
+        tx.class_hash,
+        &tx.constructor_calldata,
+        contract_address!(TEST_CONTRACT_ADDRESS),
+    )
+    .unwrap();
+    let sender_address = felt_api2vm(*sender_address.0);
+    let class_hash = to_felt252(&tx.class_hash.0);
+    let hash_value = tx_hash_deploy_v3(
+        nonce,
+        sender_address,
+        nonce_data_availability_mode,
+        fee_data_availability_mode,
+        resource_bounds,
+        tip,
+        &paymaster_data,
+        to_felt252(&tx.contract_address_salt.0),
+        class_hash,
+        &calldata,
+    );
+
+    return InternalTransaction {
+        hash_value,
+        version: Some(Felt252::THREE),
+        nonce: Some(nonce),
+        sender_address: Some(sender_address),
+        entry_point_selector: Some(entry_point_selector),
+        entry_point_type: Some("EXTERNAL".to_string()),
+        signature,
+        // calldata: Some(calldata),
+        r#type: "INVOKE_FUNCTION".to_string(),
+        resource_bounds: Some(tx.resource_bounds.clone()),
+        paymaster_data: Some(paymaster_data),
+        class_hash: Some(class_hash),
+        constructor_calldata: Some(calldata),
         tip: Some(tip),
         fee_data_availability_mode: Some(fee_data_availability_mode),
         nonce_data_availability_mode: Some(nonce_data_availability_mode),
