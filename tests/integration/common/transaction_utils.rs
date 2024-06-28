@@ -282,18 +282,6 @@ fn tx_hash_declare_v3(
     )
 }
 
-// return _deprecated_calculate_transaction_hash_common(
-//     tx_hash_prefix=TransactionHashPrefix.DEPLOY_ACCOUNT,
-//     version=version,
-//     contract_address=contract_address,
-//     entry_point_selector=0,
-//     calldata=[class_hash, salt, *constructor_calldata],
-//     max_fee=max_fee,
-//     chain_id=chain_id,
-//     additional_data=[nonce],
-//     hash_function=hash_function,
-// )
-
 /// Produce a hash for a Deploy V1 TXN with the provided elements
 fn tx_hash_deploy_account_v1(
     sender_address: Felt252,
@@ -387,7 +375,7 @@ fn to_internal_deploy_v1_tx(account_tx: &AccountTransaction, tx: &DeployAccountT
 
     let max_fee = tx.max_fee.0.into();
     let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
-    let entry_point_selector = Some(to_felt252(&selector_from_name("__execute__").0));
+    let entry_point_selector = Some(to_felt252(&selector_from_name("__validate_deploy__").0));
     let nonce = felt_api2vm(tx.nonce.0);
 
     let sender_address;
