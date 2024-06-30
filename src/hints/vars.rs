@@ -41,6 +41,7 @@ pub mod ids {
     pub const CALL_RESPONSE: &str = "call_response";
     pub const CALLDATA: &str = "calldata";
     pub const CHILD_BIT: &str = "child_bit";
+    pub const CLASS_HASH: &str = "class_hash";
     pub const CLASS_HASH_PTR: &str = "class_hash_ptr";
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACT: &str = "compiled_class_fact";
@@ -50,6 +51,7 @@ pub mod ids {
     pub const CONSTRUCTOR_CALLDATA: &str = "constructor_calldata";
     pub const CONSTRUCTOR_CALLDATA_SIZE: &str = "constructor_calldata_size";
     pub const CONTRACT_ADDRESS: &str = "contract_address";
+    pub const CONTRACT_ADDRESS_SALT: &str = "contract_address_salt";
     pub const CONTRACT_STATE_CHANGES: &str = "contract_state_changes";
     pub const CURRENT_BLOCK_NUMBER: &str = "current_block_number";
     pub const CURRENT_HASH: &str = "current_hash";

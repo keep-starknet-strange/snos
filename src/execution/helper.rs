@@ -234,7 +234,32 @@ trait GenCallIter {
 impl GenCallIter for TransactionExecutionInfo {
     fn gen_call_iterator(&self) -> IntoIter<CallInfo> {
         let mut call_infos = vec![];
-        for call_info in self.non_optional_call_infos() {
+
+        // Determine if we are treating a DEPLOY_ACCOUNT tx. For deployments we need
+        // to order call infos differently, __validate_deploy__ is called after the constructor.
+        // See https://docs.starknet.io/architecture-and-concepts/accounts/account-functions/#overview
+        // for more details.
+        let is_deploy = match &self.execute_call_info {
+            Some(call_info) => matches!(call_info.call.entry_point_type, EntryPointType::Constructor),
+            None => false,
+        };
+
+        let call_info_iter = match is_deploy {
+            // For DEPLOY_ACCOUNT, validation is performed after executing the constructor
+            true => self
+                .execute_call_info
+                .iter()
+                .chain(self.validate_call_info.iter())
+                .chain(self.fee_transfer_call_info.iter()),
+            // For other tx types, validation comes before the execution of the call
+            false => self
+                .validate_call_info
+                .iter()
+                .chain(self.execute_call_info.iter())
+                .chain(self.fee_transfer_call_info.iter()),
+        };
+
+        for call_info in call_info_iter {
             call_infos.extend(call_info.clone().gen_call_topology());
         }
         call_infos.into_iter()
