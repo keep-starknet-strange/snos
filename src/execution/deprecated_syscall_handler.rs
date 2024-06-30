@@ -247,17 +247,23 @@ impl DeprecatedOsSyscallHandlerWrapper {
     }
     pub async fn storage_read(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         let sys_hand = self.deprecated_syscall_handler.write().await;
-        let value = sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next().ok_or(
-            HintError::SyscallError("d: No more storage reads available to replay".to_string().into_boxed_str()),
-        )?;
+        let value =
+            sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next().ok_or(
+                HintError::SyscallError("No more storage reads available to replay".to_string().into_boxed_str()),
+            )?;
 
         vm.insert_value((syscall_ptr + 2usize).unwrap(), value).unwrap();
 
         Ok(())
     }
-    pub async fn storage_write(&self, _syscall_ptr: Relocatable) {
+    pub async fn storage_write(&self, _syscall_ptr: Relocatable) -> Result<(), HintError> {
         let sys_hand = self.deprecated_syscall_handler.write().await;
-        sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next();
+
+        let _ = sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next().ok_or(
+            HintError::SyscallError("No more storage writes available to replay".to_string().into_boxed_str()),
+        )?;
+
+        Ok(())
     }
 
     pub async fn set_syscall_ptr(&self, syscall_ptr: Relocatable) {
