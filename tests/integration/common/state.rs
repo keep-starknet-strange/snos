@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use blockifier::abi::abi_utils::get_fee_token_var_address;
 use blockifier::context::BlockContext;
@@ -113,7 +113,7 @@ pub fn load_cairo1_contract(name: &str) -> (String, ContractClass, CasmContractC
 /// Needs to be called explicitly from tests.
 #[fixture]
 #[once]
-fn init_logging() {
+pub fn init_logging() {
     env_logger::builder()
         .is_test(true)
         .filter_level(log::LevelFilter::Debug)
@@ -137,11 +137,17 @@ struct Cairo1Contract {
     address: ContractAddress,
 }
 
+#[derive(Clone, Debug)]
+struct Balance {
+    strk: u128,
+    eth: u128,
+}
+
 #[derive(Debug)]
 struct FeeConfig {
     strk_fee_token_address: ContractAddress,
     eth_fee_token_address: ContractAddress,
-    initial_balance: u128,
+    default_balance: Balance,
 }
 
 /// Builds the initial state for OS integration tests.
@@ -153,7 +159,7 @@ struct FeeConfig {
 ///
 /// Check the tests for usage examples.
 #[derive(Debug)]
-struct StarknetStateBuilder<'a> {
+pub struct StarknetStateBuilder<'a> {
     /// Cairo 0 contracts (name -> contract class).
     cairo0_contracts: HashMap<String, Cairo0Contract>,
     /// Cairo 1 contracts (name -> contract class + compiled contract class).
@@ -163,6 +169,8 @@ struct StarknetStateBuilder<'a> {
     block_context: &'a BlockContext,
     /// Contract address generator.
     address_generator: StdRng,
+    /// Funds for specific accounts. Typically used to pre-fund accounts when testing deploy txs.
+    funds_per_address: HashMap<ContractAddress, Balance>,
 }
 
 impl<'a> StarknetStateBuilder<'a> {
@@ -173,6 +181,7 @@ impl<'a> StarknetStateBuilder<'a> {
             fee_config: None,
             block_context,
             address_generator: StdRng::seed_from_u64(1),
+            funds_per_address: Default::default(),
         }
     }
 
@@ -190,7 +199,7 @@ impl<'a> StarknetStateBuilder<'a> {
                 .expect("Failed to deploy Cairo 1 contracts in storage");
 
         if let Some(fee_config) = self.fee_config {
-            Self::fund_accounts(&fee_config, &mut dict_state_reader);
+            Self::fund_accounts(&fee_config, &mut dict_state_reader, self.funds_per_address);
         }
 
         let shared_state = Self::build_shared_state(dict_state_reader, ffc)
@@ -295,26 +304,35 @@ impl<'a> StarknetStateBuilder<'a> {
     }
 
     /// Funds all accounts according to the test fee configuration.
-    fn fund_accounts(fee_config: &FeeConfig, dict_state_reader: &mut DictStateReader) {
-        let mut addresses: HashSet<ContractAddress> = Default::default();
+    fn fund_accounts(
+        fee_config: &FeeConfig,
+        dict_state_reader: &mut DictStateReader,
+        mut funds_per_address: HashMap<ContractAddress, Balance>,
+    ) {
         for address in dict_state_reader.address_to_class_hash.keys().chain(dict_state_reader.address_to_nonce.keys()) {
-            addresses.insert(*address);
+            if !funds_per_address.contains_key(address) {
+                funds_per_address.insert(address.clone(), fee_config.default_balance.clone());
+            }
         }
 
         // fund the accounts.
-        for address in addresses.iter() {
-            Self::fund_account(fee_config, dict_state_reader, *address);
+        for (address, balance) in funds_per_address {
+            Self::update_account_funds_in_storage(fee_config, dict_state_reader, address, balance);
         }
     }
 
     /// Funds an account and gives it the specified balance in both STRK and ETH.
     /// Modified the storage of the dict state reader to apply the balance change.
-    fn fund_account(fee_config: &FeeConfig, dict_state_reader: &mut DictStateReader, account_address: ContractAddress) {
+    fn update_account_funds_in_storage(
+        fee_config: &FeeConfig,
+        dict_state_reader: &mut DictStateReader,
+        account_address: ContractAddress,
+        balance: Balance,
+    ) {
         let storage_view = &mut dict_state_reader.storage_view;
         let balance_key = get_fee_token_var_address(account_address);
-        for fee_token_address in [fee_config.strk_fee_token_address, fee_config.eth_fee_token_address] {
-            storage_view.insert((fee_token_address, balance_key), stark_felt!(fee_config.initial_balance));
-        }
+        storage_view.insert((fee_config.eth_fee_token_address, balance_key), stark_felt!(balance.eth));
+        storage_view.insert((fee_config.strk_fee_token_address, balance_key), stark_felt!(balance.strk));
     }
 
     /// Converts the dict state reader and FFC into a shared state object.
@@ -367,12 +385,17 @@ impl<'a> StarknetStateBuilder<'a> {
         self
     }
 
-    pub fn set_initial_balance(mut self, balance: u128) -> Self {
+    /// Sets the default balance for each contract.
+    pub fn set_default_balance(mut self, strk_balance: u128, eth_balance: u128) -> Self {
         let erc20_contract = get_deprecated_erc20_contract_class();
         let eth_fee_token_address = self.block_context.chain_info().fee_token_addresses.eth_fee_token_address;
         let strk_fee_token_address = self.block_context.chain_info().fee_token_addresses.strk_fee_token_address;
 
-        self.fee_config = Some(FeeConfig { strk_fee_token_address, eth_fee_token_address, initial_balance: balance });
+        self.fee_config = Some(FeeConfig {
+            strk_fee_token_address,
+            eth_fee_token_address,
+            default_balance: Balance { strk: strk_balance, eth: eth_balance },
+        });
         self.add_cairo0_contract_with_fixed_address(
             "erc20_eth".to_string(),
             erc20_contract.clone(),
@@ -383,6 +406,11 @@ impl<'a> StarknetStateBuilder<'a> {
             erc20_contract,
             strk_fee_token_address,
         )
+    }
+
+    pub fn fund_account(mut self, account: ContractAddress, strk_balance: u128, eth_balance: u128) -> Self {
+        self.funds_per_address.insert(account, Balance { strk: strk_balance, eth: eth_balance });
+        self
     }
 }
 
@@ -398,7 +426,7 @@ pub async fn initial_state_cairo0(
     StarknetStateBuilder::new(&block_context)
         .add_cairo0_contract(account_with_dummy_validate.0, account_with_dummy_validate.1)
         .add_cairo0_contract(test_contract.0, test_contract.1)
-        .set_initial_balance(BALANCE)
+        .set_default_balance(BALANCE, BALANCE)
         .build()
         .await
 }
@@ -423,7 +451,7 @@ pub async fn initial_state_cairo1(
             account_with_dummy_validate.2,
         )
         .add_cairo0_contract(test_contract.0, test_contract.1)
-        .set_initial_balance(BALANCE)
+        .set_default_balance(BALANCE, BALANCE)
         .build()
         .await
 }
@@ -444,7 +472,7 @@ pub async fn initial_state_syscalls(
             account_with_dummy_validate.2,
         )
         .add_cairo1_contract(test_contract.0, test_contract.1, test_contract.2)
-        .set_initial_balance(BALANCE)
+        .set_default_balance(BALANCE, BALANCE)
         .build()
         .await
 }

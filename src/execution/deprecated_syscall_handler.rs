@@ -105,6 +105,17 @@ impl DeprecatedOsSyscallHandlerWrapper {
             .next()
             .ok_or(HintError::SyscallError("Could not find matching deployed contract".to_string().into_boxed_str()))?;
 
+        let class_hash = vm.get_integer((syscall_ptr + 1)?)?;
+        let contract_address_salt = vm.get_integer((syscall_ptr + 2)?)?;
+        let constructor_calldata_size = vm.get_integer((syscall_ptr + 3)?)?;
+        let constructor_calldata_ptr = vm.get_relocatable((syscall_ptr + 4)?)?;
+        let deploy_from_zero = vm.get_integer((syscall_ptr + 5)?)?;
+
+        log::debug!("class_hash: {}", class_hash.to_hex_string());
+        log::debug!("contract_address_salt: {}", contract_address_salt.to_biguint());
+        log::debug!("constructor_calldata_size: {}", constructor_calldata_size.to_biguint());
+        log::debug!("deploy_from_zero: {}", deploy_from_zero.to_biguint());
+
         let contract_address_offset = Deploy::response_offset() + DeployResponse::contract_address_offset();
         let constructor_retdata_size_offset =
             Deploy::response_offset() + DeployResponse::constructor_retdata_size_offset();
@@ -247,17 +258,23 @@ impl DeprecatedOsSyscallHandlerWrapper {
     }
     pub async fn storage_read(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         let sys_hand = self.deprecated_syscall_handler.write().await;
-        let value = sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next().ok_or(
-            HintError::SyscallError("d: No more storage reads available to replay".to_string().into_boxed_str()),
-        )?;
+        let value =
+            sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next().ok_or(
+                HintError::SyscallError("No more storage reads available to replay".to_string().into_boxed_str()),
+            )?;
 
         vm.insert_value((syscall_ptr + 2usize).unwrap(), value).unwrap();
 
         Ok(())
     }
-    pub async fn storage_write(&self, _syscall_ptr: Relocatable) {
+    pub async fn storage_write(&self, _syscall_ptr: Relocatable) -> Result<(), HintError> {
         let sys_hand = self.deprecated_syscall_handler.write().await;
-        sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next();
+
+        let _ = sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next().ok_or(
+            HintError::SyscallError("No more storage writes available to replay".to_string().into_boxed_str()),
+        )?;
+
+        Ok(())
     }
 
     pub async fn set_syscall_ptr(&self, syscall_ptr: Relocatable) {

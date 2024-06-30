@@ -55,7 +55,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 172] = [
+static HINTS: [(&str, HintImpl); 174] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -128,6 +128,8 @@ static HINTS: [(&str, HintImpl); 172] = [
     (execution::IS_REVERTED, execution::is_reverted),
     (execution::LOAD_NEXT_TX, execution::load_next_tx),
     (execution::LOG_ENTER_SYSCALL, execution::log_enter_syscall),
+    (execution::LOG_GET_CONTRACT_ADDRESS, execution::log_get_contract_address),
+    (execution::LOG_TX_HASH, execution::log_tx_hash),
     (execution::OS_CONTEXT_SEGMENTS, execution::os_context_segments),
     (execution::PREPARE_CONSTRUCTOR_EXECUTION, execution::prepare_constructor_execution),
     (execution::RESOURCE_BOUNDS, execution::resource_bounds),

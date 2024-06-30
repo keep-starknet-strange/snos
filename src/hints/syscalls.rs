@@ -51,7 +51,7 @@ pub async fn delegate_call_async(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.storage_write(syscall_ptr).await;
+    syscall_handler.storage_write(syscall_ptr).await?;
 
     Ok(())
 }
@@ -333,7 +333,7 @@ pub async fn storage_write_async(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.storage_write(syscall_ptr).await;
+    syscall_handler.storage_write(syscall_ptr).await?;
 
     Ok(())
 }

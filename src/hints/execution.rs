@@ -110,17 +110,15 @@ pub fn prepare_constructor_execution(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     insert_value_from_var_name(
-        "contract_address_salt",
+        vars::ids::CONTRACT_ADDRESS_SALT,
         tx.contract_address_salt.expect("`contract_address_salt` must be present"),
         vm,
         ids_data,
         ap_tracking,
     )?;
     insert_value_from_var_name(
-        "class_hash",
-        // using `contract_hash` instead of `class_hash` as the that's how the
-        // input.json is structured
-        tx.contract_hash.expect("`contract_hash` must be present"),
+        vars::ids::CLASS_HASH,
+        tx.class_hash.expect("`class_hash` must be present"),
         vm,
         ids_data,
         ap_tracking,
@@ -173,6 +171,30 @@ pub fn assert_transaction_hash(
 
     println!("tx.hash_value: {}, transaction_hash: {}", tx.hash_value.to_biguint(), transaction_hash.to_biguint());
 
+    let ctf = get_relocatable_from_var_name("common_tx_fields", vm, ids_data, ap_tracking)?;
+
+    let tx_hash_prefix = vm.get_integer((ctf + 0)?)?.into_owned();
+    let version = vm.get_integer((ctf + 1)?)?.into_owned();
+    let sender_address = vm.get_integer((ctf + 2)?)?.into_owned();
+    let max_fee = vm.get_integer((ctf + 3)?)?.into_owned();
+    let chain_id = vm.get_integer((ctf + 4)?)?.into_owned();
+    let nonce = vm.get_integer((ctf + 5)?)?.into_owned();
+    let tip = vm.get_integer((ctf + 6)?)?.into_owned();
+    // let class_hash = get_integer_from_var_name("class_hash", vm, ids_data, ap_tracking)?;
+    // let contract_address_salt = get_integer_from_var_name("contract_address_salt", vm, ids_data,
+    // ap_tracking)?;
+
+    log::debug!("contract_address: {}", sender_address.to_hex_string());
+    log::debug!("max_fee: {}", max_fee.to_biguint());
+    // log::debug!("class_hash: {}", class_hash.to_biguint());
+    // log::debug!("contract_address_salt: {}", contract_address_salt.to_biguint());
+    // log::debug!(
+    //     "constructor_calldata: {:?}",
+    //     constructor_calldata.iter().cloned().map(|felt| felt.to_biguint()).collect::<Vec<BigUint>>()
+    // );
+    log::debug!("chain_id: {}", chain_id.to_biguint());
+    log::debug!("nonce: {}", nonce.to_biguint());
+
     assert_eq!(
         tx.hash_value,
         transaction_hash,
@@ -181,6 +203,82 @@ pub fn assert_transaction_hash(
         transaction_hash.to_hex_string(),
         tx.hash_value.to_hex_string()
     );
+    Ok(())
+}
+
+pub const LOG_TX_HASH: &str = "log_tx_hash()";
+
+pub fn log_tx_hash(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let tx_hash_prefix = get_integer_from_var_name("tx_hash_prefix", vm, ids_data, ap_tracking)?;
+    let version = get_integer_from_var_name("version", vm, ids_data, ap_tracking)?;
+    let contract_address = get_integer_from_var_name("contract_address", vm, ids_data, ap_tracking)?;
+    let entry_point_selector = get_integer_from_var_name("entry_point_selector", vm, ids_data, ap_tracking)?;
+    let calldata_size = get_integer_from_var_name("calldata_size", vm, ids_data, ap_tracking)?;
+    let calldata_ptr = get_ptr_from_var_name("calldata", vm, ids_data, ap_tracking)?;
+    let max_fee = get_integer_from_var_name("max_fee", vm, ids_data, ap_tracking)?;
+    let chain_id = get_integer_from_var_name("chain_id", vm, ids_data, ap_tracking)?;
+    let additional_data_size = get_integer_from_var_name("additional_data_size", vm, ids_data, ap_tracking)?;
+    let additional_data_ptr = get_ptr_from_var_name("additional_data", vm, ids_data, ap_tracking)?;
+
+    let calldata = vm
+        .get_integer_range(calldata_ptr, calldata_size.to_usize().unwrap())?
+        .into_iter()
+        .map(|felt| felt.to_biguint())
+        .collect::<Vec<_>>();
+
+    let additional_data = vm
+        .get_integer_range(additional_data_ptr, additional_data_size.to_usize().unwrap())?
+        .into_iter()
+        .map(|felt| felt.to_biguint())
+        .collect::<Vec<_>>();
+
+    log::debug!("tx_hash_prefix: {}", tx_hash_prefix.to_biguint());
+    log::debug!("version: {}", version.to_biguint());
+    log::debug!("contract_address: {}", contract_address.to_hex_string());
+    log::debug!("entry_point_selector: {}", entry_point_selector.to_biguint());
+    log::debug!("calldata_size: {}", calldata_size.to_biguint());
+    log::debug!("calldata: {:?}", calldata);
+    log::debug!("max_fee: {}", max_fee.to_biguint());
+    log::debug!("chain_id: {}", chain_id.to_biguint());
+    log::debug!("additional_data_size: {}", additional_data_size.to_biguint());
+    log::debug!("additional_data: {:?}", additional_data);
+
+    Ok(())
+}
+
+pub const LOG_GET_CONTRACT_ADDRESS: &str = "log_get_contract_address()";
+
+pub fn log_get_contract_address(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let salt = get_integer_from_var_name("salt", vm, ids_data, ap_tracking)?;
+    let class_hash = get_integer_from_var_name("class_hash", vm, ids_data, ap_tracking)?;
+    let constructor_calldata_size = get_integer_from_var_name("constructor_calldata_size", vm, ids_data, ap_tracking)?;
+    let constructor_calldata_ptr = get_ptr_from_var_name("constructor_calldata", vm, ids_data, ap_tracking)?;
+    let deployer_address = get_integer_from_var_name("deployer_address", vm, ids_data, ap_tracking)?;
+
+    let calldata = vm
+        .get_integer_range(constructor_calldata_ptr, constructor_calldata_size.to_usize().unwrap())?
+        .into_iter()
+        .map(|felt| felt.to_biguint())
+        .collect::<Vec<_>>();
+
+    log::debug!("salt: {}", salt.to_biguint());
+    log::debug!("class_hash: {}", class_hash.to_hex_string());
+    log::debug!("constructor_calldata_size: {}", constructor_calldata_size.to_biguint());
+    log::debug!("constructor_calldata: {:?}", calldata);
+    log::debug!("deployer_address: {}", deployer_address.to_biguint());
+
     Ok(())
 }
 
