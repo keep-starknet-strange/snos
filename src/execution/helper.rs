@@ -244,19 +244,18 @@ impl GenCallIter for TransactionExecutionInfo {
             None => false,
         };
 
-        let call_info_iter = match is_deploy {
+        let call_info_iter = if is_deploy {
             // For DEPLOY_ACCOUNT, validation is performed after executing the constructor
-            true => self
-                .execute_call_info
+            self.execute_call_info
                 .iter()
                 .chain(self.validate_call_info.iter())
-                .chain(self.fee_transfer_call_info.iter()),
+                .chain(self.fee_transfer_call_info.iter())
+        } else {
             // For other tx types, validation comes before the execution of the call
-            false => self
-                .validate_call_info
+            self.validate_call_info
                 .iter()
                 .chain(self.execute_call_info.iter())
-                .chain(self.fee_transfer_call_info.iter()),
+                .chain(self.fee_transfer_call_info.iter())
         };
 
         for call_info in call_info_iter {
