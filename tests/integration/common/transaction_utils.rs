@@ -362,7 +362,7 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
 
         DeployAccount(deploy_tx) => match deploy_tx.tx() {
             starknet_api::transaction::DeployAccountTransaction::V1(tx) => to_internal_deploy_v1_tx(account_tx, tx),
-            starknet_api::transaction::DeployAccountTransaction::V3(tx) => to_internal_deploy_v3_tx(tx),
+            starknet_api::transaction::DeployAccountTransaction::V3(tx) => to_internal_deploy_v3_tx(account_tx, tx),
         },
         Invoke(invoke_tx) => match &invoke_tx.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(tx),
@@ -648,7 +648,14 @@ pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3) -> InternalTransaction
 }
 
 /// Convert a InvokeTransactionV3 to a SNOS InternalTransaction
-pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTransaction {
+pub fn to_internal_deploy_v3_tx(
+    account_tx: &AccountTransaction,
+    tx: &DeployAccountTransactionV3,
+) -> InternalTransaction {
+    let tx_contract_address = match account_tx {
+        AccountTransaction::DeployAccount(a) => a.contract_address,
+        _ => unreachable!(),
+    };
     let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
     let entry_point_selector = Some(Felt252::ZERO);
     let calldata: Vec<_> = tx.constructor_calldata.0.iter().map(|x| to_felt252(x.into())).collect();
@@ -661,6 +668,8 @@ pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTran
     let resource_bounds = &tx.resource_bounds;
 
     let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().map(|x| to_felt252(x.into())).collect();
+    let contract_address_salt = felt_api2vm(tx.contract_address_salt.0);
+    let class_hash = to_felt252(&tx.class_hash.0);
 
     let contract_address = calculate_contract_address(
         tx.contract_address_salt,
@@ -669,9 +678,8 @@ pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTran
         ContractAddress::from(0_u8),
     )
     .unwrap();
-    let contract_address_salt = felt_api2vm(tx.contract_address_salt.0);
     let contract_address = felt_api2vm(*contract_address.0);
-    let class_hash = to_felt252(&tx.class_hash.0);
+
     let hash_value = tx_hash_deploy_v3(
         nonce,
         contract_address,
@@ -689,7 +697,8 @@ pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTran
         hash_value,
         version: Some(Felt252::THREE),
         nonce: Some(nonce),
-        sender_address: Some(contract_address),
+        sender_address: Some(to_felt252(&tx_contract_address.0)),
+        contract_address: Some(contract_address),
         entry_point_selector,
         entry_point_type: Some("CONSTRUCTOR".to_string()),
         r#type: "DEPLOY_ACCOUNT".to_string(),
