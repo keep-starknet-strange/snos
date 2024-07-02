@@ -1,3 +1,5 @@
+mod types;
+
 use std::collections::HashMap;
 use std::error::Error;
 use std::future::Future;
@@ -14,6 +16,7 @@ use snos::config::{StarknetGeneralConfig, StarknetOsConfig};
 use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
+use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::storage::storage::{Storage, StorageError};
 use snos::{config, run_os};
@@ -24,6 +27,8 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
+
+use crate::types::starknet_rs_tx_to_internal_tx;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -155,8 +160,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let block_context = build_block_context(chain_id, &block_with_txs).await.unwrap();
 
+    let state_update =
+        provider.get_state_update(BlockId::Number(block_number)).await.expect("Failed to get state update");
+    println!("state update: {:?}", state_update);
+
     let old_block_number = Felt252::from(previous_block.block_number);
-    let old_block_hash = Felt252::from_bytes_be(&previous_block.block_hash.to_bytes_be());
+    let old_block_hash = previous_block.block_hash;
 
     // let ffc = FactFetchingContext::new(RpcStorage::new(provider));
     // let initial_state = build_shared_state(&previous_block, )
@@ -172,6 +181,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         ..default_general_config
     };
 
+    let transactions: Vec<_> = block_with_txs.transactions.into_iter().map(starknet_rs_tx_to_internal_tx).collect();
+
     let os_input = StarknetOsInput {
         contract_state_commitment_info: Default::default(),
         contract_class_commitment_info: Default::default(),
@@ -181,12 +192,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         contracts: Default::default(),
         class_hash_to_compiled_class_hash: Default::default(),
         general_config,
-        transactions: vec![],
-        block_hash: Default::default(),
+        transactions,
+        block_hash: block_with_txs.block_hash,
     };
     let execution_helper = ExecutionHelperWrapper::new(
-        Default::default(),
-        Default::default(),
+        Default::default(), // tx_execution_infos
+        Default::default(), // contract_storage_map
         &block_context,
         (old_block_number, old_block_hash),
     );
