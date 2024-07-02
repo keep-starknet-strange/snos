@@ -191,7 +191,7 @@ fn tx_hash_invoke_v1(contract_address: Felt252, calldata: Vec<Felt252>, max_fee:
 /// Produce a hash for an Deploy V3 TXN with the provided elements
 fn tx_hash_deploy_v3(
     nonce: Felt252,
-    sender_address: Felt252,
+    contract_address: Felt252,
     nonce_data_availability_mode: Felt252,
     fee_data_availability_mode: Felt252,
     resource_bounds: &ResourceBoundsMapping,
@@ -207,7 +207,7 @@ fn tx_hash_deploy_v3(
     calculate_transaction_v3_hash_common(
         DEPLOY_ACCOUNT_PREFIX,
         Felt252::THREE,
-        sender_address,
+        contract_address,
         chain_id,
         nonce,
         &tx_specific_fields,
@@ -652,7 +652,7 @@ pub fn to_internal_deploy_v3_tx(
     account_tx: &AccountTransaction,
     tx: &DeployAccountTransactionV3,
 ) -> InternalTransaction {
-    let tx_contract_address = match account_tx {
+    let sender_address = match account_tx {
         AccountTransaction::DeployAccount(a) => a.contract_address,
         _ => unreachable!(),
     };
@@ -697,7 +697,7 @@ pub fn to_internal_deploy_v3_tx(
         hash_value,
         version: Some(Felt252::THREE),
         nonce: Some(nonce),
-        sender_address: Some(to_felt252(&tx_contract_address.0)),
+        sender_address: Some(to_felt252(&sender_address.0)),
         contract_address: Some(contract_address),
         entry_point_selector,
         entry_point_type: Some("CONSTRUCTOR".to_string()),
