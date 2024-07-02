@@ -662,7 +662,7 @@ pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTran
 
     let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().map(|x| to_felt252(x.into())).collect();
 
-    let sender_address = calculate_contract_address(
+    let contract_address = calculate_contract_address(
         tx.contract_address_salt,
         tx.class_hash,
         &tx.constructor_calldata,
@@ -670,11 +670,11 @@ pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTran
     )
     .unwrap();
     let contract_address_salt = felt_api2vm(tx.contract_address_salt.0);
-    let sender_address = felt_api2vm(*sender_address.0);
+    let contract_address = felt_api2vm(*contract_address.0);
     let class_hash = to_felt252(&tx.class_hash.0);
     let hash_value = tx_hash_deploy_v3(
         nonce,
-        sender_address,
+        contract_address,
         nonce_data_availability_mode,
         fee_data_availability_mode,
         resource_bounds,
@@ -689,9 +689,9 @@ pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTran
         hash_value,
         version: Some(Felt252::THREE),
         nonce: Some(nonce),
-        sender_address: Some(sender_address),
+        sender_address: Some(contract_address),
         entry_point_selector,
-        entry_point_type: Some("EXTERNAL".to_string()),
+        entry_point_type: Some("CONSTRUCTOR".to_string()),
         r#type: "DEPLOY_ACCOUNT".to_string(),
         resource_bounds: Some(tx.resource_bounds.clone()),
         paymaster_data: Some(paymaster_data),
@@ -702,6 +702,7 @@ pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTran
         nonce_data_availability_mode: Some(nonce_data_availability_mode),
         contract_address_salt: Some(contract_address_salt),
         signature,
+        account_deployment_data: Some(vec![]),
         ..Default::default()
     };
 }

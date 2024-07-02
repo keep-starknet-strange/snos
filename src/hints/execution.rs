@@ -759,7 +759,7 @@ pub fn tx_account_deployment_data_len(
     let len = if tx.version.unwrap_or(Felt252::ZERO) < Felt252::THREE {
         0usize
     } else {
-        tx.account_deployment_data.unwrap_or_default().len()
+        tx.account_deployment_data.unwrap().len()
     };
 
     insert_value_into_ap(vm, Felt252::from(len))
@@ -781,7 +781,7 @@ pub fn tx_account_deployment_data(
         MaybeRelocatable::Int(Felt252::ZERO)
     } else {
         let data: Vec<MaybeRelocatable> =
-            tx.account_deployment_data.unwrap_or_default().iter().map(|f| MaybeRelocatable::Int(*f)).collect();
+            tx.account_deployment_data.unwrap().iter().map(|f| MaybeRelocatable::Int(*f)).collect();
         vm.gen_arg(&data)?
     };
 
