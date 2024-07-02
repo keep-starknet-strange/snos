@@ -13,7 +13,6 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
-// use pathfinder_gateway_types::request::add_transaction::DeployAccountV3;
 use rstest::rstest;
 use snos::config::{BLOCK_HASH_CONTRACT_ADDRESS, SN_GOERLI, STORED_BLOCK_HASH_BUFFER};
 use snos::crypto::pedersen::PedersenHash;
@@ -648,11 +647,10 @@ pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3) -> InternalTransaction
     };
 }
 
-pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 /// Convert a InvokeTransactionV3 to a SNOS InternalTransaction
 pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTransaction {
     let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
-    let entry_point_selector = to_felt252(&selector_from_name("__execute__").0);
+    let entry_point_selector = Some(Felt252::ZERO);
     let calldata: Vec<_> = tx.constructor_calldata.0.iter().map(|x| to_felt252(x.into())).collect();
 
     let nonce = felt_api2vm(tx.nonce.0);
@@ -668,9 +666,10 @@ pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTran
         tx.contract_address_salt,
         tx.class_hash,
         &tx.constructor_calldata,
-        contract_address!(TEST_CONTRACT_ADDRESS),
+        ContractAddress::from(0_u8),
     )
     .unwrap();
+    let contract_address_salt = felt_api2vm(tx.contract_address_salt.0);
     let sender_address = felt_api2vm(*sender_address.0);
     let class_hash = to_felt252(&tx.class_hash.0);
     let hash_value = tx_hash_deploy_v3(
@@ -681,7 +680,7 @@ pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTran
         resource_bounds,
         tip,
         &paymaster_data,
-        to_felt252(&tx.contract_address_salt.0),
+        contract_address_salt,
         class_hash,
         &calldata,
     );
@@ -691,11 +690,9 @@ pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTran
         version: Some(Felt252::THREE),
         nonce: Some(nonce),
         sender_address: Some(sender_address),
-        entry_point_selector: Some(entry_point_selector),
+        entry_point_selector,
         entry_point_type: Some("EXTERNAL".to_string()),
-        signature,
-        // calldata: Some(calldata),
-        r#type: "INVOKE_FUNCTION".to_string(),
+        r#type: "DEPLOY_ACCOUNT".to_string(),
         resource_bounds: Some(tx.resource_bounds.clone()),
         paymaster_data: Some(paymaster_data),
         class_hash: Some(class_hash),
@@ -703,6 +700,8 @@ pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTran
         tip: Some(tip),
         fee_data_availability_mode: Some(fee_data_availability_mode),
         nonce_data_availability_mode: Some(nonce_data_availability_mode),
+        contract_address_salt: Some(contract_address_salt),
+        signature,
         ..Default::default()
     };
 }
