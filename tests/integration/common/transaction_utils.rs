@@ -13,7 +13,8 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
-use pathfinder_gateway_types::request::add_transaction::DeployAccountV3;
+// use pathfinder_gateway_types::request::add_transaction::DeployAccountV3;
+use rstest::rstest;
 use snos::config::{BLOCK_HASH_CONTRACT_ADDRESS, SN_GOERLI, STORED_BLOCK_HASH_BUFFER};
 use snos::crypto::pedersen::PedersenHash;
 use snos::crypto::poseidon::poseidon_hash_many_bytes;
@@ -28,15 +29,16 @@ use snos::starknet::core::os::transaction_hash::{L1_GAS, L2_GAS};
 use snos::storage::dict_storage::DictStorage;
 use snos::utils::felt_api2vm;
 use snos::{config, run_os};
-use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransactionV3, InvokeTransactionV0, InvokeTransactionV1,
-    InvokeTransactionV3, Resource, ResourceBoundsMapping,
+    DeclareTransactionV0V1, DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransactionV1,
+    DeployAccountTransactionV3, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, Resource,
+    ResourceBoundsMapping,
 };
-use starknet_api::{contract_address, stark_felt};
+use starknet_api::{contract_address, patricia_key, stark_felt};
 use starknet_crypto::{pedersen_hash, FieldElement};
 
 use crate::common::block_utils::os_hints;
@@ -248,6 +250,20 @@ fn tx_hash_invoke_v3(
     )
 }
 
+/// Produce a hash for a Declare V1 TXN with the provided elements
+fn tx_hash_declare_v1(sender_address: Felt252, max_fee: Felt252, class_hash: Felt252, nonce: Felt252) -> Felt252 {
+    hash_on_elements(vec![
+        Felt252::from_bytes_be_slice(DECLARE_PREFIX),
+        Felt252::ONE, // declare version
+        sender_address,
+        Felt252::ZERO,
+        hash_on_elements(vec![class_hash]),
+        Felt252::from(max_fee),
+        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+        nonce,
+    ])
+}
+
 /// Produce a hash for a Declare V2 TXN with the provided elements
 fn tx_hash_declare_v2(
     sender_address: Felt252,
@@ -300,6 +316,36 @@ fn tx_hash_declare_v3(
     )
 }
 
+/// Produce a hash for a Deploy V1 TXN with the provided elements.
+///
+/// Based on the spec here:
+/// https://docs.starknet.io/architecture-and-concepts/network-architecture/transactions/#v1_deprecated_hash_calculation_3
+fn tx_hash_deploy_account_v1(
+    contract_address: Felt252,
+    max_fee: Felt252,
+    class_hash: Felt252,
+    contract_address_salt: Felt252,
+    constructor_calldata: Vec<Felt252>,
+    chain_id: Felt252,
+    nonce: Felt252,
+) -> Felt252 {
+    let entrypoint_selector = Felt252::ZERO;
+
+    let class_hash_salt_calldata_hash =
+        hash_on_elements([vec![class_hash, contract_address_salt], constructor_calldata].concat());
+
+    hash_on_elements(vec![
+        Felt252::from_bytes_be_slice(DEPLOY_ACCOUNT_PREFIX),
+        Felt252::ONE, // deploy tx version
+        contract_address,
+        entrypoint_selector,
+        class_hash_salt_calldata_hash,
+        max_fee,
+        chain_id,
+        nonce,
+    ])
+}
+
 /// Convert an AccountTransaction to a SNOS InternalTransaction
 pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
     return match account_tx {
@@ -309,20 +355,110 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                     // explicitly not supported
                     panic!("Declare V0 is not supported");
                 }
+                starknet_api::transaction::DeclareTransaction::V1(tx) => to_internal_declare_v1_tx(account_tx, tx),
                 starknet_api::transaction::DeclareTransaction::V2(tx) => to_internal_declare_v2_tx(account_tx, tx),
                 starknet_api::transaction::DeclareTransaction::V3(tx) => to_internal_declare_v3_tx(tx),
-                _ => unimplemented!("Declare txn version not yet supported"),
             }
         }
-        DeployAccount(deploy_tx) => match &deploy_tx.tx() {
+
+        DeployAccount(deploy_tx) => match deploy_tx.tx() {
+            starknet_api::transaction::DeployAccountTransaction::V1(tx) => to_internal_deploy_v1_tx(account_tx, tx),
             starknet_api::transaction::DeployAccountTransaction::V3(tx) => to_internal_deploy_v3_tx(tx),
-            _ => unimplemented!("Declare txn version not yet supported"),
         },
         Invoke(invoke_tx) => match &invoke_tx.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(tx),
             starknet_api::transaction::InvokeTransaction::V1(tx) => to_internal_invoke_v1_tx(tx),
             starknet_api::transaction::InvokeTransaction::V3(tx) => to_internal_invoke_v3_tx(tx),
         },
+    };
+}
+
+/// Convert a DeclareTransactionV1 to a SNOS InternalTransaction
+pub fn to_internal_declare_v1_tx(account_tx: &AccountTransaction, tx: &DeclareTransactionV0V1) -> InternalTransaction {
+    let hash_value;
+    let sender_address;
+    let class_hash;
+    let max_fee = tx.max_fee.0.into();
+    let signature = tx.signature.0.iter().map(|x| to_felt252(x)).collect();
+    let nonce = felt_api2vm(tx.nonce.0);
+
+    match account_tx.create_tx_info() {
+        TransactionInfo::Current(_) => unreachable!("v1 transactions can only contain a `Deprecated` variant"),
+        TransactionInfo::Deprecated(context) => {
+            sender_address = felt_api2vm(*context.common_fields.sender_address.0.key());
+            class_hash = felt_api2vm(tx.class_hash.0);
+
+            hash_value = tx_hash_declare_v1(sender_address, max_fee, class_hash, nonce);
+        }
+    }
+
+    InternalTransaction {
+        hash_value,
+        version: Some(Felt252::ONE),
+        nonce: Some(nonce),
+        sender_address: Some(sender_address),
+        entry_point_type: Some("EXTERNAL".to_string()),
+        signature: Some(signature),
+        class_hash: Some(class_hash),
+        r#type: "DECLARE".to_string(),
+        max_fee: Some(max_fee),
+        ..Default::default()
+    }
+}
+
+fn to_internal_deploy_v1_tx(account_tx: &AccountTransaction, tx: &DeployAccountTransactionV1) -> InternalTransaction {
+    let sender_address = match account_tx.create_tx_info() {
+        TransactionInfo::Current(_) => unreachable!("TxV1 can only have deprecated variant"),
+        TransactionInfo::Deprecated(context) => context.common_fields.sender_address,
+    };
+    let sender_address_felt = felt_api2vm(*sender_address.key());
+
+    let contract_address = felt_api2vm(
+        *calculate_contract_address(
+            tx.contract_address_salt,
+            tx.class_hash,
+            &tx.constructor_calldata,
+            contract_address!("0x0"),
+        )
+        .unwrap()
+        .key(),
+    );
+
+    let max_fee: Felt252 = tx.max_fee.0.into();
+    let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
+    let entry_point_selector = Some(Felt252::ZERO);
+    let chain_id = Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap());
+    let nonce = felt_api2vm(tx.nonce.0);
+
+    let class_hash = felt_api2vm(tx.class_hash.0);
+
+    let constructor_calldata: Vec<_> = tx.constructor_calldata.0.iter().map(|x| to_felt252(x.into())).collect();
+    let contract_address_salt = felt_api2vm(tx.contract_address_salt.0);
+
+    let hash_value = tx_hash_deploy_account_v1(
+        contract_address,
+        max_fee,
+        class_hash,
+        contract_address_salt,
+        constructor_calldata.clone(),
+        chain_id,
+        nonce,
+    );
+
+    return InternalTransaction {
+        hash_value,
+        version: Some(Felt252::ONE),
+        contract_address_salt: Some(contract_address_salt),
+        nonce: Some(nonce),
+        sender_address: Some(sender_address_felt),
+        entry_point_selector,
+        entry_point_type: Some("EXTERNAL".to_string()),
+        signature,
+        r#type: "DEPLOY_ACCOUNT".to_string(),
+        max_fee: Some(max_fee),
+        class_hash: Some(class_hash),
+        constructor_calldata: Some(constructor_calldata),
+        ..Default::default()
     };
 }
 
@@ -513,9 +649,6 @@ pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3) -> InternalTransaction
 }
 
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
-use starknet_api::patricia_key;
-use starknet_api::core::PatriciaKey;
-use starknet_api::hash::StarkHash;
 /// Convert a InvokeTransactionV3 to a SNOS InternalTransaction
 pub fn to_internal_deploy_v3_tx(tx: &DeployAccountTransactionV3) -> InternalTransaction {
     let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
@@ -624,4 +757,37 @@ pub async fn execute_txs_and_run_os(
     }
 
     result
+}
+
+#[rstest]
+#[case::no_calldata(vec![])]
+#[case::with_calldata(vec![Felt252::from(539), Felt252::from(337)])]
+fn test_deploy_account_tx_hash(#[case] constructor_calldata: Vec<Felt252>) {
+    let entrypoint_selector = Felt252::ZERO;
+
+    let version = Felt252::ONE;
+    let salt = Felt252::ZERO;
+    let contract_address = Felt252::from(19911991);
+    let max_fee = Felt252::ONE;
+    let chain_id = Felt252::TWO;
+    let nonce = Felt252::ZERO;
+
+    let class_hash = Felt252::from_hex_unchecked("0x067605bc345e925118dd60e09888a600e338047aa61e66361d48604ea670b709");
+    let calldata = [vec![class_hash, salt], constructor_calldata.clone()].concat();
+
+    let expected_hash = hash_on_elements(vec![
+        Felt252::from_bytes_be_slice(DEPLOY_ACCOUNT_PREFIX),
+        version,
+        contract_address,
+        entrypoint_selector,
+        hash_on_elements(calldata),
+        max_fee,
+        chain_id,
+        nonce,
+    ]);
+
+    let computed_hash =
+        tx_hash_deploy_account_v1(contract_address, max_fee, class_hash, salt, constructor_calldata, chain_id, nonce);
+
+    assert_eq!(computed_hash, expected_hash);
 }

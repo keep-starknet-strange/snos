@@ -2,16 +2,16 @@ use blockifier::context::BlockContext;
 use blockifier::declare_tx_args;
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::test_utils::NonceManager;
-use blockifier::transaction::test_utils::max_fee;
+use blockifier::transaction::test_utils::{calculate_class_info_for_testing, max_fee};
 use rstest::rstest;
 use snos::crypto::poseidon::PoseidonHash;
 use snos::starknet::business_logic::utils::write_class_facts;
-use snos::storage::storage_utils::compiled_contract_class_cl2vm;
+use snos::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
 use starknet_api::core::CompiledClassHash;
 use starknet_api::transaction::{Fee, Resource, ResourceBounds, ResourceBoundsMapping, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{initial_state_cairo1, load_cairo1_contract, StarknetTestState};
+use crate::common::state::{initial_state_cairo0, initial_state_cairo1, load_cairo1_contract, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 // Copied from the non-public Blockifier fn
@@ -123,6 +123,51 @@ async fn declare_cairo1_account(
             nonce: nonce_manager.next(sender_address),
             class_hash: class_hash.into(),
             compiled_class_hash,
+        },
+        class_info,
+    );
+
+    let _result = execute_txs_and_run_os(
+        initial_state.cached_state,
+        block_context,
+        vec![declare_tx],
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+    )
+    .await
+    .expect("OS run failed");
+}
+
+#[rstest]
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn declare_v1_cairo0_account(
+    #[future] initial_state_cairo0: StarknetTestState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let initial_state = initial_state_cairo0.await;
+
+    let mut nonce_manager = NonceManager::default();
+
+    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.cairo0_contracts.get("test_contract").unwrap();
+
+    let tx_version = TransactionVersion::ONE;
+
+    let class_hash = test_contract.class_hash;
+
+    let class = deprecated_contract_class_api2vm(&test_contract.class).unwrap();
+
+    let class_info = calculate_class_info_for_testing(class);
+
+    let declare_tx = blockifier::test_utils::declare::declare_tx(
+        declare_tx_args! {
+            max_fee,
+            sender_address,
+            version: tx_version,
+            nonce: nonce_manager.next(sender_address),
+            class_hash: class_hash.into(),
         },
         class_info,
     );

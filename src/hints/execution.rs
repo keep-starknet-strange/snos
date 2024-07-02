@@ -110,17 +110,15 @@ pub fn prepare_constructor_execution(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     insert_value_from_var_name(
-        "contract_address_salt",
+        vars::ids::CONTRACT_ADDRESS_SALT,
         tx.contract_address_salt.expect("`contract_address_salt` must be present"),
         vm,
         ids_data,
         ap_tracking,
     )?;
     insert_value_from_var_name(
-        "class_hash",
-        // using `contract_hash` instead of `class_hash` as the that's how the
-        // input.json is structured
-        tx.contract_hash.expect("`contract_hash` must be present"),
+        vars::ids::CLASS_HASH,
+        tx.class_hash.expect("`class_hash` must be present"),
         vm,
         ids_data,
         ap_tracking,
