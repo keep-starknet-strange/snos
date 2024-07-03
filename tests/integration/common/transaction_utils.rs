@@ -388,6 +388,7 @@ fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction) -> InternalTransactio
         nonce: Some(nonce),
         entry_point_selector: Some(entry_point_selector),
         entry_point_type: Some("EXTERNAL".to_string()),
+        r#type: "L1_HANDLER".into(),
 
         ..Default::default()
     }
@@ -684,7 +685,9 @@ async fn execute_txs(
     state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
     let internal_txs: Vec<_> = txs.iter().map(to_internal_tx).collect();
     let execution_infos =
-        txs.into_iter().map(|tx| tx.execute(&mut state, block_context, true, true).unwrap()).collect();
+        txs.into_iter().map(|tx| {
+            tx.execute(&mut state, block_context, true, true).unwrap()
+        }).collect();
     os_hints(&block_context, state, internal_txs, execution_infos, deprecated_contract_classes, contract_classes).await
 }
 

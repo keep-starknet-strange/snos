@@ -70,7 +70,7 @@ pub fn load_next_tx(
     let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>(vars::scopes::TRANSACTIONS)?;
     // Safe to unwrap because the remaining number of txs is checked in the cairo code.
     let tx = transactions.next().unwrap();
-    log::debug!("executing {} on: {}", tx.r#type, tx.sender_address.unwrap());
+    // log::debug!("executing {} on: {}", tx.r#type, tx.sender_address.unwrap());
     exec_scopes.insert_value(vars::scopes::TRANSACTIONS, transactions);
     exec_scopes.insert_value(vars::scopes::TX, tx.clone());
     insert_value_from_var_name(
