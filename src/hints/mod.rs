@@ -31,6 +31,7 @@ pub mod block_context;
 mod bls_field;
 mod bls_utils;
 pub mod builtins;
+mod commitment;
 mod compiled_class;
 mod deprecated_compiled_class;
 mod execute_transactions;
@@ -55,7 +56,7 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-static HINTS: [(&str, HintImpl); 172] = [
+static HINTS: [(&str, HintImpl); 173] = [
     (BREAKPOINT, breakpoint),
     (INITIALIZE_CLASS_HASHES, initialize_class_hashes),
     (INITIALIZE_STATE_CHANGES, initialize_state_changes),
@@ -85,6 +86,7 @@ static HINTS: [(&str, HintImpl); 172] = [
     (builtins::SELECTED_BUILTINS, builtins::selected_builtins),
     (builtins::SELECT_BUILTIN, builtins::select_builtin),
     (builtins::UPDATE_BUILTIN_PTRS, builtins::update_builtin_ptrs),
+    (commitment::WRITE_ZKG_COMMITMENT, commitment::write_zkg_commitment),
     (compiled_class::ASSIGN_BYTECODE_SEGMENTS, compiled_class::assign_bytecode_segments),
     (compiled_class::ASSERT_END_OF_BYTECODE_SEGMENTS, compiled_class::assert_end_of_bytecode_segments),
     (deprecated_compiled_class::LOAD_DEPRECATED_CLASS_FACTS, deprecated_compiled_class::load_deprecated_class_facts),
