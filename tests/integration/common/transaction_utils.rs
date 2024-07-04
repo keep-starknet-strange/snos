@@ -393,8 +393,8 @@ pub fn to_internal_tx(outer_tx: &Transaction) -> InternalTransaction {
             starknet_api::transaction::DeployAccountTransaction::V1(tx) => {
                 to_internal_deploy_v1_tx(account_tx.unwrap(), tx)
             }
-            starknet_api::transaction::DeployAccountTransaction::V3(tx) =>  {
-                to_internal_deploy_v3_tx(account_tx.unwrap(), tx),
+            starknet_api::transaction::DeployAccountTransaction::V3(tx) => {
+                to_internal_deploy_v3_tx(account_tx.unwrap(), tx)
             }
         },
         Transaction::AccountTransaction(Invoke(invoke_tx)) => match &invoke_tx.tx {
