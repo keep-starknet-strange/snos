@@ -18,8 +18,11 @@ use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
+use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
-use snos::storage::storage::{Storage, StorageError};
+use snos::starkware_utils::commitment_tree::base_types::Height;
+use snos::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+use snos::storage::storage::{Hash, Storage, StorageError};
 use snos::{config, run_os};
 use starknet::core::types::{
     BlockId, BlockWithTxs, MaybePendingBlockWithTxs, MaybePendingStateUpdate, StateUpdate, StorageEntry,
@@ -90,6 +93,7 @@ enum ContractProofNode {
 struct StorageProof {
     class_commitment: Felt252,
     contract_proof: Vec<ContractProofNode>,
+    state_commitment: Felt252,
 }
 
 async fn pathfinder_get_proof(
@@ -138,10 +142,22 @@ async fn get_storage_proofs(
 
 fn merge_chunked_storage_proofs(mut storage_proofs: Vec<StorageProof>) -> StorageProof {
     let class_commitment = storage_proofs[0].class_commitment;
+    let state_commitment = storage_proofs[0].state_commitment;
     let contract_proof_nodes: Vec<_> =
         storage_proofs.into_iter().map(|storage_proof| storage_proof.contract_proof).flatten().collect();
 
-    StorageProof { class_commitment, contract_proof: contract_proof_nodes }
+    StorageProof { class_commitment, contract_proof: contract_proof_nodes, state_commitment }
+}
+
+fn build_contract_state(contract_hash: Felt, contract_nonce: Felt, storage_proof: StorageProof) -> ContractState {
+    ContractState {
+        contract_hash: contract_hash.to_bytes_be().to_vec(),
+        storage_commitment_tree: PatriciaTree {
+            root: Hash::from_bytes_be(storage_proof.state_commitment.to_bytes_be()),
+            height: Height(251),
+        },
+        nonce: contract_nonce,
+    }
 }
 
 fn felt_to_u128(felt: &starknet_types_core::felt::Felt) -> u128 {
@@ -231,6 +247,17 @@ async fn build_block_context(chain_id: String, block: &BlockWithTxs) -> Result<B
     Ok(BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants))
 }
 
+async fn get_nonce(provider: &JsonRpcClient<HttpTransport>, block_id: BlockId, contract_address: Felt) -> Felt {
+    if [Felt::ZERO, Felt::ONE].contains(&contract_address) {
+        return Felt::ZERO;
+    }
+
+    provider
+        .get_nonce(block_id, contract_address)
+        .await
+        .unwrap_or_else(|e| panic!("Failed to get nonce for contract {}: {}", contract_address.to_hex_string(), e))
+}
+
 fn init_logging() {
     env_logger::builder()
         .filter_level(log::LevelFilter::Debug)
@@ -246,6 +273,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let block_number = args.block_number;
+    let block_id = BlockId::Number(block_number);
     let layout = LayoutName::starknet_with_keccak;
 
     let provider = JsonRpcClient::new(HttpTransport::new(Url::parse("http://localhost:9545/rpc/v0_7").unwrap()));
@@ -254,7 +282,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Step 1: build the block context
     let chain_id = provider.chain_id().await?.to_string();
-    let block_with_txs = match provider.get_block_with_txs(BlockId::Number(block_number)).await? {
+    let block_with_txs = match provider.get_block_with_txs(block_id).await? {
         MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
         MaybePendingBlockWithTxs::PendingBlock(_) => {
             panic!("Block is still pending!");
@@ -267,17 +295,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let state_update =
-        match provider.get_state_update(BlockId::Number(block_number)).await.expect("Failed to get state update") {
-            MaybePendingStateUpdate::Update(update) => update,
-            MaybePendingStateUpdate::PendingUpdate(_) => {
-                panic!("Block is still pending!")
-            }
-        };
+    let state_update = match provider.get_state_update(block_id).await.expect("Failed to get state update") {
+        MaybePendingStateUpdate::Update(update) => update,
+        MaybePendingStateUpdate::PendingUpdate(_) => {
+            panic!("Block is still pending!")
+        }
+    };
 
-    let _storage_proofs = get_storage_proofs(&pathfinder_client, block_number, &state_update)
+    let storage_proofs = get_storage_proofs(&pathfinder_client, block_number, &state_update)
         .await
         .expect("Failed to fetch storage proofs");
+
+    let nonce_updates: HashMap<_, _> = state_update
+        .state_diff
+        .nonces
+        .iter()
+        .map(|nonce_update| (nonce_update.contract_address, nonce_update.nonce))
+        .collect();
+
+    let mut contract_states = HashMap::new();
+    for (contract_address, storage_proof) in storage_proofs {
+        let nonce = get_nonce(&provider, block_id, contract_address).await;
+        let class_hash = provider.get_class_hash_at(block_id, contract_address).await?;
+        contract_states.insert(contract_address, build_contract_state(class_hash, nonce, storage_proof));
+    }
 
     let _traces =
         provider.trace_block_transactions(BlockId::Number(block_number)).await.expect("Failed to get block tx traces");
@@ -309,7 +350,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         deprecated_compiled_classes: Default::default(),
         compiled_classes: Default::default(),
         compiled_class_visited_pcs: Default::default(),
-        contracts: Default::default(),
+        contracts: contract_states,
         class_hash_to_compiled_class_hash: Default::default(),
         general_config,
         transactions,
