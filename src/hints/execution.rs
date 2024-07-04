@@ -1522,9 +1522,7 @@ pub async fn write_syscall_result_async(
     execution_helper
         .write_storage_for_address(contract_address, storage_write_address, storage_write_value)
         .await
-        .map_err(|_| {
-            custom_hint_error(&format!("Storage not found for contract {}", contract_address))
-        })?;
+        .map_err(|_| custom_hint_error(&format!("Storage not found for contract {}", contract_address)))?;
 
     let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     get_state_entry_and_set_new_state_entry(
