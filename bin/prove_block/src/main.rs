@@ -1,6 +1,4 @@
-mod types;
-
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::future::Future;
 
@@ -12,6 +10,9 @@ use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use clap::Parser;
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use serde_json::json;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig};
 use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
@@ -20,21 +21,127 @@ use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::storage::storage::{Storage, StorageError};
 use snos::{config, run_os};
-use starknet::core::types::{BlockId, BlockWithTxs, MaybePendingBlockWithTxs};
+use starknet::core::types::{
+    BlockId, BlockWithTxs, MaybePendingBlockWithTxs, MaybePendingStateUpdate, StateUpdate, StorageEntry,
+};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
+use starknet_types_core::felt::Felt;
 
 use crate::types::starknet_rs_tx_to_internal_tx;
+
+mod types;
 
 #[derive(Parser, Debug)]
 struct Args {
     /// Block to prove.
     #[arg(long = "block-number")]
     block_number: u64,
+}
+
+fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::Value {
+    json!({
+        "jsonrpc": "2.0",
+        "id": "0",
+        "method": method,
+        "params": params,
+    })
+}
+
+async fn post_jsonrpc_request<T: DeserializeOwned>(
+    client: &reqwest::Client,
+    method: &str,
+    params: serde_json::Value,
+) -> Result<T, reqwest::Error> {
+    let request = jsonrpc_request(method, params);
+    let response = client.post("http://localhost:9545/rpc/v0_7").json(&request).send().await?;
+
+    #[derive(Deserialize)]
+    struct TransactionReceiptResponse<T> {
+        result: T,
+    }
+
+    println!("Response status: {}", response.status());
+    let response_text = response.text().await?;
+    let response: TransactionReceiptResponse<T> =
+        serde_json::from_str(&response_text).unwrap_or_else(|_| panic!("Error: {}", response_text));
+    Ok(response.result)
+}
+
+#[derive(Deserialize)]
+struct EdgePath {
+    len: u64,
+    value: Felt252,
+}
+
+#[derive(Deserialize)]
+enum ContractProofNode {
+    #[serde(rename = "binary")]
+    Binary { left: Felt252, right: Felt252 },
+    #[serde(rename = "edge")]
+    Edge { child: Felt252, path: EdgePath },
+}
+
+#[derive(Deserialize)]
+struct StorageProof {
+    class_commitment: Felt252,
+    contract_proof: Vec<ContractProofNode>,
+}
+
+async fn pathfinder_get_proof(
+    client: &reqwest::Client,
+    block_number: u64,
+    contract_address: Felt,
+    keys: &[Felt],
+) -> Result<StorageProof, reqwest::Error> {
+    post_jsonrpc_request(
+        client,
+        "pathfinder_getProof",
+        json!({ "block_id": { "block_number": block_number }, "contract_address": contract_address, "keys": keys }),
+    )
+    .await
+}
+
+async fn get_storage_proofs(
+    client: &reqwest::Client,
+    block_number: u64,
+    state_update: &StateUpdate,
+) -> Result<HashMap<Felt, StorageProof>, reqwest::Error> {
+    let mut storage_changes_by_contract: HashMap<Felt, Vec<StorageEntry>> = HashMap::new();
+
+    for diff_item in &state_update.state_diff.storage_diffs {
+        storage_changes_by_contract.entry(diff_item.address).or_default().extend_from_slice(&diff_item.storage_entries);
+    }
+
+    let mut storage_proofs = HashMap::new();
+
+    for (contract_address, storage_changes) in storage_changes_by_contract {
+        let keys: Vec<_> = storage_changes.iter().map(|change| change.key).collect();
+
+        // The endpoint is limited to 100 keys at most per call
+        let mut chunked_storage_proofs = Vec::new();
+        for keys_chunk in keys.chunks(100) {
+            chunked_storage_proofs
+                .push(pathfinder_get_proof(client, block_number, contract_address, keys_chunk).await?);
+        }
+        let storage_proof = merge_chunked_storage_proofs(chunked_storage_proofs);
+
+        storage_proofs.insert(contract_address, storage_proof);
+    }
+
+    Ok(storage_proofs)
+}
+
+fn merge_chunked_storage_proofs(mut storage_proofs: Vec<StorageProof>) -> StorageProof {
+    let class_commitment = storage_proofs[0].class_commitment;
+    let contract_proof_nodes: Vec<_> =
+        storage_proofs.into_iter().map(|storage_proof| storage_proof.contract_proof).flatten().collect();
+
+    StorageProof { class_commitment, contract_proof: contract_proof_nodes }
 }
 
 fn felt_to_u128(felt: &starknet_types_core::felt::Felt) -> u128 {
@@ -142,6 +249,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let layout = LayoutName::starknet_with_keccak;
 
     let provider = JsonRpcClient::new(HttpTransport::new(Url::parse("http://localhost:9545/rpc/v0_7").unwrap()));
+    let pathfinder_client =
+        reqwest::ClientBuilder::new().build().unwrap_or_else(|e| panic!("Could not build reqwest client: {e}"));
 
     // Step 1: build the block context
     let chain_id = provider.chain_id().await?.to_string();
@@ -158,11 +267,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let block_context = build_block_context(chain_id, &block_with_txs).await.unwrap();
-
     let state_update =
-        provider.get_state_update(BlockId::Number(block_number)).await.expect("Failed to get state update");
-    println!("state update: {:?}", state_update);
+        match provider.get_state_update(BlockId::Number(block_number)).await.expect("Failed to get state update") {
+            MaybePendingStateUpdate::Update(update) => update,
+            MaybePendingStateUpdate::PendingUpdate(_) => {
+                panic!("Block is still pending!")
+            }
+        };
+
+    let _storage_proofs = get_storage_proofs(&pathfinder_client, block_number, &state_update)
+        .await
+        .expect("Failed to fetch storage proofs");
+
+    let _traces =
+        provider.trace_block_transactions(BlockId::Number(block_number)).await.expect("Failed to get block tx traces");
+
+    let block_context = build_block_context(chain_id, &block_with_txs).await.unwrap();
 
     let old_block_number = Felt252::from(previous_block.block_number);
     let old_block_hash = previous_block.block_hash;
