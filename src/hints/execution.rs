@@ -38,6 +38,10 @@ use crate::starkware_utils::commitment_tree::base_types::DescentMap;
 use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, TreeUpdate, UpdateTree};
 use crate::utils::{execute_coroutine, get_constant};
 
+fn custom_hint_error(error: &str) -> HintError {
+    HintError::CustomHint(error.to_string().into_boxed_str())
+}
+
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
         tx = next(transactions)
         assert tx.tx_type.name in ('INVOKE_FUNCTION', 'L1_HANDLER', 'DEPLOY_ACCOUNT', 'DECLARE'), (
@@ -527,13 +531,9 @@ pub fn contract_address(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let contract_address = if tx.r#type == "L1_HANDLER" {
-        tx.contract_address
-            .ok_or(HintError::CustomHint("tx.contract_address is None".to_string().into_boxed_str()))
-            .unwrap()
+        tx.contract_address.ok_or(custom_hint_error("tx.contract_address is None"))?
     } else {
-        tx.sender_address
-            .ok_or(HintError::CustomHint("tx.sender_address is None".to_string().into_boxed_str()))
-            .unwrap()
+        tx.sender_address.ok_or(custom_hint_error("tx.sender_address is None"))?
     };
     insert_value_from_var_name(vars::ids::CONTRACT_ADDRESS, contract_address, vm, ids_data, ap_tracking)
 }
@@ -548,7 +548,7 @@ pub fn tx_calldata_len(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let len = tx.calldata.unwrap_or_default().len();
+    let len = tx.calldata.ok_or(custom_hint_error("tx.calldata is None"))?.len();
     insert_value_into_ap(vm, Felt252::from(len))
 }
 
@@ -562,7 +562,8 @@ pub fn tx_calldata(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let calldata = tx.calldata.unwrap_or_default().iter().map(|felt| felt.into()).collect();
+    let calldata =
+        tx.calldata.ok_or(custom_hint_error("tx.calldata is None"))?.iter().map(|felt| felt.into()).collect();
     let calldata_base = vm.add_memory_segment();
     vm.load_data(calldata_base, &calldata)?;
     insert_value_into_ap(vm, calldata_base)
@@ -579,8 +580,7 @@ pub fn tx_entry_point_selector(
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let entry_point_selector = tx
         .entry_point_selector
-        .ok_or(HintError::CustomHint("tx.entry_point_selector is None".to_string().into_boxed_str()))
-        .unwrap_or_default();
+        .ok_or(HintError::CustomHint("tx.entry_point_selector is None".to_string().into_boxed_str()))?;
     insert_value_into_ap(vm, entry_point_selector)
 }
 
@@ -609,10 +609,11 @@ pub fn resource_bounds(
     let resource_bounds = if version < Felt252::THREE {
         MaybeRelocatable::Int(Felt252::ZERO)
     } else {
-        let resource_bounds: Vec<_> = create_resource_bounds_list(&tx.resource_bounds.unwrap_or_default())
-            .iter()
-            .map(|f| MaybeRelocatable::Int(*f))
-            .collect();
+        let resource_bounds: Vec<_> =
+            create_resource_bounds_list(&tx.resource_bounds.ok_or(custom_hint_error("tx.resource_bounds is None"))?)
+                .iter()
+                .map(|f| MaybeRelocatable::Int(*f))
+                .collect();
         vm.gen_arg(&resource_bounds)?
     };
 
@@ -629,7 +630,11 @@ pub fn tx_max_fee(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    let max_fee = if version < Felt252::THREE { tx.max_fee.unwrap() } else { Felt252::ZERO };
+    let max_fee = if version < Felt252::THREE {
+        tx.max_fee.ok_or(custom_hint_error("tx.max_fee is None"))?
+    } else {
+        Felt252::ZERO
+    };
 
     insert_value_into_ap(vm, max_fee)
 }
@@ -643,7 +648,7 @@ pub fn tx_nonce(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let nonce = if tx.nonce.is_none() { 0.into() } else { tx.nonce.unwrap() };
+    let nonce = if tx.nonce.is_none() { 0.into() } else { tx.nonce.ok_or(custom_hint_error("tx.nonce is None"))? };
     insert_value_into_ap(vm, nonce)
 }
 
@@ -657,7 +662,8 @@ pub fn tx_tip(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    let tip = if version < Felt252::THREE { Felt252::ZERO } else { tx.tip.unwrap() };
+    let tip =
+        if version < Felt252::THREE { Felt252::ZERO } else { tx.tip.ok_or(custom_hint_error("tx.tip is None"))? };
 
     insert_value_into_ap(vm, tip)
 }
@@ -673,8 +679,11 @@ pub fn tx_resource_bounds_len(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    let resource_bounds =
-        if version < Felt252::THREE { Felt252::ZERO } else { tx.resource_bounds.unwrap().0.len().into() };
+    let resource_bounds = if version < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        tx.resource_bounds.ok_or(custom_hint_error("tx.resource_bounds is None"))?.0.len().into()
+    };
     insert_value_into_ap(vm, resource_bounds)
 }
 
@@ -688,8 +697,11 @@ pub fn tx_paymaster_data_len(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let len =
-        if tx.version.unwrap() < Felt252::THREE { Felt252::ZERO } else { tx.paymaster_data.unwrap().len().into() };
+    let len = if tx.version.unwrap_or(Felt252::ZERO) < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        tx.paymaster_data.ok_or(custom_hint_error("tx.paymaster_data is None"))?.len().into()
+    };
     insert_value_into_ap(vm, len)
 }
 
@@ -707,8 +719,12 @@ pub fn tx_paymaster_data(
     let paymaster_data = if tx.version.unwrap_or_default() < Felt252::THREE {
         MaybeRelocatable::Int(Felt252::ZERO)
     } else {
-        let data: Vec<MaybeRelocatable> =
-            tx.paymaster_data.unwrap().iter().map(|f| MaybeRelocatable::Int(*f)).collect();
+        let data: Vec<MaybeRelocatable> = tx
+            .paymaster_data
+            .ok_or(custom_hint_error("tx.paymaster_data is None"))?
+            .iter()
+            .map(|f| MaybeRelocatable::Int(*f))
+            .collect();
         vm.gen_arg(&data)?
     };
     insert_value_into_ap(vm, paymaster_data)
@@ -725,8 +741,11 @@ pub fn tx_nonce_data_availability_mode(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    let nonce_data_availability_mode =
-        if version < Felt252::THREE { Felt252::ZERO } else { tx.nonce_data_availability_mode.unwrap() };
+    let nonce_data_availability_mode = if version < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        tx.nonce_data_availability_mode.ok_or(custom_hint_error("tx.nonce_data_availability_mode is None"))?
+    };
     insert_value_into_ap(vm, nonce_data_availability_mode)
 }
 
@@ -741,8 +760,11 @@ pub fn tx_fee_data_availability_mode(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    let fee_data_availability_mode =
-        if version < Felt252::THREE { Felt252::ZERO } else { tx.fee_data_availability_mode.unwrap() };
+    let fee_data_availability_mode = if version < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        tx.fee_data_availability_mode.ok_or(custom_hint_error("tx.fee_data_availability_mode is None"))?
+    };
     insert_value_into_ap(vm, fee_data_availability_mode)
 }
 
@@ -759,7 +781,7 @@ pub fn tx_account_deployment_data_len(
     let len = if tx.version.unwrap_or(Felt252::ZERO) < Felt252::THREE {
         0usize
     } else {
-        tx.account_deployment_data.unwrap().len()
+        tx.account_deployment_data.ok_or(custom_hint_error("tx.account_deployment_data is None"))?.len()
     };
 
     insert_value_into_ap(vm, Felt252::from(len))
@@ -780,8 +802,12 @@ pub fn tx_account_deployment_data(
     let account_deployment_data = if version < Felt252::THREE {
         MaybeRelocatable::Int(Felt252::ZERO)
     } else {
-        let data: Vec<MaybeRelocatable> =
-            tx.account_deployment_data.unwrap().iter().map(|f| MaybeRelocatable::Int(*f)).collect();
+        let data: Vec<MaybeRelocatable> = tx
+            .account_deployment_data
+            .ok_or(custom_hint_error("tx.account_deployment_data is None"))?
+            .iter()
+            .map(|f| MaybeRelocatable::Int(*f))
+            .collect();
         vm.gen_arg(&data)?
     };
 
@@ -800,7 +826,7 @@ pub fn gen_signature_arg(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let signature = tx.signature.ok_or(HintError::CustomHint("tx.signature is none".to_owned().into_boxed_str()))?;
+    let signature = tx.signature.ok_or(custom_hint_error("tx.signature is None"))?;
     let signature_start_base = vm.add_memory_segment();
     let signature = signature.iter().map(|f| MaybeRelocatable::Int(*f)).collect();
     vm.load_data(signature_start_base, &signature)?;
