@@ -469,3 +469,10 @@ func test_emit_event{syscall_ptr: felt*}(keys_len: felt, keys: felt*, data_len: 
     emit_event(keys_len=keys_len, keys=keys, data_len=data_len, data=data);
     return ();
 }
+
+@l1_handler
+func l1_handle{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(from_address: felt, arg: felt) {
+    assert from_address = 1234;
+    assert arg = 42;
+    return ();
+}

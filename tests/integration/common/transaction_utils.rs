@@ -318,15 +318,13 @@ pub fn l1_tx_compute_hash(
     contract_address: Felt252,
     entry_point_selector: Felt252,
     calldata: &[Felt252],
+    fee: Felt252,
     chain_id: Felt252,
     nonce: Felt252,
 ) -> Felt252 {
-    // No fee on L2 for L1 handler transaction.
-    let fee = Felt252::ZERO;
-
     hash_on_elements(vec![
         Felt252::from_bytes_be_slice(L1_HANDLER_PREFIX),
-        Felt252::ONE, // tx version
+        Felt252::ZERO, // tx version
         contract_address,
         entry_point_selector,
         hash_on_elements(calldata.to_vec()),
@@ -377,19 +375,29 @@ pub fn to_internal_tx(outer_tx: &Transaction) -> InternalTransaction {
 fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction) -> InternalTransaction {
     let contract_address = felt_api2vm(*l1_tx.tx.contract_address.0);
     let entry_point_selector = felt_api2vm(l1_tx.tx.entry_point_selector.0);
+    let txinfo = l1_tx.create_tx_info();
+    let signature = match txinfo {
+        TransactionInfo::Deprecated(tx) => tx.common_fields.signature,
+        TransactionInfo::Current(tx) => tx.common_fields.signature,
+    };
+    let signature = signature.0.iter().map(|x| to_felt252(x)).collect();
     let calldata: Vec<_> = l1_tx.tx.calldata.0.iter().map(|x| to_felt252(x)).collect();
     let chain_id = Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap());
     let nonce = felt_api2vm(l1_tx.tx.nonce.0);
+    let fee = Felt252::ZERO;
+    let hash_value = l1_tx_compute_hash(contract_address, entry_point_selector, &calldata, fee, chain_id, nonce);
+
     InternalTransaction {
-        hash_value: l1_tx_compute_hash(contract_address, entry_point_selector, &calldata, chain_id, nonce),
-        version: Some(Felt252::THREE),
+        hash_value,
+        version: Some(Felt252::ZERO),
         contract_address: Some(contract_address),
         calldata: Some(calldata),
         nonce: Some(nonce),
         entry_point_selector: Some(entry_point_selector),
         entry_point_type: Some("EXTERNAL".to_string()),
         r#type: "L1_HANDLER".into(),
-
+        max_fee: Some(fee), //
+        signature: Some(signature),
         ..Default::default()
     }
 }
@@ -685,9 +693,7 @@ async fn execute_txs(
     state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
     let internal_txs: Vec<_> = txs.iter().map(to_internal_tx).collect();
     let execution_infos =
-        txs.into_iter().map(|tx| {
-            tx.execute(&mut state, block_context, true, true).unwrap()
-        }).collect();
+        txs.into_iter().map(|tx| tx.execute(&mut state, block_context, true, true).unwrap()).collect();
     os_hints(&block_context, state, internal_txs, execution_infos, deprecated_contract_classes, contract_classes).await
 }
 
