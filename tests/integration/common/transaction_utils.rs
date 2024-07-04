@@ -35,7 +35,8 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     DeclareTransactionV0V1, DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransactionV1,
-    InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, Resource, ResourceBoundsMapping,
+    DeployAccountTransactionV3, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, Resource,
+    ResourceBoundsMapping,
 };
 use starknet_api::{contract_address, patricia_key, stark_felt};
 use starknet_crypto::{pedersen_hash, FieldElement};
@@ -186,6 +187,37 @@ fn tx_hash_invoke_v1(contract_address: Felt252, calldata: Vec<Felt252>, max_fee:
         Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
         nonce,
     ])
+}
+
+/// Produce a hash for an Deploy V3 TXN with the provided elements
+fn tx_hash_deploy_v3(
+    nonce: Felt252,
+    contract_address: Felt252,
+    nonce_data_availability_mode: Felt252,
+    fee_data_availability_mode: Felt252,
+    resource_bounds: &ResourceBoundsMapping,
+    tip: Felt252,
+    paymaster_data: &[Felt252],
+    contract_address_salt: Felt252,
+    class_hash: Felt252,
+    constructor_calldata: &[Felt252],
+) -> Felt252 {
+    let tx_specific_fields = [poseidon_hash_on_elements(constructor_calldata), class_hash, contract_address_salt];
+    let chain_id = Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap());
+
+    calculate_transaction_v3_hash_common(
+        DEPLOY_ACCOUNT_PREFIX,
+        Felt252::THREE,
+        contract_address,
+        chain_id,
+        nonce,
+        &tx_specific_fields,
+        tip,
+        paymaster_data,
+        nonce_data_availability_mode,
+        fee_data_availability_mode,
+        resource_bounds,
+    )
 }
 
 /// Produce a hash for an Invoke V3 TXN with the provided elements
@@ -361,7 +393,9 @@ pub fn to_internal_tx(outer_tx: &Transaction) -> InternalTransaction {
             starknet_api::transaction::DeployAccountTransaction::V1(tx) => {
                 to_internal_deploy_v1_tx(account_tx.unwrap(), tx)
             }
-            starknet_api::transaction::DeployAccountTransaction::V3(_) => todo!("pending v3"),
+            starknet_api::transaction::DeployAccountTransaction::V3(tx) =>  {
+                to_internal_deploy_v3_tx(account_tx.unwrap(), tx),
+            }
         },
         Transaction::AccountTransaction(Invoke(invoke_tx)) => match &invoke_tx.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(tx),
@@ -673,6 +707,75 @@ pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3) -> InternalTransaction
         tip: Some(tip),
         fee_data_availability_mode: Some(fee_data_availability_mode),
         nonce_data_availability_mode: Some(nonce_data_availability_mode),
+        ..Default::default()
+    };
+}
+
+/// Convert a InvokeTransactionV3 to a SNOS InternalTransaction
+pub fn to_internal_deploy_v3_tx(
+    account_tx: &AccountTransaction,
+    tx: &DeployAccountTransactionV3,
+) -> InternalTransaction {
+    let sender_address = match account_tx {
+        AccountTransaction::DeployAccount(a) => a.contract_address,
+        _ => unreachable!(),
+    };
+    let signature = Some(tx.signature.0.iter().map(|x| to_felt252(x)).collect());
+    let entry_point_selector = Some(Felt252::ZERO);
+    let calldata: Vec<_> = tx.constructor_calldata.0.iter().map(|x| to_felt252(x.into())).collect();
+
+    let nonce = felt_api2vm(tx.nonce.0);
+    let tip = felt_api2vm(tx.tip.0.into());
+
+    let nonce_data_availability_mode = Felt252::from(tx.nonce_data_availability_mode as u64);
+    let fee_data_availability_mode = Felt252::from(tx.fee_data_availability_mode as u64);
+    let resource_bounds = &tx.resource_bounds;
+
+    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().map(|x| to_felt252(x.into())).collect();
+    let contract_address_salt = felt_api2vm(tx.contract_address_salt.0);
+    let class_hash = to_felt252(&tx.class_hash.0);
+
+    let contract_address = calculate_contract_address(
+        tx.contract_address_salt,
+        tx.class_hash,
+        &tx.constructor_calldata,
+        ContractAddress::from(0_u8),
+    )
+    .unwrap();
+    let contract_address = felt_api2vm(*contract_address.0);
+
+    let hash_value = tx_hash_deploy_v3(
+        nonce,
+        contract_address,
+        nonce_data_availability_mode,
+        fee_data_availability_mode,
+        resource_bounds,
+        tip,
+        &paymaster_data,
+        contract_address_salt,
+        class_hash,
+        &calldata,
+    );
+
+    return InternalTransaction {
+        hash_value,
+        version: Some(Felt252::THREE),
+        nonce: Some(nonce),
+        sender_address: Some(to_felt252(&sender_address.0)),
+        contract_address: Some(contract_address),
+        entry_point_selector,
+        entry_point_type: Some("CONSTRUCTOR".to_string()),
+        r#type: "DEPLOY_ACCOUNT".to_string(),
+        resource_bounds: Some(tx.resource_bounds.clone()),
+        paymaster_data: Some(paymaster_data),
+        class_hash: Some(class_hash),
+        constructor_calldata: Some(calldata),
+        tip: Some(tip),
+        fee_data_availability_mode: Some(fee_data_availability_mode),
+        nonce_data_availability_mode: Some(nonce_data_availability_mode),
+        contract_address_salt: Some(contract_address_salt),
+        signature,
+        account_deployment_data: Some(vec![]),
         ..Default::default()
     };
 }
