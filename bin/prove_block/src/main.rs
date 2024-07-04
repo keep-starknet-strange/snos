@@ -288,7 +288,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             panic!("Block is still pending!");
         }
     };
-    let previous_block = match provider.get_block_with_txs(BlockId::Number(block_number - 1)).await.unwrap() {
+    let previous_block = match provider.get_block_with_txs(BlockId::Number(block_number - 10)).await.unwrap() {
         MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
         MaybePendingBlockWithTxs::PendingBlock(_) => {
             panic!("Block is still pending!");
@@ -315,8 +315,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut contract_states = HashMap::new();
     for (contract_address, storage_proof) in storage_proofs {
+        println!("Adding contract: {}", contract_address.to_hex_string());
         let nonce = get_nonce(&provider, block_id, contract_address).await;
-        let class_hash = provider.get_class_hash_at(block_id, contract_address).await?;
+        let class_hash = if contract_address == Felt::ONE {
+            Felt::ZERO
+        } else {
+            provider.get_class_hash_at(block_id, contract_address).await?
+        };
         contract_states.insert(contract_address, build_contract_state(class_hash, nonce, storage_proof));
     }
 
