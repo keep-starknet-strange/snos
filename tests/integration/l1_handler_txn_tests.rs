@@ -55,7 +55,7 @@ pub async fn l1_initial_state_cairo0(
     initial_state => [l1_initial_state_cairo0, l1_initial_state_cairo1]
 )]
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn l1_handler_cairo1_account<F>(
+async fn l1_handler<F>(
     initial_state: fn(blockifier::context::BlockContext, ()) -> F,
     block_context: BlockContext,
     max_fee: Fee,
