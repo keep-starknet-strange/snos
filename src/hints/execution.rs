@@ -36,11 +36,7 @@ use crate::starknet::core::os::transaction_hash::create_resource_bounds_list;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::DescentMap;
 use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, TreeUpdate, UpdateTree};
-use crate::utils::{execute_coroutine, get_constant};
-
-fn custom_hint_error(error: &str) -> HintError {
-    HintError::CustomHint(error.to_string().into_boxed_str())
-}
+use crate::utils::{custom_hint_error, execute_coroutine, get_constant};
 
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
         tx = next(transactions)
@@ -227,13 +223,10 @@ fn set_state_entry(
     let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
         Dictionary::SimpleDictionary(dict) => dict.get(&MaybeRelocatable::Int(key)).cloned(),
         Dictionary::DefaultDictionary { dict: _d, default_value: _v } => {
-            return Err(HintError::CustomHint(
-                "State changes dictionary should not be a default dict".to_string().into_boxed_str(),
-            ));
+            return Err(custom_hint_error("State changes dictionary should not be a default dict"));
         }
     };
-    let val =
-        val.ok_or(HintError::CustomHint("State changes dictionary should not be None".to_string().into_boxed_str()))?;
+    let val = val.ok_or(custom_hint_error("State changes dictionary should not be None"))?;
 
     insert_value_from_var_name(vars::ids::STATE_ENTRY, val, vm, ids_data, ap_tracking)?;
     Ok(())
@@ -578,9 +571,7 @@ pub fn tx_entry_point_selector(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let entry_point_selector = tx
-        .entry_point_selector
-        .ok_or(HintError::CustomHint("tx.entry_point_selector is None".to_string().into_boxed_str()))?;
+    let entry_point_selector = tx.entry_point_selector.ok_or(custom_hint_error("tx.entry_point_selector is None"))?;
     insert_value_into_ap(vm, entry_point_selector)
 }
 
@@ -1167,13 +1158,8 @@ pub fn check_response_return_value(
         vm.get_relocatable((response + new_syscalls::CallContractResponse::retdata_end_offset())?)?;
 
     let expected = vm.get_range(response_retdata_start, (response_retdata_end - response_retdata_start)?);
-    let actual = vm.get_range(
-        retdata,
-        retdata_size
-            .as_ref()
-            .to_usize()
-            .ok_or(HintError::CustomHint("retdata_size is not usize".to_string().into_boxed_str()))?,
-    );
+    let actual =
+        vm.get_range(retdata, retdata_size.as_ref().to_usize().ok_or(custom_hint_error("retdata_size is not usize"))?);
 
     assert_eq!(expected, actual, "Return value mismatch; expected={:?}, actual={:?}", expected, actual);
 
@@ -1194,9 +1180,10 @@ async fn cache_contract_storage(
 
     let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
 
-    let value = execution_helper.read_storage_for_address(contract_address, key).await.map_err(|_| {
-        HintError::CustomHint(format!("No storage found for contract {}", contract_address).into_boxed_str())
-    })?;
+    let value = execution_helper
+        .read_storage_for_address(contract_address, key)
+        .await
+        .map_err(|_| custom_hint_error(&format!("No storage found for contract {}", contract_address)))?;
 
     let ids_value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
     if ids_value != value {
@@ -1421,10 +1408,10 @@ pub fn enter_scope_descend_edge(
     for i in (0..length).rev() {
         match new_node {
             None => {
-                return Err(HintError::CustomHint("Expected a node".to_string().into_boxed_str()));
+                return Err(custom_hint_error("Expected a node"));
             }
             Some(TreeUpdate::Leaf(_)) => {
-                return Err(HintError::CustomHint("Did not expect a leaf node".to_string().into_boxed_str()));
+                return Err(custom_hint_error("Did not expect a leaf node"));
             }
             Some(TreeUpdate::Tuple(left_child, right_child)) => {
                 // new_node = new_node[(ids.word >> i) & 1]
@@ -1466,10 +1453,10 @@ pub async fn write_syscall_result_deprecated_async(
 
     // ids.prev_value = storage.read(key=ids.syscall_ptr.address)
     let storage_write_address = vm.get_integer((syscall_ptr + StorageWrite::address_offset())?)?.into_owned();
-    let prev_value =
-        execution_helper.read_storage_for_address(contract_address, storage_write_address).await.map_err(|_| {
-            HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str())
-        })?;
+    let prev_value = execution_helper
+        .read_storage_for_address(contract_address, storage_write_address)
+        .await
+        .map_err(|_| custom_hint_error(&format!("Storage not found for contract {}", contract_address)))?;
     insert_value_from_var_name(vars::ids::PREV_VALUE, prev_value, vm, ids_data, ap_tracking)?;
 
     // storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
@@ -1477,9 +1464,7 @@ pub async fn write_syscall_result_deprecated_async(
     execution_helper
         .write_storage_for_address(contract_address, storage_write_address, storage_write_value)
         .await
-        .map_err(|_| {
-            HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str())
-        })?;
+        .map_err(|_| custom_hint_error(&format!("Storage not found for contract {}", contract_address)))?;
 
     let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     get_state_entry_and_set_new_state_entry(
@@ -1538,7 +1523,7 @@ pub async fn write_syscall_result_async(
         .write_storage_for_address(contract_address, storage_write_address, storage_write_value)
         .await
         .map_err(|_| {
-            HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str())
+            custom_hint_error(&format!("Storage not found for contract {}", contract_address))
         })?;
 
     let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
@@ -1589,11 +1574,9 @@ pub fn gen_class_hash_arg(
 ) -> Result<(), HintError> {
     let tx: InternalTransaction = exec_scopes.get(vars::scopes::TX)?;
 
-    let tx_version = tx.version.ok_or(HintError::CustomHint("tx.version is not set".to_string().into_boxed_str()))?;
-    let sender_address =
-        tx.sender_address.ok_or(HintError::CustomHint("tx.sender_address is not set".to_string().into_boxed_str()))?;
-    let class_hash =
-        tx.class_hash.ok_or(HintError::CustomHint("tx.class_hash is not set".to_string().into_boxed_str()))?;
+    let tx_version = tx.version.ok_or(custom_hint_error("tx.version is not set"))?;
+    let sender_address = tx.sender_address.ok_or(custom_hint_error("tx.sender_address is not set"))?;
+    let class_hash = tx.class_hash.ok_or(custom_hint_error("tx.class_hash is not set"))?;
 
     insert_value_from_var_name(vars::ids::TX_VERSION, tx_version, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::SENDER_ADDRESS, sender_address, vm, ids_data, ap_tracking)?;
@@ -1641,11 +1624,7 @@ pub async fn write_old_block_to_storage_async(
     execution_helper
         .write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash)
         .await
-        .map_err(|_| {
-            HintError::CustomHint(
-                format!("Storage not found for contract {}", block_hash_contract_address).into_boxed_str(),
-            )
-        })?;
+        .map_err(|_| custom_hint_error(&format!("Storage not found for contract {}", block_hash_contract_address)))?;
 
     Ok(())
 }

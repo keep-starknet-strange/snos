@@ -277,6 +277,11 @@ where
         .ok_or(HintError::VariableNotInScopeError(name.to_string().into_boxed_str()))
 }
 
+/// Builds a custom hint error
+pub fn custom_hint_error(error: &str) -> HintError {
+    HintError::CustomHint(error.to_string().into_boxed_str())
+}
+
 #[cfg(test)]
 mod tests {
     use bitvec::prelude::*;
