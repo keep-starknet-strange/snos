@@ -16,11 +16,8 @@ impl Storage for DictStorage {
         Ok(())
     }
 
-    fn get_value<K: AsRef<[u8]>>(
-        &self,
-        key: K,
-    ) -> impl futures::Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
-        let result = Ok(self.db.get(key.as_ref()).cloned());
+    fn get_value(&self, key: &[u8]) -> impl futures::Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
+        let result = Ok(self.db.get(key).cloned());
         async move { result }.boxed()
     }
 }
@@ -43,12 +40,12 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn test_get_value(#[from(storage_with_values)] storage: DictStorage) {
-        assert_eq!(Some(vec![0, 0, 1, 1, 0]), storage.get_value(vec![0]).await.unwrap());
-        assert_eq!(Some(vec![1, 1, 1]), storage.get_value(vec![1]).await.unwrap());
-        assert_eq!(Some(vec![255, 254, 253]), storage.get_value(vec![2]).await.unwrap());
+        assert_eq!(Some(vec![0, 0, 1, 1, 0]), storage.get_value(&[0]).await.unwrap());
+        assert_eq!(Some(vec![1, 1, 1]), storage.get_value(&[1]).await.unwrap());
+        assert_eq!(Some(vec![255, 254, 253]), storage.get_value(&[2]).await.unwrap());
 
-        assert_eq!(None, storage.get_value(vec![3]).await.unwrap());
-        assert_eq!(None, storage.get_value(vec![0, 1, 2]).await.unwrap());
+        assert_eq!(None, storage.get_value(&[3]).await.unwrap());
+        assert_eq!(None, storage.get_value(&[0, 1, 2]).await.unwrap());
     }
 
     #[rstest]
@@ -58,12 +55,12 @@ mod tests {
         let value = vec![7; 7];
 
         storage.set_value(key.clone(), value.clone()).await.unwrap();
-        assert_eq!(Some(value), storage.get_value(key).await.unwrap());
+        assert_eq!(Some(value), storage.get_value(&key).await.unwrap());
 
         // Overwrite an existing value
         let key = vec![2];
         let value = vec![8; 8];
         storage.set_value(key.clone(), value.clone()).await.unwrap();
-        assert_eq!(Some(value), storage.get_value(key).await.unwrap());
+        assert_eq!(Some(value), storage.get_value(&key).await.unwrap());
     }
 }
