@@ -792,21 +792,15 @@ async fn execute_txs(
     os_hints(&block_context, state, internal_txs, execution_infos, deprecated_contract_classes, contract_classes).await
 }
 
-pub async fn execute_txs_and_run_os<T: Into<Transaction>>(
+pub async fn execute_txs_and_run_os(
     state: CachedState<SharedState<DictStorage, PedersenHash>>,
     block_context: BlockContext,
-    txs: Vec<T>,
+    txs: Vec<Transaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> Result<(CairoPie, StarknetOsOutput), SnOsError> {
-    let (os_input, execution_helper) = execute_txs(
-        state,
-        &block_context,
-        txs.into_iter().map(Into::into).collect(),
-        deprecated_contract_classes,
-        contract_classes,
-    )
-    .await;
+    let (os_input, execution_helper) =
+        execute_txs(state, &block_context, txs, deprecated_contract_classes, contract_classes).await;
 
     let layout = config::default_layout();
     let result = run_os(config::DEFAULT_COMPILED_OS.to_string(), layout, os_input, block_context, execution_helper);

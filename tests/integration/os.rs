@@ -41,10 +41,11 @@ async fn return_result_cairo0_account(
         nonce: nonce_manager.next(sender_address),
     });
 
+    let txs = vec![return_result_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
-        vec![return_result_tx],
+        txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
     )
@@ -80,10 +81,11 @@ async fn return_result_cairo1_account(
         nonce: nonce_manager.next(sender_address),
     });
 
+    let txs = vec![return_result_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
-        vec![return_result_tx],
+        txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
     )
@@ -183,7 +185,10 @@ async fn syscalls_cairo1(
         test_get_block_hash_tx,
         test_send_message_to_l1_tx,
         test_deploy_tx,
-    ];
+    ]
+    .into_iter()
+    .map(Into::into)
+    .collect();
 
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,

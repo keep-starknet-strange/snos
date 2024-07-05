@@ -66,7 +66,7 @@ async fn test_syscall_library_call_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -106,7 +106,7 @@ async fn test_syscall_get_block_number_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -146,7 +146,7 @@ async fn test_syscall_get_block_timestamp_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -207,7 +207,7 @@ async fn test_syscall_get_tx_info_cairo0(
         AccountTransaction::Invoke(invoke_tx)
     };
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -267,7 +267,7 @@ async fn test_syscall_get_tx_signature_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -310,7 +310,7 @@ async fn test_syscall_replace_class_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     // TODO: use a different class hash and check that it is reflected in the OS output.
     let (_pie, _os_output) = execute_txs_and_run_os(
@@ -369,7 +369,7 @@ async fn test_syscall_deploy_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -420,7 +420,7 @@ async fn test_syscall_get_sequencer_address_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -475,7 +475,7 @@ async fn test_syscall_get_contract_address_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -526,7 +526,7 @@ async fn test_syscall_emit_event_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     let (_pie, _os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -573,7 +573,7 @@ async fn test_syscall_send_message_to_l1_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context.clone(),

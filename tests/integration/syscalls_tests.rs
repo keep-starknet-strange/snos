@@ -51,7 +51,7 @@ async fn test_syscall_library_call_cairo1(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -93,7 +93,7 @@ async fn test_syscall_replace_class_cairo1(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![tx].into_iter().map(Into::into).collect();
 
     let (_pie, _os_output) = execute_txs_and_run_os(
         initial_state.cached_state,

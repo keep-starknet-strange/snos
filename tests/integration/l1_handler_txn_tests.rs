@@ -61,10 +61,11 @@ async fn l1_handler<F>(
         },
         tx_hash: Default::default(),
     };
+    let txs = vec![l1_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
-        vec![l1_tx],
+        txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
     )
