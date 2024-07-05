@@ -368,44 +368,36 @@ pub fn l1_tx_compute_hash(
 }
 
 /// Convert an Transaction to a SNOS InternalTransaction
-pub fn to_internal_tx(outer_tx: &Transaction) -> InternalTransaction {
-    let account_tx = match outer_tx {
-        Transaction::AccountTransaction(account_tx) => Some(account_tx),
-        Transaction::L1HandlerTransaction(_) => None,
-    };
-    return match outer_tx {
-        Transaction::AccountTransaction(Declare(declare_tx)) => {
+pub fn to_internal_tx(tx: &Transaction) -> InternalTransaction {
+    match tx {
+        Transaction::AccountTransaction(account_tx) => account_tx_to_internal_tx(account_tx),
+        Transaction::L1HandlerTransaction(l1_tx) => to_internal_l1_handler_tx(l1_tx),
+    }
+}
+fn account_tx_to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
+    match account_tx {
+        Declare(declare_tx) => {
             match &declare_tx.tx() {
                 starknet_api::transaction::DeclareTransaction::V0(_) => {
                     // explicitly not supported
                     panic!("Declare V0 is not supported");
                 }
-                starknet_api::transaction::DeclareTransaction::V1(tx) => {
-                    to_internal_declare_v1_tx(account_tx.unwrap(), tx)
-                }
-                starknet_api::transaction::DeclareTransaction::V2(tx) => {
-                    to_internal_declare_v2_tx(account_tx.unwrap(), tx)
-                }
+                starknet_api::transaction::DeclareTransaction::V1(tx) => to_internal_declare_v1_tx(account_tx, tx),
+                starknet_api::transaction::DeclareTransaction::V2(tx) => to_internal_declare_v2_tx(account_tx, tx),
                 starknet_api::transaction::DeclareTransaction::V3(tx) => to_internal_declare_v3_tx(tx),
             }
         }
-        Transaction::AccountTransaction(DeployAccount(deploy_tx)) => match deploy_tx.tx() {
-            starknet_api::transaction::DeployAccountTransaction::V1(tx) => {
-                to_internal_deploy_v1_tx(account_tx.unwrap(), tx)
-            }
-            starknet_api::transaction::DeployAccountTransaction::V3(tx) => {
-                to_internal_deploy_v3_tx(account_tx.unwrap(), tx)
-            }
+        DeployAccount(deploy_tx) => match deploy_tx.tx() {
+            starknet_api::transaction::DeployAccountTransaction::V1(tx) => to_internal_deploy_v1_tx(account_tx, tx),
+            starknet_api::transaction::DeployAccountTransaction::V3(tx) => to_internal_deploy_v3_tx(account_tx, tx),
         },
-        Transaction::AccountTransaction(Invoke(invoke_tx)) => match &invoke_tx.tx {
+        Invoke(invoke_tx) => match &invoke_tx.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(tx),
             starknet_api::transaction::InvokeTransaction::V1(tx) => to_internal_invoke_v1_tx(tx),
             starknet_api::transaction::InvokeTransaction::V3(tx) => to_internal_invoke_v3_tx(tx),
         },
-        Transaction::L1HandlerTransaction(l1_tx) => to_internal_l1_handler_tx(l1_tx),
-    };
+    }
 }
-
 fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction) -> InternalTransaction {
     let contract_address = felt_api2vm(*l1_tx.tx.contract_address.0);
     let entry_point_selector = felt_api2vm(l1_tx.tx.entry_point_selector.0);
