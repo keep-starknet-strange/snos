@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use crate::storage::storage::{Storage, StorageError};
 
 /// A composite storage is a storage object made of one main and one fallback storages.
@@ -34,13 +32,11 @@ where
         self.fallback.set_value(key, value).await
     }
 
-    fn get_value(&self, key: &[u8]) -> impl Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
-        async {
-            match self.main.get_value(key).await {
-                Ok(Some(value)) => Ok(Some(value)),
-                Ok(None) | Err(StorageError::ContentNotFound) => self.fallback.get_value(key).await,
-                Err(e) => Err(e),
-            }
+    async fn get_value(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StorageError> {
+        match self.main.get_value(key).await {
+            Ok(Some(value)) => Ok(Some(value)),
+            Ok(None) | Err(StorageError::ContentNotFound) => self.fallback.get_value(key).await,
+            Err(e) => Err(e),
         }
     }
 }
