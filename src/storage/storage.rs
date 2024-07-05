@@ -38,10 +38,7 @@ impl From<StorageError> for StateError {
 pub trait Storage: Sync + Send {
     async fn set_value(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StorageError>;
 
-    fn get_value<K: AsRef<[u8]>>(
-        &self,
-        key: K,
-    ) -> impl futures::Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send;
+    fn get_value(&self, key: &[u8]) -> impl futures::Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send;
 }
 
 /// Starknet hash type.
@@ -162,7 +159,7 @@ pub trait DbObject: Serializable {
     ) -> impl futures::Future<Output = Result<Option<Self>, StorageError>> + Send {
         async move {
             let key = Self::db_key(suffix);
-            match storage.get_value(key).await {
+            match storage.get_value(&key).await {
                 Ok(Some(data)) => {
                     let value = Self::deserialize(&data)?;
                     Ok(Some(value))
