@@ -278,8 +278,8 @@ where
 }
 
 /// Builds a custom hint error
-pub fn custom_hint_error(error: &str) -> HintError {
-    HintError::CustomHint(error.to_string().into_boxed_str())
+pub fn custom_hint_error<S: Into<String>>(error: S) -> HintError {
+    HintError::CustomHint(error.into().into_boxed_str())
 }
 
 #[cfg(test)]

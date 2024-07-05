@@ -1183,7 +1183,7 @@ async fn cache_contract_storage(
     let value = execution_helper
         .read_storage_for_address(contract_address, key)
         .await
-        .map_err(|_| custom_hint_error(&format!("No storage found for contract {}", contract_address)))?;
+        .map_err(|_| custom_hint_error(format!("No storage found for contract {}", contract_address)))?;
 
     let ids_value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
     if ids_value != value {
@@ -1456,7 +1456,7 @@ pub async fn write_syscall_result_deprecated_async(
     let prev_value = execution_helper
         .read_storage_for_address(contract_address, storage_write_address)
         .await
-        .map_err(|_| custom_hint_error(&format!("Storage not found for contract {}", contract_address)))?;
+        .map_err(|_| custom_hint_error(format!("Storage not found for contract {}", contract_address)))?;
     insert_value_from_var_name(vars::ids::PREV_VALUE, prev_value, vm, ids_data, ap_tracking)?;
 
     // storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
@@ -1464,7 +1464,7 @@ pub async fn write_syscall_result_deprecated_async(
     execution_helper
         .write_storage_for_address(contract_address, storage_write_address, storage_write_value)
         .await
-        .map_err(|_| custom_hint_error(&format!("Storage not found for contract {}", contract_address)))?;
+        .map_err(|_| custom_hint_error(format!("Storage not found for contract {}", contract_address)))?;
 
     let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     get_state_entry_and_set_new_state_entry(
@@ -1522,7 +1522,7 @@ pub async fn write_syscall_result_async(
     execution_helper
         .write_storage_for_address(contract_address, storage_write_address, storage_write_value)
         .await
-        .map_err(|_| custom_hint_error(&format!("Storage not found for contract {}", contract_address)))?;
+        .map_err(|_| custom_hint_error(format!("Storage not found for contract {}", contract_address)))?;
 
     let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     get_state_entry_and_set_new_state_entry(
@@ -1622,7 +1622,7 @@ pub async fn write_old_block_to_storage_async(
     execution_helper
         .write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash)
         .await
-        .map_err(|_| custom_hint_error(&format!("Storage not found for contract {}", block_hash_contract_address)))?;
+        .map_err(|_| custom_hint_error(format!("Storage not found for contract {}", block_hash_contract_address)))?;
 
     Ok(())
 }
