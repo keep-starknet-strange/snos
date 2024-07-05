@@ -7,7 +7,8 @@ use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::account_transaction::AccountTransaction::{Declare, DeployAccount, Invoke};
 use blockifier::transaction::objects::{TransactionInfo, TransactionInfoCreator};
-use blockifier::transaction::transactions::ExecutableTransaction;
+use blockifier::transaction::transaction_execution::Transaction;
+use blockifier::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
@@ -49,7 +50,7 @@ pub fn to_felt252(stark_felt: &StarkFelt) -> Felt252 {
 const DECLARE_PREFIX: &[u8] = b"declare";
 const DEPLOY_ACCOUNT_PREFIX: &[u8] = b"deploy_account";
 const INVOKE_PREFIX: &[u8] = b"invoke";
-// const L1_HANDLER_PREFIX: &[u8] = b"l1_handler";
+const L1_HANDLER_PREFIX: &[u8] = b"l1_handler";
 
 const MAX_AMOUNT_BITS: usize = 64;
 const MAX_PRICE_PER_UNIT_BITS: usize = 128;
@@ -345,9 +346,36 @@ fn tx_hash_deploy_account_v1(
     ])
 }
 
-/// Convert an AccountTransaction to a SNOS InternalTransaction
-pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
-    return match account_tx {
+pub fn l1_tx_compute_hash(
+    contract_address: Felt252,
+    entry_point_selector: Felt252,
+    calldata: &[Felt252],
+    fee: Felt252,
+    chain_id: Felt252,
+    nonce: Felt252,
+) -> Felt252 {
+    hash_on_elements(vec![
+        Felt252::from_bytes_be_slice(L1_HANDLER_PREFIX),
+        Felt252::ZERO, // tx version
+        contract_address,
+        entry_point_selector,
+        hash_on_elements(calldata.to_vec()),
+        fee,
+        chain_id,
+        nonce,
+    ])
+    .into()
+}
+
+/// Convert an Transaction to a SNOS InternalTransaction
+pub fn to_internal_tx(tx: &Transaction) -> InternalTransaction {
+    match tx {
+        Transaction::AccountTransaction(account_tx) => account_tx_to_internal_tx(account_tx),
+        Transaction::L1HandlerTransaction(l1_tx) => to_internal_l1_handler_tx(l1_tx),
+    }
+}
+fn account_tx_to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
+    match account_tx {
         Declare(declare_tx) => {
             match &declare_tx.tx() {
                 starknet_api::transaction::DeclareTransaction::V0(_) => {
@@ -359,7 +387,6 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
                 starknet_api::transaction::DeclareTransaction::V3(tx) => to_internal_declare_v3_tx(tx),
             }
         }
-
         DeployAccount(deploy_tx) => match deploy_tx.tx() {
             starknet_api::transaction::DeployAccountTransaction::V1(tx) => to_internal_deploy_v1_tx(account_tx, tx),
             starknet_api::transaction::DeployAccountTransaction::V3(tx) => to_internal_deploy_v3_tx(account_tx, tx),
@@ -369,7 +396,36 @@ pub fn to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
             starknet_api::transaction::InvokeTransaction::V1(tx) => to_internal_invoke_v1_tx(tx),
             starknet_api::transaction::InvokeTransaction::V3(tx) => to_internal_invoke_v3_tx(tx),
         },
+    }
+}
+fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction) -> InternalTransaction {
+    let contract_address = felt_api2vm(*l1_tx.tx.contract_address.0);
+    let entry_point_selector = felt_api2vm(l1_tx.tx.entry_point_selector.0);
+    let txinfo = l1_tx.create_tx_info();
+    let signature = match txinfo {
+        TransactionInfo::Deprecated(tx) => tx.common_fields.signature,
+        TransactionInfo::Current(tx) => tx.common_fields.signature,
     };
+    let signature = signature.0.iter().map(|x| to_felt252(x)).collect();
+    let calldata: Vec<_> = l1_tx.tx.calldata.0.iter().map(|x| to_felt252(x)).collect();
+    let chain_id = Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap());
+    let nonce = felt_api2vm(l1_tx.tx.nonce.0);
+    let fee = Felt252::ZERO;
+    let hash_value = l1_tx_compute_hash(contract_address, entry_point_selector, &calldata, fee, chain_id, nonce);
+
+    InternalTransaction {
+        hash_value,
+        version: Some(Felt252::ZERO),
+        contract_address: Some(contract_address),
+        calldata: Some(calldata),
+        nonce: Some(nonce),
+        entry_point_selector: Some(entry_point_selector),
+        entry_point_type: Some("EXTERNAL".to_string()),
+        r#type: "L1_HANDLER".into(),
+        max_fee: Some(fee), //
+        signature: Some(signature),
+        ..Default::default()
+    }
 }
 
 /// Convert a DeclareTransactionV1 to a SNOS InternalTransaction
@@ -719,7 +775,7 @@ pub fn to_internal_deploy_v3_tx(
 async fn execute_txs(
     mut state: CachedState<SharedState<DictStorage, PedersenHash>>,
     block_context: &BlockContext,
-    txs: Vec<AccountTransaction>,
+    txs: Vec<Transaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper) {
@@ -736,15 +792,21 @@ async fn execute_txs(
     os_hints(&block_context, state, internal_txs, execution_infos, deprecated_contract_classes, contract_classes).await
 }
 
-pub async fn execute_txs_and_run_os(
+pub async fn execute_txs_and_run_os<T: Into<Transaction>>(
     state: CachedState<SharedState<DictStorage, PedersenHash>>,
     block_context: BlockContext,
-    txs: Vec<AccountTransaction>,
+    txs: Vec<T>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> Result<(CairoPie, StarknetOsOutput), SnOsError> {
-    let (os_input, execution_helper) =
-        execute_txs(state, &block_context, txs, deprecated_contract_classes, contract_classes).await;
+    let (os_input, execution_helper) = execute_txs(
+        state,
+        &block_context,
+        txs.into_iter().map(Into::into).collect(),
+        deprecated_contract_classes,
+        contract_classes,
+    )
+    .await;
 
     let layout = config::default_layout();
     let result = run_os(config::DEFAULT_COMPILED_OS.to_string(), layout, os_input, block_context, execution_helper);
