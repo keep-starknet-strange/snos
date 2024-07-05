@@ -14,6 +14,7 @@ use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
+use blockifier::transaction::transaction_execution::Transaction;
 use cairo_vm::Felt252;
 use num_traits::ToPrimitive;
 use rstest::rstest;
@@ -66,7 +67,7 @@ async fn test_syscall_library_call_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -106,7 +107,7 @@ async fn test_syscall_get_block_number_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -146,7 +147,7 @@ async fn test_syscall_get_block_timestamp_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -207,7 +208,7 @@ async fn test_syscall_get_tx_info_cairo0(
         AccountTransaction::Invoke(invoke_tx)
     };
 
-    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -267,7 +268,7 @@ async fn test_syscall_get_tx_signature_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -310,7 +311,7 @@ async fn test_syscall_replace_class_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     // TODO: use a different class hash and check that it is reflected in the OS output.
     let (_pie, _os_output) = execute_txs_and_run_os(
@@ -369,7 +370,7 @@ async fn test_syscall_deploy_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -420,7 +421,7 @@ async fn test_syscall_get_sequencer_address_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -475,7 +476,7 @@ async fn test_syscall_get_contract_address_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -526,7 +527,7 @@ async fn test_syscall_emit_event_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, _os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -573,7 +574,7 @@ async fn test_syscall_send_message_to_l1_cairo0(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let txs = vec![Transaction::AccountTransaction(tx)];
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context.clone(),
