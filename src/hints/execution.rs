@@ -36,7 +36,7 @@ use crate::starknet::core::os::transaction_hash::create_resource_bounds_list;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::DescentMap;
 use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, TreeUpdate, UpdateTree};
-use crate::utils::{execute_coroutine, get_constant};
+use crate::utils::{custom_hint_error, execute_coroutine, get_constant};
 
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
         tx = next(transactions)
@@ -223,13 +223,10 @@ fn set_state_entry(
     let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
         Dictionary::SimpleDictionary(dict) => dict.get(&MaybeRelocatable::Int(key)).cloned(),
         Dictionary::DefaultDictionary { dict: _d, default_value: _v } => {
-            return Err(HintError::CustomHint(
-                "State changes dictionary should not be a default dict".to_string().into_boxed_str(),
-            ));
+            return Err(custom_hint_error("State changes dictionary should not be a default dict"));
         }
     };
-    let val =
-        val.ok_or(HintError::CustomHint("State changes dictionary should not be None".to_string().into_boxed_str()))?;
+    let val = val.ok_or(custom_hint_error("State changes dictionary should not be None"))?;
 
     insert_value_from_var_name(vars::ids::STATE_ENTRY, val, vm, ids_data, ap_tracking)?;
     Ok(())
@@ -527,13 +524,9 @@ pub fn contract_address(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let contract_address = if tx.r#type == "L1_HANDLER" {
-        tx.contract_address
-            .ok_or(HintError::CustomHint("tx.contract_address is None".to_string().into_boxed_str()))
-            .unwrap()
+        tx.contract_address.ok_or(custom_hint_error("tx.contract_address is None"))?
     } else {
-        tx.sender_address
-            .ok_or(HintError::CustomHint("tx.sender_address is None".to_string().into_boxed_str()))
-            .unwrap()
+        tx.sender_address.ok_or(custom_hint_error("tx.sender_address is None"))?
     };
     insert_value_from_var_name(vars::ids::CONTRACT_ADDRESS, contract_address, vm, ids_data, ap_tracking)
 }
@@ -548,7 +541,7 @@ pub fn tx_calldata_len(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let len = tx.calldata.unwrap_or_default().len();
+    let len = tx.calldata.ok_or(custom_hint_error("tx.calldata is None"))?.len();
     insert_value_into_ap(vm, Felt252::from(len))
 }
 
@@ -562,7 +555,8 @@ pub fn tx_calldata(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let calldata = tx.calldata.unwrap_or_default().iter().map(|felt| felt.into()).collect();
+    let calldata =
+        tx.calldata.ok_or(custom_hint_error("tx.calldata is None"))?.iter().map(|felt| felt.into()).collect();
     let calldata_base = vm.add_memory_segment();
     vm.load_data(calldata_base, &calldata)?;
     insert_value_into_ap(vm, calldata_base)
@@ -577,10 +571,7 @@ pub fn tx_entry_point_selector(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let entry_point_selector = tx
-        .entry_point_selector
-        .ok_or(HintError::CustomHint("tx.entry_point_selector is None".to_string().into_boxed_str()))
-        .unwrap_or_default();
+    let entry_point_selector = tx.entry_point_selector.ok_or(custom_hint_error("tx.entry_point_selector is None"))?;
     insert_value_into_ap(vm, entry_point_selector)
 }
 
@@ -609,10 +600,11 @@ pub fn resource_bounds(
     let resource_bounds = if version < Felt252::THREE {
         MaybeRelocatable::Int(Felt252::ZERO)
     } else {
-        let resource_bounds: Vec<_> = create_resource_bounds_list(&tx.resource_bounds.unwrap_or_default())
-            .iter()
-            .map(|f| MaybeRelocatable::Int(*f))
-            .collect();
+        let resource_bounds: Vec<_> =
+            create_resource_bounds_list(&tx.resource_bounds.ok_or(custom_hint_error("tx.resource_bounds is None"))?)
+                .iter()
+                .map(|f| MaybeRelocatable::Int(*f))
+                .collect();
         vm.gen_arg(&resource_bounds)?
     };
 
@@ -629,7 +621,11 @@ pub fn tx_max_fee(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    let max_fee = if version < Felt252::THREE { tx.max_fee.unwrap() } else { Felt252::ZERO };
+    let max_fee = if version < Felt252::THREE {
+        tx.max_fee.ok_or(custom_hint_error("tx.max_fee is None"))?
+    } else {
+        Felt252::ZERO
+    };
 
     insert_value_into_ap(vm, max_fee)
 }
@@ -643,7 +639,7 @@ pub fn tx_nonce(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let nonce = if tx.nonce.is_none() { 0.into() } else { tx.nonce.unwrap() };
+    let nonce = if tx.nonce.is_none() { 0.into() } else { tx.nonce.ok_or(custom_hint_error("tx.nonce is None"))? };
     insert_value_into_ap(vm, nonce)
 }
 
@@ -657,7 +653,8 @@ pub fn tx_tip(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    let tip = if version < Felt252::THREE { Felt252::ZERO } else { tx.tip.unwrap() };
+    let tip =
+        if version < Felt252::THREE { Felt252::ZERO } else { tx.tip.ok_or(custom_hint_error("tx.tip is None"))? };
 
     insert_value_into_ap(vm, tip)
 }
@@ -673,8 +670,11 @@ pub fn tx_resource_bounds_len(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    let resource_bounds =
-        if version < Felt252::THREE { Felt252::ZERO } else { tx.resource_bounds.unwrap().0.len().into() };
+    let resource_bounds = if version < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        tx.resource_bounds.ok_or(custom_hint_error("tx.resource_bounds is None"))?.0.len().into()
+    };
     insert_value_into_ap(vm, resource_bounds)
 }
 
@@ -688,8 +688,11 @@ pub fn tx_paymaster_data_len(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let len =
-        if tx.version.unwrap() < Felt252::THREE { Felt252::ZERO } else { tx.paymaster_data.unwrap().len().into() };
+    let len = if tx.version.unwrap_or(Felt252::ZERO) < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        tx.paymaster_data.ok_or(custom_hint_error("tx.paymaster_data is None"))?.len().into()
+    };
     insert_value_into_ap(vm, len)
 }
 
@@ -707,8 +710,12 @@ pub fn tx_paymaster_data(
     let paymaster_data = if tx.version.unwrap_or_default() < Felt252::THREE {
         MaybeRelocatable::Int(Felt252::ZERO)
     } else {
-        let data: Vec<MaybeRelocatable> =
-            tx.paymaster_data.unwrap().iter().map(|f| MaybeRelocatable::Int(*f)).collect();
+        let data: Vec<MaybeRelocatable> = tx
+            .paymaster_data
+            .ok_or(custom_hint_error("tx.paymaster_data is None"))?
+            .iter()
+            .map(|f| MaybeRelocatable::Int(*f))
+            .collect();
         vm.gen_arg(&data)?
     };
     insert_value_into_ap(vm, paymaster_data)
@@ -725,8 +732,11 @@ pub fn tx_nonce_data_availability_mode(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    let nonce_data_availability_mode =
-        if version < Felt252::THREE { Felt252::ZERO } else { tx.nonce_data_availability_mode.unwrap() };
+    let nonce_data_availability_mode = if version < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        tx.nonce_data_availability_mode.ok_or(custom_hint_error("tx.nonce_data_availability_mode is None"))?
+    };
     insert_value_into_ap(vm, nonce_data_availability_mode)
 }
 
@@ -741,8 +751,11 @@ pub fn tx_fee_data_availability_mode(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    let fee_data_availability_mode =
-        if version < Felt252::THREE { Felt252::ZERO } else { tx.fee_data_availability_mode.unwrap() };
+    let fee_data_availability_mode = if version < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        tx.fee_data_availability_mode.ok_or(custom_hint_error("tx.fee_data_availability_mode is None"))?
+    };
     insert_value_into_ap(vm, fee_data_availability_mode)
 }
 
@@ -759,7 +772,7 @@ pub fn tx_account_deployment_data_len(
     let len = if tx.version.unwrap_or(Felt252::ZERO) < Felt252::THREE {
         0usize
     } else {
-        tx.account_deployment_data.unwrap().len()
+        tx.account_deployment_data.ok_or(custom_hint_error("tx.account_deployment_data is None"))?.len()
     };
 
     insert_value_into_ap(vm, Felt252::from(len))
@@ -780,8 +793,12 @@ pub fn tx_account_deployment_data(
     let account_deployment_data = if version < Felt252::THREE {
         MaybeRelocatable::Int(Felt252::ZERO)
     } else {
-        let data: Vec<MaybeRelocatable> =
-            tx.account_deployment_data.unwrap().iter().map(|f| MaybeRelocatable::Int(*f)).collect();
+        let data: Vec<MaybeRelocatable> = tx
+            .account_deployment_data
+            .ok_or(custom_hint_error("tx.account_deployment_data is None"))?
+            .iter()
+            .map(|f| MaybeRelocatable::Int(*f))
+            .collect();
         vm.gen_arg(&data)?
     };
 
@@ -800,7 +817,7 @@ pub fn gen_signature_arg(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let signature = tx.signature.ok_or(HintError::CustomHint("tx.signature is none".to_owned().into_boxed_str()))?;
+    let signature = tx.signature.ok_or(custom_hint_error("tx.signature is None"))?;
     let signature_start_base = vm.add_memory_segment();
     let signature = signature.iter().map(|f| MaybeRelocatable::Int(*f)).collect();
     vm.load_data(signature_start_base, &signature)?;
@@ -1141,13 +1158,8 @@ pub fn check_response_return_value(
         vm.get_relocatable((response + new_syscalls::CallContractResponse::retdata_end_offset())?)?;
 
     let expected = vm.get_range(response_retdata_start, (response_retdata_end - response_retdata_start)?);
-    let actual = vm.get_range(
-        retdata,
-        retdata_size
-            .as_ref()
-            .to_usize()
-            .ok_or(HintError::CustomHint("retdata_size is not usize".to_string().into_boxed_str()))?,
-    );
+    let actual =
+        vm.get_range(retdata, retdata_size.as_ref().to_usize().ok_or(custom_hint_error("retdata_size is not usize"))?);
 
     assert_eq!(expected, actual, "Return value mismatch; expected={:?}, actual={:?}", expected, actual);
 
@@ -1168,9 +1180,10 @@ async fn cache_contract_storage(
 
     let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
 
-    let value = execution_helper.read_storage_for_address(contract_address, key).await.map_err(|_| {
-        HintError::CustomHint(format!("No storage found for contract {}", contract_address).into_boxed_str())
-    })?;
+    let value = execution_helper
+        .read_storage_for_address(contract_address, key)
+        .await
+        .map_err(|_| custom_hint_error(format!("No storage found for contract {}", contract_address)))?;
 
     let ids_value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
     if ids_value != value {
@@ -1395,10 +1408,10 @@ pub fn enter_scope_descend_edge(
     for i in (0..length).rev() {
         match new_node {
             None => {
-                return Err(HintError::CustomHint("Expected a node".to_string().into_boxed_str()));
+                return Err(custom_hint_error("Expected a node"));
             }
             Some(TreeUpdate::Leaf(_)) => {
-                return Err(HintError::CustomHint("Did not expect a leaf node".to_string().into_boxed_str()));
+                return Err(custom_hint_error("Did not expect a leaf node"));
             }
             Some(TreeUpdate::Tuple(left_child, right_child)) => {
                 // new_node = new_node[(ids.word >> i) & 1]
@@ -1440,10 +1453,10 @@ pub async fn write_syscall_result_deprecated_async(
 
     // ids.prev_value = storage.read(key=ids.syscall_ptr.address)
     let storage_write_address = vm.get_integer((syscall_ptr + StorageWrite::address_offset())?)?.into_owned();
-    let prev_value =
-        execution_helper.read_storage_for_address(contract_address, storage_write_address).await.map_err(|_| {
-            HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str())
-        })?;
+    let prev_value = execution_helper
+        .read_storage_for_address(contract_address, storage_write_address)
+        .await
+        .map_err(|_| custom_hint_error(format!("Storage not found for contract {}", contract_address)))?;
     insert_value_from_var_name(vars::ids::PREV_VALUE, prev_value, vm, ids_data, ap_tracking)?;
 
     // storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
@@ -1451,9 +1464,7 @@ pub async fn write_syscall_result_deprecated_async(
     execution_helper
         .write_storage_for_address(contract_address, storage_write_address, storage_write_value)
         .await
-        .map_err(|_| {
-            HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str())
-        })?;
+        .map_err(|_| custom_hint_error(format!("Storage not found for contract {}", contract_address)))?;
 
     let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     get_state_entry_and_set_new_state_entry(
@@ -1511,9 +1522,7 @@ pub async fn write_syscall_result_async(
     execution_helper
         .write_storage_for_address(contract_address, storage_write_address, storage_write_value)
         .await
-        .map_err(|_| {
-            HintError::CustomHint(format!("Storage not found for contract {}", contract_address).into_boxed_str())
-        })?;
+        .map_err(|_| custom_hint_error(format!("Storage not found for contract {}", contract_address)))?;
 
     let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     get_state_entry_and_set_new_state_entry(
@@ -1563,11 +1572,9 @@ pub fn gen_class_hash_arg(
 ) -> Result<(), HintError> {
     let tx: InternalTransaction = exec_scopes.get(vars::scopes::TX)?;
 
-    let tx_version = tx.version.ok_or(HintError::CustomHint("tx.version is not set".to_string().into_boxed_str()))?;
-    let sender_address =
-        tx.sender_address.ok_or(HintError::CustomHint("tx.sender_address is not set".to_string().into_boxed_str()))?;
-    let class_hash =
-        tx.class_hash.ok_or(HintError::CustomHint("tx.class_hash is not set".to_string().into_boxed_str()))?;
+    let tx_version = tx.version.ok_or(custom_hint_error("tx.version is not set"))?;
+    let sender_address = tx.sender_address.ok_or(custom_hint_error("tx.sender_address is not set"))?;
+    let class_hash = tx.class_hash.ok_or(custom_hint_error("tx.class_hash is not set"))?;
 
     insert_value_from_var_name(vars::ids::TX_VERSION, tx_version, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::SENDER_ADDRESS, sender_address, vm, ids_data, ap_tracking)?;
@@ -1615,11 +1622,7 @@ pub async fn write_old_block_to_storage_async(
     execution_helper
         .write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash)
         .await
-        .map_err(|_| {
-            HintError::CustomHint(
-                format!("Storage not found for contract {}", block_hash_contract_address).into_boxed_str(),
-            )
-        })?;
+        .map_err(|_| custom_hint_error(format!("Storage not found for contract {}", block_hash_contract_address)))?;
 
     Ok(())
 }
