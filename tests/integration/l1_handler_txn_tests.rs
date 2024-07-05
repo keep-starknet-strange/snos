@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::context::BlockContext;
-use blockifier::test_utils::NonceManager;
 use blockifier::transaction::test_utils::{block_context, max_fee};
 use blockifier::transaction::transactions::L1HandlerTransaction;
 use futures::Future;
@@ -49,14 +48,12 @@ async fn l1_handler<F>(
     let (initial_state, contract_address) = initial_state(block_context.clone(), ()).await;
 
     let tx_version = TransactionVersion::ZERO;
-    let mut nonce_manager = NonceManager::default();
 
     let calldata_args = vec![stark_felt!(1234_u16), stark_felt!(42_u16)];
     let l1_tx = L1HandlerTransaction {
         paid_fee_on_l1: max_fee,
         tx: starknet_api::transaction::L1HandlerTransaction {
             contract_address,
-            nonce: nonce_manager.next(ContractAddress::default()),
             version: tx_version,
             entry_point_selector: EntryPointSelector(selector_from_name("l1_handle").0),
             calldata: Calldata(Arc::new(calldata_args)),
