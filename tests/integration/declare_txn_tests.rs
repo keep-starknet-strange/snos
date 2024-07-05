@@ -70,10 +70,11 @@ async fn declare_v3_cairo1_account(
         class_info,
     );
 
+    let txs = vec![declare_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
-        vec![declare_tx],
+        txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
     )
@@ -127,10 +128,11 @@ async fn declare_cairo1_account(
         class_info,
     );
 
+    let txs = vec![declare_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
-        vec![declare_tx],
+        txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
     )
@@ -172,10 +174,11 @@ async fn declare_v1_cairo0_account(
         class_info,
     );
 
+    let txs = vec![declare_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
-        vec![declare_tx],
+        txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
     )

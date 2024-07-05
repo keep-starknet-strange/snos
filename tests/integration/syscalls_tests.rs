@@ -4,6 +4,7 @@ use blockifier::invoke_tx_args;
 use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
+use blockifier::transaction::transaction_execution::Transaction;
 use rstest::rstest;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
@@ -51,7 +52,7 @@ async fn test_syscall_library_call_cairo1(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -93,7 +94,7 @@ async fn test_syscall_replace_class_cairo1(
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![tx];
+    let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, _os_output) = execute_txs_and_run_os(
         initial_state.cached_state,

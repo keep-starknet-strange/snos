@@ -99,10 +99,11 @@ async fn deploy_cairo0_account(
         &mut nonce_manager,
     ));
 
+    let txs = vec![deploy_account_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
-        vec![deploy_account_tx],
+        txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
     )
@@ -185,10 +186,11 @@ async fn deploy_cairo1_account(
         &mut nonce_manager,
     );
 
+    let txs = vec![AccountTransaction::DeployAccount(deploy_account_tx)].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
-        vec![AccountTransaction::DeployAccount(deploy_account_tx)],
+        txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
     )
