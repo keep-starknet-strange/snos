@@ -16,7 +16,7 @@ use crate::common::state::{init_logging, initial_state_cairo0, initial_state_sys
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[fixture]
-pub async fn l1_initial_state_cairo1(
+async fn l1_initial_state_cairo1(
     block_context: BlockContext,
     #[from(init_logging)] _logging: (),
 ) -> (StarknetTestState, ContractAddress) {
@@ -26,7 +26,7 @@ pub async fn l1_initial_state_cairo1(
 }
 
 #[fixture]
-pub async fn l1_initial_state_cairo0(
+async fn l1_initial_state_cairo0(
     block_context: BlockContext,
     #[from(init_logging)] _logging: (),
 ) -> (StarknetTestState, ContractAddress) {
