@@ -181,34 +181,8 @@ impl Storage for RpcStorage {
         Ok(())
     }
 
-    fn get_value<K: AsRef<[u8]>>(&self, _key: K) -> impl Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
-        async { todo!() }
-    }
-
-    async fn has_key<K: AsRef<[u8]>>(&self, _key: K) -> bool {
+    async fn get_value(&self, _key: &[u8]) -> Result<Option<Vec<u8>>, StorageError> {
         todo!()
-    }
-
-    async fn del_value<K: AsRef<[u8]>>(&mut self, key: K) -> Result<(), StorageError> {
-        log::warn!("Attempting to delete storage key: {:?}", key.as_ref().to_vec());
-        Ok(())
-    }
-
-    async fn mset(&mut self, updates: HashMap<Vec<u8>, Vec<u8>>) -> Result<(), StorageError> {
-        log::warn!("Attempting to write multiple updates to storage: {:?}", updates);
-        Ok(())
-    }
-
-    fn mget<K, I>(&self, keys: I) -> impl futures_core::stream::Stream<Item = Result<Option<Vec<u8>>, StorageError>>
-    where
-        K: AsRef<[u8]>,
-        I: Iterator<Item = K>,
-    {
-        stream! {
-            for key in keys {
-                yield self.get_value(key).await
-            }
-        }
     }
 }
 
