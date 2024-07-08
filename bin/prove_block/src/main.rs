@@ -41,6 +41,10 @@ struct Args {
     /// Block to prove.
     #[arg(long = "block-number")]
     block_number: u64,
+
+    /// RPC endpoint to use for fact fetching
+    #[arg(long = "rpc-provider", default_value="http://localhost:9545")]
+    rpc_provider: String,
 }
 
 fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::Value {
@@ -54,11 +58,12 @@ fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::Value
 
 async fn post_jsonrpc_request<T: DeserializeOwned>(
     client: &reqwest::Client,
+    rpc_provider: &String,
     method: &str,
     params: serde_json::Value,
 ) -> Result<T, reqwest::Error> {
     let request = jsonrpc_request(method, params);
-    let response = client.post("http://localhost:9545/rpc/v0_7").json(&request).send().await?;
+    let response = client.post(format!("{}/rpc/v0_7", rpc_provider.as_str())).json(&request).send().await?;
 
     #[derive(Deserialize)]
     struct TransactionReceiptResponse<T> {
@@ -94,12 +99,14 @@ struct StorageProof {
 
 async fn pathfinder_get_proof(
     client: &reqwest::Client,
+    rpc_provider: &String,
     block_number: u64,
     contract_address: Felt,
     keys: &[Felt],
 ) -> Result<StorageProof, reqwest::Error> {
     post_jsonrpc_request(
         client,
+        rpc_provider,
         "pathfinder_getProof",
         json!({ "block_id": { "block_number": block_number }, "contract_address": contract_address, "keys": keys }),
     )
@@ -108,6 +115,7 @@ async fn pathfinder_get_proof(
 
 async fn get_storage_proofs(
     client: &reqwest::Client,
+    rpc_provider: &String,
     block_number: u64,
     state_update: &StateUpdate,
 ) -> Result<HashMap<Felt, StorageProof>, reqwest::Error> {
@@ -126,7 +134,7 @@ async fn get_storage_proofs(
         let mut chunked_storage_proofs = Vec::new();
         for keys_chunk in keys.chunks(100) {
             chunked_storage_proofs
-                .push(pathfinder_get_proof(client, block_number, contract_address, keys_chunk).await?);
+                .push(pathfinder_get_proof(client, rpc_provider, block_number, contract_address, keys_chunk).await?);
         }
         let storage_proof = merge_chunked_storage_proofs(chunked_storage_proofs);
 
@@ -222,7 +230,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let block_number = args.block_number;
     let layout = LayoutName::starknet_with_keccak;
 
-    let provider = JsonRpcClient::new(HttpTransport::new(Url::parse("http://localhost:9545/rpc/v0_7").unwrap()));
+    let provider_url = format!("{}/rpc/v0_7", args.rpc_provider);
+    println!("provider url: {}", provider_url);
+    let provider = JsonRpcClient::new(HttpTransport::new(Url::parse(provider_url.as_str())
+        .expect("Could not parse provider url")));
     let pathfinder_client =
         reqwest::ClientBuilder::new().build().unwrap_or_else(|e| panic!("Could not build reqwest client: {e}"));
 
@@ -249,7 +260,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         };
 
-    let _storage_proofs = get_storage_proofs(&pathfinder_client, block_number, &state_update)
+    let _storage_proofs = get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &state_update)
         .await
         .expect("Failed to fetch storage proofs");
 
