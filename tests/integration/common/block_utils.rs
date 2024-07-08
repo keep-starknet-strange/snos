@@ -35,7 +35,7 @@ pub async fn os_hints(
     tx_execution_infos: Vec<TransactionExecutionInfo>,
     deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
     compiled_classes: HashMap<ClassHash, CasmContractClass>,
-) -> (StarknetOsInput, ExecutionHelperWrapper) {
+) -> (StarknetOsInput, ExecutionHelperWrapper<DictStorage>) {
     let mut compiled_class_hash_to_compiled_class: HashMap<Felt252, CasmContractClass> = HashMap::new();
     let mut ffc = blockifier_state.state.ffc().clone();
 

@@ -11,6 +11,7 @@ use error::SnOsError;
 use execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use execution::helper::ExecutionHelperWrapper;
 use io::output::StarknetOsOutput;
+use storage::storage::Storage;
 
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::types::{PatriciaSkipValidationRunner, PatriciaTreeMode};
@@ -30,12 +31,12 @@ pub mod starkware_utils;
 pub mod storage;
 pub mod utils;
 
-pub fn run_os(
+pub fn run_os<S: Storage + Clone + 'static>(
     os_path: String,
     layout: LayoutName,
     os_input: StarknetOsInput,
     block_context: BlockContext,
-    execution_helper: ExecutionHelperWrapper,
+    execution_helper: ExecutionHelperWrapper<S>,
 ) -> Result<(CairoPie, StarknetOsOutput), SnOsError> {
     // Init CairoRunConfig
     let cairo_run_config = CairoRunConfig { layout, relocate_mem: true, trace_enabled: true, ..Default::default() };
@@ -79,7 +80,7 @@ pub fn run_os(
     cairo_runner.exec_scopes.insert_value(vars::scopes::PATRICIA_TREE_MODE, PatriciaTreeMode::State);
 
     // Run the Cairo VM
-    let mut sn_hint_processor = hints::SnosHintProcessor::default();
+    let mut sn_hint_processor = hints::SnosHintProcessor::<S>::default();
     cairo_runner
         .run_until_pc(end, &mut sn_hint_processor)
         .map_err(|err| VmException::from_vm_error(&cairo_runner, err))

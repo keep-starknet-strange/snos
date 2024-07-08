@@ -19,6 +19,7 @@ use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::state::SharedState;
+use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::{Storage, StorageError};
 use snos::{config, run_os};
 use starknet::core::types::{
@@ -300,7 +301,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         transactions,
         block_hash: block_with_txs.block_hash,
     };
-    let execution_helper = ExecutionHelperWrapper::new(
+    // TODO: use CompositeStorage intsead of DictStorage
+    let execution_helper = ExecutionHelperWrapper::<DictStorage>::new(
         Default::default(), // tx_execution_infos
         Default::default(), // contract_storage_map
         &block_context,

@@ -13,12 +13,13 @@ use crate::cairo_types::syscalls::{
     GetContractAddress, GetContractAddressResponse, GetSequencerAddress, GetSequencerAddressResponse, GetTxInfo,
     GetTxInfoResponse, GetTxSignature, GetTxSignatureResponse, LibraryCall, TxInfo,
 };
+use crate::storage::storage::Storage;
 use crate::utils::felt_api2vm;
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
-pub struct DeprecatedOsSyscallHandler {
-    pub exec_wrapper: ExecutionHelperWrapper,
+pub struct DeprecatedOsSyscallHandler<S: Storage + Clone> {
+    pub exec_wrapper: ExecutionHelperWrapper<S>,
     pub syscall_ptr: Relocatable,
     block_info: BlockInfo,
 }
@@ -26,13 +27,13 @@ pub struct DeprecatedOsSyscallHandler {
 /// DeprecatedOsSyscallHandler is wrapped in Rc<RefCell<_>> in order
 /// to clone the reference when entering and exiting vm scopes
 #[derive(Clone, Debug)]
-pub struct DeprecatedOsSyscallHandlerWrapper {
-    pub deprecated_syscall_handler: Rc<RwLock<DeprecatedOsSyscallHandler>>,
+pub struct DeprecatedOsSyscallHandlerWrapper<S: Storage + Clone> {
+    pub deprecated_syscall_handler: Rc<RwLock<DeprecatedOsSyscallHandler<S>>>,
 }
 
-impl DeprecatedOsSyscallHandlerWrapper {
+impl<S: Storage + Clone> DeprecatedOsSyscallHandlerWrapper<S> {
     // TODO(#69): implement the syscalls
-    pub fn new(exec_wrapper: ExecutionHelperWrapper, syscall_ptr: Relocatable, block_info: BlockInfo) -> Self {
+    pub fn new(exec_wrapper: ExecutionHelperWrapper<S>, syscall_ptr: Relocatable, block_info: BlockInfo) -> Self {
         Self {
             deprecated_syscall_handler: Rc::new(RwLock::new(DeprecatedOsSyscallHandler {
                 exec_wrapper,
@@ -300,6 +301,7 @@ mod test {
     use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
     use crate::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
     use crate::hints::vars;
+    use crate::storage::dict_storage::DictStorage;
 
     #[fixture]
     fn block_context() -> BlockContext {
@@ -345,7 +347,7 @@ mod test {
         let mut exec_scopes = ExecutionScopes::new();
 
         let execution_infos = Default::default();
-        let exec_helper = ExecutionHelperWrapper::new(
+        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
             ContractStorageMap::default(),
             execution_infos,
             &block_context,

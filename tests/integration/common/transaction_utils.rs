@@ -778,7 +778,7 @@ async fn execute_txs(
     txs: Vec<Transaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, CasmContractClass>,
-) -> (StarknetOsInput, ExecutionHelperWrapper) {
+) -> (StarknetOsInput, ExecutionHelperWrapper<DictStorage>) {
     let upper_bound_block_number = block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER;
     let block_number = StorageKey::from(upper_bound_block_number);
     let block_hash = stark_felt!(66_u64);
