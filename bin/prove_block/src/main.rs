@@ -14,14 +14,20 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig};
+use snos::crypto::pedersen::PedersenHash;
 use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
+use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
+use snos::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
+use snos::starkware_utils::commitment_tree::base_types::Height;
+use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
+use snos::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use snos::storage::dict_storage::DictStorage;
-use snos::storage::storage::{Storage, StorageError};
-use snos::{config, run_os};
+use snos::storage::storage::{FactFetchingContext, Storage, StorageError};
+use snos::{config, run_os, storage};
 use starknet::core::types::{
     BlockId, BlockWithTxs, MaybePendingBlockWithTxs, MaybePendingStateUpdate, StateUpdate, StorageEntry,
 };
@@ -159,23 +165,36 @@ fn felt_to_u128(felt: &starknet_types_core::felt::Felt) -> u128 {
 }
 
 struct RpcStorage {
-    provider: JsonRpcClient<HttpTransport>,
+    // provider: JsonRpcClient<HttpTransport>,
+    client: reqwest::Client,
+    provider: String,
+    block_number: u64,
 }
 
 impl RpcStorage {
-    pub fn new(provider: JsonRpcClient<HttpTransport>) -> Self {
-        Self { provider }
+    // pub fn new(provider: JsonRpcClient<HttpTransport>) -> Self {
+    pub fn new(
+        client: reqwest::Client,
+        provider: String,
+        block_number: u64,
+    ) -> Self {
+        Self { client, provider, block_number }
     }
 }
 
 impl Storage for RpcStorage {
     async fn set_value(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StorageError> {
-        log::warn!("Attempting to write storage - {:?}: {:?}", key, value);
+        log::warn!("RpcStorage ignoring attempt to write storage - {:?}: {:?}", key, value);
         Ok(())
     }
 
-    fn get_value(&self, _key: &[u8]) -> impl Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
-        async { todo!() }
+    fn get_value(&self, key: &[u8]) -> impl Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
+        log::info!("RpcStorage get_value - {:?}", key);
+        async {
+            // let response = pathfinder_get_proof(client, rpc_provider, block_number, contract_address, keys_chunk).await
+                // .map_err(|_| StorageError::ContentNotFound);
+            panic!("get_value()");
+        }
     }
 }
 
@@ -273,7 +292,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let old_block_number = Felt252::from(previous_block.block_number);
     let old_block_hash = previous_block.block_hash;
 
-    // let ffc = FactFetchingContext::new(RpcStorage::new(provider));
+    let mut ffc = FactFetchingContext::new(RpcStorage::new(pathfinder_client, provider_url, block_number));
     // let initial_state = build_shared_state(&previous_block, )
 
     let default_general_config = StarknetGeneralConfig::default();
@@ -289,8 +308,50 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let transactions: Vec<_> = block_with_txs.transactions.into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
+    /* as used in tests:
+    let contract_state_commitment_info = CommitmentInfo::create_from_expected_updated_tree::<RpcStorage, PedersenHash, ContractState>(
+        Default::default(), // TODO: previous state
+        Default::default(), // TODO: updated state
+        Default::default(), // contract_indices
+        &mut ffc,
+    );
+    */
+
+    // TODO: previous tree root -- is this the value field of StorageLeaf? Leaf doesn't make much sense here if it's the root...
+    let previous_tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await?;
+    
+    let mut updates = Vec::with_capacity(state_update.state_diff.storage_diffs.len());
+    for storage_diff_item in state_update.state_diff.storage_diffs {
+        let contract_address_biguint = storage_diff_item.address.to_biguint();
+        let nonce = Default::default(); // TODO: nonce changes are at state_update.state_diff.nonces
+                                        // (a Vec that could be zipped with state_update.state_diff.storage_diffs?)
+        
+        // TODO: needs initial root hash
+        let trie = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await?;
+        
+        let contract_state = ContractState::create(
+            storage_diff_item.address.to_bytes_be().to_vec(),
+            trie,
+            nonce);
+        let contract_state = contract_state.update(
+            &mut ffc,
+            &storage_diff_item.storage_entries.iter().map(|entry| { (entry.key, entry.value) }).collect(),
+            Some(nonce),
+            None, // TODO: class hash
+        ).await?;
+
+        updates.push((contract_address_biguint, contract_state));
+    }
+    
+    let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<RpcStorage, PedersenHash, ContractState>(
+        previous_tree,
+        Default::default(), // TODO: expected update root
+        updates,
+        &mut ffc,
+    ).await?;
+
     let os_input = StarknetOsInput {
-        contract_state_commitment_info: Default::default(),
+        contract_state_commitment_info,
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes: Default::default(),
         compiled_classes: Default::default(),
