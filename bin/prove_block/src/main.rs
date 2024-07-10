@@ -22,12 +22,12 @@ use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
-use snos::starkware_utils::commitment_tree::base_types::Height;
+use snos::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
 use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
+use snos::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use snos::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use snos::storage::cached_storage::CachedStorage;
-use snos::storage::dict_storage::DictStorage;
-use snos::storage::storage::{FactFetchingContext, Storage, StorageError};
+use snos::storage::storage::{Fact, FactFetchingContext, Storage, StorageError};
 use snos::{config, run_os, storage};
 use starknet::core::types::{
     BlockId, BlockWithTxs, MaybePendingBlockWithTxs, MaybePendingStateUpdate, StateUpdate, StorageEntry,
@@ -165,6 +165,7 @@ fn felt_to_u128(felt: &starknet_types_core::felt::Felt) -> u128 {
     ((digits[2] as u128) << 64) + digits[3] as u128
 }
 
+#[derive(Clone)]
 struct RpcStorage {
     // provider: JsonRpcClient<HttpTransport>,
     client: reqwest::Client,
@@ -194,7 +195,7 @@ impl Storage for RpcStorage {
         async {
             // let response = pathfinder_get_proof(&self.client, &self.provider, self.block_number, contract_address, keys_chunk).await
                 // .map_err(|_| StorageError::ContentNotFound);
-            Ok(Some(Default::default())
+            Ok(Some(Default::default()))
         }
     }
 }
@@ -300,6 +301,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut ffc = FactFetchingContext::new(cached_storage);
     // let initial_state = build_shared_state(&previous_block, )
+    
+    // write facts from proof
+    for (_contract_address, proof) in &storage_proofs {
+        for node in &proof.contract_proof {
+            match node {
+                ContractProofNode::Binary { left, right } => {
+                    let fact = BinaryNodeFact::new((*left).into(), (*right).into())?;
+                    fact.set_fact(&mut ffc).await?;
+                },
+                ContractProofNode::Edge { child, path } => {
+                    let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))?;
+                    fact.set_fact(&mut ffc).await?;
+                },
+            }
+        }
+    }
 
     let default_general_config = StarknetGeneralConfig::default();
 
@@ -365,8 +382,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         transactions,
         block_hash: block_with_txs.block_hash,
     };
-    // TODO: use CompositeStorage intsead of DictStorage
-    let execution_helper = ExecutionHelperWrapper::<DictStorage>::new(
+    let execution_helper = ExecutionHelperWrapper::<CachedStorage<RpcStorage>>::new(
         Default::default(), // tx_execution_infos
         Default::default(), // contract_storage_map
         &block_context,
