@@ -106,6 +106,8 @@ struct StorageProof {
     contract_proof: Vec<ContractProofNode>,
 }
 
+// async fn pathfinder_
+
 async fn pathfinder_get_proof(
     client: &reqwest::Client,
     rpc_provider: &String,
@@ -387,12 +389,46 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let rpc_storage = RpcStorage::new(pathfinder_client, provider_url, block_number);
     let cached_storage = CachedStorage::<RpcStorage>::new(Default::default(), rpc_storage);
 
+    // TODO: these maps that we pass in to build_initial_state() are built only on items from the
+    // state diff, but we will need all items accessed in any way during the block (right?) which
+    // probably means filling in the missing details with API calls
+    let address_to_class_hash = state_update
+        .state_diff
+        .deployed_contracts
+        .iter()
+        .map(|contract| (contract.address, contract.class_hash))
+        .collect();
+
+    let address_to_nonce = state_update
+        .state_diff
+        .nonces
+        .iter()
+        .map(|nonce_update| (nonce_update.contract_address, nonce_update.nonce))
+        .collect();
+
+    let class_hash_to_compiled_class_hash = state_update
+        .state_diff
+        .declared_classes
+        .iter()
+        .map(|class| (class.class_hash, class.compiled_class_hash))
+        .collect();
+
+    let storage_updates = state_update
+        .state_diff
+        .storage_diffs
+        .iter()
+        .map(|diffs| {
+            let storage_entries = diffs.storage_entries.iter().map(|e| (e.key, e.value)).collect();
+            (diffs.address, storage_entries)
+        })
+        .collect();
+
     let mut initial_state = build_initial_state(
         FactFetchingContext::new(cached_storage),
-        Default::default(), // TODO
-        Default::default(), // TODO
-        Default::default(), // TODO
-        Default::default(), // TODO
+        address_to_class_hash,
+        address_to_nonce,
+        class_hash_to_compiled_class_hash,
+        storage_updates,
     ).await?;
     
     // write facts from proof
@@ -426,10 +462,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let transactions: Vec<_> = block_with_txs.transactions.into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-
-
-    // TODO: previous tree root -- is this the value field of StorageLeaf? Leaf doesn't make much sense here if it's the root...
-    let previous_tree = PatriciaTree::empty_tree(&mut initial_state.ffc, Height(251), StorageLeaf::empty()).await?;
+    let previous_tree = initial_state.contract_states;
     
     let num_storage_diffs = state_update.state_diff.storage_diffs.len();
     let mut updates = Vec::with_capacity(num_storage_diffs);
@@ -439,6 +472,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let nonce = state_update.state_diff.nonces[i].nonce;
 
         let contract_address_biguint = storage_diff_item.address.to_biguint();
+
+        // TODO: our FFC should have ContractState items that we can get(), right?
         
         let trie = PatriciaTree::empty_tree(
             &mut initial_state.ffc,
