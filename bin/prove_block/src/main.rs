@@ -496,7 +496,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     
     let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<CachedStorage<RpcStorage>, PedersenHash, ContractState>(
         previous_tree.clone(),
-        Default::default(), // TODO: expected update root
+        None, // TODO: do we have a source for expected?
         updates,
         &mut initial_state.ffc,
     ).await?;
