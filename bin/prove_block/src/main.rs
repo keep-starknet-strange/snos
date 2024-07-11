@@ -28,7 +28,8 @@ use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use snos::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use snos::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use snos::storage::cached_storage::CachedStorage;
-use snos::storage::storage::{Fact, FactFetchingContext, Storage, StorageError};
+use snos::storage::storage::{DbObject, Fact, FactFetchingContext, Storage, StorageError};
+use snos::utils::felt_vm2api;
 use snos::{config, run_os, storage};
 use starknet::core::types::{
     BlockId, BlockWithTxs, MaybePendingBlockWithTxs, MaybePendingStateUpdate, StateUpdate, StorageEntry,
@@ -462,7 +463,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let transactions: Vec<_> = block_with_txs.transactions.into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    let previous_tree = initial_state.contract_states;
+    let previous_tree = &initial_state.contract_states;
     
     let num_storage_diffs = state_update.state_diff.storage_diffs.len();
     let mut updates = Vec::with_capacity(num_storage_diffs);
@@ -473,19 +474,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         let contract_address_biguint = storage_diff_item.address.to_biguint();
 
-        // TODO: our FFC should have ContractState items that we can get(), right?
-        
-        let trie = PatriciaTree::empty_tree(
-            &mut initial_state.ffc,
-            Height(251),
-            StorageLeaf::new(storage_proof.class_commitment)
-        ).await?;
-        
-        let contract_state = ContractState::create(
-            storage_diff_item.address.to_bytes_be().to_vec(),
-            trie,
-            nonce);
-        contract_state.set_fact(&mut initial_state.ffc).await?;
+        let address: ContractAddress =
+            ContractAddress(PatriciaKey::try_from(felt_vm2api(storage_diff_item.address)).unwrap());
+        let contract_state = initial_state.get_contract_state(address)?;
+
         let contract_state = contract_state.update(
             &mut initial_state.ffc,
             &storage_diff_item.storage_entries.iter().map(|entry| { (entry.key, entry.value) }).collect(),
@@ -493,11 +485,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
             None, // TODO: class hash
         ).await?;
 
+        if storage_proof.class_commitment != contract_state.storage_commitment_tree.root.clone().into() {
+            log::error!("expected class_commitment != computed class_commitment ({:?} != {:?})",
+                storage_proof.class_commitment,
+                contract_state.storage_commitment_tree.root.clone());
+        }
+
         updates.push((contract_address_biguint, contract_state));
     }
     
     let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<CachedStorage<RpcStorage>, PedersenHash, ContractState>(
-        previous_tree,
+        previous_tree.clone(),
         Default::default(), // TODO: expected update root
         updates,
         &mut initial_state.ffc,
