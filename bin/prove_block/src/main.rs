@@ -464,6 +464,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let transactions: Vec<_> = block_with_txs.transactions.into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
     let previous_tree = &initial_state.contract_states;
+
+    let mut contract_states = HashMap::new();
     
     let num_storage_diffs = state_update.state_diff.storage_diffs.len();
     let mut updates = Vec::with_capacity(num_storage_diffs);
@@ -491,7 +493,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 contract_state.storage_commitment_tree.root.clone());
         }
 
-        updates.push((contract_address_biguint, contract_state));
+        updates.push((contract_address_biguint, contract_state.clone()));
+        contract_states.insert(storage_diff_item.address, contract_state);
     }
     
     let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<CachedStorage<RpcStorage>, PedersenHash, ContractState>(
@@ -507,7 +510,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         deprecated_compiled_classes: Default::default(),
         compiled_classes: Default::default(),
         compiled_class_visited_pcs: Default::default(),
-        contracts: Default::default(),
+        contracts: contract_states,
         class_hash_to_compiled_class_hash: Default::default(),
         general_config,
         transactions,
