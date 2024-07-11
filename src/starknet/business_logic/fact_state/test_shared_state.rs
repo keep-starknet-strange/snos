@@ -107,7 +107,7 @@ where
     }
 
     /// A compatibility function to apply state updates specified in the Starknet API types.
-    async fn apply_state_updates_starknet_api(
+    pub async fn apply_state_updates_starknet_api(
         self,
         address_to_class_hash: HashMap<ContractAddress, ClassHash>,
         address_to_nonce: HashMap<ContractAddress, Nonce>,

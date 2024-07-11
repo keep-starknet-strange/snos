@@ -19,10 +19,11 @@ use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
+use snos::starknet::business_logic::fact_state::contract_class_objects::{get_ffc_for_contract_class_facts, ContractClassLeaf};
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
-use snos::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
+use snos::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use snos::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use snos::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
@@ -184,6 +185,8 @@ impl RpcStorage {
     }
 }
 
+type CachedRpcStorage = CachedStorage<RpcStorage>;
+
 impl Storage for RpcStorage {
     async fn set_value(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StorageError> {
         log::warn!("RpcStorage ignoring attempt to write storage - {:?}: {:?}", key, value);
@@ -243,6 +246,91 @@ fn init_logging() {
         .expect("Failed to configure env_logger");
 }
 
+// build state representing the end of the previous block on which the current
+// block can be built.
+// inspiration: TestSharedState::apply_state_updates_starknet_api()
+async fn build_initial_state(
+    ffc: FactFetchingContext<CachedRpcStorage, PedersenHash>,
+    address_to_class_hash: HashMap<Felt252, Felt252>,
+    address_to_nonce: HashMap<Felt252, Felt252>,
+    class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
+    storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>
+) -> Result<SharedState<CachedRpcStorage, PedersenHash>, Box<dyn Error>> {
+    let shared_state = SharedState::empty(ffc).await?;
+    
+    let accessed_addresses_felts: HashSet<_> = address_to_class_hash
+        .keys()
+        .chain(address_to_nonce.keys())
+        .chain(storage_updates.keys())
+        .collect();
+    let accessed_addresses: Vec<TreeIndex> = accessed_addresses_felts.iter().map(|x| x.to_biguint()).collect();
+
+    let mut facts = None;
+    let mut ffc = shared_state.ffc;
+    let mut current_contract_states: HashMap<TreeIndex, ContractState> =
+        shared_state.contract_states.get_leaves(&mut ffc, &accessed_addresses, &mut facts).await?;
+
+    // Update contract storage roots with cached changes.
+    let empty_updates = HashMap::new();
+    let mut updated_contract_states = HashMap::new();
+    for address in accessed_addresses_felts {
+        // unwrap() is safe as an entry is guaranteed to be present with `get_leaves()`.
+        let tree_index = address.to_biguint();
+        let updates = storage_updates.get(address).unwrap_or(&empty_updates);
+        let nonce = address_to_nonce.get(address).cloned();
+        let class_hash = address_to_class_hash.get(address).cloned();
+        let updated_contract_state = current_contract_states
+            .remove(&tree_index)
+            .unwrap()
+            .update(&mut ffc, updates, nonce, class_hash)
+            .await?;
+
+        updated_contract_states.insert(tree_index, updated_contract_state);
+    }
+
+    // Apply contract changes on global root.
+    log::debug!("Updating contract state tree with {} modifications...", accessed_addresses.len());
+    let global_state_modifications: Vec<_> = updated_contract_states.into_iter().collect();
+
+    let updated_global_contract_root =
+        shared_state.contract_states.update(&mut ffc, global_state_modifications, &mut facts).await?;
+
+    let mut ffc_for_contract_class = get_ffc_for_contract_class_facts(&ffc);
+
+    let updated_contract_classes = match shared_state.contract_classes {
+        Some(tree) => {
+            log::debug!(
+                "Updating contract class tree with {} modifications...",
+                class_hash_to_compiled_class_hash.len()
+            );
+            let modifications: Vec<_> = class_hash_to_compiled_class_hash
+                .into_iter()
+                .map(|(key, value)| (key.to_biguint(), ContractClassLeaf::create(value)))
+                .collect();
+            Some(tree.update(&mut ffc_for_contract_class, modifications, &mut facts).await?)
+        }
+        None => {
+            assert_eq!(
+                class_hash_to_compiled_class_hash.len(),
+                0,
+                "contract_classes must be concrete before update."
+            );
+            None
+        }
+    };
+
+    // TODO: not needed, we don't need contract_addresses (right?)
+    // let accessed_addresses: HashSet<_> = accessed_addresses.into_iter().collect();
+    // let contract_addresses: HashSet<_> = self.contract_addresses.union(&accessed_addresses).cloned().collect();
+
+    Ok(SharedState {
+        contract_states: updated_global_contract_root,
+        contract_classes: updated_contract_classes,
+        ffc,
+        ffc_for_class_hash: ffc_for_contract_class,
+    })
+} 
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     init_logging();
@@ -299,20 +387,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let rpc_storage = RpcStorage::new(pathfinder_client, provider_url, block_number);
     let cached_storage = CachedStorage::<RpcStorage>::new(Default::default(), rpc_storage);
 
-    let mut ffc = FactFetchingContext::new(cached_storage);
-    // let initial_state = build_shared_state(&previous_block, )
+    let mut initial_state = build_initial_state(
+        FactFetchingContext::new(cached_storage),
+        Default::default(), // TODO
+        Default::default(), // TODO
+        Default::default(), // TODO
+        Default::default(), // TODO
+    ).await?;
     
     // write facts from proof
     for (_contract_address, proof) in &storage_proofs {
         for node in &proof.contract_proof {
             match node {
                 ContractProofNode::Binary { left, right } => {
+                    log::info!("writing binary node...");
                     let fact = BinaryNodeFact::new((*left).into(), (*right).into())?;
-                    fact.set_fact(&mut ffc).await?;
+                    fact.set_fact(&mut initial_state.ffc).await?;
                 },
                 ContractProofNode::Edge { child, path } => {
+                    log::info!("writing edge node...");
                     let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))?;
-                    fact.set_fact(&mut ffc).await?;
+                    fact.set_fact(&mut initial_state.ffc).await?;
                 },
             }
         }
@@ -331,8 +426,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let transactions: Vec<_> = block_with_txs.transactions.into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
+
+
     // TODO: previous tree root -- is this the value field of StorageLeaf? Leaf doesn't make much sense here if it's the root...
-    let previous_tree = PatriciaTree::empty_tree(&mut ffc, Height(251), StorageLeaf::empty()).await?;
+    let previous_tree = PatriciaTree::empty_tree(&mut initial_state.ffc, Height(251), StorageLeaf::empty()).await?;
     
     let num_storage_diffs = state_update.state_diff.storage_diffs.len();
     let mut updates = Vec::with_capacity(num_storage_diffs);
@@ -344,7 +441,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let contract_address_biguint = storage_diff_item.address.to_biguint();
         
         let trie = PatriciaTree::empty_tree(
-            &mut ffc,
+            &mut initial_state.ffc,
             Height(251),
             StorageLeaf::new(storage_proof.class_commitment)
         ).await?;
@@ -353,8 +450,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             storage_diff_item.address.to_bytes_be().to_vec(),
             trie,
             nonce);
+        contract_state.set_fact(&mut initial_state.ffc).await?;
         let contract_state = contract_state.update(
-            &mut ffc,
+            &mut initial_state.ffc,
             &storage_diff_item.storage_entries.iter().map(|entry| { (entry.key, entry.value) }).collect(),
             Some(nonce),
             None, // TODO: class hash
@@ -367,7 +465,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         previous_tree,
         Default::default(), // TODO: expected update root
         updates,
-        &mut ffc,
+        &mut initial_state.ffc,
     ).await?;
 
     let os_input = StarknetOsInput {

@@ -48,6 +48,7 @@ where
         facts: &mut Option<BinaryFactDict>,
     ) -> Result<Self, TreeError> {
         let virtual_root_node = VirtualPatriciaNode::from_hash(self.root, self.height);
+        let _ = virtual_root_node.commit(ffc, facts).await?;
         let updated_virtual_root_node = update_tree::<
             S,
             H,
