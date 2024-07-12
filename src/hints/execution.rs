@@ -1704,6 +1704,7 @@ pub async fn get_old_block_number_and_hash_async<S: Storage + Clone + 'static>(
 
     let ids_old_block_number = get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
     if old_block_number != ids_old_block_number {
+        log::warn!("old_block_number ({}) != ids_old_block_number ({})", old_block_number, ids_old_block_number);
         return Err(HintError::AssertionFailed(
             "Inconsistent block number. The constant STORED_BLOCK_HASH_BUFFER is probably out of sync."
                 .to_string()

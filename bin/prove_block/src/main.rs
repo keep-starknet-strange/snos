@@ -44,6 +44,10 @@ use starknet_types_core::felt::Felt;
 
 use crate::types::starknet_rs_tx_to_internal_tx;
 
+// A const used in cairo-lang which is used to assert that:
+//     `old_block_number = block_number - STORED_BLOCK_HASH_BUFFER`
+const STORED_BLOCK_HASH_BUFFER: u64 = 10;
+
 mod types;
 
 #[derive(Parser, Debug)]
@@ -364,6 +368,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
             panic!("Block is still pending!");
         }
     };
+    let older_block = match provider.get_block_with_txs(BlockId::Number(block_number - STORED_BLOCK_HASH_BUFFER)).await.unwrap() {
+        MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
+        MaybePendingBlockWithTxs::PendingBlock(_) => {
+            panic!("Block is still pending!");
+        }
+    };
 
     let state_update =
         match provider.get_state_update(BlockId::Number(block_number)).await.expect("Failed to get state update") {
@@ -382,8 +392,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let block_context = build_block_context(chain_id, &block_with_txs).await.unwrap();
 
-    let old_block_number = Felt252::from(previous_block.block_number);
-    let old_block_hash = previous_block.block_hash;
+    let old_block_number = Felt252::from(older_block.block_number);
+    let old_block_hash = older_block.block_hash;
 
     // initialize storage. We use a CachedStorage with a RcpStorage as the main storage, meaning
     // that a DictStorage serves as the cache layer and we will use Pathfinder RPC for cache misses
