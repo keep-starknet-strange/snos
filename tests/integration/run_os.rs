@@ -295,15 +295,13 @@ async fn prepare_extensive_os_test_params(
         vec![1u128.into(), 1991u128.into(), 1u128.into(), 2021u128.into()],
     ));
 
-    // Fails
-
-    // txs.push(build_invoke_tx!(
-    //     &defaults,
-    //     nonce_manager,
-    //     get_contract_address_by_index(&deployed_txs_addresses, 0),
-    //     "test_get_block_number",
-    //     vec![(block_context.block_info().block_number.0 + 1).into()],
-    // ));
+    txs.push(build_invoke_tx!(
+        &defaults,
+        nonce_manager,
+        get_contract_address_by_index(&deployed_txs_addresses, 0),
+        "test_get_block_number",
+        vec![(block_context.block_info().block_number.0).into()],
+    ));
 
     txs.push(build_invoke_tx!(
         &defaults,
