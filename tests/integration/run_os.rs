@@ -279,15 +279,13 @@ async fn prepare_extensive_os_test_params(
         vec![]
     ));
 
-    // Fails
-
-    // txs.push(build_invoke_tx!(
-    //     &defaults,
-    //     nonce_manager,
-    //     get_contract_address_by_index(&deployed_txs_addresses, 1),
-    //     "test_get_block_timestamp",
-    //     vec![1000u128.into()],
-    // ));
+    txs.push(build_invoke_tx!(
+        &defaults,
+        nonce_manager,
+        get_contract_address_by_index(&deployed_txs_addresses, 1),
+        "test_get_block_timestamp",
+        vec![1072023u128.into()],
+    ));
 
     txs.push(build_invoke_tx!(
         &defaults,
