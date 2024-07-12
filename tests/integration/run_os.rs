@@ -70,12 +70,16 @@ pub async fn initial_state_run_os_v1(
     let dummy_token = load_cairo0_contract("dummy_token");
     let dummy_account = load_cairo0_contract("account_with_dummy_validate");
     let test_contract = load_cairo0_contract("test_contract");
+    let delegate_proxy_contract = load_cairo0_contract("delegate_proxy");
+    let long_validate_contract = load_cairo0_contract("account_with_long_validate");
 
     StarknetStateBuilder::new(&block_context)
         .add_cairo0_contract(token_for_testing.0, token_for_testing.1)
         .add_cairo0_contract(dummy_token.0, dummy_token.1)
         .add_cairo0_contract(dummy_account.0, dummy_account.1)
         .add_cairo0_contract(test_contract.0, test_contract.1)
+        .add_cairo0_contract(delegate_proxy_contract.0, delegate_proxy_contract.1)
+        .add_cairo0_contract(long_validate_contract.0, long_validate_contract.1)
         .build()
         .await
 }
