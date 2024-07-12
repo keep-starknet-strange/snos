@@ -13,7 +13,7 @@ use clap::Parser;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
-use snos::config::{StarknetGeneralConfig, StarknetOsConfig};
+use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use snos::crypto::pedersen::PedersenHash;
 use snos::error::SnOsError::Runner;
 use snos::execution::helper::ExecutionHelperWrapper;
@@ -43,10 +43,6 @@ use starknet_api::{contract_address, patricia_key};
 use starknet_types_core::felt::Felt;
 
 use crate::types::starknet_rs_tx_to_internal_tx;
-
-// A const used in cairo-lang which is used to assert that:
-//     `old_block_number = block_number - STORED_BLOCK_HASH_BUFFER`
-const STORED_BLOCK_HASH_BUFFER: u64 = 10;
 
 mod types;
 
