@@ -388,7 +388,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // initialize storage. We use a CachedStorage with a RcpStorage as the main storage, meaning
     // that a DictStorage serves as the cache layer and we will use Pathfinder RPC for cache misses
     let rpc_storage = RpcStorage::new(pathfinder_client, provider_url, block_number);
-    let cached_storage = CachedStorage::<RpcStorage>::new(Default::default(), rpc_storage);
+    let cached_storage = CachedRpcStorage::new(Default::default(), rpc_storage);
 
     // TODO: these maps that we pass in to build_initial_state() are built only on items from the
     // state diff, but we will need all items accessed in any way during the block (right?) which
@@ -497,7 +497,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         contract_states.insert(storage_diff_item.address, contract_state);
     }
     
-    let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<CachedStorage<RpcStorage>, PedersenHash, ContractState>(
+    let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<CachedRpcStorage, PedersenHash, ContractState>(
         previous_tree.clone(),
         None, // TODO: do we have a source for expected?
         updates,
@@ -516,7 +516,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         transactions,
         block_hash: block_with_txs.block_hash,
     };
-    let execution_helper = ExecutionHelperWrapper::<CachedStorage<RpcStorage>>::new(
+    let execution_helper = ExecutionHelperWrapper::<CachedRpcStorage>::new(
         Default::default(), // tx_execution_infos
         Default::default(), // contract_storage_map
         &block_context,
