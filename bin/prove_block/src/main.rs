@@ -490,6 +490,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let initial_contract_state = initial_state.get_contract_state(address)?;
         let initial_tree = initial_contract_state.storage_commitment_tree.clone();
 
+        // Pathfinder RPC seems to give us random nonce values for contract 0x1 (the special block hash contract). The
+        // OS expects this nonce to be 0, so we correct that here.
+        let nonce = if contract_address == Felt252::ONE { Felt252::ZERO } else { nonce };
+
         let contract_state = initial_contract_state.update(
             &mut initial_state.ffc,
             &storage_diff_item.storage_entries.iter().map(|entry| { (entry.key, entry.value) }).collect(),
