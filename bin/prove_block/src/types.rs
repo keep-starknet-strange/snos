@@ -50,6 +50,7 @@ fn invoke_tx_v0_to_internal_tx(tx: InvokeTransactionV0) -> InternalTransaction {
         contract_address: Some(felt_to_vm(tx.contract_address)),
         entry_point_selector: Some(felt_to_vm(tx.entry_point_selector)),
         calldata: Some(calldata),
+        version: Some(Felt252::ZERO),
         ..Default::default()
     }
 }
@@ -64,6 +65,7 @@ fn invoke_tx_v1_to_internal_tx(tx: InvokeTransactionV1) -> InternalTransaction {
         max_fee: Some(felt_to_vm(tx.max_fee)),
         signature: Some(signature),
         nonce: Some(felt_to_vm(tx.nonce)),
+        version: Some(Felt252::ONE),
         ..Default::default()
     }
 }
@@ -110,16 +112,20 @@ fn invoke_tx_v3_to_internal_tx(tx: InvokeTransactionV3) -> InternalTransaction {
         account_deployment_data: Some(account_deployment_data),
         nonce_data_availability_mode: Some(da_to_felt(tx.nonce_data_availability_mode)),
         fee_data_availability_mode: Some(da_to_felt(tx.fee_data_availability_mode)),
+        version: Some(Felt252::TWO),
         ..Default::default()
     }
 }
 
 fn invoke_tx_to_internal_tx(invoke_tx: InvokeTransaction) -> InternalTransaction {
-    match invoke_tx {
+    let mut internal_tx = match invoke_tx {
         InvokeTransaction::V0(invoke_v0_tx) => invoke_tx_v0_to_internal_tx(invoke_v0_tx),
         InvokeTransaction::V1(invoke_v1_tx) => invoke_tx_v1_to_internal_tx(invoke_v1_tx),
         InvokeTransaction::V3(invoke_v3_tx) => invoke_tx_v3_to_internal_tx(invoke_v3_tx),
-    }
+    };
+    internal_tx.r#type = "DECLARE".into();
+
+    internal_tx
 }
 
 pub(crate) fn starknet_rs_tx_to_internal_tx(tx: Transaction) -> InternalTransaction {
