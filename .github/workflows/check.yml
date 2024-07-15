@@ -38,7 +38,7 @@ jobs:
       - name: "Run tests"
         run: |
           # We need to pin the version of sympy, 1.13.0 is incompatible with cairo-lang
-          pip install cairo-lang==0.13.1a0 "sympy<1.13.0"
+          pip install cairo-lang==0.13.1 "sympy<1.13.0"
           bash ./scripts/reset-tests.sh
           RUSTFLAGS="-D warnings" cargo test
 
