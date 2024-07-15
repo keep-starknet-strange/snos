@@ -12,11 +12,12 @@ use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::L1HandlerTransaction;
 use blockifier::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 use rstest::{fixture, rstest};
+use snos::config;
 use snos::storage::storage_utils::deprecated_contract_class_api2vm;
-use starknet_api::core::{calculate_contract_address, ContractAddress, EntryPointSelector};
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::core::{calculate_contract_address, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{Calldata, ContractAddressSalt, TransactionSignature, TransactionVersion};
+use starknet_api::{contract_address, patricia_key, stark_felt};
 
 use crate::common::block_context;
 use crate::common::state::{init_logging, load_cairo0_contract, StarknetStateBuilder, StarknetTestState};
@@ -386,18 +387,18 @@ async fn prepare_extensive_os_test_params(
         vec![deploy_account_address.into()],
     ));
 
-    // txs.push(build_invoke_tx!(
-    //     &defaults,
-    //     nonce_manager,
-    //     get_contract_address_by_index(&deployed_txs_addresses, 0),
-    //     "test_call_contract",
-    //     vec![
-    //         delegate_proxy_address.into(),
-    //         selector_from_name("test_get_sequencer_address").0,
-    //         1u128.into(),
-    //         *fee_token_address.0, // This expects general_config.sequencer_address,
-    //     ],
-    // ));
+    txs.push(build_invoke_tx!(
+        &defaults,
+        nonce_manager,
+        get_contract_address_by_index(&deployed_txs_addresses, 0),
+        "test_call_contract",
+        vec![
+            delegate_proxy_address.into(),
+            selector_from_name("test_get_sequencer_address").0,
+            1u128.into(),
+            4096u128.into()
+        ],
+    ));
 
     // # Invoke the l1_handler deposit(from_address=85, amount=2) through the delegate proxy.
     let calldata_args = vec![stark_felt!(85_u16), stark_felt!(2_u16)];
