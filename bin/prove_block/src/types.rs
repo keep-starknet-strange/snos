@@ -123,7 +123,7 @@ fn invoke_tx_to_internal_tx(invoke_tx: InvokeTransaction) -> InternalTransaction
         InvokeTransaction::V1(invoke_v1_tx) => invoke_tx_v1_to_internal_tx(invoke_v1_tx),
         InvokeTransaction::V3(invoke_v3_tx) => invoke_tx_v3_to_internal_tx(invoke_v3_tx),
     };
-    internal_tx.r#type = "DECLARE".into();
+    internal_tx.r#type = "INVOKE_FUNCTION".into();
 
     internal_tx
 }
