@@ -16,13 +16,13 @@ use serde_json::json;
 use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use snos::crypto::pedersen::PedersenHash;
 use snos::error::SnOsError::Runner;
-use snos::execution::helper::ExecutionHelperWrapper;
+use snos::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
 use snos::io::input::StarknetOsInput;
 use snos::io::InternalTransaction;
 use snos::starknet::business_logic::fact_state::contract_class_objects::{get_ffc_for_contract_class_facts, ContractClassLeaf};
 use snos::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use snos::starknet::business_logic::fact_state::state::SharedState;
-use snos::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
+use snos::starknet::starknet_storage::{CommitmentInfo, OsSingleStarknetStorage, StorageLeaf};
 use snos::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use snos::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use snos::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
@@ -472,6 +472,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let previous_tree = &initial_state.contract_states;
 
     let mut contract_states = HashMap::new();
+    let mut contract_storages = ContractStorageMap::new();
     
     let num_storage_diffs = state_update.state_diff.storage_diffs.len();
     let mut updates = Vec::with_capacity(num_storage_diffs);
@@ -480,18 +481,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let storage_proof = &storage_proofs[&storage_diff_item.address];
         let nonce = state_update.state_diff.nonces[i].nonce;
 
-        let contract_address_biguint = storage_diff_item.address.to_biguint();
+        let contract_address = storage_diff_item.address;
+        log::warn!("contract address: {} (nonce: {})", contract_address, nonce);
+        let contract_address_biguint = contract_address.to_biguint();
 
         let address: ContractAddress =
-            ContractAddress(PatriciaKey::try_from(felt_vm2api(storage_diff_item.address)).unwrap());
-        let contract_state = initial_state.get_contract_state(address)?;
+            ContractAddress(PatriciaKey::try_from(felt_vm2api(contract_address)).unwrap());
+        let initial_contract_state = initial_state.get_contract_state(address)?;
+        let initial_tree = initial_contract_state.storage_commitment_tree.clone();
 
-        let contract_state = contract_state.update(
+        let contract_state = initial_contract_state.update(
             &mut initial_state.ffc,
             &storage_diff_item.storage_entries.iter().map(|entry| { (entry.key, entry.value) }).collect(),
             Some(nonce),
             None, // TODO: class hash
         ).await?;
+        let updated_tree = contract_state.storage_commitment_tree.clone();
 
         if storage_proof.class_commitment != contract_state.storage_commitment_tree.root.clone().into() {
             log::error!("expected class_commitment != computed class_commitment ({:?} != {:?})",
@@ -501,6 +506,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         updates.push((contract_address_biguint, contract_state.clone()));
         contract_states.insert(storage_diff_item.address, contract_state);
+
+        let contract_storage = OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], initial_state.ffc.clone()).await?;
+        contract_storages.insert(contract_address, contract_storage);
     }
     
     let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<CachedRpcStorage, PedersenHash, ContractState>(
@@ -523,8 +531,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         block_hash: block_with_txs.block_hash,
     };
     let execution_helper = ExecutionHelperWrapper::<CachedRpcStorage>::new(
+        contract_storages,
         Default::default(), // tx_execution_infos
-        Default::default(), // contract_storage_map
         &block_context,
         (old_block_number, old_block_hash),
     );
