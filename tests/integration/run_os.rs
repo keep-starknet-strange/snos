@@ -11,13 +11,14 @@ use blockifier::transaction::test_utils::{account_invoke_tx, calculate_class_inf
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::L1HandlerTransaction;
 use blockifier::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
+use cairo_vm::Felt252;
 use rstest::{fixture, rstest};
-use snos::config;
 use snos::storage::storage_utils::deprecated_contract_class_api2vm;
-use starknet_api::core::{calculate_contract_address, ContractAddress, EntryPointSelector, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use snos::utils::felt_api2vm;
+use starknet_api::core::{calculate_contract_address, ContractAddress, EntryPointSelector};
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt, TransactionSignature, TransactionVersion};
-use starknet_api::{contract_address, patricia_key, stark_felt};
 
 use crate::common::block_context;
 use crate::common::state::{init_logging, load_cairo0_contract, StarknetStateBuilder, StarknetTestState};
@@ -110,7 +111,7 @@ fn deploy_contract(
 
     txs.push(Transaction::AccountTransaction(invoke_tx));
 
-    let delegate_proxy_address = calculate_contract_address(
+    let contract_address = calculate_contract_address(
         ContractAddressSalt(salt),
         contract.class_hash,
         &Calldata(constructor_calldata.into()),
@@ -118,7 +119,7 @@ fn deploy_contract(
     )
     .map_err(|_| "Failed to calculate the contract address")?;
 
-    Ok(delegate_proxy_address)
+    Ok(contract_address)
 }
 
 #[fixture]
@@ -170,6 +171,7 @@ async fn run_os(#[future] initial_state_run_os_v1: StarknetTestState) {
     let deploy_account_address = inner_deploy_account_tx.contract_address;
     // assert_eq!(dummy_account.address, account_address);
     let deploy_account_tx = AccountTransaction::DeployAccount(inner_deploy_account_tx);
+    let mut deployed_contracts = vec![];
 
     let fund_account_tx_args = invoke_tx_args! {
         sender_address: fee_token_address,
@@ -187,13 +189,13 @@ async fn run_os(#[future] initial_state_run_os_v1: StarknetTestState) {
         &mut nonce_manager,
         account_address,
         deploy_account_address,
-        fee_token_address,
+        &mut deployed_contracts,
         block_context(),
     )
     .await;
 
     init_txns.append(&mut txns);
-    let res = execute_txs_and_run_os(
+    let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context(),
         init_txns,
@@ -203,7 +205,38 @@ async fn run_os(#[future] initial_state_run_os_v1: StarknetTestState) {
     .await
     .unwrap();
 
-    dbg!(res.1);
+    let output_messages_to_l1 = os_output.messages_to_l1;
+
+    // message_to_l1 = StarknetMessageToL1(
+    //     from_address=contract_addresses[0], to_address=85, payload=[12, 34]
+    // )
+
+    let expected_messages_to_l1: [Felt252; 5] = [
+        felt_api2vm(*deployed_contracts[0].0.key()), // from address
+        85.into(),                                   // to address
+        2.into(),                                    // PAYLOAD_SIZE
+        12.into(),                                   // PAYLOAD_1
+        34.into(),                                   // PAYLOAD_1
+    ];
+    assert_eq!(&*output_messages_to_l1, expected_messages_to_l1);
+
+    // message_to_l2 = StarknetMessageToL2(
+    //     from_address=85,
+    //     to_address=delegate_proxy_address,
+    //     l1_handler_selector=get_selector_from_name("deposit"),
+    //     payload=[2],
+    //     nonce=0,
+    // )
+    let expected_messages_to_l2: [Felt252; 6] = [
+        85.into(),                                   // from address
+        felt_api2vm(*deployed_contracts[3].0.key()), // the delegate_proxy_address
+        0.into(),                                    // Nonce
+        felt_api2vm(selector_from_name("deposit").0),
+        1u64.into(), // PAYLOAD_SIZE
+        2u64.into(), // PAYLOAD_1
+    ];
+
+    assert_eq!(os_output.messages_to_l2, expected_messages_to_l2);
 }
 
 async fn prepare_extensive_os_test_params(
@@ -211,11 +244,10 @@ async fn prepare_extensive_os_test_params(
     nonce_manager: &mut NonceManager,
     account_address: ContractAddress,
     deploy_account_address: ContractAddress,
-    fee_token_address: ContractAddress,
+    deployed_txs_addresses: &mut Vec<ContractAddress>,
     block_context: BlockContext,
 ) -> Vec<Transaction> {
     let mut txs = Vec::new();
-    let mut deployed_txs_addresses = Vec::new();
     let salts = vec![17u128, 42, 53];
     let calldatas = vec![vec![321u128, 543], vec![111, 987], vec![444, 0]];
 
@@ -448,11 +480,25 @@ async fn prepare_extensive_os_test_params(
     //         delegate_proxy_address.into(),
     //         selector_from_name("test_get_tx_info").0.into(),
     //         1u128.into(),
-    //         account_address.into(),
+    //         (*deploy_account_address.0).into(),
     //     ],
     //     vec![100u128.into()],
     // );
-    // txs.push(get_tx_info_tx);
+
+    // let tx_args = invoke_tx_args! {
+    //     sender_address: deploy_account_address,
+    //     calldata: create_calldata(get_contract_address_by_index(&deployed_txs_addresses, 0),
+    // "test_call_contract", &vec![         delegate_proxy_address.into(),
+    //         selector_from_name("test_get_tx_info").0.into(),
+    //         1u128.into(),
+    //         (*deploy_account_address.0).into(),
+    //     ]),
+    //     nonce: nonce_manager.next(deploy_account_address),
+    //     signature: TransactionSignature(vec![100u128.into()]),
+    //     max_fee: max_fee()
+    // };
+
+    // txs.push(Transaction::AccountTransaction(AccountTransaction::Invoke(invoke_tx(tx_args))));
 
     // # Declare test_contract2.
     let test_contract2 = initial_state.cairo0_contracts.get("test_contract2").unwrap();

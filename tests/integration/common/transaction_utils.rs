@@ -787,23 +787,26 @@ async fn execute_txs(
 
     state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
     let internal_txs: Vec<_> = txs.iter().map(to_internal_tx).collect();
-    let execution_infos = txs.into_iter().map(|tx| {
-        let tx_result = tx.execute(&mut state, block_context, true, true);
-        return match tx_result {
-            Err(e) => {
-                log::error!("Transaction failed in blockifier: {}", e);
-                panic!("A transaction failed during execution");
-            },
-            Ok(info) => {
-                if info.is_reverted() {
-                    log::error!("Transaction reverted: {:?}", info.revert_error);
-                    log::warn!("TransactionExecutionInfo: {:?}", info);
-                    panic!("A transaction reverted during execution");
+    let execution_infos = txs
+        .into_iter()
+        .map(|tx| {
+            let tx_result = tx.execute(&mut state, block_context, true, true);
+            return match tx_result {
+                Err(e) => {
+                    log::error!("Transaction failed in blockifier: {}", e);
+                    panic!("A transaction failed during execution");
                 }
-                info
-            }
-        };
-    }).collect();
+                Ok(info) => {
+                    if info.is_reverted() {
+                        log::error!("Transaction reverted: {:?}", info.revert_error);
+                        log::warn!("TransactionExecutionInfo: {:?}", info);
+                        panic!("A transaction reverted during execution");
+                    }
+                    info
+                }
+            };
+        })
+        .collect();
     os_hints(&block_context, state, internal_txs, execution_infos, deprecated_contract_classes, contract_classes).await
 }
 
