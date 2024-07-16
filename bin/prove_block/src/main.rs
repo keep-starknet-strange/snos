@@ -513,6 +513,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let contract_storage = OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], initial_state.ffc.clone()).await?;
         contract_storages.insert(contract_address, contract_storage);
     }
+
+    // insert ContractState for any contract that received a nonce update but not a storage update
+    for nonce_update in state_update.state_diff.nonces {
+        if ! contract_states.contains_key(&nonce_update.contract_address) {
+            contract_states.insert(nonce_update.contract_address, ContractState::empty(Height(251), &mut initial_state.ffc).await?);
+        }
+    }
     
     let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<CachedRpcStorage, PedersenHash, ContractState>(
         previous_tree.clone(),
