@@ -485,6 +485,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let storage_diff_item = &state_update.state_diff.storage_diffs[i];
         let storage_proof = &storage_proofs[&storage_diff_item.address];
         let contract_address = storage_diff_item.address;
+        
+        // TODO: as done below, we need to use the previous nonce, not the updated one. however, there isn't really any overlap
+        // between contracts with storage updates (no nonce updates) and account contracts (nonces are updated), so this would be a
+        // corner case for now
         let nonce = nonces.get(&contract_address).copied();
 
         log::debug!("contract with storage diff, address: {} (nonce: {:?})", contract_address, nonce);
