@@ -473,16 +473,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut contract_states = HashMap::new();
     let mut contract_storages = ContractStorageMap::new();
+
+    let nonces: HashMap<Felt252, Felt252> = state_update.state_diff.nonces.iter().map(|nu| (nu.contract_address, nu.nonce)).collect();
+    log::warn!("nonces: {:?}", nonces);
     
     let num_storage_diffs = state_update.state_diff.storage_diffs.len();
     let mut updates = Vec::with_capacity(num_storage_diffs);
     for i in 0..num_storage_diffs {
         let storage_diff_item = &state_update.state_diff.storage_diffs[i];
         let storage_proof = &storage_proofs[&storage_diff_item.address];
-        let nonce = state_update.state_diff.nonces[i].nonce;
-
         let contract_address = storage_diff_item.address;
-        log::warn!("contract address: {} (nonce: {})", contract_address, nonce);
+        let nonce = nonces.get(&contract_address).copied();
+
+        log::warn!("contract address: {} (nonce: {:?})", contract_address, nonce);
         let contract_address_biguint = contract_address.to_biguint();
 
         let address: ContractAddress =
@@ -490,14 +493,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let initial_contract_state = initial_state.get_contract_state(address)?;
         let initial_tree = initial_contract_state.storage_commitment_tree.clone();
 
-        // Pathfinder RPC seems to give us random nonce values for contract 0x1 (the special block hash contract). The
-        // OS expects this nonce to be 0, so we correct that here.
-        let nonce = if contract_address == Felt252::ONE { Felt252::ZERO } else { nonce };
-
         let contract_state = initial_contract_state.update(
             &mut initial_state.ffc,
             &storage_diff_item.storage_entries.iter().map(|entry| { (entry.key, entry.value) }).collect(),
-            Some(nonce),
+            nonce,
             None, // TODO: class hash
         ).await?;
         let updated_tree = contract_state.storage_commitment_tree.clone();
