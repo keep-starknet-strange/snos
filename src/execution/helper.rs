@@ -226,8 +226,8 @@ fn assert_iterators_exhausted(eh_ref: &ExecutionHelper) {
     assert!(eh_ref.execute_code_read_iter.clone().peekable().peek().is_none());
 }
 
-/// Required for recursive interation on 'inner_calls'
-trait GenCallIter {
+/// Required for recursive iteration on 'inner_calls'
+pub trait GenCallIter {
     fn gen_call_iterator(&self) -> IntoIter<CallInfo>;
 }
 

@@ -1,9 +1,12 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::context::BlockContext;
+use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::declare::declare_tx;
 use blockifier::test_utils::deploy_account::deploy_account_tx;
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::invoke::invoke_tx;
 use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -11,17 +14,25 @@ use blockifier::transaction::test_utils::{account_invoke_tx, calculate_class_inf
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::L1HandlerTransaction;
 use blockifier::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
-use cairo_vm::Felt252;
-use rstest::{fixture, rstest};
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use rstest::rstest;
+use snos::crypto::pedersen::PedersenHash;
+use snos::starknet::business_logic::fact_state::state::SharedState;
+use snos::starknet::business_logic::utils::write_deprecated_compiled_class_fact;
+use snos::storage::dict_storage::DictStorage;
+use snos::storage::storage::FactFetchingContext;
 use snos::storage::storage_utils::deprecated_contract_class_api2vm;
 use snos::utils::felt_api2vm;
-use starknet_api::core::{calculate_contract_address, ContractAddress, EntryPointSelector};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector,
+};
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt, TransactionSignature, TransactionVersion};
 
-use crate::common::block_context;
-use crate::common::state::{init_logging, load_cairo0_contract, StarknetStateBuilder, StarknetTestState};
+use crate::common::state::{load_cairo0_contract, Cairo0Contract, DeprecatedContractDeployment};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 use crate::declare_txn_tests::default_testing_resource_bounds;
 
@@ -65,7 +76,7 @@ fn get_contract_address_by_index(contracts: &Vec<ContractAddress>, index: usize)
 
 fn deploy_contract(
     contract: &str,
-    initial_state: &StarknetTestState,
+    cairo0_contracts: &HashMap<String, DeprecatedContractDeployment>,
     account_address: &ContractAddress,
     deploy_account_address: &ContractAddress,
     nonce_manager: &mut NonceManager,
@@ -73,7 +84,7 @@ fn deploy_contract(
     salt: StarkFelt,
     constructor_calldata: Vec<StarkFelt>,
 ) -> Result<ContractAddress, &'static str> {
-    let contract = initial_state.cairo0_contracts.get(contract).ok_or("Contract not found")?;
+    let contract = cairo0_contracts.get(contract).ok_or("Contract not found")?;
 
     let class = deprecated_contract_class_api2vm(&contract.class).map_err(|_| "Failed to get VM class")?;
 
@@ -122,11 +133,13 @@ fn deploy_contract(
     Ok(contract_address)
 }
 
-#[fixture]
-pub async fn initial_state_run_os_v1(
-    block_context: BlockContext,
-    #[from(init_logging)] _logging: (),
-) -> StarknetTestState {
+#[rstest]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn run_os() {
+    let mut nonce_manager = NonceManager::default();
+    let block_context = BlockContext::create_for_account_testing();
+    let mut address_generator = StdRng::seed_from_u64(1);
+
     let token_for_testing = load_cairo0_contract("token_for_testing");
     let dummy_token = load_cairo0_contract("dummy_token");
     let dummy_account = load_cairo0_contract("account_with_dummy_validate");
@@ -134,26 +147,53 @@ pub async fn initial_state_run_os_v1(
     let delegate_proxy_contract = load_cairo0_contract("delegate_proxy");
     let test_contract2 = load_cairo0_contract("test_contract2");
 
-    StarknetStateBuilder::new(&block_context)
-        .add_cairo0_contract(token_for_testing.0, token_for_testing.1)
-        .add_cairo0_contract(dummy_token.0, dummy_token.1)
-        .add_cairo0_contract(dummy_account.0, dummy_account.1)
-        .add_cairo0_contract(test_contract.0, test_contract.1)
-        .add_cairo0_contract(delegate_proxy_contract.0, delegate_proxy_contract.1)
-        .add_cairo0_contract(test_contract2.0, test_contract2.1)
-        .build()
+    let deprecated_compiled_classes =
+        [token_for_testing, dummy_token, dummy_account, test_contract, delegate_proxy_contract, test_contract2];
+
+    let mut ffc: FactFetchingContext<DictStorage, PedersenHash> = FactFetchingContext::new(DictStorage::default());
+    let mut dict_state_reader = DictStateReader::default();
+
+    let mut deployed_contracts = HashMap::<String, DeprecatedContractDeployment>::new();
+    let mut compiled_contract_classes = HashMap::<ClassHash, DeprecatedCompiledClass>::new();
+
+    let cairo0_contracts = deprecated_compiled_classes.iter().map(|c| {
+        (
+            c.0.clone(),
+            Cairo0Contract { deprecated_compiled_class: c.1.clone(), address: address_generator.gen::<u32>().into() },
+        )
+    });
+    for (name, contract) in cairo0_contracts {
+        let class_hash =
+            write_deprecated_compiled_class_fact(contract.deprecated_compiled_class.clone(), &mut ffc).await.unwrap();
+        let class_hash = ClassHash::try_from(class_hash).expect("Class hash is not in prime field");
+
+        // Add entries in the dict state
+        let vm_class = deprecated_contract_class_api2vm(&contract.deprecated_compiled_class).unwrap();
+        dict_state_reader.class_hash_to_class.insert(class_hash, vm_class);
+        dict_state_reader.class_hash_to_compiled_class_hash.insert(class_hash, CompiledClassHash(class_hash.0));
+
+        log::debug!("Inserting deprecated class_hash_to_class: {:?} -> {:?}", contract.address, class_hash);
+        dict_state_reader.address_to_class_hash.insert(contract.address.clone(), class_hash);
+
+        deployed_contracts.insert(
+            name.clone(),
+            DeprecatedContractDeployment {
+                class_hash,
+                address: contract.address.clone(),
+                class: contract.deprecated_compiled_class.clone(),
+            },
+        );
+        compiled_contract_classes.insert(class_hash, contract.deprecated_compiled_class.clone());
+    }
+
+    let shared_state = SharedState::from_blockifier_state(ffc, dict_state_reader)
         .await
-}
+        .expect("failed to apply initial state as updates to SharedState");
 
-#[rstest]
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn run_os(#[future] initial_state_run_os_v1: StarknetTestState) {
-    let mut nonce_manager = NonceManager::default();
-    let initial_state = initial_state_run_os_v1.await;
+    let mut cached_state = CachedState::from(shared_state);
 
-    let dummy_token = initial_state.cairo0_contracts.get("dummy_token").unwrap();
-    let dummy_account = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap();
-
+    let dummy_token = deployed_contracts.get("token_for_testing").unwrap();
+    let dummy_account = deployed_contracts.get("account_with_dummy_validate").unwrap();
     let deploy_token_tx_args = deploy_account_tx_args! {
         class_hash: dummy_token.class_hash,
         version: TransactionVersion::ONE,
@@ -169,9 +209,8 @@ async fn run_os(#[future] initial_state_run_os_v1: StarknetTestState) {
     let inner_deploy_account_tx = deploy_account_tx(deploy_account_tx_args, &mut nonce_manager);
     let account_address = dummy_account.address;
     let deploy_account_address = inner_deploy_account_tx.contract_address;
-    // assert_eq!(dummy_account.address, account_address);
+
     let deploy_account_tx = AccountTransaction::DeployAccount(inner_deploy_account_tx);
-    let mut deployed_contracts = vec![];
 
     let fund_account_tx_args = invoke_tx_args! {
         sender_address: fee_token_address,
@@ -184,26 +223,52 @@ async fn run_os(#[future] initial_state_run_os_v1: StarknetTestState) {
     let mut init_txns: Vec<Transaction> =
         vec![deploy_token_tx, fund_account_tx, deploy_account_tx].into_iter().map(Into::into).collect();
 
-    let mut txns = prepare_extensive_os_test_params(
-        &initial_state,
+    // let execution_infos: Vec<_> = init_txns
+    //     .into_iter()
+    //     .map(|tx| {
+    //         let tx_result = tx.execute(&mut cached_state, &block_context, true, true);
+    //         return match tx_result {
+    //             Err(e) => {
+    //                 log::error!("Transaction failed in blockifier: {}", e);
+    //                 panic!("A transaction failed during execution");
+    //             }
+    //             Ok(info) => {
+    //                 if info.is_reverted() {
+    //                     log::error!("Transaction reverted: {:?}", info.revert_error);
+    //                     log::warn!("TransactionExecutionInfo: {:?}", info);
+    //                     panic!("A transaction reverted during execution");
+    //                 }
+    //                 info
+    //             }
+    //         };
+    //     })
+    //     .collect();
+
+    // for execution_info in execution_infos.iter() {
+    //     for call_info in execution_info.gen_call_iterator() {
+    //         assert!(!call_info.execution.failed, "Unexpected reverted transaction.");
+    //     }
+    // }
+
+    let mut tx_contracts: Vec<_> = vec![];
+
+    let txns = prepare_extensive_os_test_params(
+        &deployed_contracts,
         &mut nonce_manager,
         account_address,
         deploy_account_address,
-        &mut deployed_contracts,
-        block_context(),
+        &mut tx_contracts,
+        &block_context,
     )
     .await;
 
-    init_txns.append(&mut txns);
-    let (_pie, os_output) = execute_txs_and_run_os(
-        initial_state.cached_state,
-        block_context(),
-        init_txns,
-        initial_state.cairo0_compiled_classes,
-        initial_state.cairo1_compiled_classes,
-    )
-    .await
-    .unwrap();
+    init_txns.extend(txns.into_iter());
+
+    // // init_txns.append(&mut txns);
+    let (_pie, os_output) =
+        execute_txs_and_run_os(cached_state, block_context, init_txns, compiled_contract_classes, Default::default())
+            .await
+            .unwrap();
 
     let output_messages_to_l1 = os_output.messages_to_l1;
 
@@ -211,12 +276,12 @@ async fn run_os(#[future] initial_state_run_os_v1: StarknetTestState) {
     //     from_address=contract_addresses[0], to_address=85, payload=[12, 34]
     // )
 
-    let expected_messages_to_l1: [Felt252; 5] = [
-        felt_api2vm(*deployed_contracts[0].0.key()), // from address
-        85.into(),                                   // to address
-        2.into(),                                    // PAYLOAD_SIZE
-        12.into(),                                   // PAYLOAD_1
-        34.into(),                                   // PAYLOAD_1
+    let expected_messages_to_l1 = [
+        felt_api2vm(*tx_contracts[0].0.key()), // from address
+        85.into(),                             // to address
+        2.into(),                              // PAYLOAD_SIZE
+        12.into(),                             // PAYLOAD_1
+        34.into(),                             // PAYLOAD_1
     ];
     assert_eq!(&*output_messages_to_l1, expected_messages_to_l1);
 
@@ -227,10 +292,10 @@ async fn run_os(#[future] initial_state_run_os_v1: StarknetTestState) {
     //     payload=[2],
     //     nonce=0,
     // )
-    let expected_messages_to_l2: [Felt252; 6] = [
-        85.into(),                                   // from address
-        felt_api2vm(*deployed_contracts[3].0.key()), // the delegate_proxy_address
-        0.into(),                                    // Nonce
+    let expected_messages_to_l2 = [
+        85.into(),                             // from address
+        felt_api2vm(*tx_contracts[3].0.key()), // the delegate_proxy_address
+        0.into(),                              // Nonce
         felt_api2vm(selector_from_name("deposit").0),
         1u64.into(), // PAYLOAD_SIZE
         2u64.into(), // PAYLOAD_1
@@ -240,25 +305,25 @@ async fn run_os(#[future] initial_state_run_os_v1: StarknetTestState) {
 }
 
 async fn prepare_extensive_os_test_params(
-    initial_state: &StarknetTestState,
+    cairo0_contracts: &HashMap<String, DeprecatedContractDeployment>,
     nonce_manager: &mut NonceManager,
     account_address: ContractAddress,
     deploy_account_address: ContractAddress,
     deployed_txs_addresses: &mut Vec<ContractAddress>,
-    block_context: BlockContext,
+    block_context: &BlockContext,
 ) -> Vec<Transaction> {
     let mut txs = Vec::new();
     let salts = vec![17u128, 42, 53];
     let calldatas = vec![vec![321u128, 543], vec![111, 987], vec![444, 0]];
 
-    let test_contract = initial_state.cairo0_contracts.get("test_contract_run_os").unwrap();
+    let test_contract = cairo0_contracts.get("test_contract_run_os").unwrap();
 
     for (salt, calldata) in salts.into_iter().zip(calldatas.into_iter()) {
         let constructor_calldata: Vec<_> = calldata.iter().map(|felt| stark_felt!(*felt)).collect();
         deployed_txs_addresses.push(
             deploy_contract(
                 "test_contract_run_os",
-                initial_state,
+                cairo0_contracts,
                 &account_address,
                 &deploy_account_address,
                 nonce_manager,
@@ -376,7 +441,7 @@ async fn prepare_extensive_os_test_params(
     ));
     let delegate_proxy_address = deploy_contract(
         "delegate_proxy",
-        initial_state,
+        cairo0_contracts,
         &account_address,
         &deploy_account_address,
         nonce_manager,
@@ -501,8 +566,8 @@ async fn prepare_extensive_os_test_params(
     // txs.push(Transaction::AccountTransaction(AccountTransaction::Invoke(invoke_tx(tx_args))));
 
     // # Declare test_contract2.
-    let test_contract2 = initial_state.cairo0_contracts.get("test_contract2").unwrap();
-    // initial_state.cairo0_contracts.get("test_contract2").unwrap();
+    let test_contract2 = cairo0_contracts.get("test_contract2").unwrap();
+
     deployed_txs_addresses.push(test_contract2.address);
 
     let class_hash = test_contract2.class_hash;
