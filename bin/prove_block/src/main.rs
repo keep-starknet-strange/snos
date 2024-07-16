@@ -252,13 +252,17 @@ fn init_logging() {
 // build state representing the end of the previous block on which the current
 // block can be built.
 // inspiration: TestSharedState::apply_state_updates_starknet_api()
+// 
+// Returns:
+// * a set of all contracts accessed
+// * a SharedState object representing storage for the changes provided
 async fn build_initial_state(
     ffc: FactFetchingContext<CachedRpcStorage, PedersenHash>,
     address_to_class_hash: HashMap<Felt252, Felt252>,
     address_to_nonce: HashMap<Felt252, Felt252>,
     class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
     storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>
-) -> Result<SharedState<CachedRpcStorage, PedersenHash>, Box<dyn Error>> {
+) -> Result<(HashSet<Felt252>, SharedState<CachedRpcStorage, PedersenHash>), Box<dyn Error>> {
     let shared_state = SharedState::empty(ffc).await?;
     
     let accessed_addresses_felts: HashSet<_> = address_to_class_hash
@@ -322,16 +326,17 @@ async fn build_initial_state(
         }
     };
 
-    // TODO: not needed, we don't need contract_addresses (right?)
-    // let accessed_addresses: HashSet<_> = accessed_addresses.into_iter().collect();
-    // let contract_addresses: HashSet<_> = self.contract_addresses.union(&accessed_addresses).cloned().collect();
+    let accessed_addresses: HashSet<_> = accessed_addresses.into_iter().map(|b| Felt252::from(b)).collect();
 
-    Ok(SharedState {
-        contract_states: updated_global_contract_root,
-        contract_classes: updated_contract_classes,
-        ffc,
-        ffc_for_class_hash: ffc_for_contract_class,
-    })
+    Ok((
+        accessed_addresses,
+        SharedState {
+            contract_states: updated_global_contract_root,
+            contract_classes: updated_contract_classes,
+            ffc,
+            ffc_for_class_hash: ffc_for_contract_class,
+        }
+    ))
 } 
 
 #[tokio::main]
@@ -400,7 +405,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // TODO: these maps that we pass in to build_initial_state() are built only on items from the
     // state diff, but we will need all items accessed in any way during the block (right?) which
     // probably means filling in the missing details with API calls
-    let address_to_class_hash = state_update
+    let mut address_to_class_hash: HashMap<_, _> = state_update
         .state_diff
         .deployed_contracts
         .iter()
@@ -414,7 +419,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .map(|nonce_update| (nonce_update.contract_address, nonce_update.nonce))
         .collect();
 
-    let class_hash_to_compiled_class_hash = state_update
+    let class_hash_to_compiled_class_hash: HashMap<_, _> = state_update
         .state_diff
         .declared_classes
         .iter()
@@ -431,13 +436,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
         })
         .collect();
 
-    let mut initial_state = build_initial_state(
+    // TODO: avoid expensive clones here, probably by letting build_initial_state() take references
+    let (accessed_contracts, mut initial_state) = build_initial_state(
         FactFetchingContext::new(cached_storage),
-        address_to_class_hash,
+        address_to_class_hash.clone(),
         address_to_nonce,
-        class_hash_to_compiled_class_hash,
+        class_hash_to_compiled_class_hash.clone(),
         storage_updates,
     ).await?;
+    
+    // fill in class hashes for each accessed contract
+    for address in accessed_contracts {
+        if address != Felt252::ONE && !address_to_class_hash.contains_key(&address) {
+            log::info!("Querying missing class hash for {}", address);
+            let class_hash = provider.get_class_hash_at(BlockId::Number(block_number), address).await.unwrap();
+            log::info!("Got class hash: {} => {}", address, class_hash);
+            address_to_class_hash.insert(address, class_hash);
+        }
+    }
     
     // write facts from proof
     for (_contract_address, proof) in &storage_proofs {
@@ -503,7 +519,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             &mut initial_state.ffc,
             &storage_diff_item.storage_entries.iter().map(|entry| { (entry.key, entry.value) }).collect(),
             nonce,
-            None, // TODO: class hash
+            address_to_class_hash.get(&contract_address).copied(),
         ).await?;
         let updated_tree = contract_state.storage_commitment_tree.clone();
 
@@ -560,7 +576,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         compiled_classes: Default::default(),
         compiled_class_visited_pcs: Default::default(),
         contracts: contract_states,
-        class_hash_to_compiled_class_hash: Default::default(),
+        class_hash_to_compiled_class_hash,
         general_config,
         transactions,
         block_hash: block_with_txs.block_hash,
