@@ -8,6 +8,9 @@ use starknet::core::types::{
 };
 use starknet_types_core::felt::Felt;
 
+// entry point for "__execute__"
+const EXECUTE_ENTRY_POINT_FELT: Felt252 = Felt252::from_hex_unchecked("0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad");
+
 fn felt_to_vm(felt: Felt) -> Felt252 {
     // Turns out that the types are the same between starknet-core and cairo-vm
     felt
@@ -61,11 +64,13 @@ fn invoke_tx_v1_to_internal_tx(tx: InvokeTransactionV1) -> InternalTransaction {
     InternalTransaction {
         hash_value: felt_to_vm(tx.transaction_hash),
         sender_address: Some(felt_to_vm(tx.sender_address)),
-        calldata: Some(calldata),
         max_fee: Some(felt_to_vm(tx.max_fee)),
         signature: Some(signature),
         nonce: Some(felt_to_vm(tx.nonce)),
         version: Some(Felt252::ONE),
+        contract_address: Some(calldata[1]),
+        entry_point_selector: Some(EXECUTE_ENTRY_POINT_FELT),
+        calldata: Some(calldata),
         ..Default::default()
     }
 }
@@ -103,7 +108,6 @@ fn invoke_tx_v3_to_internal_tx(tx: InvokeTransactionV3) -> InternalTransaction {
     InternalTransaction {
         hash_value: felt_to_vm(tx.transaction_hash),
         sender_address: Some(felt_to_vm(tx.sender_address)),
-        calldata: Some(calldata),
         signature: Some(signature),
         nonce: Some(felt_to_vm(tx.nonce)),
         resource_bounds: Some(resource_bounds_to_api(tx.resource_bounds)),
@@ -113,6 +117,9 @@ fn invoke_tx_v3_to_internal_tx(tx: InvokeTransactionV3) -> InternalTransaction {
         nonce_data_availability_mode: Some(da_to_felt(tx.nonce_data_availability_mode)),
         fee_data_availability_mode: Some(da_to_felt(tx.fee_data_availability_mode)),
         version: Some(Felt252::TWO),
+        contract_address: Some(calldata[0]),
+        entry_point_selector: Some(EXECUTE_ENTRY_POINT_FELT),
+        calldata: Some(calldata),
         ..Default::default()
     }
 }
