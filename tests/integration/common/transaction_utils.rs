@@ -793,14 +793,13 @@ async fn execute_txs(
             let tx_result = tx.execute(&mut state, block_context, true, true);
             return match tx_result {
                 Err(e) => {
-                    log::error!("Transaction failed in blockifier: {}", e);
-                    panic!("A transaction failed during execution");
+                    panic!("Transaction failed in blockifier: {}", e);
                 }
                 Ok(info) => {
                     if info.is_reverted() {
                         log::error!("Transaction reverted: {:?}", info.revert_error);
                         log::warn!("TransactionExecutionInfo: {:?}", info);
-                        panic!("A transaction reverted during execution");
+                        panic!("A transaction reverted during execution: {:?}", info);
                     }
                     info
                 }

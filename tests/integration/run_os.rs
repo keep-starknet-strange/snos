@@ -12,17 +12,18 @@ use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::test_utils::{account_invoke_tx, calculate_class_info_for_testing, max_fee};
 use blockifier::transaction::transaction_execution::Transaction;
-use blockifier::transaction::transactions::L1HandlerTransaction;
+use blockifier::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
 use blockifier::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rstest::rstest;
 use snos::crypto::pedersen::PedersenHash;
+use snos::execution::helper::GenCallIter;
 use snos::starknet::business_logic::fact_state::state::SharedState;
 use snos::starknet::business_logic::utils::write_deprecated_compiled_class_fact;
 use snos::storage::dict_storage::DictStorage;
 use snos::storage::storage::FactFetchingContext;
-use snos::storage::storage_utils::deprecated_contract_class_api2vm;
+use snos::storage::storage_utils::{deprecated_contract_class_api2vm, unpack_blockifier_state_async};
 use snos::utils::felt_api2vm;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector,
@@ -220,35 +221,35 @@ async fn run_os() {
 
     let fund_account_tx = AccountTransaction::Invoke(invoke_tx(fund_account_tx_args));
 
-    let mut init_txns: Vec<Transaction> =
+    let init_txns: Vec<Transaction> =
         vec![deploy_token_tx, fund_account_tx, deploy_account_tx].into_iter().map(Into::into).collect();
 
-    // let execution_infos: Vec<_> = init_txns
-    //     .into_iter()
-    //     .map(|tx| {
-    //         let tx_result = tx.execute(&mut cached_state, &block_context, true, true);
-    //         return match tx_result {
-    //             Err(e) => {
-    //                 log::error!("Transaction failed in blockifier: {}", e);
-    //                 panic!("A transaction failed during execution");
-    //             }
-    //             Ok(info) => {
-    //                 if info.is_reverted() {
-    //                     log::error!("Transaction reverted: {:?}", info.revert_error);
-    //                     log::warn!("TransactionExecutionInfo: {:?}", info);
-    //                     panic!("A transaction reverted during execution");
-    //                 }
-    //                 info
-    //             }
-    //         };
-    //     })
-    //     .collect();
+    let execution_infos: Vec<_> = init_txns
+        .into_iter()
+        .map(|tx| {
+            let tx_result = tx.execute(&mut cached_state, &block_context, true, true);
+            return match tx_result {
+                Err(e) => {
+                    log::error!("Transaction failed in blockifier: {}", e);
+                    panic!("A transaction failed during execution");
+                }
+                Ok(info) => {
+                    if info.is_reverted() {
+                        log::error!("Transaction reverted: {:?}", info.revert_error);
+                        log::warn!("TransactionExecutionInfo: {:?}", info);
+                        panic!("A transaction reverted during execution");
+                    }
+                    info
+                }
+            };
+        })
+        .collect();
 
-    // for execution_info in execution_infos.iter() {
-    //     for call_info in execution_info.gen_call_iterator() {
-    //         assert!(!call_info.execution.failed, "Unexpected reverted transaction.");
-    //     }
-    // }
+    for execution_info in execution_infos.iter() {
+        for call_info in execution_info.gen_call_iterator() {
+            assert!(!call_info.execution.failed, "Unexpected reverted transaction.");
+        }
+    }
 
     let mut tx_contracts: Vec<_> = vec![];
 
@@ -262,16 +263,18 @@ async fn run_os() {
     )
     .await;
 
-    init_txns.extend(txns.into_iter());
-
+    // init_txns.extend(txns.into_iter());
+    let (_, shared_state) = unpack_blockifier_state_async(cached_state).await.unwrap();
     // // init_txns.append(&mut txns);
+    let cached_state = CachedState::from(shared_state);
+
     let (_pie, os_output) =
-        execute_txs_and_run_os(cached_state, block_context, init_txns, compiled_contract_classes, Default::default())
+        execute_txs_and_run_os(cached_state, block_context, txns, compiled_contract_classes, Default::default())
             .await
             .unwrap();
+    dbg!(&os_output);
 
     let output_messages_to_l1 = os_output.messages_to_l1;
-
     // message_to_l1 = StarknetMessageToL1(
     //     from_address=contract_addresses[0], to_address=85, payload=[12, 34]
     // )
@@ -536,31 +539,20 @@ async fn prepare_extensive_os_test_params(
         vec![100u128.into(), 200u128.into()],
     ));
 
-    // let get_tx_info_tx = build_invoke_tx!(
-    //     &defaults,
-    //     nonce_manager,
-    //     get_contract_address_by_index(&deployed_txs_addresses, 0),
-    //     "test_call_contract",
-    //     vec![
-    //         delegate_proxy_address.into(),
-    //         selector_from_name("test_get_tx_info").0.into(),
-    //         1u128.into(),
-    //         (*deploy_account_address.0).into(),
-    //     ],
-    //     vec![100u128.into()],
-    // );
-
+    // UNCOMMENT THIS
     // let tx_args = invoke_tx_args! {
     //     sender_address: deploy_account_address,
     //     calldata: create_calldata(get_contract_address_by_index(&deployed_txs_addresses, 0),
-    // "test_call_contract", &vec![         delegate_proxy_address.into(),
+    //     "test_call_contract",
+    //     &vec![
+    //         delegate_proxy_address.into(),
     //         selector_from_name("test_get_tx_info").0.into(),
     //         1u128.into(),
     //         (*deploy_account_address.0).into(),
     //     ]),
     //     nonce: nonce_manager.next(deploy_account_address),
     //     signature: TransactionSignature(vec![100u128.into()]),
-    //     max_fee: max_fee()
+    //     // max_fee: max_fee()
     // };
 
     // txs.push(Transaction::AccountTransaction(AccountTransaction::Invoke(invoke_tx(tx_args))));
