@@ -13,7 +13,7 @@ use clap::Parser;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
-use snos::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
+use snos::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
 use snos::crypto::pedersen::PedersenHash;
 use snos::error::SnOsError::Runner;
 use snos::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
@@ -352,6 +352,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Step 1: build the block context
     let chain_id = provider.chain_id().await?.to_string();
+    log::debug!("provider's chain_id: {}", chain_id);
     let block_with_txs = match provider.get_block_with_txs(BlockId::Number(block_number)).await? {
         MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
         MaybePendingBlockWithTxs::PendingBlock(_) => {
@@ -386,7 +387,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let _traces =
         provider.trace_block_transactions(BlockId::Number(block_number)).await.expect("Failed to get block tx traces");
 
-    let block_context = build_block_context(chain_id, &block_with_txs).await.unwrap();
+    let block_context = build_block_context(chain_id.clone(), &block_with_txs).await.unwrap();
 
     let old_block_number = Felt252::from(older_block.block_number);
     let old_block_hash = older_block.block_hash;
@@ -460,7 +461,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let general_config = StarknetGeneralConfig {
         starknet_os_config: StarknetOsConfig {
-            chain_id: default_general_config.starknet_os_config.chain_id,
+            // TODO: the string given by provider is in decimal, the OS expects hex
+            // chain_id: starknet_api::core::ChainId(chain_id.clone()),
+            chain_id: starknet_api::core::ChainId(SN_SEPOLIA.to_string()),
             fee_token_address: block_context.chain_info().fee_token_addresses.strk_fee_token_address,
             deprecated_fee_token_address: block_context.chain_info().fee_token_addresses.eth_fee_token_address,
         },

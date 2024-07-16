@@ -63,14 +63,16 @@ fn invoke_tx_v1_to_internal_tx(tx: InvokeTransactionV1) -> InternalTransaction {
 
     InternalTransaction {
         hash_value: felt_to_vm(tx.transaction_hash),
-        sender_address: Some(felt_to_vm(tx.sender_address)),
-        max_fee: Some(felt_to_vm(tx.max_fee)),
-        signature: Some(signature),
-        nonce: Some(felt_to_vm(tx.nonce)),
         version: Some(Felt252::ONE),
-        contract_address: Some(calldata[1]),
+        contract_address: Some(tx.sender_address),
+        nonce: Some(tx.nonce),
+        sender_address: Some(tx.sender_address),
         entry_point_selector: Some(EXECUTE_ENTRY_POINT_FELT),
+        entry_point_type: Some("EXTERNAL".to_string()),
+        signature: Some(signature),
         calldata: Some(calldata),
+        r#type: "INVOKE_FUNCTION".to_string(),
+        max_fee: Some(tx.max_fee),
         ..Default::default()
     }
 }
@@ -117,8 +119,9 @@ fn invoke_tx_v3_to_internal_tx(tx: InvokeTransactionV3) -> InternalTransaction {
         nonce_data_availability_mode: Some(da_to_felt(tx.nonce_data_availability_mode)),
         fee_data_availability_mode: Some(da_to_felt(tx.fee_data_availability_mode)),
         version: Some(Felt252::TWO),
-        contract_address: Some(calldata[0]),
+        contract_address: Some(tx.sender_address),
         entry_point_selector: Some(EXECUTE_ENTRY_POINT_FELT),
+        entry_point_type: Some("EXTERNAL".to_string()),
         calldata: Some(calldata),
         ..Default::default()
     }
