@@ -39,7 +39,7 @@ use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
-use starknet_api::{contract_address, patricia_key};
+use starknet_api::{contract_address, patricia_key, stark_felt};
 use starknet_types_core::felt::Felt;
 
 use crate::types::starknet_rs_tx_to_internal_tx;
@@ -192,7 +192,7 @@ type CachedRpcStorage = CachedStorage<RpcStorage>;
 
 impl Storage for RpcStorage {
     async fn set_value(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StorageError> {
-        log::warn!("RpcStorage ignoring attempt to write storage - {:?}: {:?}", key, value);
+        // log::warn!("RpcStorage ignoring attempt to write storage - {:?}: {:?}", key, value);
         Ok(())
     }
 
@@ -443,12 +443,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         for node in &proof.contract_proof {
             match node {
                 ContractProofNode::Binary { left, right } => {
-                    log::info!("writing binary node...");
+                    // log::info!("writing binary node...");
                     let fact = BinaryNodeFact::new((*left).into(), (*right).into())?;
                     fact.set_fact(&mut initial_state.ffc).await?;
                 },
                 ContractProofNode::Edge { child, path } => {
-                    log::info!("writing edge node...");
+                    // log::info!("writing edge node...");
                     let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))?;
                     fact.set_fact(&mut initial_state.ffc).await?;
                 },
@@ -475,7 +475,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut contract_storages = ContractStorageMap::new();
 
     let nonces: HashMap<Felt252, Felt252> = state_update.state_diff.nonces.iter().map(|nu| (nu.contract_address, nu.nonce)).collect();
-    log::warn!("nonces: {:?}", nonces);
     
     let num_storage_diffs = state_update.state_diff.storage_diffs.len();
     let mut updates = Vec::with_capacity(num_storage_diffs);
@@ -485,7 +484,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let contract_address = storage_diff_item.address;
         let nonce = nonces.get(&contract_address).copied();
 
-        log::warn!("contract address: {} (nonce: {:?})", contract_address, nonce);
+        log::debug!("contract with storage diff, address: {} (nonce: {:?})", contract_address, nonce);
         let contract_address_biguint = contract_address.to_biguint();
 
         let address: ContractAddress =
