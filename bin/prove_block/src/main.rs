@@ -519,7 +519,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // insert ContractState for any contract that received a nonce update but not a storage update
     for nonce_update in state_update.state_diff.nonces {
         if ! contract_states.contains_key(&nonce_update.contract_address) {
-            contract_states.insert(nonce_update.contract_address, ContractState::empty(Height(251), &mut initial_state.ffc).await?);
+            let mut contract_state = ContractState::empty(Height(251), &mut initial_state.ffc).await?;
+
+            // we receive the new nonce, but need to configure SNOS with the previous nonce. since
+            // any given account could have more than one txn in this block, we need to count them
+            // in order to derive the original nonce.
+            // TODO: review -- is there a better way to do this? we could also query RPC for it...
+            let num_nonce_bumps = Felt252::from(transactions.iter().fold(0, |acc, tx| {
+                acc + if tx.sender_address == Some(nonce_update.contract_address) { 1 } else { 0 }
+            }));
+            assert!(nonce_update.nonce > num_nonce_bumps);
+            let previous_nonce = nonce_update.nonce - num_nonce_bumps;
+            log::debug!("probably-account contract {} nonce: {} - {} => {}",
+                nonce_update.contract_address,
+                nonce_update.nonce,
+                num_nonce_bumps,
+                previous_nonce,
+            );
+
+            contract_state.nonce = previous_nonce;
+            contract_states.insert(nonce_update.contract_address, contract_state);
         }
     }
     
