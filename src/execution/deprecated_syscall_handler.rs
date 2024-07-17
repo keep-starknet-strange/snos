@@ -13,8 +13,9 @@ use crate::cairo_types::syscalls::{
     GetContractAddress, GetContractAddressResponse, GetSequencerAddress, GetSequencerAddressResponse, GetTxInfo,
     GetTxInfoResponse, GetTxSignature, GetTxSignatureResponse, LibraryCall, TxInfo,
 };
+use crate::starknet::starknet_storage::OsSingleStarknetStorage;
 use crate::storage::storage::Storage;
-use crate::utils::felt_api2vm;
+use crate::utils::{felt_api2vm, felt_vm2api};
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
@@ -31,7 +32,7 @@ pub struct DeprecatedOsSyscallHandlerWrapper<S: Storage + Clone> {
     pub deprecated_syscall_handler: Rc<RwLock<DeprecatedOsSyscallHandler<S>>>,
 }
 
-impl<S: Storage + Clone> DeprecatedOsSyscallHandlerWrapper<S> {
+impl<S: Storage + Clone + 'static> DeprecatedOsSyscallHandlerWrapper<S> {
     // TODO(#69): implement the syscalls
     pub fn new(exec_wrapper: ExecutionHelperWrapper<S>, syscall_ptr: Relocatable, block_info: BlockInfo) -> Self {
         Self {
@@ -246,9 +247,59 @@ impl<S: Storage + Clone> DeprecatedOsSyscallHandlerWrapper<S> {
     pub fn send_message_to_l1(&self) {
         // Nothing to do
     }
-    pub async fn storage_read(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
-        let sys_hand = self.deprecated_syscall_handler.write().await;
-        let value =
+    pub async fn storage_read(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine, address: Felt252) -> Result<(), HintError> {
+        let mut sys_hand = self.deprecated_syscall_handler.write().await;
+
+        /*
+         * this attempts to infer the cotract address from the current call_info.call.code_address, but this is None [sometimes]
+         * 
+        let contract_address = sys_hand
+            .exec_wrapper
+            .execution_helper
+            .read()
+            .await
+            .call_info
+            .as_ref()
+            .expect("must have current call info to call storage_read()")
+            .call
+            .code_address
+            .expect("Current call should have code_address when storage_read is called");
+        */
+
+        let contract_address = sys_hand
+            .exec_wrapper
+            .execution_helper
+            .read()
+            .await
+            .call_info
+            .as_ref()
+            .expect("must have current call info to call storage_read()")
+            .call
+            .storage_address;
+
+        let contract_address = felt_api2vm(*contract_address.0.key());
+
+        let value = sys_hand
+            .exec_wrapper
+            .execution_helper
+            .write()
+            .await
+            .storage_by_address
+            .get_mut(&contract_address)
+            .expect("storage_by_address should contain currently executed contract")
+            .read(address)
+            .await
+            .ok_or(HintError::SyscallError(
+                    format!("Storage not found for contract {} at address {}", contract_address, address)
+                    .to_string()
+                    .into_boxed_str()
+            ))?;
+        
+
+
+        // TODO: remove if we can deprecate this. We leave it here so we drain the iterator, which is expected to be empty
+        // at some later point.
+        let _ =
             sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next().ok_or(
                 HintError::SyscallError("No more storage reads available to replay".to_string().into_boxed_str()),
             )?;

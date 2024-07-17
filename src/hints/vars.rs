@@ -34,6 +34,7 @@ pub mod scopes {
 
 pub mod ids {
     pub const ADDITIONAL_DATA: &str = "additional_data";
+    pub const ADDRESS: &str = "address";
     pub const ALL_ENCODINGS: &str = "all_encodings";
     pub const BIT: &str = "bit";
     pub const BUILTIN_PARAMS: &str = "builtin_params";

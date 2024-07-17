@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_ptr_from_var_name, insert_value_from_var_name};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
+use cairo_vm::hint_processor::hint_processor_utils::get_integer_from_reference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -308,7 +309,12 @@ pub async fn storage_read_async<S: Storage + Clone + 'static>(
     let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
-    syscall_handler.storage_read(syscall_ptr, vm).await?;
+    // TODO: address is passed to calling fn in OS, but should also be available from syscall ptr
+    /// let address = get_integer_from_var_name(vars::ids::ADDRESS, vm, ids_data, ap_tracking)?;
+
+    let address = vm.get_integer((syscall_ptr + 1usize).unwrap())?.into_owned();
+
+    syscall_handler.storage_read(syscall_ptr, vm, address).await?;
 
     Ok(())
 }
