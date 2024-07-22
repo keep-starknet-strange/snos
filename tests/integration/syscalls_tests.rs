@@ -28,14 +28,14 @@ async fn test_syscall_library_call_cairo1(
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
-    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.cairo1_contracts.get("test_contract").unwrap();
+    let sender_address = initial_state.deployed_cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo1_contracts.get("test_contract").unwrap();
 
     let contract_address = test_contract.address;
 
     // Call the `return_result` method of the test contract class,
     // i.e. the test contract will call its own class.
-    let test_contract_class_hash = test_contract.class_hash;
+    let test_contract_class_hash = test_contract.declaration.class_hash;
     let selector_felt = selector_from_name("recurse");
 
     let return_result_calldata = vec![stark_felt!(1u128), stark_felt!(42u128)];
@@ -77,13 +77,13 @@ async fn test_syscall_replace_class_cairo1(
 ) {
     let initial_state = initial_state_syscalls.await;
 
-    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.cairo1_contracts.get("test_contract").unwrap();
+    let sender_address = initial_state.deployed_cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo1_contracts.get("test_contract").unwrap();
     let contract_address = test_contract.address;
 
     let tx_version = TransactionVersion::ZERO;
 
-    let class_hash = test_contract.class_hash;
+    let class_hash = test_contract.declaration.class_hash;
 
     let mut nonce_manager = NonceManager::default();
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {

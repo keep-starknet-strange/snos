@@ -36,7 +36,7 @@ async fn declare_v3_cairo1_account(
     let tx_version = TransactionVersion::THREE;
     let mut nonce_manager = NonceManager::default();
 
-    let account_contract = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap();
+    let account_contract = initial_state.deployed_cairo1_contracts.get("account_with_dummy_validate").unwrap();
 
     // We want to declare a fresh (never-before-declared) contract, so we don't want to reuse
     // anything from the test fixtures, and we need to do it "by hand". The transaction will
@@ -95,7 +95,7 @@ async fn declare_cairo1_account(
     let tx_version = TransactionVersion::TWO;
     let mut nonce_manager = NonceManager::default();
 
-    let account_contract = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap();
+    let account_contract = initial_state.deployed_cairo1_contracts.get("account_with_dummy_validate").unwrap();
 
     // We want to declare a fresh (never-before-declared) contract, so we don't want to reuse
     // anything from the test fixtures, and we need to do it "by hand". The transaction will
@@ -152,14 +152,14 @@ async fn declare_v1_cairo0_account(
 
     let mut nonce_manager = NonceManager::default();
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.cairo0_contracts.get("test_contract").unwrap();
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap();
 
     let tx_version = TransactionVersion::ONE;
 
-    let class_hash = test_contract.class_hash;
+    let class_hash = test_contract.declaration.class_hash;
 
-    let class = deprecated_contract_class_api2vm(&test_contract.class).unwrap();
+    let class = deprecated_contract_class_api2vm(&test_contract.declaration.class).unwrap();
 
     let class_info = calculate_class_info_for_testing(class);
 

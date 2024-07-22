@@ -81,9 +81,9 @@ async fn deploy_cairo0_account(
     let tx_version = TransactionVersion::ONE;
     let mut nonce_manager = NonceManager::default();
 
-    let account_with_long_validate = initial_state.cairo0_contracts.get("account_with_long_validate").unwrap();
+    let account_with_long_validate = initial_state.deployed_cairo0_contracts.get("account_with_long_validate").unwrap();
 
-    let deployed_account_class_hash = account_with_long_validate.class_hash;
+    let deployed_account_class_hash = account_with_long_validate.declaration.class_hash;
     // Sanity check, as we hardcode the class hash in the fixture we verify that we have
     // the right one.
     assert_eq!(deploy_args.class_hash, deployed_account_class_hash);
@@ -172,9 +172,9 @@ async fn deploy_cairo1_account(
 
     let tx_version = TransactionVersion::THREE;
     let mut nonce_manager = NonceManager::default();
-    let account_with_long_validate = initial_state.cairo1_contracts.get("account_with_long_validate").unwrap();
+    let account_with_long_validate = initial_state.deployed_cairo1_contracts.get("account_with_long_validate").unwrap();
 
-    let deployed_account_class_hash = account_with_long_validate.class_hash;
+    let deployed_account_class_hash = account_with_long_validate.declaration.class_hash;
     // Sanity check, as we hardcode the class hash in the fixture we verify that we have
     // the right one.
     assert_eq!(deploy_args.class_hash, deployed_account_class_hash);
