@@ -212,6 +212,7 @@ impl ExecutionHelperWrapper {
 
         let mut commitments = HashMap::new();
         for (key, storage) in storage_by_address.iter_mut() {
+            log::debug!("key: {} ({})", key.to_hex_string(), key.to_string());
             let commitment_info = storage.compute_commitment().await?;
             commitments.insert(*key, commitment_info);
         }
