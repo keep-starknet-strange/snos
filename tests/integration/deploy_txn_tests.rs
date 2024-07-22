@@ -59,8 +59,8 @@ pub async fn initial_state_for_deploy_v1(
     .expect("Failed to calculate the contract address");
 
     let state = StarknetStateBuilder::new(&block_context)
-        .add_cairo0_contract(account_with_dummy_validate.0, account_with_dummy_validate.1)
-        .add_cairo0_contract(account_with_long_validate.0, account_with_long_validate.1)
+        .deploy_cairo0_contract(account_with_dummy_validate.0, account_with_dummy_validate.1)
+        .deploy_cairo0_contract(account_with_long_validate.0, account_with_long_validate.1)
         .fund_account(deployed_contract_address, BALANCE, BALANCE)
         .set_default_balance(BALANCE, BALANCE)
         .build()
@@ -142,12 +142,16 @@ pub async fn initial_state_for_deploy_v3(
     .expect("Failed to calculate the contract address");
 
     let state = StarknetStateBuilder::new(&block_context)
-        .add_cairo1_contract(
+        .deploy_cairo1_contract(
             account_with_dummy_validate.0,
             account_with_dummy_validate.1,
             account_with_dummy_validate.2,
         )
-        .add_cairo1_contract(account_with_long_validate.0, account_with_long_validate.1, account_with_long_validate.2)
+        .deploy_cairo1_contract(
+            account_with_long_validate.0,
+            account_with_long_validate.1,
+            account_with_long_validate.2,
+        )
         .fund_account(deployed_contract_address, BALANCE, BALANCE)
         .set_default_balance(BALANCE, BALANCE)
         .build()
