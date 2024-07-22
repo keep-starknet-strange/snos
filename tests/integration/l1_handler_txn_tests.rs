@@ -20,7 +20,7 @@ async fn l1_initial_state_cairo1(
     #[from(init_logging)] _logging: (),
 ) -> (StarknetTestState, ContractAddress) {
     let state = initial_state_syscalls(block_context, ()).await;
-    let contract_address = state.cairo1_contracts.get("test_contract").unwrap().address;
+    let contract_address = state.deployed_cairo1_contracts.get("test_contract").unwrap().address;
     (state, contract_address)
 }
 
@@ -30,7 +30,7 @@ async fn l1_initial_state_cairo0(
     #[from(init_logging)] _logging: (),
 ) -> (StarknetTestState, ContractAddress) {
     let state = initial_state_cairo0(block_context, ()).await;
-    let contract_address = state.cairo0_contracts.get("test_contract").unwrap().address;
+    let contract_address = state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
     (state, contract_address)
 }
 
