@@ -12,7 +12,7 @@ use crate::cairo_types::new_syscalls;
 use crate::execution::constants::{
     BLOCK_HASH_CONTRACT_ADDRESS, CALL_CONTRACT_GAS_COST, DEPLOY_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST,
     GET_EXECUTION_INFO_GAS_COST, LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST,
-    STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
+    STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST, KECCAK_GAS_COST, KECCAK_FULL_RATE_IN_U64S,
 };
 use crate::execution::syscall_handler_utils::{
     felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest, EmptyResponse,
@@ -102,6 +102,9 @@ impl OsSyscallHandlerWrapper {
             }
             SyscallSelector::LibraryCallL1Handler => {
                 run_handler::<LibraryCallHandler>(ptr, vm, ehw, LIBRARY_CALL_GAS_COST).await
+            }
+            SyscallSelector::Keccak => {
+                run_handler::<KeccakHandler>(ptr, vm, ehw, KECCAK_GAS_COST).await
             }
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;
@@ -483,29 +486,42 @@ impl SyscallHandler for StorageWriteHandler {
     }
 }
 
-// TODO: Keccak syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct KeccakRequest {
-//     pub input_start: Relocatable,
-//     pub input_end: Relocatable,
-// }
-//
-// impl SyscallRequest for KeccakRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<KeccakRequest> {
-//         let input_start = vm.get_relocatable(*ptr)?;
-//         *ptr = (*ptr + 1)?;
-//         let input_end = vm.get_relocatable(*ptr)?;
-//         *ptr = (*ptr + 1)?;
-//         Ok(KeccakRequest { input_start, input_end })
-//     }
-// }
-//
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct KeccakResponse {
-//     pub result_low: Felt252,
-//     pub result_high: Felt252,
-// }
-//
+pub struct KeccakHandler;
+pub struct KeccakRequest {
+    pub input_start: Relocatable,
+    pub input_end: Relocatable,
+}
+pub struct KeccakResponse {
+    pub result_low: Felt252,
+    pub result_high: Felt252,
+}
+
+impl SyscallHandler for KeccakHandler {
+    type Request = KeccakRequest;
+    type Response = KeccakResponse;
+
+    fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request> {
+        let input_start = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        let input_end = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        Ok(KeccakRequest { input_start, input_end }) 
+    }
+
+    async fn execute(
+            request: Self::Request,
+            vm: &mut VirtualMachine,
+            exec_wrapper: &mut ExecutionHelperWrapper,
+            remaining_gas: &mut u64,
+        ) -> SyscallResult<Self::Response> {
+        todo!();
+    }
+
+    fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        todo!();
+    }
+} 
+
 // impl SyscallResponse for KeccakResponse {
 //     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
 //         write_felt(vm, ptr, self.result_low)?;
