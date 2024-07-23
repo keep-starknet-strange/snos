@@ -12,6 +12,7 @@ use rstest::fixture;
 pub mod block_utils;
 pub mod blockifier_contracts;
 mod contract_fixtures;
+pub mod os_itest_contracts;
 pub mod state;
 pub mod transaction_utils;
 pub mod utils;

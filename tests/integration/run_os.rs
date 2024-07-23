@@ -32,9 +32,9 @@ use starknet_api::transaction::{
 };
 
 use crate::common::block_context;
-use crate::common::state::{
-    init_logging, load_cairo0_contract, DeclaredDeprecatedContract, StarknetStateBuilder, StarknetTestState,
-};
+use crate::common::blockifier_contracts::load_cairo0_feature_contract;
+use crate::common::os_itest_contracts::load_os_itest_contract;
+use crate::common::state::{init_logging, DeclaredDeprecatedContract, StarknetStateBuilder, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 use crate::declare_txn_tests::default_testing_resource_bounds;
 
@@ -540,12 +540,12 @@ pub async fn initial_state_full_itests(
     block_context: BlockContext,
     #[from(init_logging)] _logging: (),
 ) -> StarknetTestState {
-    let account_with_dummy_validate = load_cairo0_contract("account_with_dummy_validate");
-    let delegate_proxy = load_cairo0_contract("delegate_proxy");
-    let dummy_token = load_cairo0_contract("dummy_token");
-    let test_contract_run_os = load_cairo0_contract("test_contract_run_os");
-    let test_contract2 = load_cairo0_contract("test_contract2");
-    let token_for_testing = load_cairo0_contract("token_for_testing");
+    let account_with_dummy_validate = load_cairo0_feature_contract("account_with_dummy_validate");
+    let delegate_proxy = load_os_itest_contract("delegate_proxy");
+    let dummy_token = load_os_itest_contract("dummy_token");
+    let test_contract_run_os = load_os_itest_contract("test_contract_run_os");
+    let test_contract2 = load_os_itest_contract("test_contract2");
+    let token_for_testing = load_os_itest_contract("token_for_testing");
 
     StarknetStateBuilder::new(&block_context)
         .declare_cairo0_contract(account_with_dummy_validate.0, account_with_dummy_validate.1)
