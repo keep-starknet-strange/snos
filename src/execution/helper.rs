@@ -239,6 +239,7 @@ impl ExecutionHelperWrapper {
 
         let mut commitments = HashMap::new();
         for (key, storage) in storage_by_address.iter_mut() {
+            log::debug!("key: {} ({})", key.to_hex_string(), key.to_string());
             let commitment_info = storage.compute_commitment().await?;
             commitments.insert(*key, commitment_info);
         }
@@ -253,8 +254,8 @@ fn assert_iterators_exhausted(eh_ref: &ExecutionHelper) {
     assert!(eh_ref.execute_code_read_iter.clone().peekable().peek().is_none());
 }
 
-/// Required for recursive interation on 'inner_calls'
-trait GenCallIter {
+/// Required for recursive iteration on 'inner_calls'
+pub trait GenCallIter {
     fn gen_call_iterator(&self) -> IntoIter<CallInfo>;
 }
 

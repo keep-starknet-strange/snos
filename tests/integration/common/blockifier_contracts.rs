@@ -28,3 +28,8 @@ pub fn get_feature_sierra_contract_class(contract_name: &str) -> ContractClass {
     log::debug!("Getting contract at {:?}", contract_rel_path);
     get_compiled_sierra_class(&contract_rel_path)
 }
+
+/// Helper to load a Cairo 0 contract class.
+pub fn load_cairo0_feature_contract(name: &str) -> (String, DeprecatedCompiledClass) {
+    (name.to_string(), get_deprecated_feature_contract_class(name))
+}

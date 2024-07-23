@@ -50,9 +50,9 @@ echo -e "compiling starknet contracts...\n"
 mkdir -p build/contracts
 mkdir -p build/pie
 ln -sf cairo-lang/src/starkware starkware
-starknet-compile-deprecated tests/integration/contracts/token_for_testing.cairo --output build/contracts/token_for_testing.json --cairo_path cairo-lang/src --account_contract
-starknet-compile-deprecated tests/integration/contracts/dummy_account.cairo --output build/contracts/dummy_account.json --cairo_path cairo-lang/src --account_contract
-starknet-compile-deprecated tests/integration/contracts/dummy_token.cairo --output build/contracts/dummy_token.json --cairo_path cairo-lang/src --account_contract
-starknet-compile-deprecated tests/integration/contracts/delegate_proxy.cairo --output build/contracts/delegate_proxy.json --cairo_path cairo-lang/src
-starknet-compile-deprecated tests/integration/contracts/test_contract.cairo --output build/contracts/test_contract.json --cairo_path cairo-lang/src
-starknet-compile-deprecated tests/integration/contracts/test_contract2.cairo --output build/contracts/test_contract2.json --cairo_path cairo-lang/src
+starknet-compile-deprecated tests/integration/contracts/os_itest_contracts/token_for_testing.cairo --output build/contracts/token_for_testing.json --cairo_path cairo-lang/src --account_contract
+starknet-compile-deprecated tests/integration/contracts/os_itest_contracts/dummy_account.cairo --output build/contracts/dummy_account.json --cairo_path cairo-lang/src --account_contract
+starknet-compile-deprecated tests/integration/contracts/os_itest_contracts/dummy_token.cairo --output build/contracts/dummy_token.json --cairo_path cairo-lang/src --account_contract
+starknet-compile-deprecated tests/integration/contracts/os_itest_contracts/delegate_proxy.cairo --output build/contracts/delegate_proxy.json --cairo_path cairo-lang/src
+starknet-compile-deprecated tests/integration/contracts/os_itest_contracts/test_contract.cairo --output build/contracts/test_contract.json --cairo_path cairo-lang/src
+starknet-compile-deprecated tests/integration/contracts/os_itest_contracts/test_contract2.cairo --output build/contracts/test_contract2.json --cairo_path cairo-lang/src

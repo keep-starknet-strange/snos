@@ -216,6 +216,10 @@ where
             .map(|(key, value)| (key, StorageLeaf::new(value)))
             .collect();
 
+        for (key, modif) in final_modifications.clone() {
+            log::debug!("modif: {} - {} ({})", key, modif.value.to_hex_string(), modif.value.to_string())
+        }
+
         CommitmentInfo::create_from_modifications(
             self.previous_tree.clone(),
             self.expected_updated_root,
