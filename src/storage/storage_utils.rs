@@ -64,7 +64,7 @@ where
     }
 }
 
-async fn unpack_blockifier_state_async<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync>(
+pub async fn unpack_blockifier_state_async<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync>(
     mut blockifier_state: CachedState<SharedState<S, H>>,
 ) -> Result<(SharedState<S, H>, SharedState<S, H>), TreeError> {
     let final_state = {
