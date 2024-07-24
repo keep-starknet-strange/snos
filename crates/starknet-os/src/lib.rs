@@ -1,5 +1,3 @@
-use std::fs;
-
 use blockifier::context::BlockContext;
 use cairo_vm::cairo_run::CairoRunConfig;
 use cairo_vm::types::layout_name::LayoutName;
@@ -32,7 +30,7 @@ pub mod storage;
 pub mod utils;
 
 pub fn run_os<S>(
-    os_path: String,
+    compiled_os: &[u8],
     layout: LayoutName,
     os_input: StarknetOsInput,
     block_context: BlockContext,
@@ -46,13 +44,12 @@ where
     let allow_missing_builtins = cairo_run_config.allow_missing_builtins.unwrap_or(false);
 
     // Load the Starknet OS Program
-    let starknet_os = fs::read(os_path).map_err(|e| SnOsError::CatchAll(format!("{e}")))?;
-    let program = Program::from_bytes(&starknet_os, Some(cairo_run_config.entrypoint))
-        .map_err(|e| SnOsError::Runner(e.into()))?;
+    let os_program =
+        Program::from_bytes(compiled_os, Some(cairo_run_config.entrypoint)).map_err(|e| SnOsError::Runner(e.into()))?;
 
     // Init cairo runner
     let mut cairo_runner = CairoRunner::new(
-        &program,
+        &os_program,
         cairo_run_config.layout,
         cairo_run_config.proof_mode,
         cairo_run_config.trace_enabled,
