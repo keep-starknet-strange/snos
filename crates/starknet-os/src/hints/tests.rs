@@ -160,7 +160,8 @@ pub mod tests {
         // before starting tx, tx_execution_info should be none
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
 
-        start_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("start_tx");
+        start_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
+            .expect("start_tx");
 
         // after starting tx, tx_execution_info should be some
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_some());
@@ -201,7 +202,8 @@ pub mod tests {
             exec_helper_box.execution_helper.read().await.tx_execution_info_iter.clone().peekable().peek().is_some()
         );
 
-        skip_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_tx");
+        skip_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
+            .expect("skip_tx");
 
         // after skipping a tx, tx_execution_info should be some and iter should not have a next()
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
@@ -241,12 +243,14 @@ pub mod tests {
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
-        start_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("start_tx");
+        start_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
+            .expect("start_tx");
 
         // we should have a call next
         assert!(exec_helper_box.execution_helper.read().await.call_iter.clone().peekable().peek().is_some());
 
-        skip_call::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_call");
+        skip_call::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
+            .expect("skip_call");
 
         // our only call should have been consumed
         assert!(exec_helper_box.execution_helper.read().await.call_iter.clone().peekable().peek().is_none());
