@@ -1,0 +1,30 @@
+[package]
+name = "tests"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license-file.workspace = true
+description = ""
+
+[[test]]
+name = "os-integration-tests"
+path = "integration/main.rs"
+
+[dev-dependencies]
+blockifier = { workspace = true }
+cairo-lang-starknet-classes = { workspace = true }
+cairo-vm = { workspace = true }
+env_logger = { workspace = true }
+futures = { workspace = true }
+log = { workspace = true }
+num-bigint = { workspace = true }
+num-traits = { workspace = true }
+pretty_assertions = { workspace = true }
+rand = { workspace = true }
+rstest = { workspace = true }
+serde_json = { workspace = true }
+starknet_api = { workspace = true }
+starknet-crypto = { workspace = true }
+starknet-os = { path = "../crates/starknet-os" }
+tokio = { workspace = true }
+uuid = { workspace = true }

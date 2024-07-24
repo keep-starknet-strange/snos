@@ -1,10 +1,21 @@
-workspace = { members = ["cairo-type-derive", "bin/hint_tool"] }
-[package]
-edition = "2021"
-name = "snos"
-version = "0.1.0"
+[workspace]
+resolver = "2"
 
-[dependencies]
+members = [
+    "crates/bin/hint_tool",
+    "crates/cairo-type-derive",
+    "crates/starknet-os",
+    "tests",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/keep-starknet-strange/snos/"
+license = "MIT"
+license-file = "LICENSE"
+
+[workspace.dependencies]
 anyhow = "1.0.75"
 assert_matches = "1.5.0"
 base64 = "0.21.3"
@@ -13,8 +24,9 @@ blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", branch = "ms
 cairo-lang-starknet = { version = "2.6.3" }
 cairo-lang-starknet-classes = { version = "2.6.3" }
 cairo-lang-casm = { version = "2.6.3" }
-cairo-type-derive = { version = "0.1.0", path = "cairo-type-derive" }
+cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
 cairo-vm = { version = "1.0.0-rc5", features = ["extensive_hints", "cairo-1-hints"] }
+clap = { version = "4.5.4", features = ["derive"] }
 env_logger = "0.11.3"
 futures = "0.3.30"
 futures-util = "0.3.30"
@@ -43,8 +55,7 @@ tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
 uuid = { version = "1.4.0", features = ["v4", "serde"] }
 zip = { version = "0.6.6", features = ["deflate-zlib"] }
 
-
-[dev-dependencies]
+# Dev dependencies
 pretty_assertions = "1.4.0"
 rand = "0.8.5"
 rstest = "0.18.2"

@@ -59,11 +59,11 @@ mod tests {
     #[tokio::test]
     async fn test_write_class_facts(mut ffc: FFC) {
         let sierra_bytes = include_bytes!(
-            "../../../tests/integration/contracts/blockifier_contracts/feature_contracts/cairo1/compiled/\
+            "../../../../../tests/integration/contracts/blockifier_contracts/feature_contracts/cairo1/compiled/\
              test_contract.sierra"
         );
         let casm_bytes = include_bytes!(
-            "../../../tests/integration/contracts/blockifier_contracts/feature_contracts/cairo1/compiled/\
+            "../../../../../tests/integration/contracts/blockifier_contracts/feature_contracts/cairo1/compiled/\
              test_contract.casm.json"
         );
 
@@ -87,7 +87,7 @@ mod tests {
     #[tokio::test]
     async fn test_write_deprecated_compiled_class(mut ffc: FFC) {
         let program_bytes = include_bytes!(
-            "../../../tests/integration/contracts/blockifier_contracts/feature_contracts/cairo0/compiled/\
+            "../../../../../tests/integration/contracts/blockifier_contracts/feature_contracts/cairo0/compiled/\
              test_contract_compiled.json"
         );
 

@@ -4,11 +4,11 @@ use blockifier::execution::contract_class::ClassInfo;
 use blockifier::test_utils::NonceManager;
 use blockifier::transaction::test_utils::{calculate_class_info_for_testing, max_fee};
 use rstest::rstest;
-use snos::crypto::poseidon::PoseidonHash;
-use snos::starknet::business_logic::utils::write_class_facts;
-use snos::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
 use starknet_api::core::CompiledClassHash;
 use starknet_api::transaction::{Fee, Resource, ResourceBounds, ResourceBoundsMapping, TransactionVersion};
+use starknet_os::crypto::poseidon::PoseidonHash;
+use starknet_os::starknet::business_logic::utils::write_class_facts;
+use starknet_os::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
 
 use crate::common::block_context;
 use crate::common::state::{initial_state_cairo0, initial_state_cairo1, load_cairo1_contract, StarknetTestState};

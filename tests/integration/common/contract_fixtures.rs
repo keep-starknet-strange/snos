@@ -4,7 +4,7 @@ use cairo_lang_starknet_classes::contract_class::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 pub fn get_contracts_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").join("integration").join("contracts")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("integration").join("contracts")
 }
 
 fn read_contract(contract_rel_path: &Path) -> Vec<u8> {

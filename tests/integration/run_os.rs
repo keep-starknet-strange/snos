@@ -17,19 +17,19 @@ use blockifier::transaction::transactions::{ExecutableTransaction, L1HandlerTran
 use blockifier::versioned_constants::VersionedConstants;
 use blockifier::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 use rstest::{fixture, rstest};
-use snos::crypto::pedersen::PedersenHash;
-use snos::execution::helper::GenCallIter;
-use snos::io::output::StarknetOsOutput;
-use snos::starknet::business_logic::fact_state::state::SharedState;
-use snos::storage::dict_storage::DictStorage;
-use snos::storage::storage_utils::{deprecated_contract_class_api2vm, unpack_blockifier_state_async};
-use snos::utils::felt_api2vm;
 use starknet_api::core::{calculate_contract_address, ChainId, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature, TransactionVersion,
 };
+use starknet_os::crypto::pedersen::PedersenHash;
+use starknet_os::execution::helper::GenCallIter;
+use starknet_os::io::output::StarknetOsOutput;
+use starknet_os::starknet::business_logic::fact_state::state::SharedState;
+use starknet_os::storage::dict_storage::DictStorage;
+use starknet_os::storage::storage_utils::{deprecated_contract_class_api2vm, unpack_blockifier_state_async};
+use starknet_os::utils::felt_api2vm;
 
 use crate::common::block_context;
 use crate::common::blockifier_contracts::load_cairo0_feature_contract;
