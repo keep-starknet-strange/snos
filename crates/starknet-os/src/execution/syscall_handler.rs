@@ -51,7 +51,10 @@ where
     }
 }
 
-impl<S: Storage + 'static> OsSyscallHandlerWrapper<S> {
+impl<S> OsSyscallHandlerWrapper<S>
+where
+    S: Storage + 'static,
+{
     pub fn new(exec_wrapper: ExecutionHelperWrapper<S>) -> Self {
         Self {
             syscall_handler: Rc::new(RwLock::new(OsSyscallHandler {
@@ -138,12 +141,15 @@ impl SyscallHandler for CallContractHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S: Storage + 'static>(
+    async fn execute<S>(
         _request: EmptyRequest,
         vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         remaining_gas: &mut u64,
-    ) -> SyscallResult<ReadOnlySegment> {
+    ) -> SyscallResult<ReadOnlySegment>
+    where
+        S: Storage + 'static,
+    {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let result_iter = &mut eh_ref.result_iter;
         let result = result_iter
@@ -188,12 +194,15 @@ impl SyscallHandler for DeployHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S: Storage + 'static>(
+    async fn execute<S>(
         _request: Self::Request,
         vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response> {
+    ) -> SyscallResult<Self::Response>
+    where
+        S: Storage + 'static,
+    {
         let mut execution_helper = exec_wrapper.execution_helper.write().await;
 
         let result = execution_helper
@@ -239,12 +248,15 @@ impl SyscallHandler for EmitEventHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S: Storage + 'static>(
+    async fn execute<S>(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
         _exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response> {
+    ) -> SyscallResult<Self::Response>
+    where
+        S: Storage + 'static,
+    {
         Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
     }
 
@@ -313,12 +325,15 @@ impl SyscallHandler for GetExecutionInfoHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S: Storage + 'static>(
+    async fn execute<S>(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response> {
+    ) -> SyscallResult<Self::Response>
+    where
+        S: Storage + 'static,
+    {
         let eh_ref = exec_wrapper.execution_helper.read().await;
         let execution_info_ptr = eh_ref.call_execution_info_ptr.unwrap();
         Ok(GetExecutionInfoResponse { execution_info_ptr })
@@ -341,12 +356,15 @@ impl SyscallHandler for LibraryCallHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S: Storage + 'static>(
+    async fn execute<S>(
         _request: Self::Request,
         vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response> {
+    ) -> SyscallResult<Self::Response>
+    where
+        S: Storage + 'static,
+    {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let result_iter = &mut eh_ref.result_iter;
         let result = result_iter
@@ -382,12 +400,15 @@ impl SyscallHandler for ReplaceClassHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S: Storage + 'static>(
+    async fn execute<S>(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
         _exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response> {
+    ) -> SyscallResult<Self::Response>
+    where
+        S: Storage + 'static,
+    {
         Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
     }
 
@@ -411,12 +432,15 @@ impl SyscallHandler for SendMessageToL1Handler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S: Storage + 'static>(
+    async fn execute<S>(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
         _exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response> {
+    ) -> SyscallResult<Self::Response>
+    where
+        S: Storage + 'static,
+    {
         Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
     }
 
@@ -446,12 +470,15 @@ impl SyscallHandler for StorageReadHandler {
         *ptr = (*ptr + new_syscalls::StorageReadRequest::cairo_size())?;
         Ok(EmptyRequest)
     }
-    async fn execute<S: Storage + 'static>(
+    async fn execute<S>(
         _request: EmptyRequest,
         _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<StorageReadResponse> {
+    ) -> SyscallResult<StorageReadResponse>
+    where
+        S: Storage + 'static,
+    {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
 
         let value = eh_ref.execute_code_read_iter.next().ok_or(HintError::SyscallError(
@@ -482,12 +509,15 @@ impl SyscallHandler for StorageWriteHandler {
         *ptr = (*ptr + new_syscalls::StorageWriteRequest::cairo_size())?;
         Ok(EmptyRequest)
     }
-    async fn execute<S: Storage + 'static>(
+    async fn execute<S>(
         _request: EmptyRequest,
         _vm: &mut VirtualMachine,
         _exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<EmptyResponse> {
+    ) -> SyscallResult<EmptyResponse>
+    where
+        S: Storage + 'static,
+    {
         Ok(EmptyResponse {})
     }
     fn write_response(

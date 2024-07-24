@@ -58,7 +58,8 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-fn hints<S: Storage + 'static>() -> HashMap<String, HintImpl> {
+fn hints<S>() -> HashMap<String, HintImpl> where
+    S: Storage + 'static {
     let mut hints = HashMap::<String, HintImpl>::new();
     hints.insert(BREAKPOINT.into(), breakpoint);
     hints.insert(INITIALIZE_CLASS_HASHES.into(), initialize_class_hashes);
@@ -263,7 +264,7 @@ where
     _phantom: PhantomData<S>,
 }
 
-impl<S: Storage> ResourceTracker for SnosHintProcessor<S>
+impl<S> ResourceTracker for SnosHintProcessor<S>
 where
     S: Storage,
 {
@@ -284,7 +285,10 @@ where
     }
 }
 
-impl<S: Storage + 'static> Default for SnosHintProcessor<S> {
+impl<S> Default for SnosHintProcessor<S>
+where
+    S: Storage + 'static,
+{
     fn default() -> Self {
         let hints = hints::<S>();
         let extensive_hints = EXTENSIVE_HINTS.into_iter().map(|(h, i)| (h.to_string(), i)).collect();
@@ -322,7 +326,10 @@ fn get_ptr_from_res_operand(vm: &mut VirtualMachine, res: &ResOperand) -> Result
     (vm.get_relocatable(cell_reloc)? + &base_offset).map_err(|e| e.into())
 }
 
-impl<S: Storage> SnosHintProcessor<S> {
+impl<S> SnosHintProcessor<S>
+where
+    S: Storage,
+{
     pub fn hints(&self) -> HashSet<String> {
         self.hints
             .keys()
@@ -334,7 +341,10 @@ impl<S: Storage> SnosHintProcessor<S> {
     }
 }
 
-impl<S: Storage + 'static> HintProcessorLogic for SnosHintProcessor<S> {
+impl<S> HintProcessorLogic for SnosHintProcessor<S>
+where
+    S: Storage + 'static,
+{
     // stub for trait impl
     fn execute_hint(
         &mut self,
@@ -537,13 +547,16 @@ pub fn breakpoint(
 pub const SET_AP_TO_ACTUAL_FEE: &str =
     "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.actual_fee)";
 
-pub fn set_ap_to_actual_fee<S: Storage + 'static>(
+pub fn set_ap_to_actual_fee<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
     let actual_fee = execute_coroutine(async {
         let eh_ref = execution_helper.execution_helper.read().await;
@@ -578,12 +591,15 @@ pub fn is_on_curve(
 
 const START_TX: &str = "execution_helper.start_tx(tx_info_ptr=ids.deprecated_tx_info.address_)";
 
-pub async fn start_tx_async<S: Storage + 'static>(
+pub async fn start_tx_async<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let deprecated_tx_info_ptr =
         get_relocatable_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
 
@@ -593,51 +609,66 @@ pub async fn start_tx_async<S: Storage + 'static>(
     Ok(())
 }
 
-pub fn start_tx<S: Storage + 'static>(
+pub fn start_tx<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(start_tx_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
 const SKIP_TX: &str = "execution_helper.skip_tx()";
 
-pub async fn skip_tx_async<S: Storage + 'static>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
+pub async fn skip_tx_async<S>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.skip_tx().await;
 
     Ok(())
 }
 
-pub fn skip_tx<S: Storage + 'static>(
+pub fn skip_tx<S>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(skip_tx_async::<S>(exec_scopes))?
 }
 
 const SKIP_CALL: &str = "execution_helper.skip_call()";
 
-pub async fn skip_call_async<S: Storage + 'static>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
+pub async fn skip_call_async<S>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.skip_call().await;
 
     Ok(())
 }
 
-pub fn skip_call<S: Storage + 'static>(
+pub fn skip_call<S>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(skip_call_async::<S>(exec_scopes))?
 }
 

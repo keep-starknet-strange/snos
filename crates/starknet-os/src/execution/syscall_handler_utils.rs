@@ -227,12 +227,14 @@ pub trait SyscallHandler {
     type Request;
     type Response;
     fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request>;
-    async fn execute<S: Storage + 'static>(
+    async fn execute<S>(
         request: Self::Request,
         vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response>;
+    ) -> SyscallResult<Self::Response>
+    where
+        S: Storage + 'static;
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult;
 }
 
@@ -259,12 +261,16 @@ fn write_failure(
 
 pub const OUT_OF_GAS_ERROR: &str = "0x000000000000000000000000000000000000000000004f7574206f6620676173";
 
-pub async fn run_handler<SH: SyscallHandler, S: Storage + 'static>(
+pub async fn run_handler<SH, S>(
     syscall_ptr: &mut Relocatable,
     vm: &mut VirtualMachine,
     exec_wrapper: &mut ExecutionHelperWrapper<S>,
     syscall_gas_cost: u64,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    SH: SyscallHandler,
+    S: Storage + 'static,
+{
     // Refund `SYSCALL_BASE_GAS_COST` as it was pre-charged.
     let required_gas = syscall_gas_cost - SYSCALL_BASE_GAS_COST;
 

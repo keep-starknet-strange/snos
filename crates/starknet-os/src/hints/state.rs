@@ -310,13 +310,16 @@ pub const ENTER_SCOPE_COMMITMENT_INFO_BY_ADDRESS: &str = indoc! {r#"
 	))"#
 };
 
-pub fn enter_scope_commitment_info_by_address<S: Storage + 'static>(
+pub fn enter_scope_commitment_info_by_address<S>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let execution_helper: ExecutionHelperWrapper<S> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
     let os_input: StarknetOsInput = exec_scopes.get(vars::scopes::OS_INPUT)?;
 

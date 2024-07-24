@@ -20,12 +20,15 @@ pub const START_TX_VALIDATE_DECLARE_EXECUTION_CONTEXT: &str = indoc! {r#"
         tx_info_ptr=ids.validate_declare_execution_context.deprecated_tx_info.address_
     )"#
 };
-pub async fn start_tx_validate_declare_execution_context_async<S: Storage + 'static>(
+pub async fn start_tx_validate_declare_execution_context_async<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let execution_helper: ExecutionHelperWrapper<S> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
     let execution_context_ptr =
         get_relocatable_from_var_name(vars::ids::VALIDATE_DECLARE_EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
@@ -36,12 +39,15 @@ pub async fn start_tx_validate_declare_execution_context_async<S: Storage + 'sta
     Ok(())
 }
 
-pub fn start_tx_validate_declare_execution_context<S: Storage + 'static>(
+pub fn start_tx_validate_declare_execution_context<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(start_tx_validate_declare_execution_context_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }

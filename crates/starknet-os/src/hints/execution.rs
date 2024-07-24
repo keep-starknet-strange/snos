@@ -187,13 +187,16 @@ pub fn assert_transaction_hash(
 
 pub const ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER: &str =
     "vm_enter_scope({'syscall_handler': deprecated_syscall_handler})";
-pub fn enter_scope_deprecated_syscall_handler<S: Storage + 'static>(
+pub fn enter_scope_deprecated_syscall_handler<S>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let dep_sys = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::DEPRECATED_SYSCALL_HANDLER)?;
     let deprecated_syscall_handler: Box<dyn Any> = Box::new(dep_sys);
     exec_scopes
@@ -202,13 +205,16 @@ pub fn enter_scope_deprecated_syscall_handler<S: Storage + 'static>(
 }
 
 pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': syscall_handler})";
-pub fn enter_scope_syscall_handler<S: Storage + 'static>(
+pub fn enter_scope_syscall_handler<S>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let sys = exec_scopes.get::<OsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_handler: Box<dyn Any> = Box::new(sys);
     exec_scopes.enter_scope(HashMap::from_iter([(String::from(vars::scopes::SYSCALL_HANDLER), syscall_handler)]));
@@ -417,13 +423,16 @@ pub const ENTER_SYSCALL_SCOPES: &str = indoc! {r#"
          '__dict_manager': __dict_manager,
     })"#
 };
-pub fn enter_syscall_scopes<S: Storage + 'static>(
+pub fn enter_syscall_scopes<S>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let deprecated_class_hashes: Box<dyn Any> =
         Box::new(exec_scopes.get::<HashSet<Felt252>>(vars::scopes::DEPRECATED_CLASS_HASHES)?);
@@ -447,19 +456,25 @@ pub fn enter_syscall_scopes<S: Storage + 'static>(
 }
 
 pub const END_TX: &str = "execution_helper.end_tx()";
-pub async fn end_tx_async<S: Storage + 'static>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
+pub async fn end_tx_async<S>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.end_tx().await;
     Ok(())
 }
 
-pub fn end_tx<S: Storage + 'static>(
+pub fn end_tx<S>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(end_tx_async::<S>(exec_scopes))?
 }
 
@@ -467,12 +482,15 @@ pub const ENTER_CALL: &str = indoc! {r#"
     execution_helper.enter_call(
         execution_info_ptr=ids.execution_context.execution_info.address_)"#
 };
-pub async fn enter_call_async<S: Storage + 'static>(
+pub async fn enter_call_async<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let execution_info_ptr = vm.get_relocatable(
         (get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)? + 4i32).unwrap(),
     )?;
@@ -482,30 +500,39 @@ pub async fn enter_call_async<S: Storage + 'static>(
     Ok(())
 }
 
-pub fn enter_call<S: Storage + 'static>(
+pub fn enter_call<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(enter_call_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
 pub const EXIT_CALL: &str = "execution_helper.exit_call()";
-pub async fn exit_call_async<S: Storage + 'static>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
+pub async fn exit_call_async<S>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.exit_call().await;
     Ok(())
 }
 
-pub fn exit_call<S: Storage + 'static>(
+pub fn exit_call<S>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(exit_call_async::<S>(exec_scopes))?
 }
 
@@ -835,12 +862,15 @@ pub const START_TX: &str = indoc! {r#"
     tx_info_ptr = ids.tx_execution_context.deprecated_tx_info.address_
     execution_helper.start_tx(tx_info_ptr=tx_info_ptr)"#
 };
-pub async fn start_tx_async<S: Storage + 'static>(
+pub async fn start_tx_async<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let tx_execution_context = get_ptr_from_var_name(vars::ids::TX_EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
 
@@ -850,13 +880,16 @@ pub async fn start_tx_async<S: Storage + 'static>(
     Ok(())
 }
 
-pub fn start_tx<S: Storage + 'static>(
+pub fn start_tx<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(start_tx_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
@@ -906,12 +939,15 @@ pub const CHECK_EXECUTION: &str = indoc! {r#"
 
 // implement check_execution according to the pythonic version given in the CHECK_EXECUTION const
 // above
-pub async fn check_execution_async<S: Storage + 'static>(
+pub async fn check_execution_async<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let return_values_ptr = get_ptr_from_var_name(vars::ids::ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
 
     let failure_flag = vm.get_integer((return_values_ptr + EntryPointReturnValues::failure_flag_offset())?)?;
@@ -953,13 +989,16 @@ pub async fn check_execution_async<S: Storage + 'static>(
     Ok(())
 }
 
-pub fn check_execution<S: Storage + 'static>(
+pub fn check_execution<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(check_execution_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
@@ -1172,13 +1211,16 @@ pub fn check_response_return_value(
     Ok(())
 }
 
-async fn cache_contract_storage<S: Storage + 'static>(
+async fn cache_contract_storage<S>(
     key: Felt252,
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
 
     let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
@@ -1443,12 +1485,15 @@ pub const WRITE_SYSCALL_RESULT_DEPRECATED: &str = indoc! {r#"
 	ids.new_state_entry = segments.add()"#
 };
 
-pub async fn write_syscall_result_deprecated_async<S: Storage + 'static>(
+pub async fn write_syscall_result_deprecated_async<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let mut execution_helper: ExecutionHelperWrapper<S> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
     let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
@@ -1482,13 +1527,16 @@ pub async fn write_syscall_result_deprecated_async<S: Storage + 'static>(
     Ok(())
 }
 
-pub fn write_syscall_result_deprecated<S: Storage + 'static>(
+pub fn write_syscall_result_deprecated<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(write_syscall_result_deprecated_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
@@ -1502,12 +1550,15 @@ pub const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
     ids.new_state_entry = segments.add()"#
 };
 
-pub async fn write_syscall_result_async<S: Storage + 'static>(
+pub async fn write_syscall_result_async<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let mut execution_helper: ExecutionHelperWrapper<S> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
     let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
@@ -1540,13 +1591,16 @@ pub async fn write_syscall_result_async<S: Storage + 'static>(
     Ok(())
 }
 
-pub fn write_syscall_result<S: Storage + 'static>(
+pub fn write_syscall_result<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(write_syscall_result_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
@@ -1608,13 +1662,16 @@ pub const WRITE_OLD_BLOCK_TO_STORAGE: &str = indoc! {r#"
 	storage.write(key=ids.old_block_number, value=ids.old_block_hash)"#
 };
 
-pub async fn write_old_block_to_storage_async<S: Storage + 'static>(
+pub async fn write_old_block_to_storage_async<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let mut execution_helper: ExecutionHelperWrapper<S> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
     let block_hash_contract_address = get_constant(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS, constants)?;
@@ -1630,13 +1687,16 @@ pub async fn write_old_block_to_storage_async<S: Storage + 'static>(
     Ok(())
 }
 
-pub fn write_old_block_to_storage<S: Storage + 'static>(
+pub fn write_old_block_to_storage<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(write_old_block_to_storage_async::<S>(vm, exec_scopes, ids_data, ap_tracking, constants))?
 }
 
@@ -1647,13 +1707,16 @@ pub const CACHE_CONTRACT_STORAGE_REQUEST_KEY: &str = indoc! {r#"
 	assert ids.value == value, "Inconsistent storage value.""#
 };
 
-pub fn cache_contract_storage_request_key<S: Storage + 'static>(
+pub fn cache_contract_storage_request_key<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let request_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
     let key = vm.get_integer((request_ptr + new_syscalls::StorageReadRequest::key_offset())?)?.into_owned();
 
@@ -1669,13 +1732,16 @@ pub const CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS: &str = indoc! {r#"
 	assert ids.value == value, "Inconsistent storage value.""#
 };
 
-pub fn cache_contract_storage_syscall_request_address<S: Storage + 'static>(
+pub fn cache_contract_storage_syscall_request_address<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
     let offset = StorageRead::request_offset() + StorageReadRequest::address_offset();
     let key = vm.get_integer((syscall_ptr + offset)?)?.into_owned();
@@ -1693,12 +1759,15 @@ pub const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
 	ids.old_block_hash = old_block_hash"#
 };
 
-pub async fn get_old_block_number_and_hash_async<S: Storage + 'static>(
+pub async fn get_old_block_number_and_hash_async<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     let execution_helper: ExecutionHelperWrapper<S> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
     let (old_block_number, old_block_hash) = execution_helper.get_old_block_number_and_hash().await?;
 
@@ -1717,13 +1786,16 @@ pub async fn get_old_block_number_and_hash_async<S: Storage + 'static>(
     Ok(())
 }
 
-pub fn get_old_block_number_and_hash<S: Storage + 'static>(
+pub fn get_old_block_number_and_hash<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<(), HintError>
+where
+    S: Storage + 'static,
+{
     execute_coroutine(get_old_block_number_and_hash_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 

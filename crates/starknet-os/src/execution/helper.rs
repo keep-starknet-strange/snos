@@ -234,7 +234,10 @@ where
     }
 }
 
-fn assert_iterators_exhausted<S: Storage>(eh_ref: &ExecutionHelper<S>) {
+fn assert_iterators_exhausted<S>(eh_ref: &ExecutionHelper<S>)
+where
+    S: Storage,
+{
     assert!(eh_ref.deployed_contracts_iter.clone().peekable().peek().is_none());
     assert!(eh_ref.result_iter.clone().peekable().peek().is_none());
     assert!(eh_ref.execute_code_read_iter.clone().peekable().peek().is_none());
