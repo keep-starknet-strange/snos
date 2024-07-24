@@ -5,6 +5,7 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
+use num_traits::One;
 use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
@@ -514,11 +515,15 @@ impl SyscallHandler for KeccakHandler {
             exec_wrapper: &mut ExecutionHelperWrapper,
             remaining_gas: &mut u64,
         ) -> SyscallResult<Self::Response> {
-        todo!();
+        let input_len = (request.input_end - request.input_start)?;
+        Ok(KeccakResponse { result_high: Felt252::ZERO, result_low: Felt252::ONE})
+        
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        todo!();
+        write_felt(vm, ptr, response.result_low)?;
+        write_felt(vm, ptr, response.result_high)?;
+        Ok(())
     }
 } 
 

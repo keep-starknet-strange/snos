@@ -117,8 +117,8 @@ async fn test_syscall_keccak_cairo1(
 ) {
     let initial_state = initial_state_syscalls.await;
 
-    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.cairo1_contracts.get("test_contract").unwrap();
+    let sender_address = initial_state.deployed_cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo1_contracts.get("test_contract").unwrap();
     let contract_address = test_contract.address;
     log::debug!("HERMAN: test contract address: {contract_address:?}");
     log::debug!("HERMAN: sender address: {sender_address:?}");
