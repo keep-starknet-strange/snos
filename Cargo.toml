@@ -17,10 +17,14 @@ license-file = "LICENSE"
 
 [workspace.dependencies]
 anyhow = "1.0.75"
+ark-ec = "0.4.2"
+ark-ff = "0.4.2"
+ark-secp256k1 = "0.4"
+ark-secp256r1 = "0.4"
 assert_matches = "1.5.0"
 base64 = "0.21.3"
 bitvec = { version = "1.0.1", features = ["serde"] }
-blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", branch = "msl/derive-clone", features = ["testing"] }
+blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", branch = "herman/msl/derive-clone-fix-pub-secp", features = ["testing"] }
 cairo-lang-starknet = { version = "2.6.3" }
 cairo-lang-starknet-classes = { version = "2.6.3" }
 cairo-lang-casm = { version = "2.6.3" }

@@ -1,3 +1,5 @@
+use blockifier::execution::execution_utils::stark_felt_to_felt;
+use blockifier::execution::syscalls::hint_processor::SyscallExecutionError as BlockifierSyscallError;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -158,6 +160,8 @@ pub enum SyscallExecutionError {
     InvalidSyscallInput { input: Felt252, info: String },
     #[error("Syscall error.")]
     SyscallError { error_data: Vec<Felt252> },
+    #[error("BlockifierSyscallError: {0}")]
+    BlockifierSyscallError(BlockifierSyscallError),
 }
 
 impl From<MemoryError> for SyscallExecutionError {
@@ -193,6 +197,17 @@ impl From<MathError> for SyscallExecutionError {
 impl From<StorageError> for SyscallExecutionError {
     fn from(error: StorageError) -> Self {
         Self::InternalError(format!("StorageError error: {}", error).into())
+    }
+}
+
+impl From<BlockifierSyscallError> for SyscallExecutionError {
+    fn from(error: BlockifierSyscallError) -> Self {
+        match error {
+            BlockifierSyscallError::SyscallError { error_data } => Self::SyscallError {
+                error_data: error_data.into_iter().map(stark_felt_to_felt).map(|e| e.to_biguint().into()).collect(),
+            },
+            _ => Self::BlockifierSyscallError(error),
+        }
     }
 }
 
