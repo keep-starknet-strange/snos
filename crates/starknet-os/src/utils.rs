@@ -11,11 +11,11 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use tokio::task;
 
-pub(crate) fn felt_vm2api(felt: Felt252) -> StarkFelt {
+pub fn felt_vm2api(felt: Felt252) -> StarkFelt {
     stark_felt!(felt.to_hex_string().as_str())
 }
 
-pub(crate) fn felt_api2vm(felt: StarkFelt) -> Felt252 {
+pub fn felt_api2vm(felt: StarkFelt) -> Felt252 {
     Felt252::from_hex(&felt.to_string()).expect("Couldn't parse bytes")
 }
 
