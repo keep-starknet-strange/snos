@@ -920,12 +920,12 @@ pub async fn check_execution_async(
             vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_start_offset())?)?;
         let retdata_size = (retdata_end - retdata_start)?;
         let error = vm.get_range(retdata_start, std::cmp::min(100, retdata_size as usize));
-        let execution_context = get_relocatable_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
+        let execution_context = get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
         let class_hash = vm.get_integer((execution_context + ExecutionContext::class_hash_offset())?)?;
-        let selector = vm.get_integer((execution_context + ExecutionContext::execution_info_offset())?)?;
+        let selector = vm.get_relocatable((execution_context + ExecutionContext::execution_info_offset())?)?;
         log::debug!("Invalid return value in execute_entry_point:");
         log::debug!("  Class hash: {}", class_hash.to_hex_string());
-        log::debug!("  Selector: {}", selector.to_hex_string());
+        log::debug!("  Selector: {}", selector);
         log::debug!("  Size: {}", retdata_size);
         log::debug!("  Error (at most 100 elements): {:?}", error);
     }
@@ -946,7 +946,7 @@ pub async fn check_execution_async(
 
     let syscall_ptr_end = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::syscall_ptr_offset())?)?;
     let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
-    execute_coroutine(syscall_handler.validate_and_discard_syscall_ptr(syscall_ptr_end))??;
+    syscall_handler.validate_and_discard_syscall_ptr(syscall_ptr_end).await?;
     execution_helper.exit_call().await;
 
     Ok(())
