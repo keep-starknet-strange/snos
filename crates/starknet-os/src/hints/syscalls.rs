@@ -12,17 +12,18 @@ use indoc::indoc;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::vars;
+use crate::storage::storage::Storage;
 use crate::utils::execute_coroutine;
 
 pub const CALL_CONTRACT: &str = "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub async fn call_contract_async(
+pub async fn call_contract_async<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     syscall_handler.call_contract(syscall_ptr, vm).await?;
@@ -30,25 +31,25 @@ pub async fn call_contract_async(
     Ok(())
 }
 
-pub fn call_contract(
+pub fn call_contract<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    execute_coroutine(call_contract_async(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(call_contract_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
 pub const DELEGATE_CALL: &str = "syscall_handler.delegate_call(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub async fn delegate_call_async(
+pub async fn delegate_call_async<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     syscall_handler.storage_write(syscall_ptr).await?;
@@ -56,27 +57,27 @@ pub async fn delegate_call_async(
     Ok(())
 }
 
-pub fn delegate_call(
+pub fn delegate_call<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    execute_coroutine(delegate_call_async(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(delegate_call_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
 pub const DELEGATE_L1_HANDLER: &str =
     "syscall_handler.delegate_l1_handler(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn delegate_l1_handler(
+pub fn delegate_l1_handler<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.delegate_l1_handler(syscall_ptr, vm))?
@@ -84,14 +85,14 @@ pub fn delegate_l1_handler(
 
 pub const DEPLOY: &str = "syscall_handler.deploy(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn deploy(
+pub fn deploy<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.deploy(syscall_ptr, vm))?
@@ -99,14 +100,14 @@ pub fn deploy(
 
 pub const EMIT_EVENT: &str = "syscall_handler.emit_event(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn emit_event(
+pub fn emit_event<S: Storage + 'static>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     syscall_handler.emit_event();
 
     Ok(())
@@ -114,14 +115,14 @@ pub fn emit_event(
 
 pub const GET_BLOCK_NUMBER: &str = "syscall_handler.get_block_number(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn get_block_number(
+pub fn get_block_number<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_block_number(syscall_ptr, vm))?
@@ -130,14 +131,14 @@ pub fn get_block_number(
 pub const GET_BLOCK_TIMESTAMP: &str =
     "syscall_handler.get_block_timestamp(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn get_block_timestamp(
+pub fn get_block_timestamp<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_block_timestamp(syscall_ptr, vm))?
@@ -146,13 +147,13 @@ pub fn get_block_timestamp(
 pub const GET_CALLER_ADDRESS: &str =
     "syscall_handler.get_caller_address(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub async fn get_caller_address_async(
+pub async fn get_caller_address_async<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     syscall_handler.get_caller_address(syscall_ptr, vm).await;
@@ -160,27 +161,27 @@ pub async fn get_caller_address_async(
     Ok(())
 }
 
-pub fn get_caller_address(
+pub fn get_caller_address<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    execute_coroutine(get_caller_address_async(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(get_caller_address_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
 pub const GET_CONTRACT_ADDRESS: &str =
     "syscall_handler.get_contract_address(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn get_contract_address(
+pub fn get_contract_address<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_contract_address(syscall_ptr, vm))?
@@ -189,14 +190,14 @@ pub fn get_contract_address(
 pub const GET_SEQUENCER_ADDRESS: &str =
     "syscall_handler.get_sequencer_address(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn get_sequencer_address(
+pub fn get_sequencer_address<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_sequencer_address(syscall_ptr, vm))?
@@ -204,14 +205,14 @@ pub fn get_sequencer_address(
 
 pub const GET_TX_INFO: &str = "syscall_handler.get_tx_info(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn get_tx_info(
+pub fn get_tx_info<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_tx_info(syscall_ptr, vm))?
@@ -219,14 +220,14 @@ pub fn get_tx_info(
 
 pub const GET_TX_SIGNATURE: &str = "syscall_handler.get_tx_signature(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn get_tx_signature(
+pub fn get_tx_signature<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_tx_signature(syscall_ptr, vm))?
@@ -234,14 +235,14 @@ pub fn get_tx_signature(
 
 pub const LIBRARY: &str = "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn library_call(
+pub fn library_call<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.library_call(syscall_ptr, vm))?
@@ -250,14 +251,14 @@ pub fn library_call(
 pub const LIBRARY_CALL_L1_HANDLER: &str =
     "syscall_handler.library_call_l1_handler(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn library_call_l1_handler(
+pub fn library_call_l1_handler<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.library_call_l1_handler(syscall_ptr, vm))?
@@ -265,14 +266,14 @@ pub fn library_call_l1_handler(
 
 pub const REPLACE_CLASS: &str = "syscall_handler.replace_class(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn replace_class(
+pub fn replace_class<S: Storage + 'static>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
 
     syscall_handler.replace_class();
 
@@ -282,14 +283,14 @@ pub fn replace_class(
 pub const SEND_MESSAGE_TO_L1: &str =
     "syscall_handler.send_message_to_l1(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub fn send_message_to_l1(
+pub fn send_message_to_l1<S: Storage + 'static>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
 
     syscall_handler.send_message_to_l1();
 
@@ -298,13 +299,13 @@ pub fn send_message_to_l1(
 
 pub const STORAGE_READ: &str = "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub async fn storage_read_async(
+pub async fn storage_read_async<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     syscall_handler.storage_read(syscall_ptr, vm).await?;
@@ -312,25 +313,25 @@ pub async fn storage_read_async(
     Ok(())
 }
 
-pub fn storage_read(
+pub fn storage_read<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    execute_coroutine(storage_read_async(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(storage_read_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
 pub const STORAGE_WRITE: &str = "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
-pub async fn storage_write_async(
+pub async fn storage_write_async<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError> {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     syscall_handler.storage_write(syscall_ptr).await?;
@@ -338,14 +339,14 @@ pub async fn storage_write_async(
     Ok(())
 }
 
-pub fn storage_write(
+pub fn storage_write<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    execute_coroutine(storage_write_async(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(storage_write_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
 pub const SET_SYSCALL_PTR: &str = indoc! {r#"
@@ -355,7 +356,7 @@ pub const SET_SYSCALL_PTR: &str = indoc! {r#"
 	syscall_handler.set_syscall_ptr(syscall_ptr=ids.syscall_ptr)"#
 };
 
-pub fn set_syscall_ptr(
+pub fn set_syscall_ptr<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -368,7 +369,7 @@ pub fn set_syscall_ptr(
     insert_value_from_var_name(vars::ids::OS_CONTEXT, os_context, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::SYSCALL_PTR, syscall_ptr, vm, ids_data, ap_tracking)?;
 
-    let syscall_handler: OsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler: OsSyscallHandlerWrapper<S> = exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
     execute_coroutine(syscall_handler.set_syscall_ptr(syscall_ptr))?;
 
     Ok(())
@@ -411,12 +412,13 @@ mod tests {
     use super::*;
     use crate::execution::helper::ContractStorageMap;
     use crate::hints::tests::tests::{block_context, old_block_number_and_hash};
+    use crate::storage::dict_storage::DictStorage;
     use crate::ExecutionHelperWrapper;
 
     #[fixture]
     fn exec_scopes(block_context: BlockContext, old_block_number_and_hash: (Felt252, Felt252)) -> ExecutionScopes {
         let execution_infos = vec![];
-        let exec_helper = ExecutionHelperWrapper::new(
+        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
             ContractStorageMap::default(),
             execution_infos,
             &block_context,
@@ -446,7 +448,7 @@ mod tests {
         let ap_tracking = ApTracking::new();
         let constants = HashMap::new();
 
-        set_syscall_ptr(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+        set_syscall_ptr::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 
         let os_context = get_ptr_from_var_name(vars::ids::OS_CONTEXT, &vm, &ids_data, &ap_tracking).unwrap();
         let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, &vm, &ids_data, &ap_tracking).unwrap();
@@ -454,7 +456,8 @@ mod tests {
         assert_eq!(os_context, Relocatable::from((2, 0)));
         assert_eq!(syscall_ptr, Relocatable::from((3, 0)));
 
-        let syscall_handler: OsSyscallHandlerWrapper = exec_scopes.get(vars::scopes::SYSCALL_HANDLER).unwrap();
+        let syscall_handler: OsSyscallHandlerWrapper<DictStorage> =
+            exec_scopes.get(vars::scopes::SYSCALL_HANDLER).unwrap();
         assert_eq!(syscall_handler.syscall_ptr().await, Some(syscall_ptr));
     }
 }

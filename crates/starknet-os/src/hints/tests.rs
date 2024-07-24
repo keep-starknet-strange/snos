@@ -78,7 +78,7 @@ pub mod tests {
 
         // inject txn execution info with a fee for hint to use
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::new(
+        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
             ContractStorageMap::default(),
             execution_infos,
             &block_context,
@@ -87,7 +87,7 @@ pub mod tests {
         exec_helper.start_tx(None).await;
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, Box::new(exec_helper));
 
-        set_ap_to_actual_fee(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
+        set_ap_to_actual_fee::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
             .expect("set_ap_to_actual_fee() failed");
 
         let ap = vm.get_ap();
@@ -148,7 +148,7 @@ pub mod tests {
 
         // we need an execution info in order to start a tx
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::new(
+        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
             ContractStorageMap::default(),
             execution_infos,
             &block_context,
@@ -160,7 +160,7 @@ pub mod tests {
         // before starting tx, tx_execution_info should be none
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
 
-        start_tx(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("start_tx");
+        start_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("start_tx");
 
         // after starting tx, tx_execution_info should be some
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_some());
@@ -186,7 +186,7 @@ pub mod tests {
         // skipping a tx is the same as starting and immediately ending it, so we need one
         // execution info to chew through
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::new(
+        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
             ContractStorageMap::default(),
             execution_infos,
             &block_context,
@@ -201,7 +201,7 @@ pub mod tests {
             exec_helper_box.execution_helper.read().await.tx_execution_info_iter.clone().peekable().peek().is_some()
         );
 
-        skip_tx(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_tx");
+        skip_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_tx");
 
         // after skipping a tx, tx_execution_info should be some and iter should not have a next()
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
@@ -232,7 +232,7 @@ pub mod tests {
         transaction_execution_info.execute_call_info = Some(Default::default());
 
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::new(
+        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
             ContractStorageMap::default(),
             execution_infos,
             &block_context,
@@ -241,44 +241,15 @@ pub mod tests {
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
-        start_tx(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("start_tx");
+        start_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("start_tx");
 
         // we should have a call next
         assert!(exec_helper_box.execution_helper.read().await.call_iter.clone().peekable().peek().is_some());
 
-        skip_call(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_call");
+        skip_call::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_call");
 
         // our only call should have been consumed
         assert!(exec_helper_box.execution_helper.read().await.call_iter.clone().peekable().peek().is_none());
-    }
-
-    #[test]
-    fn test_built_in_hints_have_no_duplicates() {
-        // find all occurrences of a hint in HINTS
-        fn find_matching_indices(hint_to_match: &str) -> Vec<usize> {
-            let mut indices = Vec::new();
-            let mut i = 0;
-            for (hint, _) in &HINTS {
-                if hint_to_match == *hint {
-                    indices.push(i);
-                }
-                i += 1;
-            }
-            indices
-        }
-
-        // look for any duplicatses in HINTS and print out all occurrences if found
-        let mut hints: HashMap<String, HintImpl> = HashMap::new();
-        for (hint, hint_impl) in &HINTS {
-            let hint_str = hint.to_string();
-            let existed = hints.insert(hint_str, *hint_impl);
-            assert!(
-                existed.is_none(),
-                "Duplicate hint (indices {:?}) detected:\n-----\n\n{}\n\n-----\n",
-                find_matching_indices(hint),
-                hint
-            );
-        }
     }
 
     #[test]

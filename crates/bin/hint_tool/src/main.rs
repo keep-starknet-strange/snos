@@ -14,6 +14,7 @@ use cairo_vm::vm::vm_memory::memory_segments::MemorySegmentManager;
 use clap::Parser;
 use serde::Deserialize;
 use starknet_os::hints::SnosHintProcessor;
+use starknet_os::storage::dict_storage::DictStorage;
 
 #[derive(Clone, Copy, Debug, Default, clap::ValueEnum, PartialEq)]
 enum HintFilter {
@@ -71,7 +72,7 @@ fn main() -> std::io::Result<()> {
     let args = Args::parse();
     let subset = args.subset.unwrap_or_default();
 
-    let mut hint_processor = SnosHintProcessor::default();
+    let mut hint_processor = SnosHintProcessor::<DictStorage>::default();
     let snos_hints = hint_processor.hints();
 
     let mut result = Vec::new();

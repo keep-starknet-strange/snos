@@ -22,20 +22,23 @@ use starknet_os::starknet::business_logic::fact_state::contract_state_objects::C
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::starknet_storage::CommitmentInfo;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
-use starknet_os::storage::dict_storage::DictStorage;
+use starknet_os::storage::storage::Storage;
 use starknet_os::storage::storage_utils::build_starknet_storage_async;
 use starknet_os::utils::{felt_api2vm, felt_vm2api};
 
 use crate::common::transaction_utils::to_felt252;
 
-pub async fn os_hints(
+pub async fn os_hints<S>(
     block_context: &BlockContext,
-    mut blockifier_state: CachedState<SharedState<DictStorage, PedersenHash>>,
+    mut blockifier_state: CachedState<SharedState<S, PedersenHash>>,
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
     deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
     compiled_classes: HashMap<ClassHash, CasmContractClass>,
-) -> (StarknetOsInput, ExecutionHelperWrapper) {
+) -> (StarknetOsInput, ExecutionHelperWrapper<S>)
+where
+    S: Storage,
+{
     let mut compiled_class_hash_to_compiled_class: HashMap<Felt252, CasmContractClass> = HashMap::new();
 
     let mut contracts: HashMap<Felt252, ContractState> = blockifier_state
@@ -140,7 +143,7 @@ pub async fn os_hints(
     let contract_indices: Vec<TreeIndex> = contract_indices.into_iter().collect();
 
     let contract_state_commitment_info =
-        CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PedersenHash, ContractState>(
+        CommitmentInfo::create_from_expected_updated_tree::<S, PedersenHash, ContractState>(
             previous_state.contract_states.clone(),
             updated_state.contract_states.clone(),
             &contract_indices,
@@ -157,7 +160,7 @@ pub async fn os_hints(
         .collect();
 
     let contract_class_commitment_info =
-        CommitmentInfo::create_from_expected_updated_tree::<DictStorage, PoseidonHash, ContractClassLeaf>(
+        CommitmentInfo::create_from_expected_updated_tree::<S, PoseidonHash, ContractClassLeaf>(
             previous_state.contract_classes.clone().expect("previous state should have class trie"),
             updated_state.contract_classes.clone().expect("updated state should have class trie"),
             &accessed_contracts,

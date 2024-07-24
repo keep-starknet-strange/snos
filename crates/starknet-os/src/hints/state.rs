@@ -22,6 +22,7 @@ use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
 use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, UpdateTree};
+use crate::storage::storage::Storage;
 use crate::utils::{execute_coroutine, get_constant};
 
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
@@ -309,14 +310,14 @@ pub const ENTER_SCOPE_COMMITMENT_INFO_BY_ADDRESS: &str = indoc! {r#"
 	))"#
 };
 
-pub fn enter_scope_commitment_info_by_address(
+pub fn enter_scope_commitment_info_by_address<S: Storage + 'static>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let execution_helper: ExecutionHelperWrapper = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let execution_helper: ExecutionHelperWrapper<S> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
     let os_input: StarknetOsInput = exec_scopes.get(vars::scopes::OS_INPUT)?;
 
     let commitment_info_by_address = execute_coroutine(execution_helper.compute_storage_commitments())??;

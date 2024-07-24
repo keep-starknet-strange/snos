@@ -37,7 +37,7 @@ use starknet_os::io::output::StarknetOsOutput;
 use starknet_os::io::InternalTransaction;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::core::os::transaction_hash::{L1_GAS, L2_GAS};
-use starknet_os::storage::dict_storage::DictStorage;
+use starknet_os::storage::storage::Storage;
 use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
 
@@ -772,13 +772,16 @@ pub fn to_internal_deploy_v3_tx(
     };
 }
 
-async fn execute_txs(
-    mut state: CachedState<SharedState<DictStorage, PedersenHash>>,
+async fn execute_txs<S>(
+    mut state: CachedState<SharedState<S, PedersenHash>>,
     block_context: &BlockContext,
     txs: Vec<Transaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, CasmContractClass>,
-) -> (StarknetOsInput, ExecutionHelperWrapper) {
+) -> (StarknetOsInput, ExecutionHelperWrapper<S>)
+where
+    S: Storage,
+{
     let upper_bound_block_number = block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER;
     let block_number = StorageKey::from(upper_bound_block_number);
     let block_hash = stark_felt!(66_u64);
@@ -809,13 +812,16 @@ async fn execute_txs(
     os_hints(&block_context, state, internal_txs, execution_infos, deprecated_contract_classes, contract_classes).await
 }
 
-pub async fn execute_txs_and_run_os(
-    state: CachedState<SharedState<DictStorage, PedersenHash>>,
+pub async fn execute_txs_and_run_os<S>(
+    state: CachedState<SharedState<S, PedersenHash>>,
     block_context: BlockContext,
     txs: Vec<Transaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, CasmContractClass>,
-) -> Result<(CairoPie, StarknetOsOutput), SnOsError> {
+) -> Result<(CairoPie, StarknetOsOutput), SnOsError>
+where
+    S: Storage,
+{
     let (os_input, execution_helper) =
         execute_txs(state, &block_context, txs, deprecated_contract_classes, contract_classes).await;
 

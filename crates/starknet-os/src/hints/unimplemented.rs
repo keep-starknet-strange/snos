@@ -1,6 +1,18 @@
 use indoc::indoc;
 
 #[allow(unused)]
+pub const COMPUTE_SLOPE: &str = indoc! {r#"
+    from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_ALPHA, SECP256R1_P
+    from starkware.cairo.common.cairo_secp.secp_utils import pack
+    from starkware.python.math_utils import ec_double_slope
+
+    # Compute the slope.
+    x = pack(ids.point.x, SECP256R1_P)
+    y = pack(ids.point.y, SECP256R1_P)
+    value = slope = ec_double_slope(point=(x, y), alpha=SECP256R1_ALPHA, p=SECP256R1_P)"#
+};
+
+#[allow(unused)]
 pub const CALCULATE_VALUE: &str = indoc! {r#"
     from starkware.cairo.common.cairo_secp.secp_utils import SECP256R1, pack
     from starkware.python.math_utils import y_squared_from_x
@@ -159,4 +171,18 @@ pub const COMPUTE_Q_MOD_PRIME: &str = indoc! {r#"
     q, r = divmod(pack(ids.val, PRIME), SECP256R1_P)
     assert r == 0, f"verify_zero: Invalid input {ids.val.d0, ids.val.d1, ids.val.d2}."
     ids.q = q % PRIME"#
+};
+
+#[allow(unused)]
+pub const COMPUTE_SLOPE_2: &str = indoc! {r#"
+    from starkware.cairo.common.cairo_secp.secp256r1_utils import SECP256R1_P
+    from starkware.cairo.common.cairo_secp.secp_utils import pack
+    from starkware.python.math_utils import line_slope
+
+    # Compute the slope.
+    x0 = pack(ids.point0.x, PRIME)
+    y0 = pack(ids.point0.y, PRIME)
+    x1 = pack(ids.point1.x, PRIME)
+    y1 = pack(ids.point1.y, PRIME)
+    value = slope = line_slope(point1=(x0, y0), point2=(x1, y1), p=SECP256R1_P)"#
 };
