@@ -96,3 +96,20 @@ pub struct StorageWriteRequest {
 pub struct ReplaceClassRequest {
     pub class_hash: Felt252,
 }
+
+#[derive(Debug, Eq, PartialEq, FieldOffsetGetters)]
+pub struct EcPointCoordinates {
+    pub x: Uint256,
+    pub y: Uint256,
+}
+
+#[derive(Debug, Eq, PartialEq, FieldOffsetGetters)]
+pub struct Uint256 {
+    pub low: Felt252,
+    pub high: Felt252,
+}
+
+#[derive(Debug, Eq, PartialEq, FieldOffsetGetters)]
+pub struct SecpGetXyRequest {
+    pub ec_point_id: Felt252,
+}

@@ -13,6 +13,7 @@ use cairo_vm::Felt252;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use tokio::sync::RwLock;
 
+use super::syscall_handler::SecpHintProcessor;
 use crate::config::STORED_BLOCK_HASH_BUFFER;
 use crate::crypto::pedersen::PedersenHash;
 use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage};
@@ -23,7 +24,7 @@ use crate::storage::storage::StorageError;
 pub type ContractStorageMap<S, H> = HashMap<Felt252, OsSingleStarknetStorage<S, H>>;
 
 /// Maintains the info for executing txns in the OS
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct ExecutionHelper {
     pub _prev_block_context: Option<BlockContext>,
     // Pointer tx execution info
@@ -52,13 +53,26 @@ pub struct ExecutionHelper {
     pub execute_code_read_iter: IntoIter<Felt252>,
     // Per-contract storage
     pub storage_by_address: ContractStorageMap<DictStorage, PedersenHash>,
+
+    // Secp hint processors.
+    pub secp256k1_hint_processor: SecpHintProcessor<ark_secp256k1::Config>,
+    pub secp256r1_hint_processor: SecpHintProcessor<ark_secp256r1::Config>,
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
 /// to clone the refrence when entering and exiting vm scopes
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ExecutionHelperWrapper {
     pub execution_helper: Rc<RwLock<ExecutionHelper>>,
+}
+
+/// TODO fix this
+impl std::fmt::Debug for ExecutionHelperWrapper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Here, you can define how you want the struct to be formatted for debugging.
+        // This is a simple example that just indicates the presence of the ExecutionHelper.
+        write!(f, "ExecutionHelperWrapper {{ execution_helper: Rc<RwLock<ExecutionHelper>> }}")
+    }
 }
 
 impl ExecutionHelperWrapper {
@@ -91,6 +105,8 @@ impl ExecutionHelperWrapper {
                 deployed_contracts_iter: vec![].into_iter(),
                 execute_code_read_iter: vec![].into_iter(),
                 storage_by_address: contract_storage_map,
+                secp256k1_hint_processor: SecpHintProcessor::default(),
+                secp256r1_hint_processor: SecpHintProcessor::default(),
             })),
         }
     }
