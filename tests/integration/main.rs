@@ -5,5 +5,6 @@ mod deprecated_syscalls_tests;
 mod l1_handler_txn_tests;
 mod os;
 mod pie;
+mod run_os;
 mod sharp;
 mod syscalls_tests;

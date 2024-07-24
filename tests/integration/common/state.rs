@@ -22,9 +22,9 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiled
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 
-use super::blockifier_contracts::get_feature_sierra_contract_class;
+use super::blockifier_contracts::{get_feature_sierra_contract_class, load_cairo0_feature_contract};
 use crate::common::block_context;
-use crate::common::blockifier_contracts::{get_deprecated_erc20_contract_class, get_deprecated_feature_contract_class};
+use crate::common::blockifier_contracts::get_deprecated_erc20_contract_class;
 
 /// A struct to store all test state that must be maintained between initial setup, blockifier
 /// execution, and SNOS re-execution.
@@ -35,10 +35,16 @@ use crate::common::blockifier_contracts::{get_deprecated_erc20_contract_class, g
 pub struct StarknetTestState {
     /// All deployed cairo0 contracts. Currently expects exactly one deployment per class. String
     /// represents the contract's name (such as file or class name, but is really arbitrary).
-    pub cairo0_contracts: HashMap<String, DeprecatedContractDeployment>,
+    pub deployed_cairo0_contracts: HashMap<String, DeployedDeprecatedContract>,
     /// All deployed cairo1 contracts. Currently expects exactly one deployment per class. String
     /// represents the contract's name (such as file or class name, but is really arbitrary).
-    pub cairo1_contracts: HashMap<String, ContractDeployment>,
+    pub deployed_cairo1_contracts: HashMap<String, DeployedContract>,
+    /// Declared cairo0 contracts. This only contains contracts added with
+    /// `declare_cairo0_contract`.
+    pub declared_cairo0_contracts: HashMap<String, DeclaredDeprecatedContract>,
+    /// Declared cairo1 contracts. This only contains contracts added with
+    /// `declare_cairo1_contract`.
+    pub declared_cairo1_contracts: HashMap<String, DeclaredContract>,
     /// State initially created for blockifier execution
     pub cached_state: CachedState<SharedState<DictStorage, PedersenHash>>,
     /// All cairo0 compiled classes
@@ -58,21 +64,33 @@ impl StarknetTestState {
     }
 }
 
-/// Struct representing a deployed cairo1 class
+/// Struct representing a declared cairo1 class
 #[derive(Debug)]
-pub struct ContractDeployment {
+pub struct DeclaredContract {
     pub class_hash: ClassHash,
-    pub address: ContractAddress,
     pub casm_class: CasmContractClass,
     pub sierra_class: ContractClass,
 }
 
+/// Struct representing a deployed cairo1 class
+#[derive(Debug)]
+pub struct DeployedContract {
+    pub address: ContractAddress,
+    pub declaration: DeclaredContract,
+}
+
+/// Struct representing a declared cairo1 class
+#[derive(Debug)]
+pub struct DeclaredDeprecatedContract {
+    pub class_hash: ClassHash,
+    pub class: DeprecatedCompiledClass,
+}
+
 /// Struct representing a deployed cairo0 class
 #[derive(Debug)]
-pub struct DeprecatedContractDeployment {
-    pub class_hash: ClassHash,
+pub struct DeployedDeprecatedContract {
     pub address: ContractAddress,
-    pub class: DeprecatedCompiledClass,
+    pub declaration: DeclaredDeprecatedContract,
 }
 
 /// ERC20 contract deployments for Eth and Strk tokens, as well as the compiled class. Note that
@@ -82,11 +100,6 @@ pub struct FeeContracts {
     pub erc20_contract: DeprecatedCompiledClass,
     pub eth_fee_token_address: ContractAddress,
     pub strk_fee_token_address: ContractAddress,
-}
-
-/// Helper to load a Cairo 0 contract class.
-pub fn load_cairo0_contract(name: &str) -> (String, DeprecatedCompiledClass) {
-    (name.to_string(), get_deprecated_feature_contract_class(name))
 }
 
 /// Compiles a Sierra class to CASM.
@@ -123,16 +136,26 @@ pub fn init_logging() {
 }
 
 #[derive(Debug)]
-struct Cairo0Contract {
-    deprecated_compiled_class: DeprecatedCompiledClass,
-    /// Contract address to use when deploying the contract.
-    address: ContractAddress,
+pub struct Cairo0Contract {
+    pub deprecated_compiled_class: DeprecatedCompiledClass,
 }
 
 #[derive(Debug)]
 struct Cairo1Contract {
     contract_class: ContractClass,
     compiled_contract_class: CasmContractClass,
+}
+
+#[derive(Debug)]
+struct Cairo0ContractToDeploy {
+    contract: Cairo0Contract,
+    /// Contract address to use when deploying the contract.
+    address: ContractAddress,
+}
+
+#[derive(Debug)]
+struct Cairo1ContractToDeploy {
+    contract: Cairo1Contract,
     /// Contract address to use when deploying the contract.
     address: ContractAddress,
 }
@@ -160,10 +183,16 @@ struct FeeConfig {
 /// Check the tests for usage examples.
 #[derive(Debug)]
 pub struct StarknetStateBuilder<'a> {
-    /// Cairo 0 contracts (name -> contract class).
-    cairo0_contracts: HashMap<String, Cairo0Contract>,
-    /// Cairo 1 contracts (name -> contract class + compiled contract class).
-    cairo1_contracts: HashMap<String, Cairo1Contract>,
+    /// Cairo 0 contracts to deploy (name -> contract class). Contracts in this hashmap will
+    /// be declared as well.
+    cairo0_contracts_to_deploy: HashMap<String, Cairo0ContractToDeploy>,
+    /// Cairo 1 contracts to deploy (name -> contract class + compiled contract class).
+    /// Contracts in this hashmap will be declared as well.
+    cairo1_contracts_to_deploy: HashMap<String, Cairo1ContractToDeploy>,
+    /// Additional Cairo 0 contracts to declare.
+    cairo0_contracts_to_declare: HashMap<String, Cairo0Contract>,
+    /// Additional Cairo 1 contracts to declare.
+    cairo1_contracts_to_declare: HashMap<String, Cairo1Contract>,
     /// Config for fees: initial balance, fee token contract addresses, etc.
     fee_config: Option<FeeConfig>,
     block_context: &'a BlockContext,
@@ -176,8 +205,10 @@ pub struct StarknetStateBuilder<'a> {
 impl<'a> StarknetStateBuilder<'a> {
     pub fn new(block_context: &'a BlockContext) -> Self {
         Self {
-            cairo0_contracts: Default::default(),
-            cairo1_contracts: Default::default(),
+            cairo0_contracts_to_deploy: Default::default(),
+            cairo1_contracts_to_deploy: Default::default(),
+            cairo0_contracts_to_declare: Default::default(),
+            cairo1_contracts_to_declare: Default::default(),
             fee_config: None,
             block_context,
             address_generator: StdRng::seed_from_u64(1),
@@ -189,14 +220,35 @@ impl<'a> StarknetStateBuilder<'a> {
         let mut dict_state_reader = DictStateReader::default();
         let mut ffc: FactFetchingContext<DictStorage, PedersenHash> = FactFetchingContext::new(DictStorage::default());
 
-        let (cairo0_deployed_contracts, cairo0_compiled_classes) =
-            Self::deploy_cairo0_contracts(self.cairo0_contracts, &mut dict_state_reader, &mut ffc)
+        let (deployed_cairo0_contracts, mut cairo0_compiled_classes) =
+            Self::deploy_cairo0_contracts(self.cairo0_contracts_to_deploy, &mut dict_state_reader, &mut ffc)
                 .await
                 .expect("Failed to deploy Cairo 0 contracts in storage");
-        let (cairo1_deployed_contracts, cairo1_compiled_classes) =
-            Self::deploy_cairo1_contracts(self.cairo1_contracts, &mut dict_state_reader, &mut ffc)
+        let (deployed_cairo1_contracts, mut cairo1_compiled_classes) =
+            Self::deploy_cairo1_contracts(self.cairo1_contracts_to_deploy, &mut dict_state_reader, &mut ffc)
                 .await
                 .expect("Failed to deploy Cairo 1 contracts in storage");
+
+        // Declare additional contracts
+        let declared_cairo0_contracts =
+            Self::declare_cairo0_contracts(self.cairo0_contracts_to_declare, &mut dict_state_reader, &mut ffc)
+                .await
+                .expect("Failed to declare additional Cairo 0 contracts");
+        cairo0_compiled_classes.extend(
+            declared_cairo0_contracts
+                .iter()
+                .map(|(_name, declared_contract)| (declared_contract.class_hash, declared_contract.class.clone())),
+        );
+
+        let declared_cairo1_contracts =
+            Self::declare_cairo1_contracts(self.cairo1_contracts_to_declare, &mut dict_state_reader, &mut ffc)
+                .await
+                .expect("Failed to declare additional Cairo 1 contracts");
+        cairo1_compiled_classes.extend(
+            declared_cairo1_contracts
+                .iter()
+                .map(|(_name, declared_contract)| (declared_contract.class_hash, declared_contract.casm_class.clone())),
+        );
 
         if let Some(fee_config) = self.fee_config {
             Self::fund_accounts(&fee_config, &mut dict_state_reader, self.funds_per_address);
@@ -209,8 +261,10 @@ impl<'a> StarknetStateBuilder<'a> {
         let cached_state = CachedState::from(shared_state);
 
         StarknetTestState {
-            cairo0_contracts: cairo0_deployed_contracts,
-            cairo1_contracts: cairo1_deployed_contracts,
+            deployed_cairo0_contracts,
+            deployed_cairo1_contracts,
+            declared_cairo0_contracts,
+            declared_cairo1_contracts,
             cached_state,
             cairo0_compiled_classes,
             cairo1_compiled_classes,
@@ -222,82 +276,167 @@ impl<'a> StarknetStateBuilder<'a> {
         self.address_generator.gen::<u32>().into()
     }
 
-    /// Deploys Cairo 0 contracts.
-    /// Adds entries in the dict state reader and the FFC for each compiled class.
-    async fn deploy_cairo0_contracts(
+    fn add_cairo0_contract_to_state(
+        class_hash: ClassHash,
+        deprecated_compiled_class: DeprecatedCompiledClass,
+        dict_state_reader: &mut DictStateReader,
+    ) {
+        // Add entries in the dict state
+        let vm_class = deprecated_contract_class_api2vm(&deprecated_compiled_class).unwrap();
+        dict_state_reader.class_hash_to_class.insert(class_hash, vm_class);
+        dict_state_reader.class_hash_to_compiled_class_hash.insert(class_hash, CompiledClassHash(class_hash.0));
+    }
+
+    /// Declares Cairo 0 contracts.
+    /// Adds entries for contracts that must be declared but not deployed.
+    async fn declare_cairo0_contracts(
         cairo0_contracts: HashMap<String, Cairo0Contract>,
         dict_state_reader: &mut DictStateReader,
         ffc: &mut FactFetchingContext<DictStorage, PedersenHash>,
-    ) -> Result<
-        (HashMap<String, DeprecatedContractDeployment>, HashMap<ClassHash, DeprecatedCompiledClass>),
-        StorageError,
-    > {
-        let mut deployed_contracts = HashMap::<String, DeprecatedContractDeployment>::new();
+    ) -> Result<HashMap<String, DeclaredDeprecatedContract>, StorageError> {
+        let mut declared_classes = HashMap::new();
+
+        for (name, contract) in cairo0_contracts {
+            let deprecated_compiled_class = contract.deprecated_compiled_class;
+            let class_hash = write_deprecated_compiled_class_fact(deprecated_compiled_class.clone(), ffc).await?;
+            let class_hash = ClassHash::try_from(class_hash).expect("Class hash is not in prime field");
+
+            Self::add_cairo0_contract_to_state(class_hash, deprecated_compiled_class.clone(), dict_state_reader);
+
+            declared_classes.insert(name, DeclaredDeprecatedContract { class_hash, class: deprecated_compiled_class });
+        }
+
+        Ok(declared_classes)
+    }
+
+    /// Deploys Cairo 0 contracts.
+    /// Adds entries in the dict state reader and the FFC for each compiled class.
+    async fn deploy_cairo0_contracts(
+        cairo0_contracts: HashMap<String, Cairo0ContractToDeploy>,
+        dict_state_reader: &mut DictStateReader,
+        ffc: &mut FactFetchingContext<DictStorage, PedersenHash>,
+    ) -> Result<(HashMap<String, DeployedDeprecatedContract>, HashMap<ClassHash, DeprecatedCompiledClass>), StorageError>
+    {
+        let mut deployed_contracts = HashMap::<String, DeployedDeprecatedContract>::new();
         let mut compiled_contract_classes = HashMap::<ClassHash, DeprecatedCompiledClass>::new();
 
         for (name, contract) in cairo0_contracts {
-            let class_hash =
-                write_deprecated_compiled_class_fact(contract.deprecated_compiled_class.clone(), ffc).await?;
+            let deprecated_compiled_class = contract.contract.deprecated_compiled_class;
+
+            let class_hash = write_deprecated_compiled_class_fact(deprecated_compiled_class.clone(), ffc).await?;
             let class_hash = ClassHash::try_from(class_hash).expect("Class hash is not in prime field");
 
             // Add entries in the dict state
-            let vm_class = deprecated_contract_class_api2vm(&contract.deprecated_compiled_class).unwrap();
-            dict_state_reader.class_hash_to_class.insert(class_hash, vm_class);
-            dict_state_reader.class_hash_to_compiled_class_hash.insert(class_hash, CompiledClassHash(class_hash.0));
-
+            Self::add_cairo0_contract_to_state(class_hash, deprecated_compiled_class.clone(), dict_state_reader);
             log::debug!("Inserting deprecated class_hash_to_class: {:?} -> {:?}", contract.address, class_hash);
             dict_state_reader.address_to_class_hash.insert(contract.address.clone(), class_hash);
 
             deployed_contracts.insert(
                 name.clone(),
-                DeprecatedContractDeployment {
-                    class_hash,
+                DeployedDeprecatedContract {
                     address: contract.address.clone(),
-                    class: contract.deprecated_compiled_class.clone(),
+                    declaration: DeclaredDeprecatedContract { class_hash, class: deprecated_compiled_class.clone() },
                 },
             );
-            compiled_contract_classes.insert(class_hash, contract.deprecated_compiled_class.clone());
+            compiled_contract_classes.insert(class_hash, deprecated_compiled_class.clone());
         }
 
         Ok((deployed_contracts, compiled_contract_classes))
     }
 
-    /// Deploys Cairo 1 contracts.
-    /// Adds entries in the dict state reader and the FFC for each contract and compiled classes.
-    async fn deploy_cairo1_contracts(
+    fn add_cairo1_contract_to_state(
+        class_hash: ClassHash,
+        compiled_class_hash: CompiledClassHash,
+        compiled_contract_class: CasmContractClass,
+        dict_state_reader: &mut DictStateReader,
+    ) {
+        let vm_class = compiled_contract_class_cl2vm(&compiled_contract_class).unwrap();
+        dict_state_reader.class_hash_to_class.insert(class_hash, vm_class);
+        dict_state_reader.class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash);
+    }
+
+    /// Declares Cairo 1 contracts.
+    /// Adds entries for contracts that must be declared but not deployed.
+    async fn declare_cairo1_contracts(
         cairo1_contracts: HashMap<String, Cairo1Contract>,
         dict_state_reader: &mut DictStateReader,
         ffc: &mut FactFetchingContext<DictStorage, PedersenHash>,
-    ) -> Result<(HashMap<String, ContractDeployment>, HashMap<ClassHash, CasmContractClass>), StorageError> {
-        let mut deployed_contracts = HashMap::<String, ContractDeployment>::new();
-        let mut compiled_contract_classes = HashMap::<ClassHash, CasmContractClass>::new();
+    ) -> Result<HashMap<String, DeclaredContract>, StorageError> {
+        let mut compiled_classes = HashMap::new();
 
         for (name, contract) in cairo1_contracts {
+            let contract_class = contract.contract_class;
+            let compiled_contract_class = contract.compiled_contract_class;
+
             let (contract_class_hash, compiled_class_hash) =
-                write_class_facts(contract.contract_class.clone(), contract.compiled_contract_class.clone(), ffc)
-                    .await?;
+                write_class_facts(contract_class.clone(), compiled_contract_class.clone(), ffc).await?;
+            let class_hash = ClassHash::try_from(contract_class_hash).expect("Class hash is not in prime field");
+            let compiled_class_hash =
+                CompiledClassHash::try_from(compiled_class_hash).expect("Compiled class hash is not in prime field");
+
+            Self::add_cairo1_contract_to_state(
+                class_hash,
+                compiled_class_hash,
+                compiled_contract_class.clone(),
+                dict_state_reader,
+            );
+
+            compiled_classes.insert(
+                name,
+                DeclaredContract {
+                    class_hash,
+                    casm_class: compiled_contract_class.clone(),
+                    sierra_class: contract_class,
+                },
+            );
+        }
+
+        Ok(compiled_classes)
+    }
+
+    /// Deploys Cairo 1 contracts.
+    /// Adds entries in the dict state reader and the FFC for each contract and compiled classes.
+    async fn deploy_cairo1_contracts(
+        cairo1_contracts: HashMap<String, Cairo1ContractToDeploy>,
+        dict_state_reader: &mut DictStateReader,
+        ffc: &mut FactFetchingContext<DictStorage, PedersenHash>,
+    ) -> Result<(HashMap<String, DeployedContract>, HashMap<ClassHash, CasmContractClass>), StorageError> {
+        let mut deployed_contracts = HashMap::<String, DeployedContract>::new();
+        let mut compiled_contract_classes = HashMap::<ClassHash, CasmContractClass>::new();
+
+        for (name, contract_to_deploy) in cairo1_contracts {
+            let contract_class = contract_to_deploy.contract.contract_class;
+            let compiled_contract_class = contract_to_deploy.contract.compiled_contract_class;
+
+            let (contract_class_hash, compiled_class_hash) =
+                write_class_facts(contract_class.clone(), compiled_contract_class.clone(), ffc).await?;
             let class_hash = ClassHash::try_from(contract_class_hash).expect("Class hash is not in prime field");
             let compiled_class_hash =
                 CompiledClassHash::try_from(compiled_class_hash).expect("Compiled class hash is not in prime field");
 
             // Add entries in the dict state
-            let vm_class = compiled_contract_class_cl2vm(&contract.compiled_contract_class).unwrap();
-            dict_state_reader.class_hash_to_class.insert(class_hash, vm_class);
-            dict_state_reader.class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash);
+            Self::add_cairo1_contract_to_state(
+                class_hash,
+                compiled_class_hash,
+                compiled_contract_class.clone(),
+                dict_state_reader,
+            );
 
-            log::debug!("Inserting class_hash_to_class: {:?} -> {:?}", contract.address, class_hash);
-            dict_state_reader.address_to_class_hash.insert(contract.address, class_hash);
+            log::debug!("Inserting class_hash_to_class: {:?} -> {:?}", contract_to_deploy.address, class_hash);
+            dict_state_reader.address_to_class_hash.insert(contract_to_deploy.address, class_hash);
 
             deployed_contracts.insert(
                 name.clone(),
-                ContractDeployment {
-                    class_hash,
-                    address: contract.address.clone(),
-                    casm_class: contract.compiled_contract_class.clone(),
-                    sierra_class: contract.contract_class.clone(),
+                DeployedContract {
+                    address: contract_to_deploy.address.clone(),
+                    declaration: DeclaredContract {
+                        class_hash,
+                        casm_class: compiled_contract_class.clone(),
+                        sierra_class: contract_class.clone(),
+                    },
                 },
             );
-            compiled_contract_classes.insert(class_hash, contract.compiled_contract_class.clone());
+            compiled_contract_classes.insert(class_hash, compiled_contract_class.clone());
         }
 
         Ok((deployed_contracts, compiled_contract_classes))
@@ -343,45 +482,70 @@ impl<'a> StarknetStateBuilder<'a> {
         SharedState::from_blockifier_state(ffc, dict_state_reader).await
     }
 
+    /// Declare a Cairo 1 contract in the test state.
+    #[allow(unused)]
+    pub fn declare_cairo0_contract(mut self, name: String, deprecated_compiled_class: DeprecatedCompiledClass) -> Self {
+        self.cairo0_contracts_to_declare.insert(name, Cairo0Contract { deprecated_compiled_class });
+        self
+    }
+
     /// Add a Cairo 0 contract to the test state.
-    pub fn add_cairo0_contract(mut self, name: String, deprecated_compiled_class: DeprecatedCompiledClass) -> Self {
+    pub fn deploy_cairo0_contract(mut self, name: String, deprecated_compiled_class: DeprecatedCompiledClass) -> Self {
         let contract_address = self.generate_contract_address();
-        self.add_cairo0_contract_with_fixed_address(name, deprecated_compiled_class, contract_address)
+        self.deploy_cairo0_contract_with_fixed_address(name, deprecated_compiled_class, contract_address)
     }
 
     /// Add a Cairo 0 contract to the test state with a fixed contract address.
-    fn add_cairo0_contract_with_fixed_address(
+    fn deploy_cairo0_contract_with_fixed_address(
         mut self,
         name: String,
         deprecated_compiled_class: DeprecatedCompiledClass,
         contract_address: ContractAddress,
     ) -> Self {
-        let cairo0_contract = Cairo0Contract { deprecated_compiled_class, address: contract_address };
-        self.cairo0_contracts.insert(name, cairo0_contract);
+        let contract_to_deploy = Cairo0ContractToDeploy {
+            contract: Cairo0Contract { deprecated_compiled_class },
+            address: contract_address,
+        };
+        self.cairo0_contracts_to_deploy.insert(name, contract_to_deploy);
         self
     }
 
-    /// Add a Cairo 1 contract to the test state.
-    pub fn add_cairo1_contract(
+    /// Declare a Cairo 1 contract in the test state.
+    #[allow(unused)]
+    pub fn declare_cairo1_contract(
+        mut self,
+        name: String,
+        contract_class: ContractClass,
+        compiled_contract_class: CasmContractClass,
+    ) -> Self {
+        self.cairo1_contracts_to_declare.insert(name, Cairo1Contract { contract_class, compiled_contract_class });
+        self
+    }
+
+    /// Deploy a Cairo 1 contract in the test state.
+    pub fn deploy_cairo1_contract(
         mut self,
         name: String,
         contract_class: ContractClass,
         compiled_contract_class: CasmContractClass,
     ) -> Self {
         let contract_address = self.generate_contract_address();
-        self.add_cairo1_contract_with_fixed_address(name, contract_class, compiled_contract_class, contract_address)
+        self.deploy_cairo1_contract_with_fixed_address(name, contract_class, compiled_contract_class, contract_address)
     }
 
     /// Add a Cairo 1 contract to the test state with a fixed contract address.
-    pub fn add_cairo1_contract_with_fixed_address(
+    pub fn deploy_cairo1_contract_with_fixed_address(
         mut self,
         name: String,
         contract_class: ContractClass,
         compiled_contract_class: CasmContractClass,
         contract_address: ContractAddress,
     ) -> Self {
-        let cairo1_contract = Cairo1Contract { contract_class, compiled_contract_class, address: contract_address };
-        self.cairo1_contracts.insert(name, cairo1_contract);
+        let contract_to_deploy = Cairo1ContractToDeploy {
+            contract: Cairo1Contract { contract_class, compiled_contract_class },
+            address: contract_address,
+        };
+        self.cairo1_contracts_to_deploy.insert(name, contract_to_deploy);
         self
     }
 
@@ -396,12 +560,12 @@ impl<'a> StarknetStateBuilder<'a> {
             eth_fee_token_address,
             default_balance: Balance { strk: strk_balance, eth: eth_balance },
         });
-        self.add_cairo0_contract_with_fixed_address(
+        self.deploy_cairo0_contract_with_fixed_address(
             "erc20_eth".to_string(),
             erc20_contract.clone(),
             eth_fee_token_address,
         )
-        .add_cairo0_contract_with_fixed_address(
+        .deploy_cairo0_contract_with_fixed_address(
             "erc20_strk".to_string(),
             erc20_contract,
             strk_fee_token_address,
@@ -420,12 +584,12 @@ pub async fn initial_state_cairo0(
     block_context: BlockContext,
     #[from(init_logging)] _logging: (),
 ) -> StarknetTestState {
-    let account_with_dummy_validate = load_cairo0_contract("account_with_dummy_validate");
-    let test_contract = load_cairo0_contract("test_contract");
+    let account_with_dummy_validate = load_cairo0_feature_contract("account_with_dummy_validate");
+    let test_contract = load_cairo0_feature_contract("test_contract");
 
     StarknetStateBuilder::new(&block_context)
-        .add_cairo0_contract(account_with_dummy_validate.0, account_with_dummy_validate.1)
-        .add_cairo0_contract(test_contract.0, test_contract.1)
+        .deploy_cairo0_contract(account_with_dummy_validate.0, account_with_dummy_validate.1)
+        .deploy_cairo0_contract(test_contract.0, test_contract.1)
         .set_default_balance(BALANCE, BALANCE)
         .build()
         .await
@@ -441,16 +605,16 @@ pub async fn initial_state_cairo1(
     block_context: BlockContext,
     #[from(init_logging)] _logging: (),
 ) -> StarknetTestState {
-    let test_contract = load_cairo0_contract("test_contract");
+    let test_contract = load_cairo0_feature_contract("test_contract");
     let account_with_dummy_validate = load_cairo1_contract("account_with_dummy_validate");
 
     StarknetStateBuilder::new(&block_context)
-        .add_cairo1_contract(
+        .deploy_cairo1_contract(
             account_with_dummy_validate.0,
             account_with_dummy_validate.1,
             account_with_dummy_validate.2,
         )
-        .add_cairo0_contract(test_contract.0, test_contract.1)
+        .deploy_cairo0_contract(test_contract.0, test_contract.1)
         .set_default_balance(BALANCE, BALANCE)
         .build()
         .await
@@ -466,12 +630,12 @@ pub async fn initial_state_syscalls(
     let test_contract = load_cairo1_contract("test_contract");
 
     StarknetStateBuilder::new(&block_context)
-        .add_cairo1_contract(
+        .deploy_cairo1_contract(
             account_with_dummy_validate.0,
             account_with_dummy_validate.1,
             account_with_dummy_validate.2,
         )
-        .add_cairo1_contract(test_contract.0, test_contract.1, test_contract.2)
+        .deploy_cairo1_contract(test_contract.0, test_contract.1, test_contract.2)
         .set_default_balance(BALANCE, BALANCE)
         .build()
         .await

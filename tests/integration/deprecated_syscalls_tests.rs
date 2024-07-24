@@ -43,14 +43,14 @@ async fn test_syscall_library_call_cairo0(
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.cairo0_contracts.get("test_contract").unwrap();
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap();
 
     let contract_address = test_contract.address;
 
     // Call the `return_result` method of the test contract class,
     // i.e. the test contract will call its own class.
-    let test_contract_class_hash = test_contract.class_hash;
+    let test_contract_class_hash = test_contract.declaration.class_hash;
     let selector_felt = selector_from_name("return_result");
 
     let return_result_calldata = vec![stark_felt!(1u128), stark_felt!(42u128)];
@@ -92,8 +92,8 @@ async fn test_syscall_get_block_number_cairo0(
 ) {
     let initial_state = initial_state_cairo0.await;
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
 
     let expected_block_number = stark_felt!(block_context.block_info().block_number.0);
 
@@ -132,8 +132,8 @@ async fn test_syscall_get_block_timestamp_cairo0(
 ) {
     let initial_state = initial_state_cairo0.await;
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
 
     let expected_block_timestamp = stark_felt!(block_context.block_info().block_timestamp.0);
 
@@ -172,8 +172,8 @@ async fn test_syscall_get_tx_info_cairo0(
 ) {
     let initial_state = initial_state_cairo0.await;
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
 
     let tx_version = TransactionVersion::ZERO;
 
@@ -253,8 +253,8 @@ async fn test_syscall_get_tx_signature_cairo0(
 ) {
     let initial_state = initial_state_cairo0.await;
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
 
     let tx_version = TransactionVersion::ZERO;
 
@@ -293,14 +293,14 @@ async fn test_syscall_replace_class_cairo0(
 ) {
     let initial_state = initial_state_cairo0.await;
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.cairo0_contracts.get("test_contract").unwrap();
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap();
     let contract_address = test_contract.address;
 
     let tx_version = TransactionVersion::ZERO;
 
     // We just test that the replace_class syscall goes through. Just use the same class hash.
-    let class_hash = test_contract.class_hash;
+    let class_hash = test_contract.declaration.class_hash;
 
     let mut nonce_manager = NonceManager::default();
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {
@@ -335,13 +335,13 @@ async fn test_syscall_deploy_cairo0(
 ) {
     let initial_state = initial_state_cairo0.await;
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.cairo0_contracts.get("test_contract").unwrap();
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap();
     let contract_address = test_contract.address;
 
     let tx_version = TransactionVersion::ZERO;
 
-    let class_hash = test_contract.class_hash;
+    let class_hash = test_contract.declaration.class_hash;
 
     let contract_address_salt = ContractAddressSalt::default();
     let constructor_args = vec![StarkFelt::from(100u64), StarkFelt::from(200u64)];
@@ -355,7 +355,7 @@ async fn test_syscall_deploy_cairo0(
 
     let expected_contract_address = calculate_contract_address(
         contract_address_salt,
-        test_contract.class_hash,
+        test_contract.declaration.class_hash,
         &Calldata(constructor_args.into()),
         contract_address,
     )
@@ -406,8 +406,8 @@ async fn test_syscall_get_sequencer_address_cairo0(
 ) {
     let initial_state = initial_state_cairo0.await;
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let contract_address = initial_state.cairo0_contracts.get("test_contract").unwrap().address;
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
 
     let tx_version = TransactionVersion::ZERO;
     let expected_sequencer_address = block_context.block_info().sequencer_address;
@@ -446,11 +446,11 @@ async fn test_syscall_get_contract_address_cairo0(
 ) {
     let initial_state = initial_state_cairo0.await;
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.cairo0_contracts.get("test_contract").unwrap();
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap();
     let contract_address = test_contract.address;
 
-    let class_hash = test_contract.class_hash;
+    let class_hash = test_contract.declaration.class_hash;
 
     let contract_address_salt = ContractAddressSalt::default();
     let constructor_args = vec![StarkFelt::from(100u64), StarkFelt::from(200u64)];
@@ -503,8 +503,8 @@ async fn test_syscall_emit_event_cairo0(
 ) {
     let initial_state = initial_state_cairo0.await;
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.cairo0_contracts.get("test_contract").unwrap();
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap();
     let contract_address = test_contract.address;
 
     let tx_version = TransactionVersion::ZERO;
@@ -550,8 +550,8 @@ async fn test_syscall_send_message_to_l1_cairo0(
 ) {
     let initial_state = initial_state_cairo0.await;
 
-    let sender_address = initial_state.cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.cairo0_contracts.get("test_contract").unwrap();
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap();
     let contract_address = test_contract.address;
 
     // test constants

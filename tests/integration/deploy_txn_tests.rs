@@ -11,9 +11,8 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionV
 use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::common::block_context;
-use crate::common::state::{
-    init_logging, load_cairo0_contract, load_cairo1_contract, StarknetStateBuilder, StarknetTestState,
-};
+use crate::common::blockifier_contracts::load_cairo0_feature_contract;
+use crate::common::state::{init_logging, load_cairo1_contract, StarknetStateBuilder, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[derive(Debug)]
@@ -34,8 +33,8 @@ pub async fn initial_state_for_deploy_v1(
     block_context: BlockContext,
     #[from(init_logging)] _logging: (),
 ) -> (StarknetTestState, DeployArgs) {
-    let account_with_dummy_validate = load_cairo0_contract("account_with_dummy_validate");
-    let account_with_long_validate = load_cairo0_contract("account_with_long_validate");
+    let account_with_dummy_validate = load_cairo0_feature_contract("account_with_dummy_validate");
+    let account_with_long_validate = load_cairo0_feature_contract("account_with_long_validate");
 
     // This is the hardcoded class hash of `account_with_long_validate` (Cairo 0).
     // Recomputing it automatically requires a significant amount of code reorganization so
@@ -59,8 +58,8 @@ pub async fn initial_state_for_deploy_v1(
     .expect("Failed to calculate the contract address");
 
     let state = StarknetStateBuilder::new(&block_context)
-        .add_cairo0_contract(account_with_dummy_validate.0, account_with_dummy_validate.1)
-        .add_cairo0_contract(account_with_long_validate.0, account_with_long_validate.1)
+        .deploy_cairo0_contract(account_with_dummy_validate.0, account_with_dummy_validate.1)
+        .deploy_cairo0_contract(account_with_long_validate.0, account_with_long_validate.1)
         .fund_account(deployed_contract_address, BALANCE, BALANCE)
         .set_default_balance(BALANCE, BALANCE)
         .build()
@@ -81,9 +80,9 @@ async fn deploy_cairo0_account(
     let tx_version = TransactionVersion::ONE;
     let mut nonce_manager = NonceManager::default();
 
-    let account_with_long_validate = initial_state.cairo0_contracts.get("account_with_long_validate").unwrap();
+    let account_with_long_validate = initial_state.deployed_cairo0_contracts.get("account_with_long_validate").unwrap();
 
-    let deployed_account_class_hash = account_with_long_validate.class_hash;
+    let deployed_account_class_hash = account_with_long_validate.declaration.class_hash;
     // Sanity check, as we hardcode the class hash in the fixture we verify that we have
     // the right one.
     assert_eq!(deploy_args.class_hash, deployed_account_class_hash);
@@ -142,12 +141,16 @@ pub async fn initial_state_for_deploy_v3(
     .expect("Failed to calculate the contract address");
 
     let state = StarknetStateBuilder::new(&block_context)
-        .add_cairo1_contract(
+        .deploy_cairo1_contract(
             account_with_dummy_validate.0,
             account_with_dummy_validate.1,
             account_with_dummy_validate.2,
         )
-        .add_cairo1_contract(account_with_long_validate.0, account_with_long_validate.1, account_with_long_validate.2)
+        .deploy_cairo1_contract(
+            account_with_long_validate.0,
+            account_with_long_validate.1,
+            account_with_long_validate.2,
+        )
         .fund_account(deployed_contract_address, BALANCE, BALANCE)
         .set_default_balance(BALANCE, BALANCE)
         .build()
@@ -168,9 +171,9 @@ async fn deploy_cairo1_account(
 
     let tx_version = TransactionVersion::THREE;
     let mut nonce_manager = NonceManager::default();
-    let account_with_long_validate = initial_state.cairo1_contracts.get("account_with_long_validate").unwrap();
+    let account_with_long_validate = initial_state.deployed_cairo1_contracts.get("account_with_long_validate").unwrap();
 
-    let deployed_account_class_hash = account_with_long_validate.class_hash;
+    let deployed_account_class_hash = account_with_long_validate.declaration.class_hash;
     // Sanity check, as we hardcode the class hash in the fixture we verify that we have
     // the right one.
     assert_eq!(deploy_args.class_hash, deployed_account_class_hash);
