@@ -8,7 +8,7 @@ use cairo_vm::vm::runners::cairo_pie::{
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use rstest::rstest;
 use serde_json::json;
-use snos::sharp::pie::{decode_base64_to_unzipped, PIE_FILES};
+use starknet_os::sharp::pie::{decode_base64_to_unzipped, PIE_FILES};
 
 use crate::common::{os_pie_string, setup_pie};
 
@@ -81,14 +81,12 @@ fn pie_memory_ok(setup_pie: CairoPie) {
 
 #[rstest]
 fn convert_b64_to_raw(os_pie_string: String) {
-    let dst = "build/pie/";
+    let dst = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("build").join("pie");
 
-    decode_base64_to_unzipped(&os_pie_string, dst).unwrap();
+    decode_base64_to_unzipped(&os_pie_string, dst.to_string_lossy().as_ref()).unwrap();
 
     for file in PIE_FILES {
-        assert!(
-            Path::new(&format!("{dst}{file:}.{:}", if file != "memory" { "json" } else { "bin" })).exists(),
-            "Missing file {file:}"
-        );
+        let file_path = dst.join(format!("{file:}.{:}", if file != "memory" { "json" } else { "bin" }));
+        assert!(file_path.exists(), "Missing file {:}", file_path.to_string_lossy());
     }
 }

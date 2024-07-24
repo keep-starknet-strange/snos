@@ -13,7 +13,7 @@ use cairo_vm::vm::vm_core::VirtualMachineBuilder;
 use cairo_vm::vm::vm_memory::memory_segments::MemorySegmentManager;
 use clap::Parser;
 use serde::Deserialize;
-use snos::hints::SnosHintProcessor;
+use starknet_os::hints::SnosHintProcessor;
 
 #[derive(Clone, Copy, Debug, Default, clap::ValueEnum, PartialEq)]
 enum HintFilter {

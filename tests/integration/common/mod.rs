@@ -19,7 +19,7 @@ pub mod utils;
 
 #[fixture]
 pub fn setup_runner() -> CairoRunner {
-    let program_content = fs::read("build/programs/fact.json").unwrap();
+    let program_content = fs::read("../build/programs/fact.json").unwrap();
 
     let mut hint_processor = BuiltinHintProcessor::new_empty();
 
@@ -51,7 +51,7 @@ pub fn setup_pie(setup_runner: CairoRunner) -> CairoPie {
 
 #[fixture]
 pub fn os_pie_string() -> String {
-    std::fs::read_to_string("tests/integration/common/data/output_pie.b64").unwrap()
+    std::fs::read_to_string("integration/common/data/output_pie.b64").unwrap()
 }
 
 #[fixture]

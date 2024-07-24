@@ -1,5 +1,5 @@
 use rstest::rstest;
-use snos::sharp::{CairoJobStatus, InvalidReason, SharpClient, SharpPie};
+use starknet_os::sharp::{CairoJobStatus, InvalidReason, SharpClient, SharpPie};
 use uuid::uuid;
 
 use crate::common::os_pie_string;

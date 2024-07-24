@@ -18,12 +18,12 @@ use blockifier::transaction::transaction_execution::Transaction;
 use cairo_vm::Felt252;
 use num_traits::ToPrimitive;
 use rstest::rstest;
-use snos::config::SN_GOERLI;
-use snos::utils::felt_api2vm;
 use starknet_api::core::calculate_contract_address;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionVersion};
+use starknet_os::config::SN_GOERLI;
+use starknet_os::utils::felt_api2vm;
 
 use crate::common::block_context;
 use crate::common::state::{initial_state_cairo0, StarknetTestState};

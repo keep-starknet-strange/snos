@@ -3,7 +3,7 @@ use std::env;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::Felt252;
 use num_traits::ToPrimitive;
-use snos::io::output::StarknetOsOutput;
+use starknet_os::io::output::StarknetOsOutput;
 
 use super::*;
 

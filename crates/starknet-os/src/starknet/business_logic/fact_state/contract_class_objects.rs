@@ -188,7 +188,7 @@ mod tests {
         let mut ffc: FactFetchingContext<DictStorage, PedersenHash> = FactFetchingContext::new(DictStorage::default());
 
         let casm_bytes = include_bytes!(
-            "../../../../tests/integration/contracts/blockifier_contracts/feature_contracts/cairo1/compiled/\
+            "../../../../../../tests/integration/contracts/blockifier_contracts/feature_contracts/cairo1/compiled/\
              test_contract.casm.json"
         );
         let compiled_class: CasmContractClass =
