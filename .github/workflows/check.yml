@@ -32,7 +32,8 @@ jobs:
           pip install cairo-lang==0.13.1 "sympy<1.13.0"
       - name: "Prepare test environment"
         run: |
-          bash ./scripts/reset-tests.sh
+          mkdir -p build
+          cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
       - run: cargo clippy --all -- -D warnings
 
   tests:
@@ -76,7 +77,8 @@ jobs:
           pip install cairo-lang==0.13.1 "sympy<1.13.0"
       - name: "Prepare test environment"
         run: |
-          bash ./scripts/reset-tests.sh
+          mkdir -p build
+          cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
       - run: cargo install cargo-udeps --locked
       - run: cargo udeps --all-targets
 
