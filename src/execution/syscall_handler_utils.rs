@@ -123,6 +123,12 @@ pub fn ignore_felt_array(ptr: &mut Relocatable) -> SyscallResult<()> {
     Ok(())
 }
 
+// HERMAN: TODO: add test for this function
+pub fn get_felt_range(vm: &VirtualMachine, start_addr: Relocatable, range_size: usize) -> SyscallResult<Vec<Felt252>> {
+    let values = vm.get_integer_range(start_addr, range_size)?;
+    Ok(values.into_iter().map(|felt| felt.into_owned()).collect())
+}
+
 pub fn read_calldata(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Vec<Felt252>> {
     read_felt_array::<SyscallExecutionError>(vm, ptr)
 }

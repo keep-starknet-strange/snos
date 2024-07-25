@@ -1,6 +1,6 @@
 use std::rc::Rc;
-
-use blockifier::execution::execution_utils::ReadOnlySegments;
+use cairo_felt::Felt252 as CairoFelt252;
+use blockifier::execution::execution_utils::{ReadOnlySegments, felt_to_stark_felt};
 use cairo_vm::math_utils::safe_div_usize;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -17,7 +17,7 @@ use crate::execution::constants::{
     STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST, KECCAK_GAS_COST, KECCAK_FULL_RATE_IN_U64S, KECCAK_ROUND_COST_GAS_COST,
 };
 use crate::execution::syscall_handler_utils::{
-    felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest, EmptyResponse,
+    felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, get_felt_range, EmptyRequest, EmptyResponse,
     ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult, SyscallSelector, WriteResponseResult,
 };
 use crate::utils::felt_api2vm;
@@ -513,11 +513,11 @@ impl SyscallHandler for KeccakHandler {
     async fn execute(
             request: Self::Request,
             vm: &mut VirtualMachine,
-            exec_wrapper: &mut ExecutionHelperWrapper,
+            _exec_wrapper: &mut ExecutionHelperWrapper,
             remaining_gas: &mut u64,
         ) -> SyscallResult<Self::Response> {
         let input_len = (request.input_end - request.input_start)?;
-        // This unwrap will never panic as the constant is 17
+        // This unwrap will not fail as the constant value is 17
         let n_rounds = safe_div_usize(input_len, KECCAK_FULL_RATE_IN_U64S.to_usize().unwrap())?;
         let gas_cost = n_rounds.to_u64().unwrap() * KECCAK_ROUND_COST_GAS_COST;
         if gas_cost > *remaining_gas {
@@ -525,8 +525,29 @@ impl SyscallHandler for KeccakHandler {
         }
         *remaining_gas -= gas_cost;
 
-        Ok(KeccakResponse { result_high: Felt252::ZERO, result_low: Felt252::ONE})
-        
+        let input_felt_array = get_felt_range(vm, request.input_end, input_len)?;
+
+        // Keccak state function consist of 25 words 64 bits each for SHA-3 (200 bytes/1600 bits)
+        // Sponge Function [https://en.wikipedia.org/wiki/Sponge_function]
+        // SHA3 [https://en.wikipedia.org/wiki/SHA-3]
+        let mut state = [0u64; 25];
+        for chunk in input_felt_array.chunks(KECCAK_FULL_RATE_IN_U64S.to_usize().unwrap()) {
+            for (i, val) in chunk.iter().enumerate() {
+                state[i] ^= val.to_u64().ok_or_else(|| SyscallExecutionError::InvalidSyscallInput {
+                    input: *val,
+                    info: String::from("Invalid input for the keccak syscall."),
+                })?;
+            }
+            keccak::f1600(&mut state)
+        }
+        let result_low = (CairoFelt252::from(state[1]) << 64u32) + CairoFelt252::from(state[0]); 
+        let result_high = (CairoFelt252::from(state[3]) << 64u32) + CairoFelt252::from(state[2]);
+
+        // We keep 256 bits (128 high and 128 low)
+        Ok(KeccakResponse {
+            result_low: (CairoFelt252::from(state[1]) << 64u32) + CairoFelt252::from(state[0]),
+            result_high: (CairoFelt252::from(state[3]) << 64u32) + CairoFelt252::from(state[2]),
+        })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
