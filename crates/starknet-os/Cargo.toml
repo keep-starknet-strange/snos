@@ -29,7 +29,6 @@ num-traits = { workspace = true }
 pathfinder-gateway-types = { workspace = true }
 pathfinder-crypto = { workspace = true }
 pathfinder-common = { workspace = true }
-regex = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
