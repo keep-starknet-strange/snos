@@ -526,7 +526,7 @@ impl SyscallHandler for KeccakHandler {
         }
         *remaining_gas -= gas_cost;
 
-        let input_felt_array = get_felt_range(vm, request.input_end, input_len)?;
+        let input_felt_array = get_felt_range(vm, request.input_start, input_len)?;
 
         // Keccak state function consist of 25 words 64 bits each for SHA-3 (200 bytes/1600 bits)
         // Sponge Function [https://en.wikipedia.org/wiki/Sponge_function]
@@ -541,10 +541,10 @@ impl SyscallHandler for KeccakHandler {
             }
             keccak::f1600(&mut state)
         }
+        // We keep 256 bits (128 high and 128 low)
         let result_low = (BigUint::from(state[1]) << 64u32) + BigUint::from(state[0]);
         let result_high = (BigUint::from(state[3]) << 64u32) + BigUint::from(state[2]);
 
-        // We keep 256 bits (128 high and 128 low)
         Ok(KeccakResponse { result_low: (Felt252::from(result_low)), result_high: (Felt252::from(result_high)) })
     }
 
