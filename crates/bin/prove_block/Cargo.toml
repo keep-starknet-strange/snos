@@ -17,7 +17,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
 starknet-os = { path = "../../starknet-os" }
-replay = { git = "https://github.com/notlesh/starknet-replay" }
 rpc-state-reader = { git = "https://github.com/notlesh/starknet-replay" }
 reqwest = "0.11.27"
 tokio = { workspace = true }

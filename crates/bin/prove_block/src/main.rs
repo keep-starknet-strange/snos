@@ -587,14 +587,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let contract_state_commitment_info =
-        CommitmentInfo::create_from_modifications::<CachedRpcStorage, PedersenHash, ContractState>(
-            previous_tree.clone(),
-            None, // TODO: do we have a source for expected?
-            updates,
-            &mut initial_state.ffc,
-        )
-        .await?;
+    // let contract_state_commitment_info =
+    //     CommitmentInfo::create_from_modifications::<CachedRpcStorage, PedersenHash, ContractState>(
+    //         previous_tree.clone(),
+    //         None, // TODO: do we have a source for expected?
+    //         updates,
+    //         &mut initial_state.ffc,
+    //     )
+    //     .await?;
 
     // re-execute txns through blockifier
     // let tx_execution_infos = reexecute_with_blockifier(
@@ -606,7 +606,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // ).await?;
 
     let os_input = StarknetOsInput {
-        contract_state_commitment_info,
+        contract_state_commitment_info: Default::default(),
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes: Default::default(),
         compiled_classes: Default::default(),
