@@ -165,7 +165,7 @@ pub enum SyscallExecutionError {
     #[error("Syscall error.")]
     SyscallError { error_data: Vec<Felt252> },
     #[error("Out of Gas in Syscall execution. Remaining gas is {remaining_gas}")]
-    OutOfGas {remaining_gas: u64},
+    OutOfGas { remaining_gas: u64 },
 }
 
 impl From<MemoryError> for SyscallExecutionError {

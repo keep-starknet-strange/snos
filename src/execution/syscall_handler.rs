@@ -1,6 +1,7 @@
 use std::rc::Rc;
+
+use blockifier::execution::execution_utils::{felt_to_stark_felt, ReadOnlySegments};
 use cairo_felt::Felt252 as CairoFelt252;
-use blockifier::execution::execution_utils::{ReadOnlySegments, felt_to_stark_felt};
 use cairo_vm::math_utils::safe_div_usize;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -13,12 +14,14 @@ use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::new_syscalls;
 use crate::execution::constants::{
     BLOCK_HASH_CONTRACT_ADDRESS, CALL_CONTRACT_GAS_COST, DEPLOY_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST,
-    GET_EXECUTION_INFO_GAS_COST, LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST,
-    STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST, KECCAK_GAS_COST, KECCAK_FULL_RATE_IN_U64S, KECCAK_ROUND_COST_GAS_COST,
+    GET_EXECUTION_INFO_GAS_COST, KECCAK_FULL_RATE_IN_U64S, KECCAK_GAS_COST, KECCAK_ROUND_COST_GAS_COST,
+    LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST,
+    STORAGE_WRITE_GAS_COST,
 };
 use crate::execution::syscall_handler_utils::{
-    felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, get_felt_range, EmptyRequest, EmptyResponse,
-    ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult, SyscallSelector, WriteResponseResult,
+    felt_from_ptr, get_felt_range, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest,
+    EmptyResponse, ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult, SyscallSelector,
+    WriteResponseResult,
 };
 use crate::utils::felt_api2vm;
 
@@ -105,9 +108,7 @@ impl OsSyscallHandlerWrapper {
             SyscallSelector::LibraryCallL1Handler => {
                 run_handler::<LibraryCallHandler>(ptr, vm, ehw, LIBRARY_CALL_GAS_COST).await
             }
-            SyscallSelector::Keccak => {
-                run_handler::<KeccakHandler>(ptr, vm, ehw, KECCAK_GAS_COST).await
-            }
+            SyscallSelector::Keccak => run_handler::<KeccakHandler>(ptr, vm, ehw, KECCAK_GAS_COST).await,
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;
 
@@ -507,15 +508,15 @@ impl SyscallHandler for KeccakHandler {
         *ptr = (*ptr + 1)?;
         let input_end = vm.get_relocatable(*ptr)?;
         *ptr = (*ptr + 1)?;
-        Ok(KeccakRequest { input_start, input_end }) 
+        Ok(KeccakRequest { input_start, input_end })
     }
 
     async fn execute(
-            request: Self::Request,
-            vm: &mut VirtualMachine,
-            _exec_wrapper: &mut ExecutionHelperWrapper,
-            remaining_gas: &mut u64,
-        ) -> SyscallResult<Self::Response> {
+        request: Self::Request,
+        vm: &mut VirtualMachine,
+        _exec_wrapper: &mut ExecutionHelperWrapper,
+        remaining_gas: &mut u64,
+    ) -> SyscallResult<Self::Response> {
         let input_len = (request.input_end - request.input_start)?;
         // This unwrap will not fail as the constant value is 17
         let n_rounds = safe_div_usize(input_len, KECCAK_FULL_RATE_IN_U64S.to_usize().unwrap())?;
@@ -540,7 +541,7 @@ impl SyscallHandler for KeccakHandler {
             }
             keccak::f1600(&mut state)
         }
-        let result_low = (CairoFelt252::from(state[1]) << 64u32) + CairoFelt252::from(state[0]); 
+        let result_low = (CairoFelt252::from(state[1]) << 64u32) + CairoFelt252::from(state[0]);
         let result_high = (CairoFelt252::from(state[3]) << 64u32) + CairoFelt252::from(state[2]);
 
         // We keep 256 bits (128 high and 128 low)
@@ -555,7 +556,7 @@ impl SyscallHandler for KeccakHandler {
         write_felt(vm, ptr, response.result_high)?;
         Ok(())
     }
-} 
+}
 
 // impl SyscallResponse for KeccakResponse {
 //     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
