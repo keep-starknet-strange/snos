@@ -13,7 +13,7 @@ ark-secp256r1 = "0.4"
 assert_matches = "1.5.0"
 base64 = "0.21.3"
 bitvec = { version = "1.0.1", features = ["serde"] }
-blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", branch = "msl/derive-clone", features = ["testing"] }
+blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", branch = "herman/msl/derive-clone-fix", features = ["testing"] }
 cairo-lang-starknet = { version = "2.6.3" }
 cairo-lang-starknet-classes = { version = "2.6.3" }
 cairo-lang-casm = { version = "2.6.3" }

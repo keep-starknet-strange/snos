@@ -118,7 +118,7 @@ async fn test_syscall_test_secp256k1_cairo1(
 ) {
     let initial_state = initial_state_syscalls.await;
 
-    let tx_version = TransactionVersion::THREE;
+    let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
     let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
@@ -132,7 +132,6 @@ async fn test_syscall_test_secp256k1_cairo1(
         calldata: create_calldata(contract_address, "test_secp256k1", &vec![]),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
-        resource_bounds: default_testing_resource_bounds()
     });
 
     let txs = vec![Transaction::AccountTransaction(tx)];

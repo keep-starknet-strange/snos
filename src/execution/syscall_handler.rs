@@ -856,10 +856,13 @@ impl SyscallHandler for SecpGetXyHandler {
         Ok(res)
     }
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, response.x.low)?;
-        write_felt(vm, ptr, response.x.high)?;
-        write_felt(vm, ptr, response.y.low)?;
-        write_felt(vm, ptr, response.y.high)?;
+        pub fn write_u256(vm: &mut VirtualMachine, ptr: &mut Relocatable, value: BigUint) -> Result<(), MemoryError> {
+            write_felt(vm, ptr, Felt252::from(&value & BigUint::from(u128::MAX)))?;
+            write_felt(vm, ptr, Felt252::from(value >> 128))
+        }
+        write_u256(vm, ptr, pack(response.x))?;
+        write_u256(vm, ptr, pack(response.y))?;
+
         Ok(())
     }
 }
@@ -893,8 +896,6 @@ impl SyscallHandler for SecpNewHandler {
         Ok(res)
     }
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        // Cairo 1 representation of None.
-
         match response.optional_ec_point {
             Some(id) => {
                 // Cairo 1 representation of Some(id).
@@ -902,6 +903,7 @@ impl SyscallHandler for SecpNewHandler {
                 write_maybe_relocatable(vm, ptr, id)?;
             }
             None => {
+                // Cairo 1 representation of None.
                 write_maybe_relocatable(vm, ptr, 1)?;
                 write_maybe_relocatable(vm, ptr, 0)?;
             }
