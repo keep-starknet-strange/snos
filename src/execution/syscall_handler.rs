@@ -1,13 +1,13 @@
 use std::rc::Rc;
 
-use blockifier::execution::execution_utils::{felt_to_stark_felt, ReadOnlySegments};
-use cairo_felt::Felt252 as CairoFelt252;
+use blockifier::execution::execution_utils::ReadOnlySegments;
 use cairo_vm::math_utils::safe_div_usize;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
-use num_traits::{One, ToPrimitive};
+use num_bigint::BigUint;
+use num_traits::ToPrimitive;
 use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
@@ -541,14 +541,11 @@ impl SyscallHandler for KeccakHandler {
             }
             keccak::f1600(&mut state)
         }
-        let result_low = (CairoFelt252::from(state[1]) << 64u32) + CairoFelt252::from(state[0]);
-        let result_high = (CairoFelt252::from(state[3]) << 64u32) + CairoFelt252::from(state[2]);
+        let result_low = (BigUint::from(state[1]) << 64u32) + BigUint::from(state[0]);
+        let result_high = (BigUint::from(state[3]) << 64u32) + BigUint::from(state[2]);
 
         // We keep 256 bits (128 high and 128 low)
-        Ok(KeccakResponse {
-            result_low: (CairoFelt252::from(state[1]) << 64u32) + CairoFelt252::from(state[0]),
-            result_high: (CairoFelt252::from(state[3]) << 64u32) + CairoFelt252::from(state[2]),
-        })
+        Ok(KeccakResponse { result_low: (Felt252::from(result_low)), result_high: (Felt252::from(result_high)) })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
