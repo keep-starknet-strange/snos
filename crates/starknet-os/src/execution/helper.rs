@@ -16,15 +16,17 @@ use tokio::sync::RwLock;
 use crate::config::STORED_BLOCK_HASH_BUFFER;
 use crate::crypto::pedersen::PedersenHash;
 use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage};
-use crate::storage::dict_storage::DictStorage;
-use crate::storage::storage::StorageError;
+use crate::storage::storage::{Storage, StorageError};
 
 // TODO: make the execution helper generic over the storage and hash function types.
 pub type ContractStorageMap<S, H> = HashMap<Felt252, OsSingleStarknetStorage<S, H>>;
 
 /// Maintains the info for executing txns in the OS
 #[derive(Debug)]
-pub struct ExecutionHelper {
+pub struct ExecutionHelper<S>
+where
+    S: Storage,
+{
     pub _prev_block_context: Option<BlockContext>,
     // Pointer tx execution info
     pub tx_execution_info_iter: IntoIter<TransactionExecutionInfo>,
@@ -51,19 +53,31 @@ pub struct ExecutionHelper {
     // Iter to the read_values array consumed when tx code is executed
     pub execute_code_read_iter: IntoIter<Felt252>,
     // Per-contract storage
-    pub storage_by_address: ContractStorageMap<DictStorage, PedersenHash>,
+    pub storage_by_address: ContractStorageMap<S, PedersenHash>,
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
 /// to clone the refrence when entering and exiting vm scopes
-#[derive(Clone, Debug)]
-pub struct ExecutionHelperWrapper {
-    pub execution_helper: Rc<RwLock<ExecutionHelper>>,
+#[derive(Debug)]
+pub struct ExecutionHelperWrapper<S: Storage> {
+    pub execution_helper: Rc<RwLock<ExecutionHelper<S>>>,
 }
 
-impl ExecutionHelperWrapper {
+impl<S> Clone for ExecutionHelperWrapper<S>
+where
+    S: Storage,
+{
+    fn clone(&self) -> Self {
+        Self { execution_helper: self.execution_helper.clone() }
+    }
+}
+
+impl<S> ExecutionHelperWrapper<S>
+where
+    S: Storage + 'static,
+{
     pub fn new(
-        contract_storage_map: ContractStorageMap<DictStorage, PedersenHash>,
+        contract_storage_map: ContractStorageMap<S, PedersenHash>,
         tx_execution_infos: Vec<TransactionExecutionInfo>,
         block_context: &BlockContext,
         old_block_number_and_hash: (Felt252, Felt252),
@@ -212,7 +226,6 @@ impl ExecutionHelperWrapper {
 
         let mut commitments = HashMap::new();
         for (key, storage) in storage_by_address.iter_mut() {
-            log::debug!("key: {} ({})", key.to_hex_string(), key.to_string());
             let commitment_info = storage.compute_commitment().await?;
             commitments.insert(*key, commitment_info);
         }
@@ -221,7 +234,10 @@ impl ExecutionHelperWrapper {
     }
 }
 
-fn assert_iterators_exhausted(eh_ref: &ExecutionHelper) {
+fn assert_iterators_exhausted<S>(eh_ref: &ExecutionHelper<S>)
+where
+    S: Storage,
+{
     assert!(eh_ref.deployed_contracts_iter.clone().peekable().peek().is_none());
     assert!(eh_ref.result_iter.clone().peekable().peek().is_none());
     assert!(eh_ref.execute_code_read_iter.clone().peekable().peek().is_none());
