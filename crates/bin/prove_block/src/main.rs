@@ -624,7 +624,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         (old_block_number, old_block_hash),
     );
 
-    let result = run_os(config::DEFAULT_COMPILED_OS.to_string(), layout, os_input, block_context, execution_helper);
+    let result = run_os(config::DEFAULT_COMPILED_OS, layout, os_input, block_context, execution_helper);
 
     match &result {
         Err(Runner(VmException(vme))) => {
