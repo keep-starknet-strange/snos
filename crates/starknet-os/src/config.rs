@@ -24,12 +24,12 @@ pub fn default_layout() -> LayoutName {
 // https://github.com/starkware-libs/blockifier/blob/8da582b285bfbc7d4c21178609bbd43f80a69240/crates/native_blockifier/src/py_block_executor.rs#L44
 const MAX_STEPS_PER_TX: u32 = 4_000_000;
 
+pub const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../build/os_latest.json");
+
 const DEFAULT_CONFIG_PATH: &str = "../../cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 pub const STORED_BLOCK_HASH_BUFFER: u64 = 10;
 pub const BLOCK_HASH_CONTRACT_ADDRESS: u64 = 1;
 pub const STARKNET_OS_CONFIG_HASH_VERSION: &str = "StarknetOsConfig1";
-pub const DEFAULT_COMPILED_OS: &str = "../build/os_latest.json";
-pub const DEFAULT_INPUT_PATH: &str = "../build/input.json";
 pub const DEFAULT_COMPILER_VERSION: &str = "0.12.2";
 pub const DEFAULT_STORAGE_TREE_HEIGHT: usize = 251;
 pub const COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT: usize = 251;

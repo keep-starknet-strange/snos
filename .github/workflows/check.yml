@@ -20,8 +20,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: "true"
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          cache: "pip"
+      - name: "Install cairo-lang"
+        run: |
+          # We need to pin the version of sympy, 1.13.0 is incompatible with cairo-lang
+          pip install cairo-lang==0.13.1 "sympy<1.13.0"
+      - name: "Prepare test environment"
+        run: |
+          mkdir -p build
+          cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
       - run: cargo clippy --all -- -D warnings
 
   tests:
@@ -34,8 +48,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
-      - name: "Run tests"
+          python-version: "3.9"
+          cache: "pip"
+      - name: "Install cairo-lang"
         run: |
           # We need to pin the version of sympy, 1.13.0 is incompatible with cairo-lang
           pip install cairo-lang==0.13.1 "sympy<1.13.0"
@@ -50,10 +65,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: "true"
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          cache: "pip"
+      - name: "Install cairo-lang"
+        run: |
+          # We need to pin the version of sympy, 1.13.0 is incompatible with cairo-lang
+          pip install cairo-lang==0.13.1 "sympy<1.13.0"
+      - name: "Prepare test environment"
+        run: |
+          mkdir -p build
+          cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
       - run: cargo install cargo-udeps --locked
       - run: cargo udeps --all-targets
 
