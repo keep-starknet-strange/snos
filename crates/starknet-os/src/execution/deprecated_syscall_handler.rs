@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use blockifier::block::BlockInfo;
+use blockifier::blockifier::block::BlockInfo;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
@@ -300,7 +300,7 @@ where
 mod test {
     use std::borrow::Cow;
 
-    use blockifier::block::{BlockInfo, GasPrices};
+    use blockifier::blockifier::block::{BlockInfo, GasPrices};
     use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
     use blockifier::execution::call_info::Retdata;
     use blockifier::execution::entry_point_execution::CallResult;

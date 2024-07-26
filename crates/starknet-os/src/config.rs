@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::path::PathBuf;
 
-use blockifier::block::{BlockInfo, GasPrices};
+use blockifier::blockifier::block::{BlockInfo, GasPrices};
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::transaction::objects::FeeType;
 use blockifier::versioned_constants::VersionedConstants;

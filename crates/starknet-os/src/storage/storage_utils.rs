@@ -1,6 +1,5 @@
 use blockifier::execution::contract_class::ContractClassV1;
 use blockifier::state::cached_state::CachedState;
-use blockifier::state::state_api::State;
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 

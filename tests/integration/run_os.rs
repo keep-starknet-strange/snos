@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use blockifier::abi::abi_utils::selector_from_name;
-use blockifier::block::BlockInfo;
+use blockifier::blockifier::block::BlockInfo;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::declare::declare_tx;

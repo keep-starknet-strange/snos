@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use blockifier::context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
 use blockifier::state::cached_state::CachedState;
-use blockifier::state::state_api::{State, StateReader};
+use blockifier::state::state_api::StateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;

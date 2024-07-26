@@ -381,7 +381,7 @@ where
     }
 
     async fn get_deprecated_compiled_class(
-        &mut self,
+        &self,
         compiled_class_hash: CompiledClassHash,
     ) -> Result<Option<DeprecatedContractClass>, StorageError> {
         let storage = self.ffc.acquire_storage().await;
@@ -392,7 +392,7 @@ where
     }
 
     async fn get_compiled_class(
-        &mut self,
+        &self,
         compiled_class_hash: CompiledClassHash,
     ) -> Result<Option<CasmContractClass>, StorageError> {
         let storage = self.ffc.acquire_storage().await;
@@ -404,7 +404,7 @@ where
 
     /// Returns the contract class of the given class hash.
     async fn get_compiled_contract_class_async(
-        &mut self,
+        &self,
         compiled_class_hash: CompiledClassHash,
     ) -> StateResult<ContractClass> {
         log::debug!("SharedState as StateReader: get_compiled_contract_class {:?}", compiled_class_hash);
@@ -426,17 +426,15 @@ where
         Err(StateError::UndeclaredClassHash(ClassHash(compiled_class_hash.0)))
     }
 
-    async fn get_storage_at_async(
-        &mut self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    async fn get_storage_at_async(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<StarkFelt> {
         let storage_key: TreeIndex = felt_api2vm(*key.0.key()).to_biguint();
 
         let contract_state = self.get_contract_state_async(contract_address).await?;
 
+        let mut ffc = self.ffc.clone();
+
         let storage_items: HashMap<TreeIndex, StorageLeaf> =
-            contract_state.storage_commitment_tree.get_leaves(&mut self.ffc, &[storage_key.clone()], &mut None).await?;
+            contract_state.storage_commitment_tree.get_leaves(&mut ffc, &[storage_key.clone()], &mut None).await?;
         let state = storage_items
             .get(&storage_key)
             .ok_or(StateError::StateReadError(format!("get_storage_at_async: {:?}", storage_key)))?;
@@ -453,7 +451,7 @@ where
     /// Returns the storage value under the given key in the given contract instance (represented by
     /// its address).
     /// Default: 0 for an uninitialized contract address.
-    fn get_storage_at(&mut self, contract_address: ContractAddress, key: StorageKey) -> StateResult<StarkFelt> {
+    fn get_storage_at(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<StarkFelt> {
         log::debug!("SharedState as StateReader: get_storage_at {:?} / {:?}", contract_address, key);
         let value = execute_coroutine(self.get_storage_at_async(contract_address, key)).unwrap(); // TODO: unwrap
         log::debug!("       -> {:?}", value);
@@ -462,7 +460,7 @@ where
 
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
-    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         log::debug!("SharedState as StateReader: get_nonce_at {:?}", contract_address);
         let contract_state = self.get_contract_state(contract_address)?;
         let nonce = Nonce(felt_vm2api(contract_state.nonce));
@@ -472,7 +470,7 @@ where
 
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
-    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         log::debug!("SharedState as StateReader: get_class_hash_at {:?}", contract_address);
         let contract_state = self.get_contract_state(contract_address)?;
         // TODO: this can be simplified once hashes are stored as [u8; 32]. Until then, this is fine.
@@ -483,7 +481,7 @@ where
     }
 
     /// Returns the contract class of the given class hash.
-    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         execute_coroutine(async {
             let compiled_class_hash = self.get_compiled_class_hash_async(class_hash).await.unwrap();
             self.get_compiled_contract_class_async(compiled_class_hash).await
@@ -492,7 +490,7 @@ where
     }
 
     /// Returns the compiled class hash of the given class hash.
-    fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+    fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         log::debug!("SharedState as StateReader: get_compiled_class_hash {:?}", class_hash);
         execute_coroutine(self.get_compiled_class_hash_async(class_hash)).unwrap() // TODO: unwrap
     }
