@@ -816,10 +816,8 @@ pub async fn execute_txs_and_run_os(
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> Result<(CairoPie, StarknetOsOutput), SnOsError> {
-    log::debug!(" REACHING HERE");
     let (os_input, execution_helper) =
         execute_txs(state, &block_context, txs, deprecated_contract_classes, contract_classes).await;
-    log::debug!("NOT REACHING HERE");
 
     let layout = config::default_layout();
     let result = run_os(config::DEFAULT_COMPILED_OS.to_string(), layout, os_input, block_context, execution_helper);

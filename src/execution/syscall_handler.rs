@@ -508,6 +508,8 @@ impl SyscallHandler for KeccakHandler {
         *ptr = (*ptr + 1)?;
         let input_end = vm.get_relocatable(*ptr)?;
         *ptr = (*ptr + 1)?;
+        *ptr = (*ptr + new_syscalls::KeccakRequest::cairo_size())?;
+        *ptr = (*ptr - 2)?; 
         Ok(KeccakRequest { input_start, input_end })
     }
 

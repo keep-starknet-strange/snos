@@ -96,3 +96,9 @@ pub struct StorageWriteRequest {
 pub struct ReplaceClassRequest {
     pub class_hash: Felt252,
 }
+
+#[derive(FieldOffsetGetters)]
+pub struct KeccakRequest {
+    pub input_start: Relocatable,
+    pub input_end: Relocatable,
+}
