@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -13,7 +14,7 @@ use cairo_vm::Felt252;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use tokio::sync::RwLock;
 
-use super::syscall_handler::SecpHintProcessor;
+use super::syscall_handler::secp::SecpHintProcessor;
 use crate::config::STORED_BLOCK_HASH_BUFFER;
 use crate::crypto::pedersen::PedersenHash;
 use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage};
@@ -54,9 +55,7 @@ pub struct ExecutionHelper {
     // Per-contract storage
     pub storage_by_address: ContractStorageMap<DictStorage, PedersenHash>,
 
-    // Secp hint processors.
-    pub secp256k1_hint_processor: SecpHintProcessor<ark_secp256k1::Config>,
-    pub secp256r1_hint_processor: SecpHintProcessor<ark_secp256r1::Config>,
+    pub secp_hint_processors: HashMap<TypeId, SecpHintProcessor>,
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
@@ -105,8 +104,12 @@ impl ExecutionHelperWrapper {
                 deployed_contracts_iter: vec![].into_iter(),
                 execute_code_read_iter: vec![].into_iter(),
                 storage_by_address: contract_storage_map,
-                secp256k1_hint_processor: SecpHintProcessor::default(),
-                secp256r1_hint_processor: SecpHintProcessor::default(),
+                secp_hint_processors: {
+                    let mut map = HashMap::new();
+                    map.insert(TypeId::of::<ark_secp256k1::Config>(), SecpHintProcessor::new_secp256k1());
+                    map.insert(TypeId::of::<ark_secp256r1::Config>(), SecpHintProcessor::new_secp256r1());
+                    map
+                },
             })),
         }
     }

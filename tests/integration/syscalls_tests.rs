@@ -14,7 +14,6 @@ use crate::common::block_context;
 use crate::common::state::{initial_state_syscalls, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 use crate::common::utils::check_os_output_read_only_syscall;
-use crate::declare_txn_tests::default_testing_resource_bounds;
 
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
@@ -108,13 +107,16 @@ async fn test_syscall_replace_class_cairo1(
     .expect("OS run failed");
 }
 
-#[rstest]
+#[rstest(
+    curve_type => ["test_secp256k1", "test_secp256r1"]
+)]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn test_syscall_test_secp256k1_cairo1(
+async fn test_syscall_test_secp_cairo1(
     #[future] initial_state_syscalls: StarknetTestState,
     block_context: BlockContext,
     max_fee: Fee,
+    curve_type: &str,
 ) {
     let initial_state = initial_state_syscalls.await;
 
@@ -129,7 +131,7 @@ async fn test_syscall_test_secp256k1_cairo1(
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: sender_address,
-        calldata: create_calldata(contract_address, "test_secp256k1", &vec![]),
+        calldata: create_calldata(contract_address, curve_type, &vec![]),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
     });
