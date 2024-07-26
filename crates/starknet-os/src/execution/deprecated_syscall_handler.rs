@@ -10,8 +10,9 @@ use tokio::sync::RwLock;
 use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::syscalls::{
     CallContract, CallContractResponse, Deploy, DeployResponse, GetBlockNumber, GetBlockNumberResponse,
-    GetContractAddress, GetContractAddressResponse, GetSequencerAddress, GetSequencerAddressResponse, GetTxInfo,
-    GetTxInfoResponse, GetTxSignature, GetTxSignatureResponse, LibraryCall, TxInfo,
+    GetBlockTimestamp, GetBlockTimestampResponse, GetContractAddress, GetContractAddressResponse, GetSequencerAddress,
+    GetSequencerAddressResponse, GetTxInfo, GetTxInfoResponse, GetTxSignature, GetTxSignatureResponse, LibraryCall,
+    TxInfo,
 };
 use crate::storage::storage::Storage;
 use crate::utils::felt_api2vm;
@@ -158,10 +159,11 @@ where
     ) -> Result<(), HintError> {
         let syscall_handler = self.deprecated_syscall_handler.read().await;
 
-        let block_number = syscall_handler.block_info.block_timestamp;
+        let block_timestamp = syscall_handler.block_info.block_timestamp;
 
-        let response_offset = GetBlockNumber::response_offset() + GetBlockNumberResponse::block_number_offset();
-        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(block_number.0))?;
+        let response_offset =
+            GetBlockTimestamp::response_offset() + GetBlockTimestampResponse::block_timestamp_offset();
+        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(block_timestamp.0))?;
 
         Ok(())
     }

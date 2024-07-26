@@ -97,6 +97,22 @@ pub struct GetBlockNumber {
     pub response: GetBlockNumberResponse,
 }
 
+#[derive(FieldOffsetGetters)]
+pub struct GetBlockTimestampRequest {
+    pub selector: Felt252,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetBlockTimestampResponse {
+    pub block_timestamp: Felt252,
+}
+
+#[derive(FieldOffsetGetters)]
+pub struct GetBlockTimestamp {
+    pub request: GetBlockTimestampRequest,
+    pub response: GetBlockTimestampResponse,
+}
+
 // Describes the GetContractAddress system call format.
 #[derive(FieldOffsetGetters)]
 pub struct GetContractAddressRequest {
