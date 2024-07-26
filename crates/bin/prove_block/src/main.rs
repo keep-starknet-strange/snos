@@ -31,6 +31,7 @@ use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, S
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::error::SnOsError::Runner;
 use starknet_os::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
+use starknet_os::hints::vars::ids::TX_EXECUTION_CONTEXT;
 use starknet_os::io::input::StarknetOsInput;
 use starknet_os::io::InternalTransaction;
 use starknet_os::starknet::business_logic::fact_state::contract_class_objects::{
@@ -52,6 +53,7 @@ use starknet_types_core::felt::Felt;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
 mod types;
+mod replay;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -332,28 +334,6 @@ async fn build_initial_state(
     ))
 }
 
-// Re-execute a block's transactions through blockifier. This yields a list of calls and storage
-// reads/writes which can be replayed by the OS. The OS executes calls out of order, which
-// requires being able to play through the storage operations in their original order.
-//
-// TODO: reference some documentation about this?
-// async fn reexecute_with_blockifier(
-// mut state: CachedState<SharedState<CachedRpcStorage, PedersenHash>>,
-// block_context: &BlockContext,
-// txs: Vec<starknet::core::types::Transaction>,
-// deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
-// contract_classes: HashMap<ClassHash, CasmContractClass>,
-// ) -> Result<Vec<TransactionExecutionInfo>, Box<dyn Error>> {
-// let execution_infos =
-// txs.into_iter().map(|tx| {
-// let blockifier_tx = blockifier::transaction::transaction_execution::Transaction::from_api(tx);
-// tx.execute(&mut state, block_context, true, true).unwrap()
-// }
-// ).collect();
-//
-// Ok(execution_infos)
-// }
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     init_logging();
@@ -596,14 +576,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //     )
     //     .await?;
 
-    // re-execute txns through blockifier
-    // let tx_execution_infos = reexecute_with_blockifier(
-    // CachedState::<_>::from(initial_state),
-    // &block_context,
-    // block_with_txs.transactions,
-    // Default::default(), // TODO: deprecated_contract_classes
-    // Default::default(), // TODO: contract_classes
-    // ).await?;
+    let tx_execution_infos = replay::reexecute_transactions_with_blockifier("testnet", block_number);
+
+    if tx_execution_infos.len() != transactions.len() {
+        log::warn!("Warning: blockifier reexecution yielded different num execution infos ({}) than transactions ({})", tx_execution_infos.len(), transactions.len());
+    }
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info: Default::default(),
@@ -619,7 +596,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     let execution_helper = ExecutionHelperWrapper::<CachedRpcStorage>::new(
         contract_storages,
-        Default::default(), // TODO: tx_execution_infos,
+        tx_execution_infos,
         &block_context,
         (old_block_number, old_block_hash),
     );
