@@ -52,8 +52,8 @@ use starknet_types_core::felt::Felt;
 
 use crate::types::starknet_rs_tx_to_internal_tx;
 
-mod types;
 mod replay;
+mod types;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -96,14 +96,14 @@ async fn post_jsonrpc_request<T: DeserializeOwned>(
     Ok(response.result)
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct EdgePath {
     len: u64,
     value: Felt252,
 }
 
-#[derive(Deserialize)]
-enum ContractProofNode {
+#[derive(Clone, Deserialize)]
+enum TrieNode {
     #[serde(rename = "binary")]
     Binary { left: Felt252, right: Felt252 },
     #[serde(rename = "edge")]
@@ -111,12 +111,30 @@ enum ContractProofNode {
 }
 
 #[derive(Deserialize)]
-struct StorageProof {
-    class_commitment: Felt252,
-    contract_proof: Vec<ContractProofNode>,
+pub struct ContractData {
+    /// Required to verify the contract state hash to contract root calculation.
+    class_hash: ClassHash,
+    /// Required to verify the contract state hash to contract root calculation.
+    nonce: Felt252,
+
+    /// Root of the Contract state tree
+    root: Felt252,
+
+    /// This is currently just a constant = 0, however it might change in the
+    /// future.
+    contract_state_hash_version: Felt,
+
+    /// The proofs associated with the queried storage values
+    storage_proofs: Vec<Vec<TrieNode>>,
 }
 
-// async fn pathfinder_
+#[derive(Deserialize)]
+struct PathfinderProof {
+    class_commitment: Felt252,
+    state_commitment: Felt252,
+    contract_proof: Vec<TrieNode>,
+    contract_data: Option<ContractData>,
+}
 
 async fn pathfinder_get_proof(
     client: &reqwest::Client,
@@ -124,7 +142,7 @@ async fn pathfinder_get_proof(
     block_number: u64,
     contract_address: Felt,
     keys: &[Felt],
-) -> Result<StorageProof, reqwest::Error> {
+) -> Result<PathfinderProof, reqwest::Error> {
     post_jsonrpc_request(
         client,
         rpc_provider,
@@ -139,7 +157,7 @@ async fn get_storage_proofs(
     rpc_provider: &String,
     block_number: u64,
     state_update: &StateUpdate,
-) -> Result<HashMap<Felt, StorageProof>, reqwest::Error> {
+) -> Result<HashMap<Felt, PathfinderProof>, reqwest::Error> {
     let mut storage_changes_by_contract: HashMap<Felt, Vec<StorageEntry>> = HashMap::new();
 
     for diff_item in &state_update.state_diff.storage_diffs {
@@ -152,8 +170,9 @@ async fn get_storage_proofs(
         let keys: Vec<_> = storage_changes.iter().map(|change| change.key).collect();
 
         // The endpoint is limited to 100 keys at most per call
+        const MAX_KEYS: usize = 100;
         let mut chunked_storage_proofs = Vec::new();
-        for keys_chunk in keys.chunks(100) {
+        for keys_chunk in keys.chunks(MAX_KEYS) {
             chunked_storage_proofs
                 .push(pathfinder_get_proof(client, rpc_provider, block_number, contract_address, keys_chunk).await?);
         }
@@ -165,12 +184,28 @@ async fn get_storage_proofs(
     Ok(storage_proofs)
 }
 
-fn merge_chunked_storage_proofs(mut storage_proofs: Vec<StorageProof>) -> StorageProof {
-    let class_commitment = storage_proofs[0].class_commitment;
-    let contract_proof_nodes: Vec<_> =
-        storage_proofs.into_iter().map(|storage_proof| storage_proof.contract_proof).flatten().collect();
+fn merge_chunked_storage_proofs(mut proofs: Vec<PathfinderProof>) -> PathfinderProof {
+    let class_commitment = proofs[0].class_commitment;
+    let state_commitment = proofs[0].state_commitment;
+    let contract_proof = proofs[0].contract_proof.clone();
 
-    StorageProof { class_commitment, contract_proof: contract_proof_nodes }
+    let contract_data = {
+        let mut contract_data: Option<ContractData> = None;
+
+        for proof in proofs {
+            if let Some(data) = proof.contract_data {
+                if let Some(contract_data) = contract_data.as_mut() {
+                    contract_data.storage_proofs.extend(data.storage_proofs);
+                } else {
+                    contract_data = Some(data);
+                }
+            }
+        }
+
+        contract_data
+    };
+
+    PathfinderProof { class_commitment, state_commitment, contract_proof, contract_data }
 }
 
 fn felt_to_u128(felt: &starknet_types_core::felt::Felt) -> u128 {
@@ -457,12 +492,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for (_contract_address, proof) in &storage_proofs {
         for node in &proof.contract_proof {
             match node {
-                ContractProofNode::Binary { left, right } => {
+                TrieNode::Binary { left, right } => {
                     // log::info!("writing binary node...");
                     let fact = BinaryNodeFact::new((*left).into(), (*right).into())?;
                     fact.set_fact(&mut initial_state.ffc).await?;
                 }
-                ContractProofNode::Edge { child, path } => {
+                TrieNode::Edge { child, path } => {
                     // log::info!("writing edge node...");
                     let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))?;
                     fact.set_fact(&mut initial_state.ffc).await?;
@@ -579,7 +614,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let tx_execution_infos = replay::reexecute_transactions_with_blockifier("testnet", block_number);
 
     if tx_execution_infos.len() != transactions.len() {
-        log::warn!("Warning: blockifier reexecution yielded different num execution infos ({}) than transactions ({})", tx_execution_infos.len(), transactions.len());
+        log::warn!(
+            "Warning: blockifier reexecution yielded different num execution infos ({}) than transactions ({})",
+            tx_execution_infos.len(),
+            transactions.len()
+        );
     }
 
     let os_input = StarknetOsInput {
