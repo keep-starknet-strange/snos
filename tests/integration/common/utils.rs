@@ -1,5 +1,7 @@
 use std::env;
 
+use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, StarknetSierraCompilationError};
+use cairo_lang_starknet_classes::contract_class::ContractClass;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::Felt252;
 use num_traits::ToPrimitive;
@@ -66,4 +68,15 @@ pub fn check_os_output_read_only_syscall(os_output: StarknetOsOutput, block_cont
     assert!(os_output.messages_to_l2.is_empty());
     let use_kzg_da = os_output.use_kzg_da != Felt252::ZERO;
     assert_eq!(use_kzg_da, block_context.block_info().use_kzg_da);
+}
+
+/// Compiles a Sierra class to CASM.
+pub(crate) fn compile_sierra_contract_class(
+    sierra_contract_class: ContractClass,
+) -> Result<CasmContractClass, StarknetSierraCompilationError> {
+    // Values taken from the defaults of `starknet-sierra-compile`, see here:
+    // https://github.com/starkware-libs/cairo/blob/main/crates/bin/starknet-sierra-compile/src/main.rs
+    let add_pythonic_hints = false;
+    let max_bytecode_size = 180000;
+    CasmContractClass::from_contract_class(sierra_contract_class, add_pythonic_hints, max_bytecode_size)
 }

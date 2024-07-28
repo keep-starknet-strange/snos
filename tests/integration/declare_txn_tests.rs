@@ -11,7 +11,8 @@ use starknet_os::starknet::business_logic::utils::write_class_facts;
 use starknet_os::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
 
 use crate::common::block_context;
-use crate::common::state::{initial_state_cairo0, initial_state_cairo1, load_cairo1_contract, StarknetTestState};
+use crate::common::blockifier_contracts::load_cairo1_contract;
+use crate::common::state::{initial_state_cairo0, initial_state_cairo1, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 // Copied from the non-public Blockifier fn
