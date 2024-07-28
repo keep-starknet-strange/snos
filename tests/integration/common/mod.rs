@@ -6,7 +6,6 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
-use cairo_vm::vm::vm_core::VirtualMachine;
 use rstest::fixture;
 
 pub mod block_utils;
