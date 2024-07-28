@@ -1,9 +1,11 @@
 use std::path::Path;
 
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet_classes::contract_class::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use crate::common::contract_fixtures::{get_compiled_sierra_class, get_deprecated_compiled_class};
+use crate::common::utils::compile_sierra_contract_class;
 
 pub fn get_deprecated_feature_contract_class(contract_name: &str) -> DeprecatedCompiledClass {
     let filename = format!("{contract_name}_compiled.json");
@@ -30,6 +32,14 @@ pub fn get_feature_sierra_contract_class(contract_name: &str) -> ContractClass {
 }
 
 /// Helper to load a Cairo 0 contract class.
-pub fn load_cairo0_feature_contract(name: &str) -> (String, DeprecatedCompiledClass) {
+pub(crate) fn load_cairo0_feature_contract(name: &str) -> (String, DeprecatedCompiledClass) {
     (name.to_string(), get_deprecated_feature_contract_class(name))
+}
+
+/// Helper to load a Cairo1 contract class.
+pub(crate) fn load_cairo1_contract(name: &str) -> (String, ContractClass, CasmContractClass) {
+    let sierra_contract_class = get_feature_sierra_contract_class(name);
+    let casm_contract_class = compile_sierra_contract_class(sierra_contract_class.clone())
+        .unwrap_or_else(|e| panic!("Failed to compile Sierra contract {}: {}", name, e));
+    (name.to_string(), sierra_contract_class, casm_contract_class)
 }

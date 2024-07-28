@@ -11,8 +11,8 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionV
 use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::common::block_context;
-use crate::common::blockifier_contracts::load_cairo0_feature_contract;
-use crate::common::state::{init_logging, load_cairo1_contract, StarknetStateBuilder, StarknetTestState};
+use crate::common::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_contract};
+use crate::common::state::{init_logging, StarknetStateBuilder, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[derive(Debug)]
