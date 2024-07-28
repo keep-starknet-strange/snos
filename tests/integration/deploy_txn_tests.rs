@@ -11,7 +11,7 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionV
 use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::common::block_context;
-use crate::common::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_contract};
+use crate::common::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_feature_contract};
 use crate::common::state::{init_logging, StarknetStateBuilder, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
@@ -116,8 +116,8 @@ pub async fn initial_state_for_deploy_v3(
     block_context: BlockContext,
     #[from(init_logging)] _logging: (),
 ) -> (StarknetTestState, DeployArgs) {
-    let account_with_dummy_validate = load_cairo1_contract("account_with_dummy_validate");
-    let account_with_long_validate = load_cairo1_contract("account_with_long_validate");
+    let account_with_dummy_validate = load_cairo1_feature_contract("account_with_dummy_validate");
+    let account_with_long_validate = load_cairo1_feature_contract("account_with_long_validate");
 
     // This is the hardcoded class hash of `account_with_long_validate` (Cairo 1).
     // Recomputing it automatically requires a significant amount of code reorganization so

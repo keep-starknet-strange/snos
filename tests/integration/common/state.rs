@@ -22,7 +22,7 @@ use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{FactFetchingContext, HashFunctionType, StorageError};
 use starknet_os::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
 
-use super::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_contract};
+use super::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_feature_contract};
 use crate::common::block_context;
 use crate::common::blockifier_contracts::get_deprecated_erc20_contract_class;
 
@@ -587,7 +587,7 @@ pub async fn initial_state_cairo1(
     #[from(init_logging)] _logging: (),
 ) -> StarknetTestState {
     let test_contract = load_cairo0_feature_contract("test_contract");
-    let account_with_dummy_validate = load_cairo1_contract("account_with_dummy_validate");
+    let account_with_dummy_validate = load_cairo1_feature_contract("account_with_dummy_validate");
 
     StarknetStateBuilder::new(&block_context)
         .deploy_cairo1_contract(
@@ -607,8 +607,8 @@ pub async fn initial_state_syscalls(
     block_context: BlockContext,
     #[from(init_logging)] _logging: (),
 ) -> StarknetTestState {
-    let account_with_dummy_validate = load_cairo1_contract("account_with_dummy_validate");
-    let test_contract = load_cairo1_contract("test_contract");
+    let account_with_dummy_validate = load_cairo1_feature_contract("account_with_dummy_validate");
+    let test_contract = load_cairo1_feature_contract("test_contract");
 
     StarknetStateBuilder::new(&block_context)
         .deploy_cairo1_contract(

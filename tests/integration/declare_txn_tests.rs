@@ -11,7 +11,7 @@ use starknet_os::starknet::business_logic::utils::write_class_facts;
 use starknet_os::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
 
 use crate::common::block_context;
-use crate::common::blockifier_contracts::load_cairo1_contract;
+use crate::common::blockifier_contracts::load_cairo1_feature_contract;
 use crate::common::state::{initial_state_cairo0, initial_state_cairo1, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
@@ -42,7 +42,7 @@ async fn declare_v3_cairo1_account(
     // We want to declare a fresh (never-before-declared) contract, so we don't want to reuse
     // anything from the test fixtures, and we need to do it "by hand". The transaction will
     // error if the class trie already contains the class we are trying to deploy.
-    let (_, sierra_class, casm_class) = load_cairo1_contract("empty_contract");
+    let (_, sierra_class, casm_class) = load_cairo1_feature_contract("empty_contract");
 
     // We also need to write the class and compiled class facts so that the FFC will contain them
     // during block re-execution.
@@ -101,7 +101,7 @@ async fn declare_cairo1_account(
     // We want to declare a fresh (never-before-declared) contract, so we don't want to reuse
     // anything from the test fixtures, and we need to do it "by hand". The transaction will
     // error if the class trie already contains the class we are trying to deploy.
-    let (_, sierra_class, casm_class) = load_cairo1_contract("empty_contract");
+    let (_, sierra_class, casm_class) = load_cairo1_feature_contract("empty_contract");
 
     // We also need to write the class and compiled class facts so that the FFC will contain them
     // during block re-execution.
