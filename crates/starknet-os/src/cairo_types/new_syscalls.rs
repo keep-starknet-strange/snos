@@ -37,8 +37,11 @@ pub struct DeployRequest {
 
 #[derive(FieldOffsetGetters)]
 pub struct DeployResponse {
+    #[allow(unused)]
     pub contract_address: Felt252,
+    #[allow(unused)]
     pub constructor_retdata_start: Relocatable,
+    #[allow(unused)]
     pub constructor_retdata_end: Relocatable,
 }
 
@@ -60,11 +63,15 @@ pub struct GetBlockHashRequest {
 #[derive(FieldOffsetGetters)]
 pub struct LibraryCallRequest {
     /// The hash of the class to run.
+    #[allow(unused)]
     pub class_hash: Felt252,
     /// The selector of the function to call.
+    #[allow(unused)]
     pub selector: Felt252,
     /// The calldata.
+    #[allow(unused)]
     pub calldata_start: Relocatable,
+    #[allow(unused)]
     pub calldata_end: Relocatable,
 }
 
