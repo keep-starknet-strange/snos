@@ -1,7 +1,6 @@
 use cairo_type_derive::FieldOffsetGetters;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::Felt252;
-use num_bigint::BigUint;
 
 #[allow(unused)]
 #[derive(FieldOffsetGetters)]
@@ -96,15 +95,4 @@ pub struct StorageWriteRequest {
 #[derive(FieldOffsetGetters)]
 pub struct ReplaceClassRequest {
     pub class_hash: Felt252,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct EcPointCoordinates {
-    pub x: BigUint,
-    pub y: BigUint,
-}
-
-#[derive(Debug, Eq, PartialEq, FieldOffsetGetters)]
-pub struct SecpGetXyRequest {
-    pub ec_point_id: Felt252,
 }

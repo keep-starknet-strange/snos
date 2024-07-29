@@ -1,4 +1,3 @@
-use std::any::TypeId;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -7,6 +6,7 @@ use std::vec::IntoIter;
 use blockifier::context::BlockContext;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point_execution::CallResult;
+use blockifier::execution::syscalls::secp::SecpHintProcessor;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -14,7 +14,6 @@ use cairo_vm::Felt252;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use tokio::sync::RwLock;
 
-use super::syscall_handler::secp::SecpHintProcessor;
 use crate::config::STORED_BLOCK_HASH_BUFFER;
 use crate::crypto::pedersen::PedersenHash;
 use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage};
@@ -25,7 +24,6 @@ use crate::storage::storage::StorageError;
 pub type ContractStorageMap<S, H> = HashMap<Felt252, OsSingleStarknetStorage<S, H>>;
 
 /// Maintains the info for executing txns in the OS
-// #[derive(Debug)]
 pub struct ExecutionHelper {
     pub _prev_block_context: Option<BlockContext>,
     // Pointer tx execution info
@@ -55,23 +53,37 @@ pub struct ExecutionHelper {
     // Per-contract storage
     pub storage_by_address: ContractStorageMap<DictStorage, PedersenHash>,
 
-    pub secp_hint_processors: HashMap<TypeId, SecpHintProcessor>,
+    // Secp syscall processors.
+    pub secp256k1_syscall_processor: SecpHintProcessor<ark_secp256k1::Config>,
+    pub secp256r1_syscall_processor: SecpHintProcessor<ark_secp256r1::Config>,
+}
+
+impl std::fmt::Debug for ExecutionHelper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExecutionHelper")
+            .field("_prev_block_context", &self._prev_block_context)
+            .field("tx_execution_info_iter", &self.tx_execution_info_iter)
+            .field("tx_execution_info", &self.tx_execution_info)
+            .field("tx_info_ptr", &self.tx_info_ptr)
+            .field("call_execution_info_ptr", &self.call_execution_info_ptr)
+            .field("old_block_number_and_hash", &self.old_block_number_and_hash)
+            .field("call_iter", &self.call_iter)
+            .field("call_info", &self.call_info)
+            .field("result_iter", &self.result_iter)
+            .field("deployed_contracts_iter", &self.deployed_contracts_iter)
+            .field("execute_code_read_iter", &self.execute_code_read_iter)
+            .field("storage_by_address", &self.storage_by_address)
+            .field("secp256k1_syscall_processor", &"SecpHintProcessor<ark_secp256k1::Config>")
+            .field("secp256r1_syscall_processor", &"SecpHintProcessor<ark_secp256r1::Config>")
+            .finish()
+    }
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
 /// to clone the refrence when entering and exiting vm scopes
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ExecutionHelperWrapper {
     pub execution_helper: Rc<RwLock<ExecutionHelper>>,
-}
-
-/// TODO fix this
-impl std::fmt::Debug for ExecutionHelperWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Here, you can define how you want the struct to be formatted for debugging.
-        // This is a simple example that just indicates the presence of the ExecutionHelper.
-        write!(f, "ExecutionHelperWrapper {{ execution_helper: Rc<RwLock<ExecutionHelper>> }}")
-    }
 }
 
 impl ExecutionHelperWrapper {
@@ -104,12 +116,8 @@ impl ExecutionHelperWrapper {
                 deployed_contracts_iter: vec![].into_iter(),
                 execute_code_read_iter: vec![].into_iter(),
                 storage_by_address: contract_storage_map,
-                secp_hint_processors: {
-                    let mut map = HashMap::new();
-                    map.insert(TypeId::of::<ark_secp256k1::Config>(), SecpHintProcessor::new_secp256k1());
-                    map.insert(TypeId::of::<ark_secp256r1::Config>(), SecpHintProcessor::new_secp256r1());
-                    map
-                },
+                secp256k1_syscall_processor: SecpHintProcessor::<ark_secp256k1::Config>::default(),
+                secp256r1_syscall_processor: SecpHintProcessor::<ark_secp256r1::Config>::default(),
             })),
         }
     }

@@ -13,12 +13,12 @@ ark-secp256r1 = "0.4"
 assert_matches = "1.5.0"
 base64 = "0.21.3"
 bitvec = { version = "1.0.1", features = ["serde"] }
-blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", branch = "herman/msl/derive-clone-fix", features = ["testing"] }
+blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", branch = "herman/msl/derive-clone-fix-pub-secp", features = ["testing"] }
 cairo-lang-starknet = { version = "2.6.3" }
 cairo-lang-starknet-classes = { version = "2.6.3" }
 cairo-lang-casm = { version = "2.6.3" }
 cairo-type-derive = { version = "0.1.0", path = "cairo-type-derive" }
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = ["extensive_hints", "cairo-1-hints"] }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = ["extensive_hints", "cairo-1-hints"], tag = "v1.0.0-rc5" }
 env_logger = "0.11.3"
 futures = "0.3.30"
 futures-util = "0.3.30"

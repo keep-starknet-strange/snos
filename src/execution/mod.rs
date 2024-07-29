@@ -4,3 +4,4 @@ pub mod execute_syscalls;
 pub mod helper;
 pub mod syscall_handler;
 pub mod syscall_handler_utils;
+pub mod secp_handler;
