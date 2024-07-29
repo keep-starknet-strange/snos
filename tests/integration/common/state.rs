@@ -44,6 +44,7 @@ pub struct StarknetTestState {
     pub declared_cairo0_contracts: HashMap<String, DeclaredDeprecatedContract>,
     /// Declared cairo1 contracts. This only contains contracts added with
     /// `declare_cairo1_contract`.
+    #[allow(unused)]
     pub declared_cairo1_contracts: HashMap<String, DeclaredContract>,
     /// State initially created for blockifier execution
     pub cached_state: CachedState<SharedState<DictStorage, PedersenHash>>,
@@ -69,6 +70,7 @@ impl StarknetTestState {
 pub struct DeclaredContract {
     pub class_hash: ClassHash,
     pub casm_class: CasmContractClass,
+    #[allow(unused)]
     pub sierra_class: ContractClass,
 }
 
@@ -91,15 +93,6 @@ pub struct DeclaredDeprecatedContract {
 pub struct DeployedDeprecatedContract {
     pub address: ContractAddress,
     pub declaration: DeclaredDeprecatedContract,
-}
-
-/// ERC20 contract deployments for Eth and Strk tokens, as well as the compiled class. Note that
-/// this is always a cairo0 contract.
-#[derive(Debug)]
-pub struct FeeContracts {
-    pub erc20_contract: DeprecatedCompiledClass,
-    pub eth_fee_token_address: ContractAddress,
-    pub strk_fee_token_address: ContractAddress,
 }
 
 /// Configures the logging for integration tests.

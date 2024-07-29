@@ -4,11 +4,17 @@ use cairo_vm::Felt252;
 
 #[derive(FieldOffsetGetters)]
 pub struct ExecutionContext {
+    #[allow(unused)]
     pub entry_point_type: Felt252,
+    #[allow(unused)]
     pub class_hash: Felt252,
+    #[allow(unused)]
     pub calldata_size: Felt252,
+    #[allow(unused)]
     pub calldata: Relocatable,
+    #[allow(unused)]
     pub execution_info: Relocatable,
+    #[allow(unused)]
     pub deprecated_tx_info: Relocatable,
 }
 
