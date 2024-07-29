@@ -56,6 +56,7 @@ pub mod tests {
             da_gas: Default::default(),
             actual_resources: Default::default(),
             revert_error: None,
+            bouncer_resources: Default::default(),
         }
     }
 
