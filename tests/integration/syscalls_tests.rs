@@ -123,8 +123,8 @@ async fn test_syscall_test_secp_cairo1(
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
 
-    let sender_address = initial_state.cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.cairo1_contracts.get("test_contract").unwrap();
+    let sender_address = initial_state.deployed_cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo1_contracts.get("test_contract").unwrap();
 
     let contract_address = test_contract.address;
 

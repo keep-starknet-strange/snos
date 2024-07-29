@@ -238,18 +238,19 @@ pub fn write_segment(vm: &mut VirtualMachine, ptr: &mut Relocatable, segment: Re
 }
 
 #[allow(async_fn_in_trait)]
-pub trait SyscallHandler {
+pub trait SyscallHandler<S>
+where
+    S: Storage + 'static,
+{
     type Request;
     type Response;
     fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request>;
-    async fn execute<S>(
+    async fn execute(
         request: Self::Request,
         vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response>
-    where
-        S: Storage + 'static;
+    ) -> SyscallResult<Self::Response>;
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult;
 }
 
@@ -283,7 +284,7 @@ pub async fn run_handler<SH, S>(
     syscall_gas_cost: u64,
 ) -> Result<(), HintError>
 where
-    SH: SyscallHandler,
+    SH: SyscallHandler<S>,
     S: Storage + 'static,
 {
     // Refund `SYSCALL_BASE_GAS_COST` as it was pre-charged.

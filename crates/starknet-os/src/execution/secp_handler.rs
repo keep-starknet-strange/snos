@@ -20,6 +20,7 @@ use crate::execution::helper::ExecutionHelper;
 use crate::execution::syscall_handler_utils::{write_felt, SyscallExecutionError};
 use crate::storage::storage::Storage;
 
+/// This trait is private and not callable outside this module.
 trait GetSecpSyscallHandler<C: SWCurveConfig> {
     fn get_secp_handler(&mut self) -> &mut SecpHintProcessor<C>;
 }
@@ -49,9 +50,10 @@ fn pack(low: Felt252, high: Felt252) -> BigUint {
 pub struct SecpNewHandler<C> {
     _c: PhantomData<C>,
 }
-impl<C: SWCurveConfig> SyscallHandler for SecpNewHandler<C>
+impl<C: SWCurveConfig, S: Storage + 'static> SyscallHandler<S> for SecpNewHandler<C>
 where
     C::BaseField: PrimeField,
+    ExecutionHelper<S>: GetSecpSyscallHandler<C>,
 {
     type Request = EcPointCoordinates;
     type Response = SecpOptionalEcPointResponse;
@@ -69,7 +71,7 @@ where
         };
         Ok(EcPointCoordinates { x: pack(x.0, x.1), y: pack(y.0, y.1) })
     }
-    async fn execute<S>(
+    async fn execute(
         request: EcPointCoordinates,
         _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
@@ -78,7 +80,6 @@ where
     where
         S: Storage,
     {
-        dbg!(std::any::type_name::<C>(), request.x.to_str_radix(16), request.y.to_str_radix(16));
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = <ExecutionHelper<S> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let res = secp_handler.secp_new(request)?;
@@ -101,9 +102,10 @@ where
 pub struct SecpGetPointFromXHandler<C> {
     _c: PhantomData<C>,
 }
-impl<C: SWCurveConfig> SyscallHandler for SecpGetPointFromXHandler<C>
+impl<C: SWCurveConfig, S: Storage + 'static> SyscallHandler<S> for SecpGetPointFromXHandler<C>
 where
     C::BaseField: PrimeField,
+    ExecutionHelper<S>: GetSecpSyscallHandler<C>,
 {
     type Request = SecpGetPointFromXRequest;
 
@@ -129,15 +131,12 @@ where
         Ok(SecpGetPointFromXRequest { x: pack(x.0, x.1), y_parity })
     }
 
-    async fn execute<S>(
+    async fn execute(
         request: Self::Request,
         _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response>
-    where
-        S: Storage,
-    {
+    ) -> SyscallResult<Self::Response> {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = <ExecutionHelper<S> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let res = secp_handler.secp_get_point_from_x(request)?;
@@ -163,9 +162,10 @@ pub struct SecpMulHandler<C> {
     _c: PhantomData<C>,
 }
 
-impl<C: SWCurveConfig> SyscallHandler for SecpMulHandler<C>
+impl<C: SWCurveConfig, S: Storage + 'static> SyscallHandler<S> for SecpMulHandler<C>
 where
     C::BaseField: PrimeField,
+    ExecutionHelper<S>: GetSecpSyscallHandler<C>,
 {
     type Request = SecpMulRequest;
 
@@ -181,7 +181,7 @@ where
         Ok(SecpMulRequest { ec_point_id, multiplier: pack(scalar.0, scalar.1) })
     }
 
-    async fn execute<S>(
+    async fn execute(
         request: Self::Request,
         _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
@@ -206,9 +206,10 @@ pub struct SecpAddHandler<C> {
     _c: PhantomData<C>,
 }
 
-impl<C: SWCurveConfig> SyscallHandler for SecpAddHandler<C>
+impl<C: SWCurveConfig, S: Storage + 'static> SyscallHandler<S> for SecpAddHandler<C>
 where
     C::BaseField: PrimeField,
+    ExecutionHelper<S>: GetSecpSyscallHandler<C>,
 {
     type Request = SecpAddRequest;
 
@@ -221,7 +222,7 @@ where
         })
     }
 
-    async fn execute<S>(
+    async fn execute(
         request: Self::Request,
         _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
@@ -247,9 +248,10 @@ pub struct SecpGetXyHandler<C> {
     _c: PhantomData<C>,
 }
 
-impl<C: SWCurveConfig> SyscallHandler for SecpGetXyHandler<C>
+impl<C: SWCurveConfig, S: Storage + 'static> SyscallHandler<S> for SecpGetXyHandler<C>
 where
     C::BaseField: PrimeField,
+    ExecutionHelper<S>: GetSecpSyscallHandler<C>,
 {
     type Request = SecpGetXyRequest;
     type Response = EcPointCoordinates;
@@ -257,7 +259,7 @@ where
     fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request> {
         Ok(SecpGetXyRequest { ec_point_id: felt_from_ptr(vm, ptr).map(|c| c.to_biguint().into())? })
     }
-    async fn execute<S>(
+    async fn execute(
         request: Self::Request,
         _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
