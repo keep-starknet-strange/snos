@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use blockifier::execution::execution_utils::ReadOnlySegments;
-use cairo_vm::math_utils::safe_div_usize;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
@@ -16,7 +15,7 @@ use crate::execution::constants::{
     BLOCK_HASH_CONTRACT_ADDRESS, CALL_CONTRACT_GAS_COST, DEPLOY_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST,
     GET_EXECUTION_INFO_GAS_COST, KECCAK_FULL_RATE_IN_U64S, KECCAK_GAS_COST, KECCAK_ROUND_COST_GAS_COST,
     LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST,
-    STORAGE_WRITE_GAS_COST,
+    STORAGE_WRITE_GAS_COST, INVALID_INPUT_LENGTH_ERROR,
 };
 use crate::execution::syscall_handler_utils::{
     felt_from_ptr, get_felt_range, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest,
@@ -508,8 +507,6 @@ impl SyscallHandler for KeccakHandler {
         *ptr = (*ptr + 1)?;
         let input_end = vm.get_relocatable(*ptr)?;
         *ptr = (*ptr + 1)?;
-        *ptr = (*ptr + new_syscalls::KeccakRequest::cairo_size())?;
-        *ptr = (*ptr - 2)?; 
         Ok(KeccakRequest { input_start, input_end })
     }
 
@@ -520,8 +517,16 @@ impl SyscallHandler for KeccakHandler {
         remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response> {
         let input_len = (request.input_end - request.input_start)?;
-        // This unwrap will not fail as the constant value is 17
-        let n_rounds = safe_div_usize(input_len, KECCAK_FULL_RATE_IN_U64S.to_usize().unwrap())?;
+        // The to_usize unwrap will not fail as the constant value is 17
+        let (n_rounds, remainder) = num_integer::div_rem(input_len, KECCAK_FULL_RATE_IN_U64S.to_usize().unwrap());
+
+        if remainder != 0 {
+            return Err(SyscallExecutionError::SyscallError {
+                error_data: vec![
+                    Felt252::from_hex_unchecked(INVALID_INPUT_LENGTH_ERROR)
+                ],
+            });
+        }
         let gas_cost = n_rounds.to_u64().unwrap() * KECCAK_ROUND_COST_GAS_COST;
         if gas_cost > *remaining_gas {
             return Err(SyscallExecutionError::OutOfGas { remaining_gas: (*remaining_gas) });

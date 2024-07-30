@@ -306,7 +306,10 @@ pub async fn run_handler<S: SyscallHandler>(
         Err(SyscallExecutionError::SyscallError { error_data: data }) => {
             write_failure(remaining_gas, data, vm, syscall_ptr)?;
         }
-        Err(error) => return Err(error.into()),
+        Err(error) => {
+            println!("error is {error:?}");
+            return Err(error.into())
+        }
     };
 
     Ok(())
