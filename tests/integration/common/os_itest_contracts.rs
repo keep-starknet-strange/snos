@@ -1,17 +1,16 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
 use crate::common::contract_fixtures::get_deprecated_compiled_class;
 
-fn get_deprecated_os_itest_contract_class(contract_name: &str) -> DeprecatedCompiledClass {
+fn get_deprecated_os_itest_contract_path(contract_name: &str) -> PathBuf {
     let filename = format!("{contract_name}_compiled.json");
-    let contract_rel_path = Path::new("os_itest_contracts").join("compiled").join(filename);
-    log::debug!("Getting contract at {:?}", contract_rel_path);
-    get_deprecated_compiled_class(&contract_rel_path)
+    Path::new("os_itest_contracts").join("compiled").join(filename)
 }
 
 /// Helper to load a Cairo 0 contract class.
 pub fn load_os_itest_contract(name: &str) -> (String, DeprecatedCompiledClass) {
-    (name.to_string(), get_deprecated_os_itest_contract_class(name))
+    let contract_path = get_deprecated_os_itest_contract_path(name);
+    (name.to_string(), get_deprecated_compiled_class(&contract_path))
 }
