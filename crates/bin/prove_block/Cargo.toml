@@ -8,6 +8,7 @@ license-file.workspace = true
 [dependencies]
 blockifier = { workspace = true }
 cairo-lang-starknet-classes = { workspace = true }
+cairo-lang-utils = { workspace = true }
 cairo-vm = { workspace = true }
 clap = { workspace = true }
 pathfinder-common = { workspace = true }
