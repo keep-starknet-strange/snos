@@ -6,7 +6,7 @@ use std::vec::IntoIter;
 use blockifier::context::BlockContext;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point_execution::CallResult;
-use blockifier::execution::syscalls::secp::SecpHintProcessor;
+use blockifier::execution::syscalls::secp::SecpHintProcessor as SecpSyscallProcessor;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -54,8 +54,8 @@ pub struct ExecutionHelper {
     pub storage_by_address: ContractStorageMap<DictStorage, PedersenHash>,
 
     // Secp syscall processors.
-    pub secp256k1_syscall_processor: SecpHintProcessor<ark_secp256k1::Config>,
-    pub secp256r1_syscall_processor: SecpHintProcessor<ark_secp256r1::Config>,
+    pub secp256k1_syscall_processor: SecpSyscallProcessor<ark_secp256k1::Config>,
+    pub secp256r1_syscall_processor: SecpSyscallProcessor<ark_secp256r1::Config>,
 }
 
 impl std::fmt::Debug for ExecutionHelper {
@@ -116,8 +116,8 @@ impl ExecutionHelperWrapper {
                 deployed_contracts_iter: vec![].into_iter(),
                 execute_code_read_iter: vec![].into_iter(),
                 storage_by_address: contract_storage_map,
-                secp256k1_syscall_processor: SecpHintProcessor::<ark_secp256k1::Config>::default(),
-                secp256r1_syscall_processor: SecpHintProcessor::<ark_secp256r1::Config>::default(),
+                secp256k1_syscall_processor: SecpSyscallProcessor::<ark_secp256k1::Config>::default(),
+                secp256r1_syscall_processor: SecpSyscallProcessor::<ark_secp256r1::Config>::default(),
             })),
         }
     }

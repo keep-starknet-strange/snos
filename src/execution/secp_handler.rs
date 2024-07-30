@@ -69,7 +69,6 @@ where
         exec_wrapper: &mut ExecutionHelperWrapper,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response> {
-        dbg!(std::any::type_name::<C>(), request.x.to_str_radix(16), request.y.to_str_radix(16));
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = <ExecutionHelper as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let res = secp_handler.secp_new(request)?;
