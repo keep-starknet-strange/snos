@@ -1,0 +1,17 @@
+[package]
+name = "starknet-replay"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license-file.workspace = true
+
+[dependencies]
+blockifier = { workspace = true }
+cairo-lang-starknet-classes = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+starknet = { workspace = true }
+starknet_api = { workspace = true }
+starknet-os-types = { workspace = true }
+tokio = { workspace = true }
+
