@@ -49,10 +49,12 @@ use starknet_os::storage::storage::{DbObject, Fact, FactFetchingContext, Storage
 use starknet_os::utils::felt_vm2api;
 use starknet_os::{config, run_os, storage};
 use starknet_types_core::felt::Felt;
+use types::starknet_rs_to_blockifier;
 
 use crate::types::starknet_rs_tx_to_internal_tx;
 
 mod replay;
+mod reexecute;
 mod types;
 
 #[derive(Parser, Debug)]
@@ -434,6 +436,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let rpc_storage = RpcStorage::new(pathfinder_client, provider_url, block_number);
     let cached_storage = CachedRpcStorage::new(Default::default(), rpc_storage);
 
+    // TODO: nasty clone, the conversion fns don't take references
+    let transactions: Vec<_> = block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
+
     // TODO: these maps that we pass in to build_initial_state() are built only on items from the
     // state diff, but we will need all items accessed in any way during the block (right?) which
     // probably means filling in the missing details with API calls
@@ -448,7 +453,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .state_diff
         .nonces
         .iter()
-        .map(|nonce_update| (nonce_update.contract_address, nonce_update.nonce))
+        .map(|nonce_update| {
+            let num_nonce_bumps =
+                Felt252::from(transactions.iter().fold(0, |acc, tx| {
+                    acc + if tx.sender_address == Some(nonce_update.contract_address) { 1 } else { 0 }
+                }));
+            assert!(nonce_update.nonce > num_nonce_bumps);
+            let previous_nonce = nonce_update.nonce - num_nonce_bumps;
+            log::debug!(
+                "probably-account contract {} nonce: {} - {} => {}",
+                nonce_update.contract_address,
+                nonce_update.nonce,
+                num_nonce_bumps,
+                previous_nonce,
+            );
+            (nonce_update.contract_address, previous_nonce)
+        })
         .collect();
 
     let class_hash_to_compiled_class_hash: HashMap<_, _> = state_update
@@ -519,8 +539,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         ..default_general_config
     };
 
-    let transactions: Vec<_> = block_with_txs.transactions.into_iter().map(starknet_rs_tx_to_internal_tx).collect();
-
     let previous_tree = &initial_state.contract_states;
 
     let mut contract_states = HashMap::new();
@@ -583,6 +601,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // any given account could have more than one txn in this block, we need to count them
             // in order to derive the original nonce.
             // TODO: review -- is there a better way to do this? we could also query RPC for it...
+            // TODO: this is now duplicated with the nonce processing above...
             let num_nonce_bumps =
                 Felt252::from(transactions.iter().fold(0, |acc, tx| {
                     acc + if tx.sender_address == Some(nonce_update.contract_address) { 1 } else { 0 }
@@ -611,7 +630,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //     )
     //     .await?;
 
-    let tx_execution_infos = replay::reexecute_transactions_with_blockifier("testnet", block_number);
+    // let tx_execution_infos = replay::reexecute_transactions_with_blockifier("testnet", block_number);
+
+
+
+    let tx_execution_infos = reexecute::reexecute_transactions_with_blockifier(
+        initial_state.into(),
+        &block_context,
+        block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(&tx).unwrap()).collect(),
+        Default::default(), // TODO: deprecated_contract_classes
+        Default::default(), // TODO: contract_classes
+    )?;
 
     if tx_execution_infos.len() != transactions.len() {
         log::warn!(

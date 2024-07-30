@@ -1,11 +1,13 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, error::Error, sync::Arc};
 
+use blockifier::{block, transaction::account_transaction::AccountTransaction};
 use cairo_vm::Felt252;
 use starknet::core::types::{
     DataAvailabilityMode, InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3,
     ResourceBoundsMapping, Transaction,
 };
-use starknet_os::io::InternalTransaction;
+use starknet_api::{core::PatriciaKey, transaction::TransactionHash};
+use starknet_os::{io::InternalTransaction, utils::{felt_api2vm, felt_vm2api}};
 use starknet_types_core::felt::Felt;
 
 // entry point for "__execute__"
@@ -155,4 +157,100 @@ pub(crate) fn starknet_rs_tx_to_internal_tx(tx: Transaction) -> InternalTransact
             todo!()
         }
     }
+}
+
+pub(crate) fn starknet_rs_to_blockifier(sn_core_tx: &starknet::core::types::Transaction) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
+
+    // Map starknet_api transaction to blockifier's
+    let blockifier_tx: AccountTransaction = match sn_core_tx {
+        Transaction::Invoke(tx) => {
+            let (tx_hash, api_tx) = match tx {
+                InvokeTransaction::V0(tx) => {
+                    log::warn!("v0");
+                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    unimplemented!();
+                },
+                InvokeTransaction::V1(tx) => {
+                    log::warn!("v1, nonce: {}", tx.nonce);
+                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let api_tx = starknet_api::transaction::InvokeTransaction::V1(starknet_api::transaction::InvokeTransactionV1 {
+                        max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
+                        signature: starknet_api::transaction::TransactionSignature(tx.signature.clone().into_iter().map(felt_vm2api).collect()),
+                        nonce: starknet_api::core::Nonce(felt_vm2api(tx.nonce)),
+                        sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(felt_vm2api(tx.sender_address)).unwrap()),
+                        calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.clone().into_iter().map(felt_vm2api).collect())),
+                    });
+                    (tx_hash, api_tx)
+                },
+                InvokeTransaction::V3(tx) => {
+                    log::warn!("v3");
+                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    unimplemented!();
+                },
+            };
+            let invoke = blockifier::transaction::transactions::InvokeTransaction {
+                tx: api_tx,
+                tx_hash,
+                only_query: false,
+            };
+            AccountTransaction::Invoke(invoke)
+        }
+        Transaction::DeployAccount(tx) => {
+            /*
+            let contract_address = calculate_contract_address(
+                tx.contract_address_salt(),
+                tx.class_hash(),
+                &tx.constructor_calldata(),
+                ContractAddress::default(),
+            )
+            .unwrap();
+            AccountTransaction::DeployAccount(DeployAccountTransaction {
+                only_query: false,
+                tx,
+                tx_hash,
+                contract_address,
+            })
+            */
+            unimplemented!("starknet_rs_tx_to_blockifier() with Deploy txn");
+        }
+        Transaction::Declare(tx) => {
+            /*
+            // Fetch the contract_class from the next block (as we don't have it in the previous one)
+            let next_block_state_reader = RpcStateReader(
+                RpcState::new_rpc(network, (block_number.next()).unwrap().into()).unwrap(),
+            );
+            let contract_class = next_block_state_reader
+                .get_compiled_contract_class(tx.class_hash())
+                .unwrap();
+
+            let class_info = calculate_class_info_for_testing(contract_class);
+
+            let declare = DeclareTransaction::new(tx, tx_hash, class_info).unwrap();
+            AccountTransaction::Declare(declare)
+            */
+            unimplemented!("starknet_rs_tx_to_blockifier() with Declare txn");
+        }
+        Transaction::L1Handler(tx) => {
+            /*
+            // As L1Hanlder is not an account transaction we execute it here and return the result
+            let blockifier_tx = L1HandlerTransaction {
+                tx,
+                tx_hash,
+                paid_fee_on_l1: starknet_api::transaction::Fee(u128::MAX),
+            };
+            return (
+                blockifier_tx
+                    .execute(&mut state, &block_context, true, true)
+                    .unwrap(),
+                trace,
+                receipt,
+            );
+            */
+            unimplemented!("starknet_rs_tx_to_blockifier() with L1Handler txn");
+        }
+        _ => unimplemented!()
+    };
+
+    Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(blockifier_tx))
+
 }
