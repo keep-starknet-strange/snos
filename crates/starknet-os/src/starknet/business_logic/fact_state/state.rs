@@ -234,12 +234,18 @@ where
     ) -> StateResult<ContractClass> {
         log::debug!("SharedState as StateReader: get_compiled_contract_class {:?}", compiled_class_hash);
 
+        /*
+         * TODO: reenable / improve this, it does not play well with CompositeStorage / CachedStorage / RpcCachedStorage
+         * 
+
         // Try the deprecated compiled classes.
         let deprecated_compiled_class = self.get_deprecated_compiled_class(compiled_class_hash).await?;
 
         if let Some(deprecated_compiled_class) = deprecated_compiled_class {
             return Ok(deprecated_contract_class_api2vm(&deprecated_compiled_class).unwrap());
         }
+         */
+        log::warn!("WARNING: did not try deprecated compiled class first!");
 
         // The given hash does not match any deprecated class; try the new compiled classes.
         let compiled_class = self.get_compiled_class(compiled_class_hash).await?;

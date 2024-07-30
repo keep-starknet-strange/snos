@@ -29,16 +29,18 @@ use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key, stark_felt};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
+use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::error::SnOsError::Runner;
 use starknet_os::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
 use starknet_os::hints::vars::ids::TX_EXECUTION_CONTEXT;
 use starknet_os::io::input::StarknetOsInput;
 use starknet_os::io::InternalTransaction;
 use starknet_os::starknet::business_logic::fact_state::contract_class_objects::{
-    get_ffc_for_contract_class_facts, ContractClassLeaf,
+    get_ffc_for_contract_class_facts, CompiledClassFact, ContractClassFact, ContractClassLeaf
 };
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
+use starknet_os::starknet::business_logic::utils::write_class_facts;
 use starknet_os::starknet::starknet_storage::{CommitmentInfo, OsSingleStarknetStorage, StorageLeaf};
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
@@ -300,6 +302,8 @@ fn init_logging() {
 // * a SharedState object representing storage for the changes provided
 async fn build_initial_state(
     ffc: FactFetchingContext<CachedRpcStorage, PedersenHash>,
+    provider: &JsonRpcClient<HttpTransport>,
+    block_number: u64,
     address_to_class_hash: HashMap<Felt252, Felt252>,
     address_to_nonce: HashMap<Felt252, Felt252>,
     class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
@@ -324,7 +328,17 @@ async fn build_initial_state(
         let tree_index = address.to_biguint();
         let updates = storage_updates.get(address).unwrap_or(&empty_updates);
         let nonce = address_to_nonce.get(address).cloned();
-        let class_hash = address_to_class_hash.get(address).cloned();
+        let mut class_hash = address_to_class_hash.get(address).cloned();
+        if class_hash.is_none() {
+            log::debug!("contract {} has no contract hash, fetching from RPC", address);
+            let resp = provider.get_class_hash_at(BlockId::Number(block_number), address).await;
+            class_hash = if resp.is_err() {
+                log::warn!("contract {} has no contract hash from RPC either", address);
+                None
+            } else {
+                Some(resp.unwrap())
+            }
+        }
         let updated_contract_state =
             current_contract_states.remove(&tree_index).unwrap().update(&mut ffc, updates, nonce, class_hash).await?;
 
@@ -454,6 +468,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .nonces
         .iter()
         .map(|nonce_update| {
+            // derive original nonce
             let num_nonce_bumps =
                 Felt252::from(transactions.iter().fold(0, |acc, tx| {
                     acc + if tx.sender_address == Some(nonce_update.contract_address) { 1 } else { 0 }
@@ -491,6 +506,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // TODO: avoid expensive clones here, probably by letting build_initial_state() take references
     let (accessed_contracts, mut initial_state) = build_initial_state(
         FactFetchingContext::new(cached_storage),
+        &provider,
+        block_number,
         address_to_class_hash.clone(),
         address_to_nonce,
         class_hash_to_compiled_class_hash.clone(),
@@ -499,12 +516,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .await?;
 
     // fill in class hashes for each accessed contract
-    for address in accessed_contracts {
-        if address != Felt252::ONE && !address_to_class_hash.contains_key(&address) {
+    for address in &accessed_contracts {
+        if *address != Felt252::ONE && !address_to_class_hash.contains_key(&address) {
             log::info!("Querying missing class hash for {}", address);
             let class_hash = provider.get_class_hash_at(BlockId::Number(block_number), address).await.unwrap();
             log::info!("Got class hash: {} => {}", address, class_hash);
-            address_to_class_hash.insert(address, class_hash);
+            address_to_class_hash.insert(*address, class_hash);
         }
     }
 
@@ -618,6 +635,56 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             contract_state.nonce = previous_nonce;
             contract_states.insert(nonce_update.contract_address, contract_state);
+        }
+    }
+
+    // ensure that we have all class_hashes and compiled_class_hashes for any accessed contracts
+    let mut accessed_class_hashes = HashSet::<_>::new();
+    for contract_address in &accessed_contracts {
+        // TODO: dedupe with query in build_initial_state()...
+        let class_hash = if let Ok(class_hash) = provider.get_class_hash_at(BlockId::Number(block_number), contract_address).await {
+            accessed_class_hashes.insert(class_hash);
+            Some(class_hash)
+        } else {
+            log::warn!("No class hash available for contract {}", contract_address);
+            None
+        };
+
+        // apparently we need to query compiled class info by contract address, not compiled class hash
+        log::debug!("querying class for contract_address {}", contract_address);
+        if let Ok(contract_class) = provider.get_class(BlockId::Number(block_number), contract_address).await {
+            log::trace!("contract class for {}: {:?}", contract_address, contract_class);
+
+            match contract_class {
+                starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
+                    let middle_sierra: types::MiddleSierraContractClass = {
+                        let v = serde_json::to_value(flattened_sierra_cc).unwrap();
+                        serde_json::from_value(v).unwrap()
+                    };
+                    let sierra_cc = cairo_lang_starknet_classes::contract_class::ContractClass {
+                        sierra_program: middle_sierra.sierra_program,
+                        contract_class_version: middle_sierra.contract_class_version,
+                        entry_points_by_type: middle_sierra.entry_points_by_type,
+                        sierra_program_debug_info: None,
+                        abi: None,
+                    };
+                    let casm_cc =
+                        cairo_lang_starknet_classes::casm_contract_class::CasmContractClass::from_contract_class(sierra_cc.clone(), false, usize::MAX).unwrap();
+
+                    log::error!("class_hash (from RPC): {}", class_hash.unwrap());
+                    
+                    // TODO: it seems that this ends up computing the wrong class hash...
+                    write_class_facts(
+                        sierra_cc, 
+                        casm_cc, 
+                        &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>()).await?;
+                },
+                starknet::core::types::ContractClass::Legacy(_compressed_logacy_contract_class) => {
+                    panic!("legacy class (TODO)");
+                }
+            }
+        } else {
+            log::warn!("No class available for contract {}", contract_address);
         }
     }
 
