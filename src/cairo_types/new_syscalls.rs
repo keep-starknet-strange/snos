@@ -96,4 +96,3 @@ pub struct StorageWriteRequest {
 pub struct ReplaceClassRequest {
     pub class_hash: Felt252,
 }
-

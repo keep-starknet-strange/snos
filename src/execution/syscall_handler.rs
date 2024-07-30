@@ -13,9 +13,9 @@ use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::new_syscalls;
 use crate::execution::constants::{
     BLOCK_HASH_CONTRACT_ADDRESS, CALL_CONTRACT_GAS_COST, DEPLOY_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST,
-    GET_EXECUTION_INFO_GAS_COST, KECCAK_FULL_RATE_IN_U64S, KECCAK_GAS_COST, KECCAK_ROUND_COST_GAS_COST,
-    LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST,
-    STORAGE_WRITE_GAS_COST, INVALID_INPUT_LENGTH_ERROR,
+    GET_EXECUTION_INFO_GAS_COST, INVALID_INPUT_LENGTH_ERROR, KECCAK_FULL_RATE_IN_U64S, KECCAK_GAS_COST,
+    KECCAK_ROUND_COST_GAS_COST, LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST,
+    STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
 };
 use crate::execution::syscall_handler_utils::{
     felt_from_ptr, get_felt_range, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest,
@@ -522,9 +522,7 @@ impl SyscallHandler for KeccakHandler {
 
         if remainder != 0 {
             return Err(SyscallExecutionError::SyscallError {
-                error_data: vec![
-                    Felt252::from_hex_unchecked(INVALID_INPUT_LENGTH_ERROR)
-                ],
+                error_data: vec![Felt252::from_hex_unchecked(INVALID_INPUT_LENGTH_ERROR)],
             });
         }
         let gas_cost = n_rounds.to_u64().unwrap() * KECCAK_ROUND_COST_GAS_COST;

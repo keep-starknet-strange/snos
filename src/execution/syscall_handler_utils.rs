@@ -308,7 +308,7 @@ pub async fn run_handler<S: SyscallHandler>(
         }
         Err(error) => {
             println!("error is {error:?}");
-            return Err(error.into())
+            return Err(error.into());
         }
     };
 
