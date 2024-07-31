@@ -11,7 +11,7 @@ use starknet_api::{core::{ClassHash, CompiledClassHash, Nonce, PatriciaKey}, dep
 use crate::CachedRpcStorage;
 
 /// A StateReader impl which is backed by RPC
-struct RpcStateReader {
+pub(crate) struct RpcStateReader {
     pub block_id: BlockId,
     pub rpc_client: JsonRpcClient<HttpTransport>, 
 }
@@ -22,6 +22,7 @@ impl StateReader for RpcStateReader {
         contract_address: starknet_api::core::ContractAddress,
         key: StorageKey,
     ) -> StateResult<StarkFelt> {
+        log::debug!("RpcStateReader::get_storage_at()");
         let value = execute_coroutine(self.rpc_client.get_storage_at(
             felt_api2vm(*contract_address.0.key()),
             felt_api2vm(*key.0.key()),
@@ -33,6 +34,7 @@ impl StateReader for RpcStateReader {
     }
 
     fn get_nonce_at(&mut self, contract_address: starknet_api::core::ContractAddress) -> StateResult<Nonce> {
+        log::debug!("RpcStateReader::get_nonce_at()");
         let nonce = execute_coroutine(self.rpc_client.get_nonce(
             self.block_id,
             felt_api2vm(*contract_address.0.key()))
@@ -43,6 +45,7 @@ impl StateReader for RpcStateReader {
     }
 
     fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<blockifier::execution::contract_class::ContractClass> {
+        log::debug!("RpcStateReader::get_compiled_contract_class()");
         let contract_class = execute_coroutine(self.rpc_client.get_class(
             self.block_id,
             felt_api2vm(class_hash.0))
@@ -75,6 +78,7 @@ impl StateReader for RpcStateReader {
     }
 
     fn get_class_hash_at(&mut self, contract_address: starknet_api::core::ContractAddress) -> StateResult<ClassHash> {
+        log::debug!("RpcStateReader::get_class_hash_at()");
         let hash = execute_coroutine(self.rpc_client.get_class_hash_at(
             self.block_id,
             felt_api2vm(*contract_address.0.key()))
@@ -88,6 +92,7 @@ impl StateReader for RpcStateReader {
         &mut self,
         class_hash: ClassHash,
     ) -> StateResult<starknet_api::core::CompiledClassHash> {
+        log::debug!("RpcStateReader::get_compiled_class_hash()");
         // TODO: review, this seems to be what starknet_replay does...
         let contract_address = starknet_api::core::ContractAddress(PatriciaKey::try_from(class_hash.0).unwrap());
         let hash = self.get_class_hash_at(contract_address)?;
@@ -96,8 +101,12 @@ impl StateReader for RpcStateReader {
 }
 
 
-/// A DictStateReader which uses RPC for missing values
-struct DictStateWithRpc {
+/// A DictStateReader which uses RPC for missing values.
+///
+/// Note that the underlying implementation feeds default values when its hash map doesn't contain
+/// a value for a given key in some cases, so we sometimes bypass its StateReader impl and use the
+/// hash maps directly so we can differentiate between a missing value and a default one.
+pub(crate) struct DictStateWithRpc {
     pub dict_state: DictStateReader,
     pub rpc: RpcStateReader, 
 }
@@ -108,22 +117,33 @@ impl StateReader for DictStateWithRpc {
         contract_address: starknet_api::core::ContractAddress,
         key: StorageKey,
     ) -> StateResult<StarkFelt> {
-        self.dict_state.get_storage_at(contract_address, key)
-            .or_else(|_| {
+        log::debug!("DictStateWithRpc::get_storage_at()");
+
+        let contract_storage_key = (contract_address, key);
+
+        match self.dict_state.storage_view.get(&contract_storage_key) {
+            Some(nonce) => Ok(*nonce),
+            None => {
                 // TODO: cache resulin self.dict_state
                 self.rpc.get_storage_at(contract_address, key)
-            })
+            }
+        }
     }
 
     fn get_nonce_at(&mut self, contract_address: starknet_api::core::ContractAddress) -> StateResult<Nonce> {
-        self.dict_state.get_nonce_at(contract_address)
-            .or_else(|_| {
+        log::debug!("DictStateWithRpc::get_nonce_at()");
+
+        match self.dict_state.address_to_nonce.get(&contract_address) {
+            Some(nonce) => Ok(*nonce),
+            None => {
                 // TODO: cache resulin self.dict_state
                 self.rpc.get_nonce_at(contract_address)
-            })
+            }
+        }
     }
 
     fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<blockifier::execution::contract_class::ContractClass> {
+        log::debug!("DictStateWithRpc::get_compiled_contract_class()");
         self.dict_state.get_compiled_contract_class(class_hash)
             .or_else(|_| {
                 // TODO: cache resulin self.dict_state
@@ -132,17 +152,22 @@ impl StateReader for DictStateWithRpc {
     }
 
     fn get_class_hash_at(&mut self, contract_address: starknet_api::core::ContractAddress) -> StateResult<ClassHash> {
-        self.dict_state.get_class_hash_at(contract_address)
-            .or_else(|_| {
+        log::debug!("DictStateWithRpc::get_class_hash_at()");
+
+        match self.dict_state.address_to_class_hash.get(&contract_address) {
+            Some(nonce) => Ok(*nonce),
+            None => {
                 // TODO: cache resulin self.dict_state
                 self.rpc.get_class_hash_at(contract_address)
-            })
+            }
+        }
     }
 
     fn get_compiled_class_hash(
         &mut self,
         class_hash: ClassHash,
     ) -> StateResult<starknet_api::core::CompiledClassHash> {
+        log::debug!("DictStateWithRpc::get_compiled_class_hash()");
         self.dict_state.get_compiled_class_hash(class_hash)
             .or_else(|_| {
                 // TODO: cache resulin self.dict_state
@@ -154,11 +179,9 @@ impl StateReader for DictStateWithRpc {
 
 /// Reexecute the given transactions through Blockifier
 pub fn reexecute_transactions_with_blockifier(
-    mut state: CachedState<SharedState<CachedRpcStorage, PedersenHash>>,
+    mut state: CachedState<DictStateWithRpc>,
     block_context: &BlockContext,
     txs: Vec<Transaction>,
-    deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
-    contract_classes: HashMap<ClassHash, CasmContractClass>,
 ) -> Result<Vec<TransactionExecutionInfo>, Box<dyn Error>> {
 
     let tx_execution_infos = txs

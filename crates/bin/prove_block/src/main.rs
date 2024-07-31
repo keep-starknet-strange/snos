@@ -3,9 +3,9 @@ use std::error::Error;
 use std::future::Future;
 
 use async_stream::stream;
-use blockifier::block::{BlockInfo, GasPrices};
+use blockifier::block::{self, BlockInfo, GasPrices};
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
-use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use blockifier::versioned_constants::VersionedConstants;
@@ -14,6 +14,7 @@ use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use clap::Parser;
+use reexecute::{reexecute_transactions_with_blockifier, DictStateWithRpc, RpcStateReader};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
@@ -688,25 +689,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    // let contract_state_commitment_info =
-    //     CommitmentInfo::create_from_modifications::<CachedRpcStorage, PedersenHash, ContractState>(
-    //         previous_tree.clone(),
-    //         None, // TODO: do we have a source for expected?
-    //         updates,
-    //         &mut initial_state.ffc,
-    //     )
-    //     .await?;
+    let blockifier_state_reader = DictStateWithRpc {
+        dict_state: Default::default(),
+        rpc: RpcStateReader {
+            block_id: BlockId::Number(block_number - 1),
+            rpc_client: provider,
+        },
+    };
 
-    // let tx_execution_infos = replay::reexecute_transactions_with_blockifier("testnet", block_number);
-
-
-
-    let tx_execution_infos = reexecute::reexecute_transactions_with_blockifier(
-        initial_state.into(),
+    let tx_execution_infos = reexecute_transactions_with_blockifier(
+        CachedState::new(blockifier_state_reader, GlobalContractCache::new(1024)),
         &block_context,
         block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(&tx).unwrap()).collect(),
-        Default::default(), // TODO: deprecated_contract_classes
-        Default::default(), // TODO: contract_classes
     )?;
 
     if tx_execution_infos.len() != transactions.len() {
