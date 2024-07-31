@@ -5,8 +5,7 @@ use std::vec::IntoIter;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
-    insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
@@ -958,12 +957,12 @@ where
             vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_start_offset())?)?;
         let retdata_size = (retdata_end - retdata_start)?;
         let error = vm.get_range(retdata_start, std::cmp::min(100, retdata_size as usize));
-        let execution_context = get_relocatable_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
+        let execution_context = get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
         let class_hash = vm.get_integer((execution_context + ExecutionContext::class_hash_offset())?)?;
-        let selector = vm.get_integer((execution_context + ExecutionContext::execution_info_offset())?)?;
+        let selector = vm.get_relocatable((execution_context + ExecutionContext::execution_info_offset())?)?;
         log::debug!("Invalid return value in execute_entry_point:");
         log::debug!("  Class hash: {}", class_hash.to_hex_string());
-        log::debug!("  Selector: {}", selector.to_hex_string());
+        log::debug!("  Selector: {}", selector);
         log::debug!("  Size: {}", retdata_size);
         log::debug!("  Error (at most 100 elements): {:?}", error);
     }
@@ -984,7 +983,7 @@ where
 
     let syscall_ptr_end = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::syscall_ptr_offset())?)?;
     let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
-    execute_coroutine(syscall_handler.validate_and_discard_syscall_ptr(syscall_ptr_end))??;
+    syscall_handler.validate_and_discard_syscall_ptr(syscall_ptr_end).await?;
     execution_helper.exit_call().await;
 
     Ok(())

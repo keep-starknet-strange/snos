@@ -6,6 +6,7 @@ use std::vec::IntoIter;
 use blockifier::context::BlockContext;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point_execution::CallResult;
+use blockifier::execution::syscalls::secp::SecpHintProcessor;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -21,7 +22,6 @@ use crate::storage::storage::StorageError;
 pub type ContractStorageMap<PCS> = HashMap<Felt252, PCS>;
 
 /// Maintains the info for executing txns in the OS
-#[derive(Debug)]
 pub struct ExecutionHelper<PCS>
 where
     PCS: PerContractStorage,
@@ -53,6 +53,10 @@ where
     pub execute_code_read_iter: IntoIter<Felt252>,
     // Per-contract storage
     pub storage_by_address: ContractStorageMap<PCS>,
+
+    // Secp syscall processors.
+    pub secp256k1_syscall_processor: SecpHintProcessor<ark_secp256k1::Config>,
+    pub secp256r1_syscall_processor: SecpHintProcessor<ark_secp256r1::Config>,
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
@@ -68,6 +72,30 @@ where
 {
     fn clone(&self) -> Self {
         Self { execution_helper: self.execution_helper.clone() }
+    }
+}
+
+impl<PCS> std::fmt::Debug for ExecutionHelper<PCS>
+where
+    PCS: PerContractStorage + std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExecutionHelper")
+            .field("_prev_block_context", &self._prev_block_context)
+            .field("tx_execution_info_iter", &self.tx_execution_info_iter)
+            .field("tx_execution_info", &self.tx_execution_info)
+            .field("tx_info_ptr", &self.tx_info_ptr)
+            .field("call_execution_info_ptr", &self.call_execution_info_ptr)
+            .field("old_block_number_and_hash", &self.old_block_number_and_hash)
+            .field("call_iter", &self.call_iter)
+            .field("call_info", &self.call_info)
+            .field("result_iter", &self.result_iter)
+            .field("deployed_contracts_iter", &self.deployed_contracts_iter)
+            .field("execute_code_read_iter", &self.execute_code_read_iter)
+            .field("storage_by_address", &self.storage_by_address)
+            .field("secp256k1_syscall_processor", &"SecpHintProcessor<ark_secp256k1::Config>")
+            .field("secp256r1_syscall_processor", &"SecpHintProcessor<ark_secp256r1::Config>")
+            .finish()
     }
 }
 
@@ -104,6 +132,8 @@ where
                 deployed_contracts_iter: vec![].into_iter(),
                 execute_code_read_iter: vec![].into_iter(),
                 storage_by_address: contract_storage_map,
+                secp256k1_syscall_processor: SecpHintProcessor::<ark_secp256k1::Config>::default(),
+                secp256r1_syscall_processor: SecpHintProcessor::<ark_secp256r1::Config>::default(),
             })),
         }
     }

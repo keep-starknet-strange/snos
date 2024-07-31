@@ -1,5 +1,7 @@
 use std::num::TryFromIntError;
 
+use blockifier::execution::execution_utils::stark_felt_to_felt;
+use blockifier::execution::syscalls::hint_processor::SyscallExecutionError as BlockifierSyscallError;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -163,6 +165,8 @@ pub enum SyscallExecutionError {
     SyscallError { error_data: Vec<Felt252> },
     #[error("Out of Gas in Syscall execution. Remaining gas is {remaining_gas}")]
     OutOfGas { remaining_gas: u64 },
+    #[error("BlockifierSyscallError: {0}")]
+    BlockifierSyscallError(BlockifierSyscallError),
 }
 
 impl From<MemoryError> for SyscallExecutionError {
@@ -207,6 +211,17 @@ impl From<TryFromIntError> for SyscallExecutionError {
     }
 }
 
+impl From<BlockifierSyscallError> for SyscallExecutionError {
+    fn from(error: BlockifierSyscallError) -> Self {
+        match error {
+            BlockifierSyscallError::SyscallError { error_data } => Self::SyscallError {
+                error_data: error_data.into_iter().map(stark_felt_to_felt).map(|e| e.to_biguint().into()).collect(),
+            },
+            _ => Self::BlockifierSyscallError(error),
+        }
+    }
+}
+
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type WriteResponseResult = SyscallResult<()>;
 
@@ -234,18 +249,19 @@ pub fn write_segment(vm: &mut VirtualMachine, ptr: &mut Relocatable, segment: Re
 }
 
 #[allow(async_fn_in_trait)]
-pub trait SyscallHandler {
+pub trait SyscallHandler<PCS>
+where
+    PCS: PerContractStorage + 'static,
+{
     type Request;
     type Response;
     fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request>;
-    async fn execute<PCS>(
+    async fn execute(
         request: Self::Request,
         vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response>
-    where
-        PCS: PerContractStorage + 'static;
+    ) -> SyscallResult<Self::Response>;
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult;
 }
 
@@ -280,7 +296,7 @@ pub async fn run_handler<SH, PCS>(
     syscall_gas_cost: u64,
 ) -> Result<(), HintError>
 where
-    SH: SyscallHandler,
+    SH: SyscallHandler<PCS>,
     PCS: PerContractStorage + 'static,
 {
     // Refund `SYSCALL_BASE_GAS_COST` as it was pre-charged.
