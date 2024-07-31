@@ -7,6 +7,10 @@ license-file.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+ark-secp256k1 = { workspace = true }
+ark-secp256r1 = { workspace = true }
 base64 = { workspace = true }
 bitvec = { workspace = true }
 blockifier = { workspace = true }

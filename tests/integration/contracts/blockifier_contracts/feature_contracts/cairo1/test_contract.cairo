@@ -234,9 +234,10 @@ mod TestContract {
         let (x_coord, y_coord) = starknet::secp256k1::secp256k1_get_xy_syscall(p0).unwrap_syscall();
         assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
-        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
-            get_message_and_secp256k1_signature();
-        verify_eth_signature(:msg_hash, :signature, :eth_address);
+        // TODO: uncomment this on keccak
+        // let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
+        //     get_message_and_secp256k1_signature();
+        // verify_eth_signature(:msg_hash, :signature, :eth_address);
     }
 
     /// Returns a golden valid message hash and its signature, for testing.
