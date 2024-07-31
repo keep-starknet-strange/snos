@@ -1,12 +1,13 @@
-use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractEntryPoint;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use pathfinder_gateway_types::class_hash::{compute_cairo_hinted_class_hash, json};
 use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, EntryPointType};
+use starknet_os_types::contract_class::GenericCasmContractClass;
 
-use crate::utils::felt_api2vm;
+use crate::utils::{custom_hint_error, felt_api2vm};
 
 /// Returns the serialization of a contract as a list of field elements.
 pub fn get_deprecated_contract_class_struct(
@@ -109,17 +110,19 @@ fn load_casm_entrypoints(
 pub fn write_class(
     vm: &mut VirtualMachine,
     class_base: Relocatable,
-    class: CasmContractClass,
+    class: GenericCasmContractClass,
 ) -> Result<(), HintError> {
     let version = Felt252::from_hex("0x434f4d50494c45445f434c4153535f5631").unwrap();
     vm.insert_value(class_base, version)?; // COMPILED_CLASS_V1
 
-    load_casm_entrypoints(vm, (class_base + 1)?, &class.entry_points_by_type.external)?;
-    load_casm_entrypoints(vm, (class_base + 3)?, &class.entry_points_by_type.l1_handler)?;
-    load_casm_entrypoints(vm, (class_base + 5)?, &class.entry_points_by_type.constructor)?;
+    let cairo_lang_class = class.to_cairo_lang_contract_class().map_err(|e| custom_hint_error(e.to_string()))?;
+
+    load_casm_entrypoints(vm, (class_base + 1)?, &cairo_lang_class.entry_points_by_type.external)?;
+    load_casm_entrypoints(vm, (class_base + 3)?, &cairo_lang_class.entry_points_by_type.l1_handler)?;
+    load_casm_entrypoints(vm, (class_base + 5)?, &cairo_lang_class.entry_points_by_type.constructor)?;
 
     let data: Vec<MaybeRelocatable> =
-        class.bytecode
+        cairo_lang_class.bytecode
             .into_iter()
             .map(
                 |d| MaybeRelocatable::from(

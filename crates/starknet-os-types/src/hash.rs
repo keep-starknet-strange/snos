@@ -3,7 +3,7 @@ use std::ops::Deref;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use starknet_api::core::{ClassHash, CompiledClassHash};
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::StarknetApiError;
 use starknet_types_core::felt::Felt;
 
@@ -101,5 +101,46 @@ impl TryFrom<Hash> for ClassHash {
 
     fn try_from(hash: Hash) -> Result<Self, Self::Error> {
         Ok(Self(hash.try_into()?))
+    }
+}
+
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct GenericClassHash(Hash);
+
+impl GenericClassHash {
+    pub fn new(hash: Hash) -> Self {
+        Self(hash)
+    }
+
+    pub fn from_bytes_be(bytes: [u8; 32]) -> Self {
+        Self(Hash(bytes))
+    }
+}
+
+impl From<ClassHash> for GenericClassHash {
+    fn from(class_hash: ClassHash) -> Self {
+        let hash = Hash::from_bytes_be_slice(class_hash.0.bytes());
+        Self(hash)
+    }
+}
+
+impl From<GenericClassHash> for ClassHash {
+    fn from(class_hash: GenericClassHash) -> Self {
+        let stark_hash = StarkHash::new_unchecked(class_hash.0.0);
+        ClassHash(stark_hash)
+    }
+}
+
+impl From<GenericClassHash> for Felt {
+    fn from(class_hash: GenericClassHash) -> Self {
+        Felt::from_bytes_be(&class_hash.0.0)
+    }
+}
+
+impl Deref for GenericClassHash {
+    type Target = Hash;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }

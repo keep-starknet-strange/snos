@@ -5,7 +5,6 @@ use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::CommitmentStateDiff;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -13,6 +12,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContract
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_crypto::FieldElement;
+use starknet_os_types::contract_class::GenericCasmContractClass;
 use starknet_os_types::hash::Hash;
 
 use crate::config::{
@@ -30,7 +30,7 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use crate::storage::storage::{DbObject, FactFetchingContext, HashFunctionType, Storage, StorageError};
-use crate::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
+use crate::storage::storage_utils::deprecated_contract_class_api2vm;
 use crate::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 
 /// A class representing a combination of the onchain and offchain state.
@@ -395,7 +395,7 @@ where
     async fn get_compiled_class(
         &mut self,
         compiled_class_hash: CompiledClassHash,
-    ) -> Result<Option<CasmContractClass>, StorageError> {
+    ) -> Result<Option<GenericCasmContractClass>, StorageError> {
         let storage = self.ffc.acquire_storage().await;
 
         CompiledClassFact::get(storage.deref(), compiled_class_hash.0.bytes())
@@ -421,7 +421,10 @@ where
         let compiled_class = self.get_compiled_class(compiled_class_hash).await?;
 
         if let Some(compiled_class) = compiled_class {
-            return Ok(compiled_contract_class_cl2vm(&compiled_class).unwrap());
+            let blockifier_contract_class = compiled_class
+                .to_blockifier_contract_class()
+                .map_err(|e| StateError::StateReadError(format!("failed to convert to Blockifier CASM class: {e}")))?;
+            return Ok(blockifier_contract_class.into());
         }
 
         Err(StateError::UndeclaredClassHash(ClassHash(compiled_class_hash.0)))

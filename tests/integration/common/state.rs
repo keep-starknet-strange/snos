@@ -5,7 +5,6 @@ use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::BALANCE;
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet_classes::contract_class::ContractClass;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -20,7 +19,8 @@ use starknet_os::starknet::business_logic::utils::{write_class_facts, write_depr
 use starknet_os::starkware_utils::commitment_tree::errors::TreeError;
 use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{FactFetchingContext, HashFunctionType, StorageError};
-use starknet_os::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
+use starknet_os::storage::storage_utils::deprecated_contract_class_api2vm;
+use starknet_os_types::contract_class::GenericCasmContractClass;
 
 use super::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_feature_contract};
 use crate::common::block_context;
@@ -51,7 +51,7 @@ pub struct StarknetTestState {
     /// All cairo0 compiled classes
     pub cairo0_compiled_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     /// All cairo1 compiled classes
-    pub cairo1_compiled_classes: HashMap<ClassHash, CasmContractClass>,
+    pub cairo1_compiled_classes: HashMap<ClassHash, GenericCasmContractClass>,
 }
 
 impl StarknetTestState {
@@ -69,7 +69,7 @@ impl StarknetTestState {
 #[derive(Debug)]
 pub struct DeclaredContract {
     pub class_hash: ClassHash,
-    pub casm_class: CasmContractClass,
+    pub casm_class: GenericCasmContractClass,
     #[allow(unused)]
     pub sierra_class: ContractClass,
 }
@@ -117,7 +117,7 @@ pub struct Cairo0Contract {
 #[derive(Debug)]
 struct Cairo1Contract {
     contract_class: ContractClass,
-    compiled_contract_class: CasmContractClass,
+    compiled_contract_class: GenericCasmContractClass,
 }
 
 #[derive(Debug)]
@@ -321,11 +321,11 @@ impl<'a> StarknetStateBuilder<'a> {
     fn add_cairo1_contract_to_state(
         class_hash: ClassHash,
         compiled_class_hash: CompiledClassHash,
-        compiled_contract_class: CasmContractClass,
+        compiled_contract_class: GenericCasmContractClass,
         dict_state_reader: &mut DictStateReader,
     ) {
-        let vm_class = compiled_contract_class_cl2vm(&compiled_contract_class).unwrap();
-        dict_state_reader.class_hash_to_class.insert(class_hash, vm_class);
+        let blockifier_class = compiled_contract_class.to_blockifier_contract_class().unwrap();
+        dict_state_reader.class_hash_to_class.insert(class_hash, blockifier_class.into());
         dict_state_reader.class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash);
     }
 
@@ -374,9 +374,9 @@ impl<'a> StarknetStateBuilder<'a> {
         cairo1_contracts: HashMap<String, Cairo1ContractToDeploy>,
         dict_state_reader: &mut DictStateReader,
         ffc: &mut FactFetchingContext<DictStorage, PedersenHash>,
-    ) -> Result<(HashMap<String, DeployedContract>, HashMap<ClassHash, CasmContractClass>), StorageError> {
+    ) -> Result<(HashMap<String, DeployedContract>, HashMap<ClassHash, GenericCasmContractClass>), StorageError> {
         let mut deployed_contracts = HashMap::<String, DeployedContract>::new();
-        let mut compiled_contract_classes = HashMap::<ClassHash, CasmContractClass>::new();
+        let mut compiled_contract_classes = HashMap::<ClassHash, GenericCasmContractClass>::new();
 
         for (name, contract_to_deploy) in cairo1_contracts {
             let contract_class = contract_to_deploy.contract.contract_class;
@@ -490,7 +490,7 @@ impl<'a> StarknetStateBuilder<'a> {
         mut self,
         name: String,
         contract_class: ContractClass,
-        compiled_contract_class: CasmContractClass,
+        compiled_contract_class: GenericCasmContractClass,
     ) -> Self {
         self.cairo1_contracts_to_declare.insert(name, Cairo1Contract { contract_class, compiled_contract_class });
         self
@@ -501,7 +501,7 @@ impl<'a> StarknetStateBuilder<'a> {
         mut self,
         name: String,
         contract_class: ContractClass,
-        compiled_contract_class: CasmContractClass,
+        compiled_contract_class: GenericCasmContractClass,
     ) -> Self {
         let contract_address = self.generate_contract_address();
         self.deploy_cairo1_contract_with_fixed_address(name, contract_class, compiled_contract_class, contract_address)
@@ -512,7 +512,7 @@ impl<'a> StarknetStateBuilder<'a> {
         mut self,
         name: String,
         contract_class: ContractClass,
-        compiled_contract_class: CasmContractClass,
+        compiled_contract_class: GenericCasmContractClass,
         contract_address: ContractAddress,
     ) -> Self {
         let contract_to_deploy = Cairo1ContractToDeploy {
