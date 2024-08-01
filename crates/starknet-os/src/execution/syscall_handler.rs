@@ -573,7 +573,9 @@ impl SyscallHandler for KeccakHandler {
                 error_data: vec![Felt252::from_hex_unchecked(INVALID_INPUT_LENGTH_ERROR)],
             });
         }
-        let gas_cost = n_rounds.to_u64().unwrap() * KECCAK_ROUND_COST_GAS_COST;
+        let n_rounds = u64::try_from(n_rounds)?;
+        let gas_cost = n_rounds * KECCAK_ROUND_COST_GAS_COST;
+
         if gas_cost > *remaining_gas {
             return Err(SyscallExecutionError::OutOfGas { remaining_gas: (*remaining_gas) });
         }

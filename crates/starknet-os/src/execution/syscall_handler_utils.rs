@@ -1,3 +1,5 @@
+use std::num::TryFromIntError;
+
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -195,6 +197,12 @@ impl From<MathError> for SyscallExecutionError {
 impl From<StorageError> for SyscallExecutionError {
     fn from(error: StorageError) -> Self {
         Self::InternalError(format!("StorageError error: {}", error).into())
+    }
+}
+
+impl From<TryFromIntError> for SyscallExecutionError {
+    fn from(error: TryFromIntError) -> Self {
+        Self::InternalError(format!("TryFromIntError error: {}", error).into())
     }
 }
 
