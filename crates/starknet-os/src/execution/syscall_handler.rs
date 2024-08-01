@@ -5,13 +5,16 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
+use num_traits::ToPrimitive;
 use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::new_syscalls;
 use crate::execution::constants::{
     BLOCK_HASH_CONTRACT_ADDRESS, CALL_CONTRACT_GAS_COST, DEPLOY_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST,
-    GET_EXECUTION_INFO_GAS_COST, LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST,
+    GET_EXECUTION_INFO_GAS_COST, INVALID_INPUT_LENGTH_ERROR, KECCAK_FULL_RATE_IN_U64S, KECCAK_GAS_COST,
+    KECCAK_ROUND_COST_GAS_COST, LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST,
     STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
 };
 use crate::execution::syscall_handler_utils::{
@@ -122,6 +125,7 @@ where
             SyscallSelector::LibraryCallL1Handler => {
                 run_handler::<LibraryCallHandler, S>(ptr, vm, ehw, LIBRARY_CALL_GAS_COST).await
             }
+            SyscallSelector::Keccak => run_handler::<KeccakHandler, S>(ptr, vm, ehw, KECCAK_GAS_COST).await,
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;
 
@@ -529,44 +533,82 @@ impl SyscallHandler for StorageWriteHandler {
     }
 }
 
-// TODO: Keccak syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct KeccakRequest {
-//     pub input_start: Relocatable,
-//     pub input_end: Relocatable,
-// }
-//
-// impl SyscallRequest for KeccakRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<KeccakRequest> {
-//         let input_start = vm.get_relocatable(*ptr)?;
-//         *ptr = (*ptr + 1)?;
-//         let input_end = vm.get_relocatable(*ptr)?;
-//         *ptr = (*ptr + 1)?;
-//         Ok(KeccakRequest { input_start, input_end })
-//     }
-// }
-//
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct KeccakResponse {
-//     pub result_low: Felt252,
-//     pub result_high: Felt252,
-// }
-//
-// impl SyscallResponse for KeccakResponse {
-//     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-//         write_felt(vm, ptr, self.result_low)?;
-//         write_felt(vm, ptr, self.result_high)?;
-//         Ok(())
-//     }
-// }
-//
-// pub fn keccak(
-//     request: KeccakRequest,
-//     vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     remaining_gas: &mut u64,
-// ) -> SyscallResult<KeccakResponse> {
-// }
+pub struct KeccakHandler;
+pub struct KeccakRequest {
+    pub input_start: Relocatable,
+    pub input_end: Relocatable,
+}
+pub struct KeccakResponse {
+    pub result_low: Felt252,
+    pub result_high: Felt252,
+}
+
+impl SyscallHandler for KeccakHandler {
+    type Request = KeccakRequest;
+    type Response = KeccakResponse;
+
+    fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request> {
+        let input_start = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        let input_end = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        Ok(KeccakRequest { input_start, input_end })
+    }
+
+    async fn execute<S>(
+        request: Self::Request,
+        vm: &mut VirtualMachine,
+        _exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        remaining_gas: &mut u64,
+    ) -> SyscallResult<Self::Response>
+    where
+        S: Storage + 'static,
+    {
+        let input_len = (request.input_end - request.input_start)?;
+        // The to_usize unwrap will not fail as the constant value is 17
+        let (n_rounds, remainder) = num_integer::div_rem(input_len, KECCAK_FULL_RATE_IN_U64S.to_usize().unwrap());
+
+        if remainder != 0 {
+            return Err(SyscallExecutionError::SyscallError {
+                error_data: vec![Felt252::from_hex_unchecked(INVALID_INPUT_LENGTH_ERROR)],
+            });
+        }
+        let n_rounds = u64::try_from(n_rounds)?;
+        let gas_cost = n_rounds * KECCAK_ROUND_COST_GAS_COST;
+
+        if gas_cost > *remaining_gas {
+            return Err(SyscallExecutionError::OutOfGas { remaining_gas: (*remaining_gas) });
+        }
+        *remaining_gas -= gas_cost;
+
+        let input_felt_array = vm.get_integer_range(request.input_start, input_len)?;
+
+        // Keccak state function consist of 25 words 64 bits each for SHA-3 (200 bytes/1600 bits)
+        // Sponge Function [https://en.wikipedia.org/wiki/Sponge_function]
+        // SHA3 [https://en.wikipedia.org/wiki/SHA-3]
+        let mut state = [0u64; 25];
+        for chunk in input_felt_array.chunks(KECCAK_FULL_RATE_IN_U64S.to_usize().unwrap()) {
+            for (i, val) in chunk.iter().enumerate() {
+                state[i] ^= val.to_u64().ok_or_else(|| SyscallExecutionError::InvalidSyscallInput {
+                    input: *val.clone(),
+                    info: String::from("Invalid input for the keccak syscall."),
+                })?;
+            }
+            keccak::f1600(&mut state)
+        }
+        // We keep 256 bits (128 high and 128 low)
+        let result_low = (BigUint::from(state[1]) << 64u32) + BigUint::from(state[0]);
+        let result_high = (BigUint::from(state[3]) << 64u32) + BigUint::from(state[2]);
+
+        Ok(KeccakResponse { result_low: (Felt252::from(result_low)), result_high: (Felt252::from(result_high)) })
+    }
+
+    fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_felt(vm, ptr, response.result_low)?;
+        write_felt(vm, ptr, response.result_high)?;
+        Ok(())
+    }
+}
 
 // TODO: SecpAdd syscall.
 // #[derive(Debug, Eq, PartialEq)]

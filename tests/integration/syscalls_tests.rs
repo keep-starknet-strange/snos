@@ -106,3 +106,41 @@ async fn test_syscall_replace_class_cairo1(
     .await
     .expect("OS run failed");
 }
+
+#[rstest]
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_syscall_keccak_cairo1(
+    #[future] initial_state_syscalls: StarknetTestState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let initial_state = initial_state_syscalls.await;
+
+    let sender_address = initial_state.deployed_cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let test_contract = initial_state.deployed_cairo1_contracts.get("test_contract").unwrap();
+    let contract_address = test_contract.address;
+
+    let tx_version = TransactionVersion::ZERO;
+
+    let mut nonce_manager = NonceManager::default();
+    let tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_keccak", &[]),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let txs = vec![Transaction::AccountTransaction(tx)];
+
+    let (_pie, _os_output) = execute_txs_and_run_os(
+        initial_state.cached_state,
+        block_context.clone(),
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+    )
+    .await
+    .expect("OS run failed");
+}
