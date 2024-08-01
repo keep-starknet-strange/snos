@@ -56,7 +56,6 @@ use types::starknet_rs_to_blockifier;
 
 use crate::types::starknet_rs_tx_to_internal_tx;
 
-mod replay;
 mod reexecute;
 mod types;
 

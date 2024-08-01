@@ -56,8 +56,6 @@ thiserror = "1.0.48"
 tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
 uuid = { version = "1.4.0", features = ["v4", "serde"] }
 zip = { version = "0.6.6", features = ["deflate-zlib"] }
-replay = { git = "https://github.com/notlesh/starknet-replay"}
-rpc-state-reader = { git = "https://github.com/notlesh/starknet-replay", features = ["only_casm"]}
 
 # Dev dependencies
 pretty_assertions = "1.4.0"
