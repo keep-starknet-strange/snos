@@ -86,6 +86,7 @@ mod tests {
 
     type StorageType = DictStorage;
     type HashFunction = PedersenHash;
+    #[allow(clippy::upper_case_acronyms)]
     type FFC = FactFetchingContext<StorageType, HashFunction>;
 
     #[fixture]

@@ -344,7 +344,7 @@ mod test {
             use_kzg_da: false,
         };
 
-        BlockContext::new_unchecked(&block_info, &chain_info, &VersionedConstants::latest_constants())
+        BlockContext::new_unchecked(&block_info, &chain_info, VersionedConstants::latest_constants())
     }
 
     #[fixture]

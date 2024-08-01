@@ -32,9 +32,7 @@ mod tests {
     fn storage_with_values() -> DictStorage {
         let db =
             HashMap::from([(vec![0], vec![0, 0, 1, 1, 0]), (vec![1], vec![1, 1, 1]), (vec![2], vec![255, 254, 253])]);
-        let storage = DictStorage { db };
-
-        storage
+        DictStorage { db }
     }
 
     #[rstest]

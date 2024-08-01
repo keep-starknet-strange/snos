@@ -210,8 +210,8 @@ impl<'a> StarknetStateBuilder<'a> {
                 .expect("Failed to declare additional Cairo 0 contracts");
         cairo0_compiled_classes.extend(
             declared_cairo0_contracts
-                .iter()
-                .map(|(_name, declared_contract)| (declared_contract.class_hash, declared_contract.class.clone())),
+                .values()
+                .map(|declared_contract| (declared_contract.class_hash, declared_contract.class.clone())),
         );
 
         let declared_cairo1_contracts =
@@ -220,8 +220,8 @@ impl<'a> StarknetStateBuilder<'a> {
                 .expect("Failed to declare additional Cairo 1 contracts");
         cairo1_compiled_classes.extend(
             declared_cairo1_contracts
-                .iter()
-                .map(|(_name, declared_contract)| (declared_contract.class_hash, declared_contract.casm_class.clone())),
+                .values()
+                .map(|declared_contract| (declared_contract.class_hash, declared_contract.casm_class.clone())),
         );
 
         if let Some(fee_config) = self.fee_config {
@@ -303,12 +303,12 @@ impl<'a> StarknetStateBuilder<'a> {
             // Add entries in the dict state
             Self::add_cairo0_contract_to_state(class_hash, deprecated_compiled_class.clone(), dict_state_reader);
             log::debug!("Inserting deprecated class_hash_to_class: {:?} -> {:?}", contract.address, class_hash);
-            dict_state_reader.address_to_class_hash.insert(contract.address.clone(), class_hash);
+            dict_state_reader.address_to_class_hash.insert(contract.address, class_hash);
 
             deployed_contracts.insert(
                 name.clone(),
                 DeployedDeprecatedContract {
-                    address: contract.address.clone(),
+                    address: contract.address,
                     declaration: DeclaredDeprecatedContract { class_hash, class: deprecated_compiled_class.clone() },
                 },
             );
@@ -402,7 +402,7 @@ impl<'a> StarknetStateBuilder<'a> {
             deployed_contracts.insert(
                 name.clone(),
                 DeployedContract {
-                    address: contract_to_deploy.address.clone(),
+                    address: contract_to_deploy.address,
                     declaration: DeclaredContract {
                         class_hash,
                         casm_class: compiled_contract_class.clone(),
@@ -424,7 +424,7 @@ impl<'a> StarknetStateBuilder<'a> {
     ) {
         for address in dict_state_reader.address_to_class_hash.keys().chain(dict_state_reader.address_to_nonce.keys()) {
             if !funds_per_address.contains_key(address) {
-                funds_per_address.insert(address.clone(), fee_config.default_balance.clone());
+                funds_per_address.insert(*address, fee_config.default_balance.clone());
             }
         }
 
