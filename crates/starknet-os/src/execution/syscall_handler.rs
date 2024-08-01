@@ -588,7 +588,7 @@ impl SyscallHandler for KeccakHandler {
         for chunk in input_felt_array.chunks(KECCAK_FULL_RATE_IN_U64S.to_usize().unwrap()) {
             for (i, val) in chunk.iter().enumerate() {
                 state[i] ^= val.to_u64().ok_or_else(|| SyscallExecutionError::InvalidSyscallInput {
-                    input: *val.to_owned(),
+                    input: *val.clone(),
                     info: String::from("Invalid input for the keccak syscall."),
                 })?;
             }
