@@ -85,10 +85,10 @@ where
     ) -> Result<Hash, TreeError> {
         if !self.is_virtual_edge() {
             // Node is already of form (hash, 0, 0); no work to be done.
-            return Ok(self.bottom_node.clone());
+            return Ok(self.bottom_node);
         }
 
-        let edge_node_fact = EdgeNodeFact::new(self.bottom_node.clone(), self.path.clone(), self.length)?;
+        let edge_node_fact = EdgeNodeFact::new(self.bottom_node, self.path.clone(), self.length)?;
 
         let hash = write_node_fact(ffc, edge_node_fact, facts).await?;
         Ok(hash)
@@ -103,7 +103,7 @@ where
         // Turn the MSB off.
         let path = NodePath(self.path.0.clone() & ((BigUint::from(1u64) << children_length.0) - BigUint::from(1u64)));
         let non_empty_child =
-            VirtualPatriciaNode::new_unchecked(self.bottom_node.clone(), path, children_length, children_height);
+            VirtualPatriciaNode::new_unchecked(self.bottom_node, path, children_length, children_height);
 
         let edge_child_direction = self.path.0.clone() >> children_length.0;
         let empty_child = Self::empty_node(children_height);
@@ -149,7 +149,7 @@ where
         };
 
         // Get bottom subtree root.
-        let bottom_subtree_root = Self::from_hash(self.bottom_node.clone(), Height(path_suffix_width));
+        let bottom_subtree_root = Self::from_hash(self.bottom_node, Height(path_suffix_width));
         let bottom_subtree_leaves = bottom_subtree_root._get_leaves(ffc, &bottom_subtree_indices, facts).await?;
         let empty_leaves = get_empty_leaves(ffc, &empty_indices).await?;
 
@@ -179,7 +179,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            bottom_node: self.bottom_node.clone(),
+            bottom_node: self.bottom_node,
             path: self.path.clone(),
             length: self.length,
             height: self.height,
@@ -195,7 +195,7 @@ where
     LF: LeafFact<S, H> + Send,
 {
     fn _leaf_hash(&self) -> Hash {
-        self.bottom_node.clone()
+        self.bottom_node
     }
 
     fn get_height_in_tree(&self) -> Height {

@@ -12,7 +12,7 @@ const EMPTY_HASH: [u8; 32] = [0; 32];
 /// Starknet hash type.
 /// Encapsulates the result of hash functions and provides conversion functions to Cairo VM
 /// and Starknet API types for convenience.
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Hash([u8; 32]);
 
