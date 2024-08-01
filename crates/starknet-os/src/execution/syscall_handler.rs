@@ -18,9 +18,8 @@ use crate::execution::constants::{
     STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
 };
 use crate::execution::syscall_handler_utils::{
-    felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest,
-    EmptyResponse, ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult, SyscallSelector,
-    WriteResponseResult,
+    felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest, EmptyResponse,
+    ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult, SyscallSelector, WriteResponseResult,
 };
 use crate::storage::storage::Storage;
 use crate::utils::felt_api2vm;
