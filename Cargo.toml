@@ -26,7 +26,7 @@ cairo-lang-starknet = { version = "2.6.3" }
 cairo-lang-starknet-classes = { version = "2.6.3" }
 cairo-lang-casm = { version = "2.6.3" }
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
-cairo-vm = { version = "1.0.0-rc5", features = ["extensive_hints", "cairo-1-hints"] }
+cairo-vm = { version = "=1.0.0-rc5", features = ["extensive_hints", "cairo-1-hints"] }
 clap = { version = "4.5.4", features = ["derive"] }
 env_logger = "0.11.3"
 futures = "0.3.30"
