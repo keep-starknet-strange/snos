@@ -18,7 +18,7 @@ use crate::execution::constants::{
     STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
 };
 use crate::execution::syscall_handler_utils::{
-    felt_from_ptr, get_felt_range, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest,
+    felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest,
     EmptyResponse, ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult, SyscallSelector,
     WriteResponseResult,
 };
@@ -580,7 +580,7 @@ impl SyscallHandler for KeccakHandler {
         }
         *remaining_gas -= gas_cost;
 
-        let input_felt_array = get_felt_range(vm, request.input_start, input_len)?;
+        let input_felt_array = vm.get_integer_range(request.input_start, input_len)?;
 
         // Keccak state function consist of 25 words 64 bits each for SHA-3 (200 bytes/1600 bits)
         // Sponge Function [https://en.wikipedia.org/wiki/Sponge_function]
@@ -589,7 +589,7 @@ impl SyscallHandler for KeccakHandler {
         for chunk in input_felt_array.chunks(KECCAK_FULL_RATE_IN_U64S.to_usize().unwrap()) {
             for (i, val) in chunk.iter().enumerate() {
                 state[i] ^= val.to_u64().ok_or_else(|| SyscallExecutionError::InvalidSyscallInput {
-                    input: *val,
+                    input: *val.to_owned(),
                     info: String::from("Invalid input for the keccak syscall."),
                 })?;
             }
