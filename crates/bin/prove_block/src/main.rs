@@ -35,7 +35,7 @@ use starknet_os::starknet::business_logic::fact_state::contract_class_objects::{
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
-use starknet_os::starknet::starknet_storage::OsSingleStarknetStorage;
+use starknet_os::starknet::starknet_storage::{CommitmentInfo, OsSingleStarknetStorage};
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
@@ -542,6 +542,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         ..default_general_config
     };
 
+    let previous_tree = &initial_state.contract_states;
+
     let mut contract_states = HashMap::new();
     let mut contract_storages = ContractStorageMap::new();
 
@@ -694,8 +696,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         );
     }
 
+    let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<CachedRpcStorage, PedersenHash, ContractState>(
+        previous_tree.clone(),
+        None, // TODO: do we have a source for expected?
+        updates,
+        &mut initial_state.ffc,
+    ).await?;
+
     let os_input = StarknetOsInput {
-        contract_state_commitment_info: Default::default(),
+        contract_state_commitment_info,
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes: Default::default(),
         compiled_classes: Default::default(),
