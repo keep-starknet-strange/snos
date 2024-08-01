@@ -5,6 +5,7 @@ use std::ops::Deref;
 
 use futures::future::FutureExt;
 use num_bigint::BigUint;
+use starknet_os_types::hash::Hash;
 
 use crate::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactDict;
@@ -17,7 +18,7 @@ use crate::starkware_utils::commitment_tree::patricia_tree::nodes::{
     verify_path_value, EdgeNodeFact, PatriciaNodeFact,
 };
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
-use crate::storage::storage::{FactFetchingContext, Hash, HashFunctionType, Storage};
+use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
 
 #[derive(Debug)]
 pub struct VirtualPatriciaNode<S, H, LF>

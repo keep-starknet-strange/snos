@@ -1,0 +1,12 @@
+[package]
+name = "starknet-os-types"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license-file.workspace = true
+
+[dependencies]
+num-bigint = { workspace = true }
+serde = { workspace = true }
+starknet_api = { workspace = true }
+starknet-types-core = { workspace = true }

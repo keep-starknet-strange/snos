@@ -5,6 +5,7 @@ members = [
     "crates/bin/hint_tool",
     "crates/cairo-type-derive",
     "crates/starknet-os",
+    "crates/starknet-os-types",
     "tests",
 ]
 
@@ -51,6 +52,7 @@ serde_with = "3.3.0"
 serde_yaml = "0.9.25"
 starknet_api = { version = "=0.10", features = ["testing"] }
 starknet-crypto = "0.6.2"
+starknet-types-core = "0.1.5"
 thiserror = "1.0.48"
 tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
 uuid = { version = "1.4.0", features = ["v4", "serde"] }

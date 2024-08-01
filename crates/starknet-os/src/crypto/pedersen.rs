@@ -1,6 +1,7 @@
 use starknet_crypto::{pedersen_hash, FieldElement};
+use starknet_os_types::hash::Hash;
 
-use crate::storage::storage::{Hash, HashFunctionType};
+use crate::storage::storage::HashFunctionType;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PedersenHash;

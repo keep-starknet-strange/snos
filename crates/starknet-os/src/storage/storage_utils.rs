@@ -3,6 +3,7 @@ use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
+use starknet_os_types::hash::Hash;
 
 use crate::execution::helper::ContractStorageMap;
 use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
@@ -12,7 +13,7 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
-use crate::storage::storage::{DbObject, Fact, Hash, HashFunctionType, Storage};
+use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleLeafFact {

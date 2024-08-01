@@ -2,11 +2,13 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
+use starknet_os_types::hash::Hash;
+
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactDict;
 use crate::starkware_utils::commitment_tree::errors::CombineError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::nodes::PatriciaNodeFact;
-use crate::storage::storage::{FactFetchingContext, Hash, HashFunctionType, Storage};
+use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
 
 // These enums are used instead of trait objects because the conditions to turn
 // LeafFact and InnerNodeFact into object safe traits are complex to lift: multiple places where
