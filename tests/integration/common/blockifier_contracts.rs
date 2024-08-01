@@ -1,16 +1,14 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet_classes::contract_class::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 
-use crate::common::contract_fixtures::{get_compiled_sierra_class, get_deprecated_compiled_class};
+use crate::common::contract_fixtures::{get_deprecated_compiled_class, load_cairo1_contract};
 
-pub fn get_deprecated_feature_contract_class(contract_name: &str) -> DeprecatedCompiledClass {
+fn get_deprecated_feature_contract_path(contract_name: &str) -> PathBuf {
     let filename = format!("{contract_name}_compiled.json");
-    let contract_rel_path =
-        Path::new("blockifier_contracts").join("feature_contracts").join("cairo0").join("compiled").join(filename);
-    log::debug!("Getting contract at {:?}", contract_rel_path);
-    get_deprecated_compiled_class(&contract_rel_path)
+    Path::new("blockifier_contracts").join("feature_contracts").join("cairo0").join("compiled").join(filename)
 }
 
 pub fn get_deprecated_erc20_contract_class() -> DeprecatedCompiledClass {
@@ -21,15 +19,21 @@ pub fn get_deprecated_erc20_contract_class() -> DeprecatedCompiledClass {
     get_deprecated_compiled_class(&contract_rel_path)
 }
 
-pub fn get_feature_sierra_contract_class(contract_name: &str) -> ContractClass {
+fn get_feature_sierra_contract_path(contract_name: &str) -> PathBuf {
     let filename = format!("{contract_name}.sierra");
-    let contract_rel_path =
-        Path::new("blockifier_contracts").join("feature_contracts").join("cairo1").join("compiled").join(filename);
-    log::debug!("Getting contract at {:?}", contract_rel_path);
-    get_compiled_sierra_class(&contract_rel_path)
+    Path::new("blockifier_contracts").join("feature_contracts").join("cairo1").join("compiled").join(filename)
 }
 
 /// Helper to load a Cairo 0 contract class.
-pub fn load_cairo0_feature_contract(name: &str) -> (String, DeprecatedCompiledClass) {
-    (name.to_string(), get_deprecated_feature_contract_class(name))
+pub(crate) fn load_cairo0_feature_contract(name: &str) -> (String, DeprecatedCompiledClass) {
+    let contract_path = get_deprecated_feature_contract_path(name);
+    let compiled_class = get_deprecated_compiled_class(&contract_path);
+    (name.to_string(), compiled_class)
+}
+
+/// Helper to load a Cairo1 contract class.
+pub(crate) fn load_cairo1_feature_contract(name: &str) -> (String, ContractClass, CasmContractClass) {
+    let sierra_contract_path = get_feature_sierra_contract_path(name);
+    let (sierra_contract_class, casm_contract_class) = load_cairo1_contract(&sierra_contract_path);
+    (name.to_string(), sierra_contract_class, casm_contract_class)
 }

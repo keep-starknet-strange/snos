@@ -5,7 +5,7 @@ use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::BALANCE;
-use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, StarknetSierraCompilationError};
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet_classes::contract_class::ContractClass;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -22,7 +22,7 @@ use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{FactFetchingContext, HashFunctionType, StorageError};
 use starknet_os::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
 
-use super::blockifier_contracts::{get_feature_sierra_contract_class, load_cairo0_feature_contract};
+use super::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_feature_contract};
 use crate::common::block_context;
 use crate::common::blockifier_contracts::get_deprecated_erc20_contract_class;
 
@@ -44,6 +44,7 @@ pub struct StarknetTestState {
     pub declared_cairo0_contracts: HashMap<String, DeclaredDeprecatedContract>,
     /// Declared cairo1 contracts. This only contains contracts added with
     /// `declare_cairo1_contract`.
+    #[allow(unused)]
     pub declared_cairo1_contracts: HashMap<String, DeclaredContract>,
     /// State initially created for blockifier execution
     pub cached_state: CachedState<TestSharedState<DictStorage, PedersenHash>>,
@@ -69,6 +70,7 @@ impl StarknetTestState {
 pub struct DeclaredContract {
     pub class_hash: ClassHash,
     pub casm_class: CasmContractClass,
+    #[allow(unused)]
     pub sierra_class: ContractClass,
 }
 
@@ -91,34 +93,6 @@ pub struct DeclaredDeprecatedContract {
 pub struct DeployedDeprecatedContract {
     pub address: ContractAddress,
     pub declaration: DeclaredDeprecatedContract,
-}
-
-/// ERC20 contract deployments for Eth and Strk tokens, as well as the compiled class. Note that
-/// this is always a cairo0 contract.
-#[derive(Debug)]
-pub struct FeeContracts {
-    pub erc20_contract: DeprecatedCompiledClass,
-    pub eth_fee_token_address: ContractAddress,
-    pub strk_fee_token_address: ContractAddress,
-}
-
-/// Compiles a Sierra class to CASM.
-fn compile_sierra_contract_class(
-    sierra_contract_class: ContractClass,
-) -> Result<CasmContractClass, StarknetSierraCompilationError> {
-    // Values taken from the defaults of `starknet-sierra-compile`, see here:
-    // https://github.com/starkware-libs/cairo/blob/main/crates/bin/starknet-sierra-compile/src/main.rs
-    let add_pythonic_hints = false;
-    let max_bytecode_size = 180000;
-    CasmContractClass::from_contract_class(sierra_contract_class, add_pythonic_hints, max_bytecode_size)
-}
-
-/// Helper to load a Cairo1 contract class.
-pub fn load_cairo1_contract(name: &str) -> (String, ContractClass, CasmContractClass) {
-    let sierra_contract_class = get_feature_sierra_contract_class(name);
-    let casm_contract_class = compile_sierra_contract_class(sierra_contract_class.clone())
-        .unwrap_or_else(|e| panic!("Failed to compile Sierra contract {}: {}", name, e));
-    (name.to_string(), sierra_contract_class, casm_contract_class)
 }
 
 /// Configures the logging for integration tests.
@@ -606,7 +580,7 @@ pub async fn initial_state_cairo1(
     #[from(init_logging)] _logging: (),
 ) -> StarknetTestState {
     let test_contract = load_cairo0_feature_contract("test_contract");
-    let account_with_dummy_validate = load_cairo1_contract("account_with_dummy_validate");
+    let account_with_dummy_validate = load_cairo1_feature_contract("account_with_dummy_validate");
 
     StarknetStateBuilder::new(&block_context)
         .deploy_cairo1_contract(
@@ -626,8 +600,8 @@ pub async fn initial_state_syscalls(
     block_context: BlockContext,
     #[from(init_logging)] _logging: (),
 ) -> StarknetTestState {
-    let account_with_dummy_validate = load_cairo1_contract("account_with_dummy_validate");
-    let test_contract = load_cairo1_contract("test_contract");
+    let account_with_dummy_validate = load_cairo1_feature_contract("account_with_dummy_validate");
+    let test_contract = load_cairo1_feature_contract("test_contract");
 
     StarknetStateBuilder::new(&block_context)
         .deploy_cairo1_contract(
