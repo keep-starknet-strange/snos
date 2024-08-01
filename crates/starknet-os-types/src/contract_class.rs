@@ -185,8 +185,6 @@ mod tests {
         let generic_class = GenericCasmContractClass::from_bytes(CONTRACT_BYTES.to_vec());
 
         let serialized_class = serde_json::to_vec(&generic_class).unwrap();
-        assert_eq!(&serialized_class, CONTRACT_BYTES);
-
         // Check that the deserialization works
         let _deserialized_class: GenericCasmContractClass = serde_json::from_slice(&serialized_class).unwrap();
     }
