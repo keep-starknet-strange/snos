@@ -2,14 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::future::Future;
 
-use async_stream::stream;
-use blockifier::block::{self, BlockInfo, GasPrices};
+use blockifier::block::{BlockInfo, GasPrices};
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
-use blockifier::transaction::objects::TransactionExecutionInfo;
-use blockifier::transaction::transactions::ExecutableTransaction;
 use blockifier::versioned_constants::VersionedConstants;
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
@@ -25,32 +21,28 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 use starknet_api::hash::StarkHash;
-use starknet_api::{contract_address, patricia_key, stark_felt};
+use starknet_api::{contract_address, patricia_key};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::error::SnOsError::Runner;
 use starknet_os::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
-use starknet_os::hints::vars::ids::TX_EXECUTION_CONTEXT;
 use starknet_os::io::input::StarknetOsInput;
-use starknet_os::io::InternalTransaction;
 use starknet_os::starknet::business_logic::fact_state::contract_class_objects::{
-    get_ffc_for_contract_class_facts, CompiledClassFact, ContractClassFact, ContractClassLeaf
+    get_ffc_for_contract_class_facts, ContractClassLeaf
 };
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
-use starknet_os::starknet::starknet_storage::{CommitmentInfo, OsSingleStarknetStorage, StorageLeaf};
+use starknet_os::starknet::starknet_storage::OsSingleStarknetStorage;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
-use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use starknet_os::storage::cached_storage::CachedStorage;
-use starknet_os::storage::storage::{DbObject, Fact, FactFetchingContext, Storage, StorageError};
+use starknet_os::storage::storage::{Fact, FactFetchingContext, Storage, StorageError};
 use starknet_os::utils::felt_vm2api;
-use starknet_os::{config, run_os, storage};
+use starknet_os::{config, run_os};
 use starknet_types_core::felt::Felt;
 use types::starknet_rs_to_blockifier;
 
@@ -188,7 +180,7 @@ async fn get_storage_proofs(
     Ok(storage_proofs)
 }
 
-fn merge_chunked_storage_proofs(mut proofs: Vec<PathfinderProof>) -> PathfinderProof {
+fn merge_chunked_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof {
     let class_commitment = proofs[0].class_commitment;
     let state_commitment = proofs[0].state_commitment;
     let contract_proof = proofs[0].contract_proof.clone();
@@ -235,7 +227,7 @@ impl RpcStorage {
 type CachedRpcStorage = CachedStorage<RpcStorage>;
 
 impl Storage for RpcStorage {
-    async fn set_value(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StorageError> {
+    async fn set_value(&mut self, _key: Vec<u8>, _value: Vec<u8>) -> Result<(), StorageError> {
         // log::warn!("RpcStorage ignoring attempt to write storage - {:?}: {:?}", key, value);
         Ok(())
     }
@@ -411,12 +403,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             panic!("Block is still pending!");
         }
     };
-    let previous_block = match provider.get_block_with_txs(BlockId::Number(block_number - 1)).await.unwrap() {
-        MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
-        MaybePendingBlockWithTxs::PendingBlock(_) => {
-            panic!("Block is still pending!");
-        }
-    };
     let older_block =
         match provider.get_block_with_txs(BlockId::Number(block_number - STORED_BLOCK_HASH_BUFFER)).await.unwrap() {
             MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
@@ -555,8 +541,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         },
         ..default_general_config
     };
-
-    let previous_tree = &initial_state.contract_states;
 
     let mut contract_states = HashMap::new();
     let mut contract_storages = ContractStorageMap::new();

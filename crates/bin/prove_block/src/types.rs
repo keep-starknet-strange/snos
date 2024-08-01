@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, error::Error, sync::Arc};
 
-use blockifier::{block, transaction::account_transaction::AccountTransaction};
+use blockifier::transaction::account_transaction::AccountTransaction;
 use cairo_lang_utils::bigint::BigUintAsHex;
 use cairo_lang_starknet_classes::contract_class::ContractEntryPoints;
 use cairo_vm::Felt252;
@@ -9,7 +9,7 @@ use starknet::core::types::{
     ResourceBoundsMapping, Transaction,
 };
 use starknet_api::{core::PatriciaKey, transaction::TransactionHash};
-use starknet_os::{io::InternalTransaction, utils::{felt_api2vm, felt_vm2api}};
+use starknet_os::{io::InternalTransaction, utils::felt_vm2api};
 use starknet_types_core::felt::Felt;
 
 // entry point for "__execute__"
@@ -146,16 +146,16 @@ fn invoke_tx_to_internal_tx(invoke_tx: InvokeTransaction) -> InternalTransaction
 pub(crate) fn starknet_rs_tx_to_internal_tx(tx: Transaction) -> InternalTransaction {
     match tx {
         Transaction::Invoke(invoke_tx) => invoke_tx_to_internal_tx(invoke_tx),
-        Transaction::L1Handler(l1_handler_tx) => {
+        Transaction::L1Handler(_l1_handler_tx) => {
             todo!()
         }
-        Transaction::Declare(declare_tx) => {
+        Transaction::Declare(_declare_tx) => {
             todo!()
         }
         Transaction::Deploy(_deploy_tx) => {
             unimplemented!("we do not plan to support deprecated deploy txs, only deploy_account")
         }
-        Transaction::DeployAccount(deploy_account_tx) => {
+        Transaction::DeployAccount(_deploy_account_tx) => {
             todo!()
         }
     }
@@ -169,7 +169,7 @@ pub(crate) fn starknet_rs_to_blockifier(sn_core_tx: &starknet::core::types::Tran
             let (tx_hash, api_tx) = match tx {
                 InvokeTransaction::V0(tx) => {
                     log::warn!("v0");
-                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let _tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
                     unimplemented!();
                 },
                 InvokeTransaction::V1(tx) => {
@@ -186,7 +186,7 @@ pub(crate) fn starknet_rs_to_blockifier(sn_core_tx: &starknet::core::types::Tran
                 },
                 InvokeTransaction::V3(tx) => {
                     log::warn!("v3");
-                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let _tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
                     unimplemented!();
                 },
             };
@@ -197,7 +197,7 @@ pub(crate) fn starknet_rs_to_blockifier(sn_core_tx: &starknet::core::types::Tran
             };
             AccountTransaction::Invoke(invoke)
         }
-        Transaction::DeployAccount(tx) => {
+        Transaction::DeployAccount(_tx) => {
             /*
             let contract_address = calculate_contract_address(
                 tx.contract_address_salt(),
@@ -215,7 +215,7 @@ pub(crate) fn starknet_rs_to_blockifier(sn_core_tx: &starknet::core::types::Tran
             */
             unimplemented!("starknet_rs_tx_to_blockifier() with Deploy txn");
         }
-        Transaction::Declare(tx) => {
+        Transaction::Declare(_tx) => {
             /*
             // Fetch the contract_class from the next block (as we don't have it in the previous one)
             let next_block_state_reader = RpcStateReader(
@@ -232,7 +232,7 @@ pub(crate) fn starknet_rs_to_blockifier(sn_core_tx: &starknet::core::types::Tran
             */
             unimplemented!("starknet_rs_tx_to_blockifier() with Declare txn");
         }
-        Transaction::L1Handler(tx) => {
+        Transaction::L1Handler(_tx) => {
             /*
             // As L1Hanlder is not an account transaction we execute it here and return the result
             let blockifier_tx = L1HandlerTransaction {

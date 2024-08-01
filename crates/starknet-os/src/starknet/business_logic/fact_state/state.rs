@@ -28,7 +28,7 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use crate::storage::storage::{DbObject, FactFetchingContext, Hash, HashFunctionType, Storage, StorageError};
-use crate::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
+use crate::storage::storage_utils::compiled_contract_class_cl2vm;
 use crate::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 
 /// A class representing a combination of the onchain and offchain state.

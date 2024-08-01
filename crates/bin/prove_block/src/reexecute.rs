@@ -1,14 +1,9 @@
-use std::collections::HashMap;
 use std::error::Error;
 
-use blockifier::{context::BlockContext, state::{cached_state::CachedState, errors::StateError, state_api::{StateReader, StateResult}}, test_utils::dict_state_reader::DictStateReader, transaction::{account_transaction::AccountTransaction, objects::TransactionExecutionInfo, transaction_execution::Transaction, transactions::ExecutableTransaction as _}};
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
-use pathfinder_common::ContractAddress;
+use blockifier::{context::BlockContext, state::{cached_state::CachedState, errors::StateError, state_api::{StateReader, StateResult}}, test_utils::dict_state_reader::DictStateReader, transaction::{objects::TransactionExecutionInfo, transaction_execution::Transaction, transactions::ExecutableTransaction as _}};
 use starknet::{core::types::BlockId, providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider as _}};
-use starknet_os::{crypto::pedersen::PedersenHash, io::InternalTransaction, starknet::business_logic::fact_state::state::SharedState, utils::{execute_coroutine, felt_api2vm, felt_vm2api}};
-use starknet_api::{core::{ClassHash, CompiledClassHash, Nonce, PatriciaKey}, deprecated_contract_class::ContractClass as DeprecatedCompiledClass, hash::StarkFelt, state::StorageKey, transaction::Transaction as SNTransaction};
-
-use crate::CachedRpcStorage;
+use starknet_os::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
+use starknet_api::{core::{ClassHash, CompiledClassHash, Nonce, PatriciaKey}, hash::StarkFelt, state::StorageKey};
 
 /// A StateReader impl which is backed by RPC
 pub(crate) struct RpcStateReader {
