@@ -21,7 +21,7 @@ assert_matches = "1.5.0"
 base64 = "0.21.3"
 bitvec = { version = "1.0.1", features = ["serde"] }
 # Point to the latest commit of branch msl/snos-0.6.0-rc.2
-blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", rev = "98d764a270c6a1b280edb94c973171027e8611fc", features = ["testing"] }
+blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", rev = "983e3b1cdb6621c5e6fa600f47cd69bf9e287621", features = ["testing"] }
 cairo-lang-starknet = { version = "2.6.3" }
 cairo-lang-starknet-classes = { version = "2.6.3" }
 cairo-lang-casm = { version = "2.6.3" }
