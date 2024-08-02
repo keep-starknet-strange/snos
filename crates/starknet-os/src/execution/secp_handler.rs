@@ -6,7 +6,7 @@ use blockifier::execution::syscalls::secp::{
     EcPointCoordinates, SecpAddRequest, SecpGetPointFromXRequest, SecpGetXyRequest, SecpHintProcessor, SecpMulRequest,
     SecpOpRespone, SecpOptionalEcPointResponse,
 };
-use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
@@ -83,17 +83,31 @@ where
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = <ExecutionHelper<S> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let res = secp_handler.secp_new(request)?;
+
         Ok(res)
     }
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
         match response.optional_ec_point_id {
             Some(id) => {
+                let segment = vm.add_memory_segment();
+                vm.load_data(
+                    segment,
+                    &vec![
+                        MaybeRelocatable::Int(1.into()),
+                        MaybeRelocatable::Int(1.into()),
+                        MaybeRelocatable::Int(1.into()),
+                        MaybeRelocatable::Int(1.into()),
+                        MaybeRelocatable::Int(1.into()),
+                        MaybeRelocatable::Int(1.into()),
+                    ],
+                )?;
                 write_maybe_relocatable(vm, ptr, 0)?;
-                write_maybe_relocatable(vm, ptr, id)?;
+                write_maybe_relocatable(vm, ptr, segment)?;
             }
             None => {
+                let segment = vm.add_memory_segment();
                 write_maybe_relocatable(vm, ptr, 1)?;
-                write_maybe_relocatable(vm, ptr, 0)?;
+                write_maybe_relocatable(vm, ptr, segment)?;
             }
         };
         Ok(())
@@ -117,7 +131,7 @@ where
             let high = felt_from_ptr(vm, ptr)?;
             (low, high)
         };
-        pub fn felt_to_bool(felt: Felt252, error_info: &str) -> SyscallResult<bool> {
+        fn felt_to_bool(felt: Felt252, error_info: &str) -> SyscallResult<bool> {
             if felt == Felt252::from(0_u8) {
                 Ok(false)
             } else if felt == Felt252::from(1_u8) {
