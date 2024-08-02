@@ -80,7 +80,7 @@ where
             V0(_) => {} // deprecated_compiled_classes are passed in by caller
             V1(_) => {
                 let class =
-                    compiled_classes.get(&class_hash).expect(format!("No class given for {:?}", class_hash).as_str());
+                    compiled_classes.get(&class_hash).unwrap_or_else(|| panic!("No class given for {:?}", class_hash));
                 let compiled_class_hash = Felt252::from_bytes_be(&class.compiled_class_hash().to_be_bytes());
                 class_hash_to_compiled_class_hash.insert(to_felt252(&class_hash.0), compiled_class_hash);
 
@@ -106,12 +106,12 @@ where
     }
 
     log::debug!("deprecated classes");
-    for (c, _) in &deprecated_compiled_classes {
+    for c in deprecated_compiled_classes.keys() {
         log::debug!("\t{}", c);
     }
 
     log::debug!("classes");
-    for (c, _) in &compiled_classes {
+    for c in compiled_classes.keys() {
         log::debug!("\t{}", c);
     }
 
@@ -188,7 +188,7 @@ where
     let execution_helper = ExecutionHelperWrapper::new(
         contract_storage_map,
         tx_execution_infos,
-        &block_context,
+        block_context,
         (Felt252::from(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64)),
     );
 

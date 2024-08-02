@@ -43,6 +43,7 @@ mod patricia;
 pub mod state;
 pub mod syscalls;
 #[cfg(test)]
+#[allow(clippy::module_inception)] // Use the same name as the parent module
 mod tests;
 mod transaction_hash;
 pub mod types;

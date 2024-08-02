@@ -48,6 +48,7 @@ mod tests {
     use crate::storage::dict_storage::DictStorage;
     use crate::storage::storage::DbObject;
 
+    #[allow(clippy::upper_case_acronyms)]
     type FFC = FactFetchingContext<DictStorage, PedersenHash>;
 
     #[fixture]

@@ -194,7 +194,7 @@ async fn test_syscall_get_tx_info_cairo0(
             sender_address: sender_address,
             calldata: create_calldata(contract_address, "test_get_tx_info_no_tx_hash_check", &[
                 tx_version.0, // expected version
-                sender_address.0.key().clone(), // expected contract address
+                *sender_address.key(), // expected contract address
                 stark_felt!(max_fee.0), // expected max fee
                 expected_chain_id, // expected chain ID
                 nonce.0, // expected nonce
@@ -365,7 +365,7 @@ async fn test_syscall_deploy_cairo0(
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: sender_address,
-        calldata: create_calldata(contract_address, "test_deploy", &test_deploy_args),
+        calldata: create_calldata(contract_address, "test_deploy", test_deploy_args),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
     });
@@ -471,7 +471,7 @@ async fn test_syscall_get_contract_address_cairo0(
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: sender_address,
-        calldata: create_calldata(contract_address, "test_contract_address", &test_contract_address_args),
+        calldata: create_calldata(contract_address, "test_contract_address", test_contract_address_args),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
     });

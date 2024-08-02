@@ -344,8 +344,11 @@ mod tests {
     type StorageType = DictStorage;
     type HashFunction = PedersenHash;
     type LeafFactType = SimpleLeafFact;
+    #[allow(clippy::upper_case_acronyms)]
     type FFC = FactFetchingContext<StorageType, HashFunction>;
+    #[allow(clippy::upper_case_acronyms)]
     type VPN = VirtualPatriciaNode<DictStorage, HashFunction, LeafFactType>;
+    #[allow(clippy::upper_case_acronyms)]
     type VCN = VirtualCalculationNode<StorageType, HashFunction, LeafFactType>;
 
     #[fixture]
@@ -529,7 +532,7 @@ mod tests {
         let tree = build_empty_patricia_virtual_node(&mut ffc, Height(3)).await;
 
         // Compare empty root to test util result.
-        let n_leaves = 8 as u64;
+        let n_leaves = 8u64;
         let leaves = vec![Felt252::ZERO; n_leaves as usize];
         verify_root(&leaves, &tree.bottom_node).unwrap();
 
@@ -613,11 +616,10 @@ mod tests {
             BinaryFactTreeNodeDiff::new(58, SimpleLeafFact::empty(), SimpleLeafFact::new(Felt252::from(81))),
         ];
         let diff_result = {
-            let diff = virtual_empty_tree_node
+            virtual_empty_tree_node
                 .get_diff_between_trees(virtual_two_change_node.clone(), &mut ffc, &mut facts)
                 .await
-                .unwrap();
-            diff
+                .unwrap()
         };
         assert_eq!(diff_result, expected_diff);
 

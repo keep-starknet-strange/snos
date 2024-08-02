@@ -493,9 +493,11 @@ mod tests {
     type StorageType = DictStorage;
     type HashFunction = PedersenHash;
     type LeafFactType = SimpleLeafFact;
+    #[allow(clippy::upper_case_acronyms)]
     type FFC = FactFetchingContext<StorageType, HashFunction>;
     type LeafCalculation = HashCalculationImpl<StorageType, HashFunction, LeafFactType>;
 
+    #[allow(clippy::upper_case_acronyms)]
     type VCN = VirtualCalculationNode<StorageType, HashFunction, LeafFactType>;
 
     #[fixture]
@@ -553,7 +555,7 @@ mod tests {
         let leaf_calculation = leaf_calculation.await;
         let mut facts = None;
 
-        let left = VCN::empty_node(Height(0u64.into()));
+        let left = VCN::empty_node(Height(0u64));
         let right = VCN::new(leaf_calculation.clone(), NodePath(0u64.into()), Length(0), Height(0)).unwrap();
         let parent = VCN::combine(&mut ffc, left, right, &mut facts).await.unwrap();
         assert_eq!(parent, VCN::new(leaf_calculation, NodePath(1u64.into()), Length(1), Height(1)).unwrap());
