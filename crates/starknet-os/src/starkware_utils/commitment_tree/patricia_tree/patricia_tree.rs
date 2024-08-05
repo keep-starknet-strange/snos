@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use starknet_os_types::hash::Hash;
 
 use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::{BinaryFactDict, BinaryFactTree};
@@ -10,7 +11,7 @@ use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::virtual_calculation_node::VirtualCalculationNode;
 use crate::starkware_utils::commitment_tree::patricia_tree::virtual_patricia_node::VirtualPatriciaNode;
 use crate::starkware_utils::commitment_tree::update_tree::update_tree;
-use crate::storage::storage::{FactFetchingContext, Hash, HashFunctionType, Storage};
+use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
 
 pub const EMPTY_NODE_HASH: [u8; 32] = [0; 32];
 

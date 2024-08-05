@@ -1,11 +1,12 @@
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet_classes::contract_class::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
+use starknet_os_types::hash::Hash;
 
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
     CompiledClassFact, ContractClassFact, DeprecatedCompiledClassFact,
 };
-use crate::storage::storage::{Fact, FactFetchingContext, Hash, HashFunctionType, Storage, StorageError};
+use crate::storage::storage::{Fact, FactFetchingContext, HashFunctionType, Storage, StorageError};
 
 pub async fn write_class_facts<S, H>(
     contract_class: ContractClass,

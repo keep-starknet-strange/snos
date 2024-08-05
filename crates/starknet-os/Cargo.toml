@@ -37,6 +37,7 @@ serde_with = { workspace = true }
 serde_yaml = { workspace = true }
 starknet_api = { workspace = true }
 starknet-crypto = { workspace = true }
+starknet-os-types = { path = "../starknet-os-types" }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }

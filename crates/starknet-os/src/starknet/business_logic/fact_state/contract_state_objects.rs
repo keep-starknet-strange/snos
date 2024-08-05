@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use starknet_os_types::hash::Hash;
 
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::Height;
@@ -12,7 +13,7 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::{PatriciaTree, EMPTY_NODE_HASH};
 use crate::starkware_utils::serializable::SerializationPrefix;
-use crate::storage::storage::{DbObject, Fact, FactFetchingContext, Hash, HashFunctionType, Storage};
+use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
 
 pub const UNINITIALIZED_CLASS_HASH: [u8; 32] = [0; 32];
 

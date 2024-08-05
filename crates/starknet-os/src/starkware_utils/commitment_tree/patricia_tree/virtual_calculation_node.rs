@@ -2,6 +2,7 @@ use std::any::Any;
 use std::marker::PhantomData;
 
 use num_bigint::BigUint;
+use starknet_os_types::hash::Hash;
 
 use crate::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactDict;
@@ -17,7 +18,7 @@ use crate::starkware_utils::commitment_tree::patricia_tree::nodes::{
 };
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::starkware_utils::commitment_tree::patricia_tree::virtual_patricia_node::VirtualPatriciaNode;
-use crate::storage::storage::{Fact, FactFetchingContext, Hash, HashFunctionType, Storage, StorageError};
+use crate::storage::storage::{Fact, FactFetchingContext, HashFunctionType, Storage, StorageError};
 
 #[derive(Debug, PartialEq)]
 pub struct BinaryCalculation<S, H, LF>

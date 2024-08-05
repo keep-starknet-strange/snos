@@ -4,12 +4,13 @@ use cairo_vm::Felt252;
 use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::{Deserialize, Serialize};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
+use starknet_os_types::hash::Hash;
 
 use crate::config::CONTRACT_CLASS_LEAF_VERSION;
 use crate::crypto::poseidon::PoseidonHash;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::serializable::SerializationPrefix;
-use crate::storage::storage::{DbObject, Fact, FactFetchingContext, Hash, HashFunctionType, Storage};
+use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
 
 /// Represents a single contract class which is stored in the Starknet state.
 #[derive(Debug, Serialize, Deserialize)]

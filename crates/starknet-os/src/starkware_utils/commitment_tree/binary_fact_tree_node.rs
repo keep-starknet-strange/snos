@@ -4,6 +4,7 @@ use std::ops::Deref;
 
 use futures::future::FutureExt;
 use num_bigint::BigUint;
+use starknet_os_types::hash::Hash;
 
 use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactDict;
@@ -11,7 +12,7 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::merkle_tree::traverse_tree::{traverse_tree, TreeTraverser};
-use crate::storage::storage::{FactFetchingContext, Hash, HashFunctionType, Storage, StorageError};
+use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 
 #[derive(Debug, PartialEq)]
 pub struct BinaryFactTreeNodeDiff<S, H, LF>
