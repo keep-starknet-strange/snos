@@ -8,7 +8,6 @@ use blockifier::state::state_api::{StateReader, StateResult};
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_crypto::FieldElement;
@@ -21,7 +20,7 @@ use crate::config::{
 };
 use crate::crypto::poseidon::{poseidon_hash_many_bytes, PoseidonHash};
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
-    get_ffc_for_contract_class_facts, CompiledClassFact, ContractClassLeaf, DeprecatedCompiledClassFact,
+    get_ffc_for_contract_class_facts, CompiledClassFact, ContractClassLeaf,
 };
 use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use crate::starknet::starknet_storage::StorageLeaf;
@@ -378,17 +377,6 @@ where
         };
 
         Ok(CompiledClassHash(felt_vm2api(compiled_class_hash)))
-    }
-
-    async fn get_deprecated_compiled_class(
-        &mut self,
-        compiled_class_hash: CompiledClassHash,
-    ) -> Result<Option<DeprecatedContractClass>, StorageError> {
-        let storage = self.ffc.acquire_storage().await;
-
-        DeprecatedCompiledClassFact::get(storage.deref(), compiled_class_hash.0.bytes())
-            .await
-            .map(|option| option.map(|fact| fact.contract_definition))
     }
 
     async fn get_compiled_class(

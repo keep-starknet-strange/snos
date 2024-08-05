@@ -20,7 +20,7 @@ use starknet::core::types::{
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
@@ -109,18 +109,6 @@ enum TrieNode {
 
 #[derive(Deserialize)]
 pub struct ContractData {
-    /// Required to verify the contract state hash to contract root calculation.
-    class_hash: ClassHash,
-    /// Required to verify the contract state hash to contract root calculation.
-    nonce: Felt252,
-
-    /// Root of the Contract state tree
-    root: Felt252,
-
-    /// This is currently just a constant = 0, however it might change in the
-    /// future.
-    contract_state_hash_version: Felt,
-
     /// The proofs associated with the queried storage values
     storage_proofs: Vec<Vec<TrieNode>>,
 }
@@ -213,15 +201,15 @@ fn felt_to_u128(felt: &starknet_types_core::felt::Felt) -> u128 {
 #[derive(Clone)]
 struct RpcStorage {
     // provider: JsonRpcClient<HttpTransport>,
-    client: reqwest::Client,
-    provider: String,
-    block_number: u64,
+    // client: reqwest::Client,
+    // provider: String,
+    // block_number: u64,
 }
 
 impl RpcStorage {
     // pub fn new(provider: JsonRpcClient<HttpTransport>) -> Self {
-    pub fn new(client: reqwest::Client, provider: String, block_number: u64) -> Self {
-        Self { client, provider, block_number }
+    pub fn new(_client: reqwest::Client, _provider: String, _block_number: u64) -> Self {
+        Self {}
     }
 }
 
@@ -600,7 +588,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // insert ContractState for any contract that received a nonce update but not a storage update
     for nonce_update in state_update.state_diff.nonces {
-        if !contract_states.contains_key(&nonce_update.contract_address) {
+        if let std::collections::hash_map::Entry::Vacant(e) = contract_states.entry(nonce_update.contract_address) {
             let mut contract_state = ContractState::empty(Height(251), &mut initial_state.ffc).await?;
 
             // we receive the new nonce, but need to configure SNOS with the previous nonce. since
@@ -623,7 +611,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             );
 
             contract_state.nonce = previous_nonce;
-            contract_states.insert(nonce_update.contract_address, contract_state);
+            e.insert(contract_state);
         }
     }
 
