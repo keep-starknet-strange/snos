@@ -626,52 +626,52 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // ensure that we have all class_hashes and compiled_class_hashes for any accessed contracts
     let mut accessed_class_hashes = HashSet::<_>::new();
+    let mut compiled_classes = HashMap::new();
     for contract_address in &accessed_contracts {
         // TODO: dedupe with query in build_initial_state()...
-        let class_hash = if let Ok(class_hash) = provider.get_class_hash_at(BlockId::Number(block_number), contract_address).await {
+        if let Ok(class_hash) = provider.get_class_hash_at(BlockId::Number(block_number), contract_address).await {
             accessed_class_hashes.insert(class_hash);
-            Some(class_hash)
-        } else {
-            log::warn!("No class hash available for contract {}", contract_address);
-            None
-        };
 
-        // apparently we need to query compiled class info by contract address, not compiled class hash
-        log::debug!("querying class for contract_address {}", contract_address);
-        if let Ok(contract_class) = provider.get_class(BlockId::Number(block_number), contract_address).await {
-            log::trace!("contract class for {}: {:?}", contract_address, contract_class);
+            log::debug!("querying class for contract_address {}, hash: {}", contract_address, class_hash);
+            if let Ok(contract_class) = provider.get_class(BlockId::Number(block_number), class_hash).await {
+                log::trace!("contract class for {}: {:?}", contract_address, contract_class);
 
-            match contract_class {
-                starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
-                    let middle_sierra: types::MiddleSierraContractClass = {
-                        let v = serde_json::to_value(flattened_sierra_cc).unwrap();
-                        serde_json::from_value(v).unwrap()
-                    };
-                    let sierra_cc = cairo_lang_starknet_classes::contract_class::ContractClass {
-                        sierra_program: middle_sierra.sierra_program,
-                        contract_class_version: middle_sierra.contract_class_version,
-                        entry_points_by_type: middle_sierra.entry_points_by_type,
-                        sierra_program_debug_info: None,
-                        abi: None,
-                    };
-                    let casm_cc =
-                        cairo_lang_starknet_classes::casm_contract_class::CasmContractClass::from_contract_class(sierra_cc.clone(), false, usize::MAX).unwrap();
+                match contract_class {
+                    starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
+                        let middle_sierra: types::MiddleSierraContractClass = {
+                            let v = serde_json::to_value(flattened_sierra_cc).unwrap();
+                            serde_json::from_value(v).unwrap()
+                        };
+                        let sierra_cc = cairo_lang_starknet_classes::contract_class::ContractClass {
+                            sierra_program: middle_sierra.sierra_program,
+                            contract_class_version: middle_sierra.contract_class_version,
+                            entry_points_by_type: middle_sierra.entry_points_by_type,
+                            sierra_program_debug_info: None,
+                            abi: None,
+                        };
+                        let casm_cc =
+                            cairo_lang_starknet_classes::casm_contract_class::CasmContractClass::from_contract_class(sierra_cc.clone(), false, usize::MAX).unwrap();
 
-                    log::error!("class_hash (from RPC): {}", class_hash.unwrap());
-                    
-                    // TODO: it seems that this ends up computing the wrong class hash...
-                    write_class_facts(
-                        sierra_cc, 
-                        casm_cc, 
-                        &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>()).await?;
-                },
-                starknet::core::types::ContractClass::Legacy(_compressed_logacy_contract_class) => {
-                    panic!("legacy class (TODO)");
+                        log::error!("class_hash (from RPC): {}", class_hash);
+                        
+                        // TODO: it seems that this ends up computing the wrong class hash...
+                        write_class_facts(
+                            sierra_cc, 
+                            casm_cc.clone(), 
+                            &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>()).await?;
+
+                        compiled_classes.insert(class_hash, casm_cc);
+                    },
+                    starknet::core::types::ContractClass::Legacy(_compressed_logacy_contract_class) => {
+                        panic!("legacy class (TODO)");
+                    }
                 }
+            } else {
+                log::warn!("No class available for contract {}", contract_address);
             }
         } else {
-            log::warn!("No class available for contract {}", contract_address);
-        }
+            log::warn!("No class hash available for contract {}", contract_address);
+        };
     }
 
     let blockifier_state_reader = DictStateWithRpc {
@@ -707,7 +707,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         contract_state_commitment_info,
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes: Default::default(),
-        compiled_classes: Default::default(),
+        compiled_classes,
         compiled_class_visited_pcs: Default::default(),
         contracts: contract_states,
         class_hash_to_compiled_class_hash,
