@@ -19,7 +19,7 @@ use starknet_os::io::input::StarknetOsInput;
 use starknet_os::io::InternalTransaction;
 use starknet_os::starknet::business_logic::fact_state::contract_class_objects::ContractClassLeaf;
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
-use starknet_os::starknet::business_logic::fact_state::test_shared_state::TestSharedState;
+use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::starknet_storage::CommitmentInfo;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use starknet_os::storage::storage::Storage;
@@ -30,7 +30,7 @@ use crate::common::transaction_utils::to_felt252;
 
 pub async fn os_hints<S>(
     block_context: &BlockContext,
-    mut blockifier_state: CachedState<TestSharedState<S, PedersenHash>>,
+    mut blockifier_state: CachedState<SharedState<S, PedersenHash>>,
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
     deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
@@ -40,7 +40,6 @@ where
     S: Storage,
 {
     let mut compiled_class_hash_to_compiled_class: HashMap<Felt252, CasmContractClass> = HashMap::new();
-    let mut ffc = blockifier_state.state.ffc().clone();
 
     let mut contracts: HashMap<Felt252, ContractState> = blockifier_state
         .state
@@ -50,7 +49,7 @@ where
             // TODO: biguint is exacerbating the type conversion problem, ideas...?
             let address: ContractAddress =
                 ContractAddress(PatriciaKey::try_from(felt_vm2api(Felt252::from(address_biguint))).unwrap());
-            let contract_state = blockifier_state.state.shared_state().get_contract_state(address).unwrap();
+            let contract_state = blockifier_state.state.get_contract_state(address).unwrap();
             (to_felt252(address.0.key()), contract_state)
         })
         .collect();
@@ -59,7 +58,10 @@ where
     let state_diff = blockifier_state.to_state_diff();
     let deployed_addresses = state_diff.address_to_class_hash;
     for (address, _class_hash) in &deployed_addresses {
-        contracts.insert(to_felt252(address.0.key()), ContractState::empty(Height(251), &mut ffc).await.unwrap());
+        contracts.insert(
+            to_felt252(address.0.key()),
+            ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap(),
+        );
     }
 
     // Initialize class_hash_to_compiled_class_hash with zero so that newly declared contracts
@@ -87,8 +89,10 @@ where
         };
     }
 
-    contracts.insert(Felt252::from(0), ContractState::empty(Height(251), &mut ffc).await.unwrap());
-    contracts.insert(Felt252::from(1), ContractState::empty(Height(251), &mut ffc).await.unwrap());
+    contracts
+        .insert(Felt252::from(0), ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap());
+    contracts
+        .insert(Felt252::from(1), ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap());
 
     log::debug!(
         "contracts: {:?}\ndeprecated_compiled_classes: {:?}",
@@ -127,6 +131,8 @@ where
         ..default_general_config
     };
 
+    let mut ffc = blockifier_state.state.ffc.clone();
+
     // Convert the Blockifier storage into an OS-compatible one
     let (contract_storage_map, previous_state, updated_state) =
         build_starknet_storage_async(blockifier_state).await.unwrap();
@@ -138,8 +144,8 @@ where
 
     let contract_state_commitment_info =
         CommitmentInfo::create_from_expected_updated_tree::<S, PedersenHash, ContractState>(
-            previous_state.shared_state().contract_states.clone(),
-            updated_state.shared_state().contract_states.clone(),
+            previous_state.contract_states.clone(),
+            updated_state.contract_states.clone(),
             &contract_indices,
             &mut ffc,
         )
@@ -155,8 +161,8 @@ where
 
     let contract_class_commitment_info =
         CommitmentInfo::create_from_expected_updated_tree::<S, PoseidonHash, ContractClassLeaf>(
-            previous_state.shared_state().contract_classes.clone().expect("previous state should have class trie"),
-            updated_state.shared_state().contract_classes.clone().expect("updated state should have class trie"),
+            previous_state.contract_classes.clone().expect("previous state should have class trie"),
+            updated_state.contract_classes.clone().expect("updated state should have class trie"),
             &accessed_contracts,
             &mut ffc.clone_with_different_hash::<PoseidonHash>(),
         )

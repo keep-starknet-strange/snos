@@ -7,7 +7,7 @@ use starknet_os_types::hash::Hash;
 
 use crate::execution::helper::ContractStorageMap;
 use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
-use crate::starknet::business_logic::fact_state::test_shared_state::TestSharedState;
+use crate::starknet::business_logic::fact_state::state::SharedState;
 use crate::starknet::starknet_storage::OsSingleStarknetStorage;
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
@@ -66,8 +66,8 @@ where
 }
 
 pub async fn unpack_blockifier_state_async<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync>(
-    mut blockifier_state: CachedState<TestSharedState<S, H>>,
-) -> Result<(TestSharedState<S, H>, TestSharedState<S, H>), TreeError> {
+    mut blockifier_state: CachedState<SharedState<S, H>>,
+) -> Result<(SharedState<S, H>, SharedState<S, H>), TreeError> {
     let final_state = {
         let state = blockifier_state.state.clone();
         state.apply_commitment_state_diff(blockifier_state.to_state_diff()).await?
@@ -84,27 +84,24 @@ pub async fn unpack_blockifier_state_async<S: Storage + Send + Sync, H: HashFunc
 /// object. The initial state is obtained through this read-only view while the final storage
 /// is obtained by extracting the state diff from the `CachedState` part.
 pub async fn build_starknet_storage_async<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync>(
-    blockifier_state: CachedState<TestSharedState<S, H>>,
-) -> Result<(ContractStorageMap<S, H>, TestSharedState<S, H>, TestSharedState<S, H>), TreeError> {
+    blockifier_state: CachedState<SharedState<S, H>>,
+) -> Result<(ContractStorageMap<S, H>, SharedState<S, H>, SharedState<S, H>), TreeError> {
     let mut storage_by_address = ContractStorageMap::new();
 
-    let (initial_state, final_state) = unpack_blockifier_state_async(blockifier_state).await?;
-
-    let all_contracts = final_state.contract_addresses().clone();
-    let mut ffc = final_state.ffc().clone();
-
     // TODO: would be cleaner if `get_leaf()` took &ffc instead of &mut ffc
+    let (mut initial_state, mut final_state) = unpack_blockifier_state_async(blockifier_state).await?;
+
+    let all_contracts = final_state.contract_addresses();
+
     for contract_address in all_contracts {
         let initial_contract_state: ContractState = initial_state
-            .shared_state()
             .contract_states
-            .get_leaf(&mut ffc, contract_address.clone())
+            .get_leaf(&mut initial_state.ffc, contract_address.clone())
             .await?
             .expect("There should be an initial state");
         let final_contract_state: ContractState = final_state
-            .shared_state()
             .contract_states
-            .get_leaf(&mut ffc, contract_address.clone())
+            .get_leaf(&mut final_state.ffc, contract_address.clone())
             .await?
             .expect("There should be a final state");
 
@@ -112,7 +109,7 @@ pub async fn build_starknet_storage_async<S: Storage + Send + Sync, H: HashFunct
         let updated_tree = final_contract_state.storage_commitment_tree;
 
         let contract_storage =
-            OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], ffc.clone()).await.unwrap();
+            OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], final_state.ffc.clone()).await.unwrap();
         storage_by_address.insert(Felt252::from(contract_address), contract_storage);
     }
 

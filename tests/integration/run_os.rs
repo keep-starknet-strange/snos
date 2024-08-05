@@ -26,7 +26,7 @@ use starknet_api::transaction::{
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::execution::helper::GenCallIter;
 use starknet_os::io::output::StarknetOsOutput;
-use starknet_os::starknet::business_logic::fact_state::test_shared_state::TestSharedState;
+use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage_utils::{deprecated_contract_class_api2vm, unpack_blockifier_state_async};
 use starknet_os::utils::felt_api2vm;
@@ -484,7 +484,7 @@ fn add_declare_and_deploy_contract_txs(
 
 fn execute_transaction(
     tx: Transaction,
-    cached_state: &mut CachedState<TestSharedState<DictStorage, PedersenHash>>,
+    cached_state: &mut CachedState<SharedState<DictStorage, PedersenHash>>,
     block_context: &BlockContext,
 ) -> TransactionExecutionInfo {
     let tx_result = tx.execute(cached_state, block_context, true, true);

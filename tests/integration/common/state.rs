@@ -15,7 +15,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiled
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_os::crypto::pedersen::PedersenHash;
-use starknet_os::starknet::business_logic::fact_state::test_shared_state::TestSharedState;
+use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::business_logic::utils::{write_class_facts, write_deprecated_compiled_class_fact};
 use starknet_os::starkware_utils::commitment_tree::errors::TreeError;
 use starknet_os::storage::dict_storage::DictStorage;
@@ -47,7 +47,7 @@ pub struct StarknetTestState {
     #[allow(unused)]
     pub declared_cairo1_contracts: HashMap<String, DeclaredContract>,
     /// State initially created for blockifier execution
-    pub cached_state: CachedState<TestSharedState<DictStorage, PedersenHash>>,
+    pub cached_state: CachedState<SharedState<DictStorage, PedersenHash>>,
     /// All cairo0 compiled classes
     pub cairo0_compiled_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
     /// All cairo1 compiled classes
@@ -61,7 +61,7 @@ impl StarknetTestState {
     where
         NH: HashFunctionType,
     {
-        self.cached_state.state.ffc().clone_with_different_hash::<NH>()
+        self.cached_state.state.ffc.clone_with_different_hash::<NH>()
     }
 }
 
@@ -452,8 +452,8 @@ impl<'a> StarknetStateBuilder<'a> {
     async fn build_shared_state(
         dict_state_reader: DictStateReader,
         ffc: FactFetchingContext<DictStorage, PedersenHash>,
-    ) -> Result<TestSharedState<DictStorage, PedersenHash>, TreeError> {
-        TestSharedState::from_blockifier_state(ffc, dict_state_reader).await
+    ) -> Result<SharedState<DictStorage, PedersenHash>, TreeError> {
+        SharedState::from_blockifier_state(ffc, dict_state_reader).await
     }
 
     /// Declare a Cairo 1 contract in the test state.
