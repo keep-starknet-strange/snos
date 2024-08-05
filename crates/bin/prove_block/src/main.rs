@@ -30,7 +30,7 @@ use starknet_os::error::SnOsError::Runner;
 use starknet_os::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
 use starknet_os::io::input::StarknetOsInput;
 use starknet_os::starknet::business_logic::fact_state::contract_class_objects::{
-    get_ffc_for_contract_class_facts, ContractClassLeaf
+    get_ffc_for_contract_class_facts, ContractClassLeaf,
 };
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
@@ -438,7 +438,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let cached_storage = CachedRpcStorage::new(Default::default(), rpc_storage);
 
     // TODO: nasty clone, the conversion fns don't take references
-    let transactions: Vec<_> = block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
+    let transactions: Vec<_> =
+        block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
     // TODO: these maps that we pass in to build_initial_state() are built only on items from the
     // state diff, but we will need all items accessed in any way during the block (right?) which
@@ -651,18 +652,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             abi: None,
                         };
                         let casm_cc =
-                            cairo_lang_starknet_classes::casm_contract_class::CasmContractClass::from_contract_class(sierra_cc.clone(), false, usize::MAX).unwrap();
+                            cairo_lang_starknet_classes::casm_contract_class::CasmContractClass::from_contract_class(
+                                sierra_cc.clone(),
+                                false,
+                                usize::MAX,
+                            )
+                            .unwrap();
 
                         log::error!("class_hash (from RPC): {}", class_hash);
-                        
+
                         // TODO: it seems that this ends up computing the wrong class hash...
                         write_class_facts(
-                            sierra_cc, 
-                            casm_cc.clone(), 
-                            &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>()).await?;
+                            sierra_cc,
+                            casm_cc.clone(),
+                            &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>(),
+                        )
+                        .await?;
 
                         compiled_classes.insert(class_hash, casm_cc);
-                    },
+                    }
                     starknet::core::types::ContractClass::Legacy(_compressed_logacy_contract_class) => {
                         panic!("legacy class (TODO)");
                     }
@@ -675,10 +683,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         };
     }
 
-    let blockifier_state_reader = RpcStateReader {
-        block_id: BlockId::Number(block_number - 1),
-        rpc_client: provider,
-    };
+    let blockifier_state_reader = RpcStateReader { block_id: BlockId::Number(block_number - 1), rpc_client: provider };
 
     let tx_execution_infos = reexecute_transactions_with_blockifier(
         CachedState::new(blockifier_state_reader, GlobalContractCache::new(1024)),
@@ -694,12 +699,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         );
     }
 
-    let contract_state_commitment_info = CommitmentInfo::create_from_modifications::<CachedRpcStorage, PedersenHash, ContractState>(
-        previous_tree.clone(),
-        None, // TODO: do we have a source for expected?
-        updates,
-        &mut initial_state.ffc,
-    ).await?;
+    let contract_state_commitment_info =
+        CommitmentInfo::create_from_modifications::<CachedRpcStorage, PedersenHash, ContractState>(
+            previous_tree.clone(),
+            None, // TODO: do we have a source for expected?
+            updates,
+            &mut initial_state.ffc,
+        )
+        .await?;
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
