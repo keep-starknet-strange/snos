@@ -9,7 +9,6 @@ use blockifier::transaction::account_transaction::AccountTransaction::{Declare, 
 use blockifier::transaction::objects::{TransactionInfo, TransactionInfoCreator};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
@@ -40,6 +39,7 @@ use starknet_os::starknet::core::os::transaction_hash::{L1_GAS, L2_GAS};
 use starknet_os::storage::storage::Storage;
 use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
+use starknet_os_types::contract_class::GenericCasmContractClass;
 
 use crate::common::block_utils::os_hints;
 
@@ -775,7 +775,7 @@ async fn execute_txs<S>(
     block_context: &BlockContext,
     txs: Vec<Transaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
-    contract_classes: HashMap<ClassHash, CasmContractClass>,
+    contract_classes: HashMap<ClassHash, GenericCasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper<S>)
 where
     S: Storage,
@@ -815,7 +815,7 @@ pub async fn execute_txs_and_run_os<S>(
     block_context: BlockContext,
     txs: Vec<Transaction>,
     deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
-    contract_classes: HashMap<ClassHash, CasmContractClass>,
+    contract_classes: HashMap<ClassHash, GenericCasmContractClass>,
 ) -> Result<(CairoPie, StarknetOsOutput), SnOsError>
 where
     S: Storage,
