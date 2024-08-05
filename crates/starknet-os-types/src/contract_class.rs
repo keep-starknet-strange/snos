@@ -29,7 +29,7 @@ pub enum ContractClassError {
 pub struct GenericCasmContractClass {
     blockifier_contract_class: OnceCell<Rc<BlockifierCasmClass>>,
     cairo_lang_contract_class: OnceCell<Rc<CairoLangCasmClass>>,
-    serialized_class: OnceCell<Vec<u8>>,
+    serialized_class: OnceCell<Rc<Vec<u8>>>,
     class_hash: OnceCell<GenericClassHash>,
 }
 
@@ -51,7 +51,7 @@ impl GenericCasmContractClass {
         Self {
             blockifier_contract_class: OnceCell::new(),
             cairo_lang_contract_class: OnceCell::new(),
-            serialized_class: OnceCell::from(serialized_class),
+            serialized_class: OnceCell::from(Rc::new(serialized_class)),
             class_hash: OnceCell::new(),
         }
     }
