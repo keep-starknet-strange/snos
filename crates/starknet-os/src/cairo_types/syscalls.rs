@@ -123,17 +123,21 @@ pub struct GetBlockNumber {
 
 #[derive(FieldOffsetGetters)]
 pub struct GetBlockTimestampRequest {
+    #[allow(unused)]
     pub selector: Felt252,
 }
 
 #[derive(FieldOffsetGetters)]
 pub struct GetBlockTimestampResponse {
+    #[allow(unused)]
     pub block_timestamp: Felt252,
 }
 
 #[derive(FieldOffsetGetters)]
 pub struct GetBlockTimestamp {
+    #[allow(unused)]
     pub request: GetBlockTimestampRequest,
+    #[allow(unused)]
     pub response: GetBlockTimestampResponse,
 }
 
