@@ -4,7 +4,6 @@ use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
-use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction as _;
@@ -116,7 +115,7 @@ pub fn reexecute_transactions_with_blockifier(
         .into_iter()
         .map(|tx| {
             let tx_result = tx.execute(&mut state, block_context, true, true);
-            return match tx_result {
+            match tx_result {
                 Err(e) => {
                     panic!("Transaction failed in blockifier: {}", e);
                 }
@@ -128,7 +127,7 @@ pub fn reexecute_transactions_with_blockifier(
                     }
                     info
                 }
-            };
+            }
         })
         .collect();
 

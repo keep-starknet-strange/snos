@@ -73,12 +73,12 @@ fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::Value
 
 async fn post_jsonrpc_request<T: DeserializeOwned>(
     client: &reqwest::Client,
-    rpc_provider: &String,
+    rpc_provider: &str,
     method: &str,
     params: serde_json::Value,
 ) -> Result<T, reqwest::Error> {
     let request = jsonrpc_request(method, params);
-    let response = client.post(format!("{}/rpc/v0_7", rpc_provider.as_str())).json(&request).send().await?;
+    let response = client.post(format!("{}/rpc/v0_7", rpc_provider)).json(&request).send().await?;
 
     #[derive(Deserialize)]
     struct TransactionReceiptResponse<T> {
@@ -134,7 +134,7 @@ struct PathfinderProof {
 
 async fn pathfinder_get_proof(
     client: &reqwest::Client,
-    rpc_provider: &String,
+    rpc_provider: &str,
     block_number: u64,
     contract_address: Felt,
     keys: &[Felt],
@@ -150,7 +150,7 @@ async fn pathfinder_get_proof(
 
 async fn get_storage_proofs(
     client: &reqwest::Client,
-    rpc_provider: &String,
+    rpc_provider: &str,
     block_number: u64,
     state_update: &StateUpdate,
 ) -> Result<HashMap<Felt, PathfinderProof>, reqwest::Error> {
@@ -274,7 +274,7 @@ async fn build_block_context(chain_id: String, block: &BlockWithTxs) -> Result<B
 
     let versioned_constants = VersionedConstants::latest_constants();
 
-    Ok(BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants))
+    Ok(BlockContext::new_unchecked(&block_info, &chain_info, versioned_constants))
 }
 
 fn init_logging() {
@@ -324,12 +324,12 @@ async fn build_initial_state(
         if class_hash.is_none() {
             log::debug!("contract {} has no contract hash, fetching from RPC", address);
             let resp = provider.get_class_hash_at(BlockId::Number(block_number), address).await;
-            class_hash = if resp.is_err() {
+            class_hash = if let Ok(class_hash) = resp {
+                Some(class_hash)
+            } else {
                 log::warn!("contract {} has no contract hash from RPC either", address);
                 None
-            } else {
-                Some(resp.unwrap())
-            }
+            };
         }
         let updated_contract_state =
             current_contract_states.remove(&tree_index).unwrap().update(&mut ffc, updates, nonce, class_hash).await?;
@@ -364,7 +364,7 @@ async fn build_initial_state(
         }
     };
 
-    let accessed_addresses: HashSet<_> = accessed_addresses.into_iter().map(|b| Felt252::from(b)).collect();
+    let accessed_addresses: HashSet<_> = accessed_addresses.into_iter().map(Felt252::from).collect();
 
     Ok((
         accessed_addresses,
@@ -505,7 +505,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // fill in class hashes for each accessed contract
     for address in &accessed_contracts {
-        if *address != Felt252::ONE && !address_to_class_hash.contains_key(&address) {
+        if *address != Felt252::ONE && !address_to_class_hash.contains_key(address) {
             log::info!("Querying missing class hash for {}", address);
             let class_hash = provider.get_class_hash_at(BlockId::Number(block_number), address).await.unwrap();
             log::info!("Got class hash: {} => {}", address, class_hash);
@@ -514,7 +514,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // write facts from proof
-    for (_contract_address, proof) in &storage_proofs {
+    for proof in storage_proofs.values() {
         for node in &proof.contract_proof {
             match node {
                 TrieNode::Binary { left, right } => {
@@ -581,7 +581,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .await?;
         let updated_tree = contract_state.storage_commitment_tree.clone();
 
-        if storage_proof.class_commitment != contract_state.storage_commitment_tree.root.clone().into() {
+        if storage_proof.class_commitment != contract_state.storage_commitment_tree.root.into() {
             log::error!(
                 "expected class_commitment != computed class_commitment ({:?} != {:?})",
                 storage_proof.class_commitment,
@@ -688,7 +688,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let tx_execution_infos = reexecute_transactions_with_blockifier(
         CachedState::new(blockifier_state_reader, GlobalContractCache::new(1024)),
         &block_context,
-        block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(&tx).unwrap()).collect(),
+        block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(tx).unwrap()).collect(),
     )?;
 
     if tx_execution_infos.len() != transactions.len() {
