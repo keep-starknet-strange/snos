@@ -373,6 +373,7 @@ async fn build_initial_state(
             contract_classes: updated_contract_classes,
             ffc,
             ffc_for_class_hash: ffc_for_contract_class,
+            contract_addresses: Default::default(),
         },
     ))
 }
