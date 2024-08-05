@@ -73,9 +73,9 @@ where
         let left_hash: &Hash = dependency_results[0].downcast_ref().unwrap();
         let right_hash: &Hash = dependency_results[1].downcast_ref().unwrap();
 
-        let fact = BinaryNodeFact { left_node: left_hash.clone(), right_node: right_hash.clone() };
+        let fact = BinaryNodeFact { left_node: *left_hash, right_node: *right_hash };
         let fact_hash = <BinaryNodeFact as Fact<S, H>>::hash(&fact);
-        fact_nodes.inner_nodes.insert(fact_hash.clone(), PatriciaNodeFact::Binary(fact));
+        fact_nodes.inner_nodes.insert(fact_hash, PatriciaNodeFact::Binary(fact));
 
         fact_hash
     }
@@ -143,9 +143,9 @@ where
 
     fn calculate(&self, dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Hash {
         let bottom_hash: &Hash = dependency_results[0].downcast_ref().unwrap();
-        let fact = EdgeNodeFact::new_unchecked(bottom_hash.clone(), self.path.clone(), self.length);
+        let fact = EdgeNodeFact::new_unchecked(*bottom_hash, self.path.clone(), self.length);
         let fact_hash = <EdgeNodeFact as Fact<S, H>>::hash(&fact);
-        fact_nodes.inner_nodes.insert(fact_hash.clone(), PatriciaNodeFact::Edge(fact));
+        fact_nodes.inner_nodes.insert(fact_hash, PatriciaNodeFact::Edge(fact));
 
         fact_hash
     }
@@ -469,7 +469,7 @@ where
     }
 
     fn create_from_node(node: &Self::BinaryFactTreeNodeType) -> Self {
-        let bottom_calculation = HashCalculationImpl::Constant(ConstantCalculation::new(node.bottom_node.clone()));
+        let bottom_calculation = HashCalculationImpl::Constant(ConstantCalculation::new(node.bottom_node));
         Self::new_unchecked(bottom_calculation, node.path.clone(), node.length, node.height)
     }
 

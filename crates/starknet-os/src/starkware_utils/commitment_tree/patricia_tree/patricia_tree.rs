@@ -38,7 +38,7 @@ where
         indices: &[TreeIndex],
         facts: &mut Option<BinaryFactDict>,
     ) -> Result<HashMap<TreeIndex, LF>, TreeError> {
-        let virtual_root_node = VirtualPatriciaNode::from_hash(self.root.clone(), self.height);
+        let virtual_root_node = VirtualPatriciaNode::from_hash(self.root, self.height);
         virtual_root_node._get_leaves(ffc, indices, facts).await
     }
 

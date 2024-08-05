@@ -229,7 +229,7 @@ where
 
     fn calculate(&self, _dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Hash {
         let hash_result = self.fact.hash();
-        fact_nodes.leaves.insert(hash_result.clone(), self.fact.clone());
+        fact_nodes.leaves.insert(hash_result, self.fact.clone());
         hash_result
     }
 }
