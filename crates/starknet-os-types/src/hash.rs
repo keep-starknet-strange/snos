@@ -131,6 +131,13 @@ impl From<GenericClassHash> for ClassHash {
     }
 }
 
+impl From<GenericClassHash> for CompiledClassHash {
+    fn from(class_hash: GenericClassHash) -> Self {
+        let stark_hash = StarkHash::new_unchecked(class_hash.0.0);
+        CompiledClassHash(stark_hash)
+    }
+}
+
 impl From<GenericClassHash> for Felt {
     fn from(class_hash: GenericClassHash) -> Self {
         Felt::from_bytes_be(&class_hash.0.0)

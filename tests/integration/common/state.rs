@@ -18,7 +18,7 @@ use starknet_os::starknet::business_logic::utils::{write_class_facts, write_depr
 use starknet_os::starkware_utils::commitment_tree::errors::TreeError;
 use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{FactFetchingContext, HashFunctionType, StorageError};
-use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use super::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_feature_contract};

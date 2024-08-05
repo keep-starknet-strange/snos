@@ -38,7 +38,7 @@ use starknet_os::starknet::core::os::transaction_hash::{L1_GAS, L2_GAS};
 use starknet_os::storage::storage::Storage;
 use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
-use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use crate::common::block_utils::os_hints;

@@ -78,7 +78,7 @@ impl GenericDeprecatedCompiledClass {
     fn compute_class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
         let serialized_class = self.get_serialized_contract_class()?;
         let class_hash =
-            compute_class_hash(serialized_class).unwrap_or_else(|e| panic!("Failed to compute class hash: {}", e));
+            compute_class_hash(serialized_class).map_err(|e| ContractClassError::HashError(e.to_string()))?;
 
         Ok(GenericClassHash::from_bytes_be(class_hash.hash().0.to_be_bytes()))
     }

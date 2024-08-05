@@ -16,7 +16,7 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
-use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 
 use crate::cairo_types::structs::{CompiledClass, CompiledClassFact};
 use crate::hints::vars;

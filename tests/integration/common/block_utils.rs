@@ -23,7 +23,7 @@ use starknet_os::starkware_utils::commitment_tree::base_types::{Height, TreeInde
 use starknet_os::storage::storage::Storage;
 use starknet_os::storage::storage_utils::build_starknet_storage_async;
 use starknet_os::utils::{felt_api2vm, felt_vm2api};
-use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use crate::common::transaction_utils::to_felt252;
