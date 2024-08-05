@@ -1,7 +1,5 @@
-use blockifier::execution::contract_class::ContractClassV1;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
 use starknet_os_types::hash::Hash;
 
@@ -130,13 +128,4 @@ pub fn deprecated_contract_class_api2vm(
     let vm_class = blockifier::execution::contract_class::ContractClass::V0(vm_class_v0);
 
     Ok(vm_class)
-}
-
-/// Convert a starknet_api ContractClass to a cairo-vm ContractClass (v1 only).
-pub fn compiled_contract_class_cl2vm(
-    cl_class: &CasmContractClass,
-) -> Result<blockifier::execution::contract_class::ContractClass, cairo_vm::types::errors::program_errors::ProgramError>
-{
-    let v1_class = ContractClassV1::try_from(cl_class.clone()).unwrap(); // TODO: type issue?
-    Ok(v1_class.into())
 }

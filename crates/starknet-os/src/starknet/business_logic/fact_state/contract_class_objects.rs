@@ -1,9 +1,9 @@
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet_classes::contract_class::{ContractClass, ContractEntryPoints};
 use cairo_vm::Felt252;
 use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::{Deserialize, Serialize};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
+use starknet_os_types::contract_class::GenericCasmContractClass;
 use starknet_os_types::hash::Hash;
 
 use crate::config::CONTRACT_CLASS_LEAF_VERSION;
@@ -64,7 +64,7 @@ where
 /// Represents a single compiled contract class which is stored in the Starknet state.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CompiledClassFact {
-    pub compiled_class: CasmContractClass,
+    pub compiled_class: GenericCasmContractClass,
 }
 
 impl SerializationPrefix for CompiledClassFact {}
@@ -76,7 +76,8 @@ where
     H: HashFunctionType,
 {
     fn hash(&self) -> Hash {
-        Hash::from_bytes_be(self.compiled_class.compiled_class_hash().to_be_bytes())
+        let class_hash = self.compiled_class.class_hash().expect("failed to compute CASM class hash");
+        *class_hash
     }
 }
 
@@ -174,8 +175,8 @@ where
 mod tests {
     use std::ops::Deref;
 
-    use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
     use rstest::rstest;
+    use starknet_os_types::contract_class::GenericCasmContractClass;
 
     use crate::crypto::pedersen::PedersenHash;
     use crate::starknet::business_logic::fact_state::contract_class_objects::CompiledClassFact;
@@ -192,8 +193,7 @@ mod tests {
             "../../../../../../tests/integration/contracts/blockifier_contracts/feature_contracts/cairo1/compiled/\
              test_contract.casm.json"
         );
-        let compiled_class: CasmContractClass =
-            serde_json::from_slice(casm_bytes).expect("Failed to deserialize CASM file");
+        let compiled_class = GenericCasmContractClass::from_bytes(casm_bytes.to_vec());
 
         let fact = CompiledClassFact { compiled_class };
 

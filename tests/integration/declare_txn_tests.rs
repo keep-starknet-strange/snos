@@ -8,7 +8,7 @@ use starknet_api::core::CompiledClassHash;
 use starknet_api::transaction::{Fee, Resource, ResourceBounds, ResourceBoundsMapping, TransactionVersion};
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
-use starknet_os::storage::storage_utils::{compiled_contract_class_cl2vm, deprecated_contract_class_api2vm};
+use starknet_os::storage::storage_utils::deprecated_contract_class_api2vm;
 
 use crate::common::block_context;
 use crate::common::blockifier_contracts::load_cairo1_feature_contract;
@@ -52,11 +52,11 @@ async fn declare_v3_cairo1_account(
 
     let sender_address = account_contract.address;
 
-    let contract_class = compiled_contract_class_cl2vm(&casm_class).unwrap();
+    let contract_class = casm_class.to_blockifier_contract_class().unwrap();
     let class_hash = starknet_api::core::ClassHash::try_from(contract_class_hash).unwrap();
     let compiled_class_hash = CompiledClassHash::try_from(compiled_class_hash).unwrap();
 
-    let class_info = ClassInfo::new(&contract_class, sierra_class.sierra_program.len(), 0).unwrap();
+    let class_info = ClassInfo::new(&contract_class.into(), sierra_class.sierra_program.len(), 0).unwrap();
 
     let declare_tx = blockifier::test_utils::declare::declare_tx(
         declare_tx_args! {
@@ -111,11 +111,11 @@ async fn declare_cairo1_account(
 
     let sender_address = account_contract.address;
 
-    let contract_class = compiled_contract_class_cl2vm(&casm_class).unwrap();
+    let contract_class = casm_class.to_blockifier_contract_class().unwrap();
     let class_hash = starknet_api::core::ClassHash::try_from(contract_class_hash).unwrap();
     let compiled_class_hash = CompiledClassHash::try_from(compiled_class_hash).unwrap();
 
-    let class_info = ClassInfo::new(&contract_class, sierra_class.sierra_program.len(), 0).unwrap();
+    let class_info = ClassInfo::new(&contract_class.into(), sierra_class.sierra_program.len(), 0).unwrap();
 
     let declare_tx = blockifier::test_utils::declare::declare_tx(
         declare_tx_args! {

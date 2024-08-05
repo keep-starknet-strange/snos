@@ -43,6 +43,7 @@ use starknet_os::storage::cached_storage::CachedStorage;
 use starknet_os::storage::storage::{Fact, FactFetchingContext, Storage, StorageError};
 use starknet_os::utils::felt_vm2api;
 use starknet_os::{config, run_os};
+use starknet_os_types::contract_class::GenericCasmContractClass;
 use starknet_types_core::felt::Felt;
 use types::starknet_rs_to_blockifier;
 
@@ -658,6 +659,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 usize::MAX,
                             )
                             .unwrap();
+                        let casm_cc: GenericCasmContractClass = casm_cc.into();
 
                         log::error!("class_hash (from RPC): {}", class_hash);
 

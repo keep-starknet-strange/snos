@@ -4,7 +4,6 @@ use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
 
 use blockifier::context::BlockContext;
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name, insert_value_into_ap,
@@ -17,12 +16,13 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
+use starknet_os_types::contract_class::GenericCasmContractClass;
 
 use crate::cairo_types::structs::{CompiledClass, CompiledClassFact};
 use crate::hints::vars;
 use crate::io::classes::write_class;
 use crate::io::input::StarknetOsInput;
-use crate::utils::{felt_api2vm, get_constant};
+use crate::utils::{custom_hint_error, felt_api2vm, get_constant};
 
 pub const LOAD_CLASS_FACTS: &str = indoc! {r#"
     ids.compiled_class_facts = segments.add()
@@ -90,19 +90,19 @@ pub fn load_class_inner(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let class_iter =
-        exec_scopes.get_mut_ref::<IntoIter<Felt252, CasmContractClass>>(vars::ids::COMPILED_CLASS_FACTS)?;
+        exec_scopes.get_mut_ref::<IntoIter<Felt252, GenericCasmContractClass>>(vars::ids::COMPILED_CLASS_FACTS)?;
 
     let (compiled_class_hash, class) = class_iter
         .next()
         .ok_or(HintError::CustomHint("Compiled class iterator exhausted".to_string().into_boxed_str()))?;
 
     exec_scopes.insert_value(vars::scopes::COMPILED_CLASS_HASH, compiled_class_hash);
-    exec_scopes.insert_value(vars::scopes::COMPILED_CLASS, class.clone()); //TODO: is this clone necessary?
+    exec_scopes.insert_value(vars::scopes::COMPILED_CLASS, class.clone());
 
     // TODO: implement create_bytecode_segment_structure (for partial code loading)
 
     let class_base = vm.add_memory_segment();
-    write_class(vm, class_base, class.clone())?; //TODO: clone unnecessary
+    write_class(vm, class_base, class)?;
 
     insert_value_from_var_name(vars::ids::COMPILED_CLASS, class_base, vm, ids_data, ap_tracking)
 }
@@ -158,14 +158,16 @@ pub fn load_class(
         ));
     }
 
-    let class = exec_scopes.get::<CasmContractClass>(vars::scopes::COMPILED_CLASS)?;
+    let class = exec_scopes.get::<GenericCasmContractClass>(vars::scopes::COMPILED_CLASS)?;
 
     let compiled_class_ptr = get_ptr_from_var_name(vars::ids::COMPILED_CLASS, vm, ids_data, ap_tracking)?;
     let byte_code_ptr = vm.get_relocatable((compiled_class_ptr + CompiledClass::bytecode_ptr_offset())?)?;
 
     let mut hint_extension = HintExtension::new();
 
-    for (rel_pc, hints) in class.hints.into_iter() {
+    let cairo_lang_class = class.to_cairo_lang_contract_class().map_err(|e| custom_hint_error(e.to_string()))?;
+
+    for (rel_pc, hints) in cairo_lang_class.hints.into_iter() {
         let abs_pc = Relocatable::from((byte_code_ptr.segment_index, rel_pc));
         hint_extension.insert(abs_pc, hints.iter().map(|h| any_box!(h.clone())).collect());
     }
