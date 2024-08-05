@@ -56,11 +56,11 @@ mod tests {
         let mut vm = VirtualMachine::new(false);
 
         // Check that reading from a non-existing segment fails
-        assert!(MyType::from_memory(&mut vm, Relocatable::from((0, 0))).is_err());
+        assert!(MyType::from_memory(&vm, Relocatable::from((0, 0))).is_err());
 
         // Check that reading an existing segment without data fails
         let base_address = vm.add_memory_segment();
-        assert!(MyType::from_memory(&mut vm, base_address).is_err());
+        assert!(MyType::from_memory(&vm, base_address).is_err());
 
         // Write the data and read it
         vm.insert_value(base_address, Felt252::ONE).unwrap();

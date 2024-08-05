@@ -475,65 +475,6 @@ pub fn os_logger_enter_syscall_preprare_exit_syscall(
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use blockifier::context::BlockContext;
-    use cairo_vm::types::relocatable::Relocatable;
-    use rstest::{fixture, rstest};
-
-    use super::*;
-    use crate::execution::helper::ContractStorageMap;
-    use crate::hints::tests::tests::{block_context, old_block_number_and_hash};
-    use crate::storage::dict_storage::DictStorage;
-    use crate::ExecutionHelperWrapper;
-
-    #[fixture]
-    fn exec_scopes(block_context: BlockContext, old_block_number_and_hash: (Felt252, Felt252)) -> ExecutionScopes {
-        let execution_infos = vec![];
-        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
-            ContractStorageMap::default(),
-            execution_infos,
-            &block_context,
-            old_block_number_and_hash,
-        );
-        let syscall_handler = OsSyscallHandlerWrapper::new(exec_helper);
-
-        let mut exec_scopes = ExecutionScopes::new();
-        exec_scopes.insert_value(vars::scopes::SYSCALL_HANDLER, syscall_handler);
-
-        exec_scopes
-    }
-
-    #[rstest]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    async fn test_set_syscall_ptr(mut exec_scopes: ExecutionScopes) {
-        let mut vm = VirtualMachine::new(false);
-
-        let ids_data = HashMap::from([
-            (vars::ids::OS_CONTEXT.to_string(), HintReference::new_simple(-2)),
-            (vars::ids::SYSCALL_PTR.to_string(), HintReference::new_simple(-1)),
-        ]);
-        vm.add_memory_segment();
-        vm.add_memory_segment();
-        vm.set_fp(2);
-
-        let ap_tracking = ApTracking::new();
-        let constants = HashMap::new();
-
-        set_syscall_ptr::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
-
-        let os_context = get_ptr_from_var_name(vars::ids::OS_CONTEXT, &vm, &ids_data, &ap_tracking).unwrap();
-        let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, &vm, &ids_data, &ap_tracking).unwrap();
-
-        assert_eq!(os_context, Relocatable::from((2, 0)));
-        assert_eq!(syscall_ptr, Relocatable::from((3, 0)));
-
-        let syscall_handler: OsSyscallHandlerWrapper<DictStorage> =
-            exec_scopes.get(vars::scopes::SYSCALL_HANDLER).unwrap();
-        assert_eq!(syscall_handler.syscall_ptr().await, Some(syscall_ptr));
-    }
-}
-
 pub fn exit_syscall(
     _selector_name: &str,
     _vm: &mut VirtualMachine,
@@ -885,4 +826,63 @@ pub fn exit_storage_write_syscall(
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     exit_syscall("STORAGE_WRITE_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
+
+#[cfg(test)]
+mod tests {
+    use blockifier::context::BlockContext;
+    use cairo_vm::types::relocatable::Relocatable;
+    use rstest::{fixture, rstest};
+
+    use super::*;
+    use crate::execution::helper::ContractStorageMap;
+    use crate::hints::tests::tests::{block_context, old_block_number_and_hash};
+    use crate::storage::dict_storage::DictStorage;
+    use crate::ExecutionHelperWrapper;
+
+    #[fixture]
+    fn exec_scopes(block_context: BlockContext, old_block_number_and_hash: (Felt252, Felt252)) -> ExecutionScopes {
+        let execution_infos = vec![];
+        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
+            ContractStorageMap::default(),
+            execution_infos,
+            &block_context,
+            old_block_number_and_hash,
+        );
+        let syscall_handler = OsSyscallHandlerWrapper::new(exec_helper);
+
+        let mut exec_scopes = ExecutionScopes::new();
+        exec_scopes.insert_value(vars::scopes::SYSCALL_HANDLER, syscall_handler);
+
+        exec_scopes
+    }
+
+    #[rstest]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_set_syscall_ptr(mut exec_scopes: ExecutionScopes) {
+        let mut vm = VirtualMachine::new(false);
+
+        let ids_data = HashMap::from([
+            (vars::ids::OS_CONTEXT.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::SYSCALL_PTR.to_string(), HintReference::new_simple(-1)),
+        ]);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(2);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        set_syscall_ptr::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+
+        let os_context = get_ptr_from_var_name(vars::ids::OS_CONTEXT, &vm, &ids_data, &ap_tracking).unwrap();
+        let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, &vm, &ids_data, &ap_tracking).unwrap();
+
+        assert_eq!(os_context, Relocatable::from((2, 0)));
+        assert_eq!(syscall_ptr, Relocatable::from((3, 0)));
+
+        let syscall_handler: OsSyscallHandlerWrapper<DictStorage> =
+            exec_scopes.get(vars::scopes::SYSCALL_HANDLER).unwrap();
+        assert_eq!(syscall_handler.syscall_ptr().await, Some(syscall_ptr));
+    }
 }

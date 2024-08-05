@@ -1897,7 +1897,7 @@ mod tests {
         let mut facts = None;
         let tree = tree.update(&mut ffc, modifications, &mut facts).await.unwrap();
         // We pass the same tree as previous and updated tree as this is enough for the tests.
-        let os_single_starknet_storage = OsSingleStarknetStorage::new(tree.clone(), tree, &vec![], ffc).await.unwrap();
+        let os_single_starknet_storage = OsSingleStarknetStorage::new(tree.clone(), tree, &[], ffc).await.unwrap();
 
         {
             let storage_by_address = &mut execution_helper.execution_helper.write().await.storage_by_address;
@@ -1998,7 +1998,7 @@ mod tests {
         );
         assert_eq!(exec_scopes.get::<UpdateTree<StorageLeaf>>(vars::scopes::NODE).unwrap(), left_child);
 
-        let child_bit = get_integer_from_var_name(vars::ids::CHILD_BIT, &mut vm, &ids_data, &ap_tracking).unwrap();
+        let child_bit = get_integer_from_var_name(vars::ids::CHILD_BIT, &vm, &ids_data, &ap_tracking).unwrap();
         assert_eq!(child_bit, Felt252::ZERO);
     }
 
@@ -2065,13 +2065,13 @@ mod tests {
             .expect("Hint should not fail");
 
         // Check that the storage was updated
-        let prev_value = get_integer_from_var_name(vars::ids::PREV_VALUE, &mut vm, &ids_data, &ap_tracking).unwrap();
+        let prev_value = get_integer_from_var_name(vars::ids::PREV_VALUE, &vm, &ids_data, &ap_tracking).unwrap();
         assert_eq!(prev_value, Felt252::from(8000));
         let stored_value = execution_helper_with_storage.read_storage_for_address(contract_address, key).await.unwrap();
         assert_eq!(stored_value, Felt252::from(777));
 
         // Check the state entry
-        let state_entry = get_integer_from_var_name(vars::ids::STATE_ENTRY, &mut vm, &ids_data, &ap_tracking).unwrap();
+        let state_entry = get_integer_from_var_name(vars::ids::STATE_ENTRY, &vm, &ids_data, &ap_tracking).unwrap();
         assert_eq!(state_entry, Felt252::from(123));
     }
 
@@ -2087,8 +2087,7 @@ mod tests {
         let ids_data = HashMap::new();
 
         // insert tx with a nonce
-        let mut tx = InternalTransaction::default();
-        tx.nonce = Some(Felt252::THREE);
+        let tx = InternalTransaction { nonce: Some(Felt252::THREE), ..Default::default() };
         let mut exec_scopes: ExecutionScopes = Default::default();
         exec_scopes.insert_value(vars::scopes::TX, tx);
 

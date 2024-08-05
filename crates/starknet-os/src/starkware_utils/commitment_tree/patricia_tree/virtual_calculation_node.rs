@@ -2,6 +2,7 @@ use std::any::Any;
 use std::marker::PhantomData;
 
 use num_bigint::BigUint;
+use starknet_os_types::hash::Hash;
 
 use crate::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactDict;
@@ -17,7 +18,7 @@ use crate::starkware_utils::commitment_tree::patricia_tree::nodes::{
 };
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::starkware_utils::commitment_tree::patricia_tree::virtual_patricia_node::VirtualPatriciaNode;
-use crate::storage::storage::{Fact, FactFetchingContext, Hash, HashFunctionType, Storage, StorageError};
+use crate::storage::storage::{Fact, FactFetchingContext, HashFunctionType, Storage, StorageError};
 
 #[derive(Debug, PartialEq)]
 pub struct BinaryCalculation<S, H, LF>
@@ -72,9 +73,9 @@ where
         let left_hash: &Hash = dependency_results[0].downcast_ref().unwrap();
         let right_hash: &Hash = dependency_results[1].downcast_ref().unwrap();
 
-        let fact = BinaryNodeFact { left_node: left_hash.clone(), right_node: right_hash.clone() };
+        let fact = BinaryNodeFact { left_node: *left_hash, right_node: *right_hash };
         let fact_hash = <BinaryNodeFact as Fact<S, H>>::hash(&fact);
-        fact_nodes.inner_nodes.insert(fact_hash.clone(), PatriciaNodeFact::Binary(fact));
+        fact_nodes.inner_nodes.insert(fact_hash, PatriciaNodeFact::Binary(fact));
 
         fact_hash
     }
@@ -142,9 +143,9 @@ where
 
     fn calculate(&self, dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> Hash {
         let bottom_hash: &Hash = dependency_results[0].downcast_ref().unwrap();
-        let fact = EdgeNodeFact::new_unchecked(bottom_hash.clone(), self.path.clone(), self.length);
+        let fact = EdgeNodeFact::new_unchecked(*bottom_hash, self.path.clone(), self.length);
         let fact_hash = <EdgeNodeFact as Fact<S, H>>::hash(&fact);
-        fact_nodes.inner_nodes.insert(fact_hash.clone(), PatriciaNodeFact::Edge(fact));
+        fact_nodes.inner_nodes.insert(fact_hash, PatriciaNodeFact::Edge(fact));
 
         fact_hash
     }
@@ -468,7 +469,7 @@ where
     }
 
     fn create_from_node(node: &Self::BinaryFactTreeNodeType) -> Self {
-        let bottom_calculation = HashCalculationImpl::Constant(ConstantCalculation::new(node.bottom_node.clone()));
+        let bottom_calculation = HashCalculationImpl::Constant(ConstantCalculation::new(node.bottom_node));
         Self::new_unchecked(bottom_calculation, node.path.clone(), node.length, node.height)
     }
 
@@ -493,9 +494,11 @@ mod tests {
     type StorageType = DictStorage;
     type HashFunction = PedersenHash;
     type LeafFactType = SimpleLeafFact;
+    #[allow(clippy::upper_case_acronyms)]
     type FFC = FactFetchingContext<StorageType, HashFunction>;
     type LeafCalculation = HashCalculationImpl<StorageType, HashFunction, LeafFactType>;
 
+    #[allow(clippy::upper_case_acronyms)]
     type VCN = VirtualCalculationNode<StorageType, HashFunction, LeafFactType>;
 
     #[fixture]
@@ -553,7 +556,7 @@ mod tests {
         let leaf_calculation = leaf_calculation.await;
         let mut facts = None;
 
-        let left = VCN::empty_node(Height(0u64.into()));
+        let left = VCN::empty_node(Height(0u64));
         let right = VCN::new(leaf_calculation.clone(), NodePath(0u64.into()), Length(0), Height(0)).unwrap();
         let parent = VCN::combine(&mut ffc, left, right, &mut facts).await.unwrap();
         assert_eq!(parent, VCN::new(leaf_calculation, NodePath(1u64.into()), Length(1), Height(1)).unwrap());

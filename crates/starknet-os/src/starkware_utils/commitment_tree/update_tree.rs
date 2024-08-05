@@ -388,9 +388,7 @@ mod tests {
 
     fn print_update_tree(index: u64, update_tree: &UpdateTree<LeafFactType>) {
         match update_tree {
-            None => {
-                return;
-            }
+            None => {}
             Some(TreeUpdate::Tuple(left, right)) => {
                 print_update_tree(index * 2, left);
                 print_update_tree(index * 2 + 1, right);
