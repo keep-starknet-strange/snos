@@ -439,16 +439,12 @@ mod tests {
         let leaf_hash_12 = SimpleLeafFact::new(Felt252::from(12)).set_fact(&mut ffc).await.unwrap();
         let leaf_hash_30 = SimpleLeafFact::new(Felt252::from(30)).set_fact(&mut ffc).await.unwrap();
 
-        let leaf_12 = VPN::new(leaf_hash_12.clone(), NodePath(0u64.into()), Length(0), Height(0)).unwrap();
-        let leaf_30 = VPN::new(leaf_hash_30.clone(), NodePath(0u64.into()), Length(0), Height(0)).unwrap();
+        let leaf_12 = VPN::new(leaf_hash_12, NodePath(0u64.into()), Length(0), Height(0)).unwrap();
+        let leaf_30 = VPN::new(leaf_hash_30, NodePath(0u64.into()), Length(0), Height(0)).unwrap();
 
         // Build left subtree and write its fact to DB.
-        EdgeNodeFact::new(leaf_hash_12.clone(), NodePath(1u64.into()), Length(1))
-            .unwrap()
-            .set_fact(&mut ffc)
-            .await
-            .unwrap();
-        let left_tree_1 = VPN::new(leaf_hash_12.clone(), NodePath(1u64.into()), Length(1), Height(1)).unwrap();
+        EdgeNodeFact::new(leaf_hash_12, NodePath(1u64.into()), Length(1)).unwrap().set_fact(&mut ffc).await.unwrap();
+        let left_tree_1 = VPN::new(leaf_hash_12, NodePath(1u64.into()), Length(1), Height(1)).unwrap();
 
         let expected_children = (empty_tree_0.clone(), leaf_12.clone());
         let left_tree_1_children = left_tree_1.get_children(&mut ffc, &mut facts).await.unwrap();
@@ -459,12 +455,8 @@ mod tests {
         assert_eq!(non_canonical_node_children, expected_children);
 
         // Combine left edge node and right empty tree. Write the result's fact to DB.
-        EdgeNodeFact::new(leaf_hash_12.clone(), NodePath(0b01u64.into()), Length(2))
-            .unwrap()
-            .set_fact(&mut ffc)
-            .await
-            .unwrap();
-        let left_tree_2 = VPN::new(leaf_hash_12.clone(), NodePath(0b01u64.into()), Length(2), Height(2)).unwrap();
+        EdgeNodeFact::new(leaf_hash_12, NodePath(0b01u64.into()), Length(2)).unwrap().set_fact(&mut ffc).await.unwrap();
+        let left_tree_2 = VPN::new(leaf_hash_12, NodePath(0b01u64.into()), Length(2), Height(2)).unwrap();
         // Get children on both forms.
         let expected_children = (left_tree_1.clone(), empty_tree_1.clone());
         let left_tree_2_children = left_tree_2.get_children(&mut ffc, &mut facts).await.unwrap();
@@ -475,12 +467,8 @@ mod tests {
 
         // Build right subtree.
         // Combine left leaf and right empty tree. Write the result's fact to DB.
-        EdgeNodeFact::new(leaf_hash_30.clone(), NodePath(0u64.into()), Length(1))
-            .unwrap()
-            .set_fact(&mut ffc)
-            .await
-            .unwrap();
-        let right_tree_1 = VPN::new(leaf_hash_30.clone(), NodePath(0u64.into()), Length(1), Height(1)).unwrap();
+        EdgeNodeFact::new(leaf_hash_30, NodePath(0u64.into()), Length(1)).unwrap().set_fact(&mut ffc).await.unwrap();
+        let right_tree_1 = VPN::new(leaf_hash_30, NodePath(0u64.into()), Length(1), Height(1)).unwrap();
         // Get children on both forms.
         let expected_children = (leaf_30.clone(), empty_tree_0.clone());
         let right_tree_1_children = right_tree_1.get_children(&mut ffc, &mut facts).await.unwrap();
@@ -489,12 +477,8 @@ mod tests {
         let non_canonical_node_children = non_canonical_node.get_children(&mut ffc, &mut facts).await.unwrap();
         assert_eq!(non_canonical_node_children, expected_children);
 
-        EdgeNodeFact::new(leaf_hash_30.clone(), NodePath(0b10u64.into()), Length(2))
-            .unwrap()
-            .set_fact(&mut ffc)
-            .await
-            .unwrap();
-        let right_tree_2 = VPN::new(leaf_hash_30.clone(), NodePath(0b10u64.into()), Length(2), Height(2)).unwrap();
+        EdgeNodeFact::new(leaf_hash_30, NodePath(0b10u64.into()), Length(2)).unwrap().set_fact(&mut ffc).await.unwrap();
+        let right_tree_2 = VPN::new(leaf_hash_30, NodePath(0b10u64.into()), Length(2), Height(2)).unwrap();
         // Get children on both forms.
         let expected_children = (empty_tree_1.clone(), right_tree_1.clone());
         let right_tree_2_children = right_tree_2.get_children(&mut ffc, &mut facts).await.unwrap();
@@ -506,16 +490,12 @@ mod tests {
         // Build whole tree and write its fact to DB.
         let left_node = left_tree_2.commit(&mut ffc, &mut facts).await.unwrap();
         let right_node = right_tree_2.commit(&mut ffc, &mut facts).await.unwrap();
-        let root_hash =
-            BinaryNodeFact::new(left_node.clone(), right_node.clone()).unwrap().set_fact(&mut ffc).await.unwrap();
+        let root_hash = BinaryNodeFact::new(left_node, right_node).unwrap().set_fact(&mut ffc).await.unwrap();
 
         let tree = VPN::new(root_hash, NodePath(0u64.into()), Length(0), Height(3)).unwrap();
         let (left_edge_child, right_edge_child) = tree.get_children(&mut ffc, &mut facts).await.unwrap();
-        assert_eq!(left_edge_child, VPN::new(left_node.clone(), NodePath(0u64.into()), Length(0), Height(2)).unwrap());
-        assert_eq!(
-            right_edge_child,
-            VPN::new(right_node.clone(), NodePath(0u64.into()), Length(0), Height(2)).unwrap()
-        );
+        assert_eq!(left_edge_child, VPN::new(left_node, NodePath(0u64.into()), Length(0), Height(2)).unwrap());
+        assert_eq!(right_edge_child, VPN::new(right_node, NodePath(0u64.into()), Length(0), Height(2)).unwrap());
 
         // Test operations on the committed left tree.
         // Getting its children should return another edge with length shorter-by-one.
@@ -597,18 +577,18 @@ mod tests {
     async fn test_binary_fact_tree_node_create_diff(mut ffc: FFC) {
         let mut facts = None;
         let empty_tree = PatriciaTree::empty_tree(&mut ffc, Height(251), SimpleLeafFact::empty()).await.unwrap();
-        let virtual_empty_tree_node = VPN::from_hash(empty_tree.root.clone(), empty_tree.height);
+        let virtual_empty_tree_node = VPN::from_hash(empty_tree.root, empty_tree.height);
 
         // All tree values are zero except for the fifth leaf, which has a value of 8.
         let modifications = vec![(BigUint::from(5u64), SimpleLeafFact::new(Felt252::from(8)))];
         let one_change_tree = empty_tree.clone().update(&mut ffc, modifications, &mut facts).await.unwrap();
-        let virtual_one_change_node = VPN::from_hash(one_change_tree.root.clone(), empty_tree.height);
+        let virtual_one_change_node = VPN::from_hash(one_change_tree.root, empty_tree.height);
 
         // All tree values are zero except for the fifth leaf, which has a value of 8.
         // and the 58th leaf, which is 81.
         let modifications = vec![(BigUint::from(58u64), SimpleLeafFact::new(Felt252::from(81)))];
         let two_change_tree = one_change_tree.update(&mut ffc, modifications, &mut facts).await.unwrap();
-        let virtual_two_change_node = VPN::from_hash(two_change_tree.root.clone(), empty_tree.height);
+        let virtual_two_change_node = VPN::from_hash(two_change_tree.root, empty_tree.height);
 
         // The difference between the tree whose values are all zero and the tree that has
         // all values zero except two values is exactly the 2 values.
