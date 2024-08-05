@@ -15,7 +15,6 @@ use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use rstest::rstest;
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
@@ -40,6 +39,7 @@ use starknet_os::storage::storage::Storage;
 use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
 use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use crate::common::block_utils::os_hints;
 
@@ -774,7 +774,7 @@ async fn execute_txs<S>(
     mut state: CachedState<SharedState<S, PedersenHash>>,
     block_context: &BlockContext,
     txs: Vec<Transaction>,
-    deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
+    deprecated_contract_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, GenericCasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper<S>)
 where
@@ -814,7 +814,7 @@ pub async fn execute_txs_and_run_os<S>(
     state: CachedState<SharedState<S, PedersenHash>>,
     block_context: BlockContext,
     txs: Vec<Transaction>,
-    deprecated_contract_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
+    deprecated_contract_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, GenericCasmContractClass>,
 ) -> Result<(CairoPie, StarknetOsOutput), SnOsError>
 where

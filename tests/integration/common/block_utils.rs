@@ -8,7 +8,6 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
@@ -25,6 +24,7 @@ use starknet_os::storage::storage::Storage;
 use starknet_os::storage::storage_utils::build_starknet_storage_async;
 use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use crate::common::transaction_utils::to_felt252;
 
@@ -33,7 +33,7 @@ pub async fn os_hints<S>(
     mut blockifier_state: CachedState<SharedState<S, PedersenHash>>,
     transactions: Vec<InternalTransaction>,
     tx_execution_infos: Vec<TransactionExecutionInfo>,
-    deprecated_compiled_classes: HashMap<ClassHash, DeprecatedContractClass>,
+    deprecated_compiled_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     compiled_classes: HashMap<ClassHash, GenericCasmContractClass>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper<S>)
 where

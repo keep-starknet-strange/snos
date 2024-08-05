@@ -8,11 +8,11 @@ use blockifier::state::state_api::{StateReader, StateResult};
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_crypto::FieldElement;
 use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::hash::Hash;
 
 use crate::config::{
@@ -30,7 +30,6 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use crate::storage::storage::{DbObject, FactFetchingContext, HashFunctionType, Storage, StorageError};
-use crate::storage::storage_utils::deprecated_contract_class_api2vm;
 use crate::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 
 /// A class representing a combination of the onchain and offchain state.
@@ -384,7 +383,7 @@ where
     async fn get_deprecated_compiled_class(
         &mut self,
         compiled_class_hash: CompiledClassHash,
-    ) -> Result<Option<DeprecatedContractClass>, StorageError> {
+    ) -> Result<Option<GenericDeprecatedCompiledClass>, StorageError> {
         let storage = self.ffc.acquire_storage().await;
 
         DeprecatedCompiledClassFact::get(storage.deref(), compiled_class_hash.0.bytes())
@@ -414,7 +413,8 @@ where
         let deprecated_compiled_class = self.get_deprecated_compiled_class(compiled_class_hash).await?;
 
         if let Some(deprecated_compiled_class) = deprecated_compiled_class {
-            return Ok(deprecated_contract_class_api2vm(&deprecated_compiled_class).unwrap());
+            let blockifier_class = deprecated_compiled_class.to_blockifier_contract_class().unwrap();
+            return Ok(blockifier_class.into());
         }
 
         // The given hash does not match any deprecated class; try the new compiled classes.

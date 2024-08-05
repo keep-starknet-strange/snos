@@ -10,7 +10,6 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rstest::fixture;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_os::crypto::pedersen::PedersenHash;
@@ -19,8 +18,8 @@ use starknet_os::starknet::business_logic::utils::{write_class_facts, write_depr
 use starknet_os::starkware_utils::commitment_tree::errors::TreeError;
 use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{FactFetchingContext, HashFunctionType, StorageError};
-use starknet_os::storage::storage_utils::deprecated_contract_class_api2vm;
 use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use super::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_feature_contract};
 use crate::common::block_context;
@@ -49,7 +48,7 @@ pub struct StarknetTestState {
     /// State initially created for blockifier execution
     pub cached_state: CachedState<SharedState<DictStorage, PedersenHash>>,
     /// All cairo0 compiled classes
-    pub cairo0_compiled_classes: HashMap<ClassHash, DeprecatedCompiledClass>,
+    pub cairo0_compiled_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     /// All cairo1 compiled classes
     pub cairo1_compiled_classes: HashMap<ClassHash, GenericCasmContractClass>,
 }
@@ -85,7 +84,7 @@ pub struct DeployedContract {
 #[derive(Debug)]
 pub struct DeclaredDeprecatedContract {
     pub class_hash: ClassHash,
-    pub class: DeprecatedCompiledClass,
+    pub class: GenericDeprecatedCompiledClass,
 }
 
 /// Struct representing a deployed cairo0 class
@@ -111,7 +110,7 @@ pub fn init_logging() {
 
 #[derive(Debug)]
 pub struct Cairo0Contract {
-    pub deprecated_compiled_class: DeprecatedCompiledClass,
+    pub deprecated_compiled_class: GenericDeprecatedCompiledClass,
 }
 
 #[derive(Debug)]
@@ -161,7 +160,7 @@ pub struct StarknetStateBuilder<'a> {
     /// be declared as well.
     cairo0_contracts_to_deploy: HashMap<String, Cairo0ContractToDeploy>,
     /// Cairo 1 contracts to deploy (name -> contract class + compiled contract class).
-    /// Contracts in this hashmap will be declared as well.
+    /// Contracts in this hashmap will be declared as wellstate.rs.
     cairo1_contracts_to_deploy: HashMap<String, Cairo1ContractToDeploy>,
     /// Additional Cairo 0 contracts to declare.
     cairo0_contracts_to_declare: HashMap<String, Cairo0Contract>,
@@ -252,12 +251,12 @@ impl<'a> StarknetStateBuilder<'a> {
 
     fn add_cairo0_contract_to_state(
         class_hash: ClassHash,
-        deprecated_compiled_class: DeprecatedCompiledClass,
+        deprecated_compiled_class: GenericDeprecatedCompiledClass,
         dict_state_reader: &mut DictStateReader,
     ) {
         // Add entries in the dict state
-        let vm_class = deprecated_contract_class_api2vm(&deprecated_compiled_class).unwrap();
-        dict_state_reader.class_hash_to_class.insert(class_hash, vm_class);
+        let vm_class = deprecated_compiled_class.to_blockifier_contract_class().unwrap();
+        dict_state_reader.class_hash_to_class.insert(class_hash, vm_class.into());
         dict_state_reader.class_hash_to_compiled_class_hash.insert(class_hash, CompiledClassHash(class_hash.0));
     }
 
@@ -289,10 +288,12 @@ impl<'a> StarknetStateBuilder<'a> {
         cairo0_contracts: HashMap<String, Cairo0ContractToDeploy>,
         dict_state_reader: &mut DictStateReader,
         ffc: &mut FactFetchingContext<DictStorage, PedersenHash>,
-    ) -> Result<(HashMap<String, DeployedDeprecatedContract>, HashMap<ClassHash, DeprecatedCompiledClass>), StorageError>
-    {
+    ) -> Result<
+        (HashMap<String, DeployedDeprecatedContract>, HashMap<ClassHash, GenericDeprecatedCompiledClass>),
+        StorageError,
+    > {
         let mut deployed_contracts = HashMap::<String, DeployedDeprecatedContract>::new();
-        let mut compiled_contract_classes = HashMap::<ClassHash, DeprecatedCompiledClass>::new();
+        let mut compiled_contract_classes = HashMap::<ClassHash, GenericDeprecatedCompiledClass>::new();
 
         for (name, contract) in cairo0_contracts {
             let deprecated_compiled_class = contract.contract.deprecated_compiled_class;
@@ -458,13 +459,21 @@ impl<'a> StarknetStateBuilder<'a> {
 
     /// Declare a Cairo 1 contract in the test state.
     #[allow(unused)]
-    pub fn declare_cairo0_contract(mut self, name: String, deprecated_compiled_class: DeprecatedCompiledClass) -> Self {
+    pub fn declare_cairo0_contract(
+        mut self,
+        name: String,
+        deprecated_compiled_class: GenericDeprecatedCompiledClass,
+    ) -> Self {
         self.cairo0_contracts_to_declare.insert(name, Cairo0Contract { deprecated_compiled_class });
         self
     }
 
     /// Add a Cairo 0 contract to the test state.
-    pub fn deploy_cairo0_contract(mut self, name: String, deprecated_compiled_class: DeprecatedCompiledClass) -> Self {
+    pub fn deploy_cairo0_contract(
+        mut self,
+        name: String,
+        deprecated_compiled_class: GenericDeprecatedCompiledClass,
+    ) -> Self {
         let contract_address = self.generate_contract_address();
         self.deploy_cairo0_contract_with_fixed_address(name, deprecated_compiled_class, contract_address)
     }
@@ -473,7 +482,7 @@ impl<'a> StarknetStateBuilder<'a> {
     fn deploy_cairo0_contract_with_fixed_address(
         mut self,
         name: String,
-        deprecated_compiled_class: DeprecatedCompiledClass,
+        deprecated_compiled_class: GenericDeprecatedCompiledClass,
         contract_address: ContractAddress,
     ) -> Self {
         let contract_to_deploy = Cairo0ContractToDeploy {

@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, StarknetSierraCompilationError};
 use cairo_lang_starknet_classes::contract_class::ContractClass;
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 pub fn get_contracts_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("integration").join("contracts")
@@ -19,7 +19,7 @@ fn read_contract(contract_rel_path: &Path) -> Vec<u8> {
     })
 }
 
-pub fn get_deprecated_compiled_class(contract_rel_path: &Path) -> DeprecatedCompiledClass {
+pub fn get_deprecated_compiled_class(contract_rel_path: &Path) -> GenericDeprecatedCompiledClass {
     let content = read_contract(contract_rel_path);
     serde_json::from_slice(&content).unwrap_or_else(|e| panic!("Failed to load deprecated compiled class: {e}"))
 }
