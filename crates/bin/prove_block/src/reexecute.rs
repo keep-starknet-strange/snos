@@ -95,86 +95,9 @@ impl StateReader for RpcStateReader {
     }
 }
 
-
-/// A DictStateReader which uses RPC for missing values.
-///
-/// Note that the underlying implementation feeds default values when its hash map doesn't contain
-/// a value for a given key in some cases, so we sometimes bypass its StateReader impl and use the
-/// hash maps directly so we can differentiate between a missing value and a default one.
-pub(crate) struct DictStateWithRpc {
-    pub dict_state: DictStateReader,
-    pub rpc: RpcStateReader, 
-}
-
-impl StateReader for DictStateWithRpc {
-    fn get_storage_at(
-        &mut self,
-        contract_address: starknet_api::core::ContractAddress,
-        key: StorageKey,
-    ) -> StateResult<StarkFelt> {
-        log::debug!("DictStateWithRpc::get_storage_at()");
-
-        let contract_storage_key = (contract_address, key);
-
-        match self.dict_state.storage_view.get(&contract_storage_key) {
-            Some(nonce) => Ok(*nonce),
-            None => {
-                // TODO: cache resulin self.dict_state
-                self.rpc.get_storage_at(contract_address, key)
-            }
-        }
-    }
-
-    fn get_nonce_at(&mut self, contract_address: starknet_api::core::ContractAddress) -> StateResult<Nonce> {
-        log::debug!("DictStateWithRpc::get_nonce_at()");
-
-        match self.dict_state.address_to_nonce.get(&contract_address) {
-            Some(nonce) => Ok(*nonce),
-            None => {
-                // TODO: cache resulin self.dict_state
-                self.rpc.get_nonce_at(contract_address)
-            }
-        }
-    }
-
-    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<blockifier::execution::contract_class::ContractClass> {
-        log::debug!("DictStateWithRpc::get_compiled_contract_class()");
-        self.dict_state.get_compiled_contract_class(class_hash)
-            .or_else(|_| {
-                // TODO: cache resulin self.dict_state
-                self.rpc.get_compiled_contract_class(class_hash)
-            })
-    }
-
-    fn get_class_hash_at(&mut self, contract_address: starknet_api::core::ContractAddress) -> StateResult<ClassHash> {
-        log::debug!("DictStateWithRpc::get_class_hash_at()");
-
-        match self.dict_state.address_to_class_hash.get(&contract_address) {
-            Some(nonce) => Ok(*nonce),
-            None => {
-                // TODO: cache resulin self.dict_state
-                self.rpc.get_class_hash_at(contract_address)
-            }
-        }
-    }
-
-    fn get_compiled_class_hash(
-        &mut self,
-        class_hash: ClassHash,
-    ) -> StateResult<starknet_api::core::CompiledClassHash> {
-        log::debug!("DictStateWithRpc::get_compiled_class_hash()");
-        self.dict_state.get_compiled_class_hash(class_hash)
-            .or_else(|_| {
-                // TODO: cache resulin self.dict_state
-                self.rpc.get_compiled_class_hash(class_hash)
-            })
-    }
-}
-
-
 /// Reexecute the given transactions through Blockifier
 pub fn reexecute_transactions_with_blockifier(
-    mut state: CachedState<DictStateWithRpc>,
+    mut state: CachedState<RpcStateReader>,
     block_context: &BlockContext,
     txs: Vec<Transaction>,
 ) -> Result<Vec<TransactionExecutionInfo>, Box<dyn Error>> {

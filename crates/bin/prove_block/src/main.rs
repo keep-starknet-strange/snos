@@ -10,7 +10,7 @@ use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use clap::Parser;
-use reexecute::{reexecute_transactions_with_blockifier, DictStateWithRpc, RpcStateReader};
+use reexecute::{reexecute_transactions_with_blockifier, RpcStateReader};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
@@ -674,12 +674,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         };
     }
 
-    let blockifier_state_reader = DictStateWithRpc {
-        dict_state: Default::default(),
-        rpc: RpcStateReader {
-            block_id: BlockId::Number(block_number - 1),
-            rpc_client: provider,
-        },
+    let blockifier_state_reader = RpcStateReader {
+        block_id: BlockId::Number(block_number - 1),
+        rpc_client: provider,
     };
 
     let tx_execution_infos = reexecute_transactions_with_blockifier(
