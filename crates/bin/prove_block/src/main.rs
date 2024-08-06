@@ -11,9 +11,7 @@ use cairo_vm::Felt252;
 use clap::Parser;
 use reexecute::{reexecute_transactions_with_blockifier, RpcStateReader};
 use rpc_utils::{get_storage_proofs, RpcStorage, TrieNode};
-use starknet::core::types::{
-    BlockId, BlockWithTxs, MaybePendingBlockWithTxs, MaybePendingStateUpdate,
-};
+use starknet::core::types::{BlockId, BlockWithTxs, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -42,8 +40,8 @@ use starknet_os::{config, run_os};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use types::starknet_rs_to_blockifier;
 
-use crate::types::starknet_rs_tx_to_internal_tx;
 use crate::rpc_utils::CachedRpcStorage;
+use crate::types::starknet_rs_tx_to_internal_tx;
 
 mod reexecute;
 mod rpc_utils;

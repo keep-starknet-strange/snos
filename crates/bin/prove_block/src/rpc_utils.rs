@@ -5,17 +5,14 @@ use cairo_vm::Felt252;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
-use starknet::core::types::{
-    StateUpdate, StorageEntry,
-};
+use starknet::core::types::{StateUpdate, StorageEntry};
 use starknet_os::storage::cached_storage::CachedStorage;
 use starknet_os::storage::storage::{Storage, StorageError};
 use starknet_types_core::felt::Felt;
 
 /// A `Storage` impl backed by RPC
 #[derive(Clone)]
-pub(crate) struct RpcStorage {
-}
+pub(crate) struct RpcStorage {}
 
 pub(crate) type CachedRpcStorage = CachedStorage<RpcStorage>;
 
@@ -32,9 +29,7 @@ impl Storage for RpcStorage {
 
     fn get_value(&self, key: &[u8]) -> impl Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
         log::warn!("unimplemented: RpcStorage::get_value(), key-len: {}, key: {:?}", key.len(), key);
-        async {
-            Ok(Some(Default::default()))
-        }
+        async { Ok(Some(Default::default())) }
     }
 }
 
@@ -167,4 +162,3 @@ fn merge_chunked_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof
 
     PathfinderProof { class_commitment, state_commitment, contract_proof, contract_data }
 }
-
