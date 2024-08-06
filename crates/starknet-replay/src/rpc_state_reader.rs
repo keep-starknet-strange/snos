@@ -11,7 +11,7 @@ use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass
 use starknet_os_types::hash::GenericClassHash;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
-use crate::utils::{contract_class_api2vm, execute_coroutine, felt_api2vm, felt_vm2api};
+use crate::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
 
 pub struct AsyncRpcStateReader<T>
 where
@@ -19,6 +19,15 @@ where
 {
     provider: JsonRpcClient<T>,
     block_id: BlockId,
+}
+
+impl<T> AsyncRpcStateReader<T>
+where
+    T: JsonRpcTransport,
+{
+    pub fn new(provider: JsonRpcClient<T>, block_id: BlockId) -> Self {
+        Self { provider, block_id }
+    }
 }
 
 fn provider_error_to_state_error(provider_error: ProviderError) -> StateError {
@@ -70,7 +79,19 @@ where
             .await
             .map_err(provider_error_to_state_error)?;
 
-        contract_class_api2vm(contract_class)
+        let contract_class: ContractClass = match contract_class {
+            starknet::core::types::ContractClass::Sierra(sierra_class) => {
+                let contract_class = GenericSierraContractClass::from(sierra_class);
+                let compiled_class = contract_class.compile().map_err(to_state_err)?;
+                compiled_class.to_blockifier_contract_class().map(Into::into).map_err(to_state_err)?
+            }
+            starknet::core::types::ContractClass::Legacy(legacy_class) => {
+                let contract_class = GenericDeprecatedCompiledClass::from(legacy_class);
+                contract_class.to_blockifier_contract_class().map(Into::into).map_err(to_state_err)?
+            }
+        };
+
+        Ok(contract_class)
     }
 
     async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {

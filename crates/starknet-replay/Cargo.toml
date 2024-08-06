@@ -15,3 +15,5 @@ starknet_api = { workspace = true }
 starknet-os-types = { workspace = true }
 tokio = { workspace = true }
 
+[dev-dependencies]
+rstest = { workspace = true }

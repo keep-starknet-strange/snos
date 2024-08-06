@@ -2,7 +2,11 @@ use std::cell::OnceCell;
 use std::rc::Rc;
 
 use pathfinder_gateway_types::class_hash::compute_class_hash;
+use serde::ser::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_with::serde_as;
+use starknet_core::types::{EntryPointsByType, FlattenedSierraClass};
+use starknet_types_core::felt::Felt;
 
 use crate::casm_contract_class::{CairoLangCasmClass, GenericCasmContractClass};
 use crate::error::ContractClassError;
@@ -35,7 +39,7 @@ impl GenericSierraContractClass {
     }
 
     fn build_cairo_lang_class(&self) -> Result<CairoLangSierraContractClass, ContractClassError> {
-        if let Some(serialized_class) = self.serialized_class.get() {
+        if let Ok(serialized_class) = self.get_serialized_contract_class() {
             let contract_class = serde_json::from_slice(serialized_class)?;
             return Ok(contract_class);
         }
@@ -98,16 +102,47 @@ impl GenericSierraContractClass {
     }
 }
 
+#[serde_as]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "no_unknown_fields", serde(deny_unknown_fields))]
+pub struct FlattenedSierraClassWithoutAbi {
+    /// The list of sierra instructions of which the program consists
+    pub sierra_program: Vec<Felt>,
+    /// The version of the contract class object. Currently, the Starknet os supports version 0.1.0
+    pub contract_class_version: String,
+    /// Entry points by type
+    pub entry_points_by_type: EntryPointsByType,
+}
+
+impl<FSC> From<FSC> for FlattenedSierraClassWithoutAbi
+where
+    FSC: AsRef<FlattenedSierraClass>,
+{
+    fn from(sierra_class: FSC) -> Self {
+        let class_ref = sierra_class.as_ref();
+        Self {
+            sierra_program: class_ref.sierra_program.clone(),
+            contract_class_version: class_ref.contract_class_version.clone(),
+            entry_points_by_type: class_ref.entry_points_by_type.clone(),
+        }
+    }
+}
+
 impl Serialize for GenericSierraContractClass {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        // It seems like there is no way to just pass the `serialized_class` field as the output
-        // of `serialize()`, so we are forced to serialize an actual class instance.
-        let cairo_lang_class =
-            self.get_cairo_lang_contract_class().map_err(|e| serde::ser::Error::custom(e.to_string()))?;
-        cairo_lang_class.serialize(serializer)
+        if let Some(cairo_lang_class) = self.cairo_lang_contract_class.get() {
+            cairo_lang_class.serialize(serializer)
+        } else if let Some(starknet_core_class) = self.starknet_core_contract_class.get() {
+            // Workaround to remove the ABI part from the class, as it serializes to string and is not strictly
+            // necessary anyway
+            let class_without_abi = FlattenedSierraClassWithoutAbi::from(starknet_core_class);
+            class_without_abi.serialize(serializer)
+        } else {
+            Err(S::Error::custom("No possible serialization"))
+        }
     }
 }
 
