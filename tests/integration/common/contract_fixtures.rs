@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, StarknetSierraCompilationError};
 use cairo_lang_starknet_classes::contract_class::ContractClass;
-use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 pub fn get_contracts_dir() -> PathBuf {

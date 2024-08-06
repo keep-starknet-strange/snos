@@ -5,7 +5,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use pathfinder_gateway_types::class_hash::{compute_cairo_hinted_class_hash, json};
 use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, EntryPointType};
-use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 
 use crate::utils::{custom_hint_error, felt_api2vm};
 

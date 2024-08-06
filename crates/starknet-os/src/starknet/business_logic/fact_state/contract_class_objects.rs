@@ -2,7 +2,7 @@ use cairo_lang_starknet_classes::contract_class::{ContractClass, ContractEntryPo
 use cairo_vm::Felt252;
 use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::{Deserialize, Serialize};
-use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::hash::Hash;
 
@@ -176,7 +176,7 @@ mod tests {
     use std::ops::Deref;
 
     use rstest::rstest;
-    use starknet_os_types::contract_class::GenericCasmContractClass;
+    use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 
     use crate::crypto::pedersen::PedersenHash;
     use crate::starknet::business_logic::fact_state::contract_class_objects::CompiledClassFact;

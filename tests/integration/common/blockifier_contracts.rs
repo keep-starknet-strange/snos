@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use cairo_lang_starknet_classes::contract_class::ContractClass;
-use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use crate::common::contract_fixtures::{get_deprecated_compiled_class, load_cairo1_contract};
