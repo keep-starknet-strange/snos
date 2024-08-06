@@ -17,6 +17,10 @@ use crate::execution::helper::ExecutionHelper;
 use crate::execution::syscall_handler_utils::{write_felt, SyscallExecutionError};
 use crate::starknet::starknet_storage::PerContractStorage;
 
+// TODO: Replace with getters, setters
+const EC_POINT_SIZE: usize = 3;
+const EC_POINT_ALLOCATION: usize = EC_POINT_SIZE * 2; // x and y
+
 /// This trait is private and not callable outside this module.
 trait GetSecpSyscallHandler<C: SWCurveConfig> {
     fn get_secp_handler(&mut self) -> &mut SecpSyscallProcessor<SecpHintProcessor<C>>;
@@ -92,7 +96,9 @@ where
         let res = secp_handler.processor.secp_new(request)?;
         if let Some(ec_point) = res.optional_ec_point_id {
             let segment = secp_handler.segment.get_or_init(|| vm.add_memory_segment());
-            return Ok(SecpOptionalEcPointResponse { optional_ec_point_id: Some((*segment + ec_point * 6)?) });
+            return Ok(SecpOptionalEcPointResponse {
+                optional_ec_point_id: Some((*segment + ec_point * EC_POINT_ALLOCATION)?),
+            });
         }
 
         Ok(SecpOptionalEcPointResponse { optional_ec_point_id: None })
@@ -155,7 +161,7 @@ where
         if let Some(ec_point) = res.optional_ec_point_id {
             let segment = secp_handler.segment.get_or_init(|| vm.add_memory_segment());
             return Ok(SecpOptionalEcPointResponse {
-                optional_ec_point_id: Some((*segment + ec_point * 6)?), // multiply with size of EcPOINT?
+                optional_ec_point_id: Some((*segment + ec_point * EC_POINT_ALLOCATION)?),
             });
         }
 
@@ -226,12 +232,12 @@ where
         let offset = request.ec_point_id;
         let segment = secp_handler.segment.get().unwrap();
         let request = blockifier::execution::syscalls::secp::SecpMulRequest {
-            ec_point_id: (offset.offset / 6).into(),
+            ec_point_id: (offset.offset / EC_POINT_ALLOCATION).into(),
             multiplier: request.multiplier,
         };
         let res = secp_handler.processor.secp_mul(request)?;
 
-        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id * 6)? })
+        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id * EC_POINT_ALLOCATION)? })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
@@ -279,13 +285,13 @@ where
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = &mut <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let request = blockifier::execution::syscalls::secp::SecpAddRequest {
-            lhs_id: (request.lhs_id.offset / 6).into(),
-            rhs_id: (request.rhs_id.offset / 6).into(),
+            lhs_id: (request.lhs_id.offset / EC_POINT_ALLOCATION).into(),
+            rhs_id: (request.rhs_id.offset / EC_POINT_ALLOCATION).into(),
         };
         let res = secp_handler.processor.secp_add(request)?;
         let segment = secp_handler.segment.get().unwrap();
 
-        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id * 6)? })
+        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id * EC_POINT_ALLOCATION)? })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
@@ -328,9 +334,10 @@ where
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = &mut <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let offset = request.ec_point_id;
-        // let segment = secp_handler.segment.get().unwrap();
-        let request =
-            blockifier::execution::syscalls::secp::SecpGetXyRequest { ec_point_id: (offset.offset / 6).into() };
+        let _ = secp_handler.segment.get().unwrap();
+        let request = blockifier::execution::syscalls::secp::SecpGetXyRequest {
+            ec_point_id: (offset.offset / EC_POINT_ALLOCATION).into(),
+        };
         let res = secp_handler.processor.secp_get_xy(request)?;
         Ok(res)
     }
