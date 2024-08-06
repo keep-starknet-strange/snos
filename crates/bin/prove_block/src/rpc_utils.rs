@@ -12,6 +12,32 @@ use starknet_os::storage::cached_storage::CachedStorage;
 use starknet_os::storage::storage::{Storage, StorageError};
 use starknet_types_core::felt::Felt;
 
+/// A `Storage` impl backed by RPC
+#[derive(Clone)]
+pub(crate) struct RpcStorage {
+}
+
+pub(crate) type CachedRpcStorage = CachedStorage<RpcStorage>;
+
+impl RpcStorage {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Storage for RpcStorage {
+    async fn set_value(&mut self, _key: Vec<u8>, _value: Vec<u8>) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    fn get_value(&self, key: &[u8]) -> impl Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
+        log::warn!("unimplemented: RpcStorage::get_value(), key-len: {}, key: {:?}", key.len(), key);
+        async {
+            Ok(Some(Default::default()))
+        }
+    }
+}
+
 pub(crate) fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::Value {
     json!({
         "jsonrpc": "2.0",
@@ -141,38 +167,5 @@ fn merge_chunked_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof
     };
 
     PathfinderProof { class_commitment, state_commitment, contract_proof, contract_data }
-}
-
-#[derive(Clone)]
-pub(crate) struct RpcStorage {
-    // provider: JsonRpcClient<HttpTransport>,
-    // client: reqwest::Client,
-    // provider: String,
-    // block_number: u64,
-}
-
-impl RpcStorage {
-    // pub fn new(provider: JsonRpcClient<HttpTransport>) -> Self {
-    pub fn new(_client: reqwest::Client, _provider: String, _block_number: u64) -> Self {
-        Self {}
-    }
-}
-
-pub(crate) type CachedRpcStorage = CachedStorage<RpcStorage>;
-
-impl Storage for RpcStorage {
-    async fn set_value(&mut self, _key: Vec<u8>, _value: Vec<u8>) -> Result<(), StorageError> {
-        // log::warn!("RpcStorage ignoring attempt to write storage - {:?}: {:?}", key, value);
-        Ok(())
-    }
-
-    fn get_value(&self, key: &[u8]) -> impl Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
-        log::info!("RpcStorage get_value, key-len: {}, key: {:?}", key.len(), key);
-        async {
-            // let response = pathfinder_get_proof(&self.client, &self.provider, self.block_number,
-            // contract_address, keys_chunk).await .map_err(|_| StorageError::ContentNotFound);
-            Ok(Some(Default::default()))
-        }
-    }
 }
 

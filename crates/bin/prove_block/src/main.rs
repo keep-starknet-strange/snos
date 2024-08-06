@@ -257,7 +257,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // initialize storage. We use a CachedStorage with a RcpStorage as the main storage, meaning
     // that a DictStorage serves as the cache layer and we will use Pathfinder RPC for cache misses
-    let rpc_storage = RpcStorage::new(pathfinder_client, provider_url, block_number);
+    let rpc_storage = RpcStorage::new();
     let cached_storage = CachedRpcStorage::new(Default::default(), rpc_storage);
 
     // TODO: nasty clone, the conversion fns don't take references

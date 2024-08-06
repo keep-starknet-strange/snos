@@ -87,30 +87,6 @@ fn invoke_tx_v1_to_internal_tx(tx: InvokeTransactionV1) -> InternalTransaction {
 }
 
 fn invoke_tx_v3_to_internal_tx(tx: InvokeTransactionV3) -> InternalTransaction {
-    //     /// Transaction hash
-    //     pub transaction_hash: Felt,
-    //     /// Sender address
-    //     pub sender_address: Felt,
-    //     /// The data expected by the account's `execute` function (in most usecases, this includes
-    // the     /// called contract address and a function selector)
-    //     pub calldata: Vec<Felt>,
-    //     /// Signature
-    //     pub signature: Vec<Felt>,
-    //     /// Nonce
-    //     pub nonce: Felt,
-    //     /// Resource bounds for the transaction execution
-    //     pub resource_bounds: ResourceBoundsMapping,
-    //     /// The tip for the transaction
-    //     pub tip: u64,
-    //     /// Data needed to allow the paymaster to pay for the transaction in native tokens
-    //     pub paymaster_data: Vec<Felt>,
-    //     /// Data needed to deploy the account contract from which this tx will be initiated
-    //     pub account_deployment_data: Vec<Felt>,
-    //     /// The storage domain of the account's nonce (an account has a nonce per da mode)
-    //     pub nonce_data_availability_mode: DataAvailabilityMode,
-    //     /// The storage domain of the account's balance from which fee will be charged
-    //     pub fee_data_availability_mode: DataAvailabilityMode,
-
     let signature: Vec<_> = tx.signature.into_iter().map(felt_to_vm).collect();
     let calldata: Vec<_> = tx.calldata.into_iter().map(felt_to_vm).collect();
     let paymaster_data: Vec<_> = tx.paymaster_data.into_iter().map(felt_to_vm).collect();
@@ -208,54 +184,12 @@ pub(crate) fn starknet_rs_to_blockifier(
             AccountTransaction::Invoke(invoke)
         }
         Transaction::DeployAccount(_tx) => {
-            // let contract_address = calculate_contract_address(
-            // tx.contract_address_salt(),
-            // tx.class_hash(),
-            // &tx.constructor_calldata(),
-            // ContractAddress::default(),
-            // )
-            // .unwrap();
-            // AccountTransaction::DeployAccount(DeployAccountTransaction {
-            // only_query: false,
-            // tx,
-            // tx_hash,
-            // contract_address,
-            // })
             unimplemented!("starknet_rs_tx_to_blockifier() with Deploy txn");
         }
         Transaction::Declare(_tx) => {
-            /*
-            // Fetch the contract_class from the next block (as we don't have it in the previous one)
-            let next_block_state_reader = RpcStateReader(
-                RpcState::new_rpc(network, (block_number.next()).unwrap().into()).unwrap(),
-            );
-            let contract_class = next_block_state_reader
-                .get_compiled_contract_class(tx.class_hash())
-                .unwrap();
-
-            let class_info = calculate_class_info_for_testing(contract_class);
-
-            let declare = DeclareTransaction::new(tx, tx_hash, class_info).unwrap();
-            AccountTransaction::Declare(declare)
-            */
             unimplemented!("starknet_rs_tx_to_blockifier() with Declare txn");
         }
         Transaction::L1Handler(_tx) => {
-            /*
-            // As L1Hanlder is not an account transaction we execute it here and return the result
-            let blockifier_tx = L1HandlerTransaction {
-                tx,
-                tx_hash,
-                paid_fee_on_l1: starknet_api::transaction::Fee(u128::MAX),
-            };
-            return (
-                blockifier_tx
-                    .execute(&mut state, &block_context, true, true)
-                    .unwrap(),
-                trace,
-                receipt,
-            );
-            */
             unimplemented!("starknet_rs_tx_to_blockifier() with L1Handler txn");
         }
         _ => unimplemented!(),
