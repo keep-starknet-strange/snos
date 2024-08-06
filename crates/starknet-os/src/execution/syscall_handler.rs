@@ -9,16 +9,15 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use tokio::sync::RwLock;
 
-use super::constants::{INVALID_INPUT_LENGTH_ERROR, KECCAK_FULL_RATE_IN_U64S, KECCAK_ROUND_COST_GAS_COST};
 use super::helper::ExecutionHelperWrapper;
 use crate::cairo_types::new_syscalls::{self};
 use crate::execution::constants::{
     BLOCK_HASH_CONTRACT_ADDRESS, CALL_CONTRACT_GAS_COST, DEPLOY_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST,
-    GET_EXECUTION_INFO_GAS_COST, KECCAK_GAS_COST, LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST,
-    SECP256K1_ADD_GAS_COST, SECP256K1_GET_POINT_FROM_X_GAS_COST, SECP256K1_GET_XY_GAS_COST, SECP256K1_MUL_GAS_COST,
-    SECP256K1_NEW_GAS_COST, SECP256R1_ADD_GAS_COST, SECP256R1_GET_POINT_FROM_X_GAS_COST, SECP256R1_GET_XY_GAS_COST,
-    SECP256R1_MUL_GAS_COST, SECP256R1_NEW_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST,
-    STORAGE_WRITE_GAS_COST,
+    GET_EXECUTION_INFO_GAS_COST, INVALID_INPUT_LENGTH_ERROR, KECCAK_FULL_RATE_IN_U64S, KECCAK_GAS_COST,
+    KECCAK_ROUND_COST_GAS_COST, LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SECP256K1_ADD_GAS_COST,
+    SECP256K1_GET_POINT_FROM_X_GAS_COST, SECP256K1_GET_XY_GAS_COST, SECP256K1_MUL_GAS_COST, SECP256K1_NEW_GAS_COST,
+    SECP256R1_ADD_GAS_COST, SECP256R1_GET_POINT_FROM_X_GAS_COST, SECP256R1_GET_XY_GAS_COST, SECP256R1_MUL_GAS_COST,
+    SECP256R1_NEW_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
 };
 use crate::execution::secp_handler::{
     SecpAddHandler, SecpGetPointFromXHandler, SecpGetXyHandler, SecpMulHandler, SecpNewHandler,
@@ -131,6 +130,7 @@ where
             SyscallSelector::LibraryCallL1Handler => {
                 run_handler::<LibraryCallHandler, S>(ptr, vm, ehw, LIBRARY_CALL_GAS_COST).await
             }
+            SyscallSelector::Keccak => run_handler::<KeccakHandler, S>(ptr, vm, ehw, KECCAK_GAS_COST).await,
             SyscallSelector::Secp256k1New => {
                 run_handler::<SecpNewHandler<ark_secp256k1::Config>, S>(ptr, vm, ehw, SECP256K1_NEW_GAS_COST).await
             }
@@ -174,7 +174,6 @@ where
             SyscallSelector::Secp256r1Add => {
                 run_handler::<SecpAddHandler<ark_secp256r1::Config>, S>(ptr, vm, ehw, SECP256R1_ADD_GAS_COST).await
             }
-            SyscallSelector::Keccak => run_handler::<KeccakHandler, S>(ptr, vm, ehw, KECCAK_GAS_COST).await,
 
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;
@@ -595,7 +594,10 @@ pub struct KeccakResponse {
     pub result_high: Felt252,
 }
 
-impl<S: Storage + 'static> SyscallHandler<S> for KeccakHandler {
+impl<S> SyscallHandler<S> for KeccakHandler
+where
+    S: Storage + 'static,
+{
     type Request = KeccakRequest;
     type Response = KeccakResponse;
 

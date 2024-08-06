@@ -235,9 +235,9 @@ mod TestContract {
         assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
         // TODO: uncomment this on keccak
-        // let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
-        //     get_message_and_secp256k1_signature();
-        // verify_eth_signature(:msg_hash, :signature, :eth_address);
+        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
+            get_message_and_secp256k1_signature();
+        verify_eth_signature(:msg_hash, :signature, :eth_address);
     }
 
     /// Returns a golden valid message hash and its signature, for testing.

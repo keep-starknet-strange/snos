@@ -7,7 +7,7 @@ use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
-use num_bigint::{BigUint, ToBigInt, ToBigUint};
+use num_bigint::BigUint;
 
 use super::helper::{ExecutionHelperWrapper, SecpSyscallProcessor};
 use super::syscall_handler_utils::{
@@ -92,7 +92,7 @@ where
         let res = secp_handler.processor.secp_new(request)?;
         if let Some(ec_point) = res.optional_ec_point_id {
             let segment = secp_handler.segment.get_or_init(|| vm.add_memory_segment());
-            return Ok(SecpOptionalEcPointResponse { optional_ec_point_id: Some((*segment + ec_point)?) });
+            return Ok(SecpOptionalEcPointResponse { optional_ec_point_id: Some((*segment + ec_point * 6)?) });
         }
 
         Ok(SecpOptionalEcPointResponse { optional_ec_point_id: None })
@@ -155,7 +155,7 @@ where
         if let Some(ec_point) = res.optional_ec_point_id {
             let segment = secp_handler.segment.get_or_init(|| vm.add_memory_segment());
             return Ok(SecpOptionalEcPointResponse {
-                optional_ec_point_id: Some((*segment + ec_point)?), // multiply with size of EcPOINT?
+                optional_ec_point_id: Some((*segment + ec_point * 6)?), // multiply with size of EcPOINT?
             });
         }
 
@@ -214,7 +214,7 @@ where
 
     async fn execute(
         request: Self::Request,
-        vm: &mut VirtualMachine,
+        _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
@@ -224,15 +224,15 @@ where
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = &mut <ExecutionHelper<S> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let offset = request.ec_point_id;
-        let segment = secp_handler.segment.get().unwrap();
+        let _ = secp_handler.segment.get().unwrap();
         let request = blockifier::execution::syscalls::secp::SecpMulRequest {
-            ec_point_id: offset.offset.into(),
+            ec_point_id: (offset.offset / 6).into(),
             multiplier: request.multiplier,
         };
         let res = secp_handler.processor.secp_mul(request)?;
         let segment = secp_handler.segment.get().unwrap();
 
-        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id)? })
+        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id * 6)? })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
@@ -280,13 +280,13 @@ where
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = &mut <ExecutionHelper<S> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let request = blockifier::execution::syscalls::secp::SecpAddRequest {
-            lhs_id: request.lhs_id.offset.into(),
-            rhs_id: request.rhs_id.offset.into(),
+            lhs_id: (request.lhs_id.offset / 6).into(),
+            rhs_id: (request.rhs_id.offset / 6).into(),
         };
         let res = secp_handler.processor.secp_add(request)?;
         let segment = secp_handler.segment.get().unwrap();
 
-        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id)? })
+        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id * 6)? })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
@@ -319,7 +319,7 @@ where
     }
     async fn execute(
         request: Self::Request,
-        vm: &mut VirtualMachine,
+        _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
@@ -329,8 +329,9 @@ where
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = &mut <ExecutionHelper<S> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let offset = request.ec_point_id;
-        let segment = secp_handler.segment.get().unwrap();
-        let request = blockifier::execution::syscalls::secp::SecpGetXyRequest { ec_point_id: offset.offset.into() };
+        let _ = secp_handler.segment.get().unwrap();
+        let request =
+            blockifier::execution::syscalls::secp::SecpGetXyRequest { ec_point_id: (offset.offset / 6).into() };
         let res = secp_handler.processor.secp_get_xy(request)?;
         Ok(res)
     }

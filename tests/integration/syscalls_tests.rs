@@ -166,11 +166,11 @@ async fn test_syscall_test_secp_cairo1(
     let contract_address = test_contract.address;
 
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {
-    max_fee,
-    sender_address: sender_address,
-    calldata: create_calldata(contract_address, curve_type, &vec![]),
-    version: tx_version,
-    nonce: nonce_manager.next(sender_address),
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, curve_type, &[]),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
     });
 
     let txs = vec![Transaction::AccountTransaction(tx)];

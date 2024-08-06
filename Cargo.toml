@@ -31,6 +31,7 @@ cairo-lang-starknet = { version = "2.6.3" }
 cairo-lang-starknet-classes = { version = "2.6.3" }
 cairo-lang-casm = { version = "2.6.3" }
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
+# cairo-vm = { version = "=1.0.0-rc5", features = ["extensive_hints", "cairo-1-hints"] }
 cairo-vm = { git ="https://github.com/Moonsong-Labs/cairo-vm", rev = "f0cf98b914eed68760743c0b7eba065a4a725674", features = ["extensive_hints", "cairo-1-hints"] }
 clap = { version = "4.5.4", features = ["derive"] }
 env_logger = "0.11.3"
@@ -55,6 +56,7 @@ serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
 serde_with = "3.3.0"
 serde_yaml = "0.9.25"
 starknet_api = { version = "=0.10", features = ["testing"] }
+starknet-core = "0.11.1"
 starknet-crypto = "0.6.2"
 starknet-types-core = "0.1.5"
 thiserror = "1.0.48"

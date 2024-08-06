@@ -290,6 +290,7 @@ pub struct GetTxSignature {
     pub response: GetTxSignatureResponse,
 }
 
+#[allow(unused)]
 #[derive(FieldOffsetGetters)]
 pub struct SecpNewResponse {
     #[allow(unused)]

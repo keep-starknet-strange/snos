@@ -28,7 +28,7 @@ use starknet_os::execution::helper::GenCallIter;
 use starknet_os::io::output::StarknetOsOutput;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::storage::dict_storage::DictStorage;
-use starknet_os::storage::storage_utils::{deprecated_contract_class_api2vm, unpack_blockifier_state_async};
+use starknet_os::storage::storage_utils::unpack_blockifier_state_async;
 use starknet_os::utils::felt_api2vm;
 
 use crate::common::block_context;
@@ -352,8 +352,8 @@ async fn prepare_extensive_os_test_params(
     let test_contract2 = cairo0_contracts.get("test_contract2").unwrap();
 
     let class_hash = test_contract2.class_hash;
-    let class = deprecated_contract_class_api2vm(&test_contract2.class).unwrap();
-    let class_info = calculate_class_info_for_testing(class);
+    let class = test_contract2.class.get_blockifier_contract_class().unwrap().clone();
+    let class_info = calculate_class_info_for_testing(class.into());
 
     let declare_tx = declare_tx(
         declare_tx_args! {
@@ -436,8 +436,8 @@ fn add_declare_and_deploy_contract_txs(
 ) -> Result<ContractAddress, &'static str> {
     let contract = cairo0_contracts.get(contract).ok_or("Contract not found")?;
 
-    let class = deprecated_contract_class_api2vm(&contract.class).map_err(|_| "Failed to get VM class")?;
-    let class_info = calculate_class_info_for_testing(class);
+    let class = contract.class.get_blockifier_contract_class().map_err(|_| "Failed to get VM class")?;
+    let class_info = calculate_class_info_for_testing(class.clone().into());
     let declare_tx = declare_tx(
         declare_tx_args! {
             sender_address: *account_address,
