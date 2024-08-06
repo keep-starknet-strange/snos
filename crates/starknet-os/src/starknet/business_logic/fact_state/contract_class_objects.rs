@@ -2,8 +2,8 @@ use cairo_lang_starknet_classes::contract_class::{ContractClass, ContractEntryPo
 use cairo_vm::Felt252;
 use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::{Deserialize, Serialize};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::hash::Hash;
 
 use crate::config::CONTRACT_CLASS_LEAF_VERSION;
@@ -84,7 +84,7 @@ where
 /// Represents a single deprecated compiled contract class which is stored in the Starknet state.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeprecatedCompiledClassFact {
-    pub contract_definition: DeprecatedCompiledClass,
+    pub contract_definition: GenericDeprecatedCompiledClass,
 }
 
 const DEPRECATED_COMPILED_CLASS_PREFIX: &[u8] = "contract_definition_fact".as_bytes();

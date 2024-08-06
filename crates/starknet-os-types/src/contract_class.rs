@@ -3,22 +3,11 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::error::ContractClassError;
 use crate::hash::GenericClassHash;
 
 pub type CairoLangCasmClass = cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 pub type BlockifierCasmClass = blockifier::execution::contract_class::ContractClassV1;
-
-#[derive(thiserror::Error, Debug)]
-pub enum ContractClassError {
-    #[error("Internal error: no type conversion is possible to generate the desired effect.")]
-    NoPossibleConversion,
-
-    #[error("Could not build Blockifier contract class")]
-    BlockifierConversionError,
-
-    #[error(transparent)]
-    SerdeError(#[from] serde_json::Error),
-}
 
 /// A generic contract class that supports conversion to/from the most commonly used
 /// contract class types in Starknet and provides utility methods.

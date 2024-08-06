@@ -5,8 +5,8 @@ use std::{fs, path};
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use super::InternalTransaction;
 use crate::config::StarknetGeneralConfig;
@@ -19,7 +19,7 @@ use crate::utils::Felt252HexNoPrefix;
 pub struct StarknetOsInput {
     pub contract_state_commitment_info: CommitmentInfo,
     pub contract_class_commitment_info: CommitmentInfo,
-    pub deprecated_compiled_classes: HashMap<Felt252, DeprecatedContractClass>,
+    pub deprecated_compiled_classes: HashMap<Felt252, GenericDeprecatedCompiledClass>,
     pub compiled_classes: HashMap<Felt252, GenericCasmContractClass>,
     pub compiled_class_visited_pcs: HashMap<Felt252, Vec<Felt252>>,
     pub contracts: HashMap<Felt252, ContractState>,

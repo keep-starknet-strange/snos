@@ -11,11 +11,12 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use crate::hints::vars;
 use crate::io::classes::get_deprecated_contract_class_struct;
 use crate::io::input::StarknetOsInput;
+use crate::utils::custom_hint_error;
 
 pub const LOAD_DEPRECATED_CLASS_FACTS: &str = indoc! {r##"
     # Creates a set of deprecated class hashes to distinguish calls to deprecated entry points.
@@ -72,8 +73,8 @@ pub fn load_deprecated_class_inner(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let deprecated_class_iter =
-        exec_scopes.get_mut_ref::<IntoIter<Felt252, DeprecatedContractClass>>(vars::scopes::COMPILED_CLASS_FACTS)?;
+    let deprecated_class_iter = exec_scopes
+        .get_mut_ref::<IntoIter<Felt252, GenericDeprecatedCompiledClass>>(vars::scopes::COMPILED_CLASS_FACTS)?;
 
     let (class_hash, deprecated_class) = deprecated_class_iter.next().unwrap();
 
@@ -81,7 +82,9 @@ pub fn load_deprecated_class_inner(
     exec_scopes.insert_value(vars::scopes::COMPILED_CLASS, deprecated_class.clone());
 
     let dep_class_base = vm.add_memory_segment();
-    get_deprecated_contract_class_struct(vm, dep_class_base, deprecated_class)?;
+    let starknet_api_class =
+        deprecated_class.to_starknet_api_contract_class().map_err(|e| custom_hint_error(e.to_string()))?;
+    get_deprecated_contract_class_struct(vm, dep_class_base, starknet_api_class)?;
 
     insert_value_from_var_name(vars::ids::COMPILED_CLASS, dep_class_base, vm, ids_data, ap_tracking)
 }
@@ -119,7 +122,9 @@ pub fn load_deprecated_class(
         ));
     }
 
-    let dep_class = exec_scopes.get::<DeprecatedContractClass>(vars::scopes::COMPILED_CLASS)?;
+    let dep_class = exec_scopes.get::<GenericDeprecatedCompiledClass>(vars::scopes::COMPILED_CLASS)?;
+    let dep_class = dep_class.to_starknet_api_contract_class().map_err(|e| custom_hint_error(e.to_string()))?;
+
     let hints: HashMap<String, Vec<HintParams>> = serde_json::from_value(dep_class.program.hints).unwrap();
     let ref_manager: ReferenceManager = serde_json::from_value(dep_class.program.reference_manager).unwrap();
     let refs = ref_manager.references.iter().map(|r| HintReference::from(r.clone())).collect::<Vec<HintReference>>();

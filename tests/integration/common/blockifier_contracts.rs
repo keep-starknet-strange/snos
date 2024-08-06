@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use cairo_lang_starknet_classes::contract_class::ContractClass;
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use crate::common::contract_fixtures::{get_deprecated_compiled_class, load_cairo1_contract};
 
@@ -11,7 +11,7 @@ fn get_deprecated_feature_contract_path(contract_name: &str) -> PathBuf {
     Path::new("blockifier_contracts").join("feature_contracts").join("cairo0").join("compiled").join(filename)
 }
 
-pub fn get_deprecated_erc20_contract_class() -> DeprecatedCompiledClass {
+pub fn get_deprecated_erc20_contract_class() -> GenericDeprecatedCompiledClass {
     let contract_rel_path = Path::new("blockifier_contracts")
         .join("ERC20_without_some_syscalls")
         .join("ERC20")
@@ -25,7 +25,7 @@ fn get_feature_sierra_contract_path(contract_name: &str) -> PathBuf {
 }
 
 /// Helper to load a Cairo 0 contract class.
-pub(crate) fn load_cairo0_feature_contract(name: &str) -> (String, DeprecatedCompiledClass) {
+pub(crate) fn load_cairo0_feature_contract(name: &str) -> (String, GenericDeprecatedCompiledClass) {
     let contract_path = get_deprecated_feature_contract_path(name);
     let compiled_class = get_deprecated_compiled_class(&contract_path);
     (name.to_string(), compiled_class)

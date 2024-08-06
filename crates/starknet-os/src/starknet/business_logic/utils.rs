@@ -1,6 +1,6 @@
 use cairo_lang_starknet_classes::contract_class::ContractClass;
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
 use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::hash::Hash;
 
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
@@ -27,7 +27,7 @@ where
 }
 
 pub async fn write_deprecated_compiled_class_fact<S, H>(
-    deprecated_compiled_class: DeprecatedCompiledClass,
+    deprecated_compiled_class: GenericDeprecatedCompiledClass,
     ffc: &mut FactFetchingContext<S, H>,
 ) -> Result<Hash, StorageError>
 where
@@ -93,7 +93,7 @@ mod tests {
              test_contract_compiled.json"
         );
 
-        let contract_class: DeprecatedCompiledClass = serde_json::from_slice(program_bytes).unwrap();
+        let contract_class: GenericDeprecatedCompiledClass = serde_json::from_slice(program_bytes).unwrap();
 
         let compiled_class_hash = write_deprecated_compiled_class_fact(contract_class, &mut ffc).await.unwrap();
 
