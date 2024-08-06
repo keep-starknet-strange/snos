@@ -1,3 +1,5 @@
+use std::num::TryFromIntError;
+
 use blockifier::execution::execution_utils::stark_felt_to_felt;
 use blockifier::execution::syscalls::hint_processor::SyscallExecutionError as BlockifierSyscallError;
 use cairo_vm::types::errors::math_errors::MathError;
@@ -162,6 +164,8 @@ pub enum SyscallExecutionError {
     SyscallError { error_data: Vec<Felt252> },
     #[error("BlockifierSyscallError: {0}")]
     BlockifierSyscallError(BlockifierSyscallError),
+    #[error("Out of Gas in Syscall execution. Remaining gas is {remaining_gas}")]
+    OutOfGas { remaining_gas: u64 },
 }
 
 impl From<MemoryError> for SyscallExecutionError {
@@ -208,6 +212,11 @@ impl From<BlockifierSyscallError> for SyscallExecutionError {
             },
             _ => Self::BlockifierSyscallError(error),
         }
+    }
+}
+impl From<TryFromIntError> for SyscallExecutionError {
+    fn from(error: TryFromIntError) -> Self {
+        Self::InternalError(format!("TryFromIntError error: {}", error).into())
     }
 }
 

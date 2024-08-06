@@ -1,12 +1,13 @@
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
+use starknet_os_types::hash::Hash;
 
 use crate::starkware_utils::commitment_tree::base_types::{Length, NodePath};
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
-use crate::storage::storage::{DbObject, Fact, Hash, HashFunctionType, Storage, HASH_BYTES};
+use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage, HASH_BYTES};
 
 const PATRICIA_NODE_PREFIX: &[u8] = "patricia_node".as_bytes();
 
