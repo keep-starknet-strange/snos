@@ -84,10 +84,11 @@ struct InitialTxs {
 }
 
 impl InitialTxs {
+    #[allow(clippy::wrong_self_convention)]
     fn to_vec(self) -> Vec<Transaction> {
         vec![
             AccountTransaction::DeployAccount(self.deploy_token_tx).into(),
-            AccountTransaction::Invoke(self.fund_account_tx.into()).into(),
+            AccountTransaction::Invoke(self.fund_account_tx).into(),
             AccountTransaction::DeployAccount(self.deploy_account_tx).into(),
         ]
     }
@@ -163,7 +164,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract1_address,
         "set_value",
-        vec![85u128.into(), 47u128.into()],
+        [85u128.into(), 47u128.into()],
     ));
 
     txs.push(build_invoke_tx!(
@@ -171,7 +172,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract1_address,
         "set_value",
-        vec![81u128.into(), 0u128.into()],
+        [81u128.into(), 0u128.into()],
     ));
 
     txs.push(build_invoke_tx!(
@@ -179,19 +180,19 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract3_address,
         "set_value",
-        vec![97u128.into(), 0u128.into()],
+        [97u128.into(), 0u128.into()],
     ));
 
-    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract2_address, "entry_point", vec![]));
+    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract2_address, "entry_point", []));
 
-    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract1_address, "test_builtins", vec![]));
+    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract1_address, "test_builtins", []));
 
     txs.push(build_invoke_tx!(
         deploy_account_address,
         nonce_manager,
         test_contract2_address,
         "test_get_block_timestamp",
-        vec![1072023u128.into()],
+        [1072023u128.into()],
     ));
 
     txs.push(build_invoke_tx!(
@@ -199,7 +200,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract2_address,
         "test_emit_event",
-        vec![1u128.into(), 1991u128.into(), 1u128.into(), 2021u128.into()],
+        [1u128.into(), 1991u128.into(), 1u128.into(), 2021u128.into()],
     ));
 
     txs.push(build_invoke_tx!(
@@ -207,7 +208,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract1_address,
         "test_get_block_number",
-        vec![(block_context.block_info().block_number.0).into()],
+        [block_context.block_info().block_number.0.into()],
     ));
 
     txs.push(build_invoke_tx!(
@@ -215,7 +216,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract1_address,
         "test_call_contract",
-        vec![test_contract1_address.into(), selector_from_name("send_message").0.into(), 1u128.into(), 85u128.into(),],
+        [test_contract1_address.into(), selector_from_name("send_message").0, 1u128.into(), 85u128.into(),],
     ));
 
     txs.push(build_invoke_tx!(
@@ -223,9 +224,9 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract1_address,
         "test_call_contract",
-        vec![
+        [
             test_contract2_address.into(),
-            selector_from_name("test_get_caller_address").0.into(),
+            selector_from_name("test_get_caller_address").0,
             1u128.into(),
             test_contract1_address.into(), // Expected address.
         ],
@@ -236,7 +237,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract1_address,
         "test_get_contract_address",
-        vec![test_contract1_address.into()], // Expected address.
+        [test_contract1_address.into()], // Expected address.
     ));
 
     let delegate_proxy_address = add_declare_and_deploy_contract_txs(
@@ -257,7 +258,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         delegate_proxy_address,
         "set_implementation_hash",
-        vec![test_contract.class_hash.0.into()],
+        [test_contract.class_hash.0],
     ));
 
     txs.push(build_invoke_tx!(
@@ -265,7 +266,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         delegate_proxy_address,
         "test_get_contract_address",
-        vec![delegate_proxy_address.into()]
+        [delegate_proxy_address.into()]
     ));
 
     txs.push(build_invoke_tx!(
@@ -273,7 +274,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         delegate_proxy_address,
         "set_value",
-        vec![123u128.into(), 456u128.into()]
+        [123u128.into(), 456u128.into()]
     ));
 
     txs.push(build_invoke_tx!(
@@ -281,7 +282,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         delegate_proxy_address,
         "test_get_caller_address",
-        vec![deploy_account_address.into()],
+        [deploy_account_address.into()],
     ));
 
     txs.push(build_invoke_tx!(
@@ -289,7 +290,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract1_address,
         "test_call_contract",
-        vec![
+        [
             delegate_proxy_address.into(),
             selector_from_name("test_get_sequencer_address").0,
             1u128.into(),
@@ -315,7 +316,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract1_address,
         "test_library_call_syntactic_sugar",
-        vec![test_contract.class_hash.0],
+        [test_contract.class_hash.0],
     ));
 
     txs.push(build_invoke_tx!(
@@ -323,7 +324,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract1_address,
         "add_signature_to_counters",
-        vec![2021u128.into()],
+        [2021u128.into()],
         vec![100u128.into(), 200u128.into()],
     ));
 
@@ -332,11 +333,11 @@ async fn prepare_extensive_os_test_params(
             sender_address: deploy_account_address,
             calldata: create_calldata(test_contract1_address,
             "test_call_contract",
-            &vec![
+            &[
                 delegate_proxy_address.into(),
-                selector_from_name("test_get_tx_info").0.into(),
+                selector_from_name("test_get_tx_info").0,
                 1u128.into(),
-                (*deploy_account_address.0).into(),
+                (*deploy_account_address.0),
             ]),
             nonce: nonce_manager.next(deploy_account_address),
             signature: TransactionSignature(vec![100u128.into()]),
@@ -359,7 +360,7 @@ async fn prepare_extensive_os_test_params(
             sender_address: account_address,
             version: TransactionVersion::ONE,
             nonce: nonce_manager.next(account_address),
-            class_hash: class_hash.into(),
+            class_hash: class_hash,
         },
         class_info,
     );
@@ -370,9 +371,9 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract2_address,
         "test_library_call",
-        vec![
-            test_contract2.class_hash.0.into(),
-            selector_from_name("test_storage_write").0.into(),
+        [
+            test_contract2.class_hash.0,
+            selector_from_name("test_storage_write").0,
             2u128.into(),
             555u128.into(),
             888u128.into(),
@@ -385,9 +386,9 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract2_address,
         "test_library_call_l1_handler",
-        vec![
-            test_contract2.class_hash.0.into(),
-            selector_from_name("test_l1_handler_storage_write").0.into(),
+        [
+            test_contract2.class_hash.0,
+            selector_from_name("test_l1_handler_storage_write").0,
             3u128.into(),
             85u128.into(),
             666u128.into(),
@@ -401,7 +402,7 @@ async fn prepare_extensive_os_test_params(
         nonce_manager,
         test_contract1_address,
         "test_replace_class",
-        vec![test_contract2.class_hash.0.into()],
+        [test_contract2.class_hash.0],
     ));
 
     txs
@@ -422,6 +423,7 @@ fn build_block_context(chain_id: ChainId, fee_token_address: ContractAddress) ->
     BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn add_declare_and_deploy_contract_txs(
     contract: &str,
     cairo0_contracts: &ContractMap,
@@ -438,11 +440,11 @@ fn add_declare_and_deploy_contract_txs(
     let class_info = calculate_class_info_for_testing(class);
     let declare_tx = declare_tx(
         declare_tx_args! {
-            sender_address: account_address.clone(),
+            sender_address: *account_address,
             resource_bounds: default_testing_resource_bounds(),
             class_hash: contract.class_hash,
             version: TransactionVersion::ONE,
-            nonce: nonce_manager.next(account_address.clone())
+            nonce: nonce_manager.next(*account_address)
         },
         class_info,
     );
@@ -456,15 +458,15 @@ fn add_declare_and_deploy_contract_txs(
     ctor_calldata.push(stark_felt!(constructor_calldata.len() as u128)); // Constructor calldata length.
     ctor_calldata.extend(constructor_calldata.iter());
     let invoke_tx = account_invoke_tx(invoke_tx_args! {
-        sender_address: deploy_account_address.clone(),
+        sender_address: *deploy_account_address,
         calldata: create_calldata(
-            deploy_account_address.clone(),
+            *deploy_account_address,
             "deploy_contract",
             &ctor_calldata
         ),
         version: TransactionVersion::ONE,
         resource_bounds: default_testing_resource_bounds(),
-        nonce: nonce_manager.next(deploy_account_address.clone())
+        nonce: nonce_manager.next(*deploy_account_address)
     });
 
     txs.push(Transaction::AccountTransaction(invoke_tx));
@@ -473,7 +475,7 @@ fn add_declare_and_deploy_contract_txs(
         ContractAddressSalt(salt),
         contract.class_hash,
         &Calldata(constructor_calldata.into()),
-        deploy_account_address.clone(),
+        *deploy_account_address,
     )
     .map_err(|_| "Failed to calculate the contract address")?;
 
@@ -520,7 +522,7 @@ fn validate_os_output(os_output: &StarknetOsOutput, tx_contracts: &[ContractAddr
         12.into(),                             // PAYLOAD_1
         34.into(),                             // PAYLOAD_1
     ];
-    assert_eq!(&*output_messages_to_l1, &expected_messages_to_l1);
+    assert_eq!(output_messages_to_l1, &expected_messages_to_l1);
 
     let expected_messages_to_l2 = [
         85.into(),                             // from address

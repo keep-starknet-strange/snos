@@ -371,13 +371,13 @@ mod tests {
             contract_state_commitment_info: CommitmentInfo {
                 previous_root: 1_usize.into(),
                 updated_root: 2_usize.into(),
-                tree_height: 251_usize.into(),
+                tree_height: 251_usize,
                 commitment_facts: Default::default(),
             },
             contract_class_commitment_info: CommitmentInfo {
                 previous_root: 11_usize.into(),
                 updated_root: 12_usize.into(),
-                tree_height: 251_usize.into(),
+                tree_height: 251_usize,
                 commitment_facts: Default::default(),
             },
             deprecated_compiled_classes: Default::default(),

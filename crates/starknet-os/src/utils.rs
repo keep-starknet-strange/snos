@@ -177,7 +177,7 @@ mod tests {
         let api_felt = stark_felt!("DEADBEEF");
 
         assert_eq!(vm_felt, felt_api2vm(api_felt));
-        assert_eq!(api_felt, felt_vm2api(vm_felt.clone()));
+        assert_eq!(api_felt, felt_vm2api(vm_felt));
 
         let mut bv = bitvec![u8, Msb0; 0; 219];
         bv.extend_from_bitslice(0xDEADBEEF_u32.view_bits::<Msb0>());

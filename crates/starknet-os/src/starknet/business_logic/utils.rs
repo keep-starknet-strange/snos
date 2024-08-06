@@ -1,15 +1,16 @@
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_lang_starknet_classes::contract_class::ContractClass;
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedCompiledClass;
+use starknet_os_types::contract_class::GenericCasmContractClass;
+use starknet_os_types::hash::Hash;
 
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
     CompiledClassFact, ContractClassFact, DeprecatedCompiledClassFact,
 };
-use crate::storage::storage::{Fact, FactFetchingContext, Hash, HashFunctionType, Storage, StorageError};
+use crate::storage::storage::{Fact, FactFetchingContext, HashFunctionType, Storage, StorageError};
 
 pub async fn write_class_facts<S, H>(
     contract_class: ContractClass,
-    compiled_class: CasmContractClass,
+    compiled_class: GenericCasmContractClass,
     ffc: &mut FactFetchingContext<S, H>,
 ) -> Result<(Hash, Hash), StorageError>
 where
@@ -48,6 +49,7 @@ mod tests {
     use crate::storage::dict_storage::DictStorage;
     use crate::storage::storage::DbObject;
 
+    #[allow(clippy::upper_case_acronyms)]
     type FFC = FactFetchingContext<DictStorage, PedersenHash>;
 
     #[fixture]
@@ -68,7 +70,7 @@ mod tests {
         );
 
         let contract_class: ContractClass = serde_json::from_slice(sierra_bytes).unwrap();
-        let compiled_class: CasmContractClass = serde_json::from_slice(casm_bytes).unwrap();
+        let compiled_class = GenericCasmContractClass::from_bytes(casm_bytes.to_vec());
 
         let (class_hash, compiled_class_hash) =
             write_class_facts(contract_class, compiled_class, &mut ffc).await.unwrap();

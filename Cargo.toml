@@ -5,6 +5,7 @@ members = [
     "crates/bin/hint_tool",
     "crates/cairo-type-derive",
     "crates/starknet-os",
+    "crates/starknet-os-types",
     "tests",
 ]
 
@@ -30,7 +31,7 @@ cairo-lang-starknet = { version = "2.6.3" }
 cairo-lang-starknet-classes = { version = "2.6.3" }
 cairo-lang-casm = { version = "2.6.3" }
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
-cairo-vm = { version = "1.0.0-rc5", features = ["extensive_hints", "cairo-1-hints"] }
+cairo-vm = { version = "=1.0.0-rc5", features = ["extensive_hints", "cairo-1-hints"] }
 clap = { version = "4.5.4", features = ["derive"] }
 env_logger = "0.11.3"
 futures = "0.3.30"
@@ -39,6 +40,7 @@ heck = "0.4.1"
 hex = "0.4.3"
 indexmap = "2.2.6"
 indoc = "2"
+keccak = "0.1.3"
 lazy_static = "1.4.0"
 log = "0.4.19"
 num-bigint = "0.4"
@@ -54,6 +56,7 @@ serde_with = "3.3.0"
 serde_yaml = "0.9.25"
 starknet_api = { version = "=0.10", features = ["testing"] }
 starknet-crypto = "0.6.2"
+starknet-types-core = "0.1.5"
 thiserror = "1.0.48"
 tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
 uuid = { version = "1.4.0", features = ["v4", "serde"] }

@@ -5,6 +5,7 @@ use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use starknet_os_types::hash::Hash;
 
 use crate::starkware_utils::commitment_tree::base_types::TreeIndex;
 use crate::starkware_utils::commitment_tree::binary_fact_tree::{
@@ -14,7 +15,7 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
-use crate::storage::storage::{DbObject, Fact, FactFetchingContext, Hash, HashFunctionType, Storage};
+use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
 use crate::utils::{Felt252Num, Felt252Str};
 
 #[derive(Clone, Debug, PartialEq)]

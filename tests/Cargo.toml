@@ -26,5 +26,6 @@ serde_json = { workspace = true }
 starknet_api = { workspace = true }
 starknet-crypto = { workspace = true }
 starknet-os = { path = "../crates/starknet-os" }
+starknet-os-types = { path = "../crates/starknet-os-types" }
 tokio = { workspace = true }
 uuid = { workspace = true }

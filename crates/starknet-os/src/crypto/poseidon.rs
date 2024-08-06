@@ -1,7 +1,8 @@
 use cairo_vm::types::errors::math_errors::MathError;
 use starknet_crypto::{poseidon_hash, poseidon_hash_many, FieldElement};
+use starknet_os_types::hash::Hash;
 
-use crate::storage::storage::{Hash, HashFunctionType};
+use crate::storage::storage::HashFunctionType;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PoseidonHash;

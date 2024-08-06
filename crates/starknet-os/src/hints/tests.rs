@@ -262,12 +262,10 @@ pub mod tests {
         // find all occurrences of a hint in EXTENSIVE_HINTS
         fn find_matching_indices(hint_to_match: &str) -> Vec<usize> {
             let mut indices = Vec::new();
-            let mut i = 0;
-            for (hint, _) in &EXTENSIVE_HINTS {
+            for (i, (hint, _)) in EXTENSIVE_HINTS.iter().enumerate() {
                 if hint_to_match == *hint {
                     indices.push(i);
                 }
-                i += 1;
             }
             indices
         }

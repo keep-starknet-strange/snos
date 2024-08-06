@@ -57,6 +57,7 @@ fn hash_node<H: HashFunctionType>(node: Node, preimage: &mut HashMap<Felt252, No
 /// * A preimage dict from hash to either (left, right) for binary nodes, or (edge_length,
 ///   edge_path, bottom_node) for edge nodes.
 /// * node_at_path - a dictionary from height, path to a node encoding triplet.
+#[allow(clippy::type_complexity)]
 pub fn compute_patricia_from_leaves_for_test<H: HashFunctionType>(
     leaves: &[Felt252],
 ) -> (Felt252, HashMap<Felt252, Node>, HashMap<(Felt252, Felt252), Node>)

@@ -434,7 +434,7 @@ mod tests {
         // in the implementation of the hint
         set_bit(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).expect("Hint should succeed");
 
-        let bit = get_integer_from_var_name(vars::ids::BIT, &mut vm, &ids_data, &ap_tracking).unwrap();
+        let bit = get_integer_from_var_name(vars::ids::BIT, &vm, &ids_data, &ap_tracking).unwrap();
         assert_eq!(bit, Felt252::from(1));
     }
 }

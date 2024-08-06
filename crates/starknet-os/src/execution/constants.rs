@@ -68,3 +68,8 @@ pub const SEND_MESSAGE_TO_L1_GAS_COST: u64 = SYSCALL_BASE_GAS_COST + 50 * STEP_G
 pub const STORAGE_READ_GAS_COST: u64 = SYSCALL_BASE_GAS_COST + 50 * STEP_GAS_COST;
 #[allow(unused)]
 pub const STORAGE_WRITE_GAS_COST: u64 = SYSCALL_BASE_GAS_COST + 50 * STEP_GAS_COST;
+pub const KECCAK_FULL_RATE_IN_U64S: u64 = 17;
+// This constant represents an error message for invalid input length.
+// The hexadecimal string "0x000000000000000000000000496e76616c696420696e707574206c656e677468"
+// decodes to "Invalid input length".
+pub const INVALID_INPUT_LENGTH_ERROR: &str = "0x000000000000000000000000496e76616c696420696e707574206c656e677468";
