@@ -211,7 +211,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let layout = LayoutName::starknet_with_keccak;
 
     let provider_url = format!("{}/rpc/v0_7", args.rpc_provider);
-    println!("provider url: {}", provider_url);
+    log::info!("provider url: {}", provider_url);
     let provider = JsonRpcClient::new(HttpTransport::new(
         Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
     ));
@@ -459,7 +459,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             log::debug!("querying class for contract_address {}, hash: {}", contract_address, class_hash);
             if let Ok(contract_class) = provider.get_class(BlockId::Number(block_number), class_hash).await {
-                log::trace!("contract class for {}: {:?}", contract_address, contract_class);
+                log::debug!("contract class for {}: {:?}", contract_address, contract_class);
 
                 match contract_class {
                     starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
@@ -483,7 +483,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             .unwrap();
                         let casm_cc: GenericCasmContractClass = casm_cc.into();
 
-                        log::error!("class_hash (from RPC): {}", class_hash);
+                        log::debug!("class_hash (from RPC): {}", class_hash);
 
                         // TODO: it seems that this ends up computing the wrong class hash...
                         write_class_facts(
@@ -564,7 +564,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }
         Err(_) => {
-            println!("exception:\n{:#?}", result);
+            log::error!("exception:\n{:#?}", result);
         }
         _ => {}
     }

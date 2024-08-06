@@ -61,7 +61,6 @@ async fn post_jsonrpc_request<T: DeserializeOwned>(
         result: T,
     }
 
-    println!("Response status: {}", response.status());
     let response_text = response.text().await?;
     let response: TransactionReceiptResponse<T> =
         serde_json::from_str(&response_text).unwrap_or_else(|_| panic!("Error: {}", response_text));
