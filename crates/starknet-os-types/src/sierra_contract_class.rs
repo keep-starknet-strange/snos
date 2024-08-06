@@ -105,26 +105,29 @@ impl GenericSierraContractClass {
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "no_unknown_fields", serde(deny_unknown_fields))]
-pub struct FlattenedSierraClassWithoutAbi {
+pub struct FlattenedSierraClassWithAbi {
     /// The list of sierra instructions of which the program consists
     pub sierra_program: Vec<Felt>,
     /// The version of the contract class object. Currently, the Starknet os supports version 0.1.0
     pub contract_class_version: String,
     /// Entry points by type
     pub entry_points_by_type: EntryPointsByType,
+    /// ABI, deserialized
+    pub abi: Option<cairo_lang_starknet_classes::abi::Contract>,
 }
 
-impl<FSC> From<FSC> for FlattenedSierraClassWithoutAbi
-where
-    FSC: AsRef<FlattenedSierraClass>,
-{
-    fn from(sierra_class: FSC) -> Self {
-        let class_ref = sierra_class.as_ref();
-        Self {
-            sierra_program: class_ref.sierra_program.clone(),
-            contract_class_version: class_ref.contract_class_version.clone(),
-            entry_points_by_type: class_ref.entry_points_by_type.clone(),
-        }
+impl TryFrom<&FlattenedSierraClass> for FlattenedSierraClassWithAbi {
+    type Error = serde_json::error::Error;
+
+    fn try_from(sierra_class: &FlattenedSierraClass) -> Result<Self, Self::Error> {
+        let abi: Option<cairo_lang_starknet_classes::abi::Contract> = serde_json::from_str(&sierra_class.abi)?;
+
+        Ok(Self {
+            sierra_program: sierra_class.sierra_program.clone(),
+            contract_class_version: sierra_class.contract_class_version.clone(),
+            entry_points_by_type: sierra_class.entry_points_by_type.clone(),
+            abi,
+        })
     }
 }
 
@@ -136,10 +139,9 @@ impl Serialize for GenericSierraContractClass {
         if let Some(cairo_lang_class) = self.cairo_lang_contract_class.get() {
             cairo_lang_class.serialize(serializer)
         } else if let Some(starknet_core_class) = self.starknet_core_contract_class.get() {
-            // Workaround to remove the ABI part from the class, as it serializes to string and is not strictly
-            // necessary anyway
-            let class_without_abi = FlattenedSierraClassWithoutAbi::from(starknet_core_class);
-            class_without_abi.serialize(serializer)
+            let class_with_abi = FlattenedSierraClassWithAbi::try_from(starknet_core_class.as_ref())
+                .map_err(|e| S::Error::custom(e.to_string()))?;
+            class_with_abi.serialize(serializer)
         } else {
             Err(S::Error::custom("No possible serialization"))
         }

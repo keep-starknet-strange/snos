@@ -18,3 +18,8 @@ pub fn felt_api2vm(felt: StarkFelt) -> Felt {
 pub fn felt_vm2api(felt: Felt) -> StarkFelt {
     StarkFelt::new_unchecked(felt.to_bytes_be())
 }
+
+pub fn felt_to_u128(felt: &Felt) -> u128 {
+    let digits = felt.to_be_digits();
+    ((digits[2] as u128) << 64) + digits[3] as u128
+}

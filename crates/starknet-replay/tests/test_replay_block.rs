@@ -1,21 +1,18 @@
 use std::error::Error;
 use std::sync::Arc;
 
-use blockifier::block::{BlockInfo, GasPrices};
-use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::CachedState;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
-use blockifier::versioned_constants::VersionedConstants;
 use rstest::rstest;
 use starknet::core::types::{BlockId, BlockWithTxs, Felt, InvokeTransaction, Transaction};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
-use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::core::PatriciaKey;
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 use starknet_api::transaction::TransactionHash;
-use starknet_api::{contract_address, patricia_key, stark_felt};
+use starknet_replay::block_context::build_block_context;
 use starknet_replay::rpc_state_reader::AsyncRpcStateReader;
 
 pub fn felt_vm2api(felt: Felt) -> StarkFelt {
@@ -116,45 +113,6 @@ pub(crate) fn starknet_rs_to_blockifier(
     Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(blockifier_tx))
 }
 
-fn felt_to_u128(felt: &Felt) -> u128 {
-    let digits = felt.to_be_digits();
-    ((digits[2] as u128) << 64) + digits[3] as u128
-}
-async fn build_block_context(chain_id: String, block: &BlockWithTxs) -> BlockContext {
-    let sequencer_address_hex = block.sequencer_address.to_hex_string();
-    let sequencer_address = contract_address!(sequencer_address_hex.as_str());
-
-    let block_info = BlockInfo {
-        block_number: BlockNumber(block.block_number),
-        block_timestamp: BlockTimestamp(block.timestamp),
-        sequencer_address,
-        gas_prices: GasPrices {
-            eth_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_wei).try_into().unwrap(),
-            strk_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_fri).try_into().unwrap(),
-            eth_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_wei).try_into().unwrap(),
-            strk_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_fri).try_into().unwrap(),
-        },
-        use_kzg_da: false,
-    };
-
-    let chain_info = ChainInfo {
-        chain_id: starknet_api::core::ChainId(chain_id),
-        // cf. https://docs.starknet.io/tools/important-addresses/
-        fee_token_addresses: FeeTokenAddresses {
-            strk_fee_token_address: contract_address!(
-                "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
-            ),
-            eth_fee_token_address: contract_address!(
-                "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
-            ),
-        },
-    };
-
-    let versioned_constants = VersionedConstants::latest_constants();
-
-    BlockContext::new_unchecked(&block_info, &chain_info, versioned_constants)
-}
-
 #[rstest]
 #[ignore = "Requires a local Pathfinder node"]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
@@ -174,7 +132,7 @@ async fn test_replay_block() {
     let state_reader = AsyncRpcStateReader::new(provider, BlockId::Number(block_with_txs.block_number - 1));
     let mut state = CachedState::from(state_reader);
 
-    let block_context = build_block_context("SN_SEPOLIA".to_string(), &block_with_txs).await;
+    let block_context = build_block_context("SN_SEPOLIA".to_string(), &block_with_txs);
 
     for tx in block_with_txs.transactions.iter() {
         let blockifier_tx = starknet_rs_to_blockifier(tx).unwrap();
