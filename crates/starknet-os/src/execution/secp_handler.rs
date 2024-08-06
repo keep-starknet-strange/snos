@@ -2,17 +2,14 @@ use std::marker::PhantomData;
 
 use ark_ec::short_weierstrass::SWCurveConfig;
 use ark_ff::PrimeField;
-use blockifier::execution::syscalls::secp::{
-    EcPointCoordinates, SecpAddRequest, SecpGetPointFromXRequest, SecpGetXyRequest, SecpHintProcessor, SecpMulRequest,
-    SecpOpRespone, SecpOptionalEcPointResponse,
-};
+use blockifier::execution::syscalls::secp::{EcPointCoordinates, SecpGetPointFromXRequest, SecpHintProcessor};
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
-use num_bigint::BigUint;
+use num_bigint::{BigUint, ToBigInt, ToBigUint};
 
-use super::helper::ExecutionHelperWrapper;
+use super::helper::{ExecutionHelperWrapper, SecpSyscallProcessor};
 use super::syscall_handler_utils::{
     felt_from_ptr, write_maybe_relocatable, SyscallHandler, SyscallResult, WriteResponseResult,
 };
@@ -22,14 +19,14 @@ use crate::starknet::starknet_storage::PerContractStorage;
 
 /// This trait is private and not callable outside this module.
 trait GetSecpSyscallHandler<C: SWCurveConfig> {
-    fn get_secp_handler(&mut self) -> &mut SecpHintProcessor<C>;
+    fn get_secp_handler(&mut self) -> &mut SecpSyscallProcessor<SecpHintProcessor<C>>;
 }
 
 impl<PCS> GetSecpSyscallHandler<ark_secp256k1::Config> for ExecutionHelper<PCS>
 where
     PCS: PerContractStorage,
 {
-    fn get_secp_handler(&mut self) -> &mut SecpHintProcessor<ark_secp256k1::Config> {
+    fn get_secp_handler(&mut self) -> &mut SecpSyscallProcessor<SecpHintProcessor<ark_secp256k1::Config>> {
         &mut self.secp256k1_syscall_processor
     }
 }
@@ -38,13 +35,22 @@ impl<PCS> GetSecpSyscallHandler<ark_secp256r1::Config> for ExecutionHelper<PCS>
 where
     PCS: PerContractStorage,
 {
-    fn get_secp_handler(&mut self) -> &mut SecpHintProcessor<ark_secp256r1::Config> {
+    fn get_secp_handler(&mut self) -> &mut SecpSyscallProcessor<SecpHintProcessor<ark_secp256r1::Config>> {
         &mut self.secp256r1_syscall_processor
     }
 }
 
 fn pack(low: Felt252, high: Felt252) -> BigUint {
     (high.to_biguint() << 128) + low.to_biguint()
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct SecpOptionalEcPointResponse {
+    // `Option<SecpPoint>` which is represented as two felts.
+    // The first felt is a indicates if it is `Some` (0) or `None` (1).
+    // The second felt is only valid if the first felt is `Some` and contains the ID of the point.
+    // The ID allocated by the Secp hint processor.
+    pub optional_ec_point_id: Option<Relocatable>,
 }
 
 pub struct SecpNewHandler<C> {
@@ -73,7 +79,7 @@ where
     }
     async fn execute(
         request: EcPointCoordinates,
-        _vm: &mut VirtualMachine,
+        vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
@@ -81,9 +87,15 @@ where
         PCS: PerContractStorage,
     {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
-        let secp_handler = <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
-        let res = secp_handler.secp_new(request)?;
-        Ok(res)
+        let secp_handler = &mut <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
+
+        let res = secp_handler.processor.secp_new(request)?;
+        if let Some(ec_point) = res.optional_ec_point_id {
+            let segment = secp_handler.segment.get_or_init(|| vm.add_memory_segment());
+            return Ok(SecpOptionalEcPointResponse { optional_ec_point_id: Some((*segment + ec_point * 6)?) });
+        }
+
+        Ok(SecpOptionalEcPointResponse { optional_ec_point_id: None })
     }
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
         match response.optional_ec_point_id {
@@ -117,7 +129,7 @@ where
             let high = felt_from_ptr(vm, ptr)?;
             (low, high)
         };
-        pub fn felt_to_bool(felt: Felt252, error_info: &str) -> SyscallResult<bool> {
+        fn felt_to_bool(felt: Felt252, error_info: &str) -> SyscallResult<bool> {
             if felt == Felt252::from(0_u8) {
                 Ok(false)
             } else if felt == Felt252::from(1_u8) {
@@ -133,14 +145,21 @@ where
 
     async fn execute(
         request: Self::Request,
-        _vm: &mut VirtualMachine,
+        vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response> {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
-        let secp_handler = <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
-        let res = secp_handler.secp_get_point_from_x(request)?;
-        Ok(res)
+        let secp_handler = &mut <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
+        let res = secp_handler.processor.secp_get_point_from_x(request)?;
+        if let Some(ec_point) = res.optional_ec_point_id {
+            let segment = secp_handler.segment.get_or_init(|| vm.add_memory_segment());
+            return Ok(SecpOptionalEcPointResponse {
+                optional_ec_point_id: Some((*segment + ec_point * 6)?), // multiply with size of EcPOINT?
+            });
+        }
+
+        Ok(SecpOptionalEcPointResponse { optional_ec_point_id: None })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
@@ -162,6 +181,17 @@ pub struct SecpMulHandler<C> {
     _c: PhantomData<C>,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct SecpMulRequest {
+    pub ec_point_id: Relocatable,
+    pub multiplier: BigUint,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct SecpOpRespone {
+    pub ec_point_id: Relocatable,
+}
+
 impl<C: SWCurveConfig, PCS: PerContractStorage + 'static> SyscallHandler<PCS> for SecpMulHandler<C>
 where
     C::BaseField: PrimeField,
@@ -172,7 +202,8 @@ where
     type Response = SecpOpRespone;
 
     fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request> {
-        let ec_point_id = felt_from_ptr(vm, ptr)?.to_biguint().into();
+        let ec_point_id = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
         let scalar = {
             let low = felt_from_ptr(vm, ptr)?;
             let high = felt_from_ptr(vm, ptr)?;
@@ -183,7 +214,7 @@ where
 
     async fn execute(
         request: Self::Request,
-        _vm: &mut VirtualMachine,
+        vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
@@ -191,9 +222,17 @@ where
         PCS: PerContractStorage,
     {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
-        let secp_handler = <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
-        let res = secp_handler.secp_mul(request)?;
-        Ok(res)
+        let secp_handler = &mut <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
+        let offset = request.ec_point_id;
+        let segment = secp_handler.segment.get().unwrap();
+        let request = blockifier::execution::syscalls::secp::SecpMulRequest {
+            ec_point_id: (offset.offset / 6).into(),
+            multiplier: request.multiplier,
+        };
+        let res = secp_handler.processor.secp_mul(request)?;
+        let segment = secp_handler.segment.get().unwrap();
+
+        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id * 6)? })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
@@ -206,6 +245,12 @@ pub struct SecpAddHandler<C> {
     _c: PhantomData<C>,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct SecpAddRequest {
+    pub lhs_id: Relocatable,
+    pub rhs_id: Relocatable,
+}
+
 impl<C: SWCurveConfig, PCS: PerContractStorage + 'static> SyscallHandler<PCS> for SecpAddHandler<C>
 where
     C::BaseField: PrimeField,
@@ -216,10 +261,11 @@ where
     type Response = SecpOpRespone;
 
     fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request> {
-        Ok(SecpAddRequest {
-            lhs_id: felt_from_ptr(vm, ptr)?.to_biguint().into(),
-            rhs_id: felt_from_ptr(vm, ptr)?.to_biguint().into(),
-        })
+        let lhs_id = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        let rhs_id = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        Ok(SecpAddRequest { lhs_id, rhs_id })
     }
 
     async fn execute(
@@ -232,10 +278,15 @@ where
         PCS: PerContractStorage,
     {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
-        let secp_handler = <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
-        let res = secp_handler.secp_add(request)?;
+        let secp_handler = &mut <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
+        let request = blockifier::execution::syscalls::secp::SecpAddRequest {
+            lhs_id: (request.lhs_id.offset / 6).into(),
+            rhs_id: (request.rhs_id.offset / 6).into(),
+        };
+        let res = secp_handler.processor.secp_add(request)?;
+        let segment = secp_handler.segment.get().unwrap();
 
-        Ok(res)
+        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id * 6)? })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
@@ -248,6 +299,11 @@ pub struct SecpGetXyHandler<C> {
     _c: PhantomData<C>,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct SecpGetXyRequest {
+    pub ec_point_id: Relocatable,
+}
+
 impl<C: SWCurveConfig, PCS: PerContractStorage + 'static> SyscallHandler<PCS> for SecpGetXyHandler<C>
 where
     C::BaseField: PrimeField,
@@ -257,11 +313,13 @@ where
     type Response = EcPointCoordinates;
 
     fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request> {
-        Ok(SecpGetXyRequest { ec_point_id: felt_from_ptr(vm, ptr).map(|c| c.to_biguint().into())? })
+        let ec_point_id = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        Ok(SecpGetXyRequest { ec_point_id })
     }
     async fn execute(
         request: Self::Request,
-        _vm: &mut VirtualMachine,
+        vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
@@ -269,8 +327,12 @@ where
         PCS: PerContractStorage,
     {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
-        let secp_handler = <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
-        let res = secp_handler.secp_get_xy(request)?;
+        let secp_handler = &mut <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
+        let offset = request.ec_point_id;
+        let segment = secp_handler.segment.get().unwrap();
+        let request =
+            blockifier::execution::syscalls::secp::SecpGetXyRequest { ec_point_id: (offset.offset / 6).into() };
+        let res = secp_handler.processor.secp_get_xy(request)?;
         Ok(res)
     }
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {

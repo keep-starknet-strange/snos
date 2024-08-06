@@ -147,9 +147,6 @@ async fn test_syscall_keccak_cairo1(
 #[rstest(
     curve_type => ["test_secp256k1", "test_secp256r1"]
 )]
-// TODO: This is a workaround as the secp hints are being worked on
-#[should_panic(expected = "UnknownHint(\"memory[ap] = to_felt_or_relocatable(ids.response.ec_point.address_ if \
-                           ids.not_on_curve == 0 else segments.add())\")")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_syscall_test_secp_cairo1(
     #[future] initial_state_syscalls: StarknetTestState,

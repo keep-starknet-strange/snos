@@ -1,3 +1,4 @@
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -55,8 +56,14 @@ where
     pub storage_by_address: ContractStorageMap<PCS>,
 
     // Secp syscall processors.
-    pub secp256k1_syscall_processor: SecpHintProcessor<ark_secp256k1::Config>,
-    pub secp256r1_syscall_processor: SecpHintProcessor<ark_secp256r1::Config>,
+    pub secp256k1_syscall_processor: SecpSyscallProcessor<SecpHintProcessor<ark_secp256k1::Config>>,
+    pub secp256r1_syscall_processor: SecpSyscallProcessor<SecpHintProcessor<ark_secp256r1::Config>>,
+}
+
+#[derive(Debug, Default)]
+pub struct SecpSyscallProcessor<P> {
+    pub processor: P,
+    pub segment: OnceCell<Relocatable>,
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
@@ -132,8 +139,8 @@ where
                 deployed_contracts_iter: vec![].into_iter(),
                 execute_code_read_iter: vec![].into_iter(),
                 storage_by_address: contract_storage_map,
-                secp256k1_syscall_processor: SecpHintProcessor::<ark_secp256k1::Config>::default(),
-                secp256r1_syscall_processor: SecpHintProcessor::<ark_secp256r1::Config>::default(),
+                secp256k1_syscall_processor: Default::default(),
+                secp256r1_syscall_processor: Default::default(),
             })),
         }
     }
