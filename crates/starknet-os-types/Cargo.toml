@@ -17,3 +17,7 @@ starknet_api = { workspace = true }
 starknet-types-core = { workspace = true }
 starknet-core = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+rstest = { workspace = true }
