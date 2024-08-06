@@ -3,6 +3,7 @@ resolver = "2"
 
 members = [
     "crates/bin/hint_tool",
+    "crates/bin/prove_block",
     "crates/cairo-type-derive",
     "crates/starknet-os",
     "crates/starknet-os-types",
@@ -25,6 +26,7 @@ bitvec = { version = "1.0.1", features = ["serde"] }
 blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", rev = "983e3b1cdb6621c5e6fa600f47cd69bf9e287621", features = ["testing"] }
 cairo-lang-starknet = { version = "2.6.3" }
 cairo-lang-starknet-classes = { version = "2.6.3" }
+cairo-lang-utils = { version = "2.6.3" }
 cairo-lang-casm = { version = "2.6.3" }
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
 cairo-vm = { version = "=1.0.0-rc5", features = ["extensive_hints", "cairo-1-hints"] }
@@ -42,9 +44,10 @@ log = "0.4.19"
 num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2.16"
-pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "starknet-gateway-types" }
-pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-crypto" }
 pathfinder-common = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-common" }
+pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-crypto" }
+pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "starknet-gateway-types" }
+pathfinder-serde = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-serde" }
 reqwest = { version = "0.11.18", features = ["blocking", "json"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }

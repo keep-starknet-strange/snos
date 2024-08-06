@@ -44,10 +44,10 @@ where
     /// Optional because some older states did not have class commitment.
     pub contract_classes: Option<PatriciaTree>,
     pub ffc: FactFetchingContext<S, H>,
-    ffc_for_class_hash: FactFetchingContext<S, PoseidonHash>,
+    pub ffc_for_class_hash: FactFetchingContext<S, PoseidonHash>,
     /// Set of all the contracts in this state. Used to cache contract values to avoid
     /// traversing the tree.
-    contract_addresses: HashSet<TreeIndex>,
+    pub contract_addresses: HashSet<TreeIndex>,
 }
 
 // For some reason, derive(Clone) wants to have S: Clone and H: Clone.

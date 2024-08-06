@@ -129,7 +129,7 @@ fn get_tokio_runtime_handle() -> Result<tokio::runtime::Handle, HintError> {
 
 /// Executes a coroutine from a synchronous context.
 /// Fails if no Tokio runtime is present.
-pub(crate) fn execute_coroutine<F, T>(coroutine: F) -> Result<T, HintError>
+pub fn execute_coroutine<F, T>(coroutine: F) -> Result<T, HintError>
 where
     F: std::future::Future<Output = T>,
 {
