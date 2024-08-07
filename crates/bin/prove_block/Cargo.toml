@@ -20,6 +20,7 @@ serde_with = { workspace = true }
 starknet-os = { path = "../../starknet-os" }
 starknet-os-types = { path = "../../starknet-os-types" }
 reqwest = { workspace = true }
+starknet-replay = { path = "../../starknet-replay" }
 tokio = { workspace = true }
 starknet_api = { workspace = true }
 starknet = { workspace = true }

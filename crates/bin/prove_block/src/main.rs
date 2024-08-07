@@ -1,23 +1,17 @@
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 
-use blockifier::block::{BlockInfo, GasPrices};
-use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
-use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use clap::Parser;
 use reexecute::{reexecute_transactions_with_blockifier, RpcStateReader};
 use rpc_utils::{get_storage_proofs, RpcStorage, TrieNode};
-use starknet::core::types::{BlockId, BlockWithTxs, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
+use starknet::core::types::{BlockId, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
-use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
-use starknet_api::{contract_address, patricia_key};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
@@ -38,7 +32,8 @@ use starknet_os::storage::storage::{Fact, FactFetchingContext};
 use starknet_os::utils::felt_vm2api;
 use starknet_os::{config, run_os};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
-use types::starknet_rs_to_blockifier;
+use starknet_replay::block_context::build_block_context;
+use starknet_replay::transactions::starknet_rs_to_blockifier;
 
 use crate::rpc_utils::CachedRpcStorage;
 use crate::types::starknet_rs_tx_to_internal_tx;
@@ -56,46 +51,6 @@ struct Args {
     /// RPC endpoint to use for fact fetching
     #[arg(long = "rpc-provider", default_value = "http://localhost:9545")]
     rpc_provider: String,
-}
-
-fn felt_to_u128(felt: &starknet_types_core::felt::Felt) -> u128 {
-    let digits = felt.to_be_digits();
-    ((digits[2] as u128) << 64) + digits[3] as u128
-}
-
-async fn build_block_context(chain_id: String, block: &BlockWithTxs) -> Result<BlockContext, reqwest::Error> {
-    let sequencer_address_hex = block.sequencer_address.to_hex_string();
-    let sequencer_address = contract_address!(sequencer_address_hex.as_str());
-
-    let block_info = BlockInfo {
-        block_number: BlockNumber(block.block_number),
-        block_timestamp: BlockTimestamp(block.timestamp),
-        sequencer_address,
-        gas_prices: GasPrices {
-            eth_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_wei).try_into().unwrap(),
-            strk_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_fri).try_into().unwrap(),
-            eth_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_wei).try_into().unwrap(),
-            strk_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_fri).try_into().unwrap(),
-        },
-        use_kzg_da: false,
-    };
-
-    let chain_info = ChainInfo {
-        chain_id: starknet_api::core::ChainId(chain_id),
-        // cf. https://docs.starknet.io/tools/important-addresses/
-        fee_token_addresses: FeeTokenAddresses {
-            strk_fee_token_address: contract_address!(
-                "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
-            ),
-            eth_fee_token_address: contract_address!(
-                "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
-            ),
-        },
-    };
-
-    let versioned_constants = VersionedConstants::latest_constants();
-
-    Ok(BlockContext::new_unchecked(&block_info, &chain_info, versioned_constants))
 }
 
 fn init_logging() {
@@ -248,7 +203,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let _traces =
         provider.trace_block_transactions(BlockId::Number(block_number)).await.expect("Failed to get block tx traces");
 
-    let block_context = build_block_context(chain_id.clone(), &block_with_txs).await.unwrap();
+    let block_context = build_block_context(chain_id.clone(), &block_with_txs);
 
     let old_block_number = Felt252::from(older_block.block_number);
     let old_block_hash = older_block.block_hash;
