@@ -32,7 +32,7 @@ cairo-lang-starknet-classes = { version = "2.6.3" }
 cairo-lang-casm = { version = "2.6.3" }
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
 # cairo-vm = { version = "=1.0.0-rc5", features = ["extensive_hints", "cairo-1-hints"] }
-cairo-vm = { git ="https://github.com/Moonsong-Labs/cairo-vm", rev = "eb41df05bc940c2967236608ff39b41a78546b6c", features = ["extensive_hints", "cairo-1-hints"] }
+cairo-vm = { git ="https://github.com/Moonsong-Labs/cairo-vm", rev = "c15ec39eb68c45a9b1cce1c9618087eecd1e4830", features = ["extensive_hints", "cairo-1-hints"] }
 clap = { version = "4.5.4", features = ["derive"] }
 env_logger = "0.11.3"
 futures = "0.3.30"
