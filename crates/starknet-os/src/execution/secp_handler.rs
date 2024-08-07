@@ -339,6 +339,7 @@ where
         let request = blockifier::execution::syscalls::secp::SecpGetXyRequest {
             ec_point_id: (offset.offset / EC_POINT_ALLOCATION).into(),
         };
+
         let res = secp_handler.processor.secp_get_xy(request)?;
         Ok(res)
     }
@@ -359,12 +360,16 @@ where
 mod tests {
 
     use ark_ff::One;
+    use blockifier::execution::syscalls::secp::{
+        EcPointCoordinates, SecpAddRequest, SecpGetPointFromXRequest, SecpGetXyRequest, SecpHintProcessor,
+        SecpMulRequest, SecpOpRespone, SecpOptionalEcPointResponse,
+    };
     use blockifier::execution::syscalls::SyscallResult;
     use num_bigint::BigUint;
     use num_traits::{FromPrimitive, Num};
     use rstest::rstest;
 
-    use super::*;
+    // use super::*;
 
     fn parse_hex(hex_str: &str) -> BigUint {
         let trimmed_hex_str = hex_str.trim_start_matches("0x");
