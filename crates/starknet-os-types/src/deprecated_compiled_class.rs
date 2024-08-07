@@ -8,6 +8,7 @@ use crate::error::ContractClassError;
 use crate::hash::GenericClassHash;
 
 pub type StarknetApiDeprecatedClass = starknet_api::deprecated_contract_class::ContractClass;
+pub type StarknetCoreDeprecatedClass = starknet_core::types::CompressedLegacyContractClass;
 pub type BlockifierDeprecatedClass = blockifier::execution::contract_class::ContractClassV0;
 
 /// A generic contract class that supports conversion to/from the most commonly used
@@ -19,6 +20,7 @@ pub type BlockifierDeprecatedClass = blockifier::execution::contract_class::Cont
 pub struct GenericDeprecatedCompiledClass {
     blockifier_contract_class: OnceCell<Rc<BlockifierDeprecatedClass>>,
     starknet_api_contract_class: OnceCell<Rc<StarknetApiDeprecatedClass>>,
+    starknet_core_contract_class: OnceCell<Rc<StarknetCoreDeprecatedClass>>,
     serialized_class: OnceCell<Vec<u8>>,
     class_hash: OnceCell<GenericClassHash>,
 }
@@ -28,6 +30,7 @@ impl GenericDeprecatedCompiledClass {
         Self {
             blockifier_contract_class: Default::default(),
             starknet_api_contract_class: Default::default(),
+            starknet_core_contract_class: Default::default(),
             serialized_class: OnceCell::from(serialized_class),
             class_hash: OnceCell::new(),
         }
@@ -93,11 +96,19 @@ impl Serialize for GenericDeprecatedCompiledClass {
     where
         S: Serializer,
     {
-        // It seems like there is no way to just pass the `serialized_class` field as the output
-        // of `serialize()`, so we are forced to serialize an actual class instance.
-        let starknet_api_class =
-            self.get_starknet_api_contract_class().map_err(|e| serde::ser::Error::custom(e.to_string()))?;
-        starknet_api_class.serialize(serializer)
+        if let Some(starknet_api_class) = self.starknet_api_contract_class.get() {
+            starknet_api_class.serialize(serializer)
+        } else if let Some(starknet_core_class) = self.starknet_core_contract_class.get() {
+            starknet_core_class.serialize(serializer)
+        } else if self.serialized_class.get().is_some() {
+            // It seems like there is no way to just pass the `serialized_class` field as the output
+            // of `serialize()`, so we are forced to serialize an actual class instance.
+            let starknet_api_class =
+                self.get_starknet_api_contract_class().map_err(|e| serde::ser::Error::custom(e.to_string()))?;
+            starknet_api_class.serialize(serializer)
+        } else {
+            Err(serde::ser::Error::custom("No conversion found"))
+        }
     }
 }
 
@@ -116,6 +127,7 @@ impl From<StarknetApiDeprecatedClass> for GenericDeprecatedCompiledClass {
         Self {
             blockifier_contract_class: Default::default(),
             starknet_api_contract_class: OnceCell::from(Rc::new(starknet_api_class)),
+            starknet_core_contract_class: Default::default(),
             serialized_class: Default::default(),
             class_hash: Default::default(),
         }
@@ -127,6 +139,19 @@ impl From<BlockifierDeprecatedClass> for GenericDeprecatedCompiledClass {
         Self {
             blockifier_contract_class: OnceCell::from(Rc::new(blockifier_class)),
             starknet_api_contract_class: Default::default(),
+            starknet_core_contract_class: Default::default(),
+            serialized_class: Default::default(),
+            class_hash: Default::default(),
+        }
+    }
+}
+
+impl From<StarknetCoreDeprecatedClass> for GenericDeprecatedCompiledClass {
+    fn from(starknet_core_class: StarknetCoreDeprecatedClass) -> Self {
+        Self {
+            blockifier_contract_class: Default::default(),
+            starknet_api_contract_class: Default::default(),
+            starknet_core_contract_class: OnceCell::from(Rc::new(starknet_core_class)),
             serialized_class: Default::default(),
             class_hash: Default::default(),
         }
