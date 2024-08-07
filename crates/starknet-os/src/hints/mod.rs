@@ -40,6 +40,7 @@ mod execute_transactions;
 pub mod execution;
 mod output;
 mod patricia;
+mod secp;
 pub mod state;
 pub mod syscalls;
 #[cfg(test)]
@@ -234,6 +235,7 @@ fn hints<S>() -> HashMap<String, HintImpl> where
     hints.insert(transaction_hash::ADDITIONAL_DATA_NEW_SEGMENT.into(), transaction_hash::additional_data_new_segment);
     hints.insert(transaction_hash::DATA_TO_HASH_NEW_SEGMENT.into(), transaction_hash::data_to_hash_new_segment);
     hints.insert(block_context::WRITE_USE_ZKG_DA_TO_MEM.into(), block_context::write_use_zkg_da_to_mem);
+    hints.insert(secp::READ_EC_POINT_ADDRESS.into(), secp::read_ec_point_from_address);
     hints
 }
 
