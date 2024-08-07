@@ -1,5 +1,5 @@
 [package]
-name = "starknet-replay"
+name = "rpc-replay"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true

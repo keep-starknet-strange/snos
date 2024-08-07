@@ -42,7 +42,11 @@ impl<T> AsyncRpcStateReader<T>
 where
     T: JsonRpcTransport + Sync + Send + 'static,
 {
-    async fn get_storage_at_async(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<StarkFelt> {
+    pub async fn get_storage_at_async(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<StarkFelt> {
         let storage_value = self
             .provider
             .get_storage_at(felt_api2vm(*contract_address.key()), felt_api2vm(*key.0.key()), self.block_id)
@@ -52,7 +56,7 @@ where
         Ok(felt_vm2api(storage_value))
     }
 
-    async fn get_nonce_at_async(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+    pub async fn get_nonce_at_async(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         let nonce = self
             .provider
             .get_nonce(self.block_id, felt_api2vm(*contract_address.key()))
@@ -62,7 +66,7 @@ where
         Ok(Nonce(felt_vm2api(nonce)))
     }
 
-    async fn get_class_hash_at_async(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+    pub async fn get_class_hash_at_async(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         let nonce = self
             .provider
             .get_class_hash_at(self.block_id, felt_api2vm(*contract_address.key()))
@@ -72,7 +76,7 @@ where
         Ok(ClassHash(felt_vm2api(nonce)))
     }
 
-    async fn get_compiled_contract_class_async(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+    pub async fn get_compiled_contract_class_async(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         let contract_class = self
             .provider
             .get_class(self.block_id, felt_api2vm(class_hash.0))
@@ -94,7 +98,7 @@ where
         Ok(contract_class)
     }
 
-    async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+    pub async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         let contract_class = self
             .provider
             .get_class(self.block_id, felt_api2vm(class_hash.0))
