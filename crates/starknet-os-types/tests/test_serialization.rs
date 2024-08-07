@@ -7,7 +7,19 @@ use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 async fn test_sierra_cc_from_json() {
     let class_json = include_bytes!("./class_from_pathfinder.json");
     let generic_sierra_cc = GenericSierraContractClass::from_bytes(class_json.to_vec());
+    // TODO: assert class hash value here
     let _ = generic_sierra_cc.class_hash().unwrap();
+}
+
+#[rstest]
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_sierra_cc_compile_then_hash() {
+    let class_json = include_bytes!("./class_from_pathfinder.json");
+    let generic_sierra_cc = GenericSierraContractClass::from_bytes(class_json.to_vec());
+    let compiled_class = generic_sierra_cc.compile().unwrap();
+    // TODO: assert class hash value here
+    let _ = compiled_class.class_hash().unwrap();
 }
 
 #[rstest]
@@ -27,5 +39,6 @@ async fn test_sierra_cc_from_cairo_lang_class() {
         _ => panic!("Expected Sierra variant")
     };
 
+    // TODO: assert class hash value here
     let _ = generic_sierra_cc.class_hash().unwrap();
 }
