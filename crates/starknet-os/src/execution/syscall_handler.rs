@@ -10,12 +10,17 @@ use num_traits::ToPrimitive;
 use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
-use crate::cairo_types::new_syscalls;
+use crate::cairo_types::new_syscalls::{self};
 use crate::execution::constants::{
     BLOCK_HASH_CONTRACT_ADDRESS, CALL_CONTRACT_GAS_COST, DEPLOY_GAS_COST, EMIT_EVENT_GAS_COST, GET_BLOCK_HASH_GAS_COST,
     GET_EXECUTION_INFO_GAS_COST, INVALID_INPUT_LENGTH_ERROR, KECCAK_FULL_RATE_IN_U64S, KECCAK_GAS_COST,
-    KECCAK_ROUND_COST_GAS_COST, LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST,
-    STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
+    KECCAK_ROUND_COST_GAS_COST, LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SECP256K1_ADD_GAS_COST,
+    SECP256K1_GET_POINT_FROM_X_GAS_COST, SECP256K1_GET_XY_GAS_COST, SECP256K1_MUL_GAS_COST, SECP256K1_NEW_GAS_COST,
+    SECP256R1_ADD_GAS_COST, SECP256R1_GET_POINT_FROM_X_GAS_COST, SECP256R1_GET_XY_GAS_COST, SECP256R1_MUL_GAS_COST,
+    SECP256R1_NEW_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST,
+};
+use crate::execution::secp_handler::{
+    SecpAddHandler, SecpGetPointFromXHandler, SecpGetXyHandler, SecpMulHandler, SecpNewHandler,
 };
 use crate::execution::syscall_handler_utils::{
     felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest, EmptyResponse,
@@ -126,6 +131,50 @@ where
                 run_handler::<LibraryCallHandler, S>(ptr, vm, ehw, LIBRARY_CALL_GAS_COST).await
             }
             SyscallSelector::Keccak => run_handler::<KeccakHandler, S>(ptr, vm, ehw, KECCAK_GAS_COST).await,
+            SyscallSelector::Secp256k1New => {
+                run_handler::<SecpNewHandler<ark_secp256k1::Config>, S>(ptr, vm, ehw, SECP256K1_NEW_GAS_COST).await
+            }
+            SyscallSelector::Secp256k1GetXy => {
+                run_handler::<SecpGetXyHandler<ark_secp256k1::Config>, S>(ptr, vm, ehw, SECP256K1_GET_XY_GAS_COST).await
+            }
+            SyscallSelector::Secp256k1GetPointFromX => {
+                run_handler::<SecpGetPointFromXHandler<ark_secp256k1::Config>, S>(
+                    ptr,
+                    vm,
+                    ehw,
+                    SECP256K1_GET_POINT_FROM_X_GAS_COST,
+                )
+                .await
+            }
+            SyscallSelector::Secp256k1Mul => {
+                run_handler::<SecpMulHandler<ark_secp256k1::Config>, S>(ptr, vm, ehw, SECP256K1_MUL_GAS_COST).await
+            }
+            SyscallSelector::Secp256k1Add => {
+                run_handler::<SecpAddHandler<ark_secp256k1::Config>, S>(ptr, vm, ehw, SECP256K1_ADD_GAS_COST).await
+            }
+
+            SyscallSelector::Secp256r1New => {
+                run_handler::<SecpNewHandler<ark_secp256r1::Config>, S>(ptr, vm, ehw, SECP256R1_NEW_GAS_COST).await
+            }
+            SyscallSelector::Secp256r1GetXy => {
+                run_handler::<SecpGetXyHandler<ark_secp256r1::Config>, S>(ptr, vm, ehw, SECP256R1_GET_XY_GAS_COST).await
+            }
+            SyscallSelector::Secp256r1GetPointFromX => {
+                run_handler::<SecpGetPointFromXHandler<ark_secp256r1::Config>, S>(
+                    ptr,
+                    vm,
+                    ehw,
+                    SECP256R1_GET_POINT_FROM_X_GAS_COST,
+                )
+                .await
+            }
+            SyscallSelector::Secp256r1Mul => {
+                run_handler::<SecpMulHandler<ark_secp256r1::Config>, S>(ptr, vm, ehw, SECP256R1_MUL_GAS_COST).await
+            }
+            SyscallSelector::Secp256r1Add => {
+                run_handler::<SecpAddHandler<ark_secp256r1::Config>, S>(ptr, vm, ehw, SECP256R1_ADD_GAS_COST).await
+            }
+
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;
 
@@ -136,7 +185,10 @@ where
 }
 struct CallContractHandler;
 
-impl SyscallHandler for CallContractHandler {
+impl<S> SyscallHandler<S> for CallContractHandler
+where
+    S: Storage + 'static,
+{
     type Request = EmptyRequest;
     type Response = ReadOnlySegment;
 
@@ -145,15 +197,12 @@ impl SyscallHandler for CallContractHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute(
         _request: EmptyRequest,
         vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         remaining_gas: &mut u64,
-    ) -> SyscallResult<ReadOnlySegment>
-    where
-        S: Storage + 'static,
-    {
+    ) -> SyscallResult<ReadOnlySegment> {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let result_iter = &mut eh_ref.result_iter;
         let result = result_iter
@@ -189,7 +238,10 @@ pub struct DeployResponse {
     pub constructor_retdata: ReadOnlySegment,
 }
 
-impl SyscallHandler for DeployHandler {
+impl<S> SyscallHandler<S> for DeployHandler
+where
+    S: Storage + 'static,
+{
     type Request = EmptyRequest;
     type Response = DeployResponse;
 
@@ -198,15 +250,12 @@ impl SyscallHandler for DeployHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute(
         _request: Self::Request,
         vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response>
-    where
-        S: Storage + 'static,
-    {
+    ) -> SyscallResult<Self::Response> {
         let mut execution_helper = exec_wrapper.execution_helper.write().await;
 
         let result = execution_helper
@@ -243,7 +292,10 @@ impl SyscallHandler for DeployHandler {
 
 pub struct EmitEventHandler;
 
-impl SyscallHandler for EmitEventHandler {
+impl<S> SyscallHandler<S> for EmitEventHandler
+where
+    S: Storage + 'static,
+{
     type Request = EmptyRequest;
     type Response = EmptyResponse;
 
@@ -252,15 +304,12 @@ impl SyscallHandler for EmitEventHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
         _exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response>
-    where
-        S: Storage + 'static,
-    {
+    ) -> SyscallResult<Self::Response> {
         Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
     }
 
@@ -282,7 +331,10 @@ pub struct GetBlockHashResponse {
     pub block_hash: Felt252,
 }
 
-impl SyscallHandler for GetBlockHashHandler {
+impl<S> SyscallHandler<S> for GetBlockHashHandler
+where
+    S: Storage + 'static,
+{
     type Request = GetBlockHashRequest;
     type Response = GetBlockHashResponse;
 
@@ -292,7 +344,7 @@ impl SyscallHandler for GetBlockHashHandler {
         Ok(GetBlockHashRequest { block_number })
     }
 
-    async fn execute<S: Storage + 'static>(
+    async fn execute(
         request: GetBlockHashRequest,
         _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
@@ -321,7 +373,10 @@ pub struct GetExecutionInfoResponse {
     pub execution_info_ptr: Relocatable,
 }
 
-impl SyscallHandler for GetExecutionInfoHandler {
+impl<S> SyscallHandler<S> for GetExecutionInfoHandler
+where
+    S: Storage + 'static,
+{
     type Request = EmptyRequest;
     type Response = GetExecutionInfoResponse;
 
@@ -329,15 +384,12 @@ impl SyscallHandler for GetExecutionInfoHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response>
-    where
-        S: Storage + 'static,
-    {
+    ) -> SyscallResult<Self::Response> {
         let eh_ref = exec_wrapper.execution_helper.read().await;
         let execution_info_ptr = eh_ref.call_execution_info_ptr.unwrap();
         Ok(GetExecutionInfoResponse { execution_info_ptr })
@@ -351,7 +403,10 @@ impl SyscallHandler for GetExecutionInfoHandler {
 
 struct LibraryCallHandler;
 
-impl SyscallHandler for LibraryCallHandler {
+impl<S> SyscallHandler<S> for LibraryCallHandler
+where
+    S: Storage + 'static,
+{
     type Request = EmptyRequest;
     type Response = ReadOnlySegment;
 
@@ -360,15 +415,12 @@ impl SyscallHandler for LibraryCallHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute(
         _request: Self::Request,
         vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response>
-    where
-        S: Storage + 'static,
-    {
+    ) -> SyscallResult<Self::Response> {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let result_iter = &mut eh_ref.result_iter;
         let result = result_iter
@@ -396,7 +448,10 @@ impl SyscallHandler for LibraryCallHandler {
 #[derive(Debug, Eq, PartialEq)]
 pub struct ReplaceClassHandler;
 
-impl SyscallHandler for ReplaceClassHandler {
+impl<S> SyscallHandler<S> for ReplaceClassHandler
+where
+    S: Storage + 'static,
+{
     type Request = EmptyRequest;
     type Response = EmptyResponse;
     fn read_request(_vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request> {
@@ -404,15 +459,12 @@ impl SyscallHandler for ReplaceClassHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
         _exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response>
-    where
-        S: Storage + 'static,
-    {
+    ) -> SyscallResult<Self::Response> {
         Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
     }
 
@@ -427,7 +479,10 @@ impl SyscallHandler for ReplaceClassHandler {
 
 struct SendMessageToL1Handler;
 
-impl SyscallHandler for SendMessageToL1Handler {
+impl<S> SyscallHandler<S> for SendMessageToL1Handler
+where
+    S: Storage + 'static,
+{
     type Request = EmptyRequest;
     type Response = EmptyResponse;
 
@@ -436,15 +491,12 @@ impl SyscallHandler for SendMessageToL1Handler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
         _exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response>
-    where
-        S: Storage + 'static,
-    {
+    ) -> SyscallResult<Self::Response> {
         Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
     }
 
@@ -462,7 +514,10 @@ pub struct StorageReadResponse {
     pub value: Felt252,
 }
 
-impl SyscallHandler for StorageReadHandler {
+impl<S> SyscallHandler<S> for StorageReadHandler
+where
+    S: Storage + 'static,
+{
     type Request = EmptyRequest;
     type Response = StorageReadResponse;
 
@@ -474,15 +529,12 @@ impl SyscallHandler for StorageReadHandler {
         *ptr = (*ptr + new_syscalls::StorageReadRequest::cairo_size())?;
         Ok(EmptyRequest)
     }
-    async fn execute<S>(
+    async fn execute(
         _request: EmptyRequest,
         _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<StorageReadResponse>
-    where
-        S: Storage + 'static,
-    {
+    ) -> SyscallResult<StorageReadResponse> {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
 
         let value = eh_ref.execute_code_read_iter.next().ok_or(HintError::SyscallError(
@@ -501,7 +553,10 @@ impl SyscallHandler for StorageReadHandler {
 }
 
 pub struct StorageWriteHandler;
-impl SyscallHandler for StorageWriteHandler {
+impl<S> SyscallHandler<S> for StorageWriteHandler
+where
+    S: Storage + 'static,
+{
     type Request = EmptyRequest;
     type Response = EmptyResponse;
 
@@ -513,15 +568,12 @@ impl SyscallHandler for StorageWriteHandler {
         *ptr = (*ptr + new_syscalls::StorageWriteRequest::cairo_size())?;
         Ok(EmptyRequest)
     }
-    async fn execute<S>(
+    async fn execute(
         _request: EmptyRequest,
         _vm: &mut VirtualMachine,
         _exec_wrapper: &mut ExecutionHelperWrapper<S>,
         _remaining_gas: &mut u64,
-    ) -> SyscallResult<EmptyResponse>
-    where
-        S: Storage + 'static,
-    {
+    ) -> SyscallResult<EmptyResponse> {
         Ok(EmptyResponse {})
     }
     fn write_response(
@@ -543,7 +595,10 @@ pub struct KeccakResponse {
     pub result_high: Felt252,
 }
 
-impl SyscallHandler for KeccakHandler {
+impl<S> SyscallHandler<S> for KeccakHandler
+where
+    S: Storage + 'static,
+{
     type Request = KeccakRequest;
     type Response = KeccakResponse;
 
@@ -555,7 +610,7 @@ impl SyscallHandler for KeccakHandler {
         Ok(KeccakRequest { input_start, input_end })
     }
 
-    async fn execute<S>(
+    async fn execute(
         request: Self::Request,
         vm: &mut VirtualMachine,
         _exec_wrapper: &mut ExecutionHelperWrapper<S>,
@@ -609,178 +664,3 @@ impl SyscallHandler for KeccakHandler {
         Ok(())
     }
 }
-
-// TODO: SecpAdd syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct SecpAddRequest {
-//     pub lhs_id: Felt252,
-//     pub rhs_id: Felt252,
-// }
-//
-// impl SyscallRequest for SecpAddRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) ->
-// blockifier::execution::syscalls::SyscallResult<SecpAddRequest> {         Ok(SecpAddRequest {
-// lhs_id: felt_from_ptr(vm, ptr)?, rhs_id: felt_from_ptr(vm, ptr)? })     }
-// }
-//
-// type SecpAddResponse = SecpOpRespone;
-//
-// pub fn secp256k1_add(
-//     request: SecpAddRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> blockifier::execution::syscalls::SyscallResult<SecpOpRespone> {
-//     syscall_handler.secp256k1_hint_processor.secp_add(request)
-// }
-//
-// pub fn secp256r1_add(
-//     request: SecpAddRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> blockifier::execution::syscalls::SyscallResult<SecpOpRespone> {
-//     syscall_handler.secp256r1_hint_processor.secp_add(request)
-// }
-
-// TODO: SecpGetPointFromXRequest syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct SecpGetPointFromXRequest {
-//     x: BigUint,
-//     // The parity of the y coordinate, assuming a point with the given x coordinate exists.
-//     // True means the y coordinate is odd.
-//     y_parity: bool,
-// }
-//
-// impl SyscallRequest for SecpGetPointFromXRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) ->
-// blockifier::execution::syscalls::SyscallResult<SecpGetPointFromXRequest> {         let x =
-// SierraU256::from_memory(vm, ptr)?.to_biguint();
-//
-//         let y_parity = felt_to_bool(stark_felt_from_ptr(vm, ptr)?, "Invalid y parity")?;
-//         Ok(SecpGetPointFromXRequest { x, y_parity })
-//     }
-// }
-//
-// type SecpGetPointFromXResponse = SecpOptionalEcPointResponse;
-//
-// pub fn secp256k1_get_point_from_x(
-//     request: SecpGetPointFromXRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> blockifier::execution::syscalls::SyscallResult<SecpGetPointFromXResponse> {
-//     syscall_handler.secp256k1_hint_processor.secp_get_point_from_x(request)
-// }
-//
-// pub fn secp256r1_get_point_from_x(
-//     request: SecpGetPointFromXRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> blockifier::execution::syscalls::SyscallResult<SecpGetPointFromXResponse> {
-//     syscall_handler.secp256r1_hint_processor.secp_get_point_from_x(request)
-// }
-
-// TODO: SecpGetXy syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct SecpGetXyRequest {
-//     pub ec_point_id: Felt252,
-// }
-//
-// impl SyscallRequest for SecpGetXyRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) ->
-// blockifier::execution::syscalls::SyscallResult<SecpGetXyRequest> {         Ok(SecpGetXyRequest {
-// ec_point_id: felt_from_ptr(vm, ptr)? })     }
-// }
-//
-// type SecpGetXyResponse = EcPointCoordinates;
-//
-// impl SyscallResponse for SecpGetXyResponse {
-//     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) ->
-// blockifier::execution::syscalls::WriteResponseResult {         write_u256(vm, ptr, self.x)?;
-//         write_u256(vm, ptr, self.y)?;
-//         Ok(())
-//     }
-// }
-//
-// pub fn secp256k1_get_xy(
-//     request: SecpGetXyRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> blockifier::execution::syscalls::SyscallResult<SecpGetXyResponse> {
-// }
-//
-// pub fn secp256r1_get_xy(
-//     request: SecpGetXyRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> blockifier::execution::syscalls::SyscallResult<SecpGetXyResponse> {
-// }
-
-// TODO: SecpMul syscall.
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct SecpMulRequest {
-//     pub ec_point_id: Felt252,
-//     pub multiplier: BigUint,
-// }
-//
-// impl blockifier::execution::syscalls::SyscallRequest for SecpMulRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) ->
-// blockifier::execution::syscalls::SyscallResult<SecpMulRequest> {         let ec_point_id =
-// felt_from_ptr(vm, ptr)?;         let multiplier = SierraU256::from_memory(vm, ptr)?.to_biguint();
-//         Ok(SecpMulRequest { ec_point_id, multiplier })
-//     }
-// }
-//
-// type SecpMulResponse = SecpOpRespone;
-//
-// pub fn secp256k1_mul(
-//     request: SecpMulRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> blockifier::execution::syscalls::SyscallResult<SecpMulResponse> {
-// }
-//
-// pub fn secp256r1_mul(
-//     request: SecpMulRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> blockifier::execution::syscalls::SyscallResult<SecpMulResponse> {
-// }
-
-// TODO: SecpNew syscall.
-// type SecpNewRequest = EcPointCoordinates;
-//
-// impl blockifier::execution::syscalls::SyscallRequest for SecpNewRequest {
-//     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) ->
-// blockifier::execution::syscalls::SyscallResult<SecpNewRequest> {         let x =
-// SierraU256::from_memory(vm, ptr)?.to_biguint();         let y = SierraU256::from_memory(vm,
-// ptr)?.to_biguint();         Ok(SecpNewRequest { x, y })
-//     }
-// }
-//
-// type SecpNewResponse = SecpOptionalEcPointResponse;
-//
-// pub fn secp256k1_new(
-//     request: SecpNewRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> blockifier::execution::syscalls::SyscallResult<SecpNewResponse> {
-// }
-//
-// type Secp256r1NewRequest = EcPointCoordinates;
-// type Secp256r1NewResponse = SecpOptionalEcPointResponse;
-//
-// pub fn secp256r1_new(
-//     request: Secp256r1NewRequest,
-//     _vm: &mut VirtualMachine,
-//     syscall_handler: &mut SyscallHintProcessor<'_>,
-//     _remaining_gas: &mut u64,
-// ) -> blockifier::execution::syscalls::SyscallResult<Secp256r1NewResponse> {
-// }
