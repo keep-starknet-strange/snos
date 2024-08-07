@@ -22,6 +22,7 @@ use crate::cairo_types::structs::{CompiledClass, CompiledClassFact};
 use crate::hints::vars;
 use crate::io::classes::write_class;
 use crate::io::input::StarknetOsInput;
+use crate::starknet::core::os::contract_class::compiled_class_hash_objects::BytecodeSegmentStructureImpl;
 use crate::utils::{custom_hint_error, felt_api2vm, get_constant};
 
 pub const LOAD_CLASS_FACTS: &str = indoc! {r#"
@@ -99,10 +100,13 @@ pub fn load_class_inner(
     exec_scopes.insert_value(vars::scopes::COMPILED_CLASS_HASH, compiled_class_hash);
     exec_scopes.insert_value(vars::scopes::COMPILED_CLASS, class.clone());
 
-    // TODO: implement create_bytecode_segment_structure (for partial code loading)
-
     let class_base = vm.add_memory_segment();
-    write_class(vm, class_base, class)?;
+    let compiled_class_visited_pcs: &HashMap<Felt252, Vec<Felt252>> =
+        exec_scopes.get_ref(vars::scopes::COMPILED_CLASS_VISITED_PCS)?;
+    let visited_pcs = compiled_class_visited_pcs.get(&compiled_class_hash).cloned();
+
+    let bytecode_segment_structure = write_class(vm, class_base, class, visited_pcs)?;
+    exec_scopes.insert_value(vars::scopes::BYTECODE_SEGMENT_STRUCTURE, bytecode_segment_structure);
 
     insert_value_from_var_name(vars::ids::COMPILED_CLASS, class_base, vm, ids_data, ap_tracking)
 }
@@ -119,8 +123,13 @@ pub fn bytecode_segment_structure(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // TODO: implemente when partial code loading is implemented
-    exec_scopes.enter_scope(HashMap::default());
+    let bytecode_segment_structure: BytecodeSegmentStructureImpl =
+        exec_scopes.get(vars::scopes::BYTECODE_SEGMENT_STRUCTURE)?;
+
+    exec_scopes.enter_scope(HashMap::from([(
+        vars::scopes::BYTECODE_SEGMENT_STRUCTURE.to_string(),
+        any_box!(bytecode_segment_structure),
+    )]));
     Ok(())
 }
 
