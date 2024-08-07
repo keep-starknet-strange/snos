@@ -334,10 +334,10 @@ where
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = &mut <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let offset = request.ec_point_id;
-        let _ = secp_handler.segment.get().unwrap();
-        let request = blockifier::execution::syscalls::secp::SecpGetXyRequest {
-            ec_point_id: (offset.offset / EC_POINT_ALLOCATION).into(),
-        };
+
+        // let segment = secp_handler.segment.get().unwrap();
+        let request =
+            blockifier::execution::syscalls::secp::SecpGetXyRequest { ec_point_id: (offset.offset / 6).into() };
         let res = secp_handler.processor.secp_get_xy(request)?;
         Ok(res)
     }
