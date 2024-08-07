@@ -1,3 +1,4 @@
+use std::cell::OnceCell;
 use std::marker::PhantomData;
 
 use ark_ec::short_weierstrass::SWCurveConfig;
@@ -9,28 +10,31 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 
-use super::helper::{ExecutionHelperWrapper, SecpSyscallProcessor};
+use super::helper::ExecutionHelperWrapper;
 use super::syscall_handler_utils::{
     felt_from_ptr, write_maybe_relocatable, SyscallHandler, SyscallResult, WriteResponseResult,
 };
+use crate::cairo_types::syscalls::EcCoordinate;
 use crate::execution::helper::ExecutionHelper;
 use crate::execution::syscall_handler_utils::{write_felt, SyscallExecutionError};
 use crate::starknet::starknet_storage::PerContractStorage;
 
-// TODO: Replace with getters, setters
-const EC_POINT_SIZE: usize = 3;
-const EC_POINT_ALLOCATION: usize = EC_POINT_SIZE * 2; // x and y
+#[derive(Debug, Default)]
+pub struct SecpSyscallProcessor<C: SWCurveConfig> {
+    processor: SecpHintProcessor<C>,
+    segment: OnceCell<Relocatable>,
+}
 
 /// This trait is private and not callable outside this module.
 trait GetSecpSyscallHandler<C: SWCurveConfig> {
-    fn get_secp_handler(&mut self) -> &mut SecpSyscallProcessor<SecpHintProcessor<C>>;
+    fn get_secp_handler(&mut self) -> &mut SecpSyscallProcessor<C>;
 }
 
 impl<PCS> GetSecpSyscallHandler<ark_secp256k1::Config> for ExecutionHelper<PCS>
 where
     PCS: PerContractStorage,
 {
-    fn get_secp_handler(&mut self) -> &mut SecpSyscallProcessor<SecpHintProcessor<ark_secp256k1::Config>> {
+    fn get_secp_handler(&mut self) -> &mut SecpSyscallProcessor<ark_secp256k1::Config> {
         &mut self.secp256k1_syscall_processor
     }
 }
@@ -39,7 +43,7 @@ impl<PCS> GetSecpSyscallHandler<ark_secp256r1::Config> for ExecutionHelper<PCS>
 where
     PCS: PerContractStorage,
 {
-    fn get_secp_handler(&mut self) -> &mut SecpSyscallProcessor<SecpHintProcessor<ark_secp256r1::Config>> {
+    fn get_secp_handler(&mut self) -> &mut SecpSyscallProcessor<ark_secp256r1::Config> {
         &mut self.secp256r1_syscall_processor
     }
 }
@@ -97,7 +101,7 @@ where
         if let Some(ec_point) = res.optional_ec_point_id {
             let segment = secp_handler.segment.get_or_init(|| vm.add_memory_segment());
             return Ok(SecpOptionalEcPointResponse {
-                optional_ec_point_id: Some((*segment + ec_point * EC_POINT_ALLOCATION)?),
+                optional_ec_point_id: Some((*segment + ec_point * EcCoordinate::cairo_size())?),
             });
         }
 
@@ -161,7 +165,7 @@ where
         if let Some(ec_point) = res.optional_ec_point_id {
             let segment = secp_handler.segment.get_or_init(|| vm.add_memory_segment());
             return Ok(SecpOptionalEcPointResponse {
-                optional_ec_point_id: Some((*segment + ec_point * EC_POINT_ALLOCATION)?),
+                optional_ec_point_id: Some((*segment + ec_point * EcCoordinate::cairo_size())?),
             });
         }
 
@@ -194,7 +198,7 @@ pub struct SecpMulRequest {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct SecpOpRespone {
+pub struct SecpOpResponse {
     pub ec_point_id: Relocatable,
 }
 
@@ -205,7 +209,7 @@ where
 {
     type Request = SecpMulRequest;
 
-    type Response = SecpOpRespone;
+    type Response = SecpOpResponse;
 
     fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request> {
         let ec_point_id = vm.get_relocatable(*ptr)?;
@@ -232,12 +236,12 @@ where
         let offset = request.ec_point_id;
         let segment = secp_handler.segment.get().unwrap();
         let request = blockifier::execution::syscalls::secp::SecpMulRequest {
-            ec_point_id: (offset.offset / EC_POINT_ALLOCATION).into(),
+            ec_point_id: (offset.offset / EcCoordinate::cairo_size()).into(),
             multiplier: request.multiplier,
         };
         let res = secp_handler.processor.secp_mul(request)?;
 
-        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id * EC_POINT_ALLOCATION)? })
+        Ok(SecpOpResponse { ec_point_id: (*segment + res.ec_point_id * EcCoordinate::cairo_size())? })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
@@ -263,7 +267,7 @@ where
 {
     type Request = SecpAddRequest;
 
-    type Response = SecpOpRespone;
+    type Response = SecpOpResponse;
 
     fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request> {
         let lhs_id = vm.get_relocatable(*ptr)?;
@@ -285,13 +289,13 @@ where
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = &mut <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let request = blockifier::execution::syscalls::secp::SecpAddRequest {
-            lhs_id: (request.lhs_id.offset / EC_POINT_ALLOCATION).into(),
-            rhs_id: (request.rhs_id.offset / EC_POINT_ALLOCATION).into(),
+            lhs_id: (request.lhs_id.offset / EcCoordinate::cairo_size()).into(),
+            rhs_id: (request.rhs_id.offset / EcCoordinate::cairo_size()).into(),
         };
         let res = secp_handler.processor.secp_add(request)?;
         let segment = secp_handler.segment.get().unwrap();
 
-        Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id * EC_POINT_ALLOCATION)? })
+        Ok(SecpOpResponse { ec_point_id: (*segment + res.ec_point_id * EcCoordinate::cairo_size())? })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
@@ -334,6 +338,10 @@ where
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = &mut <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let offset = request.ec_point_id;
+        let _ = secp_handler.segment.get().unwrap();
+        let request = blockifier::execution::syscalls::secp::SecpGetXyRequest {
+            ec_point_id: (offset.offset / EcCoordinate::cairo_size()).into(),
+        };
 
         // let segment = secp_handler.segment.get().unwrap();
         let request =
@@ -366,8 +374,6 @@ mod tests {
     use num_bigint::BigUint;
     use num_traits::{FromPrimitive, Num};
     use rstest::rstest;
-
-    // use super::*;
 
     fn parse_hex(hex_str: &str) -> BigUint {
         let trimmed_hex_str = hex_str.trim_start_matches("0x");

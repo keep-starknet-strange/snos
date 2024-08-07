@@ -1,4 +1,3 @@
-use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -7,7 +6,6 @@ use std::vec::IntoIter;
 use blockifier::context::BlockContext;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point_execution::CallResult;
-use blockifier::execution::syscalls::secp::SecpHintProcessor;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -15,6 +13,7 @@ use cairo_vm::Felt252;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use tokio::sync::RwLock;
 
+use super::secp_handler::SecpSyscallProcessor;
 use crate::config::STORED_BLOCK_HASH_BUFFER;
 use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
 use crate::storage::storage::StorageError;
@@ -56,16 +55,9 @@ where
     pub storage_by_address: ContractStorageMap<PCS>,
 
     // Secp syscall processors.
-    pub secp256k1_syscall_processor: SecpSyscallProcessor<SecpHintProcessor<ark_secp256k1::Config>>,
-    pub secp256r1_syscall_processor: SecpSyscallProcessor<SecpHintProcessor<ark_secp256r1::Config>>,
+    pub secp256k1_syscall_processor: SecpSyscallProcessor<ark_secp256k1::Config>,
+    pub secp256r1_syscall_processor: SecpSyscallProcessor<ark_secp256r1::Config>,
 }
-
-#[derive(Debug, Default)]
-pub struct SecpSyscallProcessor<P> {
-    pub processor: P,
-    pub segment: OnceCell<Relocatable>,
-}
-
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
 /// to clone the refrence when entering and exiting vm scopes
 #[derive(Debug)]
