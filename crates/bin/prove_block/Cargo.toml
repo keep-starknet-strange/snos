@@ -19,11 +19,11 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 starknet-os = { path = "../../starknet-os" }
 starknet-os-types = { path = "../../starknet-os-types" }
-reqwest = "0.11.27"
+reqwest = { workspace = true }
 tokio = { workspace = true }
 starknet_api = { workspace = true }
-starknet = "0.11.0"
-starknet-types-core = "0.1.3"
+starknet = { workspace = true }
+starknet-types-core = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
-futures-core = "0.3.30"
+futures-core = { workspace = true }
