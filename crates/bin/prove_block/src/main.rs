@@ -6,7 +6,7 @@ use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use clap::Parser;
-use reexecute::{reexecute_transactions_with_blockifier, RpcStateReader};
+use reexecute::reexecute_transactions_with_blockifier;
 use rpc_utils::{get_storage_proofs, RpcStorage, TrieNode};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
 use starknet::providers::jsonrpc::HttpTransport;
@@ -33,6 +33,7 @@ use starknet_os::utils::felt_vm2api;
 use starknet_os::{config, run_os};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_replay::block_context::build_block_context;
+use starknet_replay::rpc_state_reader::AsyncRpcStateReader;
 use starknet_replay::transactions::starknet_rs_to_blockifier;
 
 use crate::rpc_utils::CachedRpcStorage;
@@ -460,7 +461,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         };
     }
 
-    let blockifier_state_reader = RpcStateReader { block_id: BlockId::Number(block_number - 1), rpc_client: provider };
+    let blockifier_state_reader = AsyncRpcStateReader::new(provider, BlockId::Number(block_number - 1));
 
     let tx_execution_infos = reexecute_transactions_with_blockifier(
         CachedState::new(blockifier_state_reader, GlobalContractCache::new(1024)),
