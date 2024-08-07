@@ -7,7 +7,7 @@ use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
-use num_bigint::{BigUint, ToBigInt, ToBigUint};
+use num_bigint::BigUint;
 
 use super::helper::{ExecutionHelperWrapper, SecpSyscallProcessor};
 use super::syscall_handler_utils::{
@@ -214,7 +214,7 @@ where
 
     async fn execute(
         request: Self::Request,
-        vm: &mut VirtualMachine,
+        _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
@@ -319,7 +319,7 @@ where
     }
     async fn execute(
         request: Self::Request,
-        vm: &mut VirtualMachine,
+        _vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
@@ -329,7 +329,7 @@ where
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let secp_handler = &mut <ExecutionHelper<PCS> as GetSecpSyscallHandler<C>>::get_secp_handler(&mut eh_ref);
         let offset = request.ec_point_id;
-        let segment = secp_handler.segment.get().unwrap();
+        // let segment = secp_handler.segment.get().unwrap();
         let request =
             blockifier::execution::syscalls::secp::SecpGetXyRequest { ec_point_id: (offset.offset / 6).into() };
         let res = secp_handler.processor.secp_get_xy(request)?;
@@ -352,12 +352,16 @@ where
 mod tests {
 
     use ark_ff::One;
+    use blockifier::execution::syscalls::secp::{
+        EcPointCoordinates, SecpAddRequest, SecpGetPointFromXRequest, SecpGetXyRequest, SecpHintProcessor,
+        SecpMulRequest, SecpOpRespone, SecpOptionalEcPointResponse,
+    };
     use blockifier::execution::syscalls::SyscallResult;
     use num_bigint::BigUint;
     use num_traits::{FromPrimitive, Num};
     use rstest::rstest;
 
-    use super::*;
+    // use super::*;
 
     fn parse_hex(hex_str: &str) -> BigUint {
         let trimmed_hex_str = hex_str.trim_start_matches("0x");
