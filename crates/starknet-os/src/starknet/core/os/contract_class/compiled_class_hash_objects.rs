@@ -81,6 +81,6 @@ pub struct BytecodeLeaf {
 
 impl BytecodeLeaf {
     fn add_bytecode_with_skipped_segments(&self, data: &mut Vec<Felt252>) {
-        data.extend(self.data.iter().map(|x| Felt252::from(x)))
+        data.extend(self.data.iter().map(Felt252::from))
     }
 }

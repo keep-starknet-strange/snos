@@ -135,9 +135,9 @@ fn _create_bytecode_segment_structure_inner(
                 visited_pcs.pop();
             }
 
-            let bytecode_segment: Vec<_> = bytecode[bytecode_offset..segment_end].iter().cloned().collect();
+            let bytecode_segment: Vec<_> = bytecode[bytecode_offset..segment_end].to_vec();
 
-            return Ok((BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf { data: bytecode_segment }), length));
+            Ok((BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf { data: bytecode_segment }), length))
         }
         NestedIntList::Node(lengths) => {
             let mut res = vec![];
@@ -174,10 +174,7 @@ fn _create_bytecode_segment_structure_inner(
                 total_len += item_len;
             }
 
-            return Ok((
-                BytecodeSegmentStructureImpl::SegmentedNode(BytecodeSegmentedNode { segments: res }),
-                total_len,
-            ));
+            Ok((BytecodeSegmentStructureImpl::SegmentedNode(BytecodeSegmentedNode { segments: res }), total_len))
         }
     }
 }
@@ -247,8 +244,7 @@ pub fn write_class(
         create_bytecode_segment_structure(&bytecode, bytecode_segment_lengths, visited_pcs)?;
     let bytecode_with_skipped_segments = bytecode_segment_structure.bytecode_with_skipped_segments();
 
-    let data: Vec<MaybeRelocatable> =
-        bytecode_with_skipped_segments.into_iter().map(|d| MaybeRelocatable::from(Felt252::from(d))).collect();
+    let data: Vec<MaybeRelocatable> = bytecode_with_skipped_segments.into_iter().map(MaybeRelocatable::from).collect();
     vm.insert_value((class_base + 7)?, Felt252::from(data.len()))?;
     let data_base = vm.add_memory_segment();
     vm.load_data(data_base, &data)?;
