@@ -347,15 +347,18 @@ pub const WRITE_USE_ZKG_DA_TO_MEM: &str = indoc! {r#"
 };
 pub fn write_use_zkg_da_to_mem(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // TODO: add use_kzg_da to BlockContext
-    let value = Felt252::ZERO;
+    let block_context = exec_scopes.get_ref::<BlockContext>(vars::scopes::BLOCK_CONTEXT)?;
 
-    println!("Warning: skipping kzg_da (use_kzg_da = false)");
+    let value = block_context.block_info().use_kzg_da;
 
-    vm.insert_value((vm.get_fp() + 15)?, value).map_err(HintError::Memory)
+    if !value {
+        println!("Warning: skipping kzg_da (use_kzg_da = false)");
+    }
+
+    vm.insert_value((vm.get_fp() + 15)?, Felt252::from(value)).map_err(HintError::Memory)
 }

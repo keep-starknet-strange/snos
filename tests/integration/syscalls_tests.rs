@@ -9,7 +9,7 @@ use rstest::rstest;
 use starknet_api::felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
-use crate::common::block_context;
+use crate::common::{block_context, block_context_with_kzg};
 use crate::common::state::{initial_state_syscalls, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 use crate::common::utils::check_os_output_read_only_syscall;
@@ -71,7 +71,7 @@ async fn test_syscall_library_call_cairo1(
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_syscall_replace_class_cairo1(
     #[future] initial_state_syscalls: StarknetTestState,
-    block_context: BlockContext,
+    block_context_with_kzg: BlockContext,
     max_fee: Fee,
 ) {
     let initial_state = initial_state_syscalls.await;
@@ -97,7 +97,7 @@ async fn test_syscall_replace_class_cairo1(
 
     let (_pie, _os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
-        block_context.clone(),
+        block_context_with_kzg.clone(),
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,

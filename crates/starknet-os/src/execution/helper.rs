@@ -1,3 +1,4 @@
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -7,7 +8,7 @@ use blockifier::context::BlockContext;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point_execution::CallResult;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -53,6 +54,8 @@ where
     pub execute_code_read_iter: IntoIter<Felt252>,
     // Per-contract storage
     pub storage_by_address: ContractStorageMap<PCS>,
+
+    pub da_segment: OnceCell<Vec<MaybeRelocatable>>,
 
     // Secp syscall processors.
     pub secp256k1_syscall_processor: SecpSyscallProcessor<ark_secp256k1::Config>,
