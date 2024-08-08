@@ -327,14 +327,19 @@ pub const IS_LEAF: &str = indoc! {r#"
 };
 pub fn is_leaf(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // let bytecode_segment_structure = get_ptr_from_var_name("bytecode_segment_structure", vm,
-    // ids_data, ap_tracking)?; TODO: complete when bytecode_segment_structure is implemented
-    insert_value_from_var_name(vars::ids::IS_LEAF, 1, vm, ids_data, ap_tracking)
+    let bytecode_segment_structure: &BytecodeSegmentStructureImpl =
+        exec_scopes.get_ref(vars::scopes::BYTECODE_SEGMENT_STRUCTURE)?;
+    let is_leaf = match bytecode_segment_structure {
+        BytecodeSegmentStructureImpl::SegmentedNode(_) => Felt252::ZERO,
+        BytecodeSegmentStructureImpl::Leaf(_) => Felt252::ONE,
+    };
+
+    insert_value_from_var_name(vars::ids::IS_LEAF, is_leaf, vm, ids_data, ap_tracking)
 }
 
 pub const WRITE_USE_ZKG_DA_TO_MEM: &str = indoc! {r#"
