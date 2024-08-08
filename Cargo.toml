@@ -26,13 +26,13 @@ assert_matches = "1.5.0"
 base64 = "0.21.3"
 bitvec = { version = "1.0.1", features = ["serde"] }
 # Point to the latest commit of branch msl/snos-0.6.0-rc.2
-blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", rev = "983e3b1cdb6621c5e6fa600f47cd69bf9e287621", features = ["testing"] }
+blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", rev = "578e335b32931d2ec6f80232dd06998b0180384b", features = ["testing"] }
 cairo-lang-starknet = { version = "2.6.3" }
 cairo-lang-starknet-classes = { version = "2.6.3" }
 cairo-lang-casm = { version = "2.6.3" }
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
 # cairo-vm = { version = "=1.0.0-rc5", features = ["extensive_hints", "cairo-1-hints"] }
-cairo-vm = { git ="https://github.com/Moonsong-Labs/cairo-vm", rev = "85a15c89f06f731face3a73e2b53b6717236dbf0", features = ["extensive_hints", "cairo-1-hints"] }
+cairo-vm = { git ="https://github.com/Moonsong-Labs/cairo-vm", rev = "67d7d36e8d627fe731329abef0321bce160b2a19", features = ["extensive_hints", "cairo-1-hints"] }
 clap = { version = "4.5.4", features = ["derive"] }
 env_logger = "0.11.3"
 futures = "0.3.30"
