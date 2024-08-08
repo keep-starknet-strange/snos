@@ -289,3 +289,32 @@ pub struct GetTxSignature {
     #[allow(unused)]
     pub response: GetTxSignatureResponse,
 }
+
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct SecpNewResponse {
+    #[allow(unused)]
+    pub not_on_curve: Felt252,
+    #[allow(unused)]
+    pub ec_point: Relocatable,
+}
+
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct EcPoint {
+    #[allow(unused)]
+    pub d0: Felt252,
+    #[allow(unused)]
+    pub d1: Felt252,
+    #[allow(unused)]
+    pub d3: Felt252,
+}
+
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct EcCoordinate {
+    #[allow(unused)]
+    pub x: EcPoint,
+    #[allow(unused)]
+    pub y: EcPoint,
+}

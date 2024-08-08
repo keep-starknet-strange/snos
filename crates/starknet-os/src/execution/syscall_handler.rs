@@ -584,7 +584,6 @@ where
         Ok(())
     }
 }
-
 pub struct KeccakHandler;
 pub struct KeccakRequest {
     pub input_start: Relocatable,
@@ -615,10 +614,7 @@ where
         vm: &mut VirtualMachine,
         _exec_wrapper: &mut ExecutionHelperWrapper<S>,
         remaining_gas: &mut u64,
-    ) -> SyscallResult<Self::Response>
-    where
-        S: Storage + 'static,
-    {
+    ) -> SyscallResult<Self::Response> {
         let input_len = (request.input_end - request.input_start)?;
         // The to_usize unwrap will not fail as the constant value is 17
         let (n_rounds, remainder) = num_integer::div_rem(input_len, KECCAK_FULL_RATE_IN_U64S.to_usize().unwrap());

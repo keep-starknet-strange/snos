@@ -162,10 +162,10 @@ pub enum SyscallExecutionError {
     InvalidSyscallInput { input: Felt252, info: String },
     #[error("Syscall error.")]
     SyscallError { error_data: Vec<Felt252> },
-    #[error("Out of Gas in Syscall execution. Remaining gas is {remaining_gas}")]
-    OutOfGas { remaining_gas: u64 },
     #[error("BlockifierSyscallError: {0}")]
     BlockifierSyscallError(BlockifierSyscallError),
+    #[error("Out of Gas in Syscall execution. Remaining gas is {remaining_gas}")]
+    OutOfGas { remaining_gas: u64 },
 }
 
 impl From<MemoryError> for SyscallExecutionError {
@@ -204,12 +204,6 @@ impl From<StorageError> for SyscallExecutionError {
     }
 }
 
-impl From<TryFromIntError> for SyscallExecutionError {
-    fn from(error: TryFromIntError) -> Self {
-        Self::InternalError(format!("TryFromIntError error: {}", error).into())
-    }
-}
-
 impl From<BlockifierSyscallError> for SyscallExecutionError {
     fn from(error: BlockifierSyscallError) -> Self {
         match error {
@@ -218,6 +212,11 @@ impl From<BlockifierSyscallError> for SyscallExecutionError {
             },
             _ => Self::BlockifierSyscallError(error),
         }
+    }
+}
+impl From<TryFromIntError> for SyscallExecutionError {
+    fn from(error: TryFromIntError) -> Self {
+        Self::InternalError(format!("TryFromIntError error: {}", error).into())
     }
 }
 
