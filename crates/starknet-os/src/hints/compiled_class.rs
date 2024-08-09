@@ -9,7 +9,7 @@ use cairo_vm::Felt252;
 use indoc::indoc;
 
 use crate::hints::vars;
-use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{BytecodeSegment, BytecodeSegmentedNode};
+use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{BytecodeSegment, BytecodeSegmentStructureImpl, BytecodeSegmentedNode};
 
 pub const ASSIGN_BYTECODE_SEGMENTS: &str = indoc! {r#"
     bytecode_segments = iter(bytecode_segment_structure.segments)"#
@@ -22,10 +22,17 @@ pub fn assign_bytecode_segments(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let bytecode_segment_structure: BytecodeSegmentedNode =
+    let bytecode_segment_structure: BytecodeSegmentStructureImpl =
         exec_scopes.get(vars::scopes::BYTECODE_SEGMENT_STRUCTURE)?;
+    
+    let bytecode_segments = match bytecode_segment_structure {
+        BytecodeSegmentStructureImpl::SegmentedNode(segmented_node) => {
+            log::info!("got seg");
+            segmented_node.segments.into_iter()
+        },
+        BytecodeSegmentStructureImpl::Leaf(_) => panic!("Expected SegmentedNode"),
+    };
 
-    let bytecode_segments = bytecode_segment_structure.segments.into_iter();
     exec_scopes.insert_value(vars::scopes::BYTECODE_SEGMENTS, bytecode_segments);
 
     Ok(())
