@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::insert_value_from_var_name;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
+use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use crate::hints::vars;
@@ -54,6 +55,61 @@ pub fn assert_end_of_bytecode_segments(
     if bytecode_segments.next().is_some() {
         return Err(HintError::AssertionFailed("bytecode_segments is not exhausted".to_string().into_boxed_str()));
     }
+
+    Ok(())
+}
+
+pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"
+    current_segment_info = next(bytecode_segments)
+
+    is_used = current_segment_info.is_used
+    ids.is_segment_used = 1 if is_used else 0
+
+    is_used_leaf = is_used and isinstance(current_segment_info.inner_structure, BytecodeLeaf)
+    ids.is_used_leaf = 1 if is_used_leaf else 0
+
+    ids.segment_length = current_segment_info.segment_length
+    vm_enter_scope(new_scope_locals={
+        "bytecode_segment_structure": current_segment_info.inner_structure,
+    })"#
+};
+pub fn iter_current_segment_info(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    log::debug!("iter_current_segment_info()");
+
+    let bytecode_segments =
+        exec_scopes.get_mut_ref::<<Vec<BytecodeSegment> as IntoIterator>::IntoIter>(vars::scopes::BYTECODE_SEGMENTS)?;
+
+    let current_segment_info = bytecode_segments.next()
+        .expect("Expected more bytecode segments (asserted in previous hint)");
+
+    let is_used = current_segment_info.is_used;
+    let is_used_felt = if is_used { Felt252::ONE } else { Felt252::ZERO };
+    insert_value_from_var_name(vars::ids::IS_SEGMENT_USED, is_used_felt, vm, ids_data, ap_tracking)?;
+
+    // TODO: avoid clone -- check the variant without consuming it
+    let is_leaf = if let BytecodeSegmentStructureImpl::Leaf(_) = current_segment_info.inner_structure.clone() {
+        true
+    } else {
+        false
+    };
+    let is_used_leaf = is_used && is_leaf;
+    let is_used_leaf_felt = if is_used_leaf { Felt252::ONE } else { Felt252::ZERO };
+    insert_value_from_var_name(vars::ids::IS_USED_LEAF, is_used_leaf_felt, vm, ids_data, ap_tracking)?;
+
+    let segment_length: Felt252 = current_segment_info.segment_length.0.into();
+    insert_value_from_var_name(vars::ids::SEGMENT_LENGTH, segment_length, vm, ids_data, ap_tracking)?;
+
+
+    exec_scopes.enter_scope(HashMap::from([(
+        vars::scopes::BYTECODE_SEGMENT_STRUCTURE.to_string(),
+        any_box!(current_segment_info.inner_structure),
+    )]));
 
     Ok(())
 }

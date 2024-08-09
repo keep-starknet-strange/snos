@@ -70,6 +70,8 @@ pub mod ids {
     pub const HASH_PTR: &str = "hash_ptr";
     pub const INITIAL_GAS: &str = "initial_gas";
     pub const IS_LEAF: &str = "is_leaf";
+    pub const IS_SEGMENT_USED: &str = "is_segment_used";
+    pub const IS_USED_LEAF: &str = "is_used_leaf";
     pub const HEIGHT: &str = "height";
     pub const INITIAL_CARRIED_OUTPUTS: &str = "initial_carried_outputs";
     pub const INITIAL_CONTRACT_STATE_ROOT: &str = "initial_contract_state_root";
@@ -105,6 +107,7 @@ pub mod ids {
     pub const RETDATA_SIZE: &str = "retdata_size";
     pub const RETURN_BUILTIN_PTRS: &str = "return_builtin_ptrs";
     pub const SECP_P: &str = "SECP_P";
+    pub const SEGMENT_LENGTH: &str = "segment_length";
     pub const SELECT_BUILTIN: &str = "select_builtin";
     pub const SELECTED_ENCODINGS: &str = "selected_encodings";
     pub const SELECTED_PTRS: &str = "selected_ptrs";
