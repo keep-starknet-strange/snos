@@ -216,7 +216,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let cached_storage = CachedRpcStorage::new(Default::default(), rpc_storage);
 
     // TODO: nasty clone, the conversion fns don't take references
-    let transactions: Vec<_> =
+    let mut transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
     // TODO: these maps that we pass in to build_initial_state() are built only on items from the
@@ -288,6 +288,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let class_hash = provider.get_class_hash_at(BlockId::Number(block_number), address).await.unwrap();
             log::info!("Got class hash: {} => {}", address, class_hash);
             address_to_class_hash.insert(*address, class_hash);
+        }
+    }
+
+    // TODO: clean up...
+    // now that we have the class_hash for each contract, fill in the transaction data with the class_hash.
+    // when transactions were first processed above, this information wasn't available.
+    for transaction in transactions.iter_mut() {
+        if let Some(sender_address) = transaction.sender_address.clone() {
+            let class_hash = address_to_class_hash.get(&sender_address)
+                .expect("should have a class_hash for each known contract addresses at this point");
+            log::info!("Filling in class_hash {:x} for txn", class_hash);
+            transaction.class_hash = Some(*class_hash);
+        } else {
+            // TODO: are there txn types which wouldn't have a sender address?
+            log::warn!("Found transaction without sender_address");
         }
     }
 
