@@ -1,23 +1,20 @@
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 
-use blockifier::block::{BlockInfo, GasPrices};
-use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
-use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use clap::Parser;
-use reexecute::{reexecute_transactions_with_blockifier, RpcStateReader};
+use reexecute::reexecute_transactions_with_blockifier;
+use rpc_replay::block_context::build_block_context;
+use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
+use rpc_replay::transactions::starknet_rs_to_blockifier;
 use rpc_utils::{get_storage_proofs, RpcStorage, TrieNode};
-use starknet::core::types::{BlockId, BlockWithTxs, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
+use starknet::core::types::{BlockId, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
-use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
-use starknet_api::{contract_address, patricia_key};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
@@ -35,10 +32,10 @@ use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, 
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use starknet_os::storage::storage::{Fact, FactFetchingContext};
-use starknet_os::utils::felt_vm2api;
+use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_os::{config, run_os};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
-use types::starknet_rs_to_blockifier;
+use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
 use crate::rpc_utils::CachedRpcStorage;
 use crate::types::starknet_rs_tx_to_internal_tx;
@@ -56,46 +53,6 @@ struct Args {
     /// RPC endpoint to use for fact fetching
     #[arg(long = "rpc-provider", default_value = "http://localhost:9545")]
     rpc_provider: String,
-}
-
-fn felt_to_u128(felt: &starknet_types_core::felt::Felt) -> u128 {
-    let digits = felt.to_be_digits();
-    ((digits[2] as u128) << 64) + digits[3] as u128
-}
-
-async fn build_block_context(chain_id: String, block: &BlockWithTxs) -> Result<BlockContext, reqwest::Error> {
-    let sequencer_address_hex = block.sequencer_address.to_hex_string();
-    let sequencer_address = contract_address!(sequencer_address_hex.as_str());
-
-    let block_info = BlockInfo {
-        block_number: BlockNumber(block.block_number),
-        block_timestamp: BlockTimestamp(block.timestamp),
-        sequencer_address,
-        gas_prices: GasPrices {
-            eth_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_wei).try_into().unwrap(),
-            strk_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_fri).try_into().unwrap(),
-            eth_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_wei).try_into().unwrap(),
-            strk_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_fri).try_into().unwrap(),
-        },
-        use_kzg_da: false,
-    };
-
-    let chain_info = ChainInfo {
-        chain_id: starknet_api::core::ChainId(chain_id),
-        // cf. https://docs.starknet.io/tools/important-addresses/
-        fee_token_addresses: FeeTokenAddresses {
-            strk_fee_token_address: contract_address!(
-                "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
-            ),
-            eth_fee_token_address: contract_address!(
-                "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
-            ),
-        },
-    };
-
-    let versioned_constants = VersionedConstants::latest_constants();
-
-    Ok(BlockContext::new_unchecked(&block_info, &chain_info, versioned_constants))
 }
 
 fn init_logging() {
@@ -248,7 +205,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let _traces =
         provider.trace_block_transactions(BlockId::Number(block_number)).await.expect("Failed to get block tx traces");
 
-    let block_context = build_block_context(chain_id.clone(), &block_with_txs).await.unwrap();
+    let block_context = build_block_context(chain_id.clone(), &block_with_txs);
 
     let old_block_number = Felt252::from(older_block.block_number);
     let old_block_hash = older_block.block_hash;
@@ -451,64 +408,54 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut accessed_class_hashes = HashSet::<_>::new();
     let mut compiled_classes = HashMap::new();
     for contract_address in &accessed_contracts {
-        // TODO: dedupe with query in build_initial_state()...
         if let Ok(class_hash) = provider.get_class_hash_at(BlockId::Number(block_number), contract_address).await {
+            let contract_class = provider.get_class(BlockId::Number(block_number), class_hash).await?;
+            let generic_sierra_cc = match contract_class {
+                starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
+                    GenericSierraContractClass::from(flattened_sierra_cc)
+                },
+                starknet::core::types::ContractClass::Legacy(_) => unimplemented!("Fixme: Support legacy contract class"),
+            };
+
+            let class_hash_felt = Felt252::from_bytes_be(&class_hash.to_bytes_be());
             accessed_class_hashes.insert(class_hash);
 
-            log::debug!("querying class for contract_address {}, hash: {}", contract_address, class_hash);
-            if let Ok(contract_class) = provider.get_class(BlockId::Number(block_number), class_hash).await {
-                log::debug!("contract class for {}: {:?}", contract_address, contract_class);
+            let generic_cc = generic_sierra_cc.compile()?;
 
-                match contract_class {
-                    starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
-                        let middle_sierra: types::MiddleSierraContractClass = {
-                            let v = serde_json::to_value(flattened_sierra_cc).unwrap();
-                            serde_json::from_value(v).unwrap()
-                        };
-                        let sierra_cc = cairo_lang_starknet_classes::contract_class::ContractClass {
-                            sierra_program: middle_sierra.sierra_program,
-                            contract_class_version: middle_sierra.contract_class_version,
-                            entry_points_by_type: middle_sierra.entry_points_by_type,
-                            sierra_program_debug_info: None,
-                            abi: None,
-                        };
-                        let casm_cc =
-                            cairo_lang_starknet_classes::casm_contract_class::CasmContractClass::from_contract_class(
-                                sierra_cc.clone(),
-                                false,
-                                usize::MAX,
-                            )
-                            .unwrap();
-                        let casm_cc: GenericCasmContractClass = casm_cc.into();
+            log::debug!("============================");
+            log::debug!("class_hash (from RPC): {:x?}", class_hash);
+            log::debug!("class_hash (computed): {:x?}", generic_sierra_cc.class_hash()?);
 
-                        log::debug!("class_hash (from RPC): {}", class_hash);
+            // TODO: it seems that this ends up computing the wrong class hash...
+            let (contract_class_hash, compiled_contract_hash) = write_class_facts(
+                generic_sierra_cc,
+                generic_cc.clone(),
+                &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>(),
+            )
+            .await?;
 
-                        // TODO: it seems that this ends up computing the wrong class hash...
-                        write_class_facts(
-                            sierra_cc,
-                            casm_cc.clone(),
-                            &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>(),
-                        )
-                        .await?;
+            compiled_classes.insert(compiled_contract_hash.into(), generic_cc.clone());
 
-                        compiled_classes.insert(class_hash, casm_cc);
-                    }
-                    starknet::core::types::ContractClass::Legacy(_compressed_logacy_contract_class) => {
-                        panic!("legacy class (TODO)");
-                    }
-                }
-            } else {
-                log::warn!("No class available for contract {}", contract_address);
+            log::debug!("Computed class_hash => compiled_class_hash: {:x?} => {:x?}", contract_class_hash, compiled_contract_hash);
+
+            // let sierra_cc_hash = generic_sierra_cc.class_hash()?;
+            let sierra_cc_hash = generic_cc.class_hash()?;
+            log::debug!("sierra_cc_hash: {:x?}", sierra_cc_hash);
+
+            let class_hash_as_snos_hash: starknet_os_types::hash::Hash = class_hash.into();
+            if contract_class_hash != class_hash_as_snos_hash {
+                log::warn!("FFC computed different hash ({:x?}) than expected ({:?})", contract_class_hash, class_hash);
             }
         } else {
             log::warn!("No class hash available for contract {}", contract_address);
         };
     }
 
-    let blockifier_state_reader = RpcStateReader { block_id: BlockId::Number(block_number - 1), rpc_client: provider };
+    let blockifier_state_reader = AsyncRpcStateReader::new(provider, BlockId::Number(block_number - 1));
 
+    let mut blockifier_state = CachedState::new(blockifier_state_reader, GlobalContractCache::new(1024));
     let tx_execution_infos = reexecute_transactions_with_blockifier(
-        CachedState::new(blockifier_state_reader, GlobalContractCache::new(1024)),
+        &mut blockifier_state,
         &block_context,
         block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(tx).unwrap()).collect(),
     )?;
@@ -530,12 +477,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
         )
         .await?;
 
+    let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
+        .visited_pcs
+        .iter()
+        .map(|(class_hash, visited_pcs)| {
+            (felt_api2vm(class_hash.0), visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
+        })
+        .collect();
+
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes: Default::default(),
         compiled_classes,
-        compiled_class_visited_pcs: Default::default(),
+        compiled_class_visited_pcs: visited_pcs,
         contracts: contract_states,
         class_hash_to_compiled_class_hash,
         general_config,

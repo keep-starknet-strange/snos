@@ -2,6 +2,7 @@ use cairo_lang_starknet_classes::contract_class::ContractClass;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::hash::Hash;
+use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
     CompiledClassFact, ContractClassFact, DeprecatedCompiledClassFact,
@@ -9,7 +10,7 @@ use crate::starknet::business_logic::fact_state::contract_class_objects::{
 use crate::storage::storage::{Fact, FactFetchingContext, HashFunctionType, Storage, StorageError};
 
 pub async fn write_class_facts<S, H>(
-    contract_class: ContractClass,
+    contract_class: GenericSierraContractClass,
     compiled_class: GenericCasmContractClass,
     ffc: &mut FactFetchingContext<S, H>,
 ) -> Result<(Hash, Hash), StorageError>

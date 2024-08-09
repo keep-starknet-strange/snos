@@ -1,4 +1,5 @@
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
 
 use crate::starkware_utils::commitment_tree::base_types::Length;
 
@@ -16,6 +17,24 @@ pub trait BytecodeSegmentStructure {}
 pub enum BytecodeSegmentStructureImpl {
     SegmentedNode(BytecodeSegmentedNode),
     Leaf(BytecodeLeaf),
+}
+
+impl BytecodeSegmentStructureImpl {
+    /// Returns the bytecode of the node.
+    /// Skipped segments are replaced with [-1, -2, -2, -2, ...].
+    pub fn bytecode_with_skipped_segments(&self) -> Vec<Felt252> {
+        let mut res = vec![];
+        self.add_bytecode_with_skipped_segments(&mut res);
+
+        res
+    }
+
+    fn add_bytecode_with_skipped_segments(&self, data: &mut Vec<Felt252>) {
+        match self {
+            BytecodeSegmentStructureImpl::SegmentedNode(node) => node.add_bytecode_with_skipped_segments(data),
+            BytecodeSegmentStructureImpl::Leaf(leaf) => leaf.add_bytecode_with_skipped_segments(data),
+        }
+    }
 }
 
 /// Represents a child of BytecodeSegmentedNode.
@@ -38,8 +57,30 @@ pub struct BytecodeSegmentedNode {
     pub segments: Vec<BytecodeSegment>,
 }
 
+impl BytecodeSegmentedNode {
+    fn add_bytecode_with_skipped_segments(&self, data: &mut Vec<Felt252>) {
+        for segment in &self.segments {
+            if segment.is_used {
+                segment.inner_structure.add_bytecode_with_skipped_segments(data);
+            } else {
+                // -1 marks the start of an unused segment.
+                data.push(Felt252::from(-1));
+                for _ in 0..(segment.segment_length.0 - 1) {
+                    data.push(Felt252::from(-2));
+                }
+            }
+        }
+    }
+}
+
 /// Represents a leaf in the bytecode segment tree.
 #[derive(Clone, Debug)]
 pub struct BytecodeLeaf {
-    pub data: Vec<Felt252>,
+    pub data: Vec<BigUint>,
+}
+
+impl BytecodeLeaf {
+    fn add_bytecode_with_skipped_segments(&self, data: &mut Vec<Felt252>) {
+        data.extend(self.data.iter().map(Felt252::from))
+    }
 }

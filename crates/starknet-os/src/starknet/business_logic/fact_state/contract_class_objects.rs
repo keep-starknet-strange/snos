@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::hash::Hash;
+use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
 use crate::config::CONTRACT_CLASS_LEAF_VERSION;
 use crate::crypto::poseidon::PoseidonHash;
@@ -15,26 +16,7 @@ use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionT
 /// Represents a single contract class which is stored in the Starknet state.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContractClassFact {
-    pub contract_class: ContractClass,
-}
-
-#[derive(Debug, Serialize)]
-struct ContractClassForPathfinderCompat {
-    pub sierra_program: Vec<Felt252>,
-    pub contract_class_version: String,
-    pub entry_points_by_type: ContractEntryPoints,
-    pub abi: String,
-}
-
-impl From<ContractClass> for ContractClassForPathfinderCompat {
-    fn from(value: ContractClass) -> Self {
-        Self {
-            sierra_program: value.sierra_program.into_iter().map(|x| Felt252::from(x.value)).collect(),
-            contract_class_version: value.contract_class_version,
-            entry_points_by_type: value.entry_points_by_type,
-            abi: value.abi.map(|abi| abi.json()).unwrap_or_default(),
-        }
-    }
+    pub contract_class: GenericSierraContractClass,
 }
 
 impl SerializationPrefix for ContractClassFact {}
@@ -46,18 +28,7 @@ where
     H: HashFunctionType,
 {
     fn hash(&self) -> Hash {
-        // Dump the contract definition to JSON and let Pathfinder hashing code decide
-        // what to do with it.
-
-        // Panicking is okay-ish here, for now this code is test-only.
-        let contract_class_compat = ContractClassForPathfinderCompat::from(self.contract_class.clone());
-
-        let contract_dump =
-            serde_json::to_vec(&contract_class_compat).expect("JSON serialization failed unexpectedly.");
-        let computed_class_hash =
-            compute_class_hash(&contract_dump).unwrap_or_else(|e| panic!("Failed to compute class hash: {}", e));
-
-        Hash::from_bytes_be(computed_class_hash.hash().0.to_be_bytes())
+        *self.contract_class.class_hash().expect("hash() is infallible")
     }
 }
 
