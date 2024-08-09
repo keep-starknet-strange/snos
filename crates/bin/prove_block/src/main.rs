@@ -421,7 +421,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             accessed_class_hashes.insert(class_hash);
 
             let generic_cc = generic_sierra_cc.compile()?;
-            compiled_classes.insert(class_hash_felt, generic_cc.clone());
 
             log::debug!("============================");
             log::debug!("class_hash (from RPC): {:x?}", class_hash);
@@ -434,6 +433,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>(),
             )
             .await?;
+
+            compiled_classes.insert(compiled_contract_hash.into(), generic_cc.clone());
 
             log::debug!("Computed class_hash => compiled_class_hash: {:x?} => {:x?}", contract_class_hash, compiled_contract_hash);
 
