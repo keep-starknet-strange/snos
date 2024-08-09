@@ -252,7 +252,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         })
         .collect();
 
-    let class_hash_to_compiled_class_hash: HashMap<_, _> = state_update
+    let mut class_hash_to_compiled_class_hash: HashMap<_, _> = state_update
         .state_diff
         .declared_classes
         .iter()
@@ -449,6 +449,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             )
             .await?;
 
+            class_hash_to_compiled_class_hash.insert(class_hash, compiled_contract_hash.into());
             compiled_classes.insert(compiled_contract_hash.into(), generic_cc.clone());
 
             log::debug!("Computed class_hash => compiled_class_hash: {:x?} => {:x?}", contract_class_hash, compiled_contract_hash);
@@ -499,6 +500,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             (felt_api2vm(class_hash.0), visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
         })
         .collect();
+
+    log::debug!("class_hash_to_compiled_class_hash ({}):", class_hash_to_compiled_class_hash.len());
+    for (ch, cch) in &class_hash_to_compiled_class_hash {
+        log::debug!("    0x{:x} => 0x{:x}", ch, cch);
+    }
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
