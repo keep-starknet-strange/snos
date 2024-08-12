@@ -32,10 +32,12 @@ use starknet_os::starknet::starknet_storage::{CommitmentInfo, OsSingleStarknetSt
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
+use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use starknet_os::storage::storage::{Fact, FactFetchingContext};
 use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_os::{config, run_os};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+use starknet_os_types::hash::Hash;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
 use crate::rpc_utils::CachedRpcStorage;
@@ -166,6 +168,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let block_number = args.block_number;
     let layout = LayoutName::starknet_with_keccak;
 
+    let block_id = BlockId::Number(block_number);
+    let previous_block_id = BlockId::Number(block_number - 1);
+
     let provider_url = format!("{}/rpc/v0_7", args.rpc_provider);
     log::info!("provider url: {}", provider_url);
     let provider = JsonRpcClient::new(HttpTransport::new(
@@ -177,7 +182,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Step 1: build the block context
     let chain_id = provider.chain_id().await?.to_string();
     log::debug!("provider's chain_id: {}", chain_id);
-    let block_with_txs = match provider.get_block_with_txs(BlockId::Number(block_number)).await? {
+    let block_with_txs = match provider.get_block_with_txs(block_id).await? {
         MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
         MaybePendingBlockWithTxs::PendingBlock(_) => {
             panic!("Block is still pending!");
@@ -192,7 +197,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         };
 
     let state_update =
-        match provider.get_state_update(BlockId::Number(block_number)).await.expect("Failed to get state update") {
+        match provider.get_state_update(block_id).await.expect("Failed to get state update") {
             MaybePendingStateUpdate::Update(update) => update,
             MaybePendingStateUpdate::PendingUpdate(_) => {
                 panic!("Block is still pending!")
@@ -204,7 +209,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .expect("Failed to fetch storage proofs");
 
     let _traces =
-        provider.trace_block_transactions(BlockId::Number(block_number)).await.expect("Failed to get block tx traces");
+        provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
 
     let block_context = build_block_context(chain_id.clone(), &block_with_txs);
 
@@ -393,8 +398,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // insert ContractState for any contract that received a nonce update but not a storage update
     for nonce_update in state_update.state_diff.nonces {
-        if let std::collections::hash_map::Entry::Vacant(e) = contract_states.entry(nonce_update.contract_address) {
-            let mut contract_state = ContractState::empty(Height(251), &mut initial_state.ffc).await?;
+        let contract_address = nonce_update.contract_address;
+        if let std::collections::hash_map::Entry::Vacant(e) = contract_states.entry(contract_address) {
+            let class_hash = provider.get_class_hash_at(block_id, contract_address).await?;
+            let previous_nonce = provider.get_nonce(previous_block_id, contract_address).await?;
+
+            let mut contract_state = ContractState {
+                contract_hash: class_hash.to_bytes_be().to_vec(),
+                storage_commitment_tree: PatriciaTree { root: Hash::empty(), height: Height(251) },
+                nonce: previous_nonce,
+            };
 
             // we receive the new nonce, but need to configure SNOS with the previous nonce. since
             // any given account could have more than one txn in this block, we need to count them
