@@ -136,7 +136,7 @@ where
 
     // Blockifier provides a class hash -> visited PCs map, but we need
     // the compiled class hash -> visited PCs map.
-    let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
+    let compiled_class_visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
         .visited_pcs
         .iter()
         .map(|(class_hash, visited_pcs)| {
@@ -190,7 +190,7 @@ where
         contract_class_commitment_info,
         deprecated_compiled_classes,
         compiled_classes: compiled_class_hash_to_compiled_class,
-        compiled_class_visited_pcs: visited_pcs,
+        compiled_class_visited_pcs,
         contracts,
         class_hash_to_compiled_class_hash,
         general_config,
