@@ -54,12 +54,10 @@ where
     pub execute_code_read_iter: IntoIter<Felt252>,
     // Per-contract storage
     pub storage_by_address: ContractStorageMap<PCS>,
-
-    pub da_segment: OnceCell<Vec<MaybeRelocatable>>,
-
     // Secp syscall processors.
     pub secp256k1_syscall_processor: SecpSyscallProcessor<ark_secp256k1::Config>,
     pub secp256r1_syscall_processor: SecpSyscallProcessor<ark_secp256r1::Config>,
+    pub da_segment: OnceCell<Vec<MaybeRelocatable>>,
 }
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
 /// to clone the refrence when entering and exiting vm scopes
@@ -136,6 +134,7 @@ where
                 storage_by_address: contract_storage_map,
                 secp256k1_syscall_processor: Default::default(),
                 secp256r1_syscall_processor: Default::default(),
+                da_segment: Default::default(),
             })),
         }
     }

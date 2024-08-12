@@ -1,20 +1,17 @@
 use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    get_ptr_from_var_name, insert_value_from_var_name,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
-use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
-use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::vars;
 use crate::starknet::starknet_storage::PerContractStorage;
@@ -893,49 +890,4 @@ mod tests {
             exec_scopes.get(vars::scopes::SYSCALL_HANDLER).unwrap();
         assert_eq!(syscall_handler.syscall_ptr().await, Some(syscall_ptr));
     }
-}
-
-#[allow(unused)]
-pub const WRITE_ZKG_COMMITMENT_ADDRESS: &str = indoc! {r#"
-    execution_helper.store_da_segment(
-        da_segment=memory.get_range_as_ints(addr=ids.state_updates_start, size=ids.da_size)
-    )
-    segments.write_arg(
-        ids.kzg_commitment.address_,
-        execution_helper.polynomial_coefficients_to_kzg_commitment_callback(
-            execution_helper.da_segment
-        )
-    )"#
-};
-
-pub async fn write_zkg_commitment_address<S: Storage + 'static>(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    use num_traits::ToPrimitive;
-    let state_updates_start = get_relocatable_from_var_name("state_updates_start", vm, ids_data, ap_tracking)?;
-    let da_size = get_integer_from_var_name("da_size", vm, ids_data, ap_tracking)?;
-    let range: Vec<MaybeRelocatable> = vm
-        .get_range(
-            state_updates_start,
-            da_size.to_u64().ok_or(MathError::Felt252ToU64Conversion(Box::new(da_size)))?.try_into().unwrap(),
-        )
-        .into_iter()
-        .map(|s| s.unwrap().into_owned())
-        .collect();
-
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
-    let ehw = execution_helper.execution_helper.write().await;
-    ehw.da_segment.set(range).expect("DA segment is already initialized.");
-
-    let kzg_ptr = get_ptr_from_var_name("kzg_commitment", vm, ids_data, ap_tracking)?;
-
-    // TODO:
-    // def mock_polynomial_coefficients_to_kzg_commitment(coefficients: List[int]) -> Tuple[int, int]:
-    // return MOCK_COMMITMENT
-
-    Ok(())
 }

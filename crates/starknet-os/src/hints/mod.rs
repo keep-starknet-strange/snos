@@ -19,6 +19,7 @@ use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
+use kzg::{write_zkg_commitment_address, WRITE_ZKG_COMMITMENT_ADDRESS};
 use num_bigint::BigInt;
 
 use crate::execution::execute_syscalls;
@@ -37,6 +38,7 @@ mod compiled_class;
 mod deprecated_compiled_class;
 mod execute_transactions;
 pub mod execution;
+mod kzg;
 mod output;
 mod patricia;
 mod secp;
@@ -237,6 +239,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(block_context::WRITE_USE_ZKG_DA_TO_MEM.into(), block_context::write_use_zkg_da_to_mem);
     hints.insert(compiled_class::SET_AP_TO_SEGMENT_HASH.into(), compiled_class::set_ap_to_segment_hash);
     hints.insert(secp::READ_EC_POINT_ADDRESS.into(), secp::read_ec_point_from_address);
+    hints.insert(WRITE_ZKG_COMMITMENT_ADDRESS.into(), write_zkg_commitment_address::<PCS>);
     hints
 }
 
