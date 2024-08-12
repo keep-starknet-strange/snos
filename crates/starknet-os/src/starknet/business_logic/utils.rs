@@ -74,7 +74,7 @@ mod tests {
         let compiled_class = GenericCasmContractClass::from_bytes(casm_bytes.to_vec());
 
         let (class_hash, compiled_class_hash) =
-            write_class_facts(contract_class, compiled_class, &mut ffc).await.unwrap();
+            write_class_facts(contract_class.into(), compiled_class, &mut ffc).await.unwrap();
 
         // Check that the data can be fetched from the storage afterward
         let storage = ffc.acquire_storage().await;
