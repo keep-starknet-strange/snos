@@ -501,15 +501,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         );
     }
 
-    let contract_state_commitment_info =
-        CommitmentInfo::create_from_modifications::<CachedRpcStorage, PedersenHash, ContractState>(
-            previous_tree.clone(),
-            None, // TODO: do we have a source for expected?
-            updates,
-            &mut initial_state.ffc,
-        )
-        .await?;
-
     let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
         .visited_pcs
         .iter()
@@ -523,9 +514,51 @@ async fn main() -> Result<(), Box<dyn Error>> {
         log::debug!("    0x{:x} => 0x{:x}", ch, cch);
     }
 
+    // TODO: ugly clone here
+    // Convert the Blockifier storage into an OS-compatible one
+    let (mut contract_storage_map, previous_state, updated_state) =
+        reexecute::build_starknet_storage_async(blockifier_state, initial_state.clone()).await.unwrap();
+
+    /*
+    // TODO: how should special contracts (e.g. 1) be handled?
+    contract_storage_map.insert(
+        Felt252::ONE,
+        OsSingleStarknetStorage::new(
+            PatriciaTree::empty_tree(&mut initial_state.ffc, Height(251), SimpleLeafFact::empty()).await?,
+            PatriciaTree::empty_tree(&mut initial_state.ffc, Height(251), SimpleLeafFact::empty()).await?,
+            &[],
+            initial_state.ffc.clone()).await?,
+    );
+    */
+
+    // Pass all contract addresses as expected accessed indices
+    let contract_indices: HashSet<TreeIndex> =
+        contract_states.keys().chain(contract_storage_map.keys()).map(|address| address.to_biguint()).collect();
+    let contract_indices: Vec<TreeIndex> = contract_indices.into_iter().collect();
+
+    let contract_state_commitment_info =
+        CommitmentInfo::create_from_expected_updated_tree::<_, PedersenHash, ContractState>(
+            previous_state.contract_states.clone(),
+            updated_state.contract_states.clone(),
+            &contract_indices,
+            &mut initial_state.ffc,
+        )
+        .await
+        .unwrap_or_else(|e| panic!("Could not create contract state commitment info: {:?}", e));
+
+    let contract_class_commitment_info =
+        CommitmentInfo::create_from_expected_updated_tree::<_, PoseidonHash, ContractClassLeaf>(
+            previous_state.contract_classes.clone().expect("previous state should have class trie"),
+            updated_state.contract_classes.clone().expect("updated state should have class trie"),
+            &contract_indices,
+            &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>(),
+        )
+        .await
+        .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
+
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
-        contract_class_commitment_info: Default::default(),
+        contract_class_commitment_info,
         deprecated_compiled_classes: Default::default(),
         compiled_classes,
         compiled_class_visited_pcs: visited_pcs,
@@ -536,7 +569,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         block_hash: block_with_txs.block_hash,
     };
     let execution_helper = ExecutionHelperWrapper::<CachedRpcStorage>::new(
-        contract_storages,
+        contract_storage_map,
         tx_execution_infos,
         &block_context,
         (old_block_number, old_block_hash),
