@@ -49,7 +49,7 @@ async fn post_jsonrpc_request<T: DeserializeOwned>(
     params: serde_json::Value,
 ) -> Result<T, reqwest::Error> {
     let request = jsonrpc_request(method, params);
-    let response = client.post(format!("{}/rpc/v0_7", rpc_provider)).json(&request).send().await?;
+    let response = client.post(format!("{}/rpc/pathfinder/v0.1", rpc_provider)).json(&request).send().await?;
 
     #[derive(Deserialize)]
     struct TransactionReceiptResponse<T> {
@@ -161,4 +161,43 @@ fn merge_chunked_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof
     };
 
     PathfinderProof { class_commitment, state_commitment, contract_proof, contract_data }
+}
+
+#[derive(Deserialize)]
+pub(crate) struct PathfinderClassProof {
+    pub class_commitment: Felt252,
+    pub class_proof: Vec<TrieNode>,
+}
+
+pub(crate) async fn pathfinder_get_class_proof(
+    client: &reqwest::Client,
+    rpc_provider: &str,
+    block_number: u64,
+    class_hash: &Felt,
+) -> Result<PathfinderClassProof, reqwest::Error> {
+    log::debug!("querying pathfinder_getClassProof for {:x}", class_hash);
+    log::debug!("provider: {}", rpc_provider);
+    post_jsonrpc_request(
+        client,
+        rpc_provider,
+        "pathfinder_getClassProof",
+        json!({ "block_id": { "block_number": block_number }, "class_hash": class_hash }),
+    )
+    .await
+}
+
+pub(crate) async fn get_class_proofs(
+    client: &reqwest::Client,
+    rpc_provider: &str,
+    block_number: u64,
+    class_hashes: &[&Felt],
+) -> Result<HashMap<Felt252, PathfinderClassProof>, reqwest::Error> {
+    let mut proofs: HashMap<Felt252, PathfinderClassProof> = HashMap::with_capacity(class_hashes.len());
+    for class_hash in class_hashes {
+        let proof = pathfinder_get_class_proof(client, rpc_provider, block_number, class_hash).await?;
+        // TODO: need to combine these, similar to merge_chunked_storage_proofs above?
+        proofs.insert(**class_hash, proof);
+    }
+
+    Ok(proofs)
 }

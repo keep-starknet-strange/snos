@@ -6,11 +6,12 @@ use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use clap::Parser;
+use pathfinder_common::class_hash;
 use reexecute::reexecute_transactions_with_blockifier;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
-use rpc_utils::{get_storage_proofs, RpcStorage, TrieNode};
+use rpc_utils::{get_storage_proofs, get_class_proofs, RpcStorage, TrieNode};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
@@ -465,6 +466,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
         } else {
             log::warn!("No class hash available for contract {}", contract_address);
         };
+    }
+
+    // query storage proofs for each accessed contract
+    let class_hashes: Vec<&Felt252> = class_hash_to_compiled_class_hash.keys().collect();
+    let class_proofs = get_class_proofs(&pathfinder_client, &args.rpc_provider, block_number, &class_hashes[..])
+        .await
+        .expect("Failed to fetch class proofs");
+
+    // write facts from class proof
+    for proof in class_proofs.values() {
+        for node in &proof.class_proof {
+            match node {
+                TrieNode::Binary { left, right } => {
+                    // log::info!("writing binary node...");
+                    let fact = BinaryNodeFact::new((*left).into(), (*right).into())?;
+                    fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
+                }
+                TrieNode::Edge { child, path } => {
+                    // log::info!("writing edge node...");
+                    let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))?;
+                    fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
+                }
+            }
+        }
     }
 
     let blockifier_state_reader = AsyncRpcStateReader::new(provider, BlockId::Number(block_number - 1));
