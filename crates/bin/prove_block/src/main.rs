@@ -408,27 +408,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 storage_commitment_tree: PatriciaTree { root: Hash::empty(), height: Height(251) },
                 nonce: previous_nonce,
             };
-
-            // we receive the new nonce, but need to configure SNOS with the previous nonce. since
-            // any given account could have more than one txn in this block, we need to count them
-            // in order to derive the original nonce.
-            // TODO: review -- is there a better way to do this? we could also query RPC for it...
-            // TODO: this is now duplicated with the nonce processing above...
-            let num_nonce_bumps =
-                Felt252::from(transactions.iter().fold(0, |acc, tx| {
-                    acc + if tx.sender_address == Some(nonce_update.contract_address) { 1 } else { 0 }
-                }));
-            assert!(nonce_update.nonce > num_nonce_bumps);
-            let previous_nonce = nonce_update.nonce - num_nonce_bumps;
-            log::debug!(
-                "probably-account contract {} nonce: {} - {} => {}",
-                nonce_update.contract_address,
-                nonce_update.nonce,
-                num_nonce_bumps,
-                previous_nonce,
-            );
-
-            contract_state.nonce = previous_nonce;
             e.insert(contract_state);
         }
     }
