@@ -18,21 +18,13 @@ use num_traits::{Num, One, Zero};
 
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::hints::vars;
-use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{BytecodeSegment, BytecodeSegmentedNode};
+use crate::starknet::core::os::contract_class::compiled_class_hash_objects::BytecodeSegmentedNode;
 use crate::storage::storage::Storage;
 use crate::utils::execute_coroutine;
 
-const FIELD_ELEMENTS_PER_BLOB: usize = 4096;
 const COMMITMENT_BYTES_LENGTH: usize = 48;
 const COMMITMENT_LOW_BIT_LENGTH: usize = (COMMITMENT_BYTES_LENGTH * 8) / 2;
 const BLOB_SUBGROUP_GENERATOR: &str = "39033254847818212395286706435128746857159659164139250548781411570340225835782";
-const CKZG_VERSION: &str = "1.0.0";
-
-fn serialize_blob(blob: Vec<BigInt>) -> Vec<u8> {
-    assert_eq!(blob.len(), FIELD_ELEMENTS_PER_BLOB, "Bad blob size.");
-
-    blob.into_iter().flat_map(|x| x.to_bytes_le().1).collect()
-}
 
 fn is_power_of_2(n: usize) -> bool {
     n > 0 && (n & (n - 1)) == 0
@@ -139,7 +131,7 @@ pub async fn write_zkg_commitment_address_async<S: Storage + 'static>(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     use num_traits::ToPrimitive;
-    let state_updates_start = get_relocatable_from_var_name("state_updates_start", vm, ids_data, ap_tracking)?;
+    let state_updates_start = get_ptr_from_var_name("state_updates_start", vm, ids_data, ap_tracking)?;
     let da_size = get_integer_from_var_name("da_size", vm, ids_data, ap_tracking)?;
     let range: Vec<MaybeRelocatable> = vm
         .get_range(
@@ -156,7 +148,7 @@ pub async fn write_zkg_commitment_address_async<S: Storage + 'static>(
 
     let kzg_ptr = get_ptr_from_var_name("kzg_commitment", vm, ids_data, ap_tracking)?;
 
-    let da_segment = ehw.da_segment.get().unwrap().into_iter().map(|c| c.get_int().unwrap().to_bigint()).collect();
+    let da_segment = ehw.da_segment.get().unwrap().iter().map(|c| c.get_int().unwrap().to_bigint()).collect();
     let commitments = polynomial_coefficients_to_kzg_commitment(da_segment);
     let splits: Vec<MaybeRelocatable> = [commitments.0.into(), commitments.1.into()]
         .into_iter()
@@ -180,11 +172,12 @@ where
     execute_coroutine(write_zkg_commitment_address_async::<S>(vm, exec_scopes, ids_data, ap_tracking, _constants))?
 }
 
+#[allow(unused)]
 pub const SET_AP_TO_SEGMENT_HASH: &str = indoc! {r#"
     memory[ap] = to_felt_or_relocatable(bytecode_segment_structure.hash())"#
 };
-
-pub async fn set_ap_to_segment<S: Storage + 'static>(
+#[allow(unused)]
+pub async fn set_ap_to_segment(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -198,6 +191,7 @@ pub async fn set_ap_to_segment<S: Storage + 'static>(
     Ok(())
 }
 
+#[allow(unused)]
 pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"
     current_segment_info = next(bytecode_segments)
 
@@ -213,14 +207,14 @@ pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"
     })"#
 };
 
-pub async fn iter_current_segment_info<S: Storage + 'static>(
+#[allow(unused)]
+pub async fn iter_current_segment_info(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let bytecode_segments: BytecodeSegment = exec_scopes.get(vars::scopes::BYTECODE_SEGMENTS)?;
     let bytecode_segment_structure: &mut BytecodeSegmentedNode =
         exec_scopes.get_mut_ref(vars::scopes::BYTECODE_SEGMENT_STRUCTURE)?;
 

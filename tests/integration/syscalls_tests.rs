@@ -9,10 +9,10 @@ use rstest::rstest;
 use starknet_api::felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
-use crate::common::{block_context, block_context_with_kzg};
 use crate::common::state::{initial_state_syscalls, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 use crate::common::utils::check_os_output_read_only_syscall;
+use crate::common::{block_context, block_context_with_kzg};
 
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
