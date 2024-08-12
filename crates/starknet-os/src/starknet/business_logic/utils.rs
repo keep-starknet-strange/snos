@@ -1,4 +1,3 @@
-use cairo_lang_starknet_classes::contract_class::ContractClass;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::hash::Hash;
@@ -43,6 +42,7 @@ where
 mod tests {
     use std::ops::Deref;
 
+    use cairo_lang_starknet_classes::contract_class::ContractClass;
     use rstest::{fixture, rstest};
 
     use super::*;

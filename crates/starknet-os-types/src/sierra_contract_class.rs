@@ -1,7 +1,6 @@
 use std::cell::OnceCell;
 use std::rc::Rc;
 
-use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::ser::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::serde_as;

@@ -1,4 +1,3 @@
-use cairo_lang_starknet_classes::contract_class::{ContractClass, ContractEntryPoints};
 use cairo_vm::Felt252;
 use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::{Deserialize, Serialize};

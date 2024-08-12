@@ -10,7 +10,7 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use crate::hints::vars;
-use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{BytecodeSegment, BytecodeSegmentStructureImpl, BytecodeSegmentedNode};
+use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{BytecodeSegment, BytecodeSegmentStructureImpl};
 
 pub const ASSIGN_BYTECODE_SEGMENTS: &str = indoc! {r#"
     bytecode_segments = iter(bytecode_segment_structure.segments)"#
@@ -120,7 +120,7 @@ mod tests {
 
     use super::*;
     use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
-        BytecodeLeaf, BytecodeSegmentStructureImpl,
+        BytecodeLeaf, BytecodeSegmentStructureImpl, BytecodeSegmentedNode,
     };
     use crate::starkware_utils::commitment_tree::base_types::Length;
 

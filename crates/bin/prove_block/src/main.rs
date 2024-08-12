@@ -6,7 +6,6 @@ use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use clap::Parser;
-use pathfinder_common::class_hash;
 use reexecute::reexecute_transactions_with_blockifier;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
@@ -36,7 +35,6 @@ use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree:
 use starknet_os::storage::storage::{Fact, FactFetchingContext};
 use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_os::{config, run_os};
-use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::hash::Hash;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
@@ -343,8 +341,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         ..default_general_config
     };
 
-    let previous_tree = &initial_state.contract_states;
-
     let mut contract_states = HashMap::new();
     let mut contract_storages = ContractStorageMap::new();
 
@@ -403,7 +399,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let class_hash = provider.get_class_hash_at(block_id, contract_address).await?;
             let previous_nonce = provider.get_nonce(previous_block_id, contract_address).await?;
 
-            let mut contract_state = ContractState {
+            let contract_state = ContractState {
                 contract_hash: class_hash.to_bytes_be().to_vec(),
                 storage_commitment_tree: PatriciaTree { root: Hash::empty(), height: Height(251) },
                 nonce: previous_nonce,
@@ -425,7 +421,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 starknet::core::types::ContractClass::Legacy(_) => unimplemented!("Fixme: Support legacy contract class"),
             };
 
-            let class_hash_felt = Felt252::from_bytes_be(&class_hash.to_bytes_be());
             accessed_class_hashes.insert(class_hash);
 
             let generic_cc = generic_sierra_cc.compile()?;
@@ -516,7 +511,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // TODO: ugly clone here
     // Convert the Blockifier storage into an OS-compatible one
-    let (mut contract_storage_map, previous_state, updated_state) =
+    let (contract_storage_map, previous_state, updated_state) =
         reexecute::build_starknet_storage_async(blockifier_state, initial_state.clone()).await.unwrap();
 
     /*
