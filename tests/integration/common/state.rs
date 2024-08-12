@@ -344,7 +344,7 @@ impl<'a> StarknetStateBuilder<'a> {
             let compiled_contract_class = contract.compiled_contract_class;
 
             let (contract_class_hash, compiled_class_hash) =
-                write_class_facts(contract_class.clone(), compiled_contract_class.clone(), ffc).await?;
+                write_class_facts(contract_class.clone().into(), compiled_contract_class.clone(), ffc).await?;
             let class_hash = ClassHash::try_from(contract_class_hash).expect("Class hash is not in prime field");
             let compiled_class_hash =
                 CompiledClassHash::try_from(compiled_class_hash).expect("Compiled class hash is not in prime field");
@@ -384,7 +384,7 @@ impl<'a> StarknetStateBuilder<'a> {
             let compiled_contract_class = contract_to_deploy.contract.compiled_contract_class;
 
             let (contract_class_hash, compiled_class_hash) =
-                write_class_facts(contract_class.clone(), compiled_contract_class.clone(), ffc).await?;
+                write_class_facts(contract_class.clone().into(), compiled_contract_class.clone(), ffc).await?;
             let class_hash = ClassHash::try_from(contract_class_hash).expect("Class hash is not in prime field");
             let compiled_class_hash =
                 CompiledClassHash::try_from(compiled_class_hash).expect("Compiled class hash is not in prime field");

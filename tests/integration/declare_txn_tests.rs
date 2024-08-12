@@ -47,7 +47,7 @@ async fn declare_v3_cairo1_account(
     // during block re-execution.
     let mut ffc = initial_state.clone_ffc::<PoseidonHash>();
     let (contract_class_hash, compiled_class_hash) =
-        write_class_facts(sierra_class.clone(), casm_class.clone(), &mut ffc).await.unwrap();
+        write_class_facts(sierra_class.clone().into(), casm_class.clone(), &mut ffc).await.unwrap();
 
     let sender_address = account_contract.address;
 
@@ -106,7 +106,7 @@ async fn declare_cairo1_account(
     // during block re-execution.
     let mut ffc = initial_state.clone_ffc::<PoseidonHash>();
     let (contract_class_hash, compiled_class_hash) =
-        write_class_facts(sierra_class.clone(), casm_class.clone(), &mut ffc).await.unwrap();
+        write_class_facts(sierra_class.clone().into(), casm_class.clone(), &mut ffc).await.unwrap();
 
     let sender_address = account_contract.address;
 
