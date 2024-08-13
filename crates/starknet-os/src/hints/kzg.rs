@@ -1,9 +1,6 @@
-use std::any::Any;
 use std::collections::HashMap;
 
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
-};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::errors::math_errors::MathError;
@@ -18,7 +15,6 @@ use num_traits::{Num, One, Zero};
 
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::hints::vars;
-use crate::starknet::core::os::contract_class::compiled_class_hash_objects::BytecodeSegmentedNode;
 use crate::storage::storage::Storage;
 use crate::utils::execute_coroutine;
 
@@ -103,15 +99,14 @@ pub fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> (
     // Perform FFT on the polynomial coefficients
     let fft_values = fft(coefficients, generator, prime.clone(), true);
 
-    // Combine the FFT result to get the commitment (example combining method, replace with your
-    // specific method)
+    // Combine the FFT result to get the commitment (example combining method, replace with the specific implementation
     let commitment_value = fft_values.iter().fold(BigInt::zero(), |acc, x| (acc + x) % &prime);
 
     // Split the commitment value into two parts
     split_commitment(commitment_value)
 }
 
-pub const WRITE_ZKG_COMMITMENT_ADDRESS: &str = indoc! {r#"
+pub const WRITE_KZG_COMMITMENT_ADDRESS: &str = indoc! {r#"
     execution_helper.store_da_segment(
         da_segment=memory.get_range_as_ints(addr=ids.state_updates_start, size=ids.da_size)
     )
@@ -123,7 +118,7 @@ pub const WRITE_ZKG_COMMITMENT_ADDRESS: &str = indoc! {r#"
     )"#
 };
 
-pub async fn write_zkg_commitment_address_async<S: Storage + 'static>(
+async fn write_kzg_commitment_address_async<S: Storage + 'static>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -159,7 +154,7 @@ pub async fn write_zkg_commitment_address_async<S: Storage + 'static>(
     Ok(())
 }
 
-pub fn write_zkg_commitment_address<S>(
+pub fn write_kzg_commitment_address<S>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -169,66 +164,5 @@ pub fn write_zkg_commitment_address<S>(
 where
     S: Storage + 'static,
 {
-    execute_coroutine(write_zkg_commitment_address_async::<S>(vm, exec_scopes, ids_data, ap_tracking, _constants))?
-}
-
-#[allow(unused)]
-pub const SET_AP_TO_SEGMENT_HASH: &str = indoc! {r#"
-    memory[ap] = to_felt_or_relocatable(bytecode_segment_structure.hash())"#
-};
-#[allow(unused)]
-pub async fn set_ap_to_segment(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let bytecode_segment_structure: BytecodeSegmentedNode =
-        exec_scopes.get(vars::scopes::BYTECODE_SEGMENT_STRUCTURE)?;
-
-    // insert_value_into_ap(vm, Felt252::from(bytecode_segment_structure.hash()))?;
-    Ok(())
-}
-
-#[allow(unused)]
-pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"
-    current_segment_info = next(bytecode_segments)
-
-    is_used = current_segment_info.is_used
-    ids.is_segment_used = 1 if is_used else 0
-
-    is_used_leaf = is_used and isinstance(current_segment_info.inner_structure, BytecodeLeaf)
-    ids.is_used_leaf = 1 if is_used_leaf else 0
-
-    ids.segment_length = current_segment_info.segment_length
-    vm_enter_scope(new_scope_locals={
-        "bytecode_segment_structure": current_segment_info.inner_structure,
-    })"#
-};
-
-#[allow(unused)]
-pub async fn iter_current_segment_info(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let bytecode_segment_structure: &mut BytecodeSegmentedNode =
-        exec_scopes.get_mut_ref(vars::scopes::BYTECODE_SEGMENT_STRUCTURE)?;
-
-    let current_segment_info = bytecode_segment_structure.segments.iter_mut().next().unwrap();
-
-    let is_used_leaf = Felt252::from(current_segment_info.is_used);
-
-    insert_value_from_var_name("is_used_leaf", is_used_leaf, vm, ids_data, ap_tracking)?;
-
-    let len: usize = current_segment_info.segment_length.0.try_into().unwrap();
-
-    insert_value_from_var_name("segment_length", len, vm, ids_data, ap_tracking)?;
-    let inner_structure: Box<dyn Any> = Box::new(current_segment_info.inner_structure.clone());
-    exec_scopes.enter_scope(HashMap::from([(String::from("bytecode_segment_structure"), inner_structure)]));
-
-    Ok(())
+    execute_coroutine(write_kzg_commitment_address_async::<S>(vm, exec_scopes, ids_data, ap_tracking, _constants))?
 }
