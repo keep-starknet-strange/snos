@@ -18,7 +18,7 @@ use starknet_os::io::InternalTransaction;
 use starknet_os::starknet::business_logic::fact_state::contract_class_objects::ContractClassLeaf;
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
-use starknet_os::starknet::starknet_storage::CommitmentInfo;
+use starknet_os::starknet::starknet_storage::{CommitmentInfo, OsSingleStarknetStorage};
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use starknet_os::storage::storage::Storage;
 use starknet_os::storage::storage_utils::build_starknet_storage_async;
@@ -35,7 +35,7 @@ pub async fn os_hints<S>(
     tx_execution_infos: Vec<TransactionExecutionInfo>,
     deprecated_compiled_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     compiled_classes: HashMap<ClassHash, GenericCasmContractClass>,
-) -> (StarknetOsInput, ExecutionHelperWrapper<S>)
+) -> (StarknetOsInput, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
 where
     S: Storage,
 {

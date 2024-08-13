@@ -14,7 +14,7 @@ use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::types::{PatriciaSkipValidationRunner, PatriciaTreeMode};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
-use crate::storage::storage::Storage;
+use crate::starknet::starknet_storage::PerContractStorage;
 
 mod cairo_types;
 pub mod config;
@@ -29,15 +29,15 @@ pub mod starkware_utils;
 pub mod storage;
 pub mod utils;
 
-pub fn run_os<S>(
+pub fn run_os<PCS>(
     compiled_os: &[u8],
     layout: LayoutName,
     os_input: StarknetOsInput,
     block_context: BlockContext,
-    execution_helper: ExecutionHelperWrapper<S>,
+    execution_helper: ExecutionHelperWrapper<PCS>,
 ) -> Result<(CairoPie, StarknetOsOutput), SnOsError>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
     // Init CairoRunConfig
     let cairo_run_config = CairoRunConfig { layout, relocate_mem: true, trace_enabled: true, ..Default::default() };
@@ -80,7 +80,7 @@ where
     cairo_runner.exec_scopes.insert_value(vars::scopes::PATRICIA_TREE_MODE, PatriciaTreeMode::State);
 
     // Run the Cairo VM
-    let mut sn_hint_processor = hints::SnosHintProcessor::<S>::default();
+    let mut sn_hint_processor = hints::SnosHintProcessor::<PCS>::default();
     cairo_runner
         .run_until_pc(end, &mut sn_hint_processor)
         .map_err(|err| VmException::from_vm_error(&cairo_runner, err))

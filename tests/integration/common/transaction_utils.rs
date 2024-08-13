@@ -35,6 +35,7 @@ use starknet_os::io::output::StarknetOsOutput;
 use starknet_os::io::InternalTransaction;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::core::os::transaction_hash::{L1_GAS, L2_GAS};
+use starknet_os::starknet::starknet_storage::OsSingleStarknetStorage;
 use starknet_os::storage::storage::Storage;
 use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
@@ -776,7 +777,7 @@ async fn execute_txs<S>(
     txs: Vec<Transaction>,
     deprecated_contract_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, GenericCasmContractClass>,
-) -> (StarknetOsInput, ExecutionHelperWrapper<S>)
+) -> (StarknetOsInput, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
 where
     S: Storage,
 {

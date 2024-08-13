@@ -174,6 +174,13 @@ impl CommitmentInfo {
     }
 }
 
+#[allow(async_fn_in_trait)]
+pub trait PerContractStorage {
+    async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError>;
+    async fn read(&mut self, key: TreeIndex) -> Option<Felt252>;
+    fn write(&mut self, key: TreeIndex, value: Felt252);
+}
+
 #[derive(Clone, Debug)]
 pub struct OsSingleStarknetStorage<S, H>
 where
@@ -209,9 +216,23 @@ where
         Ok(Self { previous_tree, expected_updated_root, ongoing_storage_changes: initial_entries, ffc })
     }
 
+    async fn fetch_storage_leaf(&mut self, key: TreeIndex) -> StorageLeaf {
+        let leaf = self.previous_tree.get_leaf(&mut self.ffc, key.clone()).await;
+        // TODO: resolve this double expect() somehow
+        leaf.expect("Failed to retrieve leaf from storage").unwrap_or_else(|| {
+            panic!("Could not find leaf {}", key);
+        })
+    }
+}
+
+impl<S, H> PerContractStorage for OsSingleStarknetStorage<S, H>
+where
+    S: Storage + 'static,
+    H: HashFunctionType + Sync + Send + 'static,
+{
     /// Computes the commitment info based on the ongoing storage changes which is maintained
     /// during the transaction execution phase; should be called after the execution phase.
-    pub async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
+    async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
         let final_modifications: Vec<_> = self
             .ongoing_storage_changes
             .clone()
@@ -231,35 +252,21 @@ where
         )
         .await
     }
-}
 
-impl<S, H> OsSingleStarknetStorage<S, H>
-where
-    S: Storage + 'static,
-    H: HashFunctionType + Sync + Send + 'static,
-{
-    pub async fn read(&mut self, key: Felt252) -> Option<Felt252> {
-        let mut value = self.ongoing_storage_changes.get(&key.to_biguint()).cloned();
+    async fn read(&mut self, key: TreeIndex) -> Option<Felt252> {
+        let mut value = self.ongoing_storage_changes.get(&key).cloned();
 
         if value.is_none() {
-            let leaf = self.fetch_storage_leaf(key).await;
+            let leaf = self.fetch_storage_leaf(key.clone()).await;
             let value_from_storage = leaf.value;
-            self.ongoing_storage_changes.insert(key.to_biguint(), value_from_storage);
+            self.ongoing_storage_changes.insert(key, value_from_storage);
             value = Some(value_from_storage);
         }
 
         value
     }
 
-    pub fn write(&mut self, key: TreeIndex, value: Felt252) {
+    fn write(&mut self, key: TreeIndex, value: Felt252) {
         self.ongoing_storage_changes.insert(key, value);
-    }
-
-    async fn fetch_storage_leaf(&mut self, key: Felt252) -> StorageLeaf {
-        let leaf = self.previous_tree.get_leaf(&mut self.ffc, key.to_biguint()).await;
-        // TODO: resolve this double expect() somehow
-        leaf.expect("Failed to retrieve leaf from storage").unwrap_or_else(|| {
-            panic!("Could not find leaf {}", key.to_biguint());
-        })
     }
 }

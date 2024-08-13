@@ -14,16 +14,16 @@ use crate::cairo_types::syscalls::{
     GetSequencerAddressResponse, GetTxInfo, GetTxInfoResponse, GetTxSignature, GetTxSignatureResponse, LibraryCall,
     TxInfo,
 };
-use crate::storage::storage::Storage;
+use crate::starknet::starknet_storage::PerContractStorage;
 use crate::utils::felt_api2vm;
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
-pub struct DeprecatedOsSyscallHandler<S>
+pub struct DeprecatedOsSyscallHandler<PCS>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
-    pub exec_wrapper: ExecutionHelperWrapper<S>,
+    pub exec_wrapper: ExecutionHelperWrapper<PCS>,
     pub syscall_ptr: Relocatable,
     block_info: BlockInfo,
 }
@@ -31,28 +31,28 @@ where
 /// DeprecatedOsSyscallHandler is wrapped in Rc<RefCell<_>> in order
 /// to clone the reference when entering and exiting vm scopes
 #[derive(Debug)]
-pub struct DeprecatedOsSyscallHandlerWrapper<S: Storage>
+pub struct DeprecatedOsSyscallHandlerWrapper<PCS: PerContractStorage>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
-    pub deprecated_syscall_handler: Rc<RwLock<DeprecatedOsSyscallHandler<S>>>,
+    pub deprecated_syscall_handler: Rc<RwLock<DeprecatedOsSyscallHandler<PCS>>>,
 }
 
-impl<S> Clone for DeprecatedOsSyscallHandlerWrapper<S>
+impl<PCS> Clone for DeprecatedOsSyscallHandlerWrapper<PCS>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
     fn clone(&self) -> Self {
         Self { deprecated_syscall_handler: self.deprecated_syscall_handler.clone() }
     }
 }
 
-impl<S> DeprecatedOsSyscallHandlerWrapper<S>
+impl<PCS> DeprecatedOsSyscallHandlerWrapper<PCS>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
     // TODO(#69): implement the syscalls
-    pub fn new(exec_wrapper: ExecutionHelperWrapper<S>, syscall_ptr: Relocatable, block_info: BlockInfo) -> Self {
+    pub fn new(exec_wrapper: ExecutionHelperWrapper<PCS>, syscall_ptr: Relocatable, block_info: BlockInfo) -> Self {
         Self {
             deprecated_syscall_handler: Rc::new(RwLock::new(DeprecatedOsSyscallHandler {
                 exec_wrapper,
@@ -318,9 +318,11 @@ mod test {
     use starknet_api::{contract_address, patricia_key};
 
     use crate::config::STORED_BLOCK_HASH_BUFFER;
+    use crate::crypto::pedersen::PedersenHash;
     use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
     use crate::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
     use crate::hints::vars;
+    use crate::starknet::starknet_storage::OsSingleStarknetStorage;
     use crate::storage::dict_storage::DictStorage;
 
     #[fixture]
@@ -367,7 +369,7 @@ mod test {
         let mut exec_scopes = ExecutionScopes::new();
 
         let execution_infos = Default::default();
-        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
+        let exec_helper = ExecutionHelperWrapper::<OsSingleStarknetStorage<DictStorage, PedersenHash>>::new(
             ContractStorageMap::default(),
             execution_infos,
             &block_context,

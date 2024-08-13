@@ -12,7 +12,7 @@ use indoc::indoc;
 use crate::cairo_types::structs::ExecutionContext;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::hints::vars;
-use crate::storage::storage::Storage;
+use crate::starknet::starknet_storage::PerContractStorage;
 use crate::utils::execute_coroutine;
 
 pub const START_TX_VALIDATE_DECLARE_EXECUTION_CONTEXT: &str = indoc! {r#"
@@ -20,16 +20,16 @@ pub const START_TX_VALIDATE_DECLARE_EXECUTION_CONTEXT: &str = indoc! {r#"
         tx_info_ptr=ids.validate_declare_execution_context.deprecated_tx_info.address_
     )"#
 };
-pub async fn start_tx_validate_declare_execution_context_async<S>(
+pub async fn start_tx_validate_declare_execution_context_async<PCS>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
-    let execution_helper: ExecutionHelperWrapper<S> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let execution_helper: ExecutionHelperWrapper<PCS> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
     let execution_context_ptr =
         get_relocatable_from_var_name(vars::ids::VALIDATE_DECLARE_EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
     let deprecated_tx_info_ptr = (execution_context_ptr + ExecutionContext::deprecated_tx_info_offset())?;
@@ -39,7 +39,7 @@ where
     Ok(())
 }
 
-pub fn start_tx_validate_declare_execution_context<S>(
+pub fn start_tx_validate_declare_execution_context<PCS>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -47,7 +47,7 @@ pub fn start_tx_validate_declare_execution_context<S>(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(start_tx_validate_declare_execution_context_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(start_tx_validate_declare_execution_context_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
 }

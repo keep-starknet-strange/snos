@@ -542,7 +542,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         transactions,
         block_hash: block_with_txs.block_hash,
     };
-    let execution_helper = ExecutionHelperWrapper::<CachedRpcStorage>::new(
+    let execution_helper = ExecutionHelperWrapper::<OsSingleStarknetStorage<CachedRpcStorage, PedersenHash>>::new(
         contract_storages,
         tx_execution_infos,
         &block_context,
