@@ -11,7 +11,7 @@ use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
 use rpc_utils::{get_class_proofs, get_storage_proofs, RpcStorage, TrieNode};
-use starknet::core::types::{BlockId, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
+use starknet::core::types::{BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingBlockWithTxs, MaybePendingStateUpdate, TransactionTrace};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
@@ -199,16 +199,50 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
+    // utility to extract all contract address in a nested call structure
+    fn process_function_invocations(inv: FunctionInvocation, contracts: &mut HashSet<Felt252>, nesting_level: u64) {
+        log::info!("process_function_inv: contract: {:x} at level {}", inv.contract_address, nesting_level);
+        contracts.insert(inv.contract_address);
+        for call in inv.calls {
+            process_function_invocations(call, contracts, nesting_level + 1);
+        }
+    }
+    // extract other contracts used in our block from the block trace
+    let mut contracts_subcalled = HashSet::new();
+    let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
+    for trace in traces {
+        match trace.trace_root {
+            TransactionTrace::Invoke(invoke_trace) => {
+                if let Some(inv) = invoke_trace.validate_invocation {
+                    process_function_invocations(inv, &mut contracts_subcalled, 0);
+                }
+                match invoke_trace.execute_invocation {
+                    ExecuteInvocation::Success(inv) => {
+                        process_function_invocations(inv, &mut contracts_subcalled, 0);
+                    },
+                    ExecuteInvocation::Reverted(_) => unimplemented!("handle reverted invoke trace"),
+                }
+                if let Some(inv) = invoke_trace.fee_transfer_invocation {
+                    process_function_invocations(inv, &mut contracts_subcalled, 0);
+                }
+            },
+            _ => unimplemented!("process other txn traces"),
+        }
+    }
+    log::info!("Contract subcalls:");
+    for addr in &contracts_subcalled {
+        log::info!("    {:x}", addr);
+    }
+
     let previous_storage_proofs =
-        get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number - 1, &state_update)
+        get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number - 1, &state_update, &contracts_subcalled)
             .await
             .expect("Failed to fetch storage proofs");
 
-    let storage_proofs = get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &state_update)
+    let storage_proofs = get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &state_update, &contracts_subcalled)
         .await
         .expect("Failed to fetch storage proofs");
 
-    let _traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
 
     let block_context = build_block_context(chain_id.clone(), &block_with_txs);
 
@@ -233,6 +267,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .iter()
         .map(|contract| (contract.address, contract.class_hash))
         .collect();
+    for address in &contracts_subcalled {
+        let class_hash = provider.get_class_hash_at(BlockId::Number(block_number), address).await.unwrap();
+        address_to_class_hash.insert(*address, class_hash);
+    }
 
     let address_to_nonce = state_update
         .state_diff
@@ -356,7 +394,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let updated_tree = PatriciaTree { root: storage_proof.state_commitment.into(), height: Height(251) };
 
         let contract_storage = ProverPerContractStorage::new(
-            block_id,
+            previous_block_id,
             contract_address,
             provider_url.clone(),
         );

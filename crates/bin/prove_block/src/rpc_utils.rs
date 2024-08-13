@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 
 use cairo_vm::Felt252;
@@ -113,11 +113,16 @@ pub(crate) async fn get_storage_proofs(
     rpc_provider: &str,
     block_number: u64,
     state_update: &StateUpdate,
+    extra_contracts: &HashSet<Felt252>,
 ) -> Result<HashMap<Felt, PathfinderProof>, reqwest::Error> {
     let mut storage_changes_by_contract: HashMap<Felt, Vec<StorageEntry>> = HashMap::new();
 
     for diff_item in &state_update.state_diff.storage_diffs {
         storage_changes_by_contract.entry(diff_item.address).or_default().extend_from_slice(&diff_item.storage_entries);
+    }
+
+    for extra_contract in extra_contracts {
+        storage_changes_by_contract.entry(*extra_contract).or_default().extend_from_slice(&[]);
     }
 
     // Also request entries for read-only contracts so that we can build `ContractState` objects

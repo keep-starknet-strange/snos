@@ -143,13 +143,21 @@ impl ProverPerContractStorage {
 impl PerContractStorage for ProverPerContractStorage {
     async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
         // TODO: take inspiration from OsSingleStarknetStorage
-        unimplemented!()
+        Ok(Default::default())
     }
 
     async fn read(&mut self, key: TreeIndex) -> Option<Felt252> {
+        log::debug!("PCS reading from {:x} / {:x}", self.contract_address, key);
+
+        if let Some(value) = self.ongoing_storage_changes.get(&key) {
+            log::debug!("    got changed value {:x}", value);
+            return Some(*value)
+        }
+
         let key = Felt252::from(key);
         // TODO: this should be fallible
         let value = self.provider.get_storage_at(self.contract_address, key, self.block_id).await.unwrap();
+        log::debug!("    got unchanged value from RPC: {:x}", value);
         Some(value)
     }
 
