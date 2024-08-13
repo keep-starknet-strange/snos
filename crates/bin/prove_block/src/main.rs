@@ -6,7 +6,7 @@ use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use clap::Parser;
-use reexecute::reexecute_transactions_with_blockifier;
+use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage};
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
@@ -355,8 +355,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let previous_tree = PatriciaTree { root: previous_storage_proof.state_commitment.into(), height: Height(251) };
         let updated_tree = PatriciaTree { root: storage_proof.state_commitment.into(), height: Height(251) };
 
-        let os_storage = OsSingleStarknetStorage::new(previous_tree.clone(), updated_tree, &[], ffc.clone()).await?;
-        contract_storages.insert(contract_address, os_storage);
+        let contract_storage = ProverPerContractStorage::new(
+            block_id,
+            contract_address,
+            provider_url.clone(),
+        );
+        contract_storages.insert(contract_address, contract_storage);
 
         log::debug!("contract address: {}", contract_address.to_hex_string());
         let (class_hash, previous_nonce) = if [Felt252::ZERO, Felt252::ONE].contains(&contract_address) {
@@ -537,7 +541,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         transactions,
         block_hash: block_with_txs.block_hash,
     };
-    let execution_helper = ExecutionHelperWrapper::<OsSingleStarknetStorage<CachedRpcStorage, PedersenHash>>::new(
+    let execution_helper = ExecutionHelperWrapper::<ProverPerContractStorage>::new(
         contract_storages,
         tx_execution_infos,
         &block_context,

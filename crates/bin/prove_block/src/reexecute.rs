@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 
 use blockifier::context::BlockContext;
@@ -7,10 +8,15 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
+use reqwest::Url;
+use starknet::core::types::BlockId;
+use starknet::providers::jsonrpc::HttpTransport;
+use starknet::providers::{JsonRpcClient, Provider as _};
 use starknet_os::execution::helper::ContractStorageMap;
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
-use starknet_os::starknet::starknet_storage::OsSingleStarknetStorage;
+use starknet_os::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage, PerContractStorage};
+use starknet_os::starkware_utils::commitment_tree::base_types::TreeIndex;
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree as _;
 use starknet_os::starkware_utils::commitment_tree::errors::TreeError;
 use starknet_os::storage::storage::{HashFunctionType, Storage};
@@ -74,7 +80,9 @@ pub async fn build_starknet_storage_async<
 >(
     blockifier_state: CachedState<SR>,
     shared_state: SharedState<S, H>,
-) -> Result<(ContractStorageMap<S, H>, SharedState<S, H>, SharedState<S, H>), TreeError> {
+    block_id: BlockId,
+    provider: JsonRpcClient<HttpTransport>,
+) -> Result<(ContractStorageMap<ProverPerContractStorage>, SharedState<S, H>, SharedState<S, H>), TreeError> {
     let mut storage_by_address = ContractStorageMap::new();
 
     // TODO: would be cleaner if `get_leaf()` took &ffc instead of &mut ffc
@@ -97,10 +105,55 @@ pub async fn build_starknet_storage_async<
         let initial_tree = initial_contract_state.storage_commitment_tree;
         let updated_tree = final_contract_state.storage_commitment_tree;
 
+        /*
         let contract_storage =
             OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], final_state.ffc.clone()).await.unwrap();
         storage_by_address.insert(Felt252::from(contract_address), contract_storage);
+        */
+
+        panic!("Fix me or remove");
+
     }
 
     Ok((storage_by_address, initial_state, final_state))
+}
+
+pub(crate) struct ProverPerContractStorage {
+    pub provider: JsonRpcClient<HttpTransport>,
+    pub block_id: BlockId,
+    pub contract_address: Felt252,
+    ongoing_storage_changes: HashMap<TreeIndex, Felt252>,
+}
+
+impl ProverPerContractStorage {
+    pub fn new(block_id: BlockId, contract_address: Felt252, provider_url: String) -> Self {
+        let provider = JsonRpcClient::new(HttpTransport::new(
+            Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
+        ));
+
+        Self {
+            provider,
+            block_id,
+            contract_address,
+            ongoing_storage_changes: HashMap::new(),
+        }
+    }
+}
+
+impl PerContractStorage for ProverPerContractStorage {
+    async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
+        // TODO: take inspiration from OsSingleStarknetStorage
+        unimplemented!()
+    }
+
+    async fn read(&mut self, key: TreeIndex) -> Option<Felt252> {
+        let key = Felt252::from(key);
+        // TODO: this should be fallible
+        let value = self.provider.get_storage_at(self.contract_address, key, self.block_id).await.unwrap();
+        Some(value)
+    }
+
+    fn write(&mut self, key: TreeIndex, value: Felt252) {
+        self.ongoing_storage_changes.insert(key, value);
+    }
 }

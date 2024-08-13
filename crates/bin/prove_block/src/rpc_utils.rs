@@ -129,7 +129,14 @@ pub(crate) async fn get_storage_proofs(
         }
     }
 
+    // missing 764259049439565269590387705502051444787910047543242149334355727309682685773
+
     let mut storage_proofs = HashMap::new();
+
+    log::info!("Contracts we're fetching proofs for:");
+    for (contract_address, _storage_changes) in &storage_changes_by_contract {
+        log::info!("    {:x}", contract_address);
+    }
 
     for (contract_address, storage_changes) in storage_changes_by_contract {
         let keys: Vec<_> = storage_changes.iter().map(|change| change.key).collect();
