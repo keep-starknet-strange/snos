@@ -83,7 +83,7 @@ pub async fn unpack_blockifier_state_async<S: Storage + Send + Sync, H: HashFunc
 /// is obtained by extracting the state diff from the `CachedState` part.
 pub async fn build_starknet_storage_async<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync>(
     blockifier_state: CachedState<SharedState<S, H>>,
-) -> Result<(ContractStorageMap<S, H>, SharedState<S, H>, SharedState<S, H>), TreeError> {
+) -> Result<(ContractStorageMap<OsSingleStarknetStorage<S, H>>, SharedState<S, H>, SharedState<S, H>), TreeError> {
     let mut storage_by_address = ContractStorageMap::new();
 
     // TODO: would be cleaner if `get_leaf()` took &ffc instead of &mut ffc

@@ -14,18 +14,17 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use tokio::sync::RwLock;
 
 use crate::config::STORED_BLOCK_HASH_BUFFER;
-use crate::crypto::pedersen::PedersenHash;
-use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage};
-use crate::storage::storage::{Storage, StorageError};
+use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
+use crate::storage::storage::StorageError;
 
 // TODO: make the execution helper generic over the storage and hash function types.
-pub type ContractStorageMap<S, H> = HashMap<Felt252, OsSingleStarknetStorage<S, H>>;
+pub type ContractStorageMap<PCS> = HashMap<Felt252, PCS>;
 
 /// Maintains the info for executing txns in the OS
 #[derive(Debug)]
-pub struct ExecutionHelper<S>
+pub struct ExecutionHelper<PCS>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
     pub _prev_block_context: Option<BlockContext>,
     // Pointer tx execution info
@@ -53,31 +52,31 @@ where
     // Iter to the read_values array consumed when tx code is executed
     pub execute_code_read_iter: IntoIter<Felt252>,
     // Per-contract storage
-    pub storage_by_address: ContractStorageMap<S, PedersenHash>,
+    pub storage_by_address: ContractStorageMap<PCS>,
 }
 
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
 /// to clone the refrence when entering and exiting vm scopes
 #[derive(Debug)]
-pub struct ExecutionHelperWrapper<S: Storage> {
-    pub execution_helper: Rc<RwLock<ExecutionHelper<S>>>,
+pub struct ExecutionHelperWrapper<PCS: PerContractStorage> {
+    pub execution_helper: Rc<RwLock<ExecutionHelper<PCS>>>,
 }
 
-impl<S> Clone for ExecutionHelperWrapper<S>
+impl<PCS> Clone for ExecutionHelperWrapper<PCS>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
     fn clone(&self) -> Self {
         Self { execution_helper: self.execution_helper.clone() }
     }
 }
 
-impl<S> ExecutionHelperWrapper<S>
+impl<PCS> ExecutionHelperWrapper<PCS>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
     pub fn new(
-        contract_storage_map: ContractStorageMap<S, PedersenHash>,
+        contract_storage_map: ContractStorageMap<PCS>,
         tx_execution_infos: Vec<TransactionExecutionInfo>,
         block_context: &BlockContext,
         old_block_number_and_hash: (Felt252, Felt252),
@@ -197,7 +196,7 @@ where
         let mut eh_ref = self.execution_helper.write().await;
         let storage_by_address = &mut eh_ref.storage_by_address;
         if let Some(storage) = storage_by_address.get_mut(&address) {
-            return storage.read(key).await.ok_or(StorageError::ContentNotFound);
+            return storage.read(key.to_biguint()).await.ok_or(StorageError::ContentNotFound);
         }
 
         Err(StorageError::ContentNotFound)
@@ -234,9 +233,9 @@ where
     }
 }
 
-fn assert_iterators_exhausted<S>(eh_ref: &ExecutionHelper<S>)
+fn assert_iterators_exhausted<PCS>(eh_ref: &ExecutionHelper<PCS>)
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
     assert!(eh_ref.deployed_contracts_iter.clone().peekable().peek().is_none());
     assert!(eh_ref.result_iter.clone().peekable().peek().is_none());

@@ -21,16 +21,16 @@ use crate::execution::syscall_handler_utils::{
     felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest, EmptyResponse,
     ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult, SyscallSelector, WriteResponseResult,
 };
-use crate::storage::storage::Storage;
+use crate::starknet::starknet_storage::PerContractStorage;
 use crate::utils::felt_api2vm;
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
-pub struct OsSyscallHandler<S: Storage>
+pub struct OsSyscallHandler<PCS: PerContractStorage>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
-    pub exec_wrapper: ExecutionHelperWrapper<S>,
+    pub exec_wrapper: ExecutionHelperWrapper<PCS>,
     pub syscall_ptr: Option<Relocatable>,
     pub segments: ReadOnlySegments,
 }
@@ -38,27 +38,27 @@ where
 /// OsSyscallHandler is wrapped in Rc<RefCell<_>> in order
 /// to clone the reference when entering and exiting vm scopes
 #[derive(Debug)]
-pub struct OsSyscallHandlerWrapper<S>
+pub struct OsSyscallHandlerWrapper<PCS>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
-    pub syscall_handler: Rc<RwLock<OsSyscallHandler<S>>>,
+    pub syscall_handler: Rc<RwLock<OsSyscallHandler<PCS>>>,
 }
 
-impl<S> Clone for OsSyscallHandlerWrapper<S>
+impl<PCS> Clone for OsSyscallHandlerWrapper<PCS>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
     fn clone(&self) -> Self {
         Self { syscall_handler: self.syscall_handler.clone() }
     }
 }
 
-impl<S> OsSyscallHandlerWrapper<S>
+impl<PCS> OsSyscallHandlerWrapper<PCS>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
-    pub fn new(exec_wrapper: ExecutionHelperWrapper<S>) -> Self {
+    pub fn new(exec_wrapper: ExecutionHelperWrapper<PCS>) -> Self {
         Self {
             syscall_handler: Rc::new(RwLock::new(OsSyscallHandler {
                 exec_wrapper,
@@ -97,35 +97,35 @@ where
 
         match selector {
             SyscallSelector::CallContract => {
-                run_handler::<CallContractHandler, S>(ptr, vm, ehw, CALL_CONTRACT_GAS_COST).await
+                run_handler::<CallContractHandler, PCS>(ptr, vm, ehw, CALL_CONTRACT_GAS_COST).await
             }
-            SyscallSelector::Deploy => run_handler::<DeployHandler, S>(ptr, vm, ehw, DEPLOY_GAS_COST).await,
-            SyscallSelector::EmitEvent => run_handler::<EmitEventHandler, S>(ptr, vm, ehw, EMIT_EVENT_GAS_COST).await,
+            SyscallSelector::Deploy => run_handler::<DeployHandler, PCS>(ptr, vm, ehw, DEPLOY_GAS_COST).await,
+            SyscallSelector::EmitEvent => run_handler::<EmitEventHandler, PCS>(ptr, vm, ehw, EMIT_EVENT_GAS_COST).await,
             SyscallSelector::GetBlockHash => {
-                run_handler::<GetBlockHashHandler, S>(ptr, vm, ehw, GET_BLOCK_HASH_GAS_COST).await
+                run_handler::<GetBlockHashHandler, PCS>(ptr, vm, ehw, GET_BLOCK_HASH_GAS_COST).await
             }
             SyscallSelector::LibraryCall => {
-                run_handler::<LibraryCallHandler, S>(ptr, vm, ehw, LIBRARY_CALL_GAS_COST).await
+                run_handler::<LibraryCallHandler, PCS>(ptr, vm, ehw, LIBRARY_CALL_GAS_COST).await
             }
             SyscallSelector::GetExecutionInfo => {
-                run_handler::<GetExecutionInfoHandler, S>(ptr, vm, ehw, GET_EXECUTION_INFO_GAS_COST).await
+                run_handler::<GetExecutionInfoHandler, PCS>(ptr, vm, ehw, GET_EXECUTION_INFO_GAS_COST).await
             }
             SyscallSelector::StorageRead => {
-                run_handler::<StorageReadHandler, S>(ptr, vm, ehw, STORAGE_READ_GAS_COST).await
+                run_handler::<StorageReadHandler, PCS>(ptr, vm, ehw, STORAGE_READ_GAS_COST).await
             }
             SyscallSelector::StorageWrite => {
-                run_handler::<StorageWriteHandler, S>(ptr, vm, ehw, STORAGE_WRITE_GAS_COST).await
+                run_handler::<StorageWriteHandler, PCS>(ptr, vm, ehw, STORAGE_WRITE_GAS_COST).await
             }
             SyscallSelector::SendMessageToL1 => {
-                run_handler::<SendMessageToL1Handler, S>(ptr, vm, ehw, SEND_MESSAGE_TO_L1_GAS_COST).await
+                run_handler::<SendMessageToL1Handler, PCS>(ptr, vm, ehw, SEND_MESSAGE_TO_L1_GAS_COST).await
             }
             SyscallSelector::ReplaceClass => {
-                run_handler::<ReplaceClassHandler, S>(ptr, vm, ehw, REPLACE_CLASS_GAS_COST).await
+                run_handler::<ReplaceClassHandler, PCS>(ptr, vm, ehw, REPLACE_CLASS_GAS_COST).await
             }
             SyscallSelector::LibraryCallL1Handler => {
-                run_handler::<LibraryCallHandler, S>(ptr, vm, ehw, LIBRARY_CALL_GAS_COST).await
+                run_handler::<LibraryCallHandler, PCS>(ptr, vm, ehw, LIBRARY_CALL_GAS_COST).await
             }
-            SyscallSelector::Keccak => run_handler::<KeccakHandler, S>(ptr, vm, ehw, KECCAK_GAS_COST).await,
+            SyscallSelector::Keccak => run_handler::<KeccakHandler, PCS>(ptr, vm, ehw, KECCAK_GAS_COST).await,
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {:?}", selector).into())),
         }?;
 
@@ -145,14 +145,14 @@ impl SyscallHandler for CallContractHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute<PCS>(
         _request: EmptyRequest,
         vm: &mut VirtualMachine,
-        exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         remaining_gas: &mut u64,
     ) -> SyscallResult<ReadOnlySegment>
     where
-        S: Storage + 'static,
+        PCS: PerContractStorage + 'static,
     {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let result_iter = &mut eh_ref.result_iter;
@@ -198,14 +198,14 @@ impl SyscallHandler for DeployHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute<PCS>(
         _request: Self::Request,
         vm: &mut VirtualMachine,
-        exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
     where
-        S: Storage + 'static,
+        PCS: PerContractStorage + 'static,
     {
         let mut execution_helper = exec_wrapper.execution_helper.write().await;
 
@@ -252,14 +252,14 @@ impl SyscallHandler for EmitEventHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute<PCS>(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
-        _exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        _exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
     where
-        S: Storage + 'static,
+        PCS: PerContractStorage + 'static,
     {
         Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
     }
@@ -292,10 +292,10 @@ impl SyscallHandler for GetBlockHashHandler {
         Ok(GetBlockHashRequest { block_number })
     }
 
-    async fn execute<S: Storage + 'static>(
+    async fn execute<PCS: PerContractStorage + 'static>(
         request: GetBlockHashRequest,
         _vm: &mut VirtualMachine,
-        exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response> {
         // # The syscall handler should not directly read from the storage during the execution of
@@ -329,14 +329,14 @@ impl SyscallHandler for GetExecutionInfoHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute<PCS>(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
-        exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
     where
-        S: Storage + 'static,
+        PCS: PerContractStorage + 'static,
     {
         let eh_ref = exec_wrapper.execution_helper.read().await;
         let execution_info_ptr = eh_ref.call_execution_info_ptr.unwrap();
@@ -360,14 +360,14 @@ impl SyscallHandler for LibraryCallHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute<PCS>(
         _request: Self::Request,
         vm: &mut VirtualMachine,
-        exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
     where
-        S: Storage + 'static,
+        PCS: PerContractStorage + 'static,
     {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         let result_iter = &mut eh_ref.result_iter;
@@ -404,14 +404,14 @@ impl SyscallHandler for ReplaceClassHandler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute<PCS>(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
-        _exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        _exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
     where
-        S: Storage + 'static,
+        PCS: PerContractStorage + 'static,
     {
         Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
     }
@@ -436,14 +436,14 @@ impl SyscallHandler for SendMessageToL1Handler {
         Ok(EmptyRequest)
     }
 
-    async fn execute<S>(
+    async fn execute<PCS>(
         _request: Self::Request,
         _vm: &mut VirtualMachine,
-        _exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        _exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
     where
-        S: Storage + 'static,
+        PCS: PerContractStorage + 'static,
     {
         Ok(crate::execution::syscall_handler_utils::EmptyResponse {})
     }
@@ -474,14 +474,14 @@ impl SyscallHandler for StorageReadHandler {
         *ptr = (*ptr + new_syscalls::StorageReadRequest::cairo_size())?;
         Ok(EmptyRequest)
     }
-    async fn execute<S>(
+    async fn execute<PCS>(
         _request: EmptyRequest,
         _vm: &mut VirtualMachine,
-        exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<StorageReadResponse>
     where
-        S: Storage + 'static,
+        PCS: PerContractStorage + 'static,
     {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
 
@@ -513,14 +513,14 @@ impl SyscallHandler for StorageWriteHandler {
         *ptr = (*ptr + new_syscalls::StorageWriteRequest::cairo_size())?;
         Ok(EmptyRequest)
     }
-    async fn execute<S>(
+    async fn execute<PCS>(
         _request: EmptyRequest,
         _vm: &mut VirtualMachine,
-        _exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        _exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         _remaining_gas: &mut u64,
     ) -> SyscallResult<EmptyResponse>
     where
-        S: Storage + 'static,
+        PCS: PerContractStorage + 'static,
     {
         Ok(EmptyResponse {})
     }
@@ -555,14 +555,14 @@ impl SyscallHandler for KeccakHandler {
         Ok(KeccakRequest { input_start, input_end })
     }
 
-    async fn execute<S>(
+    async fn execute<PCS>(
         request: Self::Request,
         vm: &mut VirtualMachine,
-        _exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        _exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
     where
-        S: Storage + 'static,
+        PCS: PerContractStorage + 'static,
     {
         let input_len = (request.input_end - request.input_start)?;
         // The to_usize unwrap will not fail as the constant value is 17

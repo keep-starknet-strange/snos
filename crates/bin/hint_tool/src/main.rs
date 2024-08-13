@@ -13,7 +13,9 @@ use cairo_vm::vm::vm_core::VirtualMachineBuilder;
 use cairo_vm::vm::vm_memory::memory_segments::MemorySegmentManager;
 use clap::Parser;
 use serde::Deserialize;
+use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::hints::SnosHintProcessor;
+use starknet_os::starknet::starknet_storage::OsSingleStarknetStorage;
 use starknet_os::storage::dict_storage::DictStorage;
 
 #[derive(Clone, Copy, Debug, Default, clap::ValueEnum, PartialEq)]
@@ -72,7 +74,7 @@ fn main() -> std::io::Result<()> {
     let args = Args::parse();
     let subset = args.subset.unwrap_or_default();
 
-    let mut hint_processor = SnosHintProcessor::<DictStorage>::default();
+    let mut hint_processor = SnosHintProcessor::<OsSingleStarknetStorage<DictStorage, PedersenHash>>::default();
     let snos_hints = hint_processor.hints();
 
     let mut result = Vec::new();

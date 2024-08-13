@@ -9,8 +9,16 @@ pub mod tests {
     use starknet_api::transaction::Fee;
 
     use crate::config::STORED_BLOCK_HASH_BUFFER;
+    use crate::crypto::pedersen::PedersenHash;
     use crate::execution::helper::ContractStorageMap;
     use crate::hints::*;
+    use crate::starknet::starknet_storage::OsSingleStarknetStorage;
+    use crate::storage::dict_storage::DictStorage;
+
+    #[allow(clippy::upper_case_acronyms)]
+    type PCS = OsSingleStarknetStorage<DictStorage, PedersenHash>;
+    #[allow(clippy::upper_case_acronyms)]
+    type EHW = ExecutionHelperWrapper<PCS>;
 
     macro_rules! references {
         ($num:expr) => {{
@@ -79,7 +87,7 @@ pub mod tests {
 
         // inject txn execution info with a fee for hint to use
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
+        let exec_helper = ExecutionHelperWrapper::<PCS>::new(
             ContractStorageMap::default(),
             execution_infos,
             &block_context,
@@ -88,7 +96,7 @@ pub mod tests {
         exec_helper.start_tx(None).await;
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, Box::new(exec_helper));
 
-        set_ap_to_actual_fee::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
+        set_ap_to_actual_fee::<PCS>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
             .expect("set_ap_to_actual_fee() failed");
 
         let ap = vm.get_ap();
@@ -149,20 +157,15 @@ pub mod tests {
 
         // we need an execution info in order to start a tx
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
-            ContractStorageMap::default(),
-            execution_infos,
-            &block_context,
-            old_block_number_and_hash,
-        );
+        let exec_helper =
+            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, old_block_number_and_hash);
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
         // before starting tx, tx_execution_info should be none
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
 
-        start_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
-            .expect("start_tx");
+        start_tx::<PCS>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("start_tx");
 
         // after starting tx, tx_execution_info should be some
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_some());
@@ -188,12 +191,8 @@ pub mod tests {
         // skipping a tx is the same as starting and immediately ending it, so we need one
         // execution info to chew through
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
-            ContractStorageMap::default(),
-            execution_infos,
-            &block_context,
-            old_block_number_and_hash,
-        );
+        let exec_helper =
+            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, old_block_number_and_hash);
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
@@ -203,8 +202,7 @@ pub mod tests {
             exec_helper_box.execution_helper.read().await.tx_execution_info_iter.clone().peekable().peek().is_some()
         );
 
-        skip_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
-            .expect("skip_tx");
+        skip_tx::<PCS>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_tx");
 
         // after skipping a tx, tx_execution_info should be some and iter should not have a next()
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
@@ -235,23 +233,17 @@ pub mod tests {
         transaction_execution_info.execute_call_info = Some(Default::default());
 
         let execution_infos = vec![transaction_execution_info];
-        let exec_helper = ExecutionHelperWrapper::<DictStorage>::new(
-            ContractStorageMap::default(),
-            execution_infos,
-            &block_context,
-            old_block_number_and_hash,
-        );
+        let exec_helper =
+            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, old_block_number_and_hash);
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
-        start_tx::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
-            .expect("start_tx");
+        start_tx::<PCS>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("start_tx");
 
         // we should have a call next
         assert!(exec_helper_box.execution_helper.read().await.call_iter.clone().peekable().peek().is_some());
 
-        skip_call::<DictStorage>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default())
-            .expect("skip_call");
+        skip_call::<PCS>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_call");
 
         // our only call should have been consumed
         assert!(exec_helper_box.execution_helper.read().await.call_iter.clone().peekable().peek().is_none());

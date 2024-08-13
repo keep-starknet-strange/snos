@@ -26,8 +26,7 @@ use crate::execution::helper::ExecutionHelperWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::block_context::is_leaf;
 use crate::io::input::StarknetOsInput;
-use crate::storage::dict_storage::DictStorage;
-use crate::storage::storage::Storage;
+use crate::starknet::starknet_storage::PerContractStorage;
 use crate::utils::execute_coroutine;
 
 pub mod block_context;
@@ -59,8 +58,8 @@ pub type HintImpl = fn(
 ) -> Result<(), HintError>;
 
 #[rustfmt::skip]
-fn hints<S>() -> HashMap<String, HintImpl> where
-    S: Storage + 'static {
+fn hints<PCS>() -> HashMap<String, HintImpl> where
+    PCS: PerContractStorage + 'static {
     let mut hints = HashMap::<String, HintImpl>::new();
     hints.insert(BREAKPOINT.into(), breakpoint);
     hints.insert(INITIALIZE_CLASS_HASHES.into(), initialize_class_hashes);
@@ -69,11 +68,11 @@ fn hints<S>() -> HashMap<String, HintImpl> where
     hints.insert(OS_INPUT_TRANSACTIONS.into(), os_input_transactions);
     hints.insert(SEGMENTS_ADD.into(), segments_add);
     hints.insert(SEGMENTS_ADD_TEMP.into(), segments_add_temp);
-    hints.insert(SET_AP_TO_ACTUAL_FEE.into(), set_ap_to_actual_fee::<DictStorage>);
-    hints.insert(SKIP_CALL.into(), skip_call::<S>);
-    hints.insert(SKIP_TX.into(), skip_tx::<S>);
+    hints.insert(SET_AP_TO_ACTUAL_FEE.into(), set_ap_to_actual_fee::<PCS>);
+    hints.insert(SKIP_CALL.into(), skip_call::<PCS>);
+    hints.insert(SKIP_TX.into(), skip_tx::<PCS>);
     hints.insert(STARKNET_OS_INPUT.into(), starknet_os_input);
-    hints.insert(START_TX.into(), start_tx::<S>);
+    hints.insert(START_TX.into(), start_tx::<PCS>);
     hints.insert(block_context::BLOCK_NUMBER.into(), block_context::block_number);
     hints.insert(block_context::BLOCK_TIMESTAMP.into(), block_context::block_timestamp);
     hints.insert(block_context::BYTECODE_SEGMENT_STRUCTURE.into(), block_context::bytecode_segment_structure);
@@ -97,20 +96,20 @@ fn hints<S>() -> HashMap<String, HintImpl> where
     hints.insert(deprecated_compiled_class::LOAD_DEPRECATED_CLASS_FACTS.into(), deprecated_compiled_class::load_deprecated_class_facts);
     hints.insert(deprecated_compiled_class::LOAD_DEPRECATED_CLASS_INNER.into(), deprecated_compiled_class::load_deprecated_class_inner);
     hints.insert(execute_syscalls::IS_BLOCK_NUMBER_IN_BLOCK_HASH_BUFFER.into(), execute_syscalls::is_block_number_in_block_hash_buffer);
-    hints.insert(execute_transactions::START_TX_VALIDATE_DECLARE_EXECUTION_CONTEXT.into(), execute_transactions::start_tx_validate_declare_execution_context::<S>);
+    hints.insert(execute_transactions::START_TX_VALIDATE_DECLARE_EXECUTION_CONTEXT.into(), execute_transactions::start_tx_validate_declare_execution_context::<PCS>);
     hints.insert(execution::ADD_RELOCATION_RULE.into(), execution::add_relocation_rule);
     hints.insert(execution::ASSERT_TRANSACTION_HASH.into(), execution::assert_transaction_hash);
-    hints.insert(execution::CACHE_CONTRACT_STORAGE_REQUEST_KEY.into(), execution::cache_contract_storage_request_key::<S>);
-    hints.insert(execution::CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS.into(), execution::cache_contract_storage_syscall_request_address::<S>);
-    hints.insert(execution::CHECK_EXECUTION.into(), execution::check_execution::<S>);
+    hints.insert(execution::CACHE_CONTRACT_STORAGE_REQUEST_KEY.into(), execution::cache_contract_storage_request_key::<PCS>);
+    hints.insert(execution::CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS.into(), execution::cache_contract_storage_syscall_request_address::<PCS>);
+    hints.insert(execution::CHECK_EXECUTION.into(), execution::check_execution::<PCS>);
     hints.insert(execution::CHECK_IS_DEPRECATED.into(), execution::check_is_deprecated);
     hints.insert(execution::CHECK_NEW_DEPLOY_RESPONSE.into(), execution::check_new_deploy_response);
     hints.insert(execution::CHECK_NEW_SYSCALL_RESPONSE.into(), execution::check_new_syscall_response);
     hints.insert(execution::CHECK_SYSCALL_RESPONSE.into(), execution::check_syscall_response);
     hints.insert(execution::CONTRACT_ADDRESS.into(), execution::contract_address);
-    hints.insert(execution::END_TX.into(), execution::end_tx::<S>);
-    hints.insert(execution::ENTER_CALL.into(), execution::enter_call::<S>);
-    hints.insert(execution::ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER.into(), execution::enter_scope_deprecated_syscall_handler::<S>);
+    hints.insert(execution::END_TX.into(), execution::end_tx::<PCS>);
+    hints.insert(execution::ENTER_CALL.into(), execution::enter_call::<PCS>);
+    hints.insert(execution::ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER.into(), execution::enter_scope_deprecated_syscall_handler::<PCS>);
     hints.insert(execution::ENTER_SCOPE_DESCEND_EDGE.into(), execution::enter_scope_descend_edge);
     hints.insert(execution::ENTER_SCOPE_LEFT_CHILD.into(), execution::enter_scope_left_child);
     hints.insert(execution::ENTER_SCOPE_NEW_NODE.into(), execution::enter_scope_new_node);
@@ -118,9 +117,9 @@ fn hints<S>() -> HashMap<String, HintImpl> where
     hints.insert(execution::ENTER_SCOPE_NEXT_NODE_BIT_1.into(), execution::enter_scope_next_node_bit_1);
     hints.insert(execution::ENTER_SCOPE_NODE.into(), execution::enter_scope_node_hint);
     hints.insert(execution::ENTER_SCOPE_RIGHT_CHILD.into(), execution::enter_scope_right_child);
-    hints.insert(execution::ENTER_SCOPE_SYSCALL_HANDLER.into(), execution::enter_scope_syscall_handler::<S>);
-    hints.insert(execution::ENTER_SYSCALL_SCOPES.into(), execution::enter_syscall_scopes::<S>);
-    hints.insert(execution::EXIT_CALL.into(), execution::exit_call::<S>);
+    hints.insert(execution::ENTER_SCOPE_SYSCALL_HANDLER.into(), execution::enter_scope_syscall_handler::<PCS>);
+    hints.insert(execution::ENTER_SYSCALL_SCOPES.into(), execution::enter_syscall_scopes::<PCS>);
+    hints.insert(execution::EXIT_CALL.into(), execution::exit_call::<PCS>);
     hints.insert(execution::EXIT_TX.into(), execution::exit_tx);
     hints.insert(execution::FETCH_RESULT.into(), execution::fetch_result);
     hints.insert(execution::GEN_CLASS_HASH_ARG.into(), execution::gen_class_hash_arg);
@@ -129,7 +128,7 @@ fn hints<S>() -> HashMap<String, HintImpl> where
     hints.insert(execution::GET_CONTRACT_ADDRESS_STATE_ENTRY.into(), execution::get_contract_address_state_entry);
     hints.insert(execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY.into(), execution::get_contract_address_state_entry_and_set_new_state_entry);
     hints.insert(execution::GET_CONTRACT_ADDRESS_STATE_ENTRY_AND_SET_NEW_STATE_ENTRY_2.into(), execution::get_contract_address_state_entry_and_set_new_state_entry);
-    hints.insert(execution::GET_OLD_BLOCK_NUMBER_AND_HASH.into(), execution::get_old_block_number_and_hash::<S>);
+    hints.insert(execution::GET_OLD_BLOCK_NUMBER_AND_HASH.into(), execution::get_old_block_number_and_hash::<PCS>);
     hints.insert(execution::INITIAL_GE_REQUIRED_GAS.into(), execution::initial_ge_required_gas);
     hints.insert(execution::IS_DEPRECATED.into(), execution::is_deprecated);
     hints.insert(execution::IS_REVERTED.into(), execution::is_reverted);
@@ -141,7 +140,7 @@ fn hints<S>() -> HashMap<String, HintImpl> where
     hints.insert(execution::SET_AP_TO_TX_NONCE.into(), execution::set_ap_to_tx_nonce);
     hints.insert(execution::SET_FP_PLUS_4_TO_TX_NONCE.into(), execution::set_fp_plus_4_to_tx_nonce);
     hints.insert(execution::SET_STATE_ENTRY_TO_ACCOUNT_CONTRACT_ADDRESS.into(), execution::set_state_entry_to_account_contract_address);
-    hints.insert(execution::START_TX.into(), execution::start_tx::<S>);
+    hints.insert(execution::START_TX.into(), execution::start_tx::<PCS>);
     hints.insert(execution::TRANSACTION_VERSION.into(), execution::transaction_version);
     hints.insert(execution::TX_ACCOUNT_DEPLOYMENT_DATA.into(), execution::tx_account_deployment_data);
     hints.insert(execution::TX_ACCOUNT_DEPLOYMENT_DATA_LEN.into(), execution::tx_account_deployment_data_len);
@@ -156,9 +155,9 @@ fn hints<S>() -> HashMap<String, HintImpl> where
     hints.insert(execution::TX_PAYMASTER_DATA_LEN.into(), execution::tx_paymaster_data_len);
     hints.insert(execution::TX_RESOURCE_BOUNDS_LEN.into(), execution::tx_resource_bounds_len);
     hints.insert(execution::TX_TIP.into(), execution::tx_tip);
-    hints.insert(execution::WRITE_OLD_BLOCK_TO_STORAGE.into(), execution::write_old_block_to_storage::<S>);
-    hints.insert(execution::WRITE_SYSCALL_RESULT.into(), execution::write_syscall_result::<S>);
-    hints.insert(execution::WRITE_SYSCALL_RESULT_DEPRECATED.into(), execution::write_syscall_result_deprecated::<S>);
+    hints.insert(execution::WRITE_OLD_BLOCK_TO_STORAGE.into(), execution::write_old_block_to_storage::<PCS>);
+    hints.insert(execution::WRITE_SYSCALL_RESULT.into(), execution::write_syscall_result::<PCS>);
+    hints.insert(execution::WRITE_SYSCALL_RESULT_DEPRECATED.into(), execution::write_syscall_result_deprecated::<PCS>);
     hints.insert(output::SET_AP_TO_BLOCK_HASH.into(), output::set_ap_to_block_hash);
     hints.insert(output::SET_STATE_UPDATES_START.into(), output::set_state_updates_start);
     hints.insert(output::SET_TREE_STRUCTURE.into(), output::set_tree_structure);
@@ -174,18 +173,18 @@ fn hints<S>() -> HashMap<String, HintImpl> where
     hints.insert(patricia::WRITE_CASE_NOT_LEFT_TO_AP.into(), patricia::write_case_not_left_to_ap);
     hints.insert(state::DECODE_NODE.into(), state::decode_node_hint);
     hints.insert(state::DECODE_NODE_2.into(), state::decode_node_hint);
-    hints.insert(state::ENTER_SCOPE_COMMITMENT_INFO_BY_ADDRESS.into(), state::enter_scope_commitment_info_by_address::<S>);
+    hints.insert(state::ENTER_SCOPE_COMMITMENT_INFO_BY_ADDRESS.into(), state::enter_scope_commitment_info_by_address::<PCS>);
     hints.insert(state::LOAD_BOTTOM.into(), state::load_bottom);
     hints.insert(state::LOAD_EDGE.into(), state::load_edge);
     hints.insert(state::SET_PREIMAGE_FOR_CLASS_COMMITMENTS.into(), state::set_preimage_for_class_commitments);
     hints.insert(state::SET_PREIMAGE_FOR_CURRENT_COMMITMENT_INFO.into(), state::set_preimage_for_current_commitment_info);
     hints.insert(state::SET_PREIMAGE_FOR_STATE_COMMITMENTS.into(), state::set_preimage_for_state_commitments);
     hints.insert(state::WRITE_SPLIT_RESULT.into(), state::write_split_result);
-    hints.insert(syscalls::CALL_CONTRACT.into(), syscalls::call_contract::<S>);
-    hints.insert(syscalls::DELEGATE_CALL.into(), syscalls::delegate_call::<S>);
-    hints.insert(syscalls::DELEGATE_L1_HANDLER.into(), syscalls::delegate_l1_handler::<S>);
-    hints.insert(syscalls::DEPLOY.into(), syscalls::deploy::<S>);
-    hints.insert(syscalls::EMIT_EVENT.into(), syscalls::emit_event::<S>);
+    hints.insert(syscalls::CALL_CONTRACT.into(), syscalls::call_contract::<PCS>);
+    hints.insert(syscalls::DELEGATE_CALL.into(), syscalls::delegate_call::<PCS>);
+    hints.insert(syscalls::DELEGATE_L1_HANDLER.into(), syscalls::delegate_l1_handler::<PCS>);
+    hints.insert(syscalls::DEPLOY.into(), syscalls::deploy::<PCS>);
+    hints.insert(syscalls::EMIT_EVENT.into(), syscalls::emit_event::<PCS>);
     hints.insert(syscalls::EXIT_CALL_CONTRACT_SYSCALL.into(), syscalls::exit_call_contract_syscall);
     hints.insert(syscalls::EXIT_DELEGATE_CALL_SYSCALL.into(), syscalls::exit_delegate_call_syscall);
     hints.insert(syscalls::EXIT_DELEGATE_L1_HANDLER_SYSCALL.into(), syscalls::exit_delegate_l1_handler_syscall);
@@ -217,21 +216,21 @@ fn hints<S>() -> HashMap<String, HintImpl> where
     hints.insert(syscalls::EXIT_SEND_MESSAGE_TO_L1_SYSCALL.into(), syscalls::exit_send_message_to_l1_syscall);
     hints.insert(syscalls::EXIT_STORAGE_READ_SYSCALL.into(), syscalls::exit_storage_read_syscall);
     hints.insert(syscalls::EXIT_STORAGE_WRITE_SYSCALL.into(), syscalls::exit_storage_write_syscall);
-    hints.insert(syscalls::GET_BLOCK_NUMBER.into(), syscalls::get_block_number::<S>);
-    hints.insert(syscalls::GET_BLOCK_TIMESTAMP.into(), syscalls::get_block_timestamp::<S>);
-    hints.insert(syscalls::GET_CALLER_ADDRESS.into(), syscalls::get_caller_address::<S>);
-    hints.insert(syscalls::GET_CONTRACT_ADDRESS.into(), syscalls::get_contract_address::<S>);
-    hints.insert(syscalls::GET_SEQUENCER_ADDRESS.into(), syscalls::get_sequencer_address::<S>);
-    hints.insert(syscalls::GET_TX_INFO.into(), syscalls::get_tx_info::<S>);
-    hints.insert(syscalls::GET_TX_SIGNATURE.into(), syscalls::get_tx_signature::<S>);
-    hints.insert(syscalls::LIBRARY.into(), syscalls::library_call::<S>);
-    hints.insert(syscalls::LIBRARY_CALL_L1_HANDLER.into(), syscalls::library_call_l1_handler::<S>);
+    hints.insert(syscalls::GET_BLOCK_NUMBER.into(), syscalls::get_block_number::<PCS>);
+    hints.insert(syscalls::GET_BLOCK_TIMESTAMP.into(), syscalls::get_block_timestamp::<PCS>);
+    hints.insert(syscalls::GET_CALLER_ADDRESS.into(), syscalls::get_caller_address::<PCS>);
+    hints.insert(syscalls::GET_CONTRACT_ADDRESS.into(), syscalls::get_contract_address::<PCS>);
+    hints.insert(syscalls::GET_SEQUENCER_ADDRESS.into(), syscalls::get_sequencer_address::<PCS>);
+    hints.insert(syscalls::GET_TX_INFO.into(), syscalls::get_tx_info::<PCS>);
+    hints.insert(syscalls::GET_TX_SIGNATURE.into(), syscalls::get_tx_signature::<PCS>);
+    hints.insert(syscalls::LIBRARY.into(), syscalls::library_call::<PCS>);
+    hints.insert(syscalls::LIBRARY_CALL_L1_HANDLER.into(), syscalls::library_call_l1_handler::<PCS>);
     hints.insert(syscalls::OS_LOGGER_ENTER_SYSCALL_PREPRARE_EXIT_SYSCALL.into(), syscalls::os_logger_enter_syscall_preprare_exit_syscall);
-    hints.insert(syscalls::REPLACE_CLASS.into(), syscalls::replace_class::<S>);
-    hints.insert(syscalls::SEND_MESSAGE_TO_L1.into(), syscalls::send_message_to_l1::<S>);
-    hints.insert(syscalls::SET_SYSCALL_PTR.into(), syscalls::set_syscall_ptr::<S>);
-    hints.insert(syscalls::STORAGE_READ.into(), syscalls::storage_read::<S>);
-    hints.insert(syscalls::STORAGE_WRITE.into(), syscalls::storage_write::<S>);
+    hints.insert(syscalls::REPLACE_CLASS.into(), syscalls::replace_class::<PCS>);
+    hints.insert(syscalls::SEND_MESSAGE_TO_L1.into(), syscalls::send_message_to_l1::<PCS>);
+    hints.insert(syscalls::SET_SYSCALL_PTR.into(), syscalls::set_syscall_ptr::<PCS>);
+    hints.insert(syscalls::STORAGE_READ.into(), syscalls::storage_read::<PCS>);
+    hints.insert(syscalls::STORAGE_WRITE.into(), syscalls::storage_write::<PCS>);
     hints.insert(transaction_hash::ADDITIONAL_DATA_NEW_SEGMENT.into(), transaction_hash::additional_data_new_segment);
     hints.insert(transaction_hash::DATA_TO_HASH_NEW_SEGMENT.into(), transaction_hash::data_to_hash_new_segment);
     hints.insert(block_context::WRITE_USE_ZKG_DA_TO_MEM.into(), block_context::write_use_zkg_da_to_mem);
@@ -255,21 +254,21 @@ static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 2] = [
     (deprecated_compiled_class::LOAD_DEPRECATED_CLASS, deprecated_compiled_class::load_deprecated_class),
 ];
 
-pub struct SnosHintProcessor<S>
+pub struct SnosHintProcessor<PCS>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
     builtin_hint_proc: BuiltinHintProcessor,
     cairo1_builtin_hint_proc: Cairo1HintProcessor,
     hints: HashMap<String, HintImpl>,
     extensive_hints: HashMap<String, ExtensiveHintImpl>,
     run_resources: RunResources,
-    _phantom: PhantomData<S>,
+    _phantom: PhantomData<PCS>,
 }
 
-impl<S> ResourceTracker for SnosHintProcessor<S>
+impl<PCS> ResourceTracker for SnosHintProcessor<PCS>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
     fn consumed(&self) -> bool {
         self.run_resources.consumed()
@@ -288,12 +287,12 @@ where
     }
 }
 
-impl<S> Default for SnosHintProcessor<S>
+impl<PCS> Default for SnosHintProcessor<PCS>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
     fn default() -> Self {
-        let hints = hints::<S>();
+        let hints = hints::<PCS>();
         let extensive_hints = EXTENSIVE_HINTS.into_iter().map(|(h, i)| (h.to_string(), i)).collect();
         Self {
             builtin_hint_proc: BuiltinHintProcessor::new_empty(),
@@ -329,9 +328,9 @@ fn get_ptr_from_res_operand(vm: &mut VirtualMachine, res: &ResOperand) -> Result
     (vm.get_relocatable(cell_reloc)? + &base_offset).map_err(|e| e.into())
 }
 
-impl<S> SnosHintProcessor<S>
+impl<PCS> SnosHintProcessor<PCS>
 where
-    S: Storage,
+    PCS: PerContractStorage,
 {
     pub fn hints(&self) -> HashSet<String> {
         self.hints
@@ -344,9 +343,9 @@ where
     }
 }
 
-impl<S> HintProcessorLogic for SnosHintProcessor<S>
+impl<PCS> HintProcessorLogic for SnosHintProcessor<PCS>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
     // stub for trait impl
     fn execute_hint(
@@ -388,7 +387,7 @@ where
             if let Hint::Starknet(StarknetHint::SystemCall { system }) = hint {
                 let syscall_ptr = get_ptr_from_res_operand(vm, system)?;
                 // TODO: need to be generic here
-                let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper<S>>(vars::scopes::SYSCALL_HANDLER)?;
+                let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
 
                 return execute_coroutine(syscall_handler.execute_syscall(vm, syscall_ptr))?
                     .map(|_| HintExtension::default());
@@ -550,7 +549,7 @@ pub fn breakpoint(
 pub const SET_AP_TO_ACTUAL_FEE: &str =
     "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.actual_fee)";
 
-pub fn set_ap_to_actual_fee<S>(
+pub fn set_ap_to_actual_fee<PCS>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
@@ -558,9 +557,9 @@ pub fn set_ap_to_actual_fee<S>(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
     let actual_fee = execute_coroutine(async {
         let eh_ref = execution_helper.execution_helper.read().await;
         eh_ref
@@ -594,25 +593,25 @@ pub fn is_on_curve(
 
 const START_TX: &str = "execution_helper.start_tx(tx_info_ptr=ids.deprecated_tx_info.address_)";
 
-pub async fn start_tx_async<S>(
+pub async fn start_tx_async<PCS>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
     let deprecated_tx_info_ptr =
         get_relocatable_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
 
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.start_tx(Some(deprecated_tx_info_ptr)).await;
 
     Ok(())
 }
 
-pub fn start_tx<S>(
+pub fn start_tx<PCS>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -620,24 +619,24 @@ pub fn start_tx<S>(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(start_tx_async::<S>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(start_tx_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
 }
 
 const SKIP_TX: &str = "execution_helper.skip_tx()";
 
-pub async fn skip_tx_async<S>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError>
+pub async fn skip_tx_async<PCS>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.skip_tx().await;
 
     Ok(())
 }
 
-pub fn skip_tx<S>(
+pub fn skip_tx<PCS>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
@@ -645,24 +644,24 @@ pub fn skip_tx<S>(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(skip_tx_async::<S>(exec_scopes))?
+    execute_coroutine(skip_tx_async::<PCS>(exec_scopes))?
 }
 
 const SKIP_CALL: &str = "execution_helper.skip_call()";
 
-pub async fn skip_call_async<S>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError>
+pub async fn skip_call_async<PCS>(exec_scopes: &mut ExecutionScopes) -> Result<(), HintError>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
-    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper<S>>(vars::scopes::EXECUTION_HELPER)?;
+    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.skip_call().await;
 
     Ok(())
 }
 
-pub fn skip_call<S>(
+pub fn skip_call<PCS>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
@@ -670,9 +669,9 @@ pub fn skip_call<S>(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError>
 where
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(skip_call_async::<S>(exec_scopes))?
+    execute_coroutine(skip_call_async::<PCS>(exec_scopes))?
 }
 
 const OS_INPUT_TRANSACTIONS: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";
