@@ -77,11 +77,9 @@ impl GenericSierraContractClass {
     }
 
     fn compute_class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
-        let class_hash = self.get_starknet_core_contract_class()?
-            .class_hash();
+        let class_hash = self.get_starknet_core_contract_class()?.class_hash();
 
         Ok(GenericClassHash::new(class_hash.into()))
-
     }
 
     pub fn class_hash(&self) -> Result<GenericClassHash, ContractClassError> {

@@ -183,7 +183,7 @@ pub fn load_class(
         hint_extension.insert(abs_pc, hints.iter().map(|h| any_box!(h.clone())).collect());
     }
 
-    log::info!("Contract has correct compiled_contract_hash {:x}!", computed_hash.into_owned()); 
+    log::info!("Contract has correct compiled_contract_hash {:x}!", computed_hash.into_owned());
 
     Ok(hint_extension)
 }

@@ -10,7 +10,9 @@ use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 
 use crate::hints::vars;
-use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{BytecodeSegment, BytecodeSegmentStructureImpl};
+use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
+    BytecodeSegment, BytecodeSegmentStructureImpl,
+};
 
 pub const ASSIGN_BYTECODE_SEGMENTS: &str = indoc! {r#"
     bytecode_segments = iter(bytecode_segment_structure.segments)"#
@@ -25,12 +27,12 @@ pub fn assign_bytecode_segments(
 ) -> Result<(), HintError> {
     let bytecode_segment_structure: BytecodeSegmentStructureImpl =
         exec_scopes.get(vars::scopes::BYTECODE_SEGMENT_STRUCTURE)?;
-    
+
     let bytecode_segments = match bytecode_segment_structure {
         BytecodeSegmentStructureImpl::SegmentedNode(segmented_node) => {
             log::info!("got seg");
             segmented_node.segments.into_iter()
-        },
+        }
         BytecodeSegmentStructureImpl::Leaf(_) => panic!("Expected SegmentedNode"),
     };
 
@@ -85,8 +87,8 @@ pub fn iter_current_segment_info(
     let bytecode_segments =
         exec_scopes.get_mut_ref::<<Vec<BytecodeSegment> as IntoIterator>::IntoIter>(vars::scopes::BYTECODE_SEGMENTS)?;
 
-    let current_segment_info = bytecode_segments.next()
-        .expect("Expected more bytecode segments (asserted in previous hint)");
+    let current_segment_info =
+        bytecode_segments.next().expect("Expected more bytecode segments (asserted in previous hint)");
 
     let is_used = current_segment_info.is_used;
     let is_used_felt = if is_used { Felt252::ONE } else { Felt252::ZERO };
@@ -104,7 +106,6 @@ pub fn iter_current_segment_info(
 
     let segment_length: Felt252 = current_segment_info.segment_length.0.into();
     insert_value_from_var_name(vars::ids::SEGMENT_LENGTH, segment_length, vm, ids_data, ap_tracking)?;
-
 
     exec_scopes.enter_scope(HashMap::from([(
         vars::scopes::BYTECODE_SEGMENT_STRUCTURE.to_string(),

@@ -44,7 +44,11 @@ pub fn reexecute_transactions_with_blockifier<S: StateReader>(
     Ok(tx_execution_infos)
 }
 
-pub async fn unpack_blockifier_state_async<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync, SR: StateReader>(
+pub async fn unpack_blockifier_state_async<
+    S: Storage + Send + Sync,
+    H: HashFunctionType + Send + Sync,
+    SR: StateReader,
+>(
     mut blockifier_state: CachedState<SR>,
     shared_state: SharedState<S, H>,
 ) -> Result<(SharedState<S, H>, SharedState<S, H>), TreeError> {
@@ -63,7 +67,11 @@ pub async fn unpack_blockifier_state_async<S: Storage + Send + Sync, H: HashFunc
 /// This function uses the fact that `CachedState` is a wrapper around a read-only `DictStateReader`
 /// object. The initial state is obtained through this read-only view while the final storage
 /// is obtained by extracting the state diff from the `CachedState` part.
-pub async fn build_starknet_storage_async<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync, SR: StateReader>(
+pub async fn build_starknet_storage_async<
+    S: Storage + Send + Sync,
+    H: HashFunctionType + Send + Sync,
+    SR: StateReader,
+>(
     blockifier_state: CachedState<SR>,
     shared_state: SharedState<S, H>,
 ) -> Result<(ContractStorageMap<S, H>, SharedState<S, H>, SharedState<S, H>), TreeError> {
@@ -96,4 +104,3 @@ pub async fn build_starknet_storage_async<S: Storage + Send + Sync, H: HashFunct
 
     Ok((storage_by_address, initial_state, final_state))
 }
-

@@ -28,15 +28,14 @@ async fn test_sierra_cc_compile_then_hash() {
 async fn test_sierra_cc_from_cairo_lang_class() {
     let class_json = include_bytes!("./class_from_pathfinder.json");
 
-    let contract_class: starknet_core::types::ContractClass = serde_json::from_slice(class_json)
-        .expect("Failed to deserialize JSON to ContractClass");
-
+    let contract_class: starknet_core::types::ContractClass =
+        serde_json::from_slice(class_json).expect("Failed to deserialize JSON to ContractClass");
 
     let generic_sierra_cc = match contract_class {
         starknet_core::types::ContractClass::Sierra(flattened_sierra_cc) => {
             GenericSierraContractClass::from(flattened_sierra_cc)
-        },
-        _ => panic!("Expected Sierra variant")
+        }
+        _ => panic!("Expected Sierra variant"),
     };
 
     // TODO: assert class hash value here
