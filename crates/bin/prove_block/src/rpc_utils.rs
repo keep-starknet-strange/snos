@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
 use starknet::core::types::{StateUpdate, StorageEntry};
+use starknet_os::hints::execution::contract_address;
 use starknet_os::storage::cached_storage::CachedStorage;
 use starknet_os::storage::storage::{Storage, StorageError};
 use starknet_types_core::felt::Felt;
@@ -119,19 +120,33 @@ pub(crate) async fn get_storage_proofs(
         storage_changes_by_contract.entry(diff_item.address).or_default().extend_from_slice(&diff_item.storage_entries);
     }
 
+    // Also request entries for read-only contracts so that we can build `ContractState` objects
+    // down the line
+    for nonce_update in &state_update.state_diff.nonces {
+        let contract_address = nonce_update.contract_address;
+        if storage_changes_by_contract.get(&contract_address).is_none() {
+            storage_changes_by_contract.insert(contract_address, vec![]);
+        }
+    }
+
     let mut storage_proofs = HashMap::new();
 
     for (contract_address, storage_changes) in storage_changes_by_contract {
         let keys: Vec<_> = storage_changes.iter().map(|change| change.key).collect();
 
-        // The endpoint is limited to 100 keys at most per call
-        const MAX_KEYS: usize = 100;
-        let mut chunked_storage_proofs = Vec::new();
-        for keys_chunk in keys.chunks(MAX_KEYS) {
-            chunked_storage_proofs
-                .push(pathfinder_get_proof(client, rpc_provider, block_number, contract_address, keys_chunk).await?);
-        }
-        let storage_proof = merge_chunked_storage_proofs(chunked_storage_proofs);
+        let storage_proof = if keys.is_empty() {
+            pathfinder_get_proof(client, rpc_provider, block_number, contract_address, &[]).await?
+        } else {
+            // The endpoint is limited to 100 keys at most per call
+            const MAX_KEYS: usize = 100;
+            let mut chunked_storage_proofs = Vec::new();
+            for keys_chunk in keys.chunks(MAX_KEYS) {
+                chunked_storage_proofs.push(
+                    pathfinder_get_proof(client, rpc_provider, block_number, contract_address, keys_chunk).await?,
+                );
+            }
+            merge_chunked_storage_proofs(chunked_storage_proofs)
+        };
 
         storage_proofs.insert(contract_address, storage_proof);
     }
