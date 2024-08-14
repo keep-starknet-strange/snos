@@ -5,18 +5,18 @@ use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
-use blockifier::transaction::transactions::ExecutableTransaction;
+use blockifier::transaction::transactions::ExecutableTransaction as _;
 
 /// Reexecute the given transactions through Blockifier
 pub fn reexecute_transactions_with_blockifier<S: StateReader>(
-    mut state: CachedState<S>,
+    state: &mut CachedState<S>,
     block_context: &BlockContext,
     txs: Vec<Transaction>,
 ) -> Result<Vec<TransactionExecutionInfo>, Box<dyn Error>> {
     let tx_execution_infos = txs
         .into_iter()
         .map(|tx| {
-            let tx_result = tx.execute(&mut state, block_context, true, true);
+            let tx_result = tx.execute(state, block_context, true, true);
             match tx_result {
                 Err(e) => {
                     panic!("Transaction failed in blockifier: {}", e);

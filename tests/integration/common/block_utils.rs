@@ -134,6 +134,18 @@ where
 
     let mut ffc = blockifier_state.state.ffc.clone();
 
+    // Blockifier provides a class hash -> visited PCs map, but we need
+    // the compiled class hash -> visited PCs map.
+    let compiled_class_visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
+        .visited_pcs
+        .iter()
+        .map(|(class_hash, visited_pcs)| {
+            let class_hash_felt = felt_api2vm(class_hash.0);
+            let compiled_class_hash_felt = class_hash_to_compiled_class_hash.get(&class_hash_felt).unwrap();
+            (*compiled_class_hash_felt, visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
+        })
+        .collect();
+
     // Convert the Blockifier storage into an OS-compatible one
     let (contract_storage_map, previous_state, updated_state) =
         build_starknet_storage_async(blockifier_state).await.unwrap();
@@ -178,7 +190,7 @@ where
         contract_class_commitment_info,
         deprecated_compiled_classes,
         compiled_classes: compiled_class_hash_to_compiled_class,
-        compiled_class_visited_pcs: Default::default(),
+        compiled_class_visited_pcs,
         contracts,
         class_hash_to_compiled_class_hash,
         general_config,

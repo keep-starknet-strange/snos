@@ -32,7 +32,7 @@ use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, 
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use starknet_os::storage::storage::{Fact, FactFetchingContext};
-use starknet_os::utils::felt_vm2api;
+use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_os::{config, run_os};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 
@@ -463,8 +463,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let blockifier_state_reader = AsyncRpcStateReader::new(provider, BlockId::Number(block_number - 1));
 
+    let mut blockifier_state = CachedState::new(blockifier_state_reader, GlobalContractCache::new(1024));
     let tx_execution_infos = reexecute_transactions_with_blockifier(
-        CachedState::new(blockifier_state_reader, GlobalContractCache::new(1024)),
+        &mut blockifier_state,
         &block_context,
         block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(tx).unwrap()).collect(),
     )?;
@@ -486,12 +487,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
         )
         .await?;
 
+    // Blockifier provides a class hash -> visited PCs map, but we need
+    // the compiled class hash -> visited PCs map.
+    let compiled_class_visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
+        .visited_pcs
+        .iter()
+        .map(|(class_hash, visited_pcs)| {
+            let class_hash_felt = felt_api2vm(class_hash.0);
+            let compiled_class_hash_felt = class_hash_to_compiled_class_hash.get(&class_hash_felt).unwrap();
+            (*compiled_class_hash_felt, visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
+        })
+        .collect();
+
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes: Default::default(),
         compiled_classes,
-        compiled_class_visited_pcs: Default::default(),
+        compiled_class_visited_pcs,
         contracts: contract_states,
         class_hash_to_compiled_class_hash,
         general_config,
