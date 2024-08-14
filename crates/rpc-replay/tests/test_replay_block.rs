@@ -1,12 +1,12 @@
 use blockifier::state::cached_state::CachedState;
-use blockifier::transaction::transactions::ExecutableTransaction;
+use blockifier::transaction::transactions::ExecutableTransaction as _;
 use rstest::rstest;
 use starknet::core::types::{BlockId, BlockWithTxs};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
-use starknet_replay::block_context::build_block_context;
-use starknet_replay::rpc_state_reader::AsyncRpcStateReader;
-use starknet_replay::transactions::starknet_rs_to_blockifier;
+use rpc_replay::block_context::build_block_context;
+use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
+use rpc_replay::transactions::starknet_rs_to_blockifier;
 
 #[rstest]
 #[ignore = "Requires a local Pathfinder node"]
