@@ -33,7 +33,9 @@ pub fn assign_bytecode_segments(
             log::info!("got seg");
             segmented_node.segments.into_iter()
         }
-        BytecodeSegmentStructureImpl::Leaf(_) => panic!("Expected SegmentedNode"),
+        BytecodeSegmentStructureImpl::Leaf(_) => {
+            return Err(HintError::AssertionFailed("Expected SegmentedNode".to_string().into_boxed_str()));
+        }
     };
 
     exec_scopes.insert_value(vars::scopes::BYTECODE_SEGMENTS, bytecode_segments);
@@ -137,16 +139,15 @@ mod tests {
 
         let mut exec_scopes: ExecutionScopes = Default::default();
 
-        // execution scopes must have a BytecodeSegmentNode inserted. We insert one that has one
+        // execution scopes must have a BytecodeSegmentStructureImpl inserted. We insert one that has one
         // segment which lets us test both success and failure of ASSERT_END_OF_BYTECODE_SEGMENTS.
-        let node = BytecodeSegmentedNode {
-            segments: vec![BytecodeSegment {
-                segment_length: Length(0),
-                is_used: false,
-                inner_structure: BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf { data: Default::default() }),
-            }],
-        };
-        exec_scopes.insert_box(vars::scopes::BYTECODE_SEGMENT_STRUCTURE, any_box!(node));
+        let segments = vec![BytecodeSegment {
+            segment_length: Length(0),
+            is_used: false,
+            inner_structure: BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf { data: Default::default() }),
+        }];
+        let segment_structure = BytecodeSegmentStructureImpl::SegmentedNode(BytecodeSegmentedNode { segments });
+        exec_scopes.insert_box(vars::scopes::BYTECODE_SEGMENT_STRUCTURE, any_box!(segment_structure));
 
         assign_bytecode_segments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 
