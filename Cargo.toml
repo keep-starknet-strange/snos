@@ -7,6 +7,7 @@ members = [
     "crates/cairo-type-derive",
     "crates/starknet-os",
     "crates/starknet-os-types",
+    "crates/rpc-replay",
     "tests",
 ]
 
@@ -50,6 +51,7 @@ pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev =
 pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "starknet-gateway-types" }
 pathfinder-serde = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-serde" }
 reqwest = { version = "0.11.18", features = ["blocking", "json"] }
+rpc-replay = { path = "crates/rpc-replay" }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
 serde_with = "3.3.0"
@@ -58,6 +60,8 @@ starknet = "0.11.0"
 starknet_api = { version = "=0.10", features = ["testing"] }
 starknet-core = "0.11.1"
 starknet-crypto = "0.6.2"
+starknet-os = { path = "crates/starknet-os" }
+starknet-os-types = { path = "crates/starknet-os-types" }
 starknet-types-core = "0.1.5"
 thiserror = "1.0.48"
 tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
