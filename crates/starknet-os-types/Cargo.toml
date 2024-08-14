@@ -17,3 +17,7 @@ starknet_api = { workspace = true }
 starknet-types-core = { workspace = true }
 starknet-core = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+indoc = { workspace = true }
+rstest = { workspace = true }
