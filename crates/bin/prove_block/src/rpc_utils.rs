@@ -133,8 +133,6 @@ pub(crate) async fn get_storage_proofs(
         }
     }
 
-    // missing 764259049439565269590387705502051444787910047543242149334355727309682685773
-
     let mut storage_proofs = HashMap::new();
 
     log::info!("Contracts we're fetching proofs for:");
