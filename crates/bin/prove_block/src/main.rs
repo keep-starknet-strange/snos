@@ -10,15 +10,14 @@ use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
-use rpc_utils::{get_class_proofs, get_storage_proofs, RpcStorage, TrieNode};
+use rpc_utils::{get_class_proofs, get_storage_proofs, process_function_invocations, RpcStorage, TrieNode};
 use starknet::core::types::{
-    BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingBlockWithTxs, MaybePendingStateUpdate, TransactionTrace,
+    BlockId, ExecuteInvocation, MaybePendingBlockWithTxs, MaybePendingStateUpdate, TransactionTrace,
 };
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
-use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::error::SnOsError::Runner;
 use starknet_os::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
 use starknet_os::io::input::StarknetOsInput;
@@ -200,14 +199,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    // utility to extract all contract address in a nested call structure
-    fn process_function_invocations(inv: FunctionInvocation, contracts: &mut HashSet<Felt252>, nesting_level: u64) {
-        log::info!("process_function_inv: contract: {:x} at level {}", inv.contract_address, nesting_level);
-        contracts.insert(inv.contract_address);
-        for call in inv.calls {
-            process_function_invocations(call, contracts, nesting_level + 1);
-        }
-    }
     // extract other contracts used in our block from the block trace
     let mut contracts_subcalled = HashSet::new();
     let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
@@ -229,10 +220,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             _ => unimplemented!("process other txn traces"),
         }
-    }
-    log::info!("Contract subcalls:");
-    for addr in &contracts_subcalled {
-        log::info!("    {:x}", addr);
     }
 
     let previous_storage_proofs = get_storage_proofs(
@@ -352,7 +339,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             transaction.class_hash = Some(*class_hash);
         } else {
             // TODO: are there txn types which wouldn't have a sender address?
-            log::warn!("Found transaction without sender_address");
+            unimplemented!("Found transaction without sender_address");
         }
     }
 
@@ -436,35 +423,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             let generic_cc = generic_sierra_cc.compile()?;
 
-            log::debug!("============================");
-            log::debug!("class_hash (from RPC): {:x?}", class_hash);
-            log::debug!("class_hash (computed): {:x?}", generic_sierra_cc.class_hash()?);
-
-            // TODO: it seems that this ends up computing the wrong class hash...
-            let (contract_class_hash, compiled_contract_hash) = write_class_facts(
-                generic_sierra_cc,
-                generic_cc.clone(),
-                &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>(),
-            )
-            .await?;
+            let (_contract_class_hash, compiled_contract_hash) =
+                write_class_facts(generic_sierra_cc, generic_cc.clone(), &mut initial_state.ffc_for_class_hash).await?;
 
             class_hash_to_compiled_class_hash.insert(class_hash, compiled_contract_hash.into());
             compiled_classes.insert(compiled_contract_hash.into(), generic_cc.clone());
-
-            log::debug!(
-                "Computed class_hash => compiled_class_hash: {:x?} => {:x?}",
-                contract_class_hash,
-                compiled_contract_hash
-            );
-
-            // let sierra_cc_hash = generic_sierra_cc.class_hash()?;
-            let sierra_cc_hash = generic_cc.class_hash()?;
-            log::debug!("sierra_cc_hash: {:x?}", sierra_cc_hash);
-
-            let class_hash_as_snos_hash: starknet_os_types::hash::Hash = class_hash.into();
-            if contract_class_hash != class_hash_as_snos_hash {
-                log::warn!("FFC computed different hash ({:x?}) than expected ({:?})", contract_class_hash, class_hash);
-            }
         } else {
             log::warn!("No class hash available for contract {}", contract_address);
         };
@@ -472,7 +435,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // query storage proofs for each accessed contract
     let class_hashes: Vec<&Felt252> = class_hash_to_compiled_class_hash.keys().collect();
-    let class_proofs = get_class_proofs(&pathfinder_client, &args.rpc_provider, block_number, &class_hashes[..])
+    // TODO: we fetch proofs here for block-1, but we probably also need to fetch at the current
+    //       block, likely for contracts that are deployed in this block
+    let class_proofs = get_class_proofs(&pathfinder_client, &args.rpc_provider, block_number - 1, &class_hashes[..])
         .await
         .expect("Failed to fetch class proofs");
 
@@ -520,8 +485,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .collect();
 
     log::debug!("class_hash_to_compiled_class_hash ({}):", class_hash_to_compiled_class_hash.len());
-    for (ch, cch) in &class_hash_to_compiled_class_hash {
-        log::debug!("    0x{:x} => 0x{:x}", ch, cch);
+    for (class_hash, compiled_class_hash) in &class_hash_to_compiled_class_hash {
+        log::debug!("    0x{:x} => 0x{:x}", class_hash, compiled_class_hash);
     }
 
     // TODO: ugly clone here
