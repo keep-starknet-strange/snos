@@ -1,5 +1,5 @@
 [package]
-name = "starknet-os-types"
+name = "rpc-replay"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
@@ -8,16 +8,12 @@ license-file.workspace = true
 [dependencies]
 blockifier = { workspace = true }
 cairo-lang-starknet-classes = { workspace = true }
-num-bigint = { workspace = true }
-pathfinder-gateway-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { workspace = true }
+starknet = { workspace = true }
 starknet_api = { workspace = true }
-starknet-types-core = { workspace = true }
-starknet-core = { workspace = true }
-thiserror = { workspace = true }
+starknet-os-types = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
-indoc = { workspace = true }
 rstest = { workspace = true }
