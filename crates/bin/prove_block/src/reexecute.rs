@@ -15,7 +15,9 @@ use starknet::providers::{JsonRpcClient, Provider as _};
 use starknet_os::execution::helper::ContractStorageMap;
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
-use starknet_os::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage, PerContractStorage};
+use starknet_os::starknet::starknet_storage::{
+    CommitmentInfo, CommitmentInfoError, OsSingleStarknetStorage, PerContractStorage,
+};
 use starknet_os::starkware_utils::commitment_tree::base_types::TreeIndex;
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree as _;
 use starknet_os::starkware_utils::commitment_tree::errors::TreeError;
@@ -105,14 +107,12 @@ pub async fn build_starknet_storage_async<
         let initial_tree = initial_contract_state.storage_commitment_tree;
         let updated_tree = final_contract_state.storage_commitment_tree;
 
-        /*
-        let contract_storage =
-            OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], final_state.ffc.clone()).await.unwrap();
-        storage_by_address.insert(Felt252::from(contract_address), contract_storage);
-        */
+        // let contract_storage =
+        // OsSingleStarknetStorage::new(initial_tree, updated_tree, &[],
+        // final_state.ffc.clone()).await.unwrap(); storage_by_address.
+        // insert(Felt252::from(contract_address), contract_storage);
 
         panic!("Fix me or remove");
-
     }
 
     Ok((storage_by_address, initial_state, final_state))
@@ -131,12 +131,7 @@ impl ProverPerContractStorage {
             Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
         ));
 
-        Self {
-            provider,
-            block_id,
-            contract_address,
-            ongoing_storage_changes: HashMap::new(),
-        }
+        Self { provider, block_id, contract_address, ongoing_storage_changes: HashMap::new() }
     }
 }
 
@@ -151,7 +146,7 @@ impl PerContractStorage for ProverPerContractStorage {
 
         if let Some(value) = self.ongoing_storage_changes.get(&key) {
             log::debug!("    got changed value {:x}", value);
-            return Some(*value)
+            return Some(*value);
         }
 
         let key = Felt252::from(key);

@@ -11,7 +11,9 @@ use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
 use rpc_utils::{get_class_proofs, get_storage_proofs, RpcStorage, TrieNode};
-use starknet::core::types::{BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingBlockWithTxs, MaybePendingStateUpdate, TransactionTrace};
+use starknet::core::types::{
+    BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingBlockWithTxs, MaybePendingStateUpdate, TransactionTrace,
+};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
@@ -219,13 +221,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 match invoke_trace.execute_invocation {
                     ExecuteInvocation::Success(inv) => {
                         process_function_invocations(inv, &mut contracts_subcalled, 0);
-                    },
+                    }
                     ExecuteInvocation::Reverted(_) => unimplemented!("handle reverted invoke trace"),
                 }
                 if let Some(inv) = invoke_trace.fee_transfer_invocation {
                     process_function_invocations(inv, &mut contracts_subcalled, 0);
                 }
-            },
+            }
             _ => unimplemented!("process other txn traces"),
         }
     }
@@ -234,15 +236,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
         log::info!("    {:x}", addr);
     }
 
-    let previous_storage_proofs =
-        get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number - 1, &state_update, &contracts_subcalled)
+    let previous_storage_proofs = get_storage_proofs(
+        &pathfinder_client,
+        &args.rpc_provider,
+        block_number - 1,
+        &state_update,
+        &contracts_subcalled,
+    )
+    .await
+    .expect("Failed to fetch storage proofs");
+
+    let storage_proofs =
+        get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &state_update, &contracts_subcalled)
             .await
             .expect("Failed to fetch storage proofs");
-
-    let storage_proofs = get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &state_update, &contracts_subcalled)
-        .await
-        .expect("Failed to fetch storage proofs");
-
 
     let block_context = build_block_context(chain_id.clone(), &block_with_txs);
 
@@ -393,11 +400,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let previous_tree = PatriciaTree { root: previous_storage_proof.state_commitment.into(), height: Height(251) };
         let updated_tree = PatriciaTree { root: storage_proof.state_commitment.into(), height: Height(251) };
 
-        let contract_storage = ProverPerContractStorage::new(
-            previous_block_id,
-            contract_address,
-            provider_url.clone(),
-        );
+        let contract_storage = ProverPerContractStorage::new(previous_block_id, contract_address, provider_url.clone());
         contract_storages.insert(contract_address, contract_storage);
 
         log::debug!("contract address: {}", contract_address.to_hex_string());
