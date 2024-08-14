@@ -344,7 +344,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // now that we have the class_hash for each contract, fill in the transaction data with the
     // class_hash. when transactions were first processed above, this information wasn't available.
     for transaction in transactions.iter_mut() {
-        if let Some(sender_address) = transaction.sender_address.clone() {
+        if let Some(sender_address) = transaction.sender_address {
             let class_hash = address_to_class_hash
                 .get(&sender_address)
                 .expect("should have a class_hash for each known contract addresses at this point");

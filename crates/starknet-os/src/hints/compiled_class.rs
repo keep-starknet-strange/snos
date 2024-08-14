@@ -94,12 +94,7 @@ pub fn iter_current_segment_info(
     let is_used_felt = if is_used { Felt252::ONE } else { Felt252::ZERO };
     insert_value_from_var_name(vars::ids::IS_SEGMENT_USED, is_used_felt, vm, ids_data, ap_tracking)?;
 
-    // TODO: avoid clone -- check the variant without consuming it
-    let is_leaf = if let BytecodeSegmentStructureImpl::Leaf(_) = current_segment_info.inner_structure.clone() {
-        true
-    } else {
-        false
-    };
+    let is_leaf = matches!(current_segment_info.inner_structure, BytecodeSegmentStructureImpl::Leaf(_));
     let is_used_leaf = is_used && is_leaf;
     let is_used_leaf_felt = if is_used_leaf { Felt252::ONE } else { Felt252::ZERO };
     insert_value_from_var_name(vars::ids::IS_USED_LEAF, is_used_leaf_felt, vm, ids_data, ap_tracking)?;

@@ -128,15 +128,14 @@ pub(crate) async fn get_storage_proofs(
     // down the line
     for nonce_update in &state_update.state_diff.nonces {
         let contract_address = nonce_update.contract_address;
-        if storage_changes_by_contract.get(&contract_address).is_none() {
-            storage_changes_by_contract.insert(contract_address, vec![]);
-        }
+        // insert empty vec iff entry doesn't exist
+        storage_changes_by_contract.entry(contract_address).or_default();
     }
 
     let mut storage_proofs = HashMap::new();
 
     log::info!("Contracts we're fetching proofs for:");
-    for (contract_address, _storage_changes) in &storage_changes_by_contract {
+    for contract_address in storage_changes_by_contract.keys() {
         log::info!("    {:x}", contract_address);
     }
 
