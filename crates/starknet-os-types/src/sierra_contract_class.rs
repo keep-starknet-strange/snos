@@ -1,6 +1,8 @@
 use std::cell::OnceCell;
 use std::rc::Rc;
 
+use cairo_vm::Felt252;
+use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::ser::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::serde_as;
@@ -77,9 +79,25 @@ impl GenericSierraContractClass {
     }
 
     fn compute_class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
-        let class_hash = self.get_starknet_core_contract_class()?.class_hash();
+        
+        // if we have a starknet_core type, we can ask it for a class_hash without any type conversion
+        return if let Some(sn_core_cc) = self.starknet_core_contract_class.get() {
+            let class_hash = sn_core_cc.as_ref().class_hash();
+            Ok(GenericClassHash::new(class_hash.into()))
+        } else {
+            // otherwise, we have a cairo_lang contract_class which we can serialize and then
+            // deserialize via ContractClassForPathfinderCompat
+            // TODO: improve resilience and performance
+            let contract_class = self.get_cairo_lang_contract_class()?;
+            let contract_class_compat = ContractClassForPathfinderCompat::from(contract_class.clone());
 
-        Ok(GenericClassHash::new(class_hash.into()))
+            let contract_dump =
+                serde_json::to_vec(&contract_class_compat).expect("JSON serialization failed unexpectedly.");
+            let computed_class_hash = compute_class_hash(&contract_dump)
+                .map_err(|e| ContractClassError::HashError(format!("Failed to compute class hash: {}", e)))?;
+
+            Ok(GenericClassHash::from_bytes_be(computed_class_hash.hash().0.to_be_bytes()))
+        };
     }
 
     pub fn class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
@@ -111,6 +129,25 @@ pub struct FlattenedSierraClassWithAbi {
     pub entry_points_by_type: EntryPointsByType,
     /// ABI, deserialized
     pub abi: Option<cairo_lang_starknet_classes::abi::Contract>,
+}
+
+#[derive(Debug, Serialize)]
+struct ContractClassForPathfinderCompat {
+    pub sierra_program: Vec<Felt252>,
+    pub contract_class_version: String,
+    pub entry_points_by_type: cairo_lang_starknet_classes::contract_class::ContractEntryPoints,
+    pub abi: String,
+}
+
+impl From<cairo_lang_starknet_classes::contract_class::ContractClass> for ContractClassForPathfinderCompat {
+    fn from(value: cairo_lang_starknet_classes::contract_class::ContractClass) -> Self {
+        Self {
+            sierra_program: value.sierra_program.into_iter().map(|x| Felt252::from(x.value)).collect(),
+            contract_class_version: value.contract_class_version,
+            entry_points_by_type: value.entry_points_by_type,
+            abi: value.abi.map(|abi| abi.json()).unwrap_or_default(),
+        }
+    }
 }
 
 impl TryFrom<&FlattenedSierraClass> for FlattenedSierraClassWithAbi {
