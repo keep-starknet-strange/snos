@@ -12,9 +12,7 @@ use reqwest::Url;
 use starknet::core::types::BlockId;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider as _};
-use starknet_os::starknet::starknet_storage::{
-    CommitmentInfo, CommitmentInfoError, PerContractStorage,
-};
+use starknet_os::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
 use starknet_os::starkware_utils::commitment_tree::base_types::TreeIndex;
 
 /// Reexecute the given transactions through Blockifier

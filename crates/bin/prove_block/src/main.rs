@@ -11,7 +11,9 @@ use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
 use rpc_utils::{get_class_proofs, get_storage_proofs, RpcStorage, TrieNode};
-use starknet::core::types::{BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingBlockWithTxs, MaybePendingStateUpdate, TransactionTrace};
+use starknet::core::types::{
+    BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingBlockWithTxs, MaybePendingStateUpdate, TransactionTrace,
+};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
