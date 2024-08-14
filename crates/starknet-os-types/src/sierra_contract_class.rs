@@ -79,7 +79,6 @@ impl GenericSierraContractClass {
     }
 
     fn compute_class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
-        
         // if we have a starknet_core type, we can ask it for a class_hash without any type conversion
         return if let Some(sn_core_cc) = self.starknet_core_contract_class.get() {
             let class_hash = sn_core_cc.as_ref().class_hash();
