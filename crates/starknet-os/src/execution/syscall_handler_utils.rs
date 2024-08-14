@@ -12,7 +12,8 @@ use thiserror::Error;
 
 use crate::execution::constants::SYSCALL_BASE_GAS_COST;
 use crate::execution::helper::ExecutionHelperWrapper;
-use crate::storage::storage::{Storage, StorageError};
+use crate::starknet::starknet_storage::PerContractStorage;
+use crate::storage::storage::StorageError;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum SyscallSelector {
@@ -237,14 +238,14 @@ pub trait SyscallHandler {
     type Request;
     type Response;
     fn read_request(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self::Request>;
-    async fn execute<S>(
+    async fn execute<PCS>(
         request: Self::Request,
         vm: &mut VirtualMachine,
-        exec_wrapper: &mut ExecutionHelperWrapper<S>,
+        exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
         remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response>
     where
-        S: Storage + 'static;
+        PCS: PerContractStorage + 'static;
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult;
 }
 
@@ -271,15 +272,15 @@ fn write_failure(
 
 pub const OUT_OF_GAS_ERROR: &str = "0x000000000000000000000000000000000000000000004f7574206f6620676173";
 
-pub async fn run_handler<SH, S>(
+pub async fn run_handler<SH, PCS>(
     syscall_ptr: &mut Relocatable,
     vm: &mut VirtualMachine,
-    exec_wrapper: &mut ExecutionHelperWrapper<S>,
+    exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
     syscall_gas_cost: u64,
 ) -> Result<(), HintError>
 where
     SH: SyscallHandler,
-    S: Storage + 'static,
+    PCS: PerContractStorage + 'static,
 {
     // Refund `SYSCALL_BASE_GAS_COST` as it was pre-charged.
     let required_gas = syscall_gas_cost - SYSCALL_BASE_GAS_COST;
