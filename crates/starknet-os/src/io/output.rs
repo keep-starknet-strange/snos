@@ -215,7 +215,8 @@ pub fn decode_output<I: Iterator<Item = Felt252>>(mut output_iter: I) -> Result<
 
     if use_kzg_da {
         // Skip KZG data.
-        _ = output_iter.by_ref().take(5);
+        _ = output_iter.by_ref().skip(5);
+        // dbg!(t.collect::<Vec<_>>());
     }
 
     let messages_to_l1 = read_variable_length_segment(&mut output_iter, "L1 messages")?;

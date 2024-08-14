@@ -1,6 +1,12 @@
+use std::cell::OnceCell;
 use std::collections::HashMap;
+use std::io::Read;
+use std::path::Path;
 
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name};
+use c_kzg::{Blob, KzgCommitment};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::errors::math_errors::MathError;
@@ -18,6 +24,7 @@ use crate::hints::vars;
 use crate::storage::storage::Storage;
 use crate::utils::execute_coroutine;
 
+const FIELD_ELEMENTS_PER_BLOB: usize = 4096;
 const COMMITMENT_BYTES_LENGTH: usize = 48;
 const COMMITMENT_LOW_BIT_LENGTH: usize = (COMMITMENT_BYTES_LENGTH * 8) / 2;
 const BLOB_SUBGROUP_GENERATOR: &str = "39033254847818212395286706435128746857159659164139250548781411570340225835782";
@@ -26,7 +33,7 @@ fn is_power_of_2(n: usize) -> bool {
     n > 0 && (n & (n - 1)) == 0
 }
 
-fn fft(coeffs: Vec<BigInt>, generator: BigInt, prime: BigInt, bit_reversed: bool) -> Vec<BigInt> {
+fn fft(coeffs: &[BigInt], generator: &BigInt, prime: &BigInt, bit_reversed: bool) -> Vec<BigInt> {
     fn _fft(coeffs: &[BigInt], group: &[BigInt], prime: &BigInt) -> Vec<BigInt> {
         if coeffs.len() == 1 {
             return coeffs.to_vec();
@@ -67,7 +74,7 @@ fn fft(coeffs: Vec<BigInt>, generator: BigInt, prime: BigInt, bit_reversed: bool
     let mut group = vec![BigInt::one()];
     for _ in 1..coeffs_len {
         let last = group.last().unwrap();
-        group.push((last * &generator) % &prime);
+        group.push((last * generator) % prime);
     }
 
     let mut values = _fft(&coeffs, &group, &prime);
@@ -92,18 +99,54 @@ fn split_commitment(num: BigInt) -> (BigInt, BigInt) {
     (low_part, high_part)
 }
 
-pub fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> (BigInt, BigInt) {
+fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> Result<(BigInt, BigInt), &'static str> {
+    let blob = polynomial_coefficients_to_blob(coefficients).unwrap();
+    let commitment_bytes = blob_to_kzg_commitment(&Blob::from_bytes(&blob).unwrap()).unwrap();
+
+    assert_eq!(commitment_bytes.len(), COMMITMENT_BYTES_LENGTH, "Bad commitment bytes length.");
+    let commitment_by: Result<Vec<_>, _> = commitment_bytes.bytes().collect();
+    Ok(split_commitment(from_bytes(&commitment_by.unwrap())))
+}
+
+fn polynomial_coefficients_to_blob(coefficients: Vec<BigInt>) -> Result<Vec<u8>, &'static str> {
+    if coefficients.len() > FIELD_ELEMENTS_PER_BLOB {
+        return Err("Too many coefficients.");
+    }
+
+    // Pad with zeros to complete FIELD_ELEMENTS_PER_BLOB coefficients
+    let mut padded_coefficients = coefficients;
+    padded_coefficients.resize(FIELD_ELEMENTS_PER_BLOB, BigInt::zero());
+
+    // Perform FFT on the coefficients
     let generator = BigInt::from_str_radix(BLOB_SUBGROUP_GENERATOR, 10).unwrap();
-    let prime = BigInt::from(2).pow(255) - BigInt::from(19);
+    const BLS_PRIME: &str = "52435875175126190479447740508185965837690552500527637822603658699938581184513";
+    let prime = BigInt::from_str_radix(BLS_PRIME, 10).unwrap();
+    let fft_result = fft(&padded_coefficients, &generator, &prime, true);
 
-    // Perform FFT on the polynomial coefficients
-    let fft_values = fft(coefficients, generator, prime.clone(), true);
+    // Serialize the FFT result into a blob
+    Ok(serialize_blob(fft_result))
+}
 
-    // Combine the FFT result to get the commitment (example combining method, replace with the specific implementation
-    let commitment_value = fft_values.iter().fold(BigInt::zero(), |acc, x| (acc + x) % &prime);
+pub fn blob_to_kzg_commitment(blob: &Blob) -> Result<KzgCommitment, c_kzg::Error> {
+    c_kzg::KzgCommitment::blob_to_kzg_commitment(
+        blob,
+        &c_kzg::KzgSettings::load_trusted_setup_file(Path::new(
+            "/crates/starknet-os/src/hints/gpoints/trusted_setup.txt",
+        ))
+        .expect("failed to load trusted setup"),
+    )
+}
 
-    // Split the commitment value into two parts
-    split_commitment(commitment_value)
+fn from_bytes(bytes: &[u8]) -> BigInt {
+    BigInt::from_bytes_le(num_bigint::Sign::Plus, bytes)
+}
+
+fn serialize_blob(blob: Vec<BigInt>) -> Vec<u8> {
+    assert_eq!(blob.len(), FIELD_ELEMENTS_PER_BLOB, "Bad blob size.");
+
+    let mut bytes: Vec<_> = blob.into_iter().flat_map(|x| x.to_signed_bytes_le()).collect();
+    // bytes.resize(c_kzg::BYTES_PER_BLOB, 0);
+    bytes
 }
 
 pub const WRITE_KZG_COMMITMENT_ADDRESS: &str = indoc! {r#"
@@ -127,12 +170,9 @@ async fn write_kzg_commitment_address_async<S: Storage + 'static>(
 ) -> Result<(), HintError> {
     use num_traits::ToPrimitive;
     let state_updates_start = get_ptr_from_var_name("state_updates_start", vm, ids_data, ap_tracking)?;
-    let da_size = get_integer_from_var_name("da_size", vm, ids_data, ap_tracking)?;
+    let state_updates_end = get_ptr_from_var_name("state_updates_end", vm, ids_data, ap_tracking)?;
     let range: Vec<MaybeRelocatable> = vm
-        .get_range(
-            state_updates_start,
-            da_size.to_u64().ok_or(MathError::Felt252ToU64Conversion(Box::new(da_size)))?.try_into().unwrap(),
-        )
+        .get_range(state_updates_start, state_updates_end.offset - state_updates_start.offset)
         .into_iter()
         .map(|s| s.unwrap().into_owned())
         .collect();
@@ -141,10 +181,10 @@ async fn write_kzg_commitment_address_async<S: Storage + 'static>(
     let ehw = execution_helper.execution_helper.write().await;
     ehw.da_segment.set(range).expect("DA segment is already initialized.");
 
-    let kzg_ptr = get_ptr_from_var_name("kzg_commitment", vm, ids_data, ap_tracking)?;
+    let kzg_ptr = get_relocatable_from_var_name("kzg_commitment", vm, ids_data, ap_tracking)?;
 
     let da_segment = ehw.da_segment.get().unwrap().iter().map(|c| c.get_int().unwrap().to_bigint()).collect();
-    let commitments = polynomial_coefficients_to_kzg_commitment(da_segment);
+    let commitments = polynomial_coefficients_to_kzg_commitment(da_segment).unwrap();
     let splits: Vec<MaybeRelocatable> = [commitments.0.into(), commitments.1.into()]
         .into_iter()
         .map(MaybeRelocatable::Int)
@@ -165,4 +205,73 @@ where
     S: Storage + 'static,
 {
     execute_coroutine(write_kzg_commitment_address_async::<S>(vm, exec_scopes, ids_data, ap_tracking, _constants))?
+}
+
+#[cfg(test)]
+mod test {
+    use std::iter::repeat_with;
+    use super::*;
+    use num_traits::One;
+    use rstest::rstest;
+
+    const PRIME: &str = "52435875175126190479447740508185965837690552500527637822603658699938581184513";
+    const GENERATOR: &str = "39033254847818212395286706435128746857159659164139250548781411570340225835782";
+    const WIDTH: usize = 12;
+    const ORDER: usize = 1 << WIDTH;
+
+    fn generate(generator: &BigInt) -> Vec<BigInt> {
+        let mut array = vec![BigInt::one()];
+        for _ in 1..ORDER {
+            let last = array.last().unwrap().clone();
+            let next = (generator * &last) % BigInt::from_str_radix(PRIME, 10).unwrap();
+            array.push(next);
+        }
+        array
+    }
+
+
+    #[rstest]
+    #[case(true)]
+    #[case(false)]
+    fn test_fft(#[case] bit_reversed: bool) {
+        let prime = BigInt::from_str_radix(PRIME, 10).unwrap();
+        let generator = BigInt::from_str_radix(GENERATOR, 10).unwrap();
+
+        let mut subgroup = generate(&generator);
+        if bit_reversed {
+            let perm: Vec<usize> = (0..ORDER)
+                .map(|i| {
+                    let binary = format!("{:0width$b}", i, width = WIDTH);
+                    usize::from_str_radix(&binary.chars().rev().collect::<String>(), 2).unwrap()
+                })
+                .collect();
+            subgroup = perm.iter().map(|&i| subgroup[i].clone()).collect();
+        }
+
+        // Sanity checks
+        assert_eq!((&generator.modpow(&BigInt::from(ORDER), &prime)), &BigInt::one());
+        assert_eq!(subgroup.len(), subgroup.iter().collect::<std::collections::HashSet<_>>().len());
+
+        let coeffs: Vec<BigInt> = repeat_with(|| BigInt::from(rand::random::<u64>()) % &prime).take(ORDER).collect();
+
+        // Evaluate naively
+        let mut expected_eval = vec![BigInt::zero(); ORDER];
+        for (i, x) in subgroup.iter().enumerate() {
+            let eval = generate(x);
+            expected_eval[i] = coeffs.iter().zip(eval.iter()).map(|(c, e)| c * e).sum::<BigInt>() % &prime;
+        }
+
+        // Evaluate using FFT
+        let actual_eval = fft(&coeffs, &generator, &prime, bit_reversed);
+
+        assert_eq!(actual_eval[0], expected_eval[0]);
+
+        // Trivial cases
+        // assert_eq!(*&actual_eval[0], &coeffs.iter().sum::<BigInt>() % &prime);
+        // assert_eq!(fft(&vec![BigInt::zero(); ORDER], &generator, &prime, bit_reversed), vec![BigInt::zero(); ORDER]);
+        // assert_eq!(
+        //     fft(&vec![BigInt::from(121212u64)], &BigInt::one(), &prime, bit_reversed),
+        //     vec![BigInt::from(121212u64)]
+        // );
+    }
 }

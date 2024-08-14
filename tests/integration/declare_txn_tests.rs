@@ -9,10 +9,12 @@ use starknet_api::transaction::{Fee, Resource, ResourceBounds, ResourceBoundsMap
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
 
-use crate::common::block_context;
 use crate::common::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_feature_contract};
-use crate::common::state::{init_logging, initial_state_cairo1, StarknetStateBuilder, StarknetTestState};
+use crate::common::state::{
+    init_logging, initial_state_cairo0, initial_state_cairo1, StarknetStateBuilder, StarknetTestState,
+};
 use crate::common::transaction_utils::execute_txs_and_run_os;
+use crate::common::{block_context, block_context_with_kzg};
 
 // Copied from the non-public Blockifier fn
 pub fn default_testing_resource_bounds() -> ResourceBoundsMapping {
@@ -28,7 +30,7 @@ pub fn default_testing_resource_bounds() -> ResourceBoundsMapping {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn declare_v3_cairo1_account(
     #[future] initial_state_cairo1: StarknetTestState,
-    block_context: BlockContext,
+    block_context_with_kzg: BlockContext,
     max_fee: Fee,
 ) {
     let initial_state = initial_state_cairo1.await;
@@ -73,7 +75,7 @@ async fn declare_v3_cairo1_account(
     let txs = vec![declare_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
-        block_context,
+        block_context_with_kzg,
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
