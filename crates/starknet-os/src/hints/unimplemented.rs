@@ -81,22 +81,6 @@ pub const PACK_X_PRIME: &str = indoc! {r#"
 };
 
 #[allow(unused)]
-pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"
-    current_segment_info = next(bytecode_segments)
-
-    is_used = current_segment_info.is_used
-    ids.is_segment_used = 1 if is_used else 0
-
-    is_used_leaf = is_used and isinstance(current_segment_info.inner_structure, BytecodeLeaf)
-    ids.is_used_leaf = 1 if is_used_leaf else 0
-
-    ids.segment_length = current_segment_info.segment_length
-    vm_enter_scope(new_scope_locals={
-        "bytecode_segment_structure": current_segment_info.inner_structure,
-    })"#
-};
-
-#[allow(unused)]
 pub const MAYBE_WRITE_ADDRESS_TO_AP: &str = indoc! {r#"
     memory[ap] = to_felt_or_relocatable(ids.response.ec_point.address_ if ids.not_on_curve == 0 else segments.add())"#
 };

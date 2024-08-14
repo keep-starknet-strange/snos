@@ -1,7 +1,7 @@
-use cairo_lang_starknet_classes::contract_class::ContractClass;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::hash::Hash;
+use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
     CompiledClassFact, ContractClassFact, DeprecatedCompiledClassFact,
@@ -9,7 +9,7 @@ use crate::starknet::business_logic::fact_state::contract_class_objects::{
 use crate::storage::storage::{Fact, FactFetchingContext, HashFunctionType, Storage, StorageError};
 
 pub async fn write_class_facts<S, H>(
-    contract_class: ContractClass,
+    contract_class: GenericSierraContractClass,
     compiled_class: GenericCasmContractClass,
     ffc: &mut FactFetchingContext<S, H>,
 ) -> Result<(Hash, Hash), StorageError>
@@ -42,6 +42,7 @@ where
 mod tests {
     use std::ops::Deref;
 
+    use cairo_lang_starknet_classes::contract_class::ContractClass;
     use rstest::{fixture, rstest};
 
     use super::*;
@@ -73,7 +74,7 @@ mod tests {
         let compiled_class = GenericCasmContractClass::from_bytes(casm_bytes.to_vec());
 
         let (class_hash, compiled_class_hash) =
-            write_class_facts(contract_class, compiled_class, &mut ffc).await.unwrap();
+            write_class_facts(contract_class.into(), compiled_class, &mut ffc).await.unwrap();
 
         // Check that the data can be fetched from the storage afterward
         let storage = ffc.acquire_storage().await;

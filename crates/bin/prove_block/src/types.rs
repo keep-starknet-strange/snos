@@ -1,7 +1,5 @@
 use std::collections::BTreeMap;
 
-use cairo_lang_starknet_classes::contract_class::ContractEntryPoints;
-use cairo_lang_utils::bigint::BigUintAsHex;
 use cairo_vm::Felt252;
 use starknet::core::types::{
     DataAvailabilityMode, InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3,
@@ -133,11 +131,4 @@ pub(crate) fn starknet_rs_tx_to_internal_tx(tx: Transaction) -> InternalTransact
             todo!()
         }
     }
-}
-
-#[derive(Debug, serde::Deserialize)]
-pub struct MiddleSierraContractClass {
-    pub sierra_program: Vec<BigUintAsHex>,
-    pub contract_class_version: String,
-    pub entry_points_by_type: ContractEntryPoints,
 }

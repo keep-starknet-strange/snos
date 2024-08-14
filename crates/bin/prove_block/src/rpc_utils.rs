@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 
 use cairo_vm::Felt252;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
-use starknet::core::types::{StateUpdate, StorageEntry};
+use starknet::core::types::{FunctionInvocation, StateUpdate, StorageEntry};
 use starknet_os::storage::cached_storage::CachedStorage;
 use starknet_os::storage::storage::{Storage, StorageError};
 use starknet_types_core::felt::Felt;
@@ -49,7 +49,7 @@ async fn post_jsonrpc_request<T: DeserializeOwned>(
     params: serde_json::Value,
 ) -> Result<T, reqwest::Error> {
     let request = jsonrpc_request(method, params);
-    let response = client.post(format!("{}/rpc/v0_7", rpc_provider)).json(&request).send().await?;
+    let response = client.post(format!("{}/rpc/pathfinder/v0.1", rpc_provider)).json(&request).send().await?;
 
     #[derive(Deserialize)]
     struct TransactionReceiptResponse<T> {
@@ -112,6 +112,7 @@ pub(crate) async fn get_storage_proofs(
     rpc_provider: &str,
     block_number: u64,
     state_update: &StateUpdate,
+    extra_contracts: &HashSet<Felt252>,
 ) -> Result<HashMap<Felt, PathfinderProof>, reqwest::Error> {
     let mut storage_changes_by_contract: HashMap<Felt, Vec<StorageEntry>> = HashMap::new();
 
@@ -119,19 +120,41 @@ pub(crate) async fn get_storage_proofs(
         storage_changes_by_contract.entry(diff_item.address).or_default().extend_from_slice(&diff_item.storage_entries);
     }
 
+    for extra_contract in extra_contracts {
+        storage_changes_by_contract.entry(*extra_contract).or_default().extend_from_slice(&[]);
+    }
+
+    // Also request entries for read-only contracts so that we can build `ContractState` objects
+    // down the line
+    for nonce_update in &state_update.state_diff.nonces {
+        let contract_address = nonce_update.contract_address;
+        // insert empty vec iff entry doesn't exist
+        storage_changes_by_contract.entry(contract_address).or_default();
+    }
+
     let mut storage_proofs = HashMap::new();
+
+    log::info!("Contracts we're fetching proofs for:");
+    for contract_address in storage_changes_by_contract.keys() {
+        log::info!("    {:x}", contract_address);
+    }
 
     for (contract_address, storage_changes) in storage_changes_by_contract {
         let keys: Vec<_> = storage_changes.iter().map(|change| change.key).collect();
 
-        // The endpoint is limited to 100 keys at most per call
-        const MAX_KEYS: usize = 100;
-        let mut chunked_storage_proofs = Vec::new();
-        for keys_chunk in keys.chunks(MAX_KEYS) {
-            chunked_storage_proofs
-                .push(pathfinder_get_proof(client, rpc_provider, block_number, contract_address, keys_chunk).await?);
-        }
-        let storage_proof = merge_chunked_storage_proofs(chunked_storage_proofs);
+        let storage_proof = if keys.is_empty() {
+            pathfinder_get_proof(client, rpc_provider, block_number, contract_address, &[]).await?
+        } else {
+            // The endpoint is limited to 100 keys at most per call
+            const MAX_KEYS: usize = 100;
+            let mut chunked_storage_proofs = Vec::new();
+            for keys_chunk in keys.chunks(MAX_KEYS) {
+                chunked_storage_proofs.push(
+                    pathfinder_get_proof(client, rpc_provider, block_number, contract_address, keys_chunk).await?,
+                );
+            }
+            merge_chunked_storage_proofs(chunked_storage_proofs)
+        };
 
         storage_proofs.insert(contract_address, storage_proof);
     }
@@ -161,4 +184,59 @@ fn merge_chunked_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof
     };
 
     PathfinderProof { class_commitment, state_commitment, contract_proof, contract_data }
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+pub(crate) struct PathfinderClassProof {
+    pub class_commitment: Felt252,
+    pub class_proof: Vec<TrieNode>,
+}
+
+pub(crate) async fn pathfinder_get_class_proof(
+    client: &reqwest::Client,
+    rpc_provider: &str,
+    block_number: u64,
+    class_hash: &Felt,
+) -> Result<PathfinderClassProof, reqwest::Error> {
+    log::debug!("querying pathfinder_getClassProof for {:x}", class_hash);
+    log::debug!("provider: {}", rpc_provider);
+    post_jsonrpc_request(
+        client,
+        rpc_provider,
+        "pathfinder_getClassProof",
+        json!({ "block_id": { "block_number": block_number }, "class_hash": class_hash }),
+    )
+    .await
+}
+
+pub(crate) async fn get_class_proofs(
+    client: &reqwest::Client,
+    rpc_provider: &str,
+    block_number: u64,
+    class_hashes: &[&Felt],
+) -> Result<HashMap<Felt252, PathfinderClassProof>, reqwest::Error> {
+    let mut proofs: HashMap<Felt252, PathfinderClassProof> = HashMap::with_capacity(class_hashes.len());
+    for class_hash in class_hashes {
+        let proof = pathfinder_get_class_proof(client, rpc_provider, block_number, class_hash).await?;
+        // TODO: need to combine these, similar to merge_chunked_storage_proofs above?
+        proofs.insert(**class_hash, proof);
+    }
+
+    Ok(proofs)
+}
+
+// Utility to extract all contract address in a nested call structure. Any given call can have
+// nested calls, creating a tree structure of calls, so this fn traverses this structure and
+// returns a flat list of all contracts encountered along the way.
+pub(crate) fn process_function_invocations(
+    inv: FunctionInvocation,
+    contracts: &mut HashSet<Felt252>,
+    nesting_level: u64,
+) {
+    log::info!("process_function_inv: contract: {:x} at level {}", inv.contract_address, nesting_level);
+    contracts.insert(inv.contract_address);
+    for call in inv.calls {
+        process_function_invocations(call, contracts, nesting_level + 1);
+    }
 }

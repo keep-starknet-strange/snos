@@ -6,18 +6,18 @@ use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use clap::Parser;
-use reexecute::reexecute_transactions_with_blockifier;
+use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage};
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
-use rpc_utils::{get_storage_proofs, RpcStorage, TrieNode};
-use starknet::core::types::{BlockId, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
+use rpc_utils::{get_class_proofs, get_storage_proofs, process_function_invocations, RpcStorage, TrieNode};
+use starknet::core::types::{
+    BlockId, ExecuteInvocation, MaybePendingBlockWithTxs, MaybePendingStateUpdate, TransactionTrace,
+};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
-use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
-use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::error::SnOsError::Runner;
 use starknet_os::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
 use starknet_os::io::input::StarknetOsInput;
@@ -27,14 +27,14 @@ use starknet_os::starknet::business_logic::fact_state::contract_class_objects::{
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
-use starknet_os::starknet::starknet_storage::{CommitmentInfo, OsSingleStarknetStorage};
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
+use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use starknet_os::storage::storage::{Fact, FactFetchingContext};
-use starknet_os::utils::{felt_api2vm, felt_vm2api};
+use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
-use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
 use crate::rpc_utils::CachedRpcStorage;
 use crate::types::starknet_rs_tx_to_internal_tx;
@@ -164,6 +164,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let block_number = args.block_number;
     let layout = LayoutName::starknet_with_keccak;
 
+    let block_id = BlockId::Number(block_number);
+    let previous_block_id = BlockId::Number(block_number - 1);
+
     let provider_url = format!("{}/rpc/v0_7", args.rpc_provider);
     log::info!("provider url: {}", provider_url);
     let provider = JsonRpcClient::new(HttpTransport::new(
@@ -175,7 +178,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Step 1: build the block context
     let chain_id = provider.chain_id().await?.to_string();
     log::debug!("provider's chain_id: {}", chain_id);
-    let block_with_txs = match provider.get_block_with_txs(BlockId::Number(block_number)).await? {
+    let block_with_txs = match provider.get_block_with_txs(block_id).await? {
         MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
         MaybePendingBlockWithTxs::PendingBlock(_) => {
             panic!("Block is still pending!");
@@ -189,20 +192,50 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         };
 
-    let state_update =
-        match provider.get_state_update(BlockId::Number(block_number)).await.expect("Failed to get state update") {
-            MaybePendingStateUpdate::Update(update) => update,
-            MaybePendingStateUpdate::PendingUpdate(_) => {
-                panic!("Block is still pending!")
+    let state_update = match provider.get_state_update(block_id).await.expect("Failed to get state update") {
+        MaybePendingStateUpdate::Update(update) => update,
+        MaybePendingStateUpdate::PendingUpdate(_) => {
+            panic!("Block is still pending!")
+        }
+    };
+
+    // extract other contracts used in our block from the block trace
+    let mut contracts_subcalled = HashSet::new();
+    let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
+    for trace in traces {
+        match trace.trace_root {
+            TransactionTrace::Invoke(invoke_trace) => {
+                if let Some(inv) = invoke_trace.validate_invocation {
+                    process_function_invocations(inv, &mut contracts_subcalled, 0);
+                }
+                match invoke_trace.execute_invocation {
+                    ExecuteInvocation::Success(inv) => {
+                        process_function_invocations(inv, &mut contracts_subcalled, 0);
+                    }
+                    ExecuteInvocation::Reverted(_) => unimplemented!("handle reverted invoke trace"),
+                }
+                if let Some(inv) = invoke_trace.fee_transfer_invocation {
+                    process_function_invocations(inv, &mut contracts_subcalled, 0);
+                }
             }
-        };
+            _ => unimplemented!("process other txn traces"),
+        }
+    }
 
-    let storage_proofs = get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &state_update)
-        .await
-        .expect("Failed to fetch storage proofs");
+    let previous_storage_proofs = get_storage_proofs(
+        &pathfinder_client,
+        &args.rpc_provider,
+        block_number - 1,
+        &state_update,
+        &contracts_subcalled,
+    )
+    .await
+    .expect("Failed to fetch storage proofs");
 
-    let _traces =
-        provider.trace_block_transactions(BlockId::Number(block_number)).await.expect("Failed to get block tx traces");
+    let storage_proofs =
+        get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &state_update, &contracts_subcalled)
+            .await
+            .expect("Failed to fetch storage proofs");
 
     let block_context = build_block_context(chain_id.clone(), &block_with_txs);
 
@@ -215,7 +248,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let cached_storage = CachedRpcStorage::new(Default::default(), rpc_storage);
 
     // TODO: nasty clone, the conversion fns don't take references
-    let transactions: Vec<_> =
+    let mut transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
     // TODO: these maps that we pass in to build_initial_state() are built only on items from the
@@ -227,6 +260,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .iter()
         .map(|contract| (contract.address, contract.class_hash))
         .collect();
+    for address in &contracts_subcalled {
+        let class_hash = provider.get_class_hash_at(BlockId::Number(block_number), address).await.unwrap();
+        address_to_class_hash.insert(*address, class_hash);
+    }
 
     let address_to_nonce = state_update
         .state_diff
@@ -251,7 +288,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         })
         .collect();
 
-    let class_hash_to_compiled_class_hash: HashMap<_, _> = state_update
+    let mut class_hash_to_compiled_class_hash: HashMap<_, _> = state_update
         .state_diff
         .declared_classes
         .iter()
@@ -290,8 +327,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
+    // TODO: clean up...
+    // now that we have the class_hash for each contract, fill in the transaction data with the
+    // class_hash. when transactions were first processed above, this information wasn't available.
+    for transaction in transactions.iter_mut() {
+        if let Some(sender_address) = transaction.sender_address {
+            let class_hash = address_to_class_hash
+                .get(&sender_address)
+                .expect("should have a class_hash for each known contract addresses at this point");
+            log::info!("Filling in class_hash {:x} for txn", class_hash);
+            transaction.class_hash = Some(*class_hash);
+        } else {
+            // TODO: are there txn types which wouldn't have a sender address?
+            unimplemented!("Found transaction without sender_address");
+        }
+    }
+
     // write facts from proof
-    for proof in storage_proofs.values() {
+    for proof in storage_proofs.values().chain(previous_storage_proofs.values()) {
         for node in &proof.contract_proof {
             match node {
                 TrieNode::Binary { left, right } => {
@@ -321,144 +374,89 @@ async fn main() -> Result<(), Box<dyn Error>> {
         ..default_general_config
     };
 
-    let previous_tree = &initial_state.contract_states;
-
     let mut contract_states = HashMap::new();
     let mut contract_storages = ContractStorageMap::new();
 
-    let nonces: HashMap<Felt252, Felt252> =
-        state_update.state_diff.nonces.iter().map(|nu| (nu.contract_address, nu.nonce)).collect();
+    for (contract_address, _storage_proof) in storage_proofs {
+        let previous_storage_proof =
+            previous_storage_proofs.get(&contract_address).expect("failed to find previous storage proof");
 
-    let num_storage_diffs = state_update.state_diff.storage_diffs.len();
-    let mut updates = Vec::with_capacity(num_storage_diffs);
-    for i in 0..num_storage_diffs {
-        let storage_diff_item = &state_update.state_diff.storage_diffs[i];
-        let storage_proof = &storage_proofs[&storage_diff_item.address];
-        let contract_address = storage_diff_item.address;
+        let previous_tree = PatriciaTree { root: previous_storage_proof.state_commitment.into(), height: Height(251) };
 
-        // TODO: as done below, we need to use the previous nonce, not the updated one. however, there isn't
-        // really any overlap between contracts with storage updates (no nonce updates) and account
-        // contracts (nonces are updated), so this would be a corner case for now
-        let nonce = nonces.get(&contract_address).copied();
-
-        log::debug!("contract with storage diff, address: {} (nonce: {:?})", contract_address, nonce);
-        let contract_address_biguint = contract_address.to_biguint();
-
-        let address: ContractAddress = ContractAddress(PatriciaKey::try_from(felt_vm2api(contract_address)).unwrap());
-        let initial_contract_state = initial_state.get_contract_state(address)?;
-        let initial_tree = initial_contract_state.storage_commitment_tree.clone();
-
-        let contract_state = initial_contract_state
-            .update(
-                &mut initial_state.ffc,
-                &storage_diff_item.storage_entries.iter().map(|entry| (entry.key, entry.value)).collect(),
-                nonce,
-                address_to_class_hash.get(&contract_address).copied(),
-            )
-            .await?;
-        let updated_tree = contract_state.storage_commitment_tree.clone();
-
-        if storage_proof.class_commitment != contract_state.storage_commitment_tree.root.into() {
-            log::error!(
-                "expected class_commitment != computed class_commitment ({:?} != {:?})",
-                storage_proof.class_commitment,
-                contract_state.storage_commitment_tree.root.clone()
-            );
-        }
-
-        updates.push((contract_address_biguint, contract_state.clone()));
-        contract_states.insert(storage_diff_item.address, contract_state);
-
-        let contract_storage =
-            OsSingleStarknetStorage::new(initial_tree, updated_tree, &[], initial_state.ffc.clone()).await?;
+        let contract_storage = ProverPerContractStorage::new(previous_block_id, contract_address, provider_url.clone());
         contract_storages.insert(contract_address, contract_storage);
-    }
 
-    // insert ContractState for any contract that received a nonce update but not a storage update
-    for nonce_update in state_update.state_diff.nonces {
-        if let std::collections::hash_map::Entry::Vacant(e) = contract_states.entry(nonce_update.contract_address) {
-            let mut contract_state = ContractState::empty(Height(251), &mut initial_state.ffc).await?;
+        log::debug!("contract address: {}", contract_address.to_hex_string());
+        let (class_hash, previous_nonce) = if [Felt252::ZERO, Felt252::ONE].contains(&contract_address) {
+            (Felt252::ZERO, Felt252::ZERO)
+        } else {
+            let class_hash = provider.get_class_hash_at(block_id, contract_address).await?;
+            let previous_nonce = provider.get_nonce(previous_block_id, contract_address).await?;
+            (class_hash, previous_nonce)
+        };
 
-            // we receive the new nonce, but need to configure SNOS with the previous nonce. since
-            // any given account could have more than one txn in this block, we need to count them
-            // in order to derive the original nonce.
-            // TODO: review -- is there a better way to do this? we could also query RPC for it...
-            // TODO: this is now duplicated with the nonce processing above...
-            let num_nonce_bumps =
-                Felt252::from(transactions.iter().fold(0, |acc, tx| {
-                    acc + if tx.sender_address == Some(nonce_update.contract_address) { 1 } else { 0 }
-                }));
-            assert!(nonce_update.nonce > num_nonce_bumps);
-            let previous_nonce = nonce_update.nonce - num_nonce_bumps;
-            log::debug!(
-                "probably-account contract {} nonce: {} - {} => {}",
-                nonce_update.contract_address,
-                nonce_update.nonce,
-                num_nonce_bumps,
-                previous_nonce,
-            );
+        let contract_state = ContractState {
+            contract_hash: class_hash.to_bytes_be().to_vec(),
+            storage_commitment_tree: previous_tree,
+            nonce: previous_nonce,
+        };
 
-            contract_state.nonce = previous_nonce;
-            e.insert(contract_state);
-        }
+        contract_states.insert(contract_address, contract_state);
     }
 
     // ensure that we have all class_hashes and compiled_class_hashes for any accessed contracts
     let mut accessed_class_hashes = HashSet::<_>::new();
     let mut compiled_classes = HashMap::new();
     for contract_address in &accessed_contracts {
-        // TODO: dedupe with query in build_initial_state()...
         if let Ok(class_hash) = provider.get_class_hash_at(BlockId::Number(block_number), contract_address).await {
+            let contract_class = provider.get_class(BlockId::Number(block_number), class_hash).await?;
+            let generic_sierra_cc = match contract_class {
+                starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
+                    GenericSierraContractClass::from(flattened_sierra_cc)
+                }
+                starknet::core::types::ContractClass::Legacy(_) => {
+                    unimplemented!("Fixme: Support legacy contract class")
+                }
+            };
+
             accessed_class_hashes.insert(class_hash);
 
-            log::debug!("querying class for contract_address {}, hash: {}", contract_address, class_hash);
-            if let Ok(contract_class) = provider.get_class(BlockId::Number(block_number), class_hash).await {
-                log::debug!("contract class for {}: {:?}", contract_address, contract_class);
+            let generic_cc = generic_sierra_cc.compile()?;
 
-                match contract_class {
-                    starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
-                        let middle_sierra: types::MiddleSierraContractClass = {
-                            let v = serde_json::to_value(flattened_sierra_cc).unwrap();
-                            serde_json::from_value(v).unwrap()
-                        };
-                        let sierra_cc = cairo_lang_starknet_classes::contract_class::ContractClass {
-                            sierra_program: middle_sierra.sierra_program,
-                            contract_class_version: middle_sierra.contract_class_version,
-                            entry_points_by_type: middle_sierra.entry_points_by_type,
-                            sierra_program_debug_info: None,
-                            abi: None,
-                        };
-                        let casm_cc =
-                            cairo_lang_starknet_classes::casm_contract_class::CasmContractClass::from_contract_class(
-                                sierra_cc.clone(),
-                                false,
-                                usize::MAX,
-                            )
-                            .unwrap();
-                        let casm_cc: GenericCasmContractClass = casm_cc.into();
+            let (_contract_class_hash, compiled_contract_hash) =
+                write_class_facts(generic_sierra_cc, generic_cc.clone(), &mut initial_state.ffc_for_class_hash).await?;
 
-                        log::debug!("class_hash (from RPC): {}", class_hash);
-
-                        // TODO: it seems that this ends up computing the wrong class hash...
-                        write_class_facts(
-                            sierra_cc,
-                            casm_cc.clone(),
-                            &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>(),
-                        )
-                        .await?;
-
-                        compiled_classes.insert(class_hash, casm_cc);
-                    }
-                    starknet::core::types::ContractClass::Legacy(_compressed_logacy_contract_class) => {
-                        panic!("legacy class (TODO)");
-                    }
-                }
-            } else {
-                log::warn!("No class available for contract {}", contract_address);
-            }
+            class_hash_to_compiled_class_hash.insert(class_hash, compiled_contract_hash.into());
+            compiled_classes.insert(compiled_contract_hash.into(), generic_cc.clone());
         } else {
             log::warn!("No class hash available for contract {}", contract_address);
         };
+    }
+
+    // query storage proofs for each accessed contract
+    let class_hashes: Vec<&Felt252> = class_hash_to_compiled_class_hash.keys().collect();
+    // TODO: we fetch proofs here for block-1, but we probably also need to fetch at the current
+    //       block, likely for contracts that are deployed in this block
+    let class_proofs = get_class_proofs(&pathfinder_client, &args.rpc_provider, block_number - 1, &class_hashes[..])
+        .await
+        .expect("Failed to fetch class proofs");
+
+    // write facts from class proof
+    for proof in class_proofs.values() {
+        for node in &proof.class_proof {
+            match node {
+                TrieNode::Binary { left, right } => {
+                    // log::info!("writing binary node...");
+                    let fact = BinaryNodeFact::new((*left).into(), (*right).into())?;
+                    fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
+                }
+                TrieNode::Edge { child, path } => {
+                    // log::info!("writing edge node...");
+                    let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))?;
+                    fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
+                }
+            }
+        }
     }
 
     let blockifier_state_reader = AsyncRpcStateReader::new(provider, BlockId::Number(block_number - 1));
@@ -478,40 +476,74 @@ async fn main() -> Result<(), Box<dyn Error>> {
         );
     }
 
-    let contract_state_commitment_info =
-        CommitmentInfo::create_from_modifications::<CachedRpcStorage, PedersenHash, ContractState>(
-            previous_tree.clone(),
-            None, // TODO: do we have a source for expected?
-            updates,
-            &mut initial_state.ffc,
-        )
-        .await?;
-
-    // Blockifier provides a class hash -> visited PCs map, but we need
-    // the compiled class hash -> visited PCs map.
-    let compiled_class_visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
+    let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
         .visited_pcs
         .iter()
         .map(|(class_hash, visited_pcs)| {
-            let class_hash_felt = felt_api2vm(class_hash.0);
-            let compiled_class_hash_felt = class_hash_to_compiled_class_hash.get(&class_hash_felt).unwrap();
-            (*compiled_class_hash_felt, visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
+            (felt_api2vm(class_hash.0), visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
         })
         .collect();
 
+    log::debug!("class_hash_to_compiled_class_hash ({}):", class_hash_to_compiled_class_hash.len());
+    for (class_hash, compiled_class_hash) in &class_hash_to_compiled_class_hash {
+        log::debug!("    0x{:x} => 0x{:x}", class_hash, compiled_class_hash);
+    }
+
+    // TODO: ugly clone here
+    // Convert the Blockifier storage into an OS-compatible one
+    // let (contract_storage_map, previous_state, updated_state) =
+    //     reexecute::build_starknet_storage_async(blockifier_state,
+    // initial_state.clone()).await.unwrap();
+
+    // TODO: how should special contracts (e.g. 1) be handled?
+    // contract_storage_map.insert(
+    // Felt252::ONE,
+    // OsSingleStarknetStorage::new(
+    // PatriciaTree::empty_tree(&mut initial_state.ffc, Height(251), SimpleLeafFact::empty()).await?,
+    // PatriciaTree::empty_tree(&mut initial_state.ffc, Height(251), SimpleLeafFact::empty()).await?,
+    // &[],
+    // initial_state.ffc.clone()).await?,
+    // );
+
+    // Pass all contract addresses as expected accessed indices
+    // let contract_indices: HashSet<TreeIndex> =
+    //     contract_states.keys().chain(contract_storages.keys()).map(|address|
+    // address.to_biguint()).collect(); let contract_indices: Vec<TreeIndex> =
+    // contract_indices.into_iter().collect();
+
+    // let contract_state_commitment_info =
+    //     CommitmentInfo::create_from_expected_updated_tree::<_, PedersenHash, ContractState>(
+    //         previous_state.contract_states.clone(),
+    //         updated_state.contract_states.clone(),
+    //         &contract_indices,
+    //         &mut initial_state.ffc,
+    //     )
+    //     .await
+    //     .unwrap_or_else(|e| panic!("Could not create contract state commitment info: {:?}", e));
+
+    // let contract_class_commitment_info =
+    //     CommitmentInfo::create_from_expected_updated_tree::<_, PoseidonHash, ContractClassLeaf>(
+    //         previous_state.contract_classes.clone().expect("previous state should have class trie"),
+    //         updated_state.contract_classes.clone().expect("updated state should have class trie"),
+    //         &contract_indices,
+    //         &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>(),
+    //     )
+    //     .await
+    //     .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
+
     let os_input = StarknetOsInput {
-        contract_state_commitment_info,
+        contract_state_commitment_info: Default::default(),
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes: Default::default(),
         compiled_classes,
-        compiled_class_visited_pcs,
+        compiled_class_visited_pcs: visited_pcs,
         contracts: contract_states,
         class_hash_to_compiled_class_hash,
         general_config,
         transactions,
         block_hash: block_with_txs.block_hash,
     };
-    let execution_helper = ExecutionHelperWrapper::<OsSingleStarknetStorage<CachedRpcStorage, PedersenHash>>::new(
+    let execution_helper = ExecutionHelperWrapper::<ProverPerContractStorage>::new(
         contract_storages,
         tx_execution_infos,
         &block_context,
