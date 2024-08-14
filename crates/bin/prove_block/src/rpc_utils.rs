@@ -6,7 +6,6 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
 use starknet::core::types::{StateUpdate, StorageEntry};
-use starknet_os::hints::execution::contract_address;
 use starknet_os::storage::cached_storage::CachedStorage;
 use starknet_os::storage::storage::{Storage, StorageError};
 use starknet_types_core::felt::Felt;
@@ -190,6 +189,7 @@ fn merge_chunked_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof
     PathfinderProof { class_commitment, state_commitment, contract_proof, contract_data }
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 pub(crate) struct PathfinderClassProof {
     pub class_commitment: Felt252,

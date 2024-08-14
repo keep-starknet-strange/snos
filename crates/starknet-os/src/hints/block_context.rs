@@ -97,8 +97,6 @@ pub fn load_class_inner(
         .next()
         .ok_or(HintError::CustomHint("Compiled class iterator exhausted".to_string().into_boxed_str()))?;
 
-    log::info!("loading bytecode segments for class with compiled_class_hash 0x{:x}", compiled_class_hash);
-
     exec_scopes.insert_value(vars::scopes::COMPILED_CLASS_HASH, compiled_class_hash);
     exec_scopes.insert_value(vars::scopes::COMPILED_CLASS, class.clone());
 
@@ -182,8 +180,6 @@ pub fn load_class(
         let abs_pc = Relocatable::from((byte_code_ptr.segment_index, rel_pc));
         hint_extension.insert(abs_pc, hints.iter().map(|h| any_box!(h.clone())).collect());
     }
-
-    log::info!("Contract has correct compiled_contract_hash {:x}!", computed_hash.into_owned());
 
     Ok(hint_extension)
 }
@@ -342,8 +338,6 @@ pub fn is_leaf(
         BytecodeSegmentStructureImpl::SegmentedNode(_) => Felt252::ZERO,
         BytecodeSegmentStructureImpl::Leaf(_) => Felt252::ONE,
     };
-
-    log::info!("ids.is_leaf: {}", if is_leaf == Felt252::ONE { "TRUE" } else { "FALSE" });
 
     insert_value_from_var_name(vars::ids::IS_LEAF, is_leaf, vm, ids_data, ap_tracking)
 }

@@ -11,9 +11,7 @@ use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
 use rpc_utils::{get_class_proofs, get_storage_proofs, RpcStorage, TrieNode};
-use starknet::core::types::{
-    BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingBlockWithTxs, MaybePendingStateUpdate, TransactionTrace,
-};
+use starknet::core::types::{BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingBlockWithTxs, MaybePendingStateUpdate, TransactionTrace};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
@@ -28,7 +26,6 @@ use starknet_os::starknet::business_logic::fact_state::contract_class_objects::{
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
-use starknet_os::starknet::starknet_storage::OsSingleStarknetStorage;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
@@ -388,17 +385,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         ..default_general_config
     };
 
-    let ffc = initial_state.ffc.clone();
-
     let mut contract_states = HashMap::new();
     let mut contract_storages = ContractStorageMap::new();
 
-    for (contract_address, storage_proof) in storage_proofs {
+    for (contract_address, _storage_proof) in storage_proofs {
         let previous_storage_proof =
             previous_storage_proofs.get(&contract_address).expect("failed to find previous storage proof");
 
         let previous_tree = PatriciaTree { root: previous_storage_proof.state_commitment.into(), height: Height(251) };
-        let updated_tree = PatriciaTree { root: storage_proof.state_commitment.into(), height: Height(251) };
 
         let contract_storage = ProverPerContractStorage::new(previous_block_id, contract_address, provider_url.clone());
         contract_storages.insert(contract_address, contract_storage);
