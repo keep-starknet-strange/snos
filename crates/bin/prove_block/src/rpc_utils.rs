@@ -12,24 +12,36 @@ use starknet_types_core::felt::Felt;
 
 /// A `Storage` impl backed by RPC
 #[derive(Clone)]
-pub(crate) struct RpcStorage {}
+pub(crate) struct RpcStorage {
+    cache: HashMap<Vec<u8>, Vec<u8>>,
+}
 
 pub(crate) type CachedRpcStorage = CachedStorage<RpcStorage>;
 
 impl RpcStorage {
     pub fn new() -> Self {
-        Self {}
+        Self { cache: HashMap::with_capacity(1024) }
     }
 }
 
 impl Storage for RpcStorage {
-    async fn set_value(&mut self, _key: Vec<u8>, _value: Vec<u8>) -> Result<(), StorageError> {
+    async fn set_value(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StorageError> {
+        log::warn!("RpcStorage::set_value(), key-len: {}, key: {:?}, value len: {}", key.len(), key, value.len());
+        self.cache.insert(key, value);
         Ok(())
     }
 
     fn get_value(&self, key: &[u8]) -> impl Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
-        log::warn!("unimplemented: RpcStorage::get_value(), key-len: {}, key: {:?}", key.len(), key);
-        async { Ok(Some(Default::default())) }
+        log::warn!("RpcStorage::get_value(), key-len: {}, key: {:?}", key.len(), key);
+        async {
+            if let Some(value) = self.cache.get(key) {
+                log::warn!("    have value");
+                Ok(Some(value.clone()))
+            } else {
+                log::warn!("    NO value!");
+                Err(StorageError::ContentNotFound)
+            }
+        }
     }
 }
 

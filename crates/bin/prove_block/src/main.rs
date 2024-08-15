@@ -385,7 +385,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         let previous_tree = PatriciaTree { root: previous_storage_proof.state_commitment.into(), height: Height(251) };
 
-        let contract_storage = ProverPerContractStorage::new(previous_block_id, contract_address, provider_url.clone());
+        let contract_storage = ProverPerContractStorage::new(
+            previous_block_id,
+            contract_address,
+            provider_url.clone(),
+            previous_tree.clone(),
+            initial_state.ffc.clone(),
+        ).await?;
         contract_storages.insert(contract_address, contract_storage);
 
         log::debug!("contract address: {}", contract_address.to_hex_string());
