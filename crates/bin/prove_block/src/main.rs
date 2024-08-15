@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
+use blockifier::state::state_api::State as _;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
@@ -27,6 +28,7 @@ use starknet_os::starknet::business_logic::fact_state::contract_class_objects::{
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
+use starknet_os::starknet::starknet_storage::CommitmentInfo;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
@@ -489,51 +491,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
         log::debug!("    0x{:x} => 0x{:x}", class_hash, compiled_class_hash);
     }
 
-    // TODO: ugly clone here
-    // Convert the Blockifier storage into an OS-compatible one
-    // let (contract_storage_map, previous_state, updated_state) =
-    //     reexecute::build_starknet_storage_async(blockifier_state,
-    // initial_state.clone()).await.unwrap();
-
-    // TODO: how should special contracts (e.g. 1) be handled?
-    // contract_storage_map.insert(
-    // Felt252::ONE,
-    // OsSingleStarknetStorage::new(
-    // PatriciaTree::empty_tree(&mut initial_state.ffc, Height(251), SimpleLeafFact::empty()).await?,
-    // PatriciaTree::empty_tree(&mut initial_state.ffc, Height(251), SimpleLeafFact::empty()).await?,
-    // &[],
-    // initial_state.ffc.clone()).await?,
-    // );
-
     // Pass all contract addresses as expected accessed indices
-    // let contract_indices: HashSet<TreeIndex> =
-    //     contract_states.keys().chain(contract_storages.keys()).map(|address|
-    // address.to_biguint()).collect(); let contract_indices: Vec<TreeIndex> =
-    // contract_indices.into_iter().collect();
+    let contract_indices: HashSet<TreeIndex> =
+        contract_states.keys().chain(contract_storages.keys()).map(|address| address.to_biguint()).collect();
+    let contract_indices: Vec<TreeIndex> = contract_indices.into_iter().collect();
 
-    // let contract_state_commitment_info =
-    //     CommitmentInfo::create_from_expected_updated_tree::<_, PedersenHash, ContractState>(
-    //         previous_state.contract_states.clone(),
-    //         updated_state.contract_states.clone(),
-    //         &contract_indices,
-    //         &mut initial_state.ffc,
-    //     )
-    //     .await
-    //     .unwrap_or_else(|e| panic!("Could not create contract state commitment info: {:?}", e));
+    let final_state = initial_state.clone().apply_commitment_state_diff(blockifier_state.to_state_diff()).await?;
 
-    // let contract_class_commitment_info =
-    //     CommitmentInfo::create_from_expected_updated_tree::<_, PoseidonHash, ContractClassLeaf>(
-    //         previous_state.contract_classes.clone().expect("previous state should have class trie"),
-    //         updated_state.contract_classes.clone().expect("updated state should have class trie"),
-    //         &contract_indices,
-    //         &mut initial_state.ffc.clone_with_different_hash::<PoseidonHash>(),
-    //     )
-    //     .await
-    //     .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
+    let contract_state_commitment_info = CommitmentInfo::create_from_expected_updated_tree::<_, _, ContractState>(
+        initial_state.contract_states.clone(),
+        final_state.contract_states.clone(),
+        &contract_indices,
+        &mut initial_state.ffc,
+    )
+    .await
+    .unwrap_or_else(|e| panic!("Could not create contract state commitment info: {:?}", e));
+
+    let contract_class_commitment_info = CommitmentInfo::create_from_expected_updated_tree::<_, _, ContractClassLeaf>(
+        initial_state.contract_classes.clone().expect("previous state should have class trie"),
+        final_state.contract_classes.clone().expect("updated state should have class trie"),
+        &contract_indices,
+        &mut initial_state.ffc_for_class_hash,
+    )
+    .await
+    .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
 
     let os_input = StarknetOsInput {
-        contract_state_commitment_info: Default::default(),
-        contract_class_commitment_info: Default::default(),
+        contract_state_commitment_info,
+        contract_class_commitment_info,
         deprecated_compiled_classes: Default::default(),
         compiled_classes,
         compiled_class_visited_pcs: visited_pcs,
