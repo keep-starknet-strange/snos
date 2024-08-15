@@ -347,6 +347,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // write facts from proof
     for proof in storage_proofs.values().chain(previous_storage_proofs.values()) {
+        log::debug!("writing storage proof...");
+        if let Some(contract_data) = &proof.contract_data {
+            for storage_item_proof in &contract_data.storage_proofs {
+                for node in storage_item_proof {
+                    match node {
+                        TrieNode::Binary { left, right } => {
+                            // log::info!("writing binary node...");
+                            let fact = BinaryNodeFact::new((*left).into(), (*right).into())?;
+                            fact.set_fact(&mut initial_state.ffc).await?;
+                        }
+                        TrieNode::Edge { child, path } => {
+                            // log::info!("writing edge node...");
+                            let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))?;
+                            fact.set_fact(&mut initial_state.ffc).await?;
+                        }
+                    }
+                }
+            }
+        }
         for node in &proof.contract_proof {
             match node {
                 TrieNode::Binary { left, right } => {
