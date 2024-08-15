@@ -58,7 +58,9 @@ fn fft(coeffs: &[BigInt], generator: &BigInt, prime: &BigInt, bit_reversed: bool
             result.push((f_even[i].clone() + &group_mul_f_odd[i]) % prime);
         }
         for i in 0..f_even.len() {
-            result.push((f_even[i].clone() - &group_mul_f_odd[i]) % prime);
+            // Ensure non-negative diff
+            let diff = (f_even[i].clone() - &group_mul_f_odd[i] + prime) % prime;
+            result.push(diff);
         }
 
         result
@@ -264,14 +266,14 @@ mod test {
         // Evaluate using FFT
         let actual_eval = fft(&coeffs, &generator, &prime, bit_reversed);
 
-        assert_eq!(actual_eval[0], expected_eval[0]);
+        assert_eq!(actual_eval, expected_eval);
 
         // Trivial cases
-        // assert_eq!(*&actual_eval[0], &coeffs.iter().sum::<BigInt>() % &prime);
-        // assert_eq!(fft(&vec![BigInt::zero(); ORDER], &generator, &prime, bit_reversed), vec![BigInt::zero(); ORDER]);
-        // assert_eq!(
-        //     fft(&vec![BigInt::from(121212u64)], &BigInt::one(), &prime, bit_reversed),
-        //     vec![BigInt::from(121212u64)]
-        // );
+        assert_eq!(*&actual_eval[0], &coeffs.iter().sum::<BigInt>() % &prime);
+        assert_eq!(fft(&vec![BigInt::zero(); ORDER], &generator, &prime, bit_reversed), vec![BigInt::zero(); ORDER]);
+        assert_eq!(
+            fft(&vec![BigInt::from(121212u64)], &BigInt::one(), &prime, bit_reversed),
+            vec![BigInt::from(121212u64)]
+        );
     }
 }
