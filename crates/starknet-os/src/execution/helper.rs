@@ -1,4 +1,3 @@
-use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -8,7 +7,7 @@ use blockifier::context::BlockContext;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point_execution::CallResult;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -57,7 +56,6 @@ where
     // Secp syscall processors.
     pub secp256k1_syscall_processor: SecpSyscallProcessor<ark_secp256k1::Config>,
     pub secp256r1_syscall_processor: SecpSyscallProcessor<ark_secp256r1::Config>,
-    pub da_segment: OnceCell<Vec<MaybeRelocatable>>,
 }
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
 /// to clone the refrence when entering and exiting vm scopes
@@ -134,7 +132,6 @@ where
                 storage_by_address: contract_storage_map,
                 secp256k1_syscall_processor: Default::default(),
                 secp256r1_syscall_processor: Default::default(),
-                da_segment: Default::default(),
             })),
         }
     }

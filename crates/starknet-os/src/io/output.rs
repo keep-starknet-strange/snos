@@ -58,7 +58,7 @@ impl StarknetOsOutput {
     pub fn from_run(vm: &VirtualMachine) -> Result<Self, SnOsError> {
         let (output_base, output_size) = get_output_info(vm)?;
         let raw_output = get_raw_output(vm, output_base, output_size)?;
-        decode_output(raw_output.into_iter())
+        decode_output(&mut raw_output.into_iter())
     }
 }
 
@@ -180,7 +180,7 @@ fn parse_all_class_changes<I: Iterator<Item = Felt252>>(
     Ok(classes)
 }
 
-pub fn decode_output<I: Iterator<Item = Felt252>>(mut output_iter: I) -> Result<StarknetOsOutput, SnOsError> {
+pub fn decode_output<I: Iterator<Item = Felt252>>(output_iter: &mut I) -> Result<StarknetOsOutput, SnOsError> {
     /// Reads a section with a variable length from the iterator.
     /// Some sections start with a length field N followed by N items.
     fn read_variable_length_segment<I: Iterator<Item = Felt252>>(
@@ -214,17 +214,15 @@ pub fn decode_output<I: Iterator<Item = Felt252>>(mut output_iter: I) -> Result<
     };
 
     if use_kzg_da {
-        // Skip KZG data.
-        _ = output_iter.by_ref().skip(5);
-        // dbg!(t.collect::<Vec<_>>());
+        let _: Vec<_> = output_iter.by_ref().take(5).collect();
     }
 
-    let messages_to_l1 = read_variable_length_segment(&mut output_iter, "L1 messages")?;
-    let messages_to_l2 = read_variable_length_segment(&mut output_iter, "L2 messages")?;
+    let messages_to_l1 = read_variable_length_segment(output_iter, "L1 messages")?;
+    let messages_to_l2 = read_variable_length_segment(output_iter, "L2 messages")?;
 
     let (contracts, classes) = if !use_kzg_da {
-        let contracts = parse_all_contract_changes(&mut output_iter)?;
-        let classes = parse_all_class_changes(&mut output_iter)?;
+        let contracts = parse_all_contract_changes(output_iter)?;
+        let classes = parse_all_class_changes(output_iter)?;
         (contracts, classes)
     } else {
         (vec![], HashMap::default())

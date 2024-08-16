@@ -57,8 +57,3 @@ pub fn os_pie_string() -> String {
 pub fn block_context() -> BlockContext {
     BlockContext::create_for_account_testing()
 }
-
-#[fixture]
-pub fn block_context_with_kzg() -> BlockContext {
-    BlockContext::create_for_account_testing_with_kzg(true)
-}
