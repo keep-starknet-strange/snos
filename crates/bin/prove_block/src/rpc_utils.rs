@@ -91,14 +91,16 @@ pub(crate) enum TrieNode {
 
 #[derive(Deserialize)]
 pub(crate) struct ContractData {
+    /// Root of the Contract state tree
+    pub root: Felt252,
     /// The proofs associated with the queried storage values
     pub storage_proofs: Vec<Vec<TrieNode>>,
 }
 
 #[derive(Deserialize)]
 pub(crate) struct PathfinderProof {
-    pub class_commitment: Felt252,
     pub state_commitment: Felt252,
+    pub class_commitment: Felt252,
     pub contract_proof: Vec<TrieNode>,
     pub contract_data: Option<ContractData>,
 }
@@ -125,7 +127,7 @@ pub(crate) async fn get_storage_proofs(
     block_number: u64,
     state_update: &StateUpdate,
     extra_contracts: &HashSet<Felt252>,
-) -> Result<HashMap<Felt, PathfinderProof>, reqwest::Error> {
+) -> Result<(HashMap<Felt, PathfinderProof>, HashMap<Felt, Vec<StorageEntry>>), reqwest::Error> {
     let mut storage_changes_by_contract: HashMap<Felt, Vec<StorageEntry>> = HashMap::new();
 
     for diff_item in &state_update.state_diff.storage_diffs {
@@ -151,27 +153,29 @@ pub(crate) async fn get_storage_proofs(
         log::info!("    {:x}", contract_address);
     }
 
-    for (contract_address, storage_changes) in storage_changes_by_contract {
+    for (contract_address, storage_changes) in &storage_changes_by_contract {
         let keys: Vec<_> = storage_changes.iter().map(|change| change.key).collect();
 
-        let storage_proof = if keys.is_empty() {
-            pathfinder_get_proof(client, rpc_provider, block_number, contract_address, &[]).await?
+        const MAX_KEYS: usize = 100;
+        let storage_proof = if keys.len() < MAX_KEYS {
+            pathfinder_get_proof(client, rpc_provider, block_number, *contract_address, &keys[..]).await?
         } else {
             // The endpoint is limited to 100 keys at most per call
-            const MAX_KEYS: usize = 100;
+            log::debug!("Requesting proof with {} keys for contract {:x}", keys.len(), contract_address);
             let mut chunked_storage_proofs = Vec::new();
             for keys_chunk in keys.chunks(MAX_KEYS) {
                 chunked_storage_proofs.push(
-                    pathfinder_get_proof(client, rpc_provider, block_number, contract_address, keys_chunk).await?,
+                    pathfinder_get_proof(client, rpc_provider, block_number, *contract_address, keys_chunk).await?,
                 );
             }
             merge_chunked_storage_proofs(chunked_storage_proofs)
         };
 
-        storage_proofs.insert(contract_address, storage_proof);
+        assert!(!storage_proofs.contains_key(contract_address), "Can't overwrite storage proof!");
+        storage_proofs.insert(*contract_address, storage_proof);
     }
 
-    Ok(storage_proofs)
+    Ok((storage_proofs, storage_changes_by_contract))
 }
 
 fn merge_chunked_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof {

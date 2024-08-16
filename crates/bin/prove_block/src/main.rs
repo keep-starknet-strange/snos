@@ -224,7 +224,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let previous_storage_proofs = get_storage_proofs(
+    let (previous_storage_proofs, previous_storage_changes_by_contract) = get_storage_proofs(
         &pathfinder_client,
         &args.rpc_provider,
         block_number - 1,
@@ -234,7 +234,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .await
     .expect("Failed to fetch storage proofs");
 
-    let storage_proofs =
+    let (storage_proofs, _) =
         get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &state_update, &contracts_subcalled)
             .await
             .expect("Failed to fetch storage proofs");
@@ -401,14 +401,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for (contract_address, _storage_proof) in storage_proofs {
         let previous_storage_proof =
             previous_storage_proofs.get(&contract_address).expect("failed to find previous storage proof");
+        let contract_storage_root = previous_storage_proof.contract_data.as_ref().unwrap().root.into();
 
-        let previous_tree = PatriciaTree { root: previous_storage_proof.state_commitment.into(), height: Height(251) };
+        log::debug!("Storage root 0x{:x} for contract 0x{:x}", Into::<Felt252>::into(contract_storage_root), contract_address);
+
+        let previous_tree = PatriciaTree { root: contract_storage_root, height: Height(251) };
+        let initial_storage_keys: Vec<TreeIndex> = previous_storage_changes_by_contract
+            .get(&contract_address)
+            .unwrap()
+            .iter()
+            .map(|storage_entry| {storage_entry.key.to_biguint()})
+            .collect();
 
         let contract_storage = ProverPerContractStorage::new(
             previous_block_id,
             contract_address,
             provider_url.clone(),
             previous_tree.clone(),
+            &initial_storage_keys[..],
             initial_state.ffc.clone(),
         ).await?;
         contract_storages.insert(contract_address, contract_storage);

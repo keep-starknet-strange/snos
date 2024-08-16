@@ -66,6 +66,7 @@ impl ProverPerContractStorage {
         contract_address: Felt252,
         provider_url: String,
         previous_tree: PatriciaTree,
+        accessed_addresses: &[TreeIndex],
         ffc: FactFetchingContext<CachedRpcStorage, PedersenHash>,
     ) -> Result<Self, TreeError> {
         let provider = JsonRpcClient::new(HttpTransport::new(
@@ -73,9 +74,6 @@ impl ProverPerContractStorage {
         ));
 
         /*
-         * This doesn't seem relevant -- OsSingleStarknetStorage is never constructed with
-         * initial_values other than an empty vec
-         *
         let mut facts = None;
         let initial_leaves: HashMap<TreeIndex, StorageLeaf> =
             previous_tree.get_leaves(&mut ffc.clone(), accessed_addresses, &mut facts).await?;
