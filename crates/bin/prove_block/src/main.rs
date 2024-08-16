@@ -28,7 +28,7 @@ use starknet_os::starknet::business_logic::fact_state::contract_class_objects::{
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
-use starknet_os::starknet::starknet_storage::CommitmentInfo;
+use starknet_os::starknet::starknet_storage::{CommitmentInfo, StorageLeaf};
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
@@ -234,7 +234,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .await
     .expect("Failed to fetch storage proofs");
 
-    let (storage_proofs, _) =
+    let (storage_proofs, storage_changes_by_contract) =
         get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &state_update, &contracts_subcalled)
             .await
             .expect("Failed to fetch storage proofs");
@@ -402,15 +402,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let previous_storage_proof =
             previous_storage_proofs.get(&contract_address).expect("failed to find previous storage proof");
         let contract_storage_root = previous_storage_proof.contract_data.as_ref().unwrap().root.into();
+        let previous_storage_entries = previous_storage_changes_by_contract
+            .get(&contract_address)
+            .unwrap();
 
         log::debug!("Storage root 0x{:x} for contract 0x{:x}", Into::<Felt252>::into(contract_storage_root), contract_address);
 
+        // write storage facts before they're needed (TODO: should probably consolidate all fact writing)
+        for storage_entry in previous_storage_entries {
+        // for storage_entry in previous_storage_entries.iter().chain(storage_entries.iter()) {
+            let fact = StorageLeaf::new(storage_entry.value);
+            fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
+        }
+
         let previous_tree = PatriciaTree { root: contract_storage_root, height: Height(251) };
-        let initial_storage_keys: Vec<TreeIndex> = previous_storage_changes_by_contract
-            .get(&contract_address)
-            .unwrap()
-            .iter()
-            .map(|storage_entry| {storage_entry.key.to_biguint()})
+        let initial_storage_entries: Vec<_> = previous_storage_entries
+            .into_iter()
+            .map(|entry| entry.key.to_biguint())
             .collect();
 
         let contract_storage = ProverPerContractStorage::new(
@@ -418,7 +426,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             contract_address,
             provider_url.clone(),
             previous_tree.clone(),
-            &initial_storage_keys[..],
+            &initial_storage_entries[..],
             initial_state.ffc.clone(),
         ).await?;
         contract_storages.insert(contract_address, contract_storage);

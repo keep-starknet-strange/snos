@@ -73,18 +73,21 @@ impl ProverPerContractStorage {
             Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
         ));
 
-        /*
         let mut facts = None;
         let initial_leaves: HashMap<TreeIndex, StorageLeaf> =
             previous_tree.get_leaves(&mut ffc.clone(), accessed_addresses, &mut facts).await?;
         let initial_entries: HashMap<_, _> = initial_leaves.into_iter().map(|(key, leaf)| (key, leaf.value)).collect();
+
+        /*
+        let initial_entries =
+            initial_storage_values.iter().map(|(key, value)| (key.to_biguint(), *value)).collect(); 
         */
 
         Ok(Self {
             provider,
             block_id,
             contract_address,
-            ongoing_storage_changes: HashMap::new(),
+            ongoing_storage_changes: initial_entries,
             previous_tree,
             ffc,
         })
@@ -100,10 +103,6 @@ impl PerContractStorage for ProverPerContractStorage {
             .into_iter()
             .map(|(key, value)| (key, StorageLeaf::new(value)))
             .collect();
-
-        for (key, modif) in final_modifications.clone() {
-            log::debug!("modif: {} - {} ({})", key, modif.value.to_hex_string(), modif.value.to_string())
-        }
 
         CommitmentInfo::create_from_modifications(
             self.previous_tree.clone(),
