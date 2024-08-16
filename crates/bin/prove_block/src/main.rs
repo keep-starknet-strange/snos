@@ -107,7 +107,7 @@ async fn build_initial_state(
                 Some(class_hash)
             } else {
                 log::warn!("contract {} has no contract hash from RPC either", address);
-                None
+                Some(Felt252::ZERO)
             };
         }
         let updated_contract_state =
