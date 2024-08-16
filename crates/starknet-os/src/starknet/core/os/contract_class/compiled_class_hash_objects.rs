@@ -1,6 +1,8 @@
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
+use starknet_crypto::{poseidon_hash_many, FieldElement};
 
+use crate::execution::syscall_handler_utils::SyscallExecutionError;
 use crate::starkware_utils::commitment_tree::base_types::Length;
 
 /// Represents the structure of the bytecode to allow loading it partially into the OS memory.
@@ -34,6 +36,25 @@ impl BytecodeSegmentStructureImpl {
             BytecodeSegmentStructureImpl::SegmentedNode(node) => node.add_bytecode_with_skipped_segments(data),
             BytecodeSegmentStructureImpl::Leaf(leaf) => leaf.add_bytecode_with_skipped_segments(data),
         }
+    }
+
+    fn hash(&self) -> Result<FieldElement, SyscallExecutionError> {
+        let ret = match self {
+            BytecodeSegmentStructureImpl::SegmentedNode(node) => node.hash()?,
+            BytecodeSegmentStructureImpl::Leaf(leaf) => {
+                let vec_field_elements: Result<Vec<_>, _> =
+                    leaf.data.iter().map(|value| FieldElement::from_byte_slice_be(&value.to_bytes_be())).collect();
+
+                match vec_field_elements {
+                    Ok(elements) => poseidon_hash_many(&elements),
+                    Err(_) => {
+                        return Err(SyscallExecutionError::InternalError("Invalid bytecode segment leaf".into()).into());
+                    }
+                }
+            }
+        };
+
+        Ok(ret)
     }
 }
 
@@ -70,6 +91,17 @@ impl BytecodeSegmentedNode {
                 }
             }
         }
+    }
+
+    pub fn hash(&self) -> Result<FieldElement, SyscallExecutionError> {
+        let mut felts = Vec::new();
+
+        for segment in &self.segments {
+            felts.push(FieldElement::from(segment.segment_length.0));
+            felts.push(segment.inner_structure.hash()?);
+        }
+
+        Ok(poseidon_hash_many(&felts))
     }
 }
 
