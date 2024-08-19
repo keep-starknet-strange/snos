@@ -26,19 +26,18 @@ impl RpcStorage {
 
 impl Storage for RpcStorage {
     async fn set_value(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StorageError> {
-        log::warn!("RpcStorage::set_value(), key-len: {}, key: {:?}, value len: {}", key.len(), key, value.len());
+        log::trace!("RpcStorage::set_value(), key-len: {}, key: {:x}, value len: {}", key.len(), num_bigint::BigUint::from_bytes_be(&key[..]), value.len());
         self.cache.insert(key, value);
         Ok(())
     }
 
     fn get_value(&self, key: &[u8]) -> impl Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
-        log::warn!("RpcStorage::get_value(), key-len: {}, key: {:?}", key.len(), key);
+        log::trace!("RpcStorage::get_value(), key-len: {}, key: {:x}", key.len(), num_bigint::BigUint::from_bytes_be(&key[..]));
         async {
             if let Some(value) = self.cache.get(key) {
-                log::warn!("    have value");
                 Ok(Some(value.clone()))
             } else {
-                log::warn!("    NO value!");
+                log::warn!("    have no value for key {:x}", num_bigint::BigUint::from_bytes_be(&key[..]));
                 Err(StorageError::ContentNotFound)
             }
         }
@@ -250,7 +249,6 @@ pub(crate) fn process_function_invocations(
     contracts: &mut HashSet<Felt252>,
     nesting_level: u64,
 ) {
-    log::info!("process_function_inv: contract: {:x} at level {}", inv.contract_address, nesting_level);
     contracts.insert(inv.contract_address);
     for call in inv.calls {
         process_function_invocations(call, contracts, nesting_level + 1);

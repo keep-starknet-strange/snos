@@ -84,8 +84,6 @@ pub fn iter_current_segment_info(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    log::debug!("iter_current_segment_info()");
-
     let bytecode_segments =
         exec_scopes.get_mut_ref::<<Vec<BytecodeSegment> as IntoIterator>::IntoIter>(vars::scopes::BYTECODE_SEGMENTS)?;
 

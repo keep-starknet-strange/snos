@@ -101,12 +101,10 @@ async fn build_initial_state(
         let nonce = address_to_nonce.get(address).cloned();
         let mut class_hash = address_to_class_hash.get(address).cloned();
         if class_hash.is_none() {
-            log::debug!("contract {} has no contract hash, fetching from RPC", address);
             let resp = provider.get_class_hash_at(BlockId::Number(block_number), address).await;
             class_hash = if let Ok(class_hash) = resp {
                 Some(class_hash)
             } else {
-                log::warn!("contract {} has no contract hash from RPC either", address);
                 Some(Felt252::ZERO)
             };
         }
@@ -279,13 +277,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }));
             assert!(nonce_update.nonce > num_nonce_bumps);
             let previous_nonce = nonce_update.nonce - num_nonce_bumps;
-            log::debug!(
-                "probably-account contract {} nonce: {} - {} => {}",
-                nonce_update.contract_address,
-                nonce_update.nonce,
-                num_nonce_bumps,
-                previous_nonce,
-            );
             (nonce_update.contract_address, previous_nonce)
         })
         .collect();
@@ -337,7 +328,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let class_hash = address_to_class_hash
                 .get(&sender_address)
                 .expect("should have a class_hash for each known contract addresses at this point");
-            log::info!("Filling in class_hash {:x} for txn", class_hash);
             transaction.class_hash = Some(*class_hash);
         } else {
             // TODO: are there txn types which wouldn't have a sender address?
@@ -347,7 +337,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // write facts from proof
     for proof in storage_proofs.values().chain(previous_storage_proofs.values()) {
-        log::debug!("writing storage proof...");
         if let Some(contract_data) = &proof.contract_data {
             for storage_item_proof in &contract_data.storage_proofs {
                 for node in storage_item_proof {
@@ -431,7 +420,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         ).await?;
         contract_storages.insert(contract_address, contract_storage);
 
-        log::debug!("contract address: {}", contract_address.to_hex_string());
         let (class_hash, previous_nonce) = if [Felt252::ZERO, Felt252::ONE].contains(&contract_address) {
             (Felt252::ZERO, Felt252::ZERO)
         } else {
