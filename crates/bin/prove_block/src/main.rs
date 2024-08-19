@@ -102,11 +102,7 @@ async fn build_initial_state(
         let mut class_hash = address_to_class_hash.get(address).cloned();
         if class_hash.is_none() {
             let resp = provider.get_class_hash_at(BlockId::Number(block_number), address).await;
-            class_hash = if let Ok(class_hash) = resp {
-                Some(class_hash)
-            } else {
-                Some(Felt252::ZERO)
-            };
+            class_hash = if let Ok(class_hash) = resp { Some(class_hash) } else { Some(Felt252::ZERO) };
         }
         let updated_contract_state =
             current_contract_states.remove(&tree_index).unwrap().update(&mut ffc, updates, nonce, class_hash).await?;
@@ -348,7 +344,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                         TrieNode::Edge { child, path } => {
                             // log::info!("writing edge node...");
-                            let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))?;
+                            let fact = EdgeNodeFact::new(
+                                (*child).into(),
+                                NodePath(path.value.to_biguint()),
+                                Length(path.len),
+                            )?;
                             fact.set_fact(&mut initial_state.ffc).await?;
                         }
                     }
@@ -387,37 +387,38 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut contract_states = HashMap::new();
     let mut contract_storages = ContractStorageMap::new();
 
-    for (contract_address, _storage_proof) in storage_proofs {
+    for (contract_address, storage_proof) in storage_proofs {
         let previous_storage_proof =
             previous_storage_proofs.get(&contract_address).expect("failed to find previous storage proof");
         let contract_storage_root = previous_storage_proof.contract_data.as_ref().unwrap().root.into();
-        let previous_storage_entries = previous_storage_changes_by_contract
-            .get(&contract_address)
-            .unwrap();
+        let previous_storage_entries = previous_storage_changes_by_contract.get(&contract_address).unwrap();
 
-        log::debug!("Storage root 0x{:x} for contract 0x{:x}", Into::<Felt252>::into(contract_storage_root), contract_address);
+        log::debug!(
+            "Storage root 0x{:x} for contract 0x{:x}",
+            Into::<Felt252>::into(contract_storage_root),
+            contract_address
+        );
 
         // write storage facts before they're needed (TODO: should probably consolidate all fact writing)
         for storage_entry in previous_storage_entries {
-        // for storage_entry in previous_storage_entries.iter().chain(storage_entries.iter()) {
+            // for storage_entry in previous_storage_entries.iter().chain(storage_entries.iter()) {
             let fact = StorageLeaf::new(storage_entry.value);
             fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
         }
 
         let previous_tree = PatriciaTree { root: contract_storage_root, height: Height(251) };
-        let initial_storage_entries: Vec<_> = previous_storage_entries
-            .into_iter()
-            .map(|entry| entry.key.to_biguint())
-            .collect();
+
+        let previous_storage_proof =
+            previous_storage_proofs.get(&contract_address).expect("there should be a previous storage proof");
 
         let contract_storage = ProverPerContractStorage::new(
             previous_block_id,
             contract_address,
             provider_url.clone(),
-            previous_tree.clone(),
-            &initial_storage_entries[..],
-            initial_state.ffc.clone(),
-        ).await?;
+            previous_tree.root.into(),
+            storage_proof,
+            previous_storage_proof.clone(),
+        )?;
         contract_storages.insert(contract_address, contract_storage);
 
         let (class_hash, previous_nonce) = if [Felt252::ZERO, Felt252::ONE].contains(&contract_address) {
@@ -481,6 +482,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 TrieNode::Binary { left, right } => {
                     // log::info!("writing binary node...");
                     let fact = BinaryNodeFact::new((*left).into(), (*right).into())?;
+
                     fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
                 }
                 TrieNode::Edge { child, path } => {
@@ -538,18 +540,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .await
     .unwrap_or_else(|e| panic!("Could not create contract state commitment info: {:?}", e));
 
-    let contract_class_commitment_info = CommitmentInfo::create_from_expected_updated_tree::<_, _, ContractClassLeaf>(
-        initial_state.contract_classes.clone().expect("previous state should have class trie"),
-        final_state.contract_classes.clone().expect("updated state should have class trie"),
-        &contract_indices,
-        &mut initial_state.ffc_for_class_hash,
-    )
-    .await
-    .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
+    // let contract_class_commitment_info = CommitmentInfo::create_from_expected_updated_tree::<_, _,
+    // ContractClassLeaf>(     initial_state.contract_classes.clone().expect("previous state should
+    // have class trie"),     final_state.contract_classes.clone().expect("updated state should have
+    // class trie"),     &contract_indices,
+    //     &mut initial_state.ffc_for_class_hash,
+    // )
+    // .await
+    // .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
-        contract_class_commitment_info,
+        contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes: Default::default(),
         compiled_classes,
         compiled_class_visited_pcs: visited_pcs,

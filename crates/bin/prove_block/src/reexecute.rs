@@ -12,15 +12,17 @@ use reqwest::Url;
 use starknet::core::types::BlockId;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider as _};
+use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use starknet_os::crypto::pedersen::PedersenHash;
-use starknet_os::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage, StorageLeaf};
-use starknet_os::starkware_utils::commitment_tree::base_types::TreeIndex;
-use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree as _;
+use starknet_os::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
+use starknet_os::starkware_utils::commitment_tree::base_types::{Length, NodePath, TreeIndex};
 use starknet_os::starkware_utils::commitment_tree::errors::TreeError;
-use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-use starknet_os::storage::storage::FactFetchingContext;
+use starknet_os::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
+use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
+use starknet_os::storage::dict_storage::DictStorage;
+use starknet_os::storage::storage::Fact;
 
-use crate::rpc_utils::CachedRpcStorage;
+use crate::rpc_utils::{PathfinderProof, TrieNode};
 
 /// Reexecute the given transactions through Blockifier
 pub fn reexecute_transactions_with_blockifier<S: StateReader>(
@@ -52,65 +54,114 @@ pub fn reexecute_transactions_with_blockifier<S: StateReader>(
 }
 
 pub(crate) struct ProverPerContractStorage {
-    pub provider: JsonRpcClient<HttpTransport>,
-    pub block_id: BlockId,
-    pub contract_address: Felt252,
-    pub previous_tree: PatriciaTree,
-    ffc: FactFetchingContext<CachedRpcStorage, PedersenHash>,
+    provider: JsonRpcClient<HttpTransport>,
+    block_id: BlockId,
+    contract_address: Felt252,
+    previous_tree_root: Felt252,
+    storage_proof: PathfinderProof,
+    previous_storage_proof: PathfinderProof,
     ongoing_storage_changes: HashMap<TreeIndex, Felt252>,
 }
 
 impl ProverPerContractStorage {
-    pub async fn new(
+    pub fn new(
         block_id: BlockId,
         contract_address: Felt252,
         provider_url: String,
-        previous_tree: PatriciaTree,
-        accessed_addresses: &[TreeIndex],
-        ffc: FactFetchingContext<CachedRpcStorage, PedersenHash>,
+        previous_tree_root: Felt252,
+        storage_proof: PathfinderProof,
+        previous_storage_proof: PathfinderProof,
     ) -> Result<Self, TreeError> {
         let provider = JsonRpcClient::new(HttpTransport::new(
             Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
         ));
 
-        let mut facts = None;
-        let initial_leaves: HashMap<TreeIndex, StorageLeaf> =
-            previous_tree.get_leaves(&mut ffc.clone(), accessed_addresses, &mut facts).await?;
-        let initial_entries: HashMap<_, _> = initial_leaves.into_iter().map(|(key, leaf)| (key, leaf.value)).collect();
-
-        /*
-        let initial_entries =
-            initial_storage_values.iter().map(|(key, value)| (key.to_biguint(), *value)).collect(); 
-        */
-
         Ok(Self {
             provider,
             block_id,
             contract_address,
-            ongoing_storage_changes: initial_entries,
-            previous_tree,
-            ffc,
+            previous_tree_root,
+            storage_proof,
+            previous_storage_proof,
+            ongoing_storage_changes: Default::default(),
         })
     }
+}
+
+fn format_commitment_facts(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt252, Vec<Felt252>> {
+    let mut facts = HashMap::new();
+
+    for nodes in trie_nodes {
+        for node in nodes {
+            let (key, fact_as_tuple) = match node {
+                TrieNode::Binary { left, right } => {
+                    // log::info!("writing binary node...");
+                    let fact = BinaryNodeFact::new((*left).into(), (*right).into())
+                        .expect("storage proof endpoint gave us an invalid binary node");
+
+                    // TODO: the hash function should probably be split from the Fact trait.
+                    //       we use a placeholder for the Storage trait in the meantime.
+                    let node_hash = Felt252::from(<BinaryNodeFact as Fact<DictStorage, PedersenHash>>::hash(&fact));
+                    let fact_as_tuple = <BinaryNodeFact as InnerNodeFact<DictStorage, PedersenHash>>::to_tuple(&fact);
+                    log::debug!(
+                        "  Inserting binary node {} - left: {}, right: {}",
+                        node_hash.to_biguint(),
+                        left.to_biguint(),
+                        right.to_biguint()
+                    );
+
+                    (node_hash, fact_as_tuple)
+                }
+                TrieNode::Edge { child, path } => {
+                    // log::info!("writing edge node...");
+                    let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))
+                        .expect("storage proof endpoint gave us an invalid edge node");
+                    // TODO: the hash function should probably be split from the Fact trait.
+                    //       we use a placeholder for the Storage trait in the meantime.
+                    let node_hash = Felt252::from(<EdgeNodeFact as Fact<DictStorage, PedersenHash>>::hash(&fact));
+                    let fact_as_tuple = <EdgeNodeFact as InnerNodeFact<DictStorage, PedersenHash>>::to_tuple(&fact);
+                    log::debug!("  Inserting edge node {} - bottom: {}", node_hash.to_biguint(), child.to_biguint());
+                    (node_hash, fact_as_tuple)
+                }
+            };
+
+            let fact_as_tuple_of_felts: Vec<_> = fact_as_tuple.into_iter().map(Felt252::from).collect();
+            facts.insert(Felt252::from(key), fact_as_tuple_of_felts);
+        }
+    }
+
+    facts
 }
 
 impl PerContractStorage for ProverPerContractStorage {
     async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
         log::debug!("compute_commitment() for contract {:x}", self.contract_address);
-        let final_modifications: Vec<_> = self
-            .ongoing_storage_changes
-            .clone()
-            .into_iter()
-            .map(|(key, value)| (key, StorageLeaf::new(value)))
-            .collect();
 
-        CommitmentInfo::create_from_modifications(
-            self.previous_tree.clone(),
-            None,
-            final_modifications,
-            &mut self.ffc,
-        )
-        .await
+        // TODO: error code
+        let contract_data =
+            self.storage_proof.contract_data.as_ref().expect("storage proof should have a contract_data field");
+        let updated_root = contract_data.root;
+        log::debug!("formatting commitment facts");
+
+        let commitment_facts = format_commitment_facts(&contract_data.storage_proofs);
+
+        let previous_contract_data = self
+            .previous_storage_proof
+            .contract_data
+            .as_ref()
+            .expect("previous storage proof should have a contract_data field");
+
+        log::debug!("formatting previous commitment facts");
+        let previous_commitment_facts = format_commitment_facts(&previous_contract_data.storage_proofs);
+
+        let commitment_facts = commitment_facts.into_iter().chain(previous_commitment_facts.into_iter()).collect();
+
+        Ok(CommitmentInfo {
+            previous_root: self.previous_tree_root,
+            updated_root,
+            tree_height: DEFAULT_STORAGE_TREE_HEIGHT,
+            commitment_facts,
+        })
     }
 
     async fn read(&mut self, key: TreeIndex) -> Option<Felt252> {

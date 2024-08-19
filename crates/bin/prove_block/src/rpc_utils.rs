@@ -26,13 +26,22 @@ impl RpcStorage {
 
 impl Storage for RpcStorage {
     async fn set_value(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StorageError> {
-        log::trace!("RpcStorage::set_value(), key-len: {}, key: {:x}, value len: {}", key.len(), num_bigint::BigUint::from_bytes_be(&key[..]), value.len());
+        log::trace!(
+            "RpcStorage::set_value(), key-len: {}, key: {:x}, value len: {}",
+            key.len(),
+            num_bigint::BigUint::from_bytes_be(&key[..]),
+            value.len()
+        );
         self.cache.insert(key, value);
         Ok(())
     }
 
     fn get_value(&self, key: &[u8]) -> impl Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
-        log::trace!("RpcStorage::get_value(), key-len: {}, key: {:x}", key.len(), num_bigint::BigUint::from_bytes_be(&key[..]));
+        log::trace!(
+            "RpcStorage::get_value(), key-len: {}, key: {:x}",
+            key.len(),
+            num_bigint::BigUint::from_bytes_be(&key[..])
+        );
         async {
             if let Some(value) = self.cache.get(key) {
                 Ok(Some(value.clone()))
@@ -74,13 +83,13 @@ async fn post_jsonrpc_request<T: DeserializeOwned>(
 }
 
 // Types defined for Deserialize functionality
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct EdgePath {
     pub len: u64,
     pub value: Felt252,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) enum TrieNode {
     #[serde(rename = "binary")]
     Binary { left: Felt252, right: Felt252 },
@@ -88,7 +97,7 @@ pub(crate) enum TrieNode {
     Edge { child: Felt252, path: EdgePath },
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct ContractData {
     /// Root of the Contract state tree
     pub root: Felt252,
@@ -96,7 +105,7 @@ pub(crate) struct ContractData {
     pub storage_proofs: Vec<Vec<TrieNode>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct PathfinderProof {
     pub state_commitment: Felt252,
     pub class_commitment: Felt252,
