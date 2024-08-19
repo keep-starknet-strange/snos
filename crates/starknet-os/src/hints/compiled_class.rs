@@ -117,14 +117,14 @@ pub const SET_AP_TO_SEGMENT_HASH: &str = indoc! {r#"
     memory[ap] = to_felt_or_relocatable(bytecode_segment_structure.hash())"#
 };
 
-pub fn set_ap_to_segment(
+pub fn set_ap_to_segment_hash(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let bytecode_segment_structure: BytecodeSegmentedNode =
+    let bytecode_segment_structure: BytecodeSegmentStructureImpl =
         exec_scopes.get(vars::scopes::BYTECODE_SEGMENT_STRUCTURE)?;
 
     // Calc hash
@@ -140,12 +140,17 @@ pub fn set_ap_to_segment(
 #[cfg(test)]
 mod tests {
     use cairo_vm::any_box;
+    use num_bigint::BigUint;
+    use pathfinder_crypto::hash::poseidon_hash_many;
+    use pathfinder_crypto::Felt;
 
     use super::*;
+    use crate::crypto::poseidon::poseidon_hash_many_bytes;
     use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
         BytecodeLeaf, BytecodeSegmentStructureImpl, BytecodeSegmentedNode,
     };
     use crate::starkware_utils::commitment_tree::base_types::Length;
+    use crate::starkware_utils::commitment_tree::binary_fact_tree::Leaf;
 
     #[test]
     fn test_bytecode_segment_hints() {
@@ -190,5 +195,163 @@ mod tests {
         // should succeed this time because iter as exhausted
         let res = assert_end_of_bytecode_segments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants);
         assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_set_ap_to_segment_hash() {
+        use num_bigint::BigUint;
+
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(2);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+        let ids_data = HashMap::new();
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+
+        // Execution scopes must have a BytecodeSegmentStructureImpl inserted. We insert one that has one
+        let segments = vec![BytecodeSegment {
+            segment_length: Length(1),
+            is_used: false,
+            inner_structure: BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf { data: vec![BigUint::from(1u8)] }),
+        }];
+        let segment_structure = BytecodeSegmentStructureImpl::SegmentedNode(BytecodeSegmentedNode { segments });
+        exec_scopes.insert_box(vars::scopes::BYTECODE_SEGMENT_STRUCTURE, any_box!(segment_structure));
+
+        set_ap_to_segment_hash(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+
+        // Read hash and compare with expected hash
+        let hash = vm.get_integer(vm.get_ap()).unwrap().into_owned();
+        assert_eq!(hex::encode(hash.to_bytes_be()), "064b3967128647f5db91e107897e7e6d72f2a06f35d01d19055a7f85c85e65ba");
+    }
+
+    #[test]
+    fn test_hash_bytecode_leaf() {
+        // Reference hashes were taken from cairo-lang (compiled_class_hash_test.py)
+        use num_bigint::BigUint;
+        let leaf = BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf { data: vec![BigUint::from(0x01u8)] });
+        assert_eq!(
+            hex::encode(leaf.hash().unwrap().to_bytes_be()),
+            "00579e8877c7755365d5ec1ec7d3a94a457eff5d1f40482bbe9729c064cdead2"
+        );
+
+        let leaf = BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf {
+            data: vec![BigUint::from(0x01u8), BigUint::from(0x02u8), BigUint::from(0x03u8)],
+        });
+        assert_eq!(
+            hex::encode(leaf.hash().unwrap().to_bytes_be()),
+            "02f0d8840bcf3bc629598d8a6cc80cb7c0d9e52d93dab244bbf9cd0dca0ad082"
+        );
+
+        let leaf = BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf {
+            data: vec![
+                BigUint::from(1u8),
+                BigUint::from(2u8),
+                BigUint::from(3u8),
+                BigUint::from(100u8),
+                BigUint::from(500u16),
+                BigUint::from(1000u16),
+                BigUint::from(123456789u64),
+            ],
+        });
+        assert_eq!(
+            hex::encode(leaf.hash().unwrap().to_bytes_be()),
+            "0061992871ada0f904463047841a564ad8ed8f4fae20e9e68a0debee876cfdb3"
+        );
+    }
+
+    #[test]
+    fn test_hash_bytecode_node() {
+        // Reference hashes were taken from cairo-lang (compiled_class_hash_test.py)
+        let inner_struct = BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf { data: vec![BigUint::from(0x01u8)] });
+        let seg = vec![BytecodeSegment { segment_length: Length(1), is_used: false, inner_structure: inner_struct }];
+        let node = BytecodeSegmentedNode { segments: seg };
+        assert_eq!(
+            hex::encode(node.hash().unwrap().to_bytes_be()),
+            "064b3967128647f5db91e107897e7e6d72f2a06f35d01d19055a7f85c85e65ba"
+        );
+
+        let inner_struct = BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf {
+            data: vec![BigUint::from(0x01u8), BigUint::from(0x02u8)],
+        });
+        let seg = vec![BytecodeSegment { segment_length: Length(2), is_used: false, inner_structure: inner_struct }];
+        let node = BytecodeSegmentedNode { segments: seg };
+        assert_eq!(
+            hex::encode(node.hash().unwrap().to_bytes_be()),
+            "073542be7740dc970b59f6e05e7a065586a493b59932a3a88adc902a626da18d"
+        );
+
+        let node = BytecodeSegmentedNode {
+            segments: vec![
+                // 1st segment
+                BytecodeSegment {
+                    segment_length: Length(3),
+                    is_used: false,
+                    inner_structure: {
+                        BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf {
+                            data: vec![BigUint::from(1u8), BigUint::from(2u8), BigUint::from(3u8)],
+                        })
+                    },
+                },
+                // 2nd segment
+                BytecodeSegment {
+                    segment_length: Length(3),
+                    is_used: true,
+                    inner_structure: {
+                        BytecodeSegmentStructureImpl::SegmentedNode(BytecodeSegmentedNode {
+                            segments: vec![
+                                BytecodeSegment {
+                                    segment_length: Length(1),
+                                    is_used: true,
+                                    inner_structure: BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf {
+                                        data: vec![BigUint::from(4u8)],
+                                    }),
+                                },
+                                BytecodeSegment {
+                                    segment_length: Length(1),
+                                    is_used: false,
+                                    inner_structure: BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf {
+                                        data: vec![BigUint::from(5u8)],
+                                    }),
+                                },
+                                BytecodeSegment {
+                                    segment_length: Length(1),
+                                    is_used: true,
+                                    inner_structure: BytecodeSegmentStructureImpl::SegmentedNode(
+                                        BytecodeSegmentedNode {
+                                            segments: vec![BytecodeSegment {
+                                                segment_length: Length(1),
+                                                is_used: true,
+                                                inner_structure: BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf {
+                                                    data: vec![BigUint::from(6u8)],
+                                                }),
+                                            }],
+                                        },
+                                    ),
+                                },
+                            ],
+                        })
+                    },
+                },
+                // 3rd segment
+                BytecodeSegment {
+                    segment_length: Length(4),
+                    is_used: false,
+                    inner_structure: {
+                        BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf {
+                            data: vec![BigUint::from(7u8), BigUint::from(8u8), BigUint::from(9u8), BigUint::from(10u8)],
+                        })
+                    },
+                },
+            ],
+        };
+
+        assert_eq!(
+            hex::encode(node.hash().unwrap().to_bytes_be()),
+            "06dc9a5436f10ef82ff99457f4af9dd5a5794713c1ed272b4e82e9a8d9ccb32e"
+        );
     }
 }

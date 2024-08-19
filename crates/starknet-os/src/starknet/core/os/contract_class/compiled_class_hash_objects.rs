@@ -38,7 +38,7 @@ impl BytecodeSegmentStructureImpl {
         }
     }
 
-    fn hash(&self) -> Result<FieldElement, SyscallExecutionError> {
+    pub fn hash(&self) -> Result<FieldElement, SyscallExecutionError> {
         let ret = match self {
             BytecodeSegmentStructureImpl::SegmentedNode(node) => node.hash()?,
             BytecodeSegmentStructureImpl::Leaf(leaf) => {
@@ -101,7 +101,8 @@ impl BytecodeSegmentedNode {
             felts.push(segment.inner_structure.hash()?);
         }
 
-        Ok(poseidon_hash_many(&felts))
+        // hash([segment_lent, hash(inner_struct)]) + 1
+        Ok(poseidon_hash_many(&felts) + FieldElement::from(1u8))
     }
 }
 
