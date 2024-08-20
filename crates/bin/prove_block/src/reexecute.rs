@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::error::Error;
+use std::str::FromStr;
 
 use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
@@ -8,6 +9,7 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
+use num_bigint::{BigUint, ToBigUint};
 use reqwest::Url;
 use starknet::core::types::BlockId;
 use starknet::providers::jsonrpc::HttpTransport;
@@ -136,6 +138,16 @@ fn format_commitment_facts(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt252, Vec
 impl PerContractStorage for ProverPerContractStorage {
     async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
         log::debug!("compute_commitment() for contract {:x}", self.contract_address);
+
+        log::debug!("previous tree root: {}", self.previous_tree_root.to_biguint());
+        log::debug!("updated tree root: {}", self.storage_proof.contract_data.as_ref().unwrap().root.to_biguint());
+
+        if self.previous_tree_root.to_biguint()
+            == BigUint::from_str("3599899446358396345037660888668876686098236138504715407510113825126651651198")
+                .unwrap()
+        {
+            log::debug!("we're here");
+        }
 
         // TODO: error code
         let contract_data =

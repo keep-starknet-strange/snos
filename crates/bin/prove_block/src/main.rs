@@ -218,21 +218,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let (previous_storage_proofs, previous_storage_changes_by_contract) = get_storage_proofs(
-        &pathfinder_client,
-        &args.rpc_provider,
-        block_number - 1,
-        &state_update,
-        &contracts_subcalled,
-    )
-    .await
-    .expect("Failed to fetch storage proofs");
-
-    let (storage_proofs, storage_changes_by_contract) =
-        get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &state_update, &contracts_subcalled)
-            .await
-            .expect("Failed to fetch storage proofs");
-
     let block_context = build_block_context(chain_id.clone(), &block_with_txs);
 
     let old_block_number = Felt252::from(older_block.block_number);
@@ -331,6 +316,42 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
+    // Workaround for JsonRpcClient not implementing Clone
+    let provider_for_blockifier = JsonRpcClient::new(HttpTransport::new(
+        Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
+    ));
+    let blockifier_state_reader = AsyncRpcStateReader::new(provider_for_blockifier, BlockId::Number(block_number - 1));
+
+    let mut blockifier_state = CachedState::new(blockifier_state_reader, GlobalContractCache::new(1024));
+    let tx_execution_infos = reexecute_transactions_with_blockifier(
+        &mut blockifier_state,
+        &block_context,
+        block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(tx).unwrap()).collect(),
+    )?;
+
+    if tx_execution_infos.len() != transactions.len() {
+        log::warn!(
+            "Warning: blockifier reexecution yielded different num execution infos ({}) than transactions ({})",
+            tx_execution_infos.len(),
+            transactions.len()
+        );
+    }
+
+    let storage_proofs =
+        get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &tx_execution_infos, old_block_number)
+            .await
+            .expect("Failed to fetch storage proofs");
+
+    let previous_storage_proofs = get_storage_proofs(
+        &pathfinder_client,
+        &args.rpc_provider,
+        block_number - 1,
+        &tx_execution_infos,
+        old_block_number,
+    )
+    .await
+    .expect("Failed to fetch storage proofs");
+
     // write facts from proof
     for proof in storage_proofs.values().chain(previous_storage_proofs.values()) {
         if let Some(contract_data) = &proof.contract_data {
@@ -391,7 +412,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let previous_storage_proof =
             previous_storage_proofs.get(&contract_address).expect("failed to find previous storage proof");
         let contract_storage_root = previous_storage_proof.contract_data.as_ref().unwrap().root.into();
-        let previous_storage_entries = previous_storage_changes_by_contract.get(&contract_address).unwrap();
+        // let previous_storage_entries =
+        // previous_storage_changes_by_contract.get(&contract_address).unwrap();
 
         log::debug!(
             "Storage root 0x{:x} for contract 0x{:x}",
@@ -399,12 +421,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
             contract_address
         );
 
-        // write storage facts before they're needed (TODO: should probably consolidate all fact writing)
-        for storage_entry in previous_storage_entries {
-            // for storage_entry in previous_storage_entries.iter().chain(storage_entries.iter()) {
-            let fact = StorageLeaf::new(storage_entry.value);
-            fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
-        }
+        // // write storage facts before they're needed (TODO: should probably consolidate all fact writing)
+        // for storage_entry in previous_storage_entries {
+        //     // for storage_entry in previous_storage_entries.iter().chain(storage_entries.iter()) {
+        //     let fact = StorageLeaf::new(storage_entry.value);
+        //     fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
+        // }
 
         let previous_tree = PatriciaTree { root: contract_storage_root, height: Height(251) };
 
@@ -494,23 +516,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let blockifier_state_reader = AsyncRpcStateReader::new(provider, BlockId::Number(block_number - 1));
-
-    let mut blockifier_state = CachedState::new(blockifier_state_reader, GlobalContractCache::new(1024));
-    let tx_execution_infos = reexecute_transactions_with_blockifier(
-        &mut blockifier_state,
-        &block_context,
-        block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(tx).unwrap()).collect(),
-    )?;
-
-    if tx_execution_infos.len() != transactions.len() {
-        log::warn!(
-            "Warning: blockifier reexecution yielded different num execution infos ({}) than transactions ({})",
-            tx_execution_infos.len(),
-            transactions.len()
-        );
-    }
-
     let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
         .visited_pcs
         .iter()
@@ -525,11 +530,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Pass all contract addresses as expected accessed indices
-    let contract_indices: HashSet<TreeIndex> =
-        contract_states.keys().chain(contract_storages.keys()).map(|address| address.to_biguint()).collect();
-    let contract_indices: Vec<TreeIndex> = contract_indices.into_iter().collect();
+    // let contract_indices: HashSet<TreeIndex> =
+    //     contract_states.keys().chain(contract_storages.keys()).map(|address|
+    // address.to_biguint()).collect(); let contract_indices: Vec<TreeIndex> =
+    // contract_indices.into_iter().collect();
 
-    let final_state = initial_state.clone().apply_commitment_state_diff(blockifier_state.to_state_diff()).await?;
+    // let final_state =
+    // initial_state.clone().apply_commitment_state_diff(blockifier_state.to_state_diff()).await?;
 
     let contract_state_commitment_info = CommitmentInfo::create_from_expected_updated_tree::<_, _, ContractState>(
         initial_state.contract_states.clone(),
@@ -550,7 +557,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
 
     let os_input = StarknetOsInput {
-        contract_state_commitment_info,
+        contract_state_commitment_info: Default::default(),
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes: Default::default(),
         compiled_classes,

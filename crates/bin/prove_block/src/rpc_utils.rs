@@ -1,15 +1,22 @@
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 
+use blockifier::execution::call_info::CallInfo;
+use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
 use starknet::core::types::{FunctionInvocation, StateUpdate, StorageEntry};
+use starknet_api::block::{BlockHash, BlockNumber};
+use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::state::StorageKey;
+use starknet_api::{contract_address, patricia_key};
 use starknet_os::storage::cached_storage::CachedStorage;
 use starknet_os::storage::storage::{Storage, StorageError};
+use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_types_core::felt::Felt;
-
 /// A `Storage` impl backed by RPC
 #[derive(Clone)]
 pub(crate) struct RpcStorage {
@@ -129,61 +136,108 @@ pub(crate) async fn pathfinder_get_proof(
     .await
 }
 
+fn get_accessed_storage_keys(call_info: &CallInfo) -> HashMap<ContractAddress, HashSet<StorageKey>> {
+    let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
+
+    let contract_address = &call_info.call.storage_address;
+    accessed_keys_by_address
+        .entry(*contract_address)
+        .or_default()
+        .extend(call_info.accessed_storage_keys.iter().copied());
+
+    let storage_keys: Vec<_> =
+        call_info.accessed_storage_keys.iter().map(|x| felt_api2vm(*x.key()).to_hex_string()).collect();
+    log::debug!("{}: {:?}", contract_address.to_string(), storage_keys);
+
+    for inner_call in &call_info.inner_calls {
+        let inner_call_storage_keys = get_accessed_storage_keys(inner_call);
+        for (contract_address, storage_keys) in inner_call_storage_keys {
+            accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
+        }
+    }
+
+    accessed_keys_by_address
+}
+
+fn get_accessed_keys_in_tx(
+    tx_execution_info: &TransactionExecutionInfo,
+) -> HashMap<ContractAddress, HashSet<StorageKey>> {
+    let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
+
+    for call_info in [
+        &tx_execution_info.validate_call_info,
+        &tx_execution_info.execute_call_info,
+        &tx_execution_info.fee_transfer_call_info,
+    ] {
+        if let Some(call_info) = call_info {
+            let call_storage_keys = get_accessed_storage_keys(call_info);
+            for (contract_address, storage_keys) in call_storage_keys {
+                accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
+            }
+        }
+    }
+
+    accessed_keys_by_address
+}
+
+fn get_all_accessed_keys(
+    tx_execution_infos: &[TransactionExecutionInfo],
+) -> HashMap<ContractAddress, HashSet<StorageKey>> {
+    let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
+
+    for tx_execution_info in tx_execution_infos {
+        let accessed_keys_in_tx = get_accessed_keys_in_tx(tx_execution_info);
+        for (contract_address, storage_keys) in accessed_keys_in_tx {
+            accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
+        }
+    }
+
+    accessed_keys_by_address
+}
+
 pub(crate) async fn get_storage_proofs(
     client: &reqwest::Client,
     rpc_provider: &str,
     block_number: u64,
-    state_update: &StateUpdate,
-    extra_contracts: &HashSet<Felt252>,
-) -> Result<(HashMap<Felt, PathfinderProof>, HashMap<Felt, Vec<StorageEntry>>), reqwest::Error> {
-    let mut storage_changes_by_contract: HashMap<Felt, Vec<StorageEntry>> = HashMap::new();
-
-    for diff_item in &state_update.state_diff.storage_diffs {
-        storage_changes_by_contract.entry(diff_item.address).or_default().extend_from_slice(&diff_item.storage_entries);
-    }
-
-    for extra_contract in extra_contracts {
-        storage_changes_by_contract.entry(*extra_contract).or_default().extend_from_slice(&[]);
-    }
-
-    // Also request entries for read-only contracts so that we can build `ContractState` objects
-    // down the line
-    for nonce_update in &state_update.state_diff.nonces {
-        let contract_address = nonce_update.contract_address;
-        // insert empty vec iff entry doesn't exist
-        storage_changes_by_contract.entry(contract_address).or_default();
-    }
+    tx_execution_infos: &[TransactionExecutionInfo],
+    old_block_number: Felt,
+) -> Result<HashMap<Felt, PathfinderProof>, reqwest::Error> {
+    let accessed_keys_by_address = {
+        let mut keys = get_all_accessed_keys(tx_execution_infos);
+        keys.entry(contract_address!("0x1")).or_default().insert(felt_vm2api(old_block_number).try_into().unwrap());
+        keys
+    };
 
     let mut storage_proofs = HashMap::new();
 
     log::info!("Contracts we're fetching proofs for:");
-    for contract_address in storage_changes_by_contract.keys() {
-        log::info!("    {:x}", contract_address);
+    for contract_address in accessed_keys_by_address.keys() {
+        log::info!("    {}", contract_address.to_string());
     }
 
-    for (contract_address, storage_changes) in &storage_changes_by_contract {
-        let keys: Vec<_> = storage_changes.iter().map(|change| change.key).collect();
+    for (contract_address, storage_keys) in accessed_keys_by_address {
+        let contract_address_felt = felt_api2vm(*contract_address.key());
 
-        const MAX_KEYS: usize = 100;
-        let storage_proof = if keys.len() < MAX_KEYS {
-            pathfinder_get_proof(client, rpc_provider, block_number, *contract_address, &keys[..]).await?
+        let keys: Vec<_> = storage_keys.iter().map(|storage_key| felt_api2vm(*storage_key.key())).collect();
+
+        let storage_proof = if keys.is_empty() {
+            pathfinder_get_proof(client, rpc_provider, block_number, contract_address_felt, &[]).await?
         } else {
             // The endpoint is limited to 100 keys at most per call
-            log::debug!("Requesting proof with {} keys for contract {:x}", keys.len(), contract_address);
+            const MAX_KEYS: usize = 100;
             let mut chunked_storage_proofs = Vec::new();
             for keys_chunk in keys.chunks(MAX_KEYS) {
                 chunked_storage_proofs.push(
-                    pathfinder_get_proof(client, rpc_provider, block_number, *contract_address, keys_chunk).await?,
+                    pathfinder_get_proof(client, rpc_provider, block_number, contract_address_felt, keys_chunk).await?,
                 );
             }
             merge_chunked_storage_proofs(chunked_storage_proofs)
         };
 
-        assert!(!storage_proofs.contains_key(contract_address), "Can't overwrite storage proof!");
-        storage_proofs.insert(*contract_address, storage_proof);
+        storage_proofs.insert(contract_address_felt, storage_proof);
     }
 
-    Ok((storage_proofs, storage_changes_by_contract))
+    Ok(storage_proofs)
 }
 
 fn merge_chunked_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof {
