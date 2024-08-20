@@ -48,7 +48,7 @@ impl BytecodeSegmentStructureImpl {
                 match vec_field_elements {
                     Ok(elements) => poseidon_hash_many(&elements),
                     Err(_) => {
-                        return Err(SyscallExecutionError::InternalError("Invalid bytecode segment leaf".into()).into());
+                        return Err(SyscallExecutionError::InternalError("Invalid bytecode segment leaf".into()));
                     }
                 }
             }

@@ -12,7 +12,7 @@ use starknet_os_types::hash::Hash;
 
 use crate::hints::vars;
 use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
-    BytecodeSegment, BytecodeSegmentStructureImpl, BytecodeSegmentedNode,
+    BytecodeSegment, BytecodeSegmentStructureImpl,
 };
 
 pub const ASSIGN_BYTECODE_SEGMENTS: &str = indoc! {r#"
@@ -141,16 +141,12 @@ pub fn set_ap_to_segment_hash(
 mod tests {
     use cairo_vm::any_box;
     use num_bigint::BigUint;
-    use pathfinder_crypto::hash::poseidon_hash_many;
-    use pathfinder_crypto::Felt;
 
     use super::*;
-    use crate::crypto::poseidon::poseidon_hash_many_bytes;
     use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
         BytecodeLeaf, BytecodeSegmentStructureImpl, BytecodeSegmentedNode,
     };
     use crate::starkware_utils::commitment_tree::base_types::Length;
-    use crate::starkware_utils::commitment_tree::binary_fact_tree::Leaf;
 
     #[test]
     fn test_bytecode_segment_hints() {
