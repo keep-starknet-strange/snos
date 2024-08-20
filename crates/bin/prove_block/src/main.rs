@@ -23,6 +23,7 @@ use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
+use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::error::SnOsError::Runner;
 use starknet_os::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
 use starknet_os::io::input::StarknetOsInput;
@@ -158,17 +159,30 @@ async fn build_initial_state(
     ))
 }
 
-// fn compute_class_commitment(class_proofs: HashMap<Felt, PathfinderClassProof>) -> CommitmentInfo
-// {
-//
-//
-//     let contract_class_commitment_info = CommitmentInfo {
-//         previous_root: Default::default(),
-//         updated_root: Default::default(),
-//         tree_height: 251,
-//         commitment_facts: Default::default(),
-//     };
-// }
+fn compute_class_commitment(
+    previous_class_proofs: &HashMap<Felt, PathfinderClassProof>,
+    class_proofs: &HashMap<Felt, PathfinderClassProof>,
+) -> CommitmentInfo {
+    let previous_class_proofs: Vec<_> = previous_class_proofs.values().cloned().collect();
+    let class_proofs: Vec<_> = class_proofs.values().cloned().collect();
+
+    let previous_root = previous_class_proofs[0].class_commitment;
+    let updated_root = class_proofs[0].class_commitment;
+
+    let previous_class_proofs: Vec<_> = previous_class_proofs.into_iter().map(|proof| proof.class_proof).collect();
+    let class_proofs: Vec<_> = class_proofs.into_iter().map(|proof| proof.class_proof).collect();
+
+    let previous_class_commitment_facts = format_commitment_facts::<PoseidonHash>(&previous_class_proofs);
+    let current_class_commitment_facts = format_commitment_facts::<PoseidonHash>(&class_proofs);
+
+    let class_commitment_facts: HashMap<_, _> =
+        previous_class_commitment_facts.into_iter().chain(current_class_commitment_facts).collect();
+
+    log::debug!("previous class trie root: {}", previous_root.to_hex_string());
+    log::debug!("current class trie root: {}", updated_root.to_hex_string());
+
+    CommitmentInfo { previous_root, updated_root, tree_height: 251, commitment_facts: class_commitment_facts }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -516,6 +530,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let class_proofs = get_class_proofs(&pathfinder_client, &args.rpc_provider, block_number - 1, &class_hashes[..])
         .await
         .expect("Failed to fetch class proofs");
+    let previous_class_proofs =
+        get_class_proofs(&pathfinder_client, &args.rpc_provider, block_number - 1, &class_hashes[..])
+            .await
+            .expect("Failed to fetch class proofs");
 
     // write facts from class proof
     for proof in class_proofs.values() {
@@ -570,9 +588,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let previous_contract_proofs: Vec<_> =
         previous_storage_proofs.values().map(|proof| proof.contract_proof.clone()).collect();
-    let previous_state_commitment_facts = format_commitment_facts(&previous_contract_proofs);
+    let previous_state_commitment_facts = format_commitment_facts::<PedersenHash>(&previous_contract_proofs);
     let current_contract_proofs: Vec<_> = storage_proofs.values().map(|proof| proof.contract_proof.clone()).collect();
-    let current_state_commitment_facts = format_commitment_facts(&current_contract_proofs);
+    let current_state_commitment_facts = format_commitment_facts::<PedersenHash>(&current_contract_proofs);
 
     let global_state_commitment_facts: HashMap<_, _> =
         previous_state_commitment_facts.into_iter().chain(current_state_commitment_facts).collect();
@@ -584,16 +602,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         commitment_facts: global_state_commitment_facts,
     };
 
-    let contract_class_commitment_info = CommitmentInfo {
-        previous_root: Default::default(),
-        updated_root: Default::default(),
-        tree_height: 251,
-        commitment_facts: Default::default(),
-    };
+    let contract_class_commitment_info = compute_class_commitment(&previous_class_proofs, &class_proofs);
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
-        contract_class_commitment_info: Default::default(),
+        contract_class_commitment_info,
         deprecated_compiled_classes: Default::default(),
         compiled_classes,
         compiled_class_visited_pcs: visited_pcs,

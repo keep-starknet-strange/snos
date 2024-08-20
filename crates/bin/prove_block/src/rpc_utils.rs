@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::json;
 use starknet::core::types::{FunctionInvocation, StateUpdate, StorageEntry};
 use starknet_api::block::{BlockHash, BlockNumber};
-use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::{contract_address, patricia_key};
@@ -291,7 +291,7 @@ fn merge_chunked_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof
 }
 
 #[allow(dead_code)]
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub(crate) struct PathfinderClassProof {
     pub class_commitment: Felt252,
     pub class_proof: Vec<TrieNode>,

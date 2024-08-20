@@ -22,7 +22,7 @@ use starknet_os::starkware_utils::commitment_tree::errors::TreeError;
 use starknet_os::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use starknet_os::storage::dict_storage::DictStorage;
-use starknet_os::storage::storage::Fact;
+use starknet_os::storage::storage::{Fact, HashFunctionType};
 
 use crate::rpc_utils::{PathfinderProof, TrieNode};
 
@@ -90,7 +90,9 @@ impl ProverPerContractStorage {
     }
 }
 
-pub(crate) fn format_commitment_facts(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt252, Vec<Felt252>> {
+pub(crate) fn format_commitment_facts<H: HashFunctionType>(
+    trie_nodes: &[Vec<TrieNode>],
+) -> HashMap<Felt252, Vec<Felt252>> {
     let mut facts = HashMap::new();
 
     for nodes in trie_nodes {
@@ -103,8 +105,8 @@ pub(crate) fn format_commitment_facts(trie_nodes: &[Vec<TrieNode>]) -> HashMap<F
 
                     // TODO: the hash function should probably be split from the Fact trait.
                     //       we use a placeholder for the Storage trait in the meantime.
-                    let node_hash = Felt252::from(<BinaryNodeFact as Fact<DictStorage, PedersenHash>>::hash(&fact));
-                    let fact_as_tuple = <BinaryNodeFact as InnerNodeFact<DictStorage, PedersenHash>>::to_tuple(&fact);
+                    let node_hash = Felt252::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact));
+                    let fact_as_tuple = <BinaryNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
                     log::debug!(
                         "  Inserting binary node {} - left: {}, right: {}",
                         node_hash.to_biguint(),
@@ -143,7 +145,7 @@ impl PerContractStorage for ProverPerContractStorage {
         let updated_root = contract_data.root;
         log::debug!("formatting commitment facts");
 
-        let commitment_facts = format_commitment_facts(&contract_data.storage_proofs);
+        let commitment_facts = format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);
 
         let previous_contract_data = self
             .previous_storage_proof
@@ -152,7 +154,7 @@ impl PerContractStorage for ProverPerContractStorage {
             .expect("previous storage proof should have a contract_data field");
 
         log::debug!("formatting previous commitment facts");
-        let previous_commitment_facts = format_commitment_facts(&previous_contract_data.storage_proofs);
+        let previous_commitment_facts = format_commitment_facts::<PedersenHash>(&previous_contract_data.storage_proofs);
 
         let commitment_facts = commitment_facts.into_iter().chain(previous_commitment_facts.into_iter()).collect();
 
