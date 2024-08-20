@@ -90,7 +90,7 @@ impl ProverPerContractStorage {
     }
 }
 
-fn format_commitment_facts(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt252, Vec<Felt252>> {
+pub(crate) fn format_commitment_facts(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt252, Vec<Felt252>> {
     let mut facts = HashMap::new();
 
     for nodes in trie_nodes {
@@ -137,18 +137,6 @@ fn format_commitment_facts(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt252, Vec
 
 impl PerContractStorage for ProverPerContractStorage {
     async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
-        log::debug!("compute_commitment() for contract {:x}", self.contract_address);
-
-        log::debug!("previous tree root: {}", self.previous_tree_root.to_biguint());
-        log::debug!("updated tree root: {}", self.storage_proof.contract_data.as_ref().unwrap().root.to_biguint());
-
-        if self.previous_tree_root.to_biguint()
-            == BigUint::from_str("3599899446358396345037660888668876686098236138504715407510113825126651651198")
-                .unwrap()
-        {
-            log::debug!("we're here");
-        }
-
         // TODO: error code
         let contract_data =
             self.storage_proof.contract_data.as_ref().expect("storage proof should have a contract_data field");

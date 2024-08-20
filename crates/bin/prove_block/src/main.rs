@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
+use std::str::FromStr;
 
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::State as _;
@@ -17,6 +18,9 @@ use starknet::core::types::{
 };
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
+use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::hash::StarkHash;
+use starknet_api::{contract_address, patricia_key};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::error::SnOsError::Runner;
@@ -33,12 +37,15 @@ use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, 
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
+use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{Fact, FactFetchingContext};
 use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+use starknet_types_core::felt::Felt;
 
-use crate::rpc_utils::CachedRpcStorage;
+use crate::reexecute::format_commitment_facts;
+use crate::rpc_utils::{CachedRpcStorage, PathfinderClassProof};
 use crate::types::starknet_rs_tx_to_internal_tx;
 
 mod reexecute;
@@ -150,6 +157,18 @@ async fn build_initial_state(
         },
     ))
 }
+
+// fn compute_class_commitment(class_proofs: HashMap<Felt, PathfinderClassProof>) -> CommitmentInfo
+// {
+//
+//
+//     let contract_class_commitment_info = CommitmentInfo {
+//         previous_root: Default::default(),
+//         updated_root: Default::default(),
+//         tree_height: 251,
+//         commitment_facts: Default::default(),
+//     };
+// }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -408,7 +427,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut contract_states = HashMap::new();
     let mut contract_storages = ContractStorageMap::new();
 
-    for (contract_address, storage_proof) in storage_proofs {
+    // TODO: remove this clone()
+    for (contract_address, storage_proof) in storage_proofs.clone() {
         let previous_storage_proof =
             previous_storage_proofs.get(&contract_address).expect("failed to find previous storage proof");
         let contract_storage_root = previous_storage_proof.contract_data.as_ref().unwrap().root.into();
@@ -538,26 +558,41 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // let final_state =
     // initial_state.clone().apply_commitment_state_diff(blockifier_state.to_state_diff()).await?;
 
-    let contract_state_commitment_info = CommitmentInfo::create_from_expected_updated_tree::<_, _, ContractState>(
-        initial_state.contract_states.clone(),
-        final_state.contract_states.clone(),
-        &contract_indices,
-        &mut initial_state.ffc,
-    )
-    .await
-    .unwrap_or_else(|e| panic!("Could not create contract state commitment info: {:?}", e));
+    // We can extract data from any storage proof, use the one of the block hash contract
+    let block_hash_storage_proof =
+        storage_proofs.get(&Felt::ONE).expect("there should be a storage proof for the block hash contract");
+    let previous_block_hash_storage_proof = previous_storage_proofs
+        .get(&Felt::ONE)
+        .expect("there should be a previous storage proof for the block hash contract");
 
-    // let contract_class_commitment_info = CommitmentInfo::create_from_expected_updated_tree::<_, _,
-    // ContractClassLeaf>(     initial_state.contract_classes.clone().expect("previous state should
-    // have class trie"),     final_state.contract_classes.clone().expect("updated state should have
-    // class trie"),     &contract_indices,
-    //     &mut initial_state.ffc_for_class_hash,
-    // )
-    // .await
-    // .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
+    let previous_contract_trie_root = previous_block_hash_storage_proof.contract_proof[0].hash::<PedersenHash>();
+    let current_contract_trie_root = block_hash_storage_proof.contract_proof[0].hash::<PedersenHash>();
+
+    let previous_contract_proofs: Vec<_> =
+        previous_storage_proofs.values().map(|proof| proof.contract_proof.clone()).collect();
+    let previous_state_commitment_facts = format_commitment_facts(&previous_contract_proofs);
+    let current_contract_proofs: Vec<_> = storage_proofs.values().map(|proof| proof.contract_proof.clone()).collect();
+    let current_state_commitment_facts = format_commitment_facts(&current_contract_proofs);
+
+    let global_state_commitment_facts: HashMap<_, _> =
+        previous_state_commitment_facts.into_iter().chain(current_state_commitment_facts).collect();
+
+    let contract_state_commitment_info = CommitmentInfo {
+        previous_root: previous_contract_trie_root,
+        updated_root: current_contract_trie_root,
+        tree_height: 251,
+        commitment_facts: global_state_commitment_facts,
+    };
+
+    let contract_class_commitment_info = CommitmentInfo {
+        previous_root: Default::default(),
+        updated_root: Default::default(),
+        tree_height: 251,
+        commitment_facts: Default::default(),
+    };
 
     let os_input = StarknetOsInput {
-        contract_state_commitment_info: Default::default(),
+        contract_state_commitment_info,
         contract_class_commitment_info: Default::default(),
         deprecated_compiled_classes: Default::default(),
         compiled_classes,

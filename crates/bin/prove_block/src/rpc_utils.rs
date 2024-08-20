@@ -13,10 +13,14 @@ use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::{contract_address, patricia_key};
+use starknet_os::starkware_utils::commitment_tree::base_types::{Length, NodePath};
+use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use starknet_os::storage::cached_storage::CachedStorage;
-use starknet_os::storage::storage::{Storage, StorageError};
+use starknet_os::storage::dict_storage::DictStorage;
+use starknet_os::storage::storage::{Fact, HashFunctionType, Storage, StorageError};
 use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_types_core::felt::Felt;
+
 /// A `Storage` impl backed by RPC
 #[derive(Clone)]
 pub(crate) struct RpcStorage {
@@ -102,6 +106,28 @@ pub(crate) enum TrieNode {
     Binary { left: Felt252, right: Felt252 },
     #[serde(rename = "edge")]
     Edge { child: Felt252, path: EdgePath },
+}
+
+impl TrieNode {
+    pub(crate) fn hash<H: HashFunctionType>(&self) -> Felt {
+        match self {
+            TrieNode::Binary { left, right } => {
+                let fact = BinaryNodeFact::new((*left).into(), (*right).into())
+                    .expect("storage proof endpoint gave us an invalid binary node");
+
+                // TODO: the hash function should probably be split from the Fact trait.
+                //       we use a placeholder for the Storage trait in the meantime.
+                Felt::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact))
+            }
+            TrieNode::Edge { child, path } => {
+                let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))
+                    .expect("storage proof endpoint gave us an invalid edge node");
+                // TODO: the hash function should probably be split from the Fact trait.
+                //       we use a placeholder for the Storage trait in the meantime.
+                Felt::from(<EdgeNodeFact as Fact<DictStorage, H>>::hash(&fact))
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
