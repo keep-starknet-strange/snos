@@ -13,6 +13,7 @@ use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::{contract_address, patricia_key};
+use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Length, NodePath};
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use starknet_os::storage::cached_storage::CachedStorage;
@@ -295,6 +296,56 @@ fn merge_chunked_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof
 pub(crate) struct PathfinderClassProof {
     pub class_commitment: Felt252,
     pub class_proof: Vec<TrieNode>,
+}
+
+impl PathfinderClassProof {
+    pub(crate) fn verify(&self, class_hash: Felt) -> bool {
+        let bits = class_hash.to_bits_be();
+
+        let mut parent_hash = self.class_commitment;
+        let mut trie_node_iter = self.class_proof.iter();
+
+        let mut index = 0;
+
+        log::debug!("class_commitment: {}", self.class_commitment.to_hex_string());
+        log::debug!("class_hash: {}", class_hash.to_hex_string());
+
+        loop {
+            match trie_node_iter.next() {
+                None => {
+                    break;
+                }
+                Some(node) => {
+                    match node {
+                        TrieNode::Binary { left, right } => {
+                            log::debug!("binary node: {} - {}", left.to_hex_string(), right.to_hex_string());
+                        }
+                        TrieNode::Edge { child, path } => {
+                            log::debug!("edge node: {} - {}", child.to_hex_string(), path.len);
+                        }
+                    }
+
+                    if node.hash::<PoseidonHash>() != parent_hash {
+                        return false;
+                    }
+
+                    match node {
+                        TrieNode::Binary { left, right } => {
+                            parent_hash = if bits[index] { *right } else { *left };
+                            log::debug!("new parent hash: {}", parent_hash.to_hex_string());
+                            index += 1;
+                        }
+                        TrieNode::Edge { child, path } => {
+                            parent_hash = *child;
+                            index += path.len as usize;
+                        }
+                    }
+                }
+            }
+        }
+
+        true
+    }
 }
 
 pub(crate) async fn pathfinder_get_class_proof(

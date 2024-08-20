@@ -327,7 +327,15 @@ pub fn build_descent_map(
         for i in 0..n_updates {
             let curr_update_ptr = (update_ptr_address + i * DictAccess::cairo_size())?;
             let tree_index = vm.get_integer((curr_update_ptr + DictAccess::key_offset())?)?;
+            let old_value = vm.get_integer((curr_update_ptr + DictAccess::prev_value_offset())?)?;
             let new_value = vm.get_integer((curr_update_ptr + DictAccess::new_value_offset())?)?;
+
+            log::debug!(
+                "modification at {}: old_value={} -> new_value={}",
+                tree_index.to_hex_string(),
+                old_value.to_hex_string(),
+                new_value.to_hex_string()
+            );
 
             modifications.push((tree_index.into_owned().to_biguint(), StorageLeaf::new(new_value.into_owned())));
         }
