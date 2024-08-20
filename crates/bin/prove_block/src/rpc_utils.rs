@@ -305,7 +305,8 @@ impl PathfinderClassProof {
         let mut parent_hash = self.class_commitment;
         let mut trie_node_iter = self.class_proof.iter();
 
-        let mut index = 0;
+        // The tree height is 251, felts are 252 bit wide. We can skip the first values.
+        let mut index = 5;
 
         log::debug!("class_commitment: {}", self.class_commitment.to_hex_string());
         log::debug!("class_hash: {}", class_hash.to_hex_string());
@@ -325,7 +326,9 @@ impl PathfinderClassProof {
                         }
                     }
 
+                    let computed_node_hash = node.hash::<PoseidonHash>();
                     if node.hash::<PoseidonHash>() != parent_hash {
+                        log::debug!("invalid node hash: {}", computed_node_hash.to_hex_string());
                         return false;
                     }
 

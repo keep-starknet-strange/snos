@@ -16,6 +16,7 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider as _};
 use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use starknet_os::crypto::pedersen::PedersenHash;
+use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
 use starknet_os::starkware_utils::commitment_tree::base_types::{Length, NodePath, TreeIndex};
 use starknet_os::starkware_utils::commitment_tree::errors::TreeError;
@@ -122,8 +123,8 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
                         .expect("storage proof endpoint gave us an invalid edge node");
                     // TODO: the hash function should probably be split from the Fact trait.
                     //       we use a placeholder for the Storage trait in the meantime.
-                    let node_hash = Felt252::from(<EdgeNodeFact as Fact<DictStorage, PedersenHash>>::hash(&fact));
-                    let fact_as_tuple = <EdgeNodeFact as InnerNodeFact<DictStorage, PedersenHash>>::to_tuple(&fact);
+                    let node_hash = Felt252::from(<EdgeNodeFact as Fact<DictStorage, H>>::hash(&fact));
+                    let fact_as_tuple = <EdgeNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
                     log::debug!("  Inserting edge node {} - bottom: {}", node_hash.to_biguint(), child.to_biguint());
                     (node_hash, fact_as_tuple)
                 }
