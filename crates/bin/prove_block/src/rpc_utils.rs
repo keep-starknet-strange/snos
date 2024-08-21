@@ -141,7 +141,7 @@ pub(crate) struct ContractData {
 
 impl ContractData {
     /// Verifies that each contract state proof is valid.
-    pub(crate) fn verify(&self, storage_keys: &Vec<Felt252>) -> Result<(), String> {
+    pub(crate) fn verify(&self, storage_keys: &[Felt252]) -> Result<(), String> {
         for (index, storage_key) in storage_keys.iter().enumerate() {
             verify_proof::<PedersenHash>(*storage_key, self.root, &self.storage_proofs[index])?;
         }
