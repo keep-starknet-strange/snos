@@ -5,6 +5,7 @@ use starknet::core::types::{ExecuteInvocation, FunctionInvocation, TransactionTr
 
 // Receives the transaction traces of a given block
 // And extract the contracts addresses that where subcalled
+// TODO: check if we can handle this just reexecuting tx using blockifier
 pub(crate) fn get_subcalled_contracts_from_tx_traces(traces: Vec<TransactionTraceWithHash>) -> HashSet<Felt252> {
     let mut contracts_subcalled: HashSet<Felt252> = HashSet::new();
     // let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx
