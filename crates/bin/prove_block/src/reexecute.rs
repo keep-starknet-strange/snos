@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::error::Error;
-use std::str::FromStr;
 
 use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
@@ -9,14 +8,12 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
-use num_bigint::{BigUint, ToBigUint};
 use reqwest::Url;
 use starknet::core::types::BlockId;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider as _};
 use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use starknet_os::crypto::pedersen::PedersenHash;
-use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
 use starknet_os::starkware_utils::commitment_tree::base_types::{Length, NodePath, TreeIndex};
 use starknet_os::starkware_utils::commitment_tree::errors::TreeError;
