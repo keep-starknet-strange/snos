@@ -12,6 +12,7 @@ use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::state::StorageKey;
 use starknet_api::{contract_address, patricia_key};
+use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Length, NodePath};
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
@@ -138,6 +139,17 @@ pub(crate) struct ContractData {
     pub storage_proofs: Vec<Vec<TrieNode>>,
 }
 
+impl ContractData {
+    /// Verifies that each contract state proof is valid.
+    pub(crate) fn verify(&self, storage_keys: &[Felt252]) -> Result<(), String> {
+        for (index, storage_key) in storage_keys.iter().enumerate() {
+            verify_proof::<PedersenHash>(*storage_key, self.root, &self.storage_proofs[index])?;
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct PathfinderProof {
     pub state_commitment: Felt252,
@@ -261,6 +273,15 @@ pub(crate) async fn get_storage_proofs(
             merge_chunked_storage_proofs(chunked_storage_proofs)
         };
 
+        assert!(
+            storage_proof
+                .contract_data
+                .as_ref()
+                .expect("Storage proof should have contract_data")
+                .verify(&keys)
+                .is_ok()
+        );
+
         storage_proofs.insert(contract_address_felt, storage_proof);
     }
 
@@ -300,43 +321,8 @@ pub(crate) struct PathfinderClassProof {
 
 impl PathfinderClassProof {
     /// Verifies that the class proof is valid.
-    ///
-    /// This function goes through the tree from top to bottom and verifies that
-    /// the hash of each node is equal to the corresponding hash in the parent node.
-    pub(crate) fn verify(&self, class_hash: Felt) -> Result<(), ()> {
-        let bits = class_hash.to_bits_be();
-
-        let mut parent_hash = self.class_commitment;
-        let mut trie_node_iter = self.class_proof.iter();
-
-        // The tree height is 251, so the first 5 bits are ignored.
-        let mut index = 5;
-
-        loop {
-            match trie_node_iter.next() {
-                None => {
-                    break;
-                }
-                Some(node) => {
-                    if node.hash::<PoseidonHash>() != parent_hash {
-                        return Err(());
-                    }
-
-                    match node {
-                        TrieNode::Binary { left, right } => {
-                            parent_hash = if bits[index] { *right } else { *left };
-                            index += 1;
-                        }
-                        TrieNode::Edge { child, path } => {
-                            parent_hash = *child;
-                            index += path.len as usize;
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(())
+    pub(crate) fn verify(&self, class_hash: Felt) -> Result<(), String> {
+        verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof)
     }
 }
 
@@ -381,4 +367,50 @@ pub(crate) fn process_function_invocations(inv: FunctionInvocation, contracts: &
     for call in inv.calls {
         process_function_invocations(call, contracts);
     }
+}
+
+/// This function goes through the tree from top to bottom and verifies that
+/// the hash of each node is equal to the corresponding hash in the parent node.
+pub(crate) fn verify_proof<H: HashFunctionType>(key: Felt, commitment: Felt, proof: &[TrieNode]) -> Result<(), String> {
+    let bits = key.to_bits_be();
+
+    let mut parent_hash = commitment;
+    let mut trie_node_iter = proof.iter();
+
+    // The tree height is 251, so the first 5 bits are ignored.
+    let start = 5;
+    let mut index = start;
+
+    loop {
+        match trie_node_iter.next() {
+            None => {
+                if index - start != 251 {
+                    return Err(format!("Proof verification failed, proof height ({}) is not 251", (index - start)));
+                }
+                break;
+            }
+            Some(node) => {
+                let node_hash = node.hash::<H>();
+                if node_hash != parent_hash {
+                    return Err(format!(
+                        "Proof verification failed, node_hash {:x} != parent_hash {:x}",
+                        node_hash, parent_hash
+                    ));
+                }
+
+                match node {
+                    TrieNode::Binary { left, right } => {
+                        parent_hash = if bits[index] { *right } else { *left };
+                        index += 1;
+                    }
+                    TrieNode::Edge { child, path } => {
+                        parent_hash = *child;
+                        index += path.len as usize;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
