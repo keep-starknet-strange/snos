@@ -7,7 +7,6 @@ use cairo_vm::Felt252;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
-use starknet::core::types::FunctionInvocation;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::state::StorageKey;
