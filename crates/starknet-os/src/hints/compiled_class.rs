@@ -8,12 +8,12 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
-use starknet_os_types::hash::Hash;
 
 use crate::hints::vars;
 use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
     BytecodeSegment, BytecodeSegmentStructureImpl,
 };
+use crate::utils::custom_hint_error;
 
 pub const ASSIGN_BYTECODE_SEGMENTS: &str = indoc! {r#"
     bytecode_segments = iter(bytecode_segment_structure.segments)"#
@@ -128,17 +128,18 @@ pub fn set_ap_to_segment_hash(
         exec_scopes.get(vars::scopes::BYTECODE_SEGMENT_STRUCTURE)?;
 
     // Calc hash
-    let hash =
-        bytecode_segment_structure.hash().map_err(|err| HintError::CustomHint(err.to_string().into_boxed_str()))?;
+    let hash = bytecode_segment_structure.hash().map_err(|err| custom_hint_error(err.to_string()))?;
 
     // Insert to ap
-    insert_value_into_ap(vm, Felt252::from(Hash::from_bytes_be(hash.to_bytes_be())))?;
+    insert_value_into_ap(vm, Felt252::from(hash))?;
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use cairo_vm::any_box;
     use num_bigint::BigUint;
 
@@ -227,21 +228,27 @@ mod tests {
     #[test]
     fn test_hash_bytecode_leaf() {
         // Reference hashes were taken from cairo-lang (compiled_class_hash_test.py)
+        // In order to test these or any other leaf in Python use this:
+        // print("Leaf hash: ", hex(BytecodeLeaf(data=[1,2,3])))
         use num_bigint::BigUint;
+
+        // Let's create a simple BytecodeLeaf with just one element [1] in data field
         let leaf = BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf { data: vec![BigUint::from(0x01u8)] });
         assert_eq!(
-            hex::encode(leaf.hash().unwrap().to_bytes_be()),
+            hex::encode(leaf.hash().unwrap().deref()),
             "00579e8877c7755365d5ec1ec7d3a94a457eff5d1f40482bbe9729c064cdead2"
         );
 
+        // Now try with a BytecodeLeaf that contains 3 elements [1,2,3] in data field
         let leaf = BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf {
             data: vec![BigUint::from(0x01u8), BigUint::from(0x02u8), BigUint::from(0x03u8)],
         });
         assert_eq!(
-            hex::encode(leaf.hash().unwrap().to_bytes_be()),
+            hex::encode(leaf.hash().unwrap().deref()),
             "02f0d8840bcf3bc629598d8a6cc80cb7c0d9e52d93dab244bbf9cd0dca0ad082"
         );
 
+        // Finally, use a more complex leaf data = [1,2,3, 100, 500, 1000, 123456789]
         let leaf = BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf {
             data: vec![
                 BigUint::from(1u8),
@@ -254,7 +261,7 @@ mod tests {
             ],
         });
         assert_eq!(
-            hex::encode(leaf.hash().unwrap().to_bytes_be()),
+            hex::encode(leaf.hash().unwrap().deref()),
             "0061992871ada0f904463047841a564ad8ed8f4fae20e9e68a0debee876cfdb3"
         );
     }
@@ -262,23 +269,55 @@ mod tests {
     #[test]
     fn test_hash_bytecode_node() {
         // Reference hashes were taken from cairo-lang (compiled_class_hash_test.py)
+        // In order to test these or any other leaf in Python use this:
+        // segment_list = [BytecodeSegment(segment_length=1, is_used=False,
+        // inner_structure=BytecodeLeaf(data=[1, 2]))] print("Node hash:",
+        // hex(BytecodeSegmentedNode(segments=segment_list))) Keep in mind that inner_structure can
+        // be a BytecodeLeaf or another BytecodeSegment
+
+        // A BytecodeSegmentedNode is just a vector of BytecodeSegment. Let's create different combinations
+        // and check that the hash function is working
+
+        // Check hash when the segments is just one leaf
         let inner_struct = BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf { data: vec![BigUint::from(0x01u8)] });
         let seg = vec![BytecodeSegment { segment_length: Length(1), is_used: false, inner_structure: inner_struct }];
         let node = BytecodeSegmentedNode { segments: seg };
         assert_eq!(
-            hex::encode(node.hash().unwrap().to_bytes_be()),
+            hex::encode(node.hash().unwrap().deref()),
             "064b3967128647f5db91e107897e7e6d72f2a06f35d01d19055a7f85c85e65ba"
         );
 
+        // Check hash when the segments is one leaf with several elements
         let inner_struct = BytecodeSegmentStructureImpl::Leaf(BytecodeLeaf {
             data: vec![BigUint::from(0x01u8), BigUint::from(0x02u8)],
         });
         let seg = vec![BytecodeSegment { segment_length: Length(2), is_used: false, inner_structure: inner_struct }];
         let node = BytecodeSegmentedNode { segments: seg };
         assert_eq!(
-            hex::encode(node.hash().unwrap().to_bytes_be()),
+            hex::encode(node.hash().unwrap().deref()),
             "073542be7740dc970b59f6e05e7a065586a493b59932a3a88adc902a626da18d"
         );
+
+        // Check hash when the segments are a combination between Nodes and Leafs. This was extracted from
+        // Python code. To extract this example use these lines in pytest file:
+        // print("BytecodeSegmentedNode: ", bytecode_segment_structure)
+        // print("BytecodeSegmentedNode hash: ", hex(bytecode_segment_structure.hash()))
+
+        // Output from pytest:
+        // BytecodeSegmentedNode:
+        // BytecodeSegmentedNode(segments=[
+        // BytecodeSegment(segment_length=3, is_used=False, inner_structure=BytecodeLeaf(data=[1, 2, 3])),
+
+        // BytecodeSegment(segment_length=3, is_used=False, inner_structure=
+        //  BytecodeSegmentedNode(segments=[
+        //      BytecodeSegment(segment_length=1, is_used=False, inner_structure=BytecodeLeaf(data=[4])),
+        //      BytecodeSegment(segment_length=1, is_used=False, inner_structure=BytecodeLeaf(data=[5])),
+        //      BytecodeSegment(segment_length=1, is_used=False, inner_structure=
+        //          BytecodeSegmentedNode(segments=[BytecodeSegment(segment_length=1, is_used=False,
+        //              inner_structure=BytecodeLeaf(data=[6]))]))])),
+
+        // BytecodeSegment(segment_length=4, is_used=False, inner_structure=BytecodeLeaf(data=[7, 8, 9,
+        // 10])) ])
 
         let node = BytecodeSegmentedNode {
             segments: vec![
@@ -346,7 +385,7 @@ mod tests {
         };
 
         assert_eq!(
-            hex::encode(node.hash().unwrap().to_bytes_be()),
+            hex::encode(node.hash().unwrap().deref()),
             "06dc9a5436f10ef82ff99457f4af9dd5a5794713c1ed272b4e82e9a8d9ccb32e"
         );
     }
