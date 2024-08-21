@@ -373,7 +373,7 @@ pub fn check_is_deprecated(
     let execution_into_ptr = vm.get_relocatable((execution_context + 4usize)?).unwrap();
     let contract_address = vm.get_integer((execution_into_ptr + 3usize)?).unwrap();
 
-    log::debug!(
+    log::trace!(
         "about to call contract_address: {}, class_hash: {}, is_deprecated: {}",
         contract_address,
         class_hash,
@@ -1145,7 +1145,7 @@ pub fn log_enter_syscall(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let selector = get_integer_from_var_name(vars::ids::SELECTOR, _vm, ids_data, _ap_tracking)?;
-    log::debug!("entering syscall: {:?} execution", SyscallSelector::try_from(selector)?);
+    log::trace!("entering syscall: {:?} execution", SyscallSelector::try_from(selector)?);
     // TODO: implement logging
     Ok(())
 }

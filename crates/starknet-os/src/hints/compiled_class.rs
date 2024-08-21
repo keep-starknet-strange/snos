@@ -29,10 +29,7 @@ pub fn assign_bytecode_segments(
         exec_scopes.get(vars::scopes::BYTECODE_SEGMENT_STRUCTURE)?;
 
     let bytecode_segments = match bytecode_segment_structure {
-        BytecodeSegmentStructureImpl::SegmentedNode(segmented_node) => {
-            log::info!("got seg");
-            segmented_node.segments.into_iter()
-        }
+        BytecodeSegmentStructureImpl::SegmentedNode(segmented_node) => segmented_node.segments.into_iter(),
         BytecodeSegmentStructureImpl::Leaf(_) => {
             return Err(HintError::AssertionFailed("Expected SegmentedNode".to_string().into_boxed_str()));
         }
@@ -84,8 +81,6 @@ pub fn iter_current_segment_info(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    log::debug!("iter_current_segment_info()");
-
     let bytecode_segments =
         exec_scopes.get_mut_ref::<<Vec<BytecodeSegment> as IntoIterator>::IntoIter>(vars::scopes::BYTECODE_SEGMENTS)?;
 

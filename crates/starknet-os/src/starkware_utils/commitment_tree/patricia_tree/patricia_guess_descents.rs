@@ -53,7 +53,11 @@ fn get_children(preimage: &Preimage, node: &Triplet) -> Result<(Triplet, Triplet
         let (left, right) = if node_hash == Felt252::ZERO {
             (Felt252::ZERO, Felt252::ZERO)
         } else {
-            let node_preimage = preimage.get(&node_hash).ok_or(DescentError::PreimageNotFound(node_hash))?;
+            let node_preimage = match preimage.get(&node_hash) {
+                None => return Err(DescentError::PreimageNotFound(node_hash)),
+                Some(value) => value,
+            };
+            // let node_preimage = preimage.get(&node_hash).ok_or(DescentError::PreimageNotFound(node_hash))?;
             (node_preimage[0], node_preimage[1])
         };
 

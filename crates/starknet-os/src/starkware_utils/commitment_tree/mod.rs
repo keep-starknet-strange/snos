@@ -3,7 +3,7 @@ pub mod binary_fact_tree;
 mod binary_fact_tree_node;
 mod calculation;
 pub mod errors;
-mod inner_node_fact;
+pub mod inner_node_fact;
 pub mod leaf_fact;
 mod merkle_tree;
 pub mod patricia_tree;

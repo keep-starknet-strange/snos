@@ -218,7 +218,6 @@ where
         }
     }
 
-    #[allow(clippy::await_holding_refcell_ref)]
     pub async fn compute_storage_commitments(&self) -> Result<HashMap<Felt252, CommitmentInfo>, CommitmentInfoError> {
         let mut eh_ref = self.execution_helper.write().await;
         let storage_by_address = &mut eh_ref.storage_by_address;
