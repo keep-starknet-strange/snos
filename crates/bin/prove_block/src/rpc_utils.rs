@@ -51,13 +51,13 @@ impl Storage for RpcStorage {
         log::trace!(
             "RpcStorage::get_value(), key-len: {}, key: {:x}",
             key.len(),
-            num_bigint::BigUint::from_bytes_be(&key[..])
+            num_bigint::BigUint::from_bytes_be(key)
         );
         async {
             if let Some(value) = self.cache.get(key) {
                 Ok(Some(value.clone()))
             } else {
-                log::warn!("    have no value for key {:x}", num_bigint::BigUint::from_bytes_be(&key[..]));
+                log::warn!("    have no value for key {:x}", num_bigint::BigUint::from_bytes_be(key));
                 Err(StorageError::ContentNotFound)
             }
         }
@@ -194,12 +194,13 @@ fn get_accessed_keys_in_tx(
         &tx_execution_info.validate_call_info,
         &tx_execution_info.execute_call_info,
         &tx_execution_info.fee_transfer_call_info,
-    ] {
-        if let Some(call_info) = call_info {
-            let call_storage_keys = get_accessed_storage_keys(call_info);
-            for (contract_address, storage_keys) in call_storage_keys {
-                accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
-            }
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let call_storage_keys = get_accessed_storage_keys(call_info);
+        for (contract_address, storage_keys) in call_storage_keys {
+            accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
         }
     }
 
@@ -386,13 +387,9 @@ pub(crate) async fn get_class_proofs(
 // Utility to extract all contract address in a nested call structure. Any given call can have
 // nested calls, creating a tree structure of calls, so this fn traverses this structure and
 // returns a flat list of all contracts encountered along the way.
-pub(crate) fn process_function_invocations(
-    inv: FunctionInvocation,
-    contracts: &mut HashSet<Felt252>,
-    nesting_level: u64,
-) {
+pub(crate) fn process_function_invocations(inv: FunctionInvocation, contracts: &mut HashSet<Felt252>) {
     contracts.insert(inv.contract_address);
     for call in inv.calls {
-        process_function_invocations(call, contracts, nesting_level + 1);
+        process_function_invocations(call, contracts);
     }
 }

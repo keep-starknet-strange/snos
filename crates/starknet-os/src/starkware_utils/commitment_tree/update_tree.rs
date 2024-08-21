@@ -365,10 +365,8 @@ where
                 (true, true) => return Err(TreeError::IsEmpty),
             };
             Ok(DecodedNode { left_child: left.as_ref(), right_child: right.as_ref(), case })
-        },
-        TreeUpdate::Leaf(_) => {
-            return Err(TreeError::IsLeaf);
-        },
+        }
+        TreeUpdate::Leaf(_) => Err(TreeError::IsLeaf),
     }
 }
 

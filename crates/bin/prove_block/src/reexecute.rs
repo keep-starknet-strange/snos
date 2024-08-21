@@ -128,7 +128,7 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
             };
 
             let fact_as_tuple_of_felts: Vec<_> = fact_as_tuple.into_iter().map(Felt252::from).collect();
-            facts.insert(Felt252::from(key), fact_as_tuple_of_felts);
+            facts.insert(key, fact_as_tuple_of_felts);
         }
     }
 
@@ -166,7 +166,7 @@ impl PerContractStorage for ProverPerContractStorage {
 
     async fn read(&mut self, key: TreeIndex) -> Option<Felt252> {
         if let Some(value) = self.ongoing_storage_changes.get(&key) {
-            return Some(*value);
+            Some(*value)
         } else {
             let key_felt = Felt252::from(key.clone());
             // TODO: this should be fallible

@@ -237,16 +237,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         match trace.trace_root {
             TransactionTrace::Invoke(invoke_trace) => {
                 if let Some(inv) = invoke_trace.validate_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled, 0);
+                    process_function_invocations(inv, &mut contracts_subcalled);
                 }
                 match invoke_trace.execute_invocation {
                     ExecuteInvocation::Success(inv) => {
-                        process_function_invocations(inv, &mut contracts_subcalled, 0);
+                        process_function_invocations(inv, &mut contracts_subcalled);
                     }
                     ExecuteInvocation::Reverted(_) => unimplemented!("handle reverted invoke trace"),
                 }
                 if let Some(inv) = invoke_trace.fee_transfer_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled, 0);
+                    process_function_invocations(inv, &mut contracts_subcalled);
                 }
             }
             _ => unimplemented!("process other txn traces"),
