@@ -97,7 +97,6 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
         for node in nodes {
             let (key, fact_as_tuple) = match node {
                 TrieNode::Binary { left, right } => {
-                    // log::info!("writing binary node...");
                     let fact = BinaryNodeFact::new((*left).into(), (*right).into())
                         .expect("storage proof endpoint gave us an invalid binary node");
 
@@ -105,24 +104,17 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
                     //       we use a placeholder for the Storage trait in the meantime.
                     let node_hash = Felt252::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact));
                     let fact_as_tuple = <BinaryNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
-                    log::debug!(
-                        "  Inserting binary node {} - left: {}, right: {}",
-                        node_hash.to_biguint(),
-                        left.to_biguint(),
-                        right.to_biguint()
-                    );
 
                     (node_hash, fact_as_tuple)
                 }
                 TrieNode::Edge { child, path } => {
-                    // log::info!("writing edge node...");
                     let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))
                         .expect("storage proof endpoint gave us an invalid edge node");
                     // TODO: the hash function should probably be split from the Fact trait.
                     //       we use a placeholder for the Storage trait in the meantime.
                     let node_hash = Felt252::from(<EdgeNodeFact as Fact<DictStorage, H>>::hash(&fact));
                     let fact_as_tuple = <EdgeNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
-                    log::debug!("  Inserting edge node {} - bottom: {}", node_hash.to_biguint(), child.to_biguint());
+
                     (node_hash, fact_as_tuple)
                 }
             };
@@ -141,7 +133,6 @@ impl PerContractStorage for ProverPerContractStorage {
         let contract_data =
             self.storage_proof.contract_data.as_ref().expect("storage proof should have a contract_data field");
         let updated_root = contract_data.root;
-        log::debug!("formatting commitment facts");
 
         let commitment_facts = format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);
 
@@ -151,7 +142,6 @@ impl PerContractStorage for ProverPerContractStorage {
             .as_ref()
             .expect("previous storage proof should have a contract_data field");
 
-        log::debug!("formatting previous commitment facts");
         let previous_commitment_facts = format_commitment_facts::<PedersenHash>(&previous_contract_data.storage_proofs);
 
         let commitment_facts = commitment_facts.into_iter().chain(previous_commitment_facts.into_iter()).collect();
