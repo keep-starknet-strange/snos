@@ -141,7 +141,7 @@ pub(crate) struct ContractData {
 
 impl ContractData {
     /// Verifies that each contract state proof is valid.
-    pub(crate) fn verify(&self, storage_keys: &Vec<Felt252>) -> Result<(), ()> {
+    pub(crate) fn verify(&self, storage_keys: &Vec<Felt252>) -> Result<(), String> {
         for (index, storage_key) in storage_keys.into_iter().enumerate() {
             verify_proof::<PedersenHash>(*storage_key, self.root, &self.storage_proofs[index])?;
         }
@@ -319,7 +319,7 @@ pub(crate) struct PathfinderClassProof {
 
 impl PathfinderClassProof {
     /// Verifies that the class proof is valid.
-    pub(crate) fn verify(&self, class_hash: Felt) -> Result<(), ()> {
+    pub(crate) fn verify(&self, class_hash: Felt) -> Result<(), String> {
         verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof)
     }
 }
@@ -369,23 +369,35 @@ pub(crate) fn process_function_invocations(inv: FunctionInvocation, contracts: &
 
 /// This function goes through the tree from top to bottom and verifies that
 /// the hash of each node is equal to the corresponding hash in the parent node.
-pub(crate) fn verify_proof<H: HashFunctionType>(key: Felt, commitment: Felt, proof: &Vec<TrieNode>) -> Result<(), ()> {
+pub(crate) fn verify_proof<H: HashFunctionType>(
+    key: Felt,
+    commitment: Felt,
+    proof: &Vec<TrieNode>,
+) -> Result<(), String> {
     let bits = key.to_bits_be();
 
     let mut parent_hash = commitment;
     let mut trie_node_iter = proof.iter();
 
     // The tree height is 251, so the first 5 bits are ignored.
-    let mut index = 5;
+    let start = 5;
+    let mut index = start;
 
     loop {
         match trie_node_iter.next() {
             None => {
+                if index - start != 251 {
+                    return Err(format!("Proof verification failed, proof height ({}) is not 251", (index - start)));
+                }
                 break;
             }
             Some(node) => {
-                if node.hash::<H>() != parent_hash {
-                    return Err(());
+                let node_hash = node.hash::<H>();
+                if node_hash != parent_hash {
+                    return Err(format!(
+                        "Proof verification failed, node_hash {:x} != parent_hash {:x}",
+                        node_hash, parent_hash
+                    ));
                 }
 
                 match node {
