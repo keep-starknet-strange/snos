@@ -140,47 +140,10 @@ pub(crate) struct ContractData {
 }
 
 impl ContractData {
-    /// Verifies that the contract state proofs are valid.
-    ///
-    /// This function goes through the tree from top to bottom and verifies that
-    /// the hash of each node is equal to the corresponding hash in the parent node.
-    ///
-    /// This is done for each proof.
-    pub(crate) fn verify(&self, storage_keys: &Vec<Felt252>) -> Result<(), String> {
+    /// Verifies that each contract state proof is valid.
+    pub(crate) fn verify(&self, storage_keys: &Vec<Felt252>) -> Result<(), ()> {
         for (index, storage_key) in storage_keys.into_iter().enumerate() {
-            log::debug!("verifying storage proof for key {:x}", storage_key);
-            let bits = storage_key.to_bits_be();
-
-            let mut parent_hash = self.root;
-            let mut trie_node_iter = self.storage_proofs[index].iter();
-
-            // The tree height is 251, so the first 5 bits are ignored.
-            let mut index = 5;
-
-            loop {
-                match trie_node_iter.next() {
-                    None => {
-                        break;
-                    }
-                    Some(node) => {
-                        let node_hash = node.hash::<PedersenHash>();
-                        if node_hash != parent_hash {
-                            return Err(format!("node hash {:x} does not equal parent hash {:x}", node_hash, parent_hash));
-                        }
-
-                        match node {
-                            TrieNode::Binary { left, right } => {
-                                parent_hash = if bits[index] { *right } else { *left };
-                                index += 1;
-                            }
-                            TrieNode::Edge { child, path } => {
-                                parent_hash = *child;
-                                index += path.len as usize;
-                            }
-                        }
-                    }
-                }
-            }
+            verify_proof::<PedersenHash>(*storage_key, self.root, &self.storage_proofs[index])?;
         }
 
         Ok(())
@@ -351,43 +314,8 @@ pub(crate) struct PathfinderClassProof {
 
 impl PathfinderClassProof {
     /// Verifies that the class proof is valid.
-    ///
-    /// This function goes through the tree from top to bottom and verifies that
-    /// the hash of each node is equal to the corresponding hash in the parent node.
     pub(crate) fn verify(&self, class_hash: Felt) -> Result<(), ()> {
-        let bits = class_hash.to_bits_be();
-
-        let mut parent_hash = self.class_commitment;
-        let mut trie_node_iter = self.class_proof.iter();
-
-        // The tree height is 251, so the first 5 bits are ignored.
-        let mut index = 5;
-
-        loop {
-            match trie_node_iter.next() {
-                None => {
-                    break;
-                }
-                Some(node) => {
-                    if node.hash::<PoseidonHash>() != parent_hash {
-                        return Err(());
-                    }
-
-                    match node {
-                        TrieNode::Binary { left, right } => {
-                            parent_hash = if bits[index] { *right } else { *left };
-                            index += 1;
-                        }
-                        TrieNode::Edge { child, path } => {
-                            parent_hash = *child;
-                            index += path.len as usize;
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(())
+        verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof)
     }
 }
 
@@ -432,4 +360,46 @@ pub(crate) fn process_function_invocations(inv: FunctionInvocation, contracts: &
     for call in inv.calls {
         process_function_invocations(call, contracts);
     }
+}
+
+/// This function goes through the tree from top to bottom and verifies that
+/// the hash of each node is equal to the corresponding hash in the parent node.
+pub(crate) fn verify_proof<H: HashFunctionType>(
+    key: Felt,
+    commitment: Felt,
+    proof: &Vec<TrieNode>
+) -> Result<(), ()> {
+    let bits = key.to_bits_be();
+
+    let mut parent_hash = commitment;
+    let mut trie_node_iter = proof.iter();
+
+    // The tree height is 251, so the first 5 bits are ignored.
+    let mut index = 5;
+
+    loop {
+        match trie_node_iter.next() {
+            None => {
+                break;
+            }
+            Some(node) => {
+                if node.hash::<H>() != parent_hash {
+                    return Err(());
+                }
+
+                match node {
+                    TrieNode::Binary { left, right } => {
+                        parent_hash = if bits[index] { *right } else { *left };
+                        index += 1;
+                    }
+                    TrieNode::Edge { child, path } => {
+                        parent_hash = *child;
+                        index += path.len as usize;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
