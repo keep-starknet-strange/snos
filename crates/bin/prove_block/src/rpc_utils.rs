@@ -273,7 +273,12 @@ pub(crate) async fn get_storage_proofs(
             merge_chunked_storage_proofs(chunked_storage_proofs)
         };
 
-        storage_proof.contract_data.clone().expect("Should have storage proof").verify(&keys).expect("Contract storage proof verification failed");
+        storage_proof
+            .contract_data
+            .clone()
+            .expect("Should have storage proof")
+            .verify(&keys)
+            .expect("Contract storage proof verification failed");
 
         storage_proofs.insert(contract_address_felt, storage_proof);
     }
@@ -364,11 +369,7 @@ pub(crate) fn process_function_invocations(inv: FunctionInvocation, contracts: &
 
 /// This function goes through the tree from top to bottom and verifies that
 /// the hash of each node is equal to the corresponding hash in the parent node.
-pub(crate) fn verify_proof<H: HashFunctionType>(
-    key: Felt,
-    commitment: Felt,
-    proof: &Vec<TrieNode>
-) -> Result<(), ()> {
+pub(crate) fn verify_proof<H: HashFunctionType>(key: Felt, commitment: Felt, proof: &Vec<TrieNode>) -> Result<(), ()> {
     let bits = key.to_bits_be();
 
     let mut parent_hash = commitment;
