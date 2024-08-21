@@ -299,17 +299,18 @@ pub(crate) struct PathfinderClassProof {
 }
 
 impl PathfinderClassProof {
-    pub(crate) fn verify(&self, class_hash: Felt) -> bool {
+    /// Verifies that the class proof is valid.
+    ///
+    /// This function goes through the tree from top to bottom and verifies that
+    /// the hash of each node is equal to the corresponding hash in the parent node.
+    pub(crate) fn verify(&self, class_hash: Felt) -> Result<(), ()> {
         let bits = class_hash.to_bits_be();
 
         let mut parent_hash = self.class_commitment;
         let mut trie_node_iter = self.class_proof.iter();
 
-        // The tree height is 251, felts are 252 bit wide. We can skip the first values.
+        // The tree height is 251, so the first 5 bits are ignored.
         let mut index = 5;
-
-        log::debug!("class_commitment: {}", self.class_commitment.to_hex_string());
-        log::debug!("class_hash: {}", class_hash.to_hex_string());
 
         loop {
             match trie_node_iter.next() {
@@ -317,25 +318,13 @@ impl PathfinderClassProof {
                     break;
                 }
                 Some(node) => {
-                    match node {
-                        TrieNode::Binary { left, right } => {
-                            log::debug!("binary node: {} - {}", left.to_hex_string(), right.to_hex_string());
-                        }
-                        TrieNode::Edge { child, path } => {
-                            log::debug!("edge node: {} - {}", child.to_hex_string(), path.len);
-                        }
-                    }
-
-                    let computed_node_hash = node.hash::<PoseidonHash>();
                     if node.hash::<PoseidonHash>() != parent_hash {
-                        log::debug!("invalid node hash: {}", computed_node_hash.to_hex_string());
-                        return false;
+                        return Err(());
                     }
 
                     match node {
                         TrieNode::Binary { left, right } => {
                             parent_hash = if bits[index] { *right } else { *left };
-                            log::debug!("new parent hash: {}", parent_hash.to_hex_string());
                             index += 1;
                         }
                         TrieNode::Edge { child, path } => {
@@ -347,7 +336,7 @@ impl PathfinderClassProof {
             }
         }
 
-        true
+        Ok(())
     }
 }
 
