@@ -273,12 +273,12 @@ pub(crate) async fn get_storage_proofs(
             merge_chunked_storage_proofs(chunked_storage_proofs)
         };
 
-        storage_proof
+        assert!(storage_proof
             .contract_data
-            .clone()
-            .expect("Should have storage proof")
+            .as_ref()
+            .expect("Storage proof should have contract_data")
             .verify(&keys)
-            .expect("Contract storage proof verification failed");
+            .is_ok());
 
         storage_proofs.insert(contract_address_felt, storage_proof);
     }
