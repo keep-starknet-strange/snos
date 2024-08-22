@@ -1,11 +1,10 @@
-use std::collections::BTreeMap;
-
 use cairo_vm::Felt252;
+use rpc_replay::transactions::resource_bounds_core_to_api;
 use starknet::core::types::{
     DataAvailabilityMode, DeclareTransaction, DeclareTransactionV0, DeclareTransactionV1, DeclareTransactionV2,
     DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV1, DeployAccountTransactionV3,
     InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction,
-    ResourceBoundsMapping, Transaction,
+    Transaction,
 };
 use starknet_os::io::InternalTransaction;
 use starknet_types_core::felt::Felt;
@@ -24,25 +23,6 @@ fn da_to_felt(data_availability_mode: DataAvailabilityMode) -> Felt252 {
         DataAvailabilityMode::L1 => Felt252::ZERO,
         DataAvailabilityMode::L2 => Felt252::ONE,
     }
-}
-
-fn resource_bounds_to_api(resource_bounds: ResourceBoundsMapping) -> starknet_api::transaction::ResourceBoundsMapping {
-    starknet_api::transaction::ResourceBoundsMapping(BTreeMap::from([
-        (
-            starknet_api::transaction::Resource::L1Gas,
-            starknet_api::transaction::ResourceBounds {
-                max_amount: resource_bounds.l1_gas.max_amount,
-                max_price_per_unit: resource_bounds.l1_gas.max_price_per_unit,
-            },
-        ),
-        (
-            starknet_api::transaction::Resource::L2Gas,
-            starknet_api::transaction::ResourceBounds {
-                max_amount: resource_bounds.l2_gas.max_amount,
-                max_price_per_unit: resource_bounds.l2_gas.max_price_per_unit,
-            },
-        ),
-    ]))
 }
 
 fn invoke_tx_v0_to_internal_tx(tx: InvokeTransactionV0) -> InternalTransaction {
@@ -91,7 +71,7 @@ fn invoke_tx_v3_to_internal_tx(tx: InvokeTransactionV3) -> InternalTransaction {
         sender_address: Some(felt_to_vm(tx.sender_address)),
         signature: Some(signature),
         nonce: Some(felt_to_vm(tx.nonce)),
-        resource_bounds: Some(resource_bounds_to_api(tx.resource_bounds)),
+        resource_bounds: Some(resource_bounds_core_to_api(&tx.resource_bounds)),
         tip: Some(Felt252::from(tx.tip)),
         paymaster_data: Some(paymaster_data),
         account_deployment_data: Some(account_deployment_data),
@@ -177,7 +157,7 @@ fn declare_v3_to_internal_tx(input: DeclareTransactionV3) -> InternalTransaction
         signature: Some(input.signature.into_iter().map(Felt252::from).collect()),
         nonce: Some(input.nonce),
         class_hash: Some(input.class_hash),
-        resource_bounds: Some(resource_bounds_to_api(input.resource_bounds)),
+        resource_bounds: Some(resource_bounds_core_to_api(&input.resource_bounds)),
         tip: Some(Felt252::from(input.tip)),
         paymaster_data: Some(input.paymaster_data.into_iter().map(Felt252::from).collect()),
         account_deployment_data: Some(input.account_deployment_data.into_iter().map(Felt252::from).collect()),
@@ -210,7 +190,7 @@ pub fn deploy_account_v3_to_internal_tx(input: DeployAccountTransactionV3) -> In
         contract_address_salt: Some(input.contract_address_salt),
         constructor_calldata: Some(input.constructor_calldata.into_iter().map(Felt252::from).collect()),
         class_hash: Some(input.class_hash),
-        resource_bounds: Some(resource_bounds_to_api(input.resource_bounds)),
+        resource_bounds: Some(resource_bounds_core_to_api(&input.resource_bounds)),
         tip: Some(Felt252::from(input.tip)),
         paymaster_data: Some(input.paymaster_data.into_iter().map(Felt252::from).collect()),
         nonce_data_availability_mode: Some(da_to_felt(input.nonce_data_availability_mode)),
@@ -430,7 +410,7 @@ mod tests {
         assert_eq!(result.signature, Some(input.signature.into_iter().map(Felt252::from).collect()));
         assert_eq!(result.nonce, Some(input.nonce));
         assert_eq!(result.class_hash, Some(input.class_hash));
-        assert_eq!(result.resource_bounds, Some(resource_bounds_to_api(input.resource_bounds)));
+        assert_eq!(result.resource_bounds, Some(resource_bounds_core_to_api(input.resource_bounds)));
         assert_eq!(result.tip, Some(Felt252::from(input.tip)));
         assert_eq!(result.paymaster_data, Some(input.paymaster_data.into_iter().map(Felt252::from).collect()));
         assert_eq!(
@@ -525,7 +505,7 @@ mod tests {
             Some(input.constructor_calldata.into_iter().map(Felt252::from).collect())
         );
         assert_eq!(result.class_hash, Some(input.class_hash));
-        assert_eq!(result.resource_bounds, Some(resource_bounds_to_api(input.resource_bounds)));
+        assert_eq!(result.resource_bounds, Some(resource_bounds_core_to_api(input.resource_bounds)));
         assert_eq!(result.tip, Some(Felt252::from(input.tip)));
         assert_eq!(result.paymaster_data, Some(input.paymaster_data.into_iter().map(Felt252::from).collect()));
         assert_eq!(result.nonce_data_availability_mode, Some(da_to_felt(input.nonce_data_availability_mode)));
