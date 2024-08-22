@@ -98,9 +98,6 @@ pub enum LegacyContractDecompressionError {
 pub(crate) fn decompress_starknet_core_contract_class(
     compressed_legacy_class: CompressedLegacyContractClass,
 ) -> Result<LegacyContractClass, LegacyContractDecompressionError> {
-    // Compressed classes have the program as a gzipped vector.
-    // We need to convert it to a legacy contract class first, as starknet-core does
-    // not provide conversion methods.
     let mut program_str = String::new();
     let mut decoder = GzDecoder::new(compressed_legacy_class.program.as_slice());
     decoder.read_to_string(&mut program_str)?;
