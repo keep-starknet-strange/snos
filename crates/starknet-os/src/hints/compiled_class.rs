@@ -136,7 +136,9 @@ mod tests {
     use std::ops::Deref;
 
     use cairo_vm::any_box;
+    use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_integer_from_var_name;
     use num_bigint::BigUint;
+    use rstest::rstest;
 
     use super::*;
     use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
@@ -383,5 +385,74 @@ mod tests {
             hex::encode(node.hash().unwrap().deref()),
             "06dc9a5436f10ef82ff99457f4af9dd5a5794713c1ed272b4e82e9a8d9ccb32e"
         );
+    }
+
+    #[rstest]
+    #[case(BytecodeSegment {
+        segment_length: Length(3),
+        is_used: true,
+        inner_structure: BytecodeSegmentStructureImpl::Leaf(
+            BytecodeLeaf {data: vec![BigUint::from(1u8), BigUint::from(2u8), BigUint::from(3u8)]})
+    })]
+    #[case(BytecodeSegment {
+        segment_length: Length(1),
+        is_used: false,
+        inner_structure: BytecodeSegmentStructureImpl::Leaf(
+            BytecodeLeaf {data: vec![BigUint::from(123u8)]})
+    })]
+    #[case(BytecodeSegment {
+        segment_length: Length(1),
+        is_used: false,
+        inner_structure: BytecodeSegmentStructureImpl::SegmentedNode(BytecodeSegmentedNode {
+            segments: vec![BytecodeSegment {
+                segment_length: Length(2),
+                is_used: true,
+                inner_structure: BytecodeSegmentStructureImpl::Leaf(
+                    BytecodeLeaf {data: vec![BigUint::from(123u8)]})
+            }]
+        })
+    })]
+    fn test_iter_current_segment_info(#[case] segment: BytecodeSegment) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(3);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        let ids_data = HashMap::from([
+            (vars::ids::SEGMENT_LENGTH.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::IS_SEGMENT_USED.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::IS_USED_LEAF.to_string(), HintReference::new_simple(-1)),
+        ]);
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+        let segments = vec![segment.clone()];
+
+        exec_scopes.insert_value::<<Vec<BytecodeSegment> as IntoIterator>::IntoIter>(
+            vars::scopes::BYTECODE_SEGMENTS,
+            segments.into_iter(),
+        );
+
+        iter_current_segment_info(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+        let bytecode_segment_structure: BytecodeSegmentStructureImpl =
+            exec_scopes.get(vars::scopes::BYTECODE_SEGMENT_STRUCTURE).unwrap();
+
+        // Verify is_used field from testing segment
+        let is_used = get_integer_from_var_name(vars::ids::IS_SEGMENT_USED, &vm, &ids_data, &ap_tracking).unwrap();
+        assert_eq!(segment.is_used, is_used == Felt252::ONE);
+
+        // Verify segment_length field from testing segment
+        let segment_length =
+            get_integer_from_var_name(vars::ids::SEGMENT_LENGTH, &vm, &ids_data, &ap_tracking).unwrap();
+        assert_eq!(Felt252::from(segment.segment_length.0), segment_length);
+
+        // Verify that both segment.inner_structure  and bytecode_segment_structure are the same type
+        let is_leaf = matches!(segment.inner_structure, BytecodeSegmentStructureImpl::Leaf(_))
+            && matches!(bytecode_segment_structure, BytecodeSegmentStructureImpl::Leaf(_));
+        let is_segmented_node = matches!(segment.inner_structure, BytecodeSegmentStructureImpl::SegmentedNode(_))
+            && matches!(bytecode_segment_structure, BytecodeSegmentStructureImpl::SegmentedNode(_));
+        assert!(is_leaf || is_segmented_node);
     }
 }
