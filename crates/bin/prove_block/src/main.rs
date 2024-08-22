@@ -10,7 +10,7 @@ use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
-use rpc_utils::{get_class_proofs, get_storage_proofs, RpcStorage, TrieNode};
+use rpc_utils::{get_class_proofs, get_storage_proofs, TrieNode};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
@@ -26,7 +26,7 @@ use starknet_os::starknet::starknet_storage::CommitmentInfo;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-use starknet_os::storage::storage::{Fact, FactFetchingContext};
+use starknet_os::storage::storage::Fact;
 use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
@@ -34,7 +34,7 @@ use starknet_types_core::felt::Felt;
 use utils::get_subcalled_contracts_from_tx_traces;
 
 use crate::reexecute::format_commitment_facts;
-use crate::rpc_utils::{CachedRpcStorage, PathfinderClassProof};
+use crate::rpc_utils::PathfinderClassProof;
 use crate::state_utils::build_initial_state;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
@@ -150,11 +150,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let old_block_number = Felt252::from(older_block.block_number);
     let old_block_hash = older_block.block_hash;
 
-    // initialize storage. We use a CachedStorage with a RcpStorage as the main storage, meaning
-    // that a DictStorage serves as the cache layer and we will use Pathfinder RPC for cache misses
-    let rpc_storage = RpcStorage::new();
-    let cached_storage = CachedRpcStorage::new(Default::default(), rpc_storage);
-
     // TODO: nasty clone, the conversion fns don't take references
     let mut transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
@@ -208,7 +203,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // TODO: avoid expensive clones here, probably by letting build_initial_state() take references
     let (accessed_contracts, mut initial_state) = build_initial_state(
-        FactFetchingContext::new(cached_storage),
         &provider,
         block_number,
         address_to_class_hash.clone(),

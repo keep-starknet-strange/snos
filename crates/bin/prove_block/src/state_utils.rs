@@ -16,7 +16,7 @@ use starknet_os::starkware_utils::commitment_tree::base_types::TreeIndex;
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use starknet_os::storage::storage::FactFetchingContext;
 
-use crate::rpc_utils::CachedRpcStorage;
+use crate::rpc_utils::{CachedRpcStorage, RpcStorage};
 
 // build state representing the end of the previous block on which the current
 // block can be built.
@@ -26,7 +26,6 @@ use crate::rpc_utils::CachedRpcStorage;
 // * a set of all contracts accessed
 // * a SharedState object representing storage for the changes provided
 pub(crate) async fn build_initial_state(
-    ffc: FactFetchingContext<CachedRpcStorage, PedersenHash>,
     provider: &JsonRpcClient<HttpTransport>,
     block_number: u64,
     address_to_class_hash: HashMap<Felt252, Felt252>,
@@ -34,6 +33,11 @@ pub(crate) async fn build_initial_state(
     class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
     storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>,
 ) -> Result<(HashSet<Felt252>, SharedState<CachedRpcStorage, PedersenHash>), Box<dyn Error>> {
+    // initialize storage. We use a CachedStorage with a RcpStorage as the main storage, meaning
+    // that a DictStorage serves as the cache layer and we will use Pathfinder RPC for cache misses
+    let rpc_storage = RpcStorage::new();
+    let cached_storage = CachedRpcStorage::new(Default::default(), rpc_storage);
+    let ffc: FactFetchingContext<CachedRpcStorage, PedersenHash> = FactFetchingContext::new(cached_storage);
     let shared_state = SharedState::empty(ffc).await?;
 
     let accessed_addresses_felts: HashSet<_> =
