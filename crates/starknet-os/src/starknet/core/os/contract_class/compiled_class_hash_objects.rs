@@ -1,6 +1,11 @@
+use std::ops::Deref;
+
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
+use starknet_crypto::{poseidon_hash_many, FieldElement};
+use starknet_os_types::hash::Hash;
 
+use crate::execution::syscall_handler_utils::SyscallExecutionError;
 use crate::starkware_utils::commitment_tree::base_types::Length;
 
 /// Represents the structure of the bytecode to allow loading it partially into the OS memory.
@@ -34,6 +39,15 @@ impl BytecodeSegmentStructureImpl {
             BytecodeSegmentStructureImpl::SegmentedNode(node) => node.add_bytecode_with_skipped_segments(data),
             BytecodeSegmentStructureImpl::Leaf(leaf) => leaf.add_bytecode_with_skipped_segments(data),
         }
+    }
+
+    pub fn hash(&self) -> Result<Hash, SyscallExecutionError> {
+        let ret = match self {
+            BytecodeSegmentStructureImpl::SegmentedNode(node) => node.hash(),
+            BytecodeSegmentStructureImpl::Leaf(leaf) => leaf.hash(),
+        }?;
+
+        Ok(ret)
     }
 }
 
@@ -71,6 +85,24 @@ impl BytecodeSegmentedNode {
             }
         }
     }
+
+    pub fn hash(&self) -> Result<Hash, SyscallExecutionError> {
+        let mut felts = Vec::new();
+
+        // To compute the hash we'll need the segment length and the hash from the inner structure for each
+        // segment. After calling poseidon hash function, we just add 1 to the result
+        for segment in &self.segments {
+            felts.push(FieldElement::from(segment.segment_length.0));
+
+            let inner_hash = segment.inner_structure.hash()?;
+            felts.push(FieldElement::from_byte_slice_be(inner_hash.deref()).map_err(|_| {
+                SyscallExecutionError::InternalError("conversion from Hash to FieldElement failed".into())
+            })?);
+        }
+
+        let ret = poseidon_hash_many(&felts) + FieldElement::from(1u8);
+        Ok(Hash::from_bytes_be(ret.to_bytes_be()))
+    }
 }
 
 /// Represents a leaf in the bytecode segment tree.
@@ -82,5 +114,19 @@ pub struct BytecodeLeaf {
 impl BytecodeLeaf {
     fn add_bytecode_with_skipped_segments(&self, data: &mut Vec<Felt252>) {
         data.extend(self.data.iter().map(Felt252::from))
+    }
+
+    pub fn hash(&self) -> Result<Hash, SyscallExecutionError> {
+        let vec_field_elements: Result<Vec<_>, _> =
+            self.data.iter().map(|value| FieldElement::from_byte_slice_be(&value.to_bytes_be())).collect();
+
+        let hash = match vec_field_elements {
+            Ok(elements) => Hash::from_bytes_be(poseidon_hash_many(&elements).to_bytes_be()),
+            Err(_) => {
+                return Err(SyscallExecutionError::InternalError("Invalid bytecode segment leaf".into()));
+            }
+        };
+
+        Ok(hash)
     }
 }
