@@ -233,7 +233,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Extract other contracts used in our block from the block trace
     // We need this to get all the class hashes used and correctly feed address_to_class_hash
     let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
-    let contracts_subcalled: HashSet<Felt252> = get_subcalled_contracts_from_tx_traces(traces);
+    let contracts_subcalled: HashSet<Felt252> = get_subcalled_contracts_from_tx_traces(&traces);
 
     let block_context = build_block_context(chain_id.clone(), &block_with_txs);
 
