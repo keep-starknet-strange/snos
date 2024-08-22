@@ -6,9 +6,11 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::ContractClassError;
 use crate::hash::GenericClassHash;
+use crate::starknet_core_addons::{decompress_starknet_core_contract_class, LegacyContractDecompressionError};
 
 pub type StarknetApiDeprecatedClass = starknet_api::deprecated_contract_class::ContractClass;
-pub type StarknetCoreDeprecatedClass = starknet_core::types::CompressedLegacyContractClass;
+pub type StarknetCoreDeprecatedClass = starknet_core::types::contract::legacy::LegacyContractClass;
+pub type CompressedStarknetCoreDeprecatedClass = starknet_core::types::CompressedLegacyContractClass;
 pub type BlockifierDeprecatedClass = blockifier::execution::contract_class::ContractClassV0;
 
 /// A generic contract class that supports conversion to/from the most commonly used
@@ -134,6 +136,15 @@ impl From<StarknetApiDeprecatedClass> for GenericDeprecatedCompiledClass {
     }
 }
 
+impl TryFrom<CompressedStarknetCoreDeprecatedClass> for GenericDeprecatedCompiledClass {
+    type Error = LegacyContractDecompressionError;
+
+    fn try_from(compressed_legacy_class: CompressedStarknetCoreDeprecatedClass) -> Result<Self, Self::Error> {
+        let legacy_class = decompress_starknet_core_contract_class(compressed_legacy_class)?;
+        Ok(Self::from(legacy_class))
+    }
+}
+
 impl From<BlockifierDeprecatedClass> for GenericDeprecatedCompiledClass {
     fn from(blockifier_class: BlockifierDeprecatedClass) -> Self {
         Self {
@@ -163,5 +174,45 @@ impl TryFrom<GenericDeprecatedCompiledClass> for BlockifierDeprecatedClass {
 
     fn try_from(contract_class: GenericDeprecatedCompiledClass) -> Result<Self, Self::Error> {
         contract_class.to_blockifier_contract_class()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DEPRECATED_CLASS: &[u8] = include_bytes!(
+        "../../../tests/integration/contracts/blockifier_contracts/feature_contracts/cairo0/compiled/\
+         test_contract_compiled.json"
+    );
+
+    #[test]
+    /// Tests that building a Blockifier deprecated contract class from a generic class yields
+    /// the same output independently of the way it was built.
+    fn test_conversion_to_blockifier_class() {
+        // We expect the output to be equal to deserializing to the Blockifier format directly.
+        let expected_blockifier_contract_class: BlockifierDeprecatedClass =
+            serde_json::from_slice(DEPRECATED_CLASS).unwrap();
+
+        let starknet_core_contract_class: StarknetCoreDeprecatedClass =
+            serde_json::from_slice(DEPRECATED_CLASS).unwrap();
+
+        let generic_contract_class_from_serialized =
+            GenericDeprecatedCompiledClass::from_bytes(DEPRECATED_CLASS.to_vec());
+        let generic_contract_class_from_starknet_core =
+            GenericDeprecatedCompiledClass::from(starknet_core_contract_class);
+        let generic_contract_class_from_blockifier =
+            GenericDeprecatedCompiledClass::from(expected_blockifier_contract_class.clone());
+
+        let blockifier_class_from_generic_serialized =
+            generic_contract_class_from_serialized.to_blockifier_contract_class().unwrap();
+        let blockifier_class_from_generic_starknet_core =
+            generic_contract_class_from_starknet_core.to_blockifier_contract_class().unwrap();
+        let blockifier_class_from_generic_blockifier =
+            generic_contract_class_from_blockifier.to_blockifier_contract_class().unwrap();
+
+        assert_eq!(blockifier_class_from_generic_serialized, expected_blockifier_contract_class);
+        assert_eq!(blockifier_class_from_generic_starknet_core, expected_blockifier_contract_class);
+        assert_eq!(blockifier_class_from_generic_blockifier, expected_blockifier_contract_class);
     }
 }
