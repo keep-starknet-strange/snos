@@ -4,6 +4,7 @@ use std::error::Error;
 use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::StateReader;
+use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
@@ -12,6 +13,7 @@ use reqwest::Url;
 use starknet::core::types::BlockId;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider as _};
+use starknet_api::transaction::TransactionHash;
 use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
@@ -24,23 +26,45 @@ use starknet_os::storage::storage::{Fact, HashFunctionType};
 
 use crate::rpc_utils::{PathfinderProof, TrieNode};
 
-/// Reexecute the given transactions through Blockifier
+/// Retrieves the transaction hash from a Blockifier `Transaction` object.
+fn get_tx_hash(tx: &Transaction) -> TransactionHash {
+    match tx {
+        Transaction::AccountTransaction(account_tx) => match account_tx {
+            AccountTransaction::Declare(declare_tx) => declare_tx.tx_hash,
+            AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.tx_hash,
+            AccountTransaction::Invoke(invoke_tx) => invoke_tx.tx_hash,
+        },
+        Transaction::L1HandlerTransaction(l1_handler_tx) => l1_handler_tx.tx_hash,
+    }
+}
+
+/// Reexecute the given transactions through Blockifier.
 pub fn reexecute_transactions_with_blockifier<S: StateReader>(
     state: &mut CachedState<S>,
     block_context: &BlockContext,
     txs: Vec<Transaction>,
 ) -> Result<Vec<TransactionExecutionInfo>, Box<dyn Error>> {
+    let n_txs = txs.len();
+
     let tx_execution_infos = txs
         .into_iter()
-        .map(|tx| {
+        .enumerate()
+        .map(|(index, tx)| {
+            let tx_hash = get_tx_hash(&tx);
             let tx_result = tx.execute(state, block_context, true, true);
             match tx_result {
                 Err(e) => {
-                    panic!("Transaction failed in blockifier: {}", e);
+                    panic!("Transaction {} ({}/{}) failed in blockifier: {}", tx_hash, index + 1, n_txs, e);
                 }
                 Ok(info) => {
                     if info.is_reverted() {
-                        log::error!("Transaction reverted: {:?}", info.revert_error);
+                        log::error!(
+                            "Transaction {} ({}/{}) reverted: {:?}",
+                            tx_hash,
+                            index + 1,
+                            n_txs,
+                            info.revert_error
+                        );
                         log::warn!("TransactionExecutionInfo: {:?}", info);
                         panic!("A transaction reverted during execution: {:?}", info);
                     }
