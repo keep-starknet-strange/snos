@@ -222,7 +222,7 @@ pub(crate) fn starknet_rs_tx_to_internal_tx(tx: Transaction) -> InternalTransact
 
 #[cfg(test)]
 mod tests {
-    use starknet::core::types::ResourceBounds;
+    use starknet::core::types::{ResourceBounds, ResourceBoundsMapping};
 
     use super::*;
 
@@ -410,7 +410,7 @@ mod tests {
         assert_eq!(result.signature, Some(input.signature.into_iter().map(Felt252::from).collect()));
         assert_eq!(result.nonce, Some(input.nonce));
         assert_eq!(result.class_hash, Some(input.class_hash));
-        assert_eq!(result.resource_bounds, Some(resource_bounds_core_to_api(input.resource_bounds)));
+        assert_eq!(result.resource_bounds, Some(resource_bounds_core_to_api(&input.resource_bounds)));
         assert_eq!(result.tip, Some(Felt252::from(input.tip)));
         assert_eq!(result.paymaster_data, Some(input.paymaster_data.into_iter().map(Felt252::from).collect()));
         assert_eq!(
@@ -505,7 +505,7 @@ mod tests {
             Some(input.constructor_calldata.into_iter().map(Felt252::from).collect())
         );
         assert_eq!(result.class_hash, Some(input.class_hash));
-        assert_eq!(result.resource_bounds, Some(resource_bounds_core_to_api(input.resource_bounds)));
+        assert_eq!(result.resource_bounds, Some(resource_bounds_core_to_api(&input.resource_bounds)));
         assert_eq!(result.tip, Some(Felt252::from(input.tip)));
         assert_eq!(result.paymaster_data, Some(input.paymaster_data.into_iter().map(Felt252::from).collect()));
         assert_eq!(result.nonce_data_availability_mode, Some(da_to_felt(input.nonce_data_availability_mode)));
