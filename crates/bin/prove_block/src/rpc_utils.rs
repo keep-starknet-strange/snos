@@ -1,7 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::future::Future;
 
-use blockifier::execution::call_info::CallInfo;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use serde::de::DeserializeOwned;
@@ -9,7 +8,6 @@ use serde::Deserialize;
 use serde_json::json;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
-use starknet_api::state::StorageKey;
 use starknet_api::{contract_address, patricia_key};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
@@ -20,6 +18,8 @@ use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{Fact, HashFunctionType, Storage, StorageError};
 use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_types_core::felt::Felt;
+
+use crate::utils::get_all_accessed_keys;
 
 /// A `Storage` impl backed by RPC
 #[derive(Clone)]
@@ -171,66 +171,6 @@ pub(crate) async fn pathfinder_get_proof(
         json!({ "block_id": { "block_number": block_number }, "contract_address": contract_address, "keys": keys }),
     )
     .await
-}
-
-fn get_accessed_storage_keys(call_info: &CallInfo) -> HashMap<ContractAddress, HashSet<StorageKey>> {
-    let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
-
-    let contract_address = &call_info.call.storage_address;
-    accessed_keys_by_address
-        .entry(*contract_address)
-        .or_default()
-        .extend(call_info.accessed_storage_keys.iter().copied());
-
-    let storage_keys: Vec<_> =
-        call_info.accessed_storage_keys.iter().map(|x| felt_api2vm(*x.key()).to_hex_string()).collect();
-    log::debug!("{}: {:?}", contract_address.to_string(), storage_keys);
-
-    for inner_call in &call_info.inner_calls {
-        let inner_call_storage_keys = get_accessed_storage_keys(inner_call);
-        for (contract_address, storage_keys) in inner_call_storage_keys {
-            accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
-        }
-    }
-
-    accessed_keys_by_address
-}
-
-fn get_accessed_keys_in_tx(
-    tx_execution_info: &TransactionExecutionInfo,
-) -> HashMap<ContractAddress, HashSet<StorageKey>> {
-    let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
-
-    for call_info in [
-        &tx_execution_info.validate_call_info,
-        &tx_execution_info.execute_call_info,
-        &tx_execution_info.fee_transfer_call_info,
-    ]
-    .into_iter()
-    .flatten()
-    {
-        let call_storage_keys = get_accessed_storage_keys(call_info);
-        for (contract_address, storage_keys) in call_storage_keys {
-            accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
-        }
-    }
-
-    accessed_keys_by_address
-}
-
-fn get_all_accessed_keys(
-    tx_execution_infos: &[TransactionExecutionInfo],
-) -> HashMap<ContractAddress, HashSet<StorageKey>> {
-    let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
-
-    for tx_execution_info in tx_execution_infos {
-        let accessed_keys_in_tx = get_accessed_keys_in_tx(tx_execution_info);
-        for (contract_address, storage_keys) in accessed_keys_in_tx {
-            accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
-        }
-    }
-
-    accessed_keys_by_address
 }
 
 pub(crate) async fn get_storage_proofs(
