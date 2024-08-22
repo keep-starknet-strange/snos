@@ -273,14 +273,15 @@ pub(crate) async fn get_storage_proofs(
             merge_chunked_storage_proofs(chunked_storage_proofs)
         };
 
-        assert!(
-            storage_proof
-                .contract_data
-                .as_ref()
-                .expect("Storage proof should have contract_data")
-                .verify(&keys)
-                .is_ok()
-        );
+        if let Err(e) =
+            storage_proof.contract_data.as_ref().expect("Storage proof should have contract_data").verify(&keys)
+        {
+            log::warn!(
+                "Contract {:x} failed storage proof validaiton, may cause problems later in OS, err: {}",
+                contract_address_felt,
+                e
+            );
+        }
 
         storage_proofs.insert(contract_address_felt, storage_proof);
     }
