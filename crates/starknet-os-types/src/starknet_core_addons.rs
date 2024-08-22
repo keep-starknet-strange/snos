@@ -91,6 +91,10 @@ pub enum LegacyContractDecompressionError {
     Decompression(#[from] std::io::Error),
 }
 
+/// Decompresses a compressed legacy contract class.
+/// Compressed classes store the `program` field as a gzipped vector. This function
+/// decompresses the field and performs additional type conversions for the `abi` and
+/// `entry_points_by_type` fields.
 pub(crate) fn decompress_starknet_core_contract_class(
     compressed_legacy_class: CompressedLegacyContractClass,
 ) -> Result<LegacyContractClass, LegacyContractDecompressionError> {

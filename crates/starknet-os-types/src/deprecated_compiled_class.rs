@@ -136,6 +136,9 @@ impl From<StarknetApiDeprecatedClass> for GenericDeprecatedCompiledClass {
     }
 }
 
+/// Builds a generic deprecated compiled class from a starknet-core compressed class.
+/// Decompresses the compressed class then builds a generic class from it. Refer
+/// to the doc of `decompress_starknet_core_contract_class` for more details.
 impl TryFrom<CompressedStarknetCoreDeprecatedClass> for GenericDeprecatedCompiledClass {
     type Error = LegacyContractDecompressionError;
 
