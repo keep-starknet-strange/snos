@@ -38,6 +38,6 @@ pub(crate) fn get_subcalled_contracts_from_tx_traces(traces: &[TransactionTraceW
 fn process_function_invocations(inv: &FunctionInvocation, contracts: &mut HashSet<Felt252>) {
     contracts.insert(inv.contract_address);
     for call in &inv.calls {
-        process_function_invocations(&call, contracts);
+        process_function_invocations(call, contracts);
     }
 }
