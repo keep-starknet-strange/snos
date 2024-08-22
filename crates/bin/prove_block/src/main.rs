@@ -10,10 +10,8 @@ use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
-use rpc_utils::{get_class_proofs, get_storage_proofs, process_function_invocations, RpcStorage, TrieNode};
-use starknet::core::types::{
-    BlockId, ExecuteInvocation, MaybePendingBlockWithTxs, MaybePendingStateUpdate, TransactionTrace,
-};
+use rpc_utils::{get_class_proofs, get_storage_proofs, RpcStorage, TrieNode};
+use starknet::core::types::{BlockId, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
@@ -38,6 +36,7 @@ use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_types_core::felt::Felt;
+use utils::get_subcalled_contracts_from_tx_traces;
 
 use crate::reexecute::format_commitment_facts;
 use crate::rpc_utils::{CachedRpcStorage, PathfinderClassProof};
@@ -46,6 +45,7 @@ use crate::types::starknet_rs_tx_to_internal_tx;
 mod reexecute;
 mod rpc_utils;
 mod types;
+mod utils;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -230,28 +230,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    // extract other contracts used in our block from the block trace
-    let mut contracts_subcalled = HashSet::new();
+    // Extract other contracts used in our block from the block trace
+    // We need this to get all the class hashes used and correctly feed address_to_class_hash
     let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
-    for trace in traces {
-        match trace.trace_root {
-            TransactionTrace::Invoke(invoke_trace) => {
-                if let Some(inv) = invoke_trace.validate_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled);
-                }
-                match invoke_trace.execute_invocation {
-                    ExecuteInvocation::Success(inv) => {
-                        process_function_invocations(inv, &mut contracts_subcalled);
-                    }
-                    ExecuteInvocation::Reverted(_) => unimplemented!("handle reverted invoke trace"),
-                }
-                if let Some(inv) = invoke_trace.fee_transfer_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled);
-                }
-            }
-            _ => unimplemented!("process other txn traces"),
-        }
-    }
+    let contracts_subcalled: HashSet<Felt252> = get_subcalled_contracts_from_tx_traces(&traces);
 
     let block_context = build_block_context(chain_id.clone(), &block_with_txs);
 

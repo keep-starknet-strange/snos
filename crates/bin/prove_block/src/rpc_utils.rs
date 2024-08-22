@@ -7,7 +7,6 @@ use cairo_vm::Felt252;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
-use starknet::core::types::FunctionInvocation;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::state::StorageKey;
@@ -357,16 +356,6 @@ pub(crate) async fn get_class_proofs(
     }
 
     Ok(proofs)
-}
-
-// Utility to extract all contract address in a nested call structure. Any given call can have
-// nested calls, creating a tree structure of calls, so this fn traverses this structure and
-// returns a flat list of all contracts encountered along the way.
-pub(crate) fn process_function_invocations(inv: FunctionInvocation, contracts: &mut HashSet<Felt252>) {
-    contracts.insert(inv.contract_address);
-    for call in inv.calls {
-        process_function_invocations(call, contracts);
-    }
 }
 
 /// This function goes through the tree from top to bottom and verifies that
