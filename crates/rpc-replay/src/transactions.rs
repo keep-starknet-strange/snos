@@ -17,7 +17,7 @@ pub fn starknet_rs_to_blockifier(
             let (tx_hash, api_tx) = match tx {
                 InvokeTransaction::V0(tx) => {
                     let _tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
-                    unimplemented!();
+                    unimplemented!("starknet_rs_to_blockifier with InvokeTransaction::V0");
                 }
                 InvokeTransaction::V1(tx) => {
                     let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
@@ -40,7 +40,7 @@ pub fn starknet_rs_to_blockifier(
                 }
                 InvokeTransaction::V3(tx) => {
                     let _tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
-                    unimplemented!();
+                    unimplemented!("starknet_rs_to_blockifier with InvokeTransaction::V3");
                 }
             };
             let invoke =
