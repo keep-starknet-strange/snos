@@ -133,12 +133,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         };
 
-    let state_update = match provider.get_state_update(block_id).await.expect("Failed to get state update") {
-        MaybePendingStateUpdate::Update(update) => update,
-        MaybePendingStateUpdate::PendingUpdate(_) => {
-            panic!("Block is still pending!")
-        }
-    };
 
     // Extract other contracts used in our block from the block trace
     // We need this to get all the class hashes used and correctly feed address_to_class_hash
