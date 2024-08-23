@@ -7,14 +7,15 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
 use clap::Parser;
 use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage};
-use rpc_replay::block_context::build_block_context;
+use rpc_replay::block_context::{build_block_context, build_starknet_config};
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
 use rpc_utils::{get_class_proofs, get_storage_proofs, RpcStorage, TrieNode};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
-use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
+use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_os::config::{SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::error::SnOsError::Runner;
@@ -27,7 +28,7 @@ use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, 
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use starknet_os::storage::storage::{Fact, FactFetchingContext};
-use starknet_os::utils::felt_api2vm;
+use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_os::{config, run_os};
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_types_core::felt::Felt;
@@ -319,18 +320,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let default_general_config = StarknetGeneralConfig::default();
+    let general_config = build_starknet_config(chain_id, &block_context, &block_with_txs);
 
-    let general_config = StarknetGeneralConfig {
-        starknet_os_config: StarknetOsConfig {
-            // TODO: the string given by provider is in decimal, the OS expects hex
-            // chain_id: starknet_api::core::ChainId(chain_id.clone()),
-            chain_id: starknet_api::core::ChainId(SN_SEPOLIA.to_string()),
-            fee_token_address: block_context.chain_info().fee_token_addresses.strk_fee_token_address,
-            deprecated_fee_token_address: block_context.chain_info().fee_token_addresses.eth_fee_token_address,
-        },
-        ..default_general_config
-    };
+    log::debug!("Chain L1 token address: {:x}", felt_api2vm(*general_config.starknet_os_config.deprecated_fee_token_address.0.key()));
+    log::debug!("Chain L2 token address: {:x}", felt_api2vm(*general_config.starknet_os_config.fee_token_address.0.key()));
+    log::debug!("Sequencer address: {:x}", felt_api2vm(*general_config.sequencer_address.0.key()));
 
     let mut contract_states = HashMap::new();
     let mut contract_storages = ContractStorageMap::new();

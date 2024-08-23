@@ -6,8 +6,9 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
+use starknet_os::config::{GasPriceBounds, StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA};
 
-use crate::utils::felt_to_u128;
+use crate::utils::{felt_to_u128, felt_vm2api};
 
 pub fn build_block_context(chain_id: String, block: &BlockWithTxs) -> BlockContext {
     let sequencer_address_hex = block.sequencer_address.to_hex_string();
@@ -42,4 +43,32 @@ pub fn build_block_context(chain_id: String, block: &BlockWithTxs) -> BlockConte
     let versioned_constants = VersionedConstants::latest_constants();
 
     BlockContext::new_unchecked(&block_info, &chain_info, versioned_constants)
+}
+
+pub fn build_starknet_config(chain_id: String, block_context: &BlockContext, block: &BlockWithTxs) -> StarknetGeneralConfig {
+
+    let default_general_config = StarknetGeneralConfig::default();
+    let default_gas_price_bounds = default_general_config.gas_price_bounds.clone();
+
+    let general_config = StarknetGeneralConfig {
+        starknet_os_config: StarknetOsConfig {
+            chain_id: starknet_api::core::ChainId(SN_SEPOLIA.to_string()),
+            fee_token_address: block_context.chain_info().fee_token_addresses.strk_fee_token_address,
+            deprecated_fee_token_address: block_context.chain_info().fee_token_addresses.eth_fee_token_address,
+        },
+        sequencer_address: starknet_api::core::ContractAddress(
+            PatriciaKey::try_from(felt_vm2api(block.sequencer_address)).unwrap(),
+        ),
+        gas_price_bounds: GasPriceBounds {
+            // TODO: this may not be the correct way to interpret the block data
+            min_fri_l1_data_gas_price: block.l1_data_gas_price.price_in_fri.to_biguint().try_into().expect("price should fit in u128"),
+            min_fri_l1_gas_price: block.l1_gas_price.price_in_fri.to_biguint().try_into().expect("price should fit in u128"),
+            min_wei_l1_data_gas_price: block.l1_data_gas_price.price_in_wei.to_biguint().try_into().expect("price should fit in u128"),
+            min_wei_l1_gas_price: block.l1_gas_price.price_in_wei.to_biguint().try_into().expect("price should fit in u128"),
+            ..default_gas_price_bounds
+        },
+        ..default_general_config
+    };
+
+    general_config
 }
