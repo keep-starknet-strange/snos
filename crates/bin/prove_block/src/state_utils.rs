@@ -1,9 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::hash::Hash;
 
 use cairo_vm::Felt252;
-use pathfinder_crypto::Felt;
 use starknet::core::types::{BlockId, MaybePendingStateUpdate, StateDiff};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
@@ -23,12 +21,13 @@ use crate::rpc_utils::{CachedRpcStorage, RpcStorage};
 use crate::utils::get_subcalled_contracts_from_tx_traces;
 
 #[derive(Clone)]
-struct ProcessedStateUpdate {
+pub struct ProcessedStateUpdate {
     // TODO: Use more descriptive types
-    address_to_class_hash: HashMap<Felt252, Felt252>,
-    address_to_nonce: HashMap<Felt252, Felt252>,
-    class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
-    storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>,
+    pub address_to_class_hash: HashMap<Felt252, Felt252>,
+    pub address_to_nonce: HashMap<Felt252, Felt252>,
+    pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
+    pub storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>,
+    pub accessed_addresses: HashSet<Felt252>
 }
 
 // build state representing the end of the previous block on which the current
@@ -40,8 +39,8 @@ struct ProcessedStateUpdate {
 // * a SharedState object representing storage for the changes provided
 pub(crate) async fn build_initial_state(
     provider: &JsonRpcClient<HttpTransport>,
-    block_number: u64,
-    processed_state_update: ProcessedStateUpdate
+    block_id: BlockId,
+    processed_state_update: &ProcessedStateUpdate
 ) -> Result<(HashSet<Felt252>, SharedState<CachedRpcStorage, PedersenHash>), Box<dyn Error>> {
     // initialize storage. We use a CachedStorage with a RcpStorage as the main storage, meaning
     // that a DictStorage serves as the cache layer and we will use Pathfinder RPC for cache misses
@@ -50,40 +49,33 @@ pub(crate) async fn build_initial_state(
     let ffc: FactFetchingContext<CachedRpcStorage, PedersenHash> = FactFetchingContext::new(cached_storage);
     let shared_state = SharedState::empty(ffc).await?;
 
-    let accessed_addresses_felts: HashSet<_> =
-        address_to_class_hash.keys().chain(address_to_nonce.keys()).chain(storage_updates.keys()).collect();
-    let accessed_addresses: Vec<TreeIndex> = accessed_addresses_felts.iter().map(|x| x.to_biguint()).collect();
+    let accessed_addresses: Vec<TreeIndex> = processed_state_update.accessed_addresses.iter().map(|x| x.to_biguint()).collect();
 
     let mut facts = None;
     let mut ffc = shared_state.ffc;
     let mut empty_contract_states: HashMap<TreeIndex, ContractState> =
         shared_state.contract_states.get_leaves(&mut ffc, &accessed_addresses, &mut facts).await?;
 
-    let updated_contract_states = update_empty_state_with_block_incoming_changes(&empty_contract_states).await;
+    let updated_contract_states = update_empty_contract_state_with_block_incoming_changes(&mut empty_contract_states, &processed_state_update, provider, block_id, &mut ffc).await?;
+    let contract_modifications = updated_contract_states.into_iter().collect();
 
-    // Apply contract changes on global root.
-    log::debug!("Updating contract state tree with {} modifications...", accessed_addresses.len());
-    let global_state_modifications: Vec<_> = updated_contract_states.into_iter().collect();
-
+    // Update contract trie with contract changes
     let updated_global_contract_root =
-        shared_state.contract_states.update(&mut ffc, global_state_modifications, &mut facts).await?;
+        shared_state.contract_states.update(&mut ffc, contract_modifications, &mut facts).await?;
 
     let mut ffc_for_contract_class = get_ffc_for_contract_class_facts(&ffc);
 
+    // Update class trie with declared classes
     let updated_contract_classes = match shared_state.contract_classes {
         Some(tree) => {
-            log::debug!(
-                "Updating contract class tree with {} modifications...",
-                class_hash_to_compiled_class_hash.len()
-            );
-            let modifications: Vec<_> = class_hash_to_compiled_class_hash
-                .into_iter()
-                .map(|(key, value)| (key.to_biguint(), ContractClassLeaf::create(value)))
+            let modifications: Vec<_> = processed_state_update.class_hash_to_compiled_class_hash
+                .iter()
+                .map(|(key, value)| (key.to_biguint(), ContractClassLeaf::create(*value)))
                 .collect();
             Some(tree.update(&mut ffc_for_contract_class, modifications, &mut facts).await?)
         }
         None => {
-            assert_eq!(class_hash_to_compiled_class_hash.len(), 0, "contract_classes must be concrete before update.");
+            assert_eq!(processed_state_update.class_hash_to_compiled_class_hash.len(), 0, "contract_classes must be concrete before update.");
             None
         }
     };
@@ -102,24 +94,29 @@ pub(crate) async fn build_initial_state(
     ))
 }
 
-async fn update_empty_state_with_block_incoming_changes(
-    empty_contract_states: &HashMap<TreeIndex, ContractState>,
+async fn update_empty_contract_state_with_block_incoming_changes(
+    empty_contract_states: &mut HashMap<TreeIndex, ContractState>,
+    processed_state_update: &ProcessedStateUpdate,
+    provider: &JsonRpcClient<HttpTransport>,
+    block_id: BlockId,
+    ffc: &mut FactFetchingContext<CachedRpcStorage, PedersenHash> 
 ) -> Result<HashMap<TreeIndex, ContractState>, Box<dyn Error>> {
     // Update contract storage roots with cached changes.
     let empty_updates = HashMap::new();
     let mut updated_contract_states: HashMap<num_bigint::BigUint, ContractState> = HashMap::new();
-    for address in accessed_addresses_felts {
+
+    for address in processed_state_update.accessed_addresses.clone() {
         // unwrap() is safe as an entry is guaranteed to be present with `get_leaves()`.
         let tree_index = address.to_biguint();
-        let updates = storage_updates.get(address).unwrap_or(&empty_updates);
-        let nonce = address_to_nonce.get(address).cloned();
-        let mut class_hash = address_to_class_hash.get(address).cloned();
+        let updates = processed_state_update.storage_updates.get(&address).unwrap_or(&empty_updates);
+        let nonce = processed_state_update.address_to_nonce.get(&address).cloned();
+        let mut class_hash = processed_state_update.address_to_class_hash.get(&address).cloned();
         if class_hash.is_none() {
-            let resp = provider.get_class_hash_at(BlockId::Number(block_number), address).await;
+            let resp = provider.get_class_hash_at(block_id, address).await;
             class_hash = if let Ok(class_hash) = resp { Some(class_hash) } else { Some(Felt252::ZERO) };
         }
         let updated_contract_state =
-            empty_contract_states.remove(&tree_index).unwrap().update(&mut ffc, updates, nonce, class_hash).await?;
+            empty_contract_states.remove(&tree_index).unwrap().update(ffc, updates, nonce, class_hash).await?;
 
         updated_contract_states.insert(tree_index, updated_contract_state);
     }
@@ -144,12 +141,20 @@ pub(crate) async fn get_processed_state_update(
     let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
     let contracts_subcalled: HashSet<Felt252> = get_subcalled_contracts_from_tx_traces(&traces);
 
-    let address_to_class_hash = process_deployed_contracts(&state_diff, &contracts_subcalled, provider, block_id).await;
-    let address_to_nonce = process_state_update_nonces(&state_diff, &transactions);
-    let class_hash_to_compiled_class_hash = process_declared_classes(&state_diff);
-    let storage_updates = process_storage_updates(&state_diff);
+    let address_to_class_hash: HashMap<Felt252, Felt252> = process_deployed_contracts(&state_diff, &contracts_subcalled, provider, block_id).await;
+    let address_to_nonce: HashMap<Felt252, Felt252> = process_state_update_nonces(&state_diff, &transactions);
+    let class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = process_declared_classes(&state_diff);
+    let storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>> = process_storage_updates(&state_diff);
 
-    ProcessedStateUpdate { address_to_class_hash, address_to_nonce, class_hash_to_compiled_class_hash, storage_updates }
+    // Collect keys without consuming the HashMaps by borrowing and cloning the keys
+    let accessed_addresses: HashSet<Felt252> = address_to_class_hash
+        .keys()
+        .cloned()
+        .chain(address_to_nonce.keys().cloned())
+        .chain(storage_updates.keys().cloned())
+        .collect();
+
+    ProcessedStateUpdate { address_to_class_hash, address_to_nonce, class_hash_to_compiled_class_hash, storage_updates, accessed_addresses}
 }
 
 fn process_state_update_nonces(

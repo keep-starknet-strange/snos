@@ -147,10 +147,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // TODO: avoid expensive clones here, probably by letting build_initial_state() take references
     let (accessed_contracts, mut initial_state) = build_initial_state(
         &provider,
-        block_number,
-        processed_state_update.clone()
+        block_id,
+        &processed_state_update
     )
     .await?;
+
+    let mut address_to_class_hash = processed_state_update.address_to_class_hash.clone();
+    let mut class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash.clone();
 
     // fill in class hashes for each accessed contract
     for address in &accessed_contracts {
