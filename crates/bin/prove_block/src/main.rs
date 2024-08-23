@@ -11,7 +11,7 @@ use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
 use rpc_utils::{get_class_proofs, get_storage_proofs, TrieNode};
-use starknet::core::types::{BlockId, MaybePendingBlockWithTxs, MaybePendingStateUpdate};
+use starknet::core::types::{BlockId, MaybePendingBlockWithTxs};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
@@ -31,7 +31,6 @@ use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_types_core::felt::Felt;
-use utils::get_subcalled_contracts_from_tx_traces;
 
 use crate::reexecute::format_commitment_facts;
 use crate::rpc_utils::PathfinderClassProof;
@@ -145,12 +144,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let processed_state_update = get_processed_state_update(&provider, block_id, &transactions).await;
 
     // TODO: avoid expensive clones here, probably by letting build_initial_state() take references
-    let (accessed_contracts, mut initial_state) = build_initial_state(
-        &provider,
-        block_id,
-        &processed_state_update
-    )
-    .await?;
+    let (accessed_contracts, mut initial_state) =
+        build_initial_state(&provider, block_id, &processed_state_update).await?;
 
     let mut address_to_class_hash = processed_state_update.address_to_class_hash.clone();
     let mut class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash.clone();
