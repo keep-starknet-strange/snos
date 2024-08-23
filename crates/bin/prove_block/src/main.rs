@@ -35,7 +35,7 @@ use utils::get_subcalled_contracts_from_tx_traces;
 
 use crate::reexecute::format_commitment_facts;
 use crate::rpc_utils::PathfinderClassProof;
-use crate::state_utils::build_initial_state;
+use crate::state_utils::{build_initial_state, get_processed_state_update};
 use crate::types::starknet_rs_tx_to_internal_tx;
 
 mod reexecute;
@@ -133,12 +133,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         };
 
-
-    // Extract other contracts used in our block from the block trace
-    // We need this to get all the class hashes used and correctly feed address_to_class_hash
-    let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
-    let contracts_subcalled: HashSet<Felt252> = get_subcalled_contracts_from_tx_traces(&traces);
-
     let block_context = build_block_context(chain_id.clone(), &block_with_txs);
 
     let old_block_number = Felt252::from(older_block.block_number);
@@ -148,61 +142,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    // TODO: these maps that we pass in to build_initial_state() are built only on items from the
-    // state diff, but we will need all items accessed in any way during the block (right?) which
-    // probably means filling in the missing details with API calls
-    let mut address_to_class_hash: HashMap<_, _> = state_update
-        .state_diff
-        .deployed_contracts
-        .iter()
-        .map(|contract| (contract.address, contract.class_hash))
-        .collect();
-    for address in &contracts_subcalled {
-        let class_hash = provider.get_class_hash_at(BlockId::Number(block_number), address).await.unwrap();
-        address_to_class_hash.insert(*address, class_hash);
-    }
-
-    let address_to_nonce = state_update
-        .state_diff
-        .nonces
-        .iter()
-        .map(|nonce_update| {
-            // derive original nonce
-            let num_nonce_bumps =
-                Felt252::from(transactions.iter().fold(0, |acc, tx| {
-                    acc + if tx.sender_address == Some(nonce_update.contract_address) { 1 } else { 0 }
-                }));
-            assert!(nonce_update.nonce > num_nonce_bumps);
-            let previous_nonce = nonce_update.nonce - num_nonce_bumps;
-            (nonce_update.contract_address, previous_nonce)
-        })
-        .collect();
-
-    let mut class_hash_to_compiled_class_hash: HashMap<_, _> = state_update
-        .state_diff
-        .declared_classes
-        .iter()
-        .map(|class| (class.class_hash, class.compiled_class_hash))
-        .collect();
-
-    let storage_updates = state_update
-        .state_diff
-        .storage_diffs
-        .iter()
-        .map(|diffs| {
-            let storage_entries = diffs.storage_entries.iter().map(|e| (e.key, e.value)).collect();
-            (diffs.address, storage_entries)
-        })
-        .collect();
+    let processed_state_update = get_processed_state_update(&provider, block_id, &transactions).await;
 
     // TODO: avoid expensive clones here, probably by letting build_initial_state() take references
     let (accessed_contracts, mut initial_state) = build_initial_state(
         &provider,
         block_number,
-        address_to_class_hash.clone(),
-        address_to_nonce,
-        class_hash_to_compiled_class_hash.clone(),
-        storage_updates,
+        processed_state_update.clone()
     )
     .await?;
 

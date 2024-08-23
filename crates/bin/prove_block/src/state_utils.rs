@@ -22,12 +22,13 @@ use starknet_os::storage::storage::FactFetchingContext;
 use crate::rpc_utils::{CachedRpcStorage, RpcStorage};
 use crate::utils::get_subcalled_contracts_from_tx_traces;
 
+#[derive(Clone)]
 struct ProcessedStateUpdate {
     // TODO: Use more descriptive types
     address_to_class_hash: HashMap<Felt252, Felt252>,
     address_to_nonce: HashMap<Felt252, Felt252>,
     class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
-    storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>
+    storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>,
 }
 
 // build state representing the end of the previous block on which the current
@@ -40,10 +41,7 @@ struct ProcessedStateUpdate {
 pub(crate) async fn build_initial_state(
     provider: &JsonRpcClient<HttpTransport>,
     block_number: u64,
-    address_to_class_hash: HashMap<Felt252, Felt252>,
-    address_to_nonce: HashMap<Felt252, Felt252>,
-    class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
-    storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>,
+    processed_state_update: ProcessedStateUpdate
 ) -> Result<(HashSet<Felt252>, SharedState<CachedRpcStorage, PedersenHash>), Box<dyn Error>> {
     // initialize storage. We use a CachedStorage with a RcpStorage as the main storage, meaning
     // that a DictStorage serves as the cache layer and we will use Pathfinder RPC for cache misses
@@ -61,24 +59,7 @@ pub(crate) async fn build_initial_state(
     let mut empty_contract_states: HashMap<TreeIndex, ContractState> =
         shared_state.contract_states.get_leaves(&mut ffc, &accessed_addresses, &mut facts).await?;
 
-    // Update contract storage roots with cached changes.
-    let empty_updates = HashMap::new();
-    let mut updated_contract_states: HashMap<num_bigint::BigUint, ContractState> = HashMap::new();
-    for address in accessed_addresses_felts {
-        // unwrap() is safe as an entry is guaranteed to be present with `get_leaves()`.
-        let tree_index = address.to_biguint();
-        let updates = storage_updates.get(address).unwrap_or(&empty_updates);
-        let nonce = address_to_nonce.get(address).cloned();
-        let mut class_hash = address_to_class_hash.get(address).cloned();
-        if class_hash.is_none() {
-            let resp = provider.get_class_hash_at(BlockId::Number(block_number), address).await;
-            class_hash = if let Ok(class_hash) = resp { Some(class_hash) } else { Some(Felt252::ZERO) };
-        }
-        let updated_contract_state =
-            empty_contract_states.remove(&tree_index).unwrap().update(&mut ffc, updates, nonce, class_hash).await?;
-
-        updated_contract_states.insert(tree_index, updated_contract_state);
-    }
+    let updated_contract_states = update_empty_state_with_block_incoming_changes(&empty_contract_states).await;
 
     // Apply contract changes on global root.
     log::debug!("Updating contract state tree with {} modifications...", accessed_addresses.len());
@@ -121,29 +102,35 @@ pub(crate) async fn build_initial_state(
     ))
 }
 
-async fn update_empty_state_with_block_incoming_changes(empty_contract_states: &HashMap<TreeIndex, ContractState>) -> Result<HashMap<TreeIndex, ContractState>, Box<dyn Error>> {
-        // Update contract storage roots with cached changes.
-        let empty_updates = HashMap::new();
-        let mut updated_contract_states: HashMap<num_bigint::BigUint, ContractState> = HashMap::new();
-        for address in accessed_addresses_felts {
-            // unwrap() is safe as an entry is guaranteed to be present with `get_leaves()`.
-            let tree_index = address.to_biguint();
-            let updates = storage_updates.get(address).unwrap_or(&empty_updates);
-            let nonce = address_to_nonce.get(address).cloned();
-            let mut class_hash = address_to_class_hash.get(address).cloned();
-            if class_hash.is_none() {
-                let resp = provider.get_class_hash_at(BlockId::Number(block_number), address).await;
-                class_hash = if let Ok(class_hash) = resp { Some(class_hash) } else { Some(Felt252::ZERO) };
-            }
-            let updated_contract_state =
-                empty_contract_states.remove(&tree_index).unwrap().update(&mut ffc, updates, nonce, class_hash).await?;
-    
-            updated_contract_states.insert(tree_index, updated_contract_state);
+async fn update_empty_state_with_block_incoming_changes(
+    empty_contract_states: &HashMap<TreeIndex, ContractState>,
+) -> Result<HashMap<TreeIndex, ContractState>, Box<dyn Error>> {
+    // Update contract storage roots with cached changes.
+    let empty_updates = HashMap::new();
+    let mut updated_contract_states: HashMap<num_bigint::BigUint, ContractState> = HashMap::new();
+    for address in accessed_addresses_felts {
+        // unwrap() is safe as an entry is guaranteed to be present with `get_leaves()`.
+        let tree_index = address.to_biguint();
+        let updates = storage_updates.get(address).unwrap_or(&empty_updates);
+        let nonce = address_to_nonce.get(address).cloned();
+        let mut class_hash = address_to_class_hash.get(address).cloned();
+        if class_hash.is_none() {
+            let resp = provider.get_class_hash_at(BlockId::Number(block_number), address).await;
+            class_hash = if let Ok(class_hash) = resp { Some(class_hash) } else { Some(Felt252::ZERO) };
         }
-        Ok(updated_contract_states)
+        let updated_contract_state =
+            empty_contract_states.remove(&tree_index).unwrap().update(&mut ffc, updates, nonce, class_hash).await?;
+
+        updated_contract_states.insert(tree_index, updated_contract_state);
+    }
+    Ok(updated_contract_states)
 }
 
-async fn get_processed_state_update(provider: &JsonRpcClient<HttpTransport>, block_id: BlockId, transactions: Vec<InternalTransaction>) -> ProcessedStateUpdate {
+pub(crate) async fn get_processed_state_update(
+    provider: &JsonRpcClient<HttpTransport>,
+    block_id: BlockId,
+    transactions: &[InternalTransaction],
+) -> ProcessedStateUpdate {
     let state_update = match provider.get_state_update(block_id).await.expect("Failed to get state update") {
         MaybePendingStateUpdate::Update(update) => update,
         MaybePendingStateUpdate::PendingUpdate(_) => {
@@ -162,16 +149,14 @@ async fn get_processed_state_update(provider: &JsonRpcClient<HttpTransport>, blo
     let class_hash_to_compiled_class_hash = process_declared_classes(&state_diff);
     let storage_updates = process_storage_updates(&state_diff);
 
-    ProcessedStateUpdate {
-        address_to_class_hash,
-        address_to_nonce,
-        class_hash_to_compiled_class_hash,
-        storage_updates
-    }
+    ProcessedStateUpdate { address_to_class_hash, address_to_nonce, class_hash_to_compiled_class_hash, storage_updates }
 }
 
-fn process_state_update_nonces(state_diff: &StateDiff, transactions: &[InternalTransaction]) -> HashMap<Felt252, Felt252> {
-    let address_to_nonce: HashMap<Felt252, Felt252> = state_diff 
+fn process_state_update_nonces(
+    state_diff: &StateDiff,
+    transactions: &[InternalTransaction],
+) -> HashMap<Felt252, Felt252> {
+    let address_to_nonce: HashMap<Felt252, Felt252> = state_diff
         .nonces
         .iter()
         .map(|nonce_update| {
@@ -190,11 +175,8 @@ fn process_state_update_nonces(state_diff: &StateDiff, transactions: &[InternalT
 }
 
 fn process_declared_classes(state_diff: &StateDiff) -> HashMap<Felt252, Felt252> {
-    let class_hash_to_compiled_class_hash = state_diff 
-        .declared_classes
-        .iter()
-        .map(|class| (class.class_hash, class.compiled_class_hash))
-        .collect(); 
+    let class_hash_to_compiled_class_hash =
+        state_diff.declared_classes.iter().map(|class| (class.class_hash, class.compiled_class_hash)).collect();
     class_hash_to_compiled_class_hash
 }
 
@@ -206,16 +188,18 @@ fn process_storage_updates(state_diff: &StateDiff) -> HashMap<Felt252, HashMap<F
             let storage_entries = diffs.storage_entries.iter().map(|e| (e.key, e.value)).collect();
             (diffs.address, storage_entries)
         })
-        .collect(); 
+        .collect();
     storage_updates
 }
 
-async fn process_deployed_contracts(state_diff: &StateDiff, contracts_subcalled: &HashSet<Felt252>, provider: &JsonRpcClient<HttpTransport>, block_id: BlockId) -> HashMap<Felt252, Felt252> {
-    let mut address_to_class_hash: HashMap<_, _> = state_diff
-        .deployed_contracts
-        .iter()
-        .map(|contract| (contract.address, contract.class_hash))
-        .collect();
+async fn process_deployed_contracts(
+    state_diff: &StateDiff,
+    contracts_subcalled: &HashSet<Felt252>,
+    provider: &JsonRpcClient<HttpTransport>,
+    block_id: BlockId,
+) -> HashMap<Felt252, Felt252> {
+    let mut address_to_class_hash: HashMap<_, _> =
+        state_diff.deployed_contracts.iter().map(|contract| (contract.address, contract.class_hash)).collect();
 
     for address in contracts_subcalled {
         if !address_to_class_hash.contains_key(address) {
