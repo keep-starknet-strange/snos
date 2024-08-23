@@ -90,7 +90,7 @@ where
                 compiled_class.to_blockifier_contract_class().map(Into::into).map_err(to_state_err)?
             }
             starknet::core::types::ContractClass::Legacy(legacy_class) => {
-                let contract_class = GenericDeprecatedCompiledClass::from(legacy_class);
+                let contract_class = GenericDeprecatedCompiledClass::try_from(legacy_class).map_err(to_state_err)?;
                 contract_class.to_blockifier_contract_class().map(Into::into).map_err(to_state_err)?
             }
         };
@@ -112,7 +112,7 @@ where
                 compiled_class.class_hash().map_err(to_state_err)?
             }
             starknet::core::types::ContractClass::Legacy(legacy_class) => {
-                let contract_class = GenericDeprecatedCompiledClass::from(legacy_class);
+                let contract_class = GenericDeprecatedCompiledClass::try_from(legacy_class).map_err(to_state_err)?;
                 contract_class.class_hash().map_err(to_state_err)?
             }
         };
