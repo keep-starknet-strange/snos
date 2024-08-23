@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 
 use cairo_vm::Felt252;
+use num_bigint::BigUint;
 use starknet::core::types::{BlockId, MaybePendingStateUpdate, StateDiff};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
@@ -15,6 +16,7 @@ use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starkware_utils::commitment_tree::base_types::TreeIndex;
 // trait for Patricia Tree
 use starknet_os::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
+use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use starknet_os::storage::storage::FactFetchingContext;
 
 use crate::rpc_utils::{CachedRpcStorage, RpcStorage};
@@ -74,14 +76,10 @@ pub(crate) async fn build_initial_state(
     let mut ffc_for_contract_class = get_ffc_for_contract_class_facts(&ffc);
 
     // Update class trie with declared classes
-    let updated_contract_classes = match shared_state.contract_classes {
-        Some(tree) => {
-            let modifications: Vec<_> = processed_state_update
-                .class_hash_to_compiled_class_hash
-                .iter()
-                .map(|(key, value)| (key.to_biguint(), ContractClassLeaf::create(*value)))
-                .collect();
-            Some(tree.update(&mut ffc_for_contract_class, modifications, &mut facts).await?)
+    let updated_global_class_root: Option<PatriciaTree> = match shared_state.contract_classes {
+        Some(class_trie) => {
+            let classes_modifications = update_empty_class_trie_with_block_incoming_changes(processed_state_update);
+            Some(class_trie.update(&mut ffc_for_contract_class, classes_modifications, &mut facts).await?)
         }
         None => {
             assert_eq!(
@@ -93,18 +91,28 @@ pub(crate) async fn build_initial_state(
         }
     };
 
-    let accessed_addresses: HashSet<_> = accessed_addresses.into_iter().map(Felt252::from).collect();
-
     Ok((
-        accessed_addresses,
+        // TODO: we dont need to pass it as its already in processed_state_update
+        processed_state_update.accessed_addresses.clone(),
         SharedState {
             contract_states: updated_global_contract_root,
-            contract_classes: updated_contract_classes,
+            contract_classes: updated_global_class_root,
             ffc,
             ffc_for_class_hash: ffc_for_contract_class,
             contract_addresses: Default::default(),
         },
     ))
+}
+
+fn update_empty_class_trie_with_block_incoming_changes(
+    processed_state_update: &ProcessedStateUpdate,
+) -> Vec<(BigUint, ContractClassLeaf)> {
+    let classes_modifications = processed_state_update
+        .class_hash_to_compiled_class_hash
+        .iter()
+        .map(|(key, value)| (key.to_biguint(), ContractClassLeaf::create(*value)))
+        .collect();
+    classes_modifications
 }
 
 async fn update_empty_contract_state_with_block_incoming_changes(
