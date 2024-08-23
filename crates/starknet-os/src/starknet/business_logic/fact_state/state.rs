@@ -8,9 +8,7 @@ use blockifier::state::state_api::{StateReader, StateResult};
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use starknet_crypto::FieldElement;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::hash::Hash;
@@ -28,6 +26,7 @@ use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
+use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use crate::storage::storage::{DbObject, FactFetchingContext, HashFunctionType, Storage, StorageError};
 use crate::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
@@ -166,7 +165,7 @@ where
     ) -> Result<Self, TreeError> {
         let empty_state = Self::empty(ffc).await?;
 
-        let mut storage_updates: HashMap<ContractAddress, HashMap<StorageKey, StarkFelt>> = HashMap::new();
+        let mut storage_updates: HashMap<ContractAddress, HashMap<StorageKey, Felt252>> = HashMap::new();
         for ((address, key), value) in blockifier_state.storage_view {
             storage_updates.entry(address).or_default().insert(key, value);
         }
@@ -205,7 +204,7 @@ where
         address_to_class_hash: HashMap<ContractAddress, ClassHash>,
         address_to_nonce: HashMap<ContractAddress, Nonce>,
         class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash>,
-        storage_updates: HashMap<ContractAddress, HashMap<StorageKey, StarkFelt>>,
+        storage_updates: HashMap<ContractAddress, HashMap<StorageKey, Felt252>>,
     ) -> Result<Self, TreeError> {
         let address_to_class_hash: HashMap<_, _> = address_to_class_hash
             .into_iter()
@@ -361,6 +360,7 @@ where
 
                 log::debug!("Should get something from get_leaf()...");
 
+                // TODO: `get_leaf()` should not return an option
                 let contract_class_leaf =
                     <PatriciaTree as BinaryFactTree<S, PoseidonHash, ContractClassLeaf>>::get_leaf(
                         contract_class_tree,
@@ -369,6 +369,11 @@ where
                     )
                     .await?
                     .ok_or(StateError::UndeclaredClassHash(class_hash))?;
+
+                // Return an error if we get an empty leaf
+                if <ContractClassLeaf as LeafFact<S, H>>::is_empty(&contract_class_leaf) {
+                    return Err(StateError::UndeclaredClassHash(class_hash))?;
+                }
 
                 contract_class_leaf.compiled_class_hash
             }
@@ -381,30 +386,30 @@ where
     }
 
     async fn get_deprecated_compiled_class(
-        &mut self,
+        &self,
         compiled_class_hash: CompiledClassHash,
     ) -> Result<Option<GenericDeprecatedCompiledClass>, StorageError> {
         let storage = self.ffc.acquire_storage().await;
 
-        DeprecatedCompiledClassFact::get(storage.deref(), compiled_class_hash.0.bytes())
+        DeprecatedCompiledClassFact::get(storage.deref(), &compiled_class_hash.0.to_bytes_be())
             .await
             .map(|option| option.map(|fact| fact.contract_definition))
     }
 
     async fn get_compiled_class(
-        &mut self,
+        &self,
         compiled_class_hash: CompiledClassHash,
     ) -> Result<Option<GenericCasmContractClass>, StorageError> {
         let storage = self.ffc.acquire_storage().await;
 
-        CompiledClassFact::get(storage.deref(), compiled_class_hash.0.bytes())
+        CompiledClassFact::get(storage.deref(), &compiled_class_hash.0.to_bytes_be())
             .await
             .map(|option| option.map(|fact| fact.compiled_class))
     }
 
     /// Returns the contract class of the given class hash.
     async fn get_compiled_contract_class_async(
-        &mut self,
+        &self,
         compiled_class_hash: CompiledClassHash,
     ) -> StateResult<ContractClass> {
         log::debug!("SharedState as StateReader: get_compiled_contract_class {:?}", compiled_class_hash);
@@ -430,17 +435,15 @@ where
         Err(StateError::UndeclaredClassHash(ClassHash(compiled_class_hash.0)))
     }
 
-    async fn get_storage_at_async(
-        &mut self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    async fn get_storage_at_async(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt252> {
         let storage_key: TreeIndex = felt_api2vm(*key.0.key()).to_biguint();
+
+        let mut ffc = self.ffc.clone();
 
         let contract_state = self.get_contract_state_async(contract_address).await?;
 
         let storage_items: HashMap<TreeIndex, StorageLeaf> =
-            contract_state.storage_commitment_tree.get_leaves(&mut self.ffc, &[storage_key.clone()], &mut None).await?;
+            contract_state.storage_commitment_tree.get_leaves(&mut ffc, &[storage_key.clone()], &mut None).await?;
         let state = storage_items
             .get(&storage_key)
             .ok_or(StateError::StateReadError(format!("get_storage_at_async: {:?}", storage_key)))?;
@@ -457,7 +460,7 @@ where
     /// Returns the storage value under the given key in the given contract instance (represented by
     /// its address).
     /// Default: 0 for an uninitialized contract address.
-    fn get_storage_at(&mut self, contract_address: ContractAddress, key: StorageKey) -> StateResult<StarkFelt> {
+    fn get_storage_at(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt252> {
         log::debug!("SharedState as StateReader: get_storage_at {:?} / {:?}", contract_address, key);
         let value = execute_coroutine(self.get_storage_at_async(contract_address, key)).unwrap(); // TODO: unwrap
         log::debug!("       -> {:?}", value);
@@ -466,7 +469,7 @@ where
 
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
-    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         log::debug!("SharedState as StateReader: get_nonce_at {:?}", contract_address);
         let contract_state = self.get_contract_state(contract_address)?;
         let nonce = Nonce(felt_vm2api(contract_state.nonce));
@@ -476,30 +479,27 @@ where
 
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
-    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         log::debug!("SharedState as StateReader: get_class_hash_at {:?}", contract_address);
         let contract_state = self.get_contract_state(contract_address)?;
         // TODO: this can be simplified once hashes are stored as [u8; 32]. Until then, this is fine.
-        let felt = FieldElement::from_byte_slice_be(&contract_state.contract_hash)
-            .expect("Conversion to felt should not fail");
+        let felt = Felt252::from_bytes_be_slice(&contract_state.contract_hash);
         log::debug!("       -> {:?}", felt);
-        Ok(ClassHash(StarkFelt::from(felt)))
+        Ok(ClassHash(felt))
     }
 
     /// Returns the contract class of the given class hash.
-    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         execute_coroutine(async {
-            let compiled_class_hash = self.get_compiled_class_hash_async(class_hash).await.unwrap();
+            let compiled_class_hash = self.get_compiled_class_hash_async(class_hash).await?;
             self.get_compiled_contract_class_async(compiled_class_hash).await
         })
         .unwrap() // TODO: unwrap
     }
 
     /// Returns the compiled class hash of the given class hash.
-    fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+    fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         log::debug!("SharedState as StateReader: get_compiled_class_hash {:?}", class_hash);
         execute_coroutine(self.get_compiled_class_hash_async(class_hash)).unwrap() // TODO: unwrap
     }
-
-    // TODO: do we care about `fn get_free_token_balance()`?
 }

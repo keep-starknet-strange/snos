@@ -1,6 +1,7 @@
 #[cfg(test)]
 pub mod tests {
     use blockifier::context::BlockContext;
+    use blockifier::fee::actual_cost::TransactionReceipt;
     use blockifier::transaction::objects::TransactionExecutionInfo;
     use cairo_vm::serde::deserialize_program::ApTracking;
     use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -60,11 +61,13 @@ pub mod tests {
             validate_call_info: None,
             execute_call_info: None,
             fee_transfer_call_info: None,
-            actual_fee: Fee(1234),
-            da_gas: Default::default(),
-            actual_resources: Default::default(),
             revert_error: None,
-            bouncer_resources: Default::default(),
+            transaction_receipt: TransactionReceipt {
+                fee: Fee(1234),
+                gas: Default::default(),
+                da_gas: Default::default(),
+                resources: Default::default(),
+            },
         }
     }
 

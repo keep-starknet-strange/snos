@@ -1,5 +1,4 @@
 use starknet::core::types::Felt;
-use starknet_api::hash::StarkFelt;
 
 /// Executes a coroutine from a synchronous context.
 /// Fails if no Tokio runtime is present.
@@ -11,12 +10,12 @@ where
     Ok(tokio::task::block_in_place(|| tokio_runtime_handle.block_on(coroutine)))
 }
 
-pub fn felt_api2vm(felt: StarkFelt) -> Felt {
-    Felt::from_bytes_be_slice(felt.bytes())
+pub fn felt_api2vm(felt: Felt) -> Felt {
+    felt
 }
 
-pub fn felt_vm2api(felt: Felt) -> StarkFelt {
-    StarkFelt::new_unchecked(felt.to_bytes_be())
+pub fn felt_vm2api(felt: Felt) -> Felt {
+    felt
 }
 
 pub fn felt_to_u128(felt: &Felt) -> u128 {

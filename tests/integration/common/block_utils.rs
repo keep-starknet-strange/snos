@@ -2,13 +2,12 @@ use std::collections::{HashMap, HashSet};
 
 use blockifier::context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
-use blockifier::state::cached_state::CachedState;
-use blockifier::state::state_api::{State, StateReader};
+use blockifier::state::cached_state::{CachedState, CommitmentStateDiff};
+use blockifier::state::state_api::StateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
@@ -55,7 +54,8 @@ where
         .collect();
 
     // provide an empty ContractState for any newly deployed contract
-    let state_diff = blockifier_state.to_state_diff();
+    let state_diff =
+        CommitmentStateDiff::from(blockifier_state.to_state_diff().expect("unable to generate state diff"));
     let deployed_addresses = state_diff.address_to_class_hash;
     for (address, _class_hash) in &deployed_addresses {
         contracts.insert(
@@ -73,7 +73,7 @@ where
         .collect();
 
     for c in contracts.keys() {
-        let address = ContractAddress::try_from(StarkHash::new(c.to_bytes_be()).unwrap()).unwrap();
+        let address = ContractAddress(PatriciaKey::try_from(*c).unwrap());
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
@@ -125,7 +125,7 @@ where
 
     let general_config = StarknetGeneralConfig {
         starknet_os_config: StarknetOsConfig {
-            chain_id: default_general_config.starknet_os_config.chain_id,
+            chain_id: block_context.chain_info().chain_id.clone(),
             fee_token_address: block_context.chain_info().fee_token_addresses.strk_fee_token_address,
             deprecated_fee_token_address: block_context.chain_info().fee_token_addresses.eth_fee_token_address,
         },
@@ -169,7 +169,7 @@ where
         .class_hash_to_compiled_class_hash
         .keys()
         .chain(compiled_classes.keys())
-        .map(|class_hash| BigUint::from_bytes_be(class_hash.0.bytes()))
+        .map(|class_hash| class_hash.to_biguint())
         .collect();
 
     let contract_class_commitment_info =

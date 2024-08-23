@@ -3,8 +3,6 @@ use std::ops::Deref;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use starknet_api::core::{ClassHash, CompiledClassHash};
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::StarknetApiError;
 use starknet_types_core::felt::Felt;
 
 const EMPTY_HASH: [u8; 32] = [0; 32];
@@ -80,27 +78,15 @@ impl From<Felt> for Hash {
     }
 }
 
-impl TryFrom<Hash> for StarkFelt {
-    type Error = StarknetApiError;
-
-    fn try_from(hash: Hash) -> Result<Self, Self::Error> {
-        Self::new(hash.0)
+impl From<Hash> for CompiledClassHash {
+    fn from(hash: Hash) -> Self {
+        Self(hash.into())
     }
 }
 
-impl TryFrom<Hash> for CompiledClassHash {
-    type Error = StarknetApiError;
-
-    fn try_from(hash: Hash) -> Result<Self, Self::Error> {
-        Ok(Self(hash.try_into()?))
-    }
-}
-
-impl TryFrom<Hash> for ClassHash {
-    type Error = StarknetApiError;
-
-    fn try_from(hash: Hash) -> Result<Self, Self::Error> {
-        Ok(Self(hash.try_into()?))
+impl From<Hash> for ClassHash {
+    fn from(hash: Hash) -> Self {
+        Self(hash.into())
     }
 }
 
@@ -119,22 +105,20 @@ impl GenericClassHash {
 
 impl From<ClassHash> for GenericClassHash {
     fn from(class_hash: ClassHash) -> Self {
-        let hash = Hash::from_bytes_be_slice(class_hash.0.bytes());
+        let hash = Hash(class_hash.0.to_bytes_be());
         Self(hash)
     }
 }
 
 impl From<GenericClassHash> for ClassHash {
     fn from(class_hash: GenericClassHash) -> Self {
-        let stark_hash = StarkHash::new_unchecked(class_hash.0.0);
-        ClassHash(stark_hash)
+        class_hash.0.into()
     }
 }
 
 impl From<GenericClassHash> for CompiledClassHash {
     fn from(class_hash: GenericClassHash) -> Self {
-        let stark_hash = StarkHash::new_unchecked(class_hash.0.0);
-        CompiledClassHash(stark_hash)
+        class_hash.0.into()
     }
 }
 

@@ -15,14 +15,13 @@ use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use rstest::rstest;
 use starknet_api::core::{calculate_contract_address, ChainId, ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     DeclareTransactionV0V1, DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransactionV1,
     DeployAccountTransactionV3, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, Resource,
-    ResourceBoundsMapping,
+    ResourceBoundsMapping, TransactionHash,
 };
-use starknet_api::{contract_address, patricia_key, stark_felt};
+use starknet_api::{contract_address, felt, patricia_key};
 use starknet_crypto::{pedersen_hash, FieldElement};
 use starknet_os::config::{BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
@@ -45,8 +44,8 @@ use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass
 
 use crate::common::block_utils::os_hints;
 
-pub fn to_felt252(stark_felt: &StarkFelt) -> Felt252 {
-    Felt252::from_bytes_be_slice(stark_felt.bytes())
+pub fn to_felt252(stark_felt: &Felt252) -> Felt252 {
+    *stark_felt
 }
 
 const DECLARE_PREFIX: &[u8] = b"declare";
@@ -824,6 +823,18 @@ pub fn to_internal_deploy_v3_tx(
     }
 }
 
+/// Retrieves the transaction hash from a Blockifier `Transaction` object.
+fn get_tx_hash(tx: &Transaction) -> TransactionHash {
+    match tx {
+        Transaction::AccountTransaction(account_tx) => match account_tx {
+            AccountTransaction::Declare(declare_tx) => declare_tx.tx_hash,
+            AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.tx_hash,
+            AccountTransaction::Invoke(invoke_tx) => invoke_tx.tx_hash,
+        },
+        Transaction::L1HandlerTransaction(l1_handler_tx) => l1_handler_tx.tx_hash,
+    }
+}
+
 async fn execute_txs<S>(
     mut state: CachedState<SharedState<S, PedersenHash>>,
     block_context: &BlockContext,
@@ -836,23 +847,33 @@ where
 {
     let upper_bound_block_number = block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER;
     let block_number = StorageKey::from(upper_bound_block_number);
-    let block_hash = stark_felt!(66_u64);
+    let block_hash = felt!(66_u64);
 
-    let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
+    let block_hash_contract_address = ContractAddress::try_from(felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
 
     state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
     let internal_txs: Vec<_> = txs.iter().map(|tx| to_internal_tx(tx, &block_context.chain_info().chain_id)).collect();
+    let n_txs = internal_txs.len();
+
     let execution_infos = txs
         .into_iter()
-        .map(|tx| {
+        .enumerate()
+        .map(|(index, tx)| {
+            let tx_hash = get_tx_hash(&tx).to_hex_string();
             let tx_result = tx.execute(&mut state, block_context, true, true);
             match tx_result {
                 Err(e) => {
-                    panic!("Transaction failed in blockifier: {}", e);
+                    panic!("Transaction {} ({}/{}) failed in blockifier: {}", tx_hash, index + 1, n_txs, e);
                 }
                 Ok(info) => {
                     if info.is_reverted() {
-                        log::error!("Transaction reverted: {:?}", info.revert_error);
+                        log::error!(
+                            "Transaction {} ({}/{}) reverted: {:?}",
+                            tx_hash,
+                            index + 1,
+                            n_txs,
+                            info.revert_error
+                        );
                         log::warn!("TransactionExecutionInfo: {:?}", info);
                         panic!("A transaction reverted during execution: {:?}", info);
                     }

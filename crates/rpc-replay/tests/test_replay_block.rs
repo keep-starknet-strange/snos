@@ -1,5 +1,6 @@
 use blockifier::state::cached_state::CachedState;
 use blockifier::transaction::transactions::ExecutableTransaction as _;
+use blockifier::versioned_constants::StarknetVersion;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
@@ -7,6 +8,7 @@ use rstest::rstest;
 use starknet::core::types::{BlockId, BlockWithTxs};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
+use starknet_api::core::ChainId;
 
 #[rstest]
 #[ignore = "Requires a local Pathfinder node"]
@@ -27,7 +29,7 @@ async fn test_replay_block() {
     let state_reader = AsyncRpcStateReader::new(provider, BlockId::Number(block_with_txs.block_number - 1));
     let mut state = CachedState::from(state_reader);
 
-    let block_context = build_block_context("SN_SEPOLIA".to_string(), &block_with_txs);
+    let block_context = build_block_context(ChainId::Sepolia, &block_with_txs, StarknetVersion::V0_13_1);
 
     for tx in block_with_txs.transactions.iter() {
         let blockifier_tx = starknet_rs_to_blockifier(tx).unwrap();

@@ -10,8 +10,6 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rstest::fixture;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::business_logic::utils::{write_class_facts, write_deprecated_compiled_class_fact};
@@ -272,7 +270,7 @@ impl<'a> StarknetStateBuilder<'a> {
         for (name, contract) in cairo0_contracts {
             let deprecated_compiled_class = contract.deprecated_compiled_class;
             let class_hash = write_deprecated_compiled_class_fact(deprecated_compiled_class.clone(), ffc).await?;
-            let class_hash = ClassHash::try_from(class_hash).expect("Class hash is not in prime field");
+            let class_hash = ClassHash::from(class_hash);
 
             Self::add_cairo0_contract_to_state(class_hash, deprecated_compiled_class.clone(), dict_state_reader);
 
@@ -299,7 +297,7 @@ impl<'a> StarknetStateBuilder<'a> {
             let deprecated_compiled_class = contract.contract.deprecated_compiled_class;
 
             let class_hash = write_deprecated_compiled_class_fact(deprecated_compiled_class.clone(), ffc).await?;
-            let class_hash = ClassHash::try_from(class_hash).expect("Class hash is not in prime field");
+            let class_hash = ClassHash::from(class_hash);
 
             // Add entries in the dict state
             Self::add_cairo0_contract_to_state(class_hash, deprecated_compiled_class.clone(), dict_state_reader);
@@ -345,9 +343,8 @@ impl<'a> StarknetStateBuilder<'a> {
 
             let (contract_class_hash, compiled_class_hash) =
                 write_class_facts(contract_class.clone().into(), compiled_contract_class.clone(), ffc).await?;
-            let class_hash = ClassHash::try_from(contract_class_hash).expect("Class hash is not in prime field");
-            let compiled_class_hash =
-                CompiledClassHash::try_from(compiled_class_hash).expect("Compiled class hash is not in prime field");
+            let class_hash = ClassHash::from(contract_class_hash);
+            let compiled_class_hash = CompiledClassHash::from(compiled_class_hash);
 
             Self::add_cairo1_contract_to_state(
                 class_hash,
@@ -385,9 +382,8 @@ impl<'a> StarknetStateBuilder<'a> {
 
             let (contract_class_hash, compiled_class_hash) =
                 write_class_facts(contract_class.clone().into(), compiled_contract_class.clone(), ffc).await?;
-            let class_hash = ClassHash::try_from(contract_class_hash).expect("Class hash is not in prime field");
-            let compiled_class_hash =
-                CompiledClassHash::try_from(compiled_class_hash).expect("Compiled class hash is not in prime field");
+            let class_hash = ClassHash::from(contract_class_hash);
+            let compiled_class_hash = CompiledClassHash::from(compiled_class_hash);
 
             // Add entries in the dict state
             Self::add_cairo1_contract_to_state(
@@ -445,8 +441,8 @@ impl<'a> StarknetStateBuilder<'a> {
     ) {
         let storage_view = &mut dict_state_reader.storage_view;
         let balance_key = get_fee_token_var_address(account_address);
-        storage_view.insert((fee_config.eth_fee_token_address, balance_key), stark_felt!(balance.eth));
-        storage_view.insert((fee_config.strk_fee_token_address, balance_key), stark_felt!(balance.strk));
+        storage_view.insert((fee_config.eth_fee_token_address, balance_key), balance.eth.into());
+        storage_view.insert((fee_config.strk_fee_token_address, balance_key), balance.strk.into());
     }
 
     /// Converts the dict state reader and FFC into a shared state object.

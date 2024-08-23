@@ -3,9 +3,9 @@ use blockifier::invoke_tx_args;
 use blockifier::test_utils::{create_calldata, NonceManager};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
+use cairo_vm::Felt252;
 use rstest::rstest;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_os::config::STORED_BLOCK_HASH_BUFFER;
 
@@ -35,7 +35,7 @@ async fn return_result_cairo0_account(
         calldata: create_calldata(
             contract_address,
             "return_result",
-            &[stark_felt!(123_u8)],
+            &[felt!(123_u8)],
         ),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
@@ -75,7 +75,7 @@ async fn return_result_cairo1_account(
         calldata: create_calldata(
             contract_address,
             "return_result",
-            &[stark_felt!(2_u8)],
+            &[felt!(2_u8)],
         ),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
@@ -111,12 +111,12 @@ async fn syscalls_cairo1(
     let contract_address = initial_state.deployed_cairo1_contracts.get("test_contract").unwrap().address;
 
     // test_emit_event
-    let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
-    let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
+    let keys = vec![felt!(2019_u16), felt!(2020_u16)];
+    let data = vec![felt!(2021_u16), felt!(2022_u16), felt!(2023_u16)];
     let entrypoint_args = &[
-        vec![stark_felt!(u128::try_from(keys.len()).unwrap())],
+        vec![felt!(u128::try_from(keys.len()).unwrap())],
         keys,
-        vec![stark_felt!(u128::try_from(data.len()).unwrap())],
+        vec![felt!(u128::try_from(data.len()).unwrap())],
         data,
     ]
     .concat();
@@ -133,7 +133,7 @@ async fn syscalls_cairo1(
     let test_storage_read_write_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: sender_address,
-        calldata: create_calldata(contract_address, "test_storage_read_write", &[StarkFelt::TWO, StarkFelt::ONE]),
+        calldata: create_calldata(contract_address, "test_storage_read_write", &[Felt252::TWO, Felt252::ONE]),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
     });
@@ -142,15 +142,15 @@ async fn syscalls_cairo1(
     let test_get_block_hash_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: sender_address,
-        calldata: create_calldata(contract_address, "test_get_block_hash", &[stark_felt!(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER)]),
+        calldata: create_calldata(contract_address, "test_get_block_hash", &[felt!(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER)]),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
     });
 
     // test_send_message_to_l1
-    let to_address = stark_felt!(1234_u16);
-    let payload = vec![stark_felt!(2019_u16), stark_felt!(2020_u16), stark_felt!(2021_u16)];
-    let entrypoint_args = &[vec![to_address, stark_felt!(payload.len() as u64)], payload].concat();
+    let to_address = felt!(1234_u16);
+    let payload = vec![felt!(2019_u16), felt!(2020_u16), felt!(2021_u16)];
+    let entrypoint_args = &[vec![to_address, felt!(payload.len() as u64)], payload].concat();
 
     let test_send_message_to_l1_tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
@@ -165,11 +165,11 @@ async fn syscalls_cairo1(
         initial_state.deployed_cairo1_contracts.get("test_contract").unwrap().declaration.class_hash.0;
     let entrypoint_args = &[
         test_contract_class_hash, // class hash
-        stark_felt!(255_u8),      // contract_address_salt
-        stark_felt!(2_u8),        // calldata length
-        stark_felt!(3_u8),        // calldata: arg1
-        stark_felt!(3_u8),        // calldata: arg2
-        stark_felt!(0_u8),        // deploy_from_zero
+        felt!(255_u8),            // contract_address_salt
+        felt!(2_u8),              // calldata length
+        felt!(3_u8),              // calldata: arg1
+        felt!(3_u8),              // calldata: arg2
+        felt!(0_u8),              // deploy_from_zero
     ];
 
     let test_deploy_tx = test_utils::account_invoke_tx(invoke_tx_args! {

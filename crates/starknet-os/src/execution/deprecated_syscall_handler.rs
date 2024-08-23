@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use blockifier::block::BlockInfo;
+use blockifier::blockifier::block::BlockInfo;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
@@ -81,7 +81,7 @@ where
         // the result array.
         vm.insert_value((syscall_ptr + retdata_size_offset)?, result.retdata.0.len())?;
         let new_segment = vm.add_temporary_segment();
-        let retdata = result
+        let retdata: Vec<_> = result
             .retdata
             .0
             .iter()
@@ -273,17 +273,12 @@ where
                 HintError::SyscallError("No more storage reads available to replay".to_string().into_boxed_str()),
             )?;
 
-        vm.insert_value((syscall_ptr + 2usize).unwrap(), value).unwrap();
+        vm.insert_value((syscall_ptr + 2usize)?, value)?;
 
         Ok(())
     }
     pub async fn storage_write(&self, _syscall_ptr: Relocatable) -> Result<(), HintError> {
-        let sys_hand = self.deprecated_syscall_handler.write().await;
-
-        let _ = sys_hand.exec_wrapper.execution_helper.write().await.execute_code_read_iter.next().ok_or(
-            HintError::SyscallError("No more storage writes available to replay".to_string().into_boxed_str()),
-        )?;
-
+        // Nothing to do
         Ok(())
     }
 
@@ -302,7 +297,8 @@ where
 mod test {
     use std::borrow::Cow;
 
-    use blockifier::block::{BlockInfo, GasPrices};
+    use blockifier::blockifier::block::{BlockInfo, GasPrices};
+    use blockifier::bouncer::BouncerConfig;
     use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
     use blockifier::execution::call_info::Retdata;
     use blockifier::execution::entry_point_execution::CallResult;
@@ -314,8 +310,7 @@ mod test {
     use rstest::{fixture, rstest};
     use starknet_api::block::{BlockNumber, BlockTimestamp};
     use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
-    use starknet_api::hash::{StarkFelt, StarkHash};
-    use starknet_api::{contract_address, patricia_key};
+    use starknet_api::{contract_address, felt, patricia_key};
 
     use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
@@ -328,7 +323,7 @@ mod test {
     #[fixture]
     fn block_context() -> BlockContext {
         let chain_info = ChainInfo {
-            chain_id: ChainId("SN_GOERLI".to_string()),
+            chain_id: ChainId::Sepolia,
             fee_token_addresses: FeeTokenAddresses {
                 strk_fee_token_address: contract_address!("0x1"),
                 eth_fee_token_address: contract_address!("0x2"),
@@ -348,7 +343,7 @@ mod test {
             use_kzg_da: false,
         };
 
-        BlockContext::new_unchecked(&block_info, &chain_info, VersionedConstants::latest_constants())
+        BlockContext::new(block_info, chain_info, VersionedConstants::latest_constants().clone(), BouncerConfig::max())
     }
 
     #[fixture]
@@ -380,7 +375,7 @@ mod test {
         // segment and insert its size somewhere in syscall_ptr.
         let call_results = vec![CallResult {
             failed: false,
-            retdata: Retdata(vec![StarkFelt::THREE, StarkFelt::TWO, StarkFelt::ONE]),
+            retdata: Retdata(vec![Felt252::THREE, Felt252::TWO, Felt252::ONE]),
             gas_consumed: 1,
         }];
         exec_helper.execution_helper.write().await.result_iter = call_results.into_iter();

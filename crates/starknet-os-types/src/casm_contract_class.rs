@@ -95,7 +95,7 @@ impl GenericCasmContractClass {
         let compiled_class = self.get_cairo_lang_contract_class()?;
         let class_hash_felt = compiled_class.compiled_class_hash();
 
-        Ok(GenericClassHash::from_bytes_be(class_hash_felt.to_be_bytes()))
+        Ok(GenericClassHash::from_bytes_be(class_hash_felt.to_bytes_be()))
     }
 
     pub fn class_hash(&self) -> Result<GenericClassHash, ContractClassError> {

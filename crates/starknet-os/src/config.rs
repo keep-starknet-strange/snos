@@ -1,7 +1,8 @@
 use std::fs::File;
 use std::path::PathBuf;
 
-use blockifier::block::{BlockInfo, GasPrices};
+use blockifier::blockifier::block::{BlockInfo, GasPrices};
+use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::transaction::objects::FeeType;
 use blockifier::versioned_constants::VersionedConstants;
@@ -10,9 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
-use starknet_api::hash::{pedersen_hash_array, StarkFelt, StarkHash};
-use starknet_api::{contract_address, patricia_key};
-use starknet_crypto::FieldElement;
+use starknet_api::{contract_address, felt, patricia_key};
 
 use crate::error::SnOsError;
 use crate::utils::ChainIdNum;
@@ -54,16 +53,6 @@ pub struct StarknetOsConfig {
     pub deprecated_fee_token_address: ContractAddress,
 }
 
-impl StarknetOsConfig {
-    pub fn hash(&self) -> StarkHash {
-        pedersen_hash_array(&[
-            StarkFelt::from(FieldElement::from_byte_slice_be(STARKNET_OS_CONFIG_HASH_VERSION.as_bytes()).unwrap()),
-            StarkFelt::from(u128::from_str_radix(&self.chain_id.0, 16).unwrap()),
-            *self.fee_token_address.0.key(),
-        ])
-    }
-}
-
 #[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]
 pub struct GasPriceBounds {
     pub min_wei_l1_gas_price: u128,
@@ -91,7 +80,7 @@ impl Default for StarknetGeneralConfig {
     fn default() -> Self {
         Self {
             starknet_os_config: StarknetOsConfig {
-                chain_id: ChainId("SN_GOERLI".to_string()),
+                chain_id: ChainId::Sepolia,
                 fee_token_address: contract_address!(DEFAULT_FEE_TOKEN_ADDR),
                 deprecated_fee_token_address: contract_address!(DEFAULT_DEPRECATED_FEE_TOKEN_ADDR),
             },
@@ -152,7 +141,9 @@ impl StarknetGeneralConfig {
             },
         };
 
-        BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants)
+        let bouncer_config = BouncerConfig::max();
+
+        BlockContext::new(block_info, chain_info, versioned_constants, bouncer_config)
     }
 }
 

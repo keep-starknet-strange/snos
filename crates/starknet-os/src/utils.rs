@@ -3,20 +3,19 @@ use std::collections::HashMap;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
-use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Number;
 use serde_with::{DeserializeAs, SerializeAs};
 use starknet_api::core::ChainId;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_os_types::chain_id::chain_id_to_felt;
 use tokio::task;
 
-pub fn felt_vm2api(felt: Felt252) -> StarkFelt {
-    stark_felt!(felt.to_hex_string().as_str())
+pub fn felt_vm2api(felt: Felt252) -> Felt252 {
+    felt
 }
 
-pub fn felt_api2vm(felt: StarkFelt) -> Felt252 {
-    Felt252::from_hex(&felt.to_string()).expect("Couldn't parse bytes")
+pub fn felt_api2vm(felt: Felt252) -> Felt252 {
+    felt
 }
 
 pub(crate) struct Felt252Str;
@@ -96,8 +95,10 @@ impl<'de> DeserializeAs<'de, ChainId> for ChainIdNum {
     where
         D: Deserializer<'de>,
     {
-        let felt_num = u128::deserialize(deserializer)?;
-        Ok(ChainId(format!("{felt_num:x}")))
+        let bytes = u128::deserialize(deserializer)?.to_be_bytes();
+        let chain_id_str = String::from_utf8_lossy(&bytes);
+
+        Ok(ChainId::from(chain_id_str.into_owned()))
     }
 }
 
@@ -106,7 +107,8 @@ impl SerializeAs<ChainId> for ChainIdNum {
     where
         S: Serializer,
     {
-        serializer.serialize_u128(u128::from_str_radix(&value.0, 16).map_err(ser::Error::custom)?)
+        let chain_id_felt = chain_id_to_felt(value);
+        chain_id_felt.serialize(serializer)
     }
 }
 
@@ -159,7 +161,6 @@ pub(crate) fn custom_hint_error<S: Into<String>>(error: S) -> HintError {
 
 #[cfg(test)]
 mod tests {
-    use bitvec::prelude::*;
     use serde_with::serde_as;
 
     use super::*;
@@ -172,29 +173,8 @@ mod tests {
     }
 
     #[test]
-    fn felt_conversions() {
-        let vm_felt = Felt252::from_hex("0xDEADBEEF").unwrap();
-        let api_felt = stark_felt!("DEADBEEF");
-
-        assert_eq!(vm_felt, felt_api2vm(api_felt));
-        assert_eq!(api_felt, felt_vm2api(vm_felt));
-
-        let mut bv = bitvec![u8, Msb0; 0; 219];
-        bv.extend_from_bitslice(0xDEADBEEF_u32.view_bits::<Msb0>());
-    }
-
-    #[test]
     fn chain_id_num_ok() {
-        let c = ChainIdOnly { chain_id: ChainId("534e5f474f45524c49".to_string()) };
-
-        serde_json::to_string(&c).unwrap();
-    }
-
-    #[test]
-    #[should_panic]
-    fn chain_id_num_fail() {
-        let c = ChainIdOnly { chain_id: ChainId("SN_GOERLI".to_string()) };
-
+        let c = ChainIdOnly { chain_id: ChainId::Sepolia };
         serde_json::to_string(&c).unwrap();
     }
 }

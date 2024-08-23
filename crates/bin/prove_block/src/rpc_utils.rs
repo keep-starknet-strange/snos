@@ -5,9 +5,9 @@ use cairo_vm::Felt252;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
+use starknet::core::types::BlockWithTxs;
 use starknet_api::core::{ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
-use starknet_api::{contract_address, patricia_key};
+use starknet_api::{contract_address, felt, patricia_key};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Length, NodePath};
@@ -298,4 +298,16 @@ pub(crate) fn verify_proof<H: HashFunctionType>(key: Felt, commitment: Felt, pro
     }
 
     Ok(())
+}
+
+pub(crate) fn get_starknet_version(block_with_txs: &BlockWithTxs) -> blockifier::versioned_constants::StarknetVersion {
+    let starknet_version_str = &block_with_txs.starknet_version;
+    match starknet_version_str.as_ref() {
+        "0.13.0" => blockifier::versioned_constants::StarknetVersion::V0_13_0,
+        "0.13.1" => blockifier::versioned_constants::StarknetVersion::V0_13_1,
+        "0.13.1.1" => blockifier::versioned_constants::StarknetVersion::V0_13_1_1,
+        other => {
+            unimplemented!("Unsupported Starknet version: {}", other)
+        }
+    }
 }

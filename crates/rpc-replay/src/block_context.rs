@@ -1,15 +1,19 @@
-use blockifier::block::{BlockInfo, GasPrices};
+use blockifier::blockifier::block::{BlockInfo, GasPrices};
+use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::versioned_constants::VersionedConstants;
 use starknet::core::types::BlockWithTxs;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
-use starknet_api::{contract_address, patricia_key};
+use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
+use starknet_api::{contract_address, felt, patricia_key};
 
 use crate::utils::felt_to_u128;
 
-pub fn build_block_context(chain_id: String, block: &BlockWithTxs) -> BlockContext {
+pub fn build_block_context(
+    chain_id: ChainId,
+    block: &BlockWithTxs,
+    starknet_version: blockifier::versioned_constants::StarknetVersion,
+) -> BlockContext {
     let sequencer_address_hex = block.sequencer_address.to_hex_string();
     let sequencer_address = contract_address!(sequencer_address_hex.as_str());
 
@@ -27,7 +31,7 @@ pub fn build_block_context(chain_id: String, block: &BlockWithTxs) -> BlockConte
     };
 
     let chain_info = ChainInfo {
-        chain_id: starknet_api::core::ChainId(chain_id),
+        chain_id,
         // cf. https://docs.starknet.io/tools/important-addresses/
         fee_token_addresses: FeeTokenAddresses {
             strk_fee_token_address: contract_address!(
@@ -39,7 +43,8 @@ pub fn build_block_context(chain_id: String, block: &BlockWithTxs) -> BlockConte
         },
     };
 
-    let versioned_constants = VersionedConstants::latest_constants();
+    let versioned_constants = VersionedConstants::get(starknet_version);
+    let bouncer_config = BouncerConfig::max();
 
-    BlockContext::new_unchecked(&block_info, &chain_info, versioned_constants)
+    BlockContext::new(block_info, chain_info, versioned_constants.clone(), bouncer_config)
 }

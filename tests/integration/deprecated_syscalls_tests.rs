@@ -5,6 +5,7 @@
 //! Each test in this file calls a single entrypoint and returns to test syscalls individually.
 
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::context::BlockContext;
@@ -18,11 +19,10 @@ use blockifier::transaction::transaction_execution::Transaction;
 use cairo_vm::Felt252;
 use num_traits::ToPrimitive;
 use rstest::rstest;
-use starknet_api::core::{calculate_contract_address, ChainId};
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::core::calculate_contract_address;
+use starknet_api::felt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionVersion};
-use starknet_os::utils::{felt_api2vm, felt_vm2api};
+use starknet_os::utils::felt_api2vm;
 use starknet_os_types::chain_id::chain_id_to_felt;
 
 use crate::common::block_context;
@@ -53,7 +53,7 @@ async fn test_syscall_library_call_cairo0(
     let test_contract_class_hash = test_contract.declaration.class_hash;
     let selector_felt = selector_from_name("return_result");
 
-    let return_result_calldata = vec![stark_felt!(1u128), stark_felt!(42u128)];
+    let return_result_calldata = vec![felt!(1u128), felt!(42u128)];
 
     let entrypoint_args = &[vec![test_contract_class_hash.0], vec![selector_felt.0], return_result_calldata].concat();
 
@@ -95,7 +95,7 @@ async fn test_syscall_get_block_number_cairo0(
     let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
     let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
 
-    let expected_block_number = stark_felt!(block_context.block_info().block_number.0);
+    let expected_block_number = felt!(block_context.block_info().block_number.0);
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
@@ -135,7 +135,7 @@ async fn test_syscall_get_block_timestamp_cairo0(
     let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
     let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
 
-    let expected_block_timestamp = stark_felt!(block_context.block_info().block_timestamp.0);
+    let expected_block_timestamp = felt!(block_context.block_info().block_timestamp.0);
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
@@ -177,7 +177,7 @@ async fn test_syscall_get_tx_info_cairo0(
 
     let tx_version = TransactionVersion::ZERO;
 
-    let expected_chain_id = felt_vm2api(chain_id_to_felt(&ChainId("SN_GOERLI".to_string())));
+    let expected_chain_id = chain_id_to_felt(&block_context.chain_info().chain_id);
 
     let mut nonce_manager = NonceManager::default();
     let nonce = nonce_manager.next(sender_address);
@@ -185,9 +185,8 @@ async fn test_syscall_get_tx_info_cairo0(
     // Note: we use `test_get_tx_info_no_tx_hash_check()` instead of `test_get_tx_info()`
     // because it is pretty much impossible to generate a tx whose hash is equal to the expected
     // hash that must be set in the calldata.
-    let tx_hash = TransactionHash(
-        StarkFelt::try_from("0x8704f5e69650b81810a420373c21885aa6e75a8c46e34095e12a2a5231815f").unwrap(),
-    );
+    let tx_hash =
+        TransactionHash(Felt252::from_str("0x8704f5e69650b81810a420373c21885aa6e75a8c46e34095e12a2a5231815f").unwrap());
     let tx = {
         let mut invoke_tx = invoke_tx(invoke_tx_args! {
             max_fee,
@@ -195,7 +194,7 @@ async fn test_syscall_get_tx_info_cairo0(
             calldata: create_calldata(contract_address, "test_get_tx_info_no_tx_hash_check", &[
                 tx_version.0, // expected version
                 *sender_address.key(), // expected contract address
-                stark_felt!(max_fee.0), // expected max fee
+                felt!(max_fee.0), // expected max fee
                 expected_chain_id, // expected chain ID
                 nonce.0, // expected nonce
             ]),
@@ -235,7 +234,7 @@ async fn test_syscall_get_tx_info_cairo0(
             (Felt252::from(311), felt_api2vm(expected_chain_id)),
         ]);
 
-        if nonce.0 != StarkFelt::ZERO {
+        if nonce.0 != Felt252::ZERO {
             changes.insert(Felt252::from(322), felt_api2vm(nonce.0));
         }
         changes
@@ -344,12 +343,12 @@ async fn test_syscall_deploy_cairo0(
     let class_hash = test_contract.declaration.class_hash;
 
     let contract_address_salt = ContractAddressSalt::default();
-    let constructor_args = vec![StarkFelt::from(100u64), StarkFelt::from(200u64)];
+    let constructor_args = vec![Felt252::from(100u64), Felt252::from(200u64)];
     let test_deploy_args = &[
         vec![class_hash.0, contract_address_salt.0],
-        vec![StarkFelt::from(constructor_args.len() as u64)],
+        vec![Felt252::from(constructor_args.len() as u64)],
         constructor_args.clone(),
-        vec![StarkFelt::ZERO],
+        vec![Felt252::ZERO],
     ]
     .concat();
 
@@ -453,15 +452,15 @@ async fn test_syscall_get_contract_address_cairo0(
     let class_hash = test_contract.declaration.class_hash;
 
     let contract_address_salt = ContractAddressSalt::default();
-    let constructor_args = vec![StarkFelt::from(100u64), StarkFelt::from(200u64)];
+    let constructor_args = vec![Felt252::from(100u64), Felt252::from(200u64)];
 
     // Build the args required for calling test_contract_address. Check the Cairo code for
     // more details.
     let test_contract_address_args = &[
         vec![contract_address_salt.0, class_hash.0],
-        vec![StarkFelt::from(constructor_args.len() as u64)],
+        vec![Felt252::from(constructor_args.len() as u64)],
         constructor_args.clone(),
-        vec![StarkFelt::ZERO], // deployer_address
+        vec![Felt252::ZERO], // deployer_address
     ]
     .concat();
 
@@ -508,12 +507,12 @@ async fn test_syscall_emit_event_cairo0(
     let contract_address = test_contract.address;
 
     let tx_version = TransactionVersion::ZERO;
-    let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
-    let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
+    let keys = vec![felt!(2019_u16), felt!(2020_u16)];
+    let data = vec![felt!(2021_u16), felt!(2022_u16), felt!(2023_u16)];
     let entrypoint_args = &[
-        vec![stark_felt!(u128::try_from(keys.len()).unwrap())],
+        vec![felt!(u128::try_from(keys.len()).unwrap())],
         keys,
-        vec![stark_felt!(u128::try_from(data.len()).unwrap())],
+        vec![felt!(u128::try_from(data.len()).unwrap())],
         data,
     ]
     .concat();
@@ -561,7 +560,7 @@ async fn test_syscall_send_message_to_l1_cairo0(
     const PAYLOAD_2: u64 = 34;
 
     let tx_version = TransactionVersion::ZERO;
-    let to_address = stark_felt!(ADDRESS);
+    let to_address = felt!(ADDRESS);
 
     let entrypoint_args = &[vec![to_address]].concat();
 
