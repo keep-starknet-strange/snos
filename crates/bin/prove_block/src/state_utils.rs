@@ -118,6 +118,9 @@ fn get_class_modifications(
     class_modifications
 }
 
+/// Given the empty leaves of `accessed_addresses` from the contract trie,
+/// use the `ProcessedStateUpdate` to create the correct contract states 
+/// and update the contract trie accordingly.
 async fn update_empty_contract_state_with_block_incoming_changes(
     empty_contract_states: &mut HashMap<TreeIndex, ContractState>,
     processed_state_update: &ProcessedStateUpdate,
@@ -147,6 +150,11 @@ async fn update_empty_contract_state_with_block_incoming_changes(
     Ok(updated_contract_states)
 }
 
+/// Given the `block_id` of the target block to prove, it:
+/// - Fetches the state update using the `starknet_getStateUpdate` RPC call.
+/// - Fetches block transaction traces to obtain all accessed contract addresses in that block.
+/// - Formats the RPC state updates to be "SharedState compatible."
+/// - Consolidates that information into a `ProcessedStateUpdate`.
 pub(crate) async fn get_processed_state_update(
     provider: &JsonRpcClient<HttpTransport>,
     block_id: BlockId,
@@ -166,10 +174,10 @@ pub(crate) async fn get_processed_state_update(
     let contracts_subcalled: HashSet<Felt252> = get_subcalled_contracts_from_tx_traces(&traces);
 
     let address_to_class_hash: HashMap<Felt252, Felt252> =
-        process_deployed_contracts(&state_diff, &contracts_subcalled, provider, block_id).await;
-    let address_to_nonce: HashMap<Felt252, Felt252> = process_state_update_nonces(&state_diff, transactions);
-    let class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = process_declared_classes(&state_diff);
-    let storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>> = process_storage_updates(&state_diff);
+        format_deployed_contracts(&state_diff, &contracts_subcalled, provider, block_id).await;
+    let address_to_nonce: HashMap<Felt252, Felt252> = format_state_update_nonces(&state_diff, transactions);
+    let class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = format_declared_classes(&state_diff);
+    let storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>> = format_storage_updates(&state_diff);
 
     // Collect keys without consuming the HashMaps by borrowing and cloning the keys
     let accessed_addresses: HashSet<Felt252> = address_to_class_hash
@@ -188,7 +196,8 @@ pub(crate) async fn get_processed_state_update(
     }
 }
 
-fn process_state_update_nonces(
+/// Format StateDiff's NonceUpdate to a HashMap<contract_address, nonce>
+fn format_state_update_nonces(
     state_diff: &StateDiff,
     transactions: &[InternalTransaction],
 ) -> HashMap<Felt252, Felt252> {
@@ -210,13 +219,15 @@ fn process_state_update_nonces(
     address_to_nonce
 }
 
-fn process_declared_classes(state_diff: &StateDiff) -> HashMap<Felt252, Felt252> {
+/// Format StateDiff's DeclaredClassItem to a HashMap<class_hash, compiled_class_hash>
+fn format_declared_classes(state_diff: &StateDiff) -> HashMap<Felt252, Felt252> {
     let class_hash_to_compiled_class_hash =
         state_diff.declared_classes.iter().map(|class| (class.class_hash, class.compiled_class_hash)).collect();
     class_hash_to_compiled_class_hash
 }
 
-fn process_storage_updates(state_diff: &StateDiff) -> HashMap<Felt252, HashMap<Felt252, Felt252>> {
+/// Format StateDiff's ContractStorageDiffItem to a HashMap<contract_address, HashMap<key, value>>
+fn format_storage_updates(state_diff: &StateDiff) -> HashMap<Felt252, HashMap<Felt252, Felt252>> {
     let storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>> = state_diff
         .storage_diffs
         .iter()
@@ -228,7 +239,10 @@ fn process_storage_updates(state_diff: &StateDiff) -> HashMap<Felt252, HashMap<F
     storage_updates
 }
 
-async fn process_deployed_contracts(
+/// Formats `StateDiff`'s `DeployedContractItem` into a `HashMap<contract_address, class_hash>`.
+/// It also takes all subcalled contract addresses (which may or may not have diffs) 
+/// and fetches the class hash if it wasn't included in the `StateDiff`.
+async fn format_deployed_contracts(
     state_diff: &StateDiff,
     contracts_subcalled: &HashSet<Felt252>,
     provider: &JsonRpcClient<HttpTransport>,
