@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
+use anyhow::Result;
 
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
@@ -43,7 +43,7 @@ pub(crate) async fn build_initial_state(
     provider: &JsonRpcClient<HttpTransport>,
     block_id: BlockId,
     processed_state_update: &ProcessedStateUpdate,
-) -> Result<(HashSet<Felt252>, SharedState<CachedRpcStorage, PedersenHash>), Box<dyn Error>> {
+) -> Result<(HashSet<Felt252>, SharedState<CachedRpcStorage, PedersenHash>)> {
     // initialize storage. We use a CachedStorage with a RcpStorage as the main storage, meaning
     // that a DictStorage serves as the cache layer and we will use Pathfinder RPC for cache misses
     let rpc_storage = RpcStorage::new();
@@ -121,7 +121,7 @@ async fn update_empty_contract_state_with_block_incoming_changes(
     provider: &JsonRpcClient<HttpTransport>,
     block_id: BlockId,
     ffc: &mut FactFetchingContext<CachedRpcStorage, PedersenHash>,
-) -> Result<HashMap<TreeIndex, ContractState>, Box<dyn Error>> {
+) -> Result<HashMap<TreeIndex, ContractState>> {
     // Update contract storage roots with cached changes.
     let empty_updates = HashMap::new();
     let mut updated_contract_states: HashMap<num_bigint::BigUint, ContractState> = HashMap::new();
