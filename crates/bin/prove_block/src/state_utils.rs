@@ -78,8 +78,8 @@ pub(crate) async fn build_initial_state(
     // Update class trie with declared classes
     let updated_global_class_root: Option<PatriciaTree> = match shared_state.contract_classes {
         Some(class_trie) => {
-            let classes_modifications = update_empty_class_trie_with_block_incoming_changes(processed_state_update);
-            Some(class_trie.update(&mut ffc_for_contract_class, classes_modifications, &mut facts).await?)
+            let class_modifications = get_class_modifications(processed_state_update);
+            Some(class_trie.update(&mut ffc_for_contract_class, class_modifications, &mut facts).await?)
         }
         None => {
             assert_eq!(
@@ -104,15 +104,18 @@ pub(crate) async fn build_initial_state(
     ))
 }
 
-fn update_empty_class_trie_with_block_incoming_changes(
+/// Given the `class_hash_to_compiled_class_hash` HashMap from `ProcessedStateUpdate`,
+/// it formats the `compiled_class_hash` into a `ContractClassLeaf`.
+/// This is necessary to provide these modifications in the correct format to update the class trie.
+fn get_class_modifications(
     processed_state_update: &ProcessedStateUpdate,
 ) -> Vec<(BigUint, ContractClassLeaf)> {
-    let classes_modifications = processed_state_update
+    let class_modifications = processed_state_update
         .class_hash_to_compiled_class_hash
         .iter()
         .map(|(key, value)| (key.to_biguint(), ContractClassLeaf::create(*value)))
         .collect();
-    classes_modifications
+    class_modifications
 }
 
 async fn update_empty_contract_state_with_block_incoming_changes(
