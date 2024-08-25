@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
-use anyhow::Result;
 
+use anyhow::Result;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use starknet::core::types::{BlockId, MaybePendingStateUpdate, StateDiff};
@@ -107,9 +107,7 @@ pub(crate) async fn build_initial_state(
 /// Given the `class_hash_to_compiled_class_hash` HashMap from `ProcessedStateUpdate`,
 /// it formats the `compiled_class_hash` into a `ContractClassLeaf`.
 /// This is necessary to provide these modifications in the correct format to update the class trie.
-fn get_class_modifications(
-    processed_state_update: &ProcessedStateUpdate,
-) -> Vec<(BigUint, ContractClassLeaf)> {
+fn get_class_modifications(processed_state_update: &ProcessedStateUpdate) -> Vec<(BigUint, ContractClassLeaf)> {
     let class_modifications = processed_state_update
         .class_hash_to_compiled_class_hash
         .iter()
@@ -119,7 +117,7 @@ fn get_class_modifications(
 }
 
 /// Given the empty leaves of `accessed_addresses` from the contract trie,
-/// use the `ProcessedStateUpdate` to create the correct contract states 
+/// use the `ProcessedStateUpdate` to create the correct contract states
 /// and update the contract trie accordingly.
 async fn update_empty_contract_state_with_block_incoming_changes(
     empty_contract_states: &mut HashMap<TreeIndex, ContractState>,
@@ -240,7 +238,7 @@ fn format_storage_updates(state_diff: &StateDiff) -> HashMap<Felt252, HashMap<Fe
 }
 
 /// Formats `StateDiff`'s `DeployedContractItem` into a `HashMap<contract_address, class_hash>`.
-/// It also takes all subcalled contract addresses (which may or may not have diffs) 
+/// It also takes all subcalled contract addresses (which may or may not have diffs)
 /// and fetches the class hash if it wasn't included in the `StateDiff`.
 async fn format_deployed_contracts(
     state_diff: &StateDiff,
