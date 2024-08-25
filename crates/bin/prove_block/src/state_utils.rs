@@ -133,9 +133,9 @@ async fn update_empty_contract_state_with_block_incoming_changes(
     for address in processed_state_update.accessed_addresses.iter() {
         // unwrap() is safe as an entry is guaranteed to be present with `get_leaves()`.
         let tree_index = address.to_biguint();
-        let updates = processed_state_update.storage_updates.get(&address).unwrap_or(&empty_updates);
-        let nonce = processed_state_update.address_to_nonce.get(&address).copied();
-        let mut class_hash = processed_state_update.address_to_class_hash.get(&address).copied();
+        let updates = processed_state_update.storage_updates.get(address).unwrap_or(&empty_updates);
+        let nonce = processed_state_update.address_to_nonce.get(address).copied();
+        let mut class_hash = processed_state_update.address_to_class_hash.get(address).copied();
         if class_hash.is_none() {
             let resp = provider.get_class_hash_at(block_id, address).await;
             class_hash = if let Ok(class_hash) = resp { Some(class_hash) } else { Some(Felt252::ZERO) };
