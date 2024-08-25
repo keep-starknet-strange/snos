@@ -130,12 +130,12 @@ async fn update_empty_contract_state_with_block_incoming_changes(
     let empty_updates = HashMap::new();
     let mut updated_contract_states: HashMap<num_bigint::BigUint, ContractState> = HashMap::new();
 
-    for address in processed_state_update.accessed_addresses.clone() {
+    for address in processed_state_update.accessed_addresses.iter() {
         // unwrap() is safe as an entry is guaranteed to be present with `get_leaves()`.
         let tree_index = address.to_biguint();
         let updates = processed_state_update.storage_updates.get(&address).unwrap_or(&empty_updates);
-        let nonce = processed_state_update.address_to_nonce.get(&address).cloned();
-        let mut class_hash = processed_state_update.address_to_class_hash.get(&address).cloned();
+        let nonce = processed_state_update.address_to_nonce.get(&address).copied();
+        let mut class_hash = processed_state_update.address_to_class_hash.get(&address).copied();
         if class_hash.is_none() {
             let resp = provider.get_class_hash_at(block_id, address).await;
             class_hash = if let Ok(class_hash) = resp { Some(class_hash) } else { Some(Felt252::ZERO) };
@@ -180,7 +180,7 @@ pub(crate) async fn get_processed_state_update(
     // Collect keys without consuming the HashMaps by borrowing and cloning the keys
     let accessed_addresses: HashSet<Felt252> = address_to_class_hash
         .keys()
-        .cloned()
+        .copied()
         .chain(address_to_nonce.keys().cloned())
         .chain(storage_updates.keys().cloned())
         .collect();
