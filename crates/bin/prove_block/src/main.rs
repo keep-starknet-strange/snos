@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    // We only need to get the older block number and hash
+    // We only need to get the older block number and hash. No need to fetch all the txs
     let older_block =
         match provider.get_block_with_tx_hashes(BlockId::Number(block_number - STORED_BLOCK_HASH_BUFFER)).await.unwrap() {
             MaybePendingBlockWithTxHashes::Block(block_with_txs_hashes) => block_with_txs_hashes,
@@ -140,7 +140,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let old_block_hash = older_block.block_hash;
 
     // TODO: nasty clone, the conversion fns don't take references
-    let mut transactions: Vec<_> =
+    let transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
     let processed_state_update = get_processed_state_update(&provider, block_id, &transactions).await;
@@ -149,33 +149,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let (accessed_contracts, mut initial_state) =
         build_initial_state(&provider, block_id, &processed_state_update).await?;
 
-    let mut address_to_class_hash = processed_state_update.address_to_class_hash.clone();
     let mut class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash.clone();
 
     // fill in class hashes for each accessed contract
-    for address in &accessed_contracts {
-        if *address != Felt252::ONE && !address_to_class_hash.contains_key(address) {
-            log::info!("Querying missing class hash for {}", address);
-            let class_hash = provider.get_class_hash_at(BlockId::Number(block_number), address).await.unwrap();
-            log::info!("Got class hash: {} => {}", address, class_hash);
-            address_to_class_hash.insert(*address, class_hash);
-        }
-    }
+    // for address in &accessed_contracts {
+    //     if *address != Felt252::ONE && !address_to_class_hash.contains_key(address) {
+    //         log::info!("Querying missing class hash for {}", address);
+    //         let class_hash = provider.get_class_hash_at(BlockId::Number(block_number), address).await.unwrap();
+    //         log::info!("Got class hash: {} => {}", address, class_hash);
+    //         address_to_class_hash.insert(*address, class_hash);
+    //     }
+    // }
 
     // TODO: clean up...
     // now that we have the class_hash for each contract, fill in the transaction data with the
     // class_hash. when transactions were first processed above, this information wasn't available.
-    for transaction in transactions.iter_mut() {
-        if let Some(sender_address) = transaction.sender_address {
-            let class_hash = address_to_class_hash
-                .get(&sender_address)
-                .expect("should have a class_hash for each known contract addresses at this point");
-            transaction.class_hash = Some(*class_hash);
-        } else {
-            // TODO: are there txn types which wouldn't have a sender address?
-            unimplemented!("Found transaction without sender_address");
-        }
-    }
+    // for transaction in transactions.iter_mut() {
+    //     if let Some(sender_address) = transaction.sender_address {
+    //         let class_hash = address_to_class_hash
+    //             .get(&sender_address)
+    //             .expect("should have a class_hash for each known contract addresses at this point");
+    //         transaction.class_hash = Some(*class_hash);
+    //     } else {
+    //         // TODO: are there txn types which wouldn't have a sender address?
+    //         unimplemented!("Found transaction without sender_address");
+    //     }
+    // }
 
     // Workaround for JsonRpcClient not implementing Clone
     let provider_for_blockifier = JsonRpcClient::new(HttpTransport::new(
