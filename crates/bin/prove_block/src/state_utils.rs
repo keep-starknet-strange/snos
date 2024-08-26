@@ -23,7 +23,7 @@ use crate::rpc_utils::{CachedRpcStorage, RpcStorage};
 use crate::utils::get_subcalled_contracts_from_tx_traces;
 
 #[derive(Clone)]
-pub struct ProcessedStateUpdate {
+pub struct FormattedStateUpdate {
     // TODO: Use more descriptive types
     pub address_to_class_hash: HashMap<Felt252, Felt252>,
     pub address_to_nonce: HashMap<Felt252, Felt252>,
@@ -42,7 +42,7 @@ pub struct ProcessedStateUpdate {
 pub(crate) async fn build_initial_state(
     provider: &JsonRpcClient<HttpTransport>,
     block_id: BlockId,
-    processed_state_update: &ProcessedStateUpdate,
+    processed_state_update: &FormattedStateUpdate,
 ) -> Result<(HashSet<Felt252>, SharedState<CachedRpcStorage, PedersenHash>)> {
     // initialize storage. We use a CachedStorage with a RcpStorage as the main storage, meaning
     // that a DictStorage serves as the cache layer and we will use Pathfinder RPC for cache misses
@@ -104,10 +104,10 @@ pub(crate) async fn build_initial_state(
     ))
 }
 
-/// Given the `class_hash_to_compiled_class_hash` HashMap from `ProcessedStateUpdate`,
+/// Given the `class_hash_to_compiled_class_hash` HashMap from `FormattedStateUpdate`,
 /// it formats the `compiled_class_hash` into a `ContractClassLeaf`.
 /// This is necessary to provide these modifications in the correct format to update the class trie.
-fn get_class_modifications(processed_state_update: &ProcessedStateUpdate) -> Vec<(BigUint, ContractClassLeaf)> {
+fn get_class_modifications(processed_state_update: &FormattedStateUpdate) -> Vec<(BigUint, ContractClassLeaf)> {
     let class_modifications = processed_state_update
         .class_hash_to_compiled_class_hash
         .iter()
@@ -117,11 +117,11 @@ fn get_class_modifications(processed_state_update: &ProcessedStateUpdate) -> Vec
 }
 
 /// Given the empty leaves of `accessed_addresses` from the contract trie,
-/// use the `ProcessedStateUpdate` to create the correct contract states
+/// use the `FormattedStateUpdate` to create the correct contract states
 /// and update the contract trie accordingly.
 async fn update_empty_contract_state_with_block_incoming_changes(
     empty_contract_states: &mut HashMap<TreeIndex, ContractState>,
-    processed_state_update: &ProcessedStateUpdate,
+    processed_state_update: &FormattedStateUpdate,
     provider: &JsonRpcClient<HttpTransport>,
     block_id: BlockId,
     ffc: &mut FactFetchingContext<CachedRpcStorage, PedersenHash>,
@@ -131,7 +131,6 @@ async fn update_empty_contract_state_with_block_incoming_changes(
     let mut updated_contract_states: HashMap<num_bigint::BigUint, ContractState> = HashMap::new();
 
     for address in processed_state_update.accessed_addresses.iter() {
-        // unwrap() is safe as an entry is guaranteed to be present with `get_leaves()`.
         let tree_index = address.to_biguint();
         let updates = processed_state_update.storage_updates.get(address).unwrap_or(&empty_updates);
         let nonce = processed_state_update.address_to_nonce.get(address).copied();
@@ -141,6 +140,7 @@ async fn update_empty_contract_state_with_block_incoming_changes(
             class_hash = if let Ok(class_hash) = resp { Some(class_hash) } else { Some(Felt252::ZERO) };
         }
         let updated_contract_state =
+            // unwrap() is safe as an entry is guaranteed to be present with `get_leaves()`.
             empty_contract_states.remove(&tree_index).unwrap().update(ffc, updates, nonce, class_hash).await?;
 
         updated_contract_states.insert(tree_index, updated_contract_state);
@@ -152,12 +152,12 @@ async fn update_empty_contract_state_with_block_incoming_changes(
 /// - Fetches the state update using the `starknet_getStateUpdate` RPC call.
 /// - Fetches block transaction traces to obtain all accessed contract addresses in that block.
 /// - Formats the RPC state updates to be "SharedState compatible."
-/// - Consolidates that information into a `ProcessedStateUpdate`.
+/// - Consolidates that information into a `FormattedStateUpdate`.
 pub(crate) async fn get_processed_state_update(
     provider: &JsonRpcClient<HttpTransport>,
     block_id: BlockId,
     transactions: &[InternalTransaction],
-) -> ProcessedStateUpdate {
+) -> FormattedStateUpdate {
     let state_update = match provider.get_state_update(block_id).await.expect("Failed to get state update") {
         MaybePendingStateUpdate::Update(update) => update,
         MaybePendingStateUpdate::PendingUpdate(_) => {
@@ -185,7 +185,7 @@ pub(crate) async fn get_processed_state_update(
         .chain(storage_updates.keys().cloned())
         .collect();
 
-    ProcessedStateUpdate {
+    FormattedStateUpdate {
         address_to_class_hash,
         address_to_nonce,
         class_hash_to_compiled_class_hash,
