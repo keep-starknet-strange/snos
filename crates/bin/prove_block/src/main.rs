@@ -11,7 +11,7 @@ use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
 use rpc_utils::{get_class_proofs, get_storage_proofs, TrieNode};
-use starknet::core::types::{BlockId, MaybePendingBlockWithTxs};
+use starknet::core::types::{BlockId, MaybePendingBlockWithTxs, MaybePendingBlockWithTxHashes};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
@@ -124,10 +124,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
             panic!("Block is still pending!");
         }
     };
+
+    // We only need to get the older block number and hash
     let older_block =
-        match provider.get_block_with_txs(BlockId::Number(block_number - STORED_BLOCK_HASH_BUFFER)).await.unwrap() {
-            MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
-            MaybePendingBlockWithTxs::PendingBlock(_) => {
+        match provider.get_block_with_tx_hashes(BlockId::Number(block_number - STORED_BLOCK_HASH_BUFFER)).await.unwrap() {
+            MaybePendingBlockWithTxHashes::Block(block_with_txs_hashes) => block_with_txs_hashes,
+            MaybePendingBlockWithTxHashes::PendingBlock(_) => {
                 panic!("Block is still pending!");
             }
         };
