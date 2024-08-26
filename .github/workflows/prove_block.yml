@@ -1,4 +1,4 @@
-name: Prove Blocks
+name: Sepolia integration tests
 
 on:
   push:
