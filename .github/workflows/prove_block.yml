@@ -7,7 +7,7 @@ on:
   pull_request:
     paths:
       - "crates/bin/prove_block/**"
-      - ".github/workflows/prove_block.yaml"
+      - ".github/workflows/prove_block.yml"
 
 jobs:
   build:
