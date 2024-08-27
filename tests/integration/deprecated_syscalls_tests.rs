@@ -177,7 +177,7 @@ async fn test_syscall_get_tx_info_cairo0(
 
     let tx_version = TransactionVersion::ZERO;
 
-    let expected_chain_id = felt_vm2api(chain_id_to_felt(ChainId("SN_GOERLI".to_string())));
+    let expected_chain_id = felt_vm2api(chain_id_to_felt(&ChainId("SN_GOERLI".to_string())));
 
     let mut nonce_manager = NonceManager::default();
     let nonce = nonce_manager.next(sender_address);

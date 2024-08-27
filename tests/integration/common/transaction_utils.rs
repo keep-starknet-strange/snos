@@ -385,13 +385,13 @@ pub fn l1_tx_compute_hash(
 }
 
 /// Convert an Transaction to a SNOS InternalTransaction
-pub fn to_internal_tx(tx: &Transaction, chain_id: ChainId) -> InternalTransaction {
+pub fn to_internal_tx(tx: &Transaction, chain_id: &ChainId) -> InternalTransaction {
     match tx {
         Transaction::AccountTransaction(account_tx) => account_tx_to_internal_tx(account_tx, chain_id),
         Transaction::L1HandlerTransaction(l1_tx) => to_internal_l1_handler_tx(l1_tx, chain_id),
     }
 }
-fn account_tx_to_internal_tx(account_tx: &AccountTransaction, chain_id: ChainId) -> InternalTransaction {
+fn account_tx_to_internal_tx(account_tx: &AccountTransaction, chain_id: &ChainId) -> InternalTransaction {
     match account_tx {
         Declare(declare_tx) => {
             match &declare_tx.tx() {
@@ -423,7 +423,7 @@ fn account_tx_to_internal_tx(account_tx: &AccountTransaction, chain_id: ChainId)
         },
     }
 }
-fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction, chain_id: ChainId) -> InternalTransaction {
+fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction, chain_id: &ChainId) -> InternalTransaction {
     let contract_address = felt_api2vm(*l1_tx.tx.contract_address.0);
     let entry_point_selector = felt_api2vm(l1_tx.tx.entry_point_selector.0);
     let txinfo = l1_tx.create_tx_info();
@@ -433,10 +433,10 @@ fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction, chain_id: ChainId) ->
     };
     let signature = signature.0.iter().map(to_felt252).collect();
     let calldata: Vec<_> = l1_tx.tx.calldata.0.iter().map(to_felt252).collect();
-    let chain_id = chain_id_to_felt(chain_id);
+    let chain_id_felt = chain_id_to_felt(chain_id);
     let nonce = felt_api2vm(l1_tx.tx.nonce.0);
     let fee = Felt252::ZERO;
-    let hash_value = l1_tx_compute_hash(contract_address, entry_point_selector, &calldata, fee, chain_id, nonce);
+    let hash_value = l1_tx_compute_hash(contract_address, entry_point_selector, &calldata, fee, chain_id_felt, nonce);
 
     InternalTransaction {
         hash_value,
@@ -457,7 +457,7 @@ fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction, chain_id: ChainId) ->
 pub fn to_internal_declare_v1_tx(
     account_tx: &AccountTransaction,
     tx: &DeclareTransactionV0V1,
-    chain_id: ChainId,
+    chain_id: &ChainId,
 ) -> InternalTransaction {
     let hash_value;
     let sender_address;
@@ -494,7 +494,7 @@ pub fn to_internal_declare_v1_tx(
 fn to_internal_deploy_v1_tx(
     account_tx: &AccountTransaction,
     tx: &DeployAccountTransactionV1,
-    chain_id: ChainId,
+    chain_id: &ChainId,
 ) -> InternalTransaction {
     let sender_address = match account_tx.create_tx_info() {
         TransactionInfo::Current(_) => unreachable!("TxV1 can only have deprecated variant"),
@@ -555,7 +555,7 @@ fn to_internal_deploy_v1_tx(
 pub fn to_internal_declare_v2_tx(
     account_tx: &AccountTransaction,
     tx: &DeclareTransactionV2,
-    chain_id: ChainId,
+    chain_id: &ChainId,
 ) -> InternalTransaction {
     let hash_value;
     let sender_address;
@@ -598,7 +598,7 @@ pub fn to_internal_declare_v2_tx(
 }
 
 /// Convert a DeclareTransactionV2 to a SNOS InternalTransaction
-pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3, chain_id: ChainId) -> InternalTransaction {
+pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3, chain_id: &ChainId) -> InternalTransaction {
     let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
     let entry_point_selector = to_felt252(&selector_from_name("__execute__").0);
     let sender_address = to_felt252(tx.sender_address.0.key());
@@ -650,7 +650,7 @@ pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3, chain_id: ChainId) -
 }
 
 /// Convert a InvokeTransactionV0 to a SNOS InternalTransaction
-pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0, chain_id: ChainId) -> InternalTransaction {
+pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0, chain_id: &ChainId) -> InternalTransaction {
     let max_fee = tx.max_fee.0.into();
     let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
     let entry_point_selector = to_felt252(&tx.entry_point_selector.0);
@@ -677,7 +677,7 @@ pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0, chain_id: ChainId) -> 
 }
 
 /// Convert a InvokeTransactionV1 to a SNOS InternalTransaction
-pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1, chain_id: ChainId) -> InternalTransaction {
+pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1, chain_id: &ChainId) -> InternalTransaction {
     let max_fee = tx.max_fee.0.into();
     let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
     let entry_point_selector = Some(to_felt252(&selector_from_name("__execute__").0));
@@ -704,7 +704,7 @@ pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1, chain_id: ChainId) -> 
 }
 
 /// Convert a InvokeTransactionV3 to a SNOS InternalTransaction
-pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3, chain_id: ChainId) -> InternalTransaction {
+pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3, chain_id: &ChainId) -> InternalTransaction {
     let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
     let entry_point_selector = to_felt252(&selector_from_name("__execute__").0);
     let calldata: Vec<_> = tx.calldata.0.iter().map(to_felt252).collect();
@@ -756,7 +756,7 @@ pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3, chain_id: ChainId) -> 
 pub fn to_internal_deploy_v3_tx(
     account_tx: &AccountTransaction,
     tx: &DeployAccountTransactionV3,
-    chain_id: ChainId,
+    chain_id: &ChainId,
 ) -> InternalTransaction {
     let sender_address = match account_tx {
         AccountTransaction::DeployAccount(a) => a.contract_address,
@@ -841,8 +841,7 @@ where
     let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
 
     state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
-    let internal_txs: Vec<_> =
-        txs.iter().map(|tx| to_internal_tx(tx, block_context.chain_info().chain_id.clone())).collect();
+    let internal_txs: Vec<_> = txs.iter().map(|tx| to_internal_tx(tx, &block_context.chain_info().chain_id)).collect();
     let execution_infos = txs
         .into_iter()
         .map(|tx| {

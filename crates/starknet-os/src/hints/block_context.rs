@@ -219,7 +219,7 @@ pub fn chain_id(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
-    let chain_id = chain_id_to_felt(os_input.general_config.starknet_os_config.chain_id.clone());
+    let chain_id = chain_id_to_felt(&os_input.general_config.starknet_os_config.chain_id);
     insert_value_into_ap(vm, chain_id)
 }
 
