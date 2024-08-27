@@ -18,12 +18,12 @@ use blockifier::transaction::transaction_execution::Transaction;
 use cairo_vm::Felt252;
 use num_traits::ToPrimitive;
 use rstest::rstest;
-use starknet_api::core::calculate_contract_address;
+use starknet_api::core::{calculate_contract_address, ChainId};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionVersion};
-use starknet_os::config::SN_GOERLI;
-use starknet_os::utils::felt_api2vm;
+use starknet_os::utils::{felt_api2vm, felt_vm2api};
+use starknet_os_types::chain_id::chain_id_to_felt;
 
 use crate::common::block_context;
 use crate::common::state::{initial_state_cairo0, StarknetTestState};
@@ -177,7 +177,7 @@ async fn test_syscall_get_tx_info_cairo0(
 
     let tx_version = TransactionVersion::ZERO;
 
-    let expected_chain_id = stark_felt!(SN_GOERLI);
+    let expected_chain_id = felt_vm2api(chain_id_to_felt(ChainId("SN_GOERLI".to_string())));
 
     let mut nonce_manager = NonceManager::default();
     let nonce = nonce_manager.next(sender_address);

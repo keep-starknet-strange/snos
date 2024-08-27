@@ -17,6 +17,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+use starknet_os_types::chain_id::chain_id_to_felt;
 
 use crate::cairo_types::structs::{CompiledClass, CompiledClassFact};
 use crate::hints::vars;
@@ -218,8 +219,7 @@ pub fn chain_id(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
-    let chain_id =
-        Felt252::from(u128::from_str_radix(&os_input.general_config.starknet_os_config.chain_id.0, 16).unwrap());
+    let chain_id = chain_id_to_felt(os_input.general_config.starknet_os_config.chain_id.clone());
     insert_value_into_ap(vm, chain_id)
 }
 

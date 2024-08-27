@@ -39,8 +39,6 @@ pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
 pub const DEFAULT_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const DEFAULT_DEPRECATED_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const SEQUENCER_ADDR_0_13_0: &str = "0x4acb67f8e29379b475ccc408fc8269c116f64b4fe5a625644c507d7df07132";
-pub const SN_GOERLI: &str = "534e5f474f45524c49";
-pub const SN_SEPOLIA: &str = "534e5f5345504f4c4941";
 pub const CONTRACT_ADDRESS_BITS: usize = 251;
 pub const CONTRACT_CLASS_LEAF_VERSION: &[u8] = "CONTRACT_CLASS_LEAF_V0".as_bytes();
 
@@ -93,7 +91,7 @@ impl Default for StarknetGeneralConfig {
     fn default() -> Self {
         Self {
             starknet_os_config: StarknetOsConfig {
-                chain_id: ChainId(SN_GOERLI.to_string()),
+                chain_id: ChainId("SN_GOERLI".to_string()),
                 fee_token_address: contract_address!(DEFAULT_FEE_TOKEN_ADDR),
                 deprecated_fee_token_address: contract_address!(DEFAULT_DEPRECATED_FEE_TOKEN_ADDR),
             },
