@@ -7,16 +7,10 @@ use starknet::core::types::{
     Transaction,
 };
 use starknet_os::io::InternalTransaction;
-use starknet_types_core::felt::Felt;
 
 // entry point for "__execute__"
 const EXECUTE_ENTRY_POINT_FELT: Felt252 =
     Felt252::from_hex_unchecked("0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad");
-
-fn felt_to_vm(felt: Felt) -> Felt252 {
-    // Turns out that the types are the same between starknet-core and cairo-vm
-    felt
-}
 
 fn da_to_felt(data_availability_mode: DataAvailabilityMode) -> Felt252 {
     match data_availability_mode {
@@ -26,34 +20,28 @@ fn da_to_felt(data_availability_mode: DataAvailabilityMode) -> Felt252 {
 }
 
 fn invoke_tx_v0_to_internal_tx(tx: InvokeTransactionV0) -> InternalTransaction {
-    let signature: Vec<_> = tx.signature.into_iter().map(felt_to_vm).collect();
-    let calldata: Vec<_> = tx.calldata.into_iter().map(felt_to_vm).collect();
-
     InternalTransaction {
-        hash_value: felt_to_vm(tx.transaction_hash),
-        max_fee: Some(felt_to_vm(tx.max_fee)),
-        signature: Some(signature),
-        contract_address: Some(felt_to_vm(tx.contract_address)),
-        entry_point_selector: Some(felt_to_vm(tx.entry_point_selector)),
-        calldata: Some(calldata),
+        hash_value: tx.transaction_hash,
+        max_fee: Some(tx.max_fee),
+        signature: Some(tx.signature),
+        contract_address: Some(tx.contract_address),
+        entry_point_selector: Some(tx.entry_point_selector),
+        calldata: Some(tx.calldata),
         version: Some(Felt252::ZERO),
         ..Default::default()
     }
 }
 fn invoke_tx_v1_to_internal_tx(tx: InvokeTransactionV1) -> InternalTransaction {
-    let signature: Vec<_> = tx.signature.into_iter().map(felt_to_vm).collect();
-    let calldata: Vec<_> = tx.calldata.into_iter().map(felt_to_vm).collect();
-
     InternalTransaction {
-        hash_value: felt_to_vm(tx.transaction_hash),
+        hash_value: tx.transaction_hash,
         version: Some(Felt252::ONE),
         contract_address: Some(tx.sender_address),
         nonce: Some(tx.nonce),
         sender_address: Some(tx.sender_address),
         entry_point_selector: Some(EXECUTE_ENTRY_POINT_FELT),
         entry_point_type: Some("EXTERNAL".to_string()),
-        signature: Some(signature),
-        calldata: Some(calldata),
+        signature: Some(tx.signature),
+        calldata: Some(tx.calldata),
         r#type: "INVOKE_FUNCTION".to_string(),
         max_fee: Some(tx.max_fee),
         ..Default::default()
@@ -61,27 +49,22 @@ fn invoke_tx_v1_to_internal_tx(tx: InvokeTransactionV1) -> InternalTransaction {
 }
 
 fn invoke_tx_v3_to_internal_tx(tx: InvokeTransactionV3) -> InternalTransaction {
-    let signature: Vec<_> = tx.signature.into_iter().map(felt_to_vm).collect();
-    let calldata: Vec<_> = tx.calldata.into_iter().map(felt_to_vm).collect();
-    let paymaster_data: Vec<_> = tx.paymaster_data.into_iter().map(felt_to_vm).collect();
-    let account_deployment_data: Vec<_> = tx.account_deployment_data.into_iter().map(felt_to_vm).collect();
-
     InternalTransaction {
-        hash_value: felt_to_vm(tx.transaction_hash),
-        sender_address: Some(felt_to_vm(tx.sender_address)),
-        signature: Some(signature),
-        nonce: Some(felt_to_vm(tx.nonce)),
+        hash_value: tx.transaction_hash,
+        sender_address: Some(tx.sender_address),
+        signature: Some(tx.signature),
+        nonce: Some(tx.nonce),
         resource_bounds: Some(resource_bounds_core_to_api(&tx.resource_bounds)),
         tip: Some(Felt252::from(tx.tip)),
-        paymaster_data: Some(paymaster_data),
-        account_deployment_data: Some(account_deployment_data),
+        paymaster_data: Some(tx.paymaster_data),
+        account_deployment_data: Some(tx.account_deployment_data),
         nonce_data_availability_mode: Some(da_to_felt(tx.nonce_data_availability_mode)),
         fee_data_availability_mode: Some(da_to_felt(tx.fee_data_availability_mode)),
         version: Some(Felt252::TWO),
         contract_address: Some(tx.sender_address),
         entry_point_selector: Some(EXECUTE_ENTRY_POINT_FELT),
         entry_point_type: Some("EXTERNAL".to_string()),
-        calldata: Some(calldata),
+        calldata: Some(tx.calldata),
         ..Default::default()
     }
 }
@@ -223,6 +206,7 @@ pub(crate) fn starknet_rs_tx_to_internal_tx(tx: Transaction) -> InternalTransact
 #[cfg(test)]
 mod tests {
     use starknet::core::types::{ResourceBounds, ResourceBoundsMapping};
+    use starknet_types_core::felt::Felt;
 
     use super::*;
 
