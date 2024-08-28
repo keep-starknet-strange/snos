@@ -37,4 +37,4 @@ for BLOCK_NUMBER in "${BLOCK_NUMBERS[@]}"; do
   fi
 done
 
-echo "All blocks proved successfully."
+echo "All blocks proven successfully."
