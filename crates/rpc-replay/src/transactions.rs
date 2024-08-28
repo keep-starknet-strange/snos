@@ -73,21 +73,15 @@ pub fn starknet_rs_to_blockifier(
                         starknet_api::transaction::InvokeTransactionV3 {
                             resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
                             tip: starknet_api::transaction::Tip(tx.tip),
-                            signature: starknet_api::transaction::TransactionSignature(
-                                tx.signature.to_vec(),
-                            ),
+                            signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
                             nonce: starknet_api::core::Nonce(tx.nonce),
                             sender_address: starknet_api::core::ContractAddress(
                                 PatriciaKey::try_from(tx.sender_address).unwrap(),
                             ),
-                            calldata: starknet_api::transaction::Calldata(Arc::new(
-                                tx.calldata.to_vec(),
-                            )),
+                            calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
                             nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
                             fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
-                            paymaster_data: starknet_api::transaction::PaymasterData(
-                                tx.paymaster_data.to_vec(),
-                            ),
+                            paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.to_vec()),
                             account_deployment_data: starknet_api::transaction::AccountDeploymentData(
                                 tx.account_deployment_data.to_vec(),
                             ),
