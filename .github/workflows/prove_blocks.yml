@@ -47,4 +47,4 @@ jobs:
           bash scripts/setup-tests.sh
 
       - name: Prove Blocks
-        run: bash scripts/prove-blocks.sh -p ${{ secrets.PATHFINDER_RPC_URL }} -b 33911,33922,33928
+        run: bash scripts/prove-blocks.sh -p ${{ secrets.PATHFINDER_RPC_URL }} -b 76793,76766,76775
