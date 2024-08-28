@@ -29,7 +29,7 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use crate::storage::storage::{DbObject, FactFetchingContext, HashFunctionType, Storage, StorageError};
-use crate::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
+use crate::utils::{execute_coroutine, felt_api2vm};
 
 /// A class representing a combination of the onchain and offchain state.
 #[derive(Debug)]
@@ -382,7 +382,7 @@ where
             None => Felt252::ZERO,
         };
 
-        Ok(CompiledClassHash(felt_vm2api(compiled_class_hash)))
+        Ok(CompiledClassHash(compiled_class_hash))
     }
 
     async fn get_deprecated_compiled_class(
@@ -448,7 +448,7 @@ where
             .get(&storage_key)
             .ok_or(StateError::StateReadError(format!("get_storage_at_async: {:?}", storage_key)))?;
 
-        Ok(felt_vm2api(state.value))
+        Ok(state.value)
     }
 }
 
@@ -472,7 +472,7 @@ where
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         log::debug!("SharedState as StateReader: get_nonce_at {:?}", contract_address);
         let contract_state = self.get_contract_state(contract_address)?;
-        let nonce = Nonce(felt_vm2api(contract_state.nonce));
+        let nonce = Nonce(contract_state.nonce);
         log::debug!("       -> {:?}", nonce);
         Ok(nonce)
     }

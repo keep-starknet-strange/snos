@@ -14,7 +14,7 @@ use starknet_os::starkware_utils::commitment_tree::base_types::{Length, NodePath
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{Fact, HashFunctionType};
-use starknet_os::utils::{felt_api2vm, felt_vm2api};
+use starknet_os::utils::felt_api2vm;
 use starknet_types_core::felt::Felt;
 
 use crate::utils::get_all_accessed_keys;
@@ -137,7 +137,7 @@ pub(crate) async fn get_storage_proofs(
 ) -> Result<HashMap<Felt, PathfinderProof>, reqwest::Error> {
     let accessed_keys_by_address = {
         let mut keys = get_all_accessed_keys(tx_execution_infos);
-        keys.entry(contract_address!("0x1")).or_default().insert(felt_vm2api(old_block_number).try_into().unwrap());
+        keys.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
         keys
     };
 

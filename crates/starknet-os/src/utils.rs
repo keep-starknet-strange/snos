@@ -10,10 +10,6 @@ use starknet_api::core::ChainId;
 use starknet_os_types::chain_id::chain_id_to_felt;
 use tokio::task;
 
-pub fn felt_vm2api(felt: Felt252) -> Felt252 {
-    felt
-}
-
 pub fn felt_api2vm(felt: Felt252) -> Felt252 {
     felt
 }

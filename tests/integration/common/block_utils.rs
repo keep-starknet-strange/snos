@@ -21,7 +21,7 @@ use starknet_os::starknet::starknet_storage::{CommitmentInfo, OsSingleStarknetSt
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use starknet_os::storage::storage::Storage;
 use starknet_os::storage::storage_utils::build_starknet_storage_async;
-use starknet_os::utils::{felt_api2vm, felt_vm2api};
+use starknet_os::utils::felt_api2vm;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
@@ -45,7 +45,7 @@ where
         .map(|address_biguint| {
             // TODO: biguint is exacerbating the type conversion problem, ideas...?
             let address: ContractAddress =
-                ContractAddress(PatriciaKey::try_from(felt_vm2api(Felt252::from(address_biguint))).unwrap());
+                ContractAddress(PatriciaKey::try_from(Felt252::from(address_biguint)).unwrap());
             let contract_state = blockifier_state.state.get_contract_state(address).unwrap();
             (*address.0.key(), contract_state)
         })

@@ -10,7 +10,7 @@ use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass
 use starknet_os_types::hash::GenericClassHash;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
-use crate::utils::{execute_coroutine, felt_api2vm, felt_vm2api};
+use crate::utils::{execute_coroutine, felt_api2vm};
 
 pub struct AsyncRpcStateReader<T>
 where
@@ -48,7 +48,7 @@ where
             .await
             .map_err(provider_error_to_state_error)?;
 
-        Ok(felt_vm2api(storage_value))
+        Ok(storage_value)
     }
 
     pub async fn get_nonce_at_async(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
@@ -58,7 +58,7 @@ where
             .await
             .map_err(provider_error_to_state_error)?;
 
-        Ok(Nonce(felt_vm2api(nonce)))
+        Ok(Nonce(nonce))
     }
 
     pub async fn get_class_hash_at_async(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
@@ -68,7 +68,7 @@ where
             .await
             .map_err(provider_error_to_state_error)?;
 
-        Ok(ClassHash(felt_vm2api(nonce)))
+        Ok(ClassHash(nonce))
     }
 
     pub async fn get_compiled_contract_class_async(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
