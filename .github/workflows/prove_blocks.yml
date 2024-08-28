@@ -52,4 +52,5 @@ jobs:
           # * 76793: the first block that we managed to prove, only has a few invoke txs
           # * 76766 / 76775: additional basic blocks
           # * 86507 / 124533: a failing assert that happened because we used the wrong VersionedConstants
-          bash scripts/prove-blocks.sh -p ${{ secrets.PATHFINDER_RPC_URL }} -b 76793,76766,76775,86507,124533
+          # * 87019: diff assert values in contract subcall
+          bash scripts/prove-blocks.sh -p ${{ secrets.PATHFINDER_RPC_URL }} -b 76793,76766,76775,86507,87019,124533
