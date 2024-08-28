@@ -44,10 +44,6 @@ use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass
 
 use crate::common::block_utils::os_hints;
 
-pub fn to_felt252(stark_felt: &Felt252) -> Felt252 {
-    *stark_felt
-}
-
 const DECLARE_PREFIX: &[u8] = b"declare";
 const DEPLOY_ACCOUNT_PREFIX: &[u8] = b"deploy_account";
 const INVOKE_PREFIX: &[u8] = b"invoke";
@@ -430,8 +426,8 @@ fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction, chain_id: &ChainId) -
         TransactionInfo::Deprecated(tx) => tx.common_fields.signature,
         TransactionInfo::Current(tx) => tx.common_fields.signature,
     };
-    let signature = signature.0.iter().map(to_felt252).collect();
-    let calldata: Vec<_> = l1_tx.tx.calldata.0.iter().map(to_felt252).collect();
+    let signature = signature.0.iter().copied().collect();
+    let calldata: Vec<_> = l1_tx.tx.calldata.0.iter().copied().collect();
     let chain_id_felt = chain_id_to_felt(chain_id);
     let nonce = felt_api2vm(l1_tx.tx.nonce.0);
     let fee = Felt252::ZERO;
@@ -462,7 +458,7 @@ pub fn to_internal_declare_v1_tx(
     let sender_address;
     let class_hash;
     let max_fee = tx.max_fee.0.into();
-    let signature = tx.signature.0.iter().map(to_felt252).collect();
+    let signature = tx.signature.0.iter().copied().collect();
     let chain_id_felt = chain_id_to_felt(chain_id);
     let nonce = felt_api2vm(tx.nonce.0);
 
@@ -513,14 +509,14 @@ fn to_internal_deploy_v1_tx(
     );
 
     let max_fee: Felt252 = tx.max_fee.0.into();
-    let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
+    let signature = Some(tx.signature.0.iter().copied().collect());
     let entry_point_selector = Some(Felt252::ZERO);
     let chain_id_felt = chain_id_to_felt(chain_id);
     let nonce = felt_api2vm(tx.nonce.0);
 
     let class_hash = felt_api2vm(tx.class_hash.0);
 
-    let constructor_calldata: Vec<_> = tx.constructor_calldata.0.iter().map(to_felt252).collect();
+    let constructor_calldata: Vec<_> = tx.constructor_calldata.0.iter().copied().collect();
     let contract_address_salt = felt_api2vm(tx.contract_address_salt.0);
 
     let hash_value = tx_hash_deploy_account_v1(
@@ -560,7 +556,7 @@ pub fn to_internal_declare_v2_tx(
     let sender_address;
     let class_hash;
     let max_fee = tx.max_fee.0.into();
-    let signature = tx.signature.0.iter().map(to_felt252).collect();
+    let signature = tx.signature.0.iter().copied().collect();
     let nonce = felt_api2vm(tx.nonce.0);
     let chain_id_felt = chain_id_to_felt(chain_id);
 
@@ -598,9 +594,9 @@ pub fn to_internal_declare_v2_tx(
 
 /// Convert a DeclareTransactionV2 to a SNOS InternalTransaction
 pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3, chain_id: &ChainId) -> InternalTransaction {
-    let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
-    let entry_point_selector = to_felt252(&selector_from_name("__execute__").0);
-    let sender_address = to_felt252(tx.sender_address.0.key());
+    let signature = Some(tx.signature.0.iter().copied().collect());
+    let entry_point_selector = selector_from_name("__execute__").0;
+    let sender_address = *tx.sender_address.0.key();
     let nonce = felt_api2vm(tx.nonce.0);
     let chain_id_felt = chain_id_to_felt(chain_id);
     let tip = felt_api2vm(tx.tip.0.into());
@@ -609,8 +605,8 @@ pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3, chain_id: &ChainId) 
     let fee_data_availability_mode = Felt252::from(tx.fee_data_availability_mode as u64);
     let resource_bounds = &tx.resource_bounds;
 
-    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().map(to_felt252).collect();
-    let account_deployment_data: Vec<Felt252> = tx.account_deployment_data.0.iter().map(to_felt252).collect();
+    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().copied().collect();
+    let account_deployment_data: Vec<Felt252> = tx.account_deployment_data.0.iter().copied().collect();
     let class_hash = felt_api2vm(tx.class_hash.0);
     let compiled_class_hash = felt_api2vm(tx.compiled_class_hash.0);
     let hash_value = tx_hash_declare_v3(
@@ -651,10 +647,10 @@ pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3, chain_id: &ChainId) 
 /// Convert a InvokeTransactionV0 to a SNOS InternalTransaction
 pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0, chain_id: &ChainId) -> InternalTransaction {
     let max_fee = tx.max_fee.0.into();
-    let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
-    let entry_point_selector = to_felt252(&tx.entry_point_selector.0);
-    let calldata: Vec<_> = tx.calldata.0.iter().map(to_felt252).collect();
-    let contract_address = to_felt252(tx.contract_address.0.key());
+    let signature = Some(tx.signature.0.iter().copied().collect());
+    let entry_point_selector = tx.entry_point_selector.0;
+    let calldata: Vec<_> = tx.calldata.0.iter().copied().collect();
+    let contract_address = *tx.contract_address.0.key();
     let chain_id_felt = chain_id_to_felt(chain_id);
     let hash_value =
         tx_hash_invoke_v0(contract_address, entry_point_selector, calldata.clone(), max_fee, chain_id_felt);
@@ -678,10 +674,10 @@ pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0, chain_id: &ChainId) ->
 /// Convert a InvokeTransactionV1 to a SNOS InternalTransaction
 pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1, chain_id: &ChainId) -> InternalTransaction {
     let max_fee = tx.max_fee.0.into();
-    let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
-    let entry_point_selector = Some(to_felt252(&selector_from_name("__execute__").0));
-    let calldata = Some(tx.calldata.0.iter().map(to_felt252).collect());
-    let contract_address = to_felt252(tx.sender_address.0.key());
+    let signature = Some(tx.signature.0.iter().copied().collect());
+    let entry_point_selector = Some(selector_from_name("__execute__").0);
+    let calldata = Some(tx.calldata.0.iter().copied().collect());
+    let contract_address = *tx.sender_address.0.key();
     let nonce = felt_api2vm(tx.nonce.0);
     let chain_id_felt = chain_id_to_felt(chain_id);
     let hash_value = tx_hash_invoke_v1(contract_address, calldata.clone().unwrap(), max_fee, chain_id_felt, nonce);
@@ -704,10 +700,10 @@ pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1, chain_id: &ChainId) ->
 
 /// Convert a InvokeTransactionV3 to a SNOS InternalTransaction
 pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3, chain_id: &ChainId) -> InternalTransaction {
-    let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
-    let entry_point_selector = to_felt252(&selector_from_name("__execute__").0);
-    let calldata: Vec<_> = tx.calldata.0.iter().map(to_felt252).collect();
-    let sender_address = to_felt252(tx.sender_address.0.key());
+    let signature = Some(tx.signature.0.iter().copied().collect());
+    let entry_point_selector = selector_from_name("__execute__").0;
+    let calldata: Vec<_> = tx.calldata.0.iter().copied().collect();
+    let sender_address = *tx.sender_address.0.key();
     let nonce = felt_api2vm(tx.nonce.0);
     let chain_id_felt = chain_id_to_felt(chain_id);
     let tip = felt_api2vm(tx.tip.0.into());
@@ -716,8 +712,8 @@ pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3, chain_id: &ChainId) ->
     let fee_data_availability_mode = Felt252::from(tx.fee_data_availability_mode as u64);
     let resource_bounds = &tx.resource_bounds;
 
-    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().map(to_felt252).collect();
-    let account_deployment_data: Vec<Felt252> = tx.account_deployment_data.0.iter().map(to_felt252).collect();
+    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().copied().collect();
+    let account_deployment_data: Vec<Felt252> = tx.account_deployment_data.0.iter().copied().collect();
     let hash_value = tx_hash_invoke_v3(
         nonce,
         sender_address,
@@ -761,9 +757,9 @@ pub fn to_internal_deploy_v3_tx(
         AccountTransaction::DeployAccount(a) => a.contract_address,
         _ => unreachable!(),
     };
-    let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
+    let signature = Some(tx.signature.0.iter().copied().collect());
     let entry_point_selector = Some(Felt252::ZERO);
-    let calldata: Vec<_> = tx.constructor_calldata.0.iter().map(to_felt252).collect();
+    let calldata: Vec<_> = tx.constructor_calldata.0.iter().copied().collect();
 
     let nonce = felt_api2vm(tx.nonce.0);
     let chain_id_felt = chain_id_to_felt(chain_id);
@@ -773,9 +769,9 @@ pub fn to_internal_deploy_v3_tx(
     let fee_data_availability_mode = Felt252::from(tx.fee_data_availability_mode as u64);
     let resource_bounds = &tx.resource_bounds;
 
-    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().map(to_felt252).collect();
+    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().copied().collect();
     let contract_address_salt = felt_api2vm(tx.contract_address_salt.0);
-    let class_hash = to_felt252(&tx.class_hash.0);
+    let class_hash = tx.class_hash.0;
 
     let contract_address = calculate_contract_address(
         tx.contract_address_salt,
@@ -804,7 +800,7 @@ pub fn to_internal_deploy_v3_tx(
         hash_value,
         version: Some(Felt252::THREE),
         nonce: Some(nonce),
-        sender_address: Some(to_felt252(&sender_address.0)),
+        sender_address: Some(*sender_address.0),
         contract_address: Some(contract_address),
         entry_point_selector,
         entry_point_type: Some("CONSTRUCTOR".to_string()),

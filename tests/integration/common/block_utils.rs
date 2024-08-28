@@ -25,8 +25,6 @@ use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
-use crate::common::transaction_utils::to_felt252;
-
 pub async fn os_hints<S>(
     block_context: &BlockContext,
     mut blockifier_state: CachedState<SharedState<S, PedersenHash>>,
@@ -49,7 +47,7 @@ where
             let address: ContractAddress =
                 ContractAddress(PatriciaKey::try_from(felt_vm2api(Felt252::from(address_biguint))).unwrap());
             let contract_state = blockifier_state.state.get_contract_state(address).unwrap();
-            (to_felt252(address.0.key()), contract_state)
+            (*address.0.key(), contract_state)
         })
         .collect();
 
@@ -59,7 +57,7 @@ where
     let deployed_addresses = state_diff.address_to_class_hash;
     for (address, _class_hash) in &deployed_addresses {
         contracts.insert(
-            to_felt252(address.0.key()),
+            *address.0.key(),
             ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap(),
         );
     }
@@ -83,7 +81,7 @@ where
                     compiled_classes.get(&class_hash).unwrap_or_else(|| panic!("No class given for {:?}", class_hash));
                 let compiled_class_hash = compiled_class.class_hash().expect("Failed to compute class hash");
                 let compiled_class_hash = Felt252::from(compiled_class_hash);
-                class_hash_to_compiled_class_hash.insert(to_felt252(&class_hash.0), compiled_class_hash);
+                class_hash_to_compiled_class_hash.insert(class_hash.0, compiled_class_hash);
 
                 compiled_class_hash_to_compiled_class.insert(compiled_class_hash, compiled_class.clone());
             }
