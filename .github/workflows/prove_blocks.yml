@@ -1,0 +1,50 @@
+name: Sepolia integration tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: "true"
+
+      - name: "Install Rust"
+        uses: "actions-rs/toolchain@v1"
+        with:
+          toolchain: "stable"
+
+      - name: "Cache cargo"
+        id: cache-cargo
+        uses: "actions/cache@v4"
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          save-always: true
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Create and activate Python virtual environment
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+
+      - name: Setup the tests
+        run: |
+          source venv/bin/activate
+          pip install cairo-lang==0.13.1 "sympy<1.13.0"
+          bash scripts/setup-tests.sh
+
+      - name: Prove Blocks
+        run: bash scripts/prove-blocks.sh -p ${{ secrets.PATHFINDER_RPC_URL }} -b 76793,76766,76775
