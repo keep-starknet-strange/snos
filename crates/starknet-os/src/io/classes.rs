@@ -14,7 +14,7 @@ use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
     BytecodeLeaf, BytecodeSegment, BytecodeSegmentStructureImpl, BytecodeSegmentedNode,
 };
 use crate::starkware_utils::commitment_tree::base_types::Length;
-use crate::utils::{custom_hint_error, felt_api2vm};
+use crate::utils::custom_hint_error;
 
 /// Returns the serialization of a contract as a list of field elements.
 pub fn get_deprecated_contract_class_struct(
@@ -26,7 +26,7 @@ pub fn get_deprecated_contract_class_struct(
 
     let mut externals: Vec<MaybeRelocatable> = Vec::new();
     for elem in deprecated_class.entry_points_by_type.get(&EntryPointType::External).unwrap().iter() {
-        externals.push(MaybeRelocatable::from(felt_api2vm(elem.selector.0)));
+        externals.push(MaybeRelocatable::from(elem.selector.0));
         externals.push(MaybeRelocatable::from(Felt252::from(elem.offset.0)));
     }
     vm.insert_value((class_base + 1)?, Felt252::from(externals.len() / 2))?;
@@ -37,7 +37,7 @@ pub fn get_deprecated_contract_class_struct(
 
     let mut l1_handlers: Vec<MaybeRelocatable> = Vec::new();
     for elem in deprecated_class.entry_points_by_type.get(&EntryPointType::L1Handler).unwrap().iter() {
-        l1_handlers.push(MaybeRelocatable::from(felt_api2vm(elem.selector.0)));
+        l1_handlers.push(MaybeRelocatable::from(elem.selector.0));
         l1_handlers.push(MaybeRelocatable::from(Felt252::from(elem.offset.0)));
     }
     vm.insert_value((class_base + 3)?, Felt252::from(l1_handlers.len() / 2))?;
@@ -48,7 +48,7 @@ pub fn get_deprecated_contract_class_struct(
 
     let mut constructors: Vec<MaybeRelocatable> = Vec::new();
     for elem in deprecated_class.entry_points_by_type.get(&EntryPointType::Constructor).unwrap().iter() {
-        constructors.push(MaybeRelocatable::from(felt_api2vm(elem.selector.0)));
+        constructors.push(MaybeRelocatable::from(elem.selector.0));
         constructors.push(MaybeRelocatable::from(Felt252::from(elem.offset.0)));
     }
     vm.insert_value((class_base + 5)?, Felt252::from(constructors.len() / 2))?;

@@ -10,7 +10,7 @@ use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass
 use starknet_os_types::hash::GenericClassHash;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
-use crate::utils::{execute_coroutine, felt_api2vm};
+use crate::utils::execute_coroutine;
 
 pub struct AsyncRpcStateReader<T>
 where
@@ -44,7 +44,7 @@ where
     pub async fn get_storage_at_async(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt> {
         let storage_value = self
             .provider
-            .get_storage_at(felt_api2vm(*contract_address.key()), felt_api2vm(*key.0.key()), self.block_id)
+            .get_storage_at(*contract_address.key(), *key.0.key(), self.block_id)
             .await
             .map_err(provider_error_to_state_error)?;
 
@@ -54,7 +54,7 @@ where
     pub async fn get_nonce_at_async(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         let nonce = self
             .provider
-            .get_nonce(self.block_id, felt_api2vm(*contract_address.key()))
+            .get_nonce(self.block_id, *contract_address.key())
             .await
             .map_err(provider_error_to_state_error)?;
 
@@ -64,7 +64,7 @@ where
     pub async fn get_class_hash_at_async(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         let nonce = self
             .provider
-            .get_class_hash_at(self.block_id, felt_api2vm(*contract_address.key()))
+            .get_class_hash_at(self.block_id, *contract_address.key())
             .await
             .map_err(provider_error_to_state_error)?;
 
@@ -72,11 +72,8 @@ where
     }
 
     pub async fn get_compiled_contract_class_async(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
-        let contract_class = self
-            .provider
-            .get_class(self.block_id, felt_api2vm(class_hash.0))
-            .await
-            .map_err(provider_error_to_state_error)?;
+        let contract_class =
+            self.provider.get_class(self.block_id, class_hash.0).await.map_err(provider_error_to_state_error)?;
 
         let contract_class: ContractClass = match contract_class {
             starknet::core::types::ContractClass::Sierra(sierra_class) => {
@@ -94,11 +91,8 @@ where
     }
 
     pub async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        let contract_class = self
-            .provider
-            .get_class(self.block_id, felt_api2vm(class_hash.0))
-            .await
-            .map_err(provider_error_to_state_error)?;
+        let contract_class =
+            self.provider.get_class(self.block_id, class_hash.0).await.map_err(provider_error_to_state_error)?;
 
         let class_hash: GenericClassHash = match contract_class {
             starknet::core::types::ContractClass::Sierra(sierra_class) => {

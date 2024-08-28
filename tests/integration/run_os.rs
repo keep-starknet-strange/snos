@@ -30,7 +30,6 @@ use starknet_os::io::output::StarknetOsOutput;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage_utils::unpack_blockifier_state_async;
-use starknet_os::utils::felt_api2vm;
 
 use crate::common::block_context;
 use crate::common::blockifier_contracts::load_cairo0_feature_contract;
@@ -524,19 +523,19 @@ fn validate_os_output(os_output: &StarknetOsOutput, tx_contracts: &[ContractAddr
     let output_messages_to_l1 = &os_output.messages_to_l1;
 
     let expected_messages_to_l1 = [
-        felt_api2vm(*tx_contracts[0].0.key()), // from address
-        85.into(),                             // to address
-        2.into(),                              // PAYLOAD_SIZE
-        12.into(),                             // PAYLOAD_1
-        34.into(),                             // PAYLOAD_1
+        *tx_contracts[0].0.key(), // from address
+        85.into(),                // to address
+        2.into(),                 // PAYLOAD_SIZE
+        12.into(),                // PAYLOAD_1
+        34.into(),                // PAYLOAD_1
     ];
     assert_eq!(output_messages_to_l1, &expected_messages_to_l1);
 
     let expected_messages_to_l2 = [
-        85.into(),                             // from address
-        felt_api2vm(*tx_contracts[3].0.key()), // the delegate_proxy_address
-        0.into(),                              // Nonce
-        felt_api2vm(selector_from_name("deposit").0),
+        85.into(),                // from address
+        *tx_contracts[3].0.key(), // the delegate_proxy_address
+        0.into(),                 // Nonce
+        selector_from_name("deposit").0,
         1u64.into(), // PAYLOAD_SIZE
         2u64.into(), // PAYLOAD_1
     ];

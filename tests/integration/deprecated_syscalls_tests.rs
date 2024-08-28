@@ -22,7 +22,6 @@ use rstest::rstest;
 use starknet_api::core::calculate_contract_address;
 use starknet_api::felt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionVersion};
-use starknet_os::utils::felt_api2vm;
 use starknet_os_types::chain_id::chain_id_to_felt;
 
 use crate::common::block_context;
@@ -223,19 +222,16 @@ async fn test_syscall_get_tx_info_cairo0(
     let contract_changes_by_address: HashMap<_, _> =
         os_output.contracts.iter().map(|change| (change.addr, change)).collect();
     let test_contract_changes = contract_changes_by_address
-        .get(&felt_api2vm(*contract_address.0.key()))
+        .get(contract_address.0.key())
         .expect("The test contract should appear as modified in the OS output");
 
     // Values based on the code of `test_contract.cairo`.
     // Note that if the nonce is 0 it will not appear as a change, so check for that.
     let expected_storage_changes = {
-        let mut changes = HashMap::from([
-            (Felt252::from(300), felt_api2vm(tx_hash.0)),
-            (Felt252::from(311), felt_api2vm(expected_chain_id)),
-        ]);
+        let mut changes = HashMap::from([(Felt252::from(300), tx_hash.0), (Felt252::from(311), expected_chain_id)]);
 
         if nonce.0 != Felt252::ZERO {
-            changes.insert(Felt252::from(322), felt_api2vm(nonce.0));
+            changes.insert(Felt252::from(322), nonce.0);
         }
         changes
     };
@@ -384,7 +380,7 @@ async fn test_syscall_deploy_cairo0(
     // Check that the new contract address appears in the OS output
     let contract_changes_by_address: HashMap<_, _> =
         os_output.contracts.iter().map(|change| (change.addr, change)).collect();
-    assert!(contract_changes_by_address.contains_key(&felt_api2vm(*expected_contract_address.key())));
+    assert!(contract_changes_by_address.contains_key(expected_contract_address.key()));
 
     // Check other output fields
     assert_eq!(os_output.block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
@@ -585,12 +581,7 @@ async fn test_syscall_send_message_to_l1_cairo0(
     .expect("OS run failed");
     let output = os_output.messages_to_l1;
 
-    let expected: [Felt252; 5] = [
-        felt_api2vm(*contract_address.0.key()),
-        ADDRESS.into(),
-        PAYLOAD_SIZE.into(),
-        PAYLOAD_1.into(),
-        PAYLOAD_2.into(),
-    ];
+    let expected: [Felt252; 5] =
+        [*contract_address.0.key(), ADDRESS.into(), PAYLOAD_SIZE.into(), PAYLOAD_1.into(), PAYLOAD_2.into()];
     assert_eq!(&*output, expected);
 }

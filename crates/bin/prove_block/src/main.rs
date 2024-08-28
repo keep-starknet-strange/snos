@@ -24,7 +24,6 @@ use starknet_os::starknet::business_logic::fact_state::contract_state_objects::C
 use starknet_os::starknet::starknet_storage::CommitmentInfo;
 use starknet_os::starkware_utils::commitment_tree::base_types::Height;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
 use starknet_os_types::chain_id::chain_id_from_felt;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
@@ -292,7 +291,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .visited_pcs
         .iter()
         .map(|(class_hash, visited_pcs)| {
-            (felt_api2vm(class_hash.0), visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
+            (class_hash.0, visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
         })
         .collect();
 

@@ -29,7 +29,7 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use crate::storage::storage::{DbObject, FactFetchingContext, HashFunctionType, Storage, StorageError};
-use crate::utils::{execute_coroutine, felt_api2vm};
+use crate::utils::execute_coroutine;
 
 /// A class representing a combination of the onchain and offchain state.
 #[derive(Debug)]
@@ -206,31 +206,21 @@ where
         class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash>,
         storage_updates: HashMap<ContractAddress, HashMap<StorageKey, Felt252>>,
     ) -> Result<Self, TreeError> {
-        let address_to_class_hash: HashMap<_, _> = address_to_class_hash
-            .into_iter()
-            .map(|(address, class_hash)| (felt_api2vm(*address.0.key()), felt_api2vm(class_hash.0)))
-            .collect();
+        let address_to_class_hash: HashMap<_, _> =
+            address_to_class_hash.into_iter().map(|(address, class_hash)| (*address.0.key(), class_hash.0)).collect();
 
-        let address_to_nonce: HashMap<_, _> = address_to_nonce
-            .into_iter()
-            .map(|(address, nonce)| (felt_api2vm(*address.0.key()), felt_api2vm(nonce.0)))
-            .collect();
+        let address_to_nonce: HashMap<_, _> =
+            address_to_nonce.into_iter().map(|(address, nonce)| (*address.0.key(), nonce.0)).collect();
 
         let class_hash_to_compiled_class_hash: HashMap<_, _> = class_hash_to_compiled_class_hash
             .into_iter()
-            .map(|(class_hash, compiled_class_hash)| (felt_api2vm(class_hash.0), felt_api2vm(compiled_class_hash.0)))
+            .map(|(class_hash, compiled_class_hash)| (class_hash.0, compiled_class_hash.0))
             .collect();
 
         let storage_updates: HashMap<_, HashMap<_, _>> = storage_updates
             .into_iter()
             .map(|(address, contract_storage_updates)| {
-                (
-                    felt_api2vm(*address.0.key()),
-                    contract_storage_updates
-                        .into_iter()
-                        .map(|(k, v)| (felt_api2vm(*k.0.key()), felt_api2vm(v)))
-                        .collect(),
-                )
+                (*address.0.key(), contract_storage_updates.into_iter().map(|(k, v)| (*k.0.key(), v)).collect())
             })
             .collect();
 
@@ -324,7 +314,7 @@ where
     }
 
     async fn get_contract_state_async(&self, contract_address: ContractAddress) -> StateResult<ContractState> {
-        let contract_address: TreeIndex = felt_api2vm(*contract_address.0.key()).to_biguint();
+        let contract_address: TreeIndex = contract_address.0.key().to_biguint();
 
         let mut ffc = self.ffc.clone();
 
@@ -349,7 +339,7 @@ where
     }
 
     async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        let class_hash_as_index: TreeIndex = felt_api2vm(class_hash.0).to_biguint();
+        let class_hash_as_index: TreeIndex = class_hash.0.to_biguint();
 
         log::debug!("class_hash_as_index: {:?}", class_hash_as_index);
         log::debug!("have contract_class_tree? {:?}", self.contract_classes.is_some());
@@ -436,7 +426,7 @@ where
     }
 
     async fn get_storage_at_async(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt252> {
-        let storage_key: TreeIndex = felt_api2vm(*key.0.key()).to_biguint();
+        let storage_key: TreeIndex = key.0.key().to_biguint();
 
         let mut ffc = self.ffc.clone();
 

@@ -21,7 +21,6 @@ use starknet_os::starknet::starknet_storage::{CommitmentInfo, OsSingleStarknetSt
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use starknet_os::storage::storage::Storage;
 use starknet_os::storage::storage_utils::build_starknet_storage_async;
-use starknet_os::utils::felt_api2vm;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
@@ -67,7 +66,7 @@ where
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = state_diff
         .class_hash_to_compiled_class_hash
         .iter()
-        .map(|(class_hash, _compiled_class_hash)| (felt_api2vm(class_hash.0), Felt252::ZERO))
+        .map(|(class_hash, _compiled_class_hash)| (class_hash.0, Felt252::ZERO))
         .collect();
 
     for c in contracts.keys() {
@@ -138,7 +137,7 @@ where
         .visited_pcs
         .iter()
         .map(|(class_hash, visited_pcs)| {
-            let class_hash_felt = felt_api2vm(class_hash.0);
+            let class_hash_felt = class_hash.0;
             let compiled_class_hash_felt = class_hash_to_compiled_class_hash.get(&class_hash_felt).unwrap();
             (*compiled_class_hash_felt, visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
         })
@@ -181,7 +180,7 @@ where
         .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
 
     let deprecated_compiled_classes: HashMap<_, _> =
-        deprecated_compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
+        deprecated_compiled_classes.into_iter().map(|(k, v)| (k.0, v)).collect();
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info,

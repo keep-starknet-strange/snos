@@ -15,7 +15,6 @@ use crate::cairo_types::syscalls::{
     TxInfo,
 };
 use crate::starknet::starknet_storage::PerContractStorage;
-use crate::utils::felt_api2vm;
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
@@ -81,15 +80,7 @@ where
         // the result array.
         vm.insert_value((syscall_ptr + retdata_size_offset)?, result.retdata.0.len())?;
         let new_segment = vm.add_temporary_segment();
-        let retdata: Vec<_> = result
-            .retdata
-            .0
-            .iter()
-            .map(|sf| {
-                let felt = felt_api2vm(*sf);
-                MaybeRelocatable::Int(felt)
-            })
-            .collect();
+        let retdata: Vec<_> = result.retdata.0.iter().map(|felt| MaybeRelocatable::Int(*felt)).collect();
         vm.load_data(new_segment, &retdata)?;
         vm.insert_value((syscall_ptr + retdata_offset)?, new_segment)?;
 
@@ -173,7 +164,6 @@ where
         let exec_helper = sys_hand.exec_wrapper.execution_helper.read().await;
         let caller_address =
             exec_helper.call_info.as_ref().expect("A call should have some call info").call.caller_address.0.key();
-        let caller_address = felt_api2vm(*caller_address);
 
         // TODO: create proper struct for this (similar to GetCallerAddress and friends)
         // TODO: abstract this similar to pythonic _write_syscall_response()
@@ -194,7 +184,7 @@ where
             exec_helper.call_info.as_ref().map(|info| info.call.storage_address).ok_or(HintError::SyscallError(
                 "Missing storage address from call info".to_string().into_boxed_str(),
             ))?;
-        let contract_address_felt = felt_api2vm(*contract_address.0.key());
+        let contract_address_felt = *contract_address.0.key();
 
         let response_offset =
             GetContractAddress::response_offset() + GetContractAddressResponse::contract_address_offset();
@@ -209,7 +199,7 @@ where
     ) -> Result<(), HintError> {
         let syscall_handler = self.deprecated_syscall_handler.read().await;
 
-        let sequencer_address = felt_api2vm(*syscall_handler.block_info.sequencer_address.0.key());
+        let sequencer_address = *syscall_handler.block_info.sequencer_address.0.key();
 
         let response_offset =
             GetSequencerAddress::response_offset() + GetSequencerAddressResponse::sequencer_address_offset();
