@@ -14,7 +14,7 @@ use rpc_utils::{get_class_proofs, get_storage_proofs, TrieNode};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
-use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, SN_SEPOLIA, STORED_BLOCK_HASH_BUFFER};
+use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::error::SnOsError::Runner;
@@ -236,7 +236,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         starknet_os_config: StarknetOsConfig {
             // TODO: the string given by provider is in decimal, the OS expects hex
             // chain_id: starknet_api::core::ChainId(chain_id.clone()),
-            chain_id: starknet_api::core::ChainId(SN_SEPOLIA.to_string()),
+            chain_id: starknet_api::core::ChainId("SN_SEPOLIA".to_string()),
             fee_token_address: block_context.chain_info().fee_token_addresses.strk_fee_token_address,
             deprecated_fee_token_address: block_context.chain_info().fee_token_addresses.eth_fee_token_address,
         },

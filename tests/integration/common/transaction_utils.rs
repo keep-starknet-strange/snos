@@ -14,7 +14,7 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use rstest::rstest;
-use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{calculate_contract_address, ChainId, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
@@ -24,7 +24,7 @@ use starknet_api::transaction::{
 };
 use starknet_api::{contract_address, patricia_key, stark_felt};
 use starknet_crypto::{pedersen_hash, FieldElement};
-use starknet_os::config::{BLOCK_HASH_CONTRACT_ADDRESS, SN_GOERLI, STORED_BLOCK_HASH_BUFFER};
+use starknet_os::config::{BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::poseidon_hash_many_bytes;
 use starknet_os::error::SnOsError;
@@ -40,6 +40,7 @@ use starknet_os::storage::storage::Storage;
 use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+use starknet_os_types::chain_id::chain_id_to_felt;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use crate::common::block_utils::os_hints;
@@ -163,6 +164,7 @@ fn tx_hash_invoke_v0(
     entry_point_selector: Felt252,
     calldata: Vec<Felt252>,
     max_fee: Felt252,
+    chain_id: Felt252,
 ) -> Felt252 {
     hash_on_elements(vec![
         Felt252::from_bytes_be_slice(INVOKE_PREFIX),
@@ -171,12 +173,18 @@ fn tx_hash_invoke_v0(
         entry_point_selector,
         hash_on_elements(calldata),
         max_fee,
-        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+        chain_id,
     ])
 }
 
 /// Produce a hash for an Invoke V1 TXN with the provided elements
-fn tx_hash_invoke_v1(contract_address: Felt252, calldata: Vec<Felt252>, max_fee: Felt252, nonce: Felt252) -> Felt252 {
+fn tx_hash_invoke_v1(
+    contract_address: Felt252,
+    calldata: Vec<Felt252>,
+    max_fee: Felt252,
+    chain_id: Felt252,
+    nonce: Felt252,
+) -> Felt252 {
     hash_on_elements(vec![
         Felt252::from_bytes_be_slice(INVOKE_PREFIX),
         Felt252::ONE,
@@ -184,7 +192,7 @@ fn tx_hash_invoke_v1(contract_address: Felt252, calldata: Vec<Felt252>, max_fee:
         Felt252::ZERO,
         hash_on_elements(calldata),
         max_fee,
-        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+        chain_id,
         nonce,
     ])
 }
@@ -194,6 +202,7 @@ fn tx_hash_invoke_v1(contract_address: Felt252, calldata: Vec<Felt252>, max_fee:
 fn tx_hash_deploy_v3(
     nonce: Felt252,
     contract_address: Felt252,
+    chain_id: Felt252,
     nonce_data_availability_mode: Felt252,
     fee_data_availability_mode: Felt252,
     resource_bounds: &ResourceBoundsMapping,
@@ -204,7 +213,6 @@ fn tx_hash_deploy_v3(
     constructor_calldata: &[Felt252],
 ) -> Felt252 {
     let tx_specific_fields = [poseidon_hash_on_elements(constructor_calldata), class_hash, contract_address_salt];
-    let chain_id = Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap());
 
     calculate_transaction_v3_hash_common(
         DEPLOY_ACCOUNT_PREFIX,
@@ -226,6 +234,7 @@ fn tx_hash_deploy_v3(
 fn tx_hash_invoke_v3(
     nonce: Felt252,
     sender_address: Felt252,
+    chain_id: Felt252,
     nonce_data_availability_mode: Felt252,
     fee_data_availability_mode: Felt252,
     resource_bounds: &ResourceBoundsMapping,
@@ -235,7 +244,6 @@ fn tx_hash_invoke_v3(
     account_deployment_data: &[Felt252],
 ) -> Felt252 {
     let tx_specific_fields = [poseidon_hash_on_elements(account_deployment_data), poseidon_hash_on_elements(calldata)];
-    let chain_id = Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap());
 
     calculate_transaction_v3_hash_common(
         INVOKE_PREFIX,
@@ -253,7 +261,13 @@ fn tx_hash_invoke_v3(
 }
 
 /// Produce a hash for a Declare V1 TXN with the provided elements
-fn tx_hash_declare_v1(sender_address: Felt252, max_fee: Felt252, class_hash: Felt252, nonce: Felt252) -> Felt252 {
+fn tx_hash_declare_v1(
+    sender_address: Felt252,
+    max_fee: Felt252,
+    class_hash: Felt252,
+    chain_id: Felt252,
+    nonce: Felt252,
+) -> Felt252 {
     hash_on_elements(vec![
         Felt252::from_bytes_be_slice(DECLARE_PREFIX),
         Felt252::ONE, // declare version
@@ -261,7 +275,7 @@ fn tx_hash_declare_v1(sender_address: Felt252, max_fee: Felt252, class_hash: Fel
         Felt252::ZERO,
         hash_on_elements(vec![class_hash]),
         max_fee,
-        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+        chain_id,
         nonce,
     ])
 }
@@ -272,6 +286,7 @@ fn tx_hash_declare_v2(
     max_fee: Felt252,
     class_hash: Felt252,
     compiled_class_hash: Felt252,
+    chain_id: Felt252,
     nonce: Felt252,
 ) -> Felt252 {
     hash_on_elements(vec![
@@ -281,7 +296,7 @@ fn tx_hash_declare_v2(
         Felt252::ZERO, // placeholder
         hash_on_elements(vec![class_hash]),
         max_fee,
-        Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap()),
+        chain_id,
         nonce,
         compiled_class_hash,
     ])
@@ -292,6 +307,7 @@ fn tx_hash_declare_v2(
 fn tx_hash_declare_v3(
     nonce: Felt252,
     sender_address: Felt252,
+    chain_id: Felt252,
     nonce_data_availability_mode: Felt252,
     fee_data_availability_mode: Felt252,
     resource_bounds: &ResourceBoundsMapping,
@@ -302,7 +318,6 @@ fn tx_hash_declare_v3(
     compiled_class_hash: Felt252,
 ) -> Felt252 {
     let tx_specific_fields = [poseidon_hash_on_elements(account_deployment_data), class_hash, compiled_class_hash];
-    let chain_id = Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap());
 
     calculate_transaction_v3_hash_common(
         DECLARE_PREFIX,
@@ -370,13 +385,13 @@ pub fn l1_tx_compute_hash(
 }
 
 /// Convert an Transaction to a SNOS InternalTransaction
-pub fn to_internal_tx(tx: &Transaction) -> InternalTransaction {
+pub fn to_internal_tx(tx: &Transaction, chain_id: &ChainId) -> InternalTransaction {
     match tx {
-        Transaction::AccountTransaction(account_tx) => account_tx_to_internal_tx(account_tx),
-        Transaction::L1HandlerTransaction(l1_tx) => to_internal_l1_handler_tx(l1_tx),
+        Transaction::AccountTransaction(account_tx) => account_tx_to_internal_tx(account_tx, chain_id),
+        Transaction::L1HandlerTransaction(l1_tx) => to_internal_l1_handler_tx(l1_tx, chain_id),
     }
 }
-fn account_tx_to_internal_tx(account_tx: &AccountTransaction) -> InternalTransaction {
+fn account_tx_to_internal_tx(account_tx: &AccountTransaction, chain_id: &ChainId) -> InternalTransaction {
     match account_tx {
         Declare(declare_tx) => {
             match &declare_tx.tx() {
@@ -384,23 +399,31 @@ fn account_tx_to_internal_tx(account_tx: &AccountTransaction) -> InternalTransac
                     // explicitly not supported
                     panic!("Declare V0 is not supported");
                 }
-                starknet_api::transaction::DeclareTransaction::V1(tx) => to_internal_declare_v1_tx(account_tx, tx),
-                starknet_api::transaction::DeclareTransaction::V2(tx) => to_internal_declare_v2_tx(account_tx, tx),
-                starknet_api::transaction::DeclareTransaction::V3(tx) => to_internal_declare_v3_tx(tx),
+                starknet_api::transaction::DeclareTransaction::V1(tx) => {
+                    to_internal_declare_v1_tx(account_tx, tx, chain_id)
+                }
+                starknet_api::transaction::DeclareTransaction::V2(tx) => {
+                    to_internal_declare_v2_tx(account_tx, tx, chain_id)
+                }
+                starknet_api::transaction::DeclareTransaction::V3(tx) => to_internal_declare_v3_tx(tx, chain_id),
             }
         }
         DeployAccount(deploy_tx) => match deploy_tx.tx() {
-            starknet_api::transaction::DeployAccountTransaction::V1(tx) => to_internal_deploy_v1_tx(account_tx, tx),
-            starknet_api::transaction::DeployAccountTransaction::V3(tx) => to_internal_deploy_v3_tx(account_tx, tx),
+            starknet_api::transaction::DeployAccountTransaction::V1(tx) => {
+                to_internal_deploy_v1_tx(account_tx, tx, chain_id)
+            }
+            starknet_api::transaction::DeployAccountTransaction::V3(tx) => {
+                to_internal_deploy_v3_tx(account_tx, tx, chain_id)
+            }
         },
         Invoke(invoke_tx) => match &invoke_tx.tx {
-            starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(tx),
-            starknet_api::transaction::InvokeTransaction::V1(tx) => to_internal_invoke_v1_tx(tx),
-            starknet_api::transaction::InvokeTransaction::V3(tx) => to_internal_invoke_v3_tx(tx),
+            starknet_api::transaction::InvokeTransaction::V0(tx) => to_internal_invoke_v0_tx(tx, chain_id),
+            starknet_api::transaction::InvokeTransaction::V1(tx) => to_internal_invoke_v1_tx(tx, chain_id),
+            starknet_api::transaction::InvokeTransaction::V3(tx) => to_internal_invoke_v3_tx(tx, chain_id),
         },
     }
 }
-fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction) -> InternalTransaction {
+fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction, chain_id: &ChainId) -> InternalTransaction {
     let contract_address = felt_api2vm(*l1_tx.tx.contract_address.0);
     let entry_point_selector = felt_api2vm(l1_tx.tx.entry_point_selector.0);
     let txinfo = l1_tx.create_tx_info();
@@ -410,10 +433,10 @@ fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction) -> InternalTransactio
     };
     let signature = signature.0.iter().map(to_felt252).collect();
     let calldata: Vec<_> = l1_tx.tx.calldata.0.iter().map(to_felt252).collect();
-    let chain_id = Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap());
+    let chain_id_felt = chain_id_to_felt(chain_id);
     let nonce = felt_api2vm(l1_tx.tx.nonce.0);
     let fee = Felt252::ZERO;
-    let hash_value = l1_tx_compute_hash(contract_address, entry_point_selector, &calldata, fee, chain_id, nonce);
+    let hash_value = l1_tx_compute_hash(contract_address, entry_point_selector, &calldata, fee, chain_id_felt, nonce);
 
     InternalTransaction {
         hash_value,
@@ -431,12 +454,17 @@ fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction) -> InternalTransactio
 }
 
 /// Convert a DeclareTransactionV1 to a SNOS InternalTransaction
-pub fn to_internal_declare_v1_tx(account_tx: &AccountTransaction, tx: &DeclareTransactionV0V1) -> InternalTransaction {
+pub fn to_internal_declare_v1_tx(
+    account_tx: &AccountTransaction,
+    tx: &DeclareTransactionV0V1,
+    chain_id: &ChainId,
+) -> InternalTransaction {
     let hash_value;
     let sender_address;
     let class_hash;
     let max_fee = tx.max_fee.0.into();
     let signature = tx.signature.0.iter().map(to_felt252).collect();
+    let chain_id_felt = chain_id_to_felt(chain_id);
     let nonce = felt_api2vm(tx.nonce.0);
 
     match account_tx.create_tx_info() {
@@ -445,7 +473,7 @@ pub fn to_internal_declare_v1_tx(account_tx: &AccountTransaction, tx: &DeclareTr
             sender_address = felt_api2vm(*context.common_fields.sender_address.0.key());
             class_hash = felt_api2vm(tx.class_hash.0);
 
-            hash_value = tx_hash_declare_v1(sender_address, max_fee, class_hash, nonce);
+            hash_value = tx_hash_declare_v1(sender_address, max_fee, class_hash, chain_id_felt, nonce);
         }
     }
 
@@ -463,7 +491,11 @@ pub fn to_internal_declare_v1_tx(account_tx: &AccountTransaction, tx: &DeclareTr
     }
 }
 
-fn to_internal_deploy_v1_tx(account_tx: &AccountTransaction, tx: &DeployAccountTransactionV1) -> InternalTransaction {
+fn to_internal_deploy_v1_tx(
+    account_tx: &AccountTransaction,
+    tx: &DeployAccountTransactionV1,
+    chain_id: &ChainId,
+) -> InternalTransaction {
     let sender_address = match account_tx.create_tx_info() {
         TransactionInfo::Current(_) => unreachable!("TxV1 can only have deprecated variant"),
         TransactionInfo::Deprecated(context) => context.common_fields.sender_address,
@@ -484,7 +516,7 @@ fn to_internal_deploy_v1_tx(account_tx: &AccountTransaction, tx: &DeployAccountT
     let max_fee: Felt252 = tx.max_fee.0.into();
     let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
     let entry_point_selector = Some(Felt252::ZERO);
-    let chain_id = Felt252::from(u128::from_str_radix(SN_GOERLI, 16).unwrap());
+    let chain_id_felt = chain_id_to_felt(chain_id);
     let nonce = felt_api2vm(tx.nonce.0);
 
     let class_hash = felt_api2vm(tx.class_hash.0);
@@ -498,7 +530,7 @@ fn to_internal_deploy_v1_tx(account_tx: &AccountTransaction, tx: &DeployAccountT
         class_hash,
         contract_address_salt,
         constructor_calldata.clone(),
-        chain_id,
+        chain_id_felt,
         nonce,
     );
 
@@ -520,13 +552,18 @@ fn to_internal_deploy_v1_tx(account_tx: &AccountTransaction, tx: &DeployAccountT
 }
 
 /// Convert a DeclareTransactionV2 to a SNOS InternalTransaction
-pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTransactionV2) -> InternalTransaction {
+pub fn to_internal_declare_v2_tx(
+    account_tx: &AccountTransaction,
+    tx: &DeclareTransactionV2,
+    chain_id: &ChainId,
+) -> InternalTransaction {
     let hash_value;
     let sender_address;
     let class_hash;
     let max_fee = tx.max_fee.0.into();
     let signature = tx.signature.0.iter().map(to_felt252).collect();
     let nonce = felt_api2vm(tx.nonce.0);
+    let chain_id_felt = chain_id_to_felt(chain_id);
 
     match account_tx.create_tx_info() {
         TransactionInfo::Current(_) => panic!("Not implemented"),
@@ -534,8 +571,14 @@ pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTr
             sender_address = felt_api2vm(*context.common_fields.sender_address.0.key());
             class_hash = felt_api2vm(tx.class_hash.0);
 
-            hash_value =
-                tx_hash_declare_v2(sender_address, max_fee, class_hash, felt_api2vm(tx.compiled_class_hash.0), nonce);
+            hash_value = tx_hash_declare_v2(
+                sender_address,
+                max_fee,
+                class_hash,
+                felt_api2vm(tx.compiled_class_hash.0),
+                chain_id_felt,
+                nonce,
+            );
         }
     }
 
@@ -555,11 +598,12 @@ pub fn to_internal_declare_v2_tx(account_tx: &AccountTransaction, tx: &DeclareTr
 }
 
 /// Convert a DeclareTransactionV2 to a SNOS InternalTransaction
-pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3) -> InternalTransaction {
+pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3, chain_id: &ChainId) -> InternalTransaction {
     let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
     let entry_point_selector = to_felt252(&selector_from_name("__execute__").0);
     let sender_address = to_felt252(tx.sender_address.0.key());
     let nonce = felt_api2vm(tx.nonce.0);
+    let chain_id_felt = chain_id_to_felt(chain_id);
     let tip = felt_api2vm(tx.tip.0.into());
 
     let nonce_data_availability_mode = Felt252::from(tx.nonce_data_availability_mode as u64);
@@ -573,6 +617,7 @@ pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3) -> InternalTransacti
     let hash_value = tx_hash_declare_v3(
         nonce,
         sender_address,
+        chain_id_felt,
         nonce_data_availability_mode,
         fee_data_availability_mode,
         resource_bounds,
@@ -605,13 +650,15 @@ pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3) -> InternalTransacti
 }
 
 /// Convert a InvokeTransactionV0 to a SNOS InternalTransaction
-pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0) -> InternalTransaction {
+pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0, chain_id: &ChainId) -> InternalTransaction {
     let max_fee = tx.max_fee.0.into();
     let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
     let entry_point_selector = to_felt252(&tx.entry_point_selector.0);
     let calldata: Vec<_> = tx.calldata.0.iter().map(to_felt252).collect();
     let contract_address = to_felt252(tx.contract_address.0.key());
-    let hash_value = tx_hash_invoke_v0(contract_address, entry_point_selector, calldata.clone(), max_fee);
+    let chain_id_felt = chain_id_to_felt(chain_id);
+    let hash_value =
+        tx_hash_invoke_v0(contract_address, entry_point_selector, calldata.clone(), max_fee, chain_id_felt);
 
     InternalTransaction {
         hash_value,
@@ -630,14 +677,15 @@ pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0) -> InternalTransaction
 }
 
 /// Convert a InvokeTransactionV1 to a SNOS InternalTransaction
-pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1) -> InternalTransaction {
+pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1, chain_id: &ChainId) -> InternalTransaction {
     let max_fee = tx.max_fee.0.into();
     let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
     let entry_point_selector = Some(to_felt252(&selector_from_name("__execute__").0));
     let calldata = Some(tx.calldata.0.iter().map(to_felt252).collect());
     let contract_address = to_felt252(tx.sender_address.0.key());
     let nonce = felt_api2vm(tx.nonce.0);
-    let hash_value = tx_hash_invoke_v1(contract_address, calldata.clone().unwrap(), max_fee, nonce);
+    let chain_id_felt = chain_id_to_felt(chain_id);
+    let hash_value = tx_hash_invoke_v1(contract_address, calldata.clone().unwrap(), max_fee, chain_id_felt, nonce);
 
     InternalTransaction {
         hash_value,
@@ -656,12 +704,13 @@ pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1) -> InternalTransaction
 }
 
 /// Convert a InvokeTransactionV3 to a SNOS InternalTransaction
-pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3) -> InternalTransaction {
+pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3, chain_id: &ChainId) -> InternalTransaction {
     let signature = Some(tx.signature.0.iter().map(to_felt252).collect());
     let entry_point_selector = to_felt252(&selector_from_name("__execute__").0);
     let calldata: Vec<_> = tx.calldata.0.iter().map(to_felt252).collect();
     let sender_address = to_felt252(tx.sender_address.0.key());
     let nonce = felt_api2vm(tx.nonce.0);
+    let chain_id_felt = chain_id_to_felt(chain_id);
     let tip = felt_api2vm(tx.tip.0.into());
 
     let nonce_data_availability_mode = Felt252::from(tx.nonce_data_availability_mode as u64);
@@ -673,6 +722,7 @@ pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3) -> InternalTransaction
     let hash_value = tx_hash_invoke_v3(
         nonce,
         sender_address,
+        chain_id_felt,
         nonce_data_availability_mode,
         fee_data_availability_mode,
         resource_bounds,
@@ -706,6 +756,7 @@ pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3) -> InternalTransaction
 pub fn to_internal_deploy_v3_tx(
     account_tx: &AccountTransaction,
     tx: &DeployAccountTransactionV3,
+    chain_id: &ChainId,
 ) -> InternalTransaction {
     let sender_address = match account_tx {
         AccountTransaction::DeployAccount(a) => a.contract_address,
@@ -716,6 +767,7 @@ pub fn to_internal_deploy_v3_tx(
     let calldata: Vec<_> = tx.constructor_calldata.0.iter().map(to_felt252).collect();
 
     let nonce = felt_api2vm(tx.nonce.0);
+    let chain_id_felt = chain_id_to_felt(chain_id);
     let tip = felt_api2vm(tx.tip.0.into());
 
     let nonce_data_availability_mode = Felt252::from(tx.nonce_data_availability_mode as u64);
@@ -738,6 +790,7 @@ pub fn to_internal_deploy_v3_tx(
     let hash_value = tx_hash_deploy_v3(
         nonce,
         contract_address,
+        chain_id_felt,
         nonce_data_availability_mode,
         fee_data_availability_mode,
         resource_bounds,
@@ -788,7 +841,7 @@ where
     let block_hash_contract_address = ContractAddress::try_from(stark_felt!(BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
 
     state.set_storage_at(block_hash_contract_address, block_number, block_hash).unwrap();
-    let internal_txs: Vec<_> = txs.iter().map(to_internal_tx).collect();
+    let internal_txs: Vec<_> = txs.iter().map(|tx| to_internal_tx(tx, &block_context.chain_info().chain_id)).collect();
     let execution_infos = txs
         .into_iter()
         .map(|tx| {
