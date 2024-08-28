@@ -425,7 +425,7 @@ fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction, chain_id: &ChainId) -
         TransactionInfo::Deprecated(tx) => tx.common_fields.signature,
         TransactionInfo::Current(tx) => tx.common_fields.signature,
     };
-    let signature = signature.0.iter().copied().collect();
+    let signature = signature.0.to_vec();
     let calldata: Vec<_> = l1_tx.tx.calldata.0.iter().copied().collect();
     let chain_id_felt = chain_id_to_felt(chain_id);
     let nonce = l1_tx.tx.nonce.0;
@@ -457,7 +457,7 @@ pub fn to_internal_declare_v1_tx(
     let sender_address;
     let class_hash;
     let max_fee = tx.max_fee.0.into();
-    let signature = tx.signature.0.iter().copied().collect();
+    let signature = tx.signature.0.to_vec();
     let chain_id_felt = chain_id_to_felt(chain_id);
     let nonce = tx.nonce.0;
 
@@ -506,7 +506,7 @@ fn to_internal_deploy_v1_tx(
     .key();
 
     let max_fee: Felt252 = tx.max_fee.0.into();
-    let signature = Some(tx.signature.0.iter().copied().collect());
+    let signature = Some(tx.signature.0.to_vec());
     let entry_point_selector = Some(Felt252::ZERO);
     let chain_id_felt = chain_id_to_felt(chain_id);
     let nonce = tx.nonce.0;
@@ -553,7 +553,7 @@ pub fn to_internal_declare_v2_tx(
     let sender_address;
     let class_hash;
     let max_fee = tx.max_fee.0.into();
-    let signature = tx.signature.0.iter().copied().collect();
+    let signature = tx.signature.0.to_vec();
     let nonce = tx.nonce.0;
     let chain_id_felt = chain_id_to_felt(chain_id);
 
@@ -585,7 +585,7 @@ pub fn to_internal_declare_v2_tx(
 
 /// Convert a DeclareTransactionV2 to a SNOS InternalTransaction
 pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3, chain_id: &ChainId) -> InternalTransaction {
-    let signature = Some(tx.signature.0.iter().copied().collect());
+    let signature = Some(tx.signature.0.to_vec());
     let entry_point_selector = selector_from_name("__execute__").0;
     let sender_address = *tx.sender_address.0.key();
     let nonce = tx.nonce.0;
@@ -596,8 +596,8 @@ pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3, chain_id: &ChainId) 
     let fee_data_availability_mode = Felt252::from(tx.fee_data_availability_mode as u64);
     let resource_bounds = &tx.resource_bounds;
 
-    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().copied().collect();
-    let account_deployment_data: Vec<Felt252> = tx.account_deployment_data.0.iter().copied().collect();
+    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.to_vec();
+    let account_deployment_data: Vec<Felt252> = tx.account_deployment_data.0.to_vec();
     let class_hash = tx.class_hash.0;
     let compiled_class_hash = tx.compiled_class_hash.0;
     let hash_value = tx_hash_declare_v3(
@@ -638,7 +638,7 @@ pub fn to_internal_declare_v3_tx(tx: &DeclareTransactionV3, chain_id: &ChainId) 
 /// Convert a InvokeTransactionV0 to a SNOS InternalTransaction
 pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0, chain_id: &ChainId) -> InternalTransaction {
     let max_fee = tx.max_fee.0.into();
-    let signature = Some(tx.signature.0.iter().copied().collect());
+    let signature = Some(tx.signature.0.to_vec());
     let entry_point_selector = tx.entry_point_selector.0;
     let calldata: Vec<_> = tx.calldata.0.iter().copied().collect();
     let contract_address = *tx.contract_address.0.key();
@@ -665,7 +665,7 @@ pub fn to_internal_invoke_v0_tx(tx: &InvokeTransactionV0, chain_id: &ChainId) ->
 /// Convert a InvokeTransactionV1 to a SNOS InternalTransaction
 pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1, chain_id: &ChainId) -> InternalTransaction {
     let max_fee = tx.max_fee.0.into();
-    let signature = Some(tx.signature.0.iter().copied().collect());
+    let signature = Some(tx.signature.0.to_vec());
     let entry_point_selector = Some(selector_from_name("__execute__").0);
     let calldata = Some(tx.calldata.0.iter().copied().collect());
     let contract_address = *tx.sender_address.0.key();
@@ -691,7 +691,7 @@ pub fn to_internal_invoke_v1_tx(tx: &InvokeTransactionV1, chain_id: &ChainId) ->
 
 /// Convert a InvokeTransactionV3 to a SNOS InternalTransaction
 pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3, chain_id: &ChainId) -> InternalTransaction {
-    let signature = Some(tx.signature.0.iter().copied().collect());
+    let signature = Some(tx.signature.0.to_vec());
     let entry_point_selector = selector_from_name("__execute__").0;
     let calldata: Vec<_> = tx.calldata.0.iter().copied().collect();
     let sender_address = *tx.sender_address.0.key();
@@ -703,8 +703,8 @@ pub fn to_internal_invoke_v3_tx(tx: &InvokeTransactionV3, chain_id: &ChainId) ->
     let fee_data_availability_mode = Felt252::from(tx.fee_data_availability_mode as u64);
     let resource_bounds = &tx.resource_bounds;
 
-    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().copied().collect();
-    let account_deployment_data: Vec<Felt252> = tx.account_deployment_data.0.iter().copied().collect();
+    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.to_vec();
+    let account_deployment_data: Vec<Felt252> = tx.account_deployment_data.0.to_vec();
     let hash_value = tx_hash_invoke_v3(
         nonce,
         sender_address,
@@ -748,7 +748,7 @@ pub fn to_internal_deploy_v3_tx(
         AccountTransaction::DeployAccount(a) => a.contract_address,
         _ => unreachable!(),
     };
-    let signature = Some(tx.signature.0.iter().copied().collect());
+    let signature = Some(tx.signature.0.to_vec());
     let entry_point_selector = Some(Felt252::ZERO);
     let calldata: Vec<_> = tx.constructor_calldata.0.iter().copied().collect();
 
@@ -760,7 +760,7 @@ pub fn to_internal_deploy_v3_tx(
     let fee_data_availability_mode = Felt252::from(tx.fee_data_availability_mode as u64);
     let resource_bounds = &tx.resource_bounds;
 
-    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.iter().copied().collect();
+    let paymaster_data: Vec<Felt252> = tx.paymaster_data.0.to_vec();
     let contract_address_salt = tx.contract_address_salt.0;
     let class_hash = tx.class_hash.0;
 

@@ -74,22 +74,22 @@ pub fn starknet_rs_to_blockifier(
                             resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
                             tip: starknet_api::transaction::Tip(tx.tip),
                             signature: starknet_api::transaction::TransactionSignature(
-                                tx.signature.iter().copied().collect(),
+                                tx.signature.to_vec(),
                             ),
                             nonce: starknet_api::core::Nonce(tx.nonce),
                             sender_address: starknet_api::core::ContractAddress(
                                 PatriciaKey::try_from(tx.sender_address).unwrap(),
                             ),
                             calldata: starknet_api::transaction::Calldata(Arc::new(
-                                tx.calldata.iter().copied().collect(),
+                                tx.calldata.to_vec(),
                             )),
                             nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
                             fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
                             paymaster_data: starknet_api::transaction::PaymasterData(
-                                tx.paymaster_data.iter().copied().collect(),
+                                tx.paymaster_data.to_vec(),
                             ),
                             account_deployment_data: starknet_api::transaction::AccountDeploymentData(
-                                tx.account_deployment_data.iter().copied().collect(),
+                                tx.account_deployment_data.to_vec(),
                             ),
                         },
                     );
