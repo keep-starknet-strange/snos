@@ -5,9 +5,6 @@ on:
     branches:
       - main
   pull_request:
-    paths:
-      - "crates/bin/prove_block/**"
-      - ".github/workflows/prove_block.yml"
 
 jobs:
   build:
@@ -16,50 +13,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Install required packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y curl git python3 python3-venv python3-dev build-essential libgmp-dev pkg-config libssl-dev zstd
-
-      - name: Cache Db
-        id: cache-db
-        uses: actions/cache@v3
-        with:
-          path: |
-            $HOME/pathfinder-data/testnet-sepolia.sqlite
-
-      - name: Download and extract database file
-        if: ${{ steps.cache-db.outputs.cache-hit != 'true' }}
-        run: |
-          mkdir -p $HOME/pathfinder-data
-          curl -L https://pub-1fac64c3c0334cda85b45bcc02635c32.r2.dev/sepolia-testnet_0.13.0_74494_archive.sqlite.zst -o sepolia-testnet.sqlite.zst
-          zstd -d sepolia-testnet.sqlite.zst -o $HOME/pathfinder-data/testnet-sepolia.sqlite
-
-      - name: Pull Pathfinder Docker image
-        run: |
-          docker pull odesenfans/pathfinder:latest
-      - name: Run Pathfinder container in the background
-        run: |
-          docker run \
-            --name pathfinder \
-            --detach \
-            -p 127.0.0.1:9545:9545 \
-            --user "$(id -u):$(id -g)" \
-            -e RUST_LOG=info \
-            -e PATHFINDER_ETHEREUM_API_URL=${{ secrets.PATHFINDER_ETHEREUM_API_URL }} \
-            -v $HOME/pathfinder-data:/usr/share/pathfinder/data \
-            odesenfans/pathfinder:latest \
-            --storage.state-tries=archive
-      - name: Wait for Pathfinder to be ready
-        run: |
-          until curl -s http://127.0.0.1:9545; do
-            echo "Waiting for Pathfinder to start..."
-            docker logs pathfinder
-            sleep 5
-          done
-          echo "Pathfinder is up!"
-          docker logs pathfinder
 
       - name: "Install Rust"
         uses: "actions-rs/toolchain@v1"
@@ -92,4 +45,4 @@ jobs:
           bash scripts/setup-tests.sh
 
       - name: Prove Blocks
-        run: bash scripts/prove-blocks.sh -p http://127.0.0.1:9545 -b 33911,33922,33928
+        run: bash scripts/prove-blocks.sh -p ${{ secrets.PATHFINDER_RPC_URL }} -b 33911,33922,33928
