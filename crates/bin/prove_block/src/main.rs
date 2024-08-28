@@ -10,7 +10,7 @@ use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
-use rpc_utils::{get_class_proofs, get_storage_proofs, TrieNode};
+use rpc_utils::{get_class_proofs, get_storage_proofs};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, Url};
@@ -21,12 +21,9 @@ use starknet_os::error::SnOsError::Runner;
 use starknet_os::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
 use starknet_os::io::input::StarknetOsInput;
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
-use starknet_os::starknet::business_logic::utils::write_class_facts;
 use starknet_os::starknet::starknet_storage::CommitmentInfo;
-use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
-use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
+use starknet_os::starkware_utils::commitment_tree::base_types::Height;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-use starknet_os::storage::storage::Fact;
 use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
@@ -34,7 +31,7 @@ use starknet_types_core::felt::Felt;
 
 use crate::reexecute::format_commitment_facts;
 use crate::rpc_utils::PathfinderClassProof;
-use crate::state_utils::{build_initial_state, get_processed_state_update};
+use crate::state_utils::get_processed_state_update;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
 mod reexecute;
@@ -148,9 +145,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let processed_state_update = get_processed_state_update(&provider, block_id, &transactions).await;
 
-    // TODO: avoid expensive clones here, probably by letting build_initial_state() take references
-    let (accessed_contracts, mut initial_state) =
-        build_initial_state(&provider, block_id, &processed_state_update).await?;
+    let accessed_contracts = processed_state_update.accessed_addresses;
 
     let mut class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash.clone();
 
@@ -190,46 +185,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .await
     .expect("Failed to fetch storage proofs");
 
-    // write facts from proof
-    for proof in storage_proofs.values().chain(previous_storage_proofs.values()) {
-        if let Some(contract_data) = &proof.contract_data {
-            for storage_item_proof in &contract_data.storage_proofs {
-                for node in storage_item_proof {
-                    match node {
-                        TrieNode::Binary { left, right } => {
-                            // log::info!("writing binary node...");
-                            let fact = BinaryNodeFact::new((*left).into(), (*right).into())?;
-                            fact.set_fact(&mut initial_state.ffc).await?;
-                        }
-                        TrieNode::Edge { child, path } => {
-                            // log::info!("writing edge node...");
-                            let fact = EdgeNodeFact::new(
-                                (*child).into(),
-                                NodePath(path.value.to_biguint()),
-                                Length(path.len),
-                            )?;
-                            fact.set_fact(&mut initial_state.ffc).await?;
-                        }
-                    }
-                }
-            }
-        }
-        for node in &proof.contract_proof {
-            match node {
-                TrieNode::Binary { left, right } => {
-                    // log::info!("writing binary node...");
-                    let fact = BinaryNodeFact::new((*left).into(), (*right).into())?;
-                    fact.set_fact(&mut initial_state.ffc).await?;
-                }
-                TrieNode::Edge { child, path } => {
-                    // log::info!("writing edge node...");
-                    let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))?;
-                    fact.set_fact(&mut initial_state.ffc).await?;
-                }
-            }
-        }
-    }
-
     let default_general_config = StarknetGeneralConfig::default();
 
     let general_config = StarknetGeneralConfig {
@@ -259,13 +214,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Into::<Felt252>::into(contract_storage_root),
             contract_address
         );
-
-        // // write storage facts before they're needed (TODO: should probably consolidate all fact writing)
-        // for storage_entry in previous_storage_entries {
-        //     // for storage_entry in previous_storage_entries.iter().chain(storage_entries.iter()) {
-        //     let fact = StorageLeaf::new(storage_entry.value);
-        //     fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
-        // }
 
         let previous_tree = PatriciaTree { root: contract_storage_root, height: Height(251) };
 
@@ -317,9 +265,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             accessed_class_hashes.insert(class_hash);
 
             let generic_cc = generic_sierra_cc.compile()?;
-
-            let (_contract_class_hash, compiled_contract_hash) =
-                write_class_facts(generic_sierra_cc, generic_cc.clone(), &mut initial_state.ffc_for_class_hash).await?;
+            let compiled_contract_hash = generic_cc.class_hash().unwrap();
 
             class_hash_to_compiled_class_hash.insert(class_hash, compiled_contract_hash.into());
             compiled_classes.insert(compiled_contract_hash.into(), generic_cc.clone());
@@ -339,25 +285,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         get_class_proofs(&pathfinder_client, &args.rpc_provider, block_number - 1, &class_hashes[..])
             .await
             .expect("Failed to fetch class proofs");
-
-    // write facts from class proof
-    for proof in class_proofs.values() {
-        for node in &proof.class_proof {
-            match node {
-                TrieNode::Binary { left, right } => {
-                    // log::info!("writing binary node...");
-                    let fact = BinaryNodeFact::new((*left).into(), (*right).into())?;
-
-                    fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
-                }
-                TrieNode::Edge { child, path } => {
-                    // log::info!("writing edge node...");
-                    let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))?;
-                    fact.set_fact(&mut initial_state.ffc_for_class_hash).await?;
-                }
-            }
-        }
-    }
 
     let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
         .visited_pcs

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::future::Future;
 
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
@@ -13,56 +12,12 @@ use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Length, NodePath};
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
-use starknet_os::storage::cached_storage::CachedStorage;
 use starknet_os::storage::dict_storage::DictStorage;
-use starknet_os::storage::storage::{Fact, HashFunctionType, Storage, StorageError};
+use starknet_os::storage::storage::{Fact, HashFunctionType};
 use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_types_core::felt::Felt;
 
 use crate::utils::get_all_accessed_keys;
-
-/// A `Storage` impl backed by RPC
-#[derive(Clone)]
-pub(crate) struct RpcStorage {
-    cache: HashMap<Vec<u8>, Vec<u8>>,
-}
-
-pub(crate) type CachedRpcStorage = CachedStorage<RpcStorage>;
-
-impl RpcStorage {
-    pub fn new() -> Self {
-        Self { cache: HashMap::with_capacity(1024) }
-    }
-}
-
-impl Storage for RpcStorage {
-    async fn set_value(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StorageError> {
-        log::trace!(
-            "RpcStorage::set_value(), key-len: {}, key: {:x}, value len: {}",
-            key.len(),
-            num_bigint::BigUint::from_bytes_be(&key[..]),
-            value.len()
-        );
-        self.cache.insert(key, value);
-        Ok(())
-    }
-
-    fn get_value(&self, key: &[u8]) -> impl Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
-        log::trace!(
-            "RpcStorage::get_value(), key-len: {}, key: {:x}",
-            key.len(),
-            num_bigint::BigUint::from_bytes_be(key)
-        );
-        async {
-            if let Some(value) = self.cache.get(key) {
-                Ok(Some(value.clone()))
-            } else {
-                log::warn!("    have no value for key {:x}", num_bigint::BigUint::from_bytes_be(key));
-                Err(StorageError::ContentNotFound)
-            }
-        }
-    }
-}
 
 pub(crate) fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::Value {
     json!({
