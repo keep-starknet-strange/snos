@@ -7,8 +7,6 @@ use blockifier::transaction::transactions::L1HandlerTransaction;
 use cairo_vm::Felt252;
 use rstest::rstest;
 use starknet_api::core::EntryPointSelector;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
 use crate::common::state::{initial_state_cairo0, initial_state_cairo1, StarknetTestState};
@@ -20,7 +18,7 @@ async fn test_kzg_da_cairo_1(#[future] initial_state_cairo1: StarknetTestState, 
     let initial_state = initial_state_cairo1.await;
     let tx_version = TransactionVersion::ZERO;
     let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
-    let calldata_args = vec![stark_felt!(1234_u16), stark_felt!(42_u16)];
+    let calldata_args = vec![Felt252::from(1234_u16), Felt252::from(42_u16)];
     let l1_tx = L1HandlerTransaction {
         paid_fee_on_l1: max_fee,
         tx: starknet_api::transaction::L1HandlerTransaction {
@@ -51,7 +49,7 @@ async fn test_kzg_da_cairo_0(#[future] initial_state_cairo0: StarknetTestState, 
     let initial_state = initial_state_cairo0.await;
     let tx_version = TransactionVersion::ZERO;
     let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
-    let calldata_args = vec![stark_felt!(1234_u16), stark_felt!(42_u16)];
+    let calldata_args = vec![Felt252::from(1234_u16), Felt252::from(42_u16)];
     let l1_tx = L1HandlerTransaction {
         paid_fee_on_l1: max_fee,
         tx: starknet_api::transaction::L1HandlerTransaction {
