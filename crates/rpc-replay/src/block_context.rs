@@ -2,7 +2,7 @@ use blockifier::blockifier::block::{BlockInfo, GasPrices};
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::versioned_constants::VersionedConstants;
-use starknet::core::types::BlockWithTxs;
+use starknet::core::types::{BlockWithTxs, L1DataAvailabilityMode};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::{contract_address, felt, patricia_key};
@@ -16,6 +16,10 @@ pub fn build_block_context(
 ) -> BlockContext {
     let sequencer_address_hex = block.sequencer_address.to_hex_string();
     let sequencer_address = contract_address!(sequencer_address_hex.as_str());
+    let use_kzg_da = match block.l1_da_mode {
+        L1DataAvailabilityMode::Blob => true,
+        L1DataAvailabilityMode::Calldata => false,
+    };
 
     let block_info = BlockInfo {
         block_number: BlockNumber(block.block_number),
@@ -27,7 +31,7 @@ pub fn build_block_context(
             eth_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_wei).try_into().unwrap(),
             strk_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_fri).try_into().unwrap(),
         },
-        use_kzg_da: false,
+        use_kzg_da,
     };
 
     let chain_info = ChainInfo {
