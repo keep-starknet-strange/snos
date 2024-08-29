@@ -230,7 +230,6 @@ where
             multiplier: request.multiplier,
         };
         let res = secp_handler.processor.secp_mul(request)?;
-        let segment = secp_handler.segment.get().unwrap();
 
         Ok(SecpOpRespone { ec_point_id: (*segment + res.ec_point_id * 6)? })
     }

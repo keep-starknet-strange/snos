@@ -1,6 +1,5 @@
 use std::num::TryFromIntError;
 
-use blockifier::execution::execution_utils::stark_felt_to_felt;
 use blockifier::execution::syscalls::hint_processor::SyscallExecutionError as BlockifierSyscallError;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
@@ -214,9 +213,9 @@ impl From<TryFromIntError> for SyscallExecutionError {
 impl From<BlockifierSyscallError> for SyscallExecutionError {
     fn from(error: BlockifierSyscallError) -> Self {
         match error {
-            BlockifierSyscallError::SyscallError { error_data } => Self::SyscallError {
-                error_data: error_data.into_iter().map(stark_felt_to_felt).map(|e| e.to_biguint().into()).collect(),
-            },
+            BlockifierSyscallError::SyscallError { error_data } => {
+                Self::SyscallError { error_data: error_data.into_iter().map(|e| e.to_biguint().into()).collect() }
+            }
             _ => Self::BlockifierSyscallError(error),
         }
     }
