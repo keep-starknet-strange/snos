@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::error::Error;
 
 use blockifier::state::cached_state::CachedState;
@@ -26,7 +26,6 @@ use starknet_os::starkware_utils::commitment_tree::base_types::Height;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
 use starknet_os::{config, run_os};
 use starknet_os_types::chain_id::chain_id_from_felt;
-use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_types_core::felt::Felt;
 
 use crate::reexecute::format_commitment_facts;
@@ -147,11 +146,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    let processed_state_update = get_processed_state_update(&provider, block_id).await;
+    let processed_state_update = get_processed_state_update(&provider, block_id).await?;
 
-    let accessed_contracts = processed_state_update.accessed_addresses;
-
-    let mut class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash.clone();
+    let class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash.clone();
 
     // Workaround for JsonRpcClient not implementing Clone
     let provider_for_blockifier = JsonRpcClient::new(HttpTransport::new(
@@ -238,32 +235,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         contract_states.insert(contract_address, contract_state);
     }
 
-    // ensure that we have all class_hashes and compiled_class_hashes for any accessed contracts
-    let mut accessed_class_hashes = HashSet::<_>::new();
-    let mut compiled_classes = HashMap::new();
-    for contract_address in &accessed_contracts {
-        if let Ok(class_hash) = provider.get_class_hash_at(BlockId::Number(block_number), contract_address).await {
-            let contract_class = provider.get_class(BlockId::Number(block_number), class_hash).await?;
-            let generic_sierra_cc = match contract_class {
-                starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
-                    GenericSierraContractClass::from(flattened_sierra_cc)
-                }
-                starknet::core::types::ContractClass::Legacy(_) => {
-                    unimplemented!("Fixme: Support legacy contract class")
-                }
-            };
-
-            accessed_class_hashes.insert(class_hash);
-
-            let generic_cc = generic_sierra_cc.compile()?;
-            let compiled_contract_hash = generic_cc.class_hash().unwrap();
-
-            class_hash_to_compiled_class_hash.insert(class_hash, compiled_contract_hash.into());
-            compiled_classes.insert(compiled_contract_hash.into(), generic_cc.clone());
-        } else {
-            log::warn!("No class hash available for contract {}", contract_address);
-        };
-    }
+    let compiled_classes = processed_state_update.compiled_classes;
 
     // query storage proofs for each accessed contract
     let class_hashes: Vec<&Felt252> = class_hash_to_compiled_class_hash.keys().collect();
