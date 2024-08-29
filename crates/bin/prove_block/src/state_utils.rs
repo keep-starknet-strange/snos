@@ -6,6 +6,7 @@ use starknet::core::types::{BlockId, MaybePendingStateUpdate, StateDiff};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
 use crate::utils::get_subcalled_contracts_from_tx_traces;
@@ -22,7 +23,7 @@ pub struct FormattedStateUpdate {
 /// - Fetches block transaction traces to obtain all accessed contract addresses in that block.
 /// - Formats the RPC state updates to be "SharedState compatible."
 /// - Consolidates that information into a `FormattedStateUpdate`.
-pub(crate) async fn get_processed_state_update(
+pub(crate) async fn get_formatted_state_update(
     provider: &JsonRpcClient<HttpTransport>,
     block_id: BlockId,
 ) -> Result<FormattedStateUpdate, Error> {
@@ -40,27 +41,40 @@ pub(crate) async fn get_processed_state_update(
     let accessed_addresses: HashSet<Felt252> = get_subcalled_contracts_from_tx_traces(&traces);
 
     let address_to_class_hash = format_deployed_contracts(&state_diff);
+    // TODO: Handle deprecated clasees
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = format_declared_classes(&state_diff);
-    let compiled_classes = build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
-        provider,
-        block_id,
-        &accessed_addresses,
-        &address_to_class_hash,
-        &mut class_hash_to_compiled_class_hash,
-    )
-    .await?;
+    let (compiled_contract_classes, _deprecated_compiled_contract_class) =
+        build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
+            provider,
+            block_id,
+            &accessed_addresses,
+            &address_to_class_hash,
+            &mut class_hash_to_compiled_class_hash,
+        )
+        .await?;
 
-    Ok(FormattedStateUpdate { class_hash_to_compiled_class_hash, compiled_classes })
+    Ok(FormattedStateUpdate { class_hash_to_compiled_class_hash, compiled_classes: compiled_contract_classes })
 }
 
+/// This function processes a set of accessed contract addresses to retrieve their
+/// corresponding class hashes and compile them into `GenericCasmContractClass`.
+/// If the class is already present in `address_to_class_hash`, it is used directly;
+/// otherwise, it is fetched from the provided `JsonRpcClient`.
+///
+/// The resulting compiled classes and any associated mappings are returned, while
+/// the `class_hash_to_compiled_class_hash` map is updated with new entries.
+/// TODO: Handle deprecated classes
 async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
     provider: &JsonRpcClient<HttpTransport>,
     block_id: BlockId,
     accessed_addresses: &HashSet<Felt252>,
     address_to_class_hash: &HashMap<Felt252, Felt252>,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
-) -> Result<HashMap<Felt252, GenericCasmContractClass>, Error> {
-    let mut compiled_classes: HashMap<Felt252, GenericCasmContractClass> = HashMap::new();
+) -> Result<(HashMap<Felt252, GenericCasmContractClass>, HashMap<Felt252, GenericDeprecatedCompiledClass>), Error> {
+    let mut compiled_contract_classes: HashMap<Felt252, GenericCasmContractClass> = HashMap::new();
+    // TODO: Handle deprecated classes
+    let mut _deprecated_compiled_contract_classes: HashMap<Felt252, GenericDeprecatedCompiledClass> = HashMap::new();
+
     for contract_address in accessed_addresses {
         let class_hash = match address_to_class_hash.get(contract_address) {
             Some(class_hash) => class_hash,
@@ -68,7 +82,7 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
         };
 
         let contract_class = provider.get_class(block_id, class_hash).await?;
-        let generic_sierra_cc = match contract_class {
+        let generic_cc = match contract_class {
             starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
                 GenericSierraContractClass::from(flattened_sierra_cc)
             }
@@ -77,15 +91,15 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
             }
         };
 
-        let generic_cc: GenericCasmContractClass = generic_sierra_cc.compile()?;
+        let generic_cc: GenericCasmContractClass = generic_cc.compile()?;
         let compiled_contract_hash: starknet_os_types::hash::GenericClassHash = generic_cc.class_hash()?;
 
         // TODO: Sanity check computed hash is the same that the one provided by RPC (when available)
         // TODO: We are inserting class_hash -> compiled class hash again
         class_hash_to_compiled_class_hash.insert(*class_hash, compiled_contract_hash.into());
-        compiled_classes.insert(compiled_contract_hash.into(), generic_cc.clone());
+        compiled_contract_classes.insert(compiled_contract_hash.into(), generic_cc.clone());
     }
-    Ok(compiled_classes)
+    Ok((compiled_contract_classes, _deprecated_compiled_contract_classes))
 }
 
 /// Format StateDiff's DeclaredClassItem to a HashMap<class_hash, compiled_class_hash>

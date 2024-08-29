@@ -30,7 +30,7 @@ use starknet_types_core::felt::Felt;
 
 use crate::reexecute::format_commitment_facts;
 use crate::rpc_utils::{get_starknet_version, PathfinderClassProof};
-use crate::state_utils::get_processed_state_update;
+use crate::state_utils::get_formatted_state_update;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
 mod reexecute;
@@ -146,9 +146,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    let processed_state_update = get_processed_state_update(&provider, block_id).await?;
+    let processed_state_update = get_formatted_state_update(&provider, block_id).await?;
 
-    let class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash.clone();
+    let class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash;
 
     // Workaround for JsonRpcClient not implementing Clone
     let provider_for_blockifier = JsonRpcClient::new(HttpTransport::new(
@@ -256,20 +256,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             (class_hash.0, visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
         })
         .collect();
-
-    log::debug!("class_hash_to_compiled_class_hash ({}):", class_hash_to_compiled_class_hash.len());
-    for (class_hash, compiled_class_hash) in &class_hash_to_compiled_class_hash {
-        log::debug!("    0x{:x} => 0x{:x}", class_hash, compiled_class_hash);
-    }
-
-    // Pass all contract addresses as expected accessed indices
-    // let contract_indices: HashSet<TreeIndex> =
-    //     contract_states.keys().chain(contract_storages.keys()).map(|address|
-    // address.to_biguint()).collect(); let contract_indices: Vec<TreeIndex> =
-    // contract_indices.into_iter().collect();
-
-    // let final_state =
-    // initial_state.clone().apply_commitment_state_diff(blockifier_state.to_state_diff()).await?;
 
     // We can extract data from any storage proof, use the one of the block hash contract
     let block_hash_storage_proof =
