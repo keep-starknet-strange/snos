@@ -31,8 +31,12 @@ async fn test_replay_block() {
 
     let block_context = build_block_context(ChainId::Sepolia, &block_with_txs, StarknetVersion::V0_13_1);
 
+    // Workaround for JsonRpcClient not implementing Clone
+    let provider = JsonRpcClient::new(HttpTransport::new(
+        Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
+    ));
     for tx in block_with_txs.transactions.iter() {
-        let blockifier_tx = starknet_rs_to_blockifier(tx).unwrap();
+        let blockifier_tx = starknet_rs_to_blockifier(tx, &provider, block_with_txs.block_number).await.unwrap();
         let tx_result = blockifier_tx.execute(&mut state, &block_context, true, true);
 
         match tx_result {
