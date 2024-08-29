@@ -283,8 +283,29 @@ pub async fn starknet_rs_to_blockifier(
                 AccountTransaction::Declare(declare),
             )
         }
-        Transaction::L1Handler(_tx) => {
-            unimplemented!("starknet_rs_tx_to_blockifier() with L1Handler txn");
+        Transaction::L1Handler(tx) => {
+            let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+            let api_tx = starknet_api::transaction::L1HandlerTransaction {
+                version: starknet_api::transaction::TransactionVersion(felt_vm2api(tx.version)),
+                nonce: starknet_api::core::Nonce(StarkFelt::from(tx.nonce)),
+                contract_address: starknet_api::core::ContractAddress(
+                    PatriciaKey::try_from(felt_vm2api(tx.contract_address)).unwrap(),
+                ),
+                entry_point_selector: starknet_api::core::EntryPointSelector(felt_vm2api(tx.entry_point_selector)),
+                calldata: starknet_api::transaction::Calldata(Arc::new(
+                    tx.calldata.iter().copied().map(felt_vm2api).collect(),
+                )),
+            };
+
+            // TODO: Check Fee value
+            let fee = Fee(0);
+            let l1_handler = blockifier::transaction::transactions::L1HandlerTransaction {
+                tx: api_tx,
+                tx_hash,
+                paid_fee_on_l1: fee,
+            };
+
+            blockifier::transaction::transaction_execution::Transaction::L1HandlerTransaction(l1_handler)
         }
         _ => unimplemented!(),
     };
