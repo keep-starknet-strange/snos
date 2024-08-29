@@ -62,12 +62,16 @@ where
     }
 }
 
+// TODO: move this function to where it is used, this should not be a public function of
+//       the starknet-os library
 pub async fn unpack_blockifier_state_async<S: Storage + Send + Sync, H: HashFunctionType + Send + Sync>(
     mut blockifier_state: CachedState<SharedState<S, H>>,
 ) -> Result<(SharedState<S, H>, SharedState<S, H>), TreeError> {
     let final_state = {
         let state = blockifier_state.state.clone();
-        state.apply_commitment_state_diff(blockifier_state.to_state_diff().expect("todo").into()).await?
+        state
+            .apply_commitment_state_diff(blockifier_state.to_state_diff().expect("failed to build state diff").into())
+            .await?
     };
 
     let initial_state = blockifier_state.state;

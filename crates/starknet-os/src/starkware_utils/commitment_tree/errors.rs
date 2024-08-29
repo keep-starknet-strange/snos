@@ -27,6 +27,7 @@ pub enum UpdateTreeError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum TreeError {
+    #[error()]
     #[error(transparent)]
     Storage(#[from] StorageError),
 
