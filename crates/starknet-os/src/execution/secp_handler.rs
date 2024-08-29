@@ -343,9 +343,6 @@ where
             ec_point_id: (offset.offset / EcCoordinate::cairo_size()).into(),
         };
 
-        // let segment = secp_handler.segment.get().unwrap();
-        let request =
-            blockifier::execution::syscalls::secp::SecpGetXyRequest { ec_point_id: (offset.offset / 6).into() };
         let res = secp_handler.processor.secp_get_xy(request)?;
         Ok(res)
     }
