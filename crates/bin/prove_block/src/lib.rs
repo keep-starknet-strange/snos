@@ -161,11 +161,12 @@ pub async fn prove_block(
     let blockifier_state_reader = AsyncRpcStateReader::new(provider_for_blockifier, BlockId::Number(block_number - 1));
 
     let mut blockifier_state = CachedState::new(blockifier_state_reader);
-    let tx_execution_infos = reexecute_transactions_with_blockifier(
-        &mut blockifier_state,
-        &block_context,
-        block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(tx).unwrap()).collect(),
-    )?;
+    let mut txs = Vec::new();
+    for tx in block_with_txs.transactions.iter() {
+        let transaction = starknet_rs_to_blockifier(tx, &provider, block_number).await.unwrap();
+        txs.push(transaction);
+    }
+    let tx_execution_infos = reexecute_transactions_with_blockifier(&mut blockifier_state, &block_context, txs)?;
 
     let storage_proofs =
         get_storage_proofs(&pathfinder_client, rpc_provider, block_number, &tx_execution_infos, old_block_number)
