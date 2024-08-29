@@ -4,11 +4,11 @@ use blockifier::test_utils::deploy_account::deploy_account_tx;
 use blockifier::test_utils::{NonceManager, BALANCE};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::test_utils::max_fee;
+use cairo_vm::Felt252;
 use rstest::{fixture, rstest};
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionVersion};
-use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{class_hash, contract_address, felt, patricia_key};
 
 use crate::common::block_context;
 use crate::common::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_feature_contract};
@@ -19,7 +19,7 @@ use crate::common::transaction_utils::execute_txs_and_run_os;
 struct DeployArgs {
     contract_address_salt: ContractAddressSalt,
     class_hash: ClassHash,
-    constructor_calldata: Vec<StarkFelt>,
+    constructor_calldata: Vec<Felt252>,
     deployer_address: ContractAddress,
 }
 
@@ -44,7 +44,7 @@ pub async fn initial_state_for_deploy_v1(
     let deploy_args = DeployArgs {
         contract_address_salt: ContractAddressSalt::default(),
         class_hash,
-        constructor_calldata: vec![stark_felt!(0u128), stark_felt!(101u128)],
+        constructor_calldata: vec![felt!(0u128), felt!(101u128)],
         // The deployer address is always be 0 for deploy v1
         deployer_address: contract_address!("0x0"),
     };
@@ -127,7 +127,7 @@ pub async fn initial_state_for_deploy_v3(
     let deploy_args = DeployArgs {
         contract_address_salt: ContractAddressSalt::default(),
         class_hash,
-        constructor_calldata: vec![stark_felt!(0u128), stark_felt!(101u128)],
+        constructor_calldata: vec![felt!(0u128), felt!(101u128)],
         // The deployer address is always be 0 for deploy v1
         deployer_address: contract_address!("0x0"),
     };

@@ -2,13 +2,12 @@ use std::collections::{HashMap, HashSet};
 
 use blockifier::context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
-use blockifier::state::cached_state::CachedState;
-use blockifier::state::state_api::{State, StateReader};
+use blockifier::state::cached_state::{CachedState, CommitmentStateDiff};
+use blockifier::state::state_api::StateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
@@ -22,11 +21,8 @@ use starknet_os::starknet::starknet_storage::{CommitmentInfo, OsSingleStarknetSt
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use starknet_os::storage::storage::Storage;
 use starknet_os::storage::storage_utils::build_starknet_storage_async;
-use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
-
-use crate::common::transaction_utils::to_felt252;
 
 pub async fn os_hints<S>(
     block_context: &BlockContext,
@@ -48,18 +44,19 @@ where
         .map(|address_biguint| {
             // TODO: biguint is exacerbating the type conversion problem, ideas...?
             let address: ContractAddress =
-                ContractAddress(PatriciaKey::try_from(felt_vm2api(Felt252::from(address_biguint))).unwrap());
+                ContractAddress(PatriciaKey::try_from(Felt252::from(address_biguint)).unwrap());
             let contract_state = blockifier_state.state.get_contract_state(address).unwrap();
-            (to_felt252(address.0.key()), contract_state)
+            (*address.0.key(), contract_state)
         })
         .collect();
 
     // provide an empty ContractState for any newly deployed contract
-    let state_diff = blockifier_state.to_state_diff();
+    let state_diff =
+        CommitmentStateDiff::from(blockifier_state.to_state_diff().expect("unable to generate state diff"));
     let deployed_addresses = state_diff.address_to_class_hash;
     for (address, _class_hash) in &deployed_addresses {
         contracts.insert(
-            to_felt252(address.0.key()),
+            *address.0.key(),
             ContractState::empty(Height(251), &mut blockifier_state.state.ffc).await.unwrap(),
         );
     }
@@ -69,11 +66,11 @@ where
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = state_diff
         .class_hash_to_compiled_class_hash
         .iter()
-        .map(|(class_hash, _compiled_class_hash)| (felt_api2vm(class_hash.0), Felt252::ZERO))
+        .map(|(class_hash, _compiled_class_hash)| (class_hash.0, Felt252::ZERO))
         .collect();
 
     for c in contracts.keys() {
-        let address = ContractAddress::try_from(StarkHash::new(c.to_bytes_be()).unwrap()).unwrap();
+        let address = ContractAddress(PatriciaKey::try_from(*c).unwrap());
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
@@ -83,7 +80,7 @@ where
                     compiled_classes.get(&class_hash).unwrap_or_else(|| panic!("No class given for {:?}", class_hash));
                 let compiled_class_hash = compiled_class.class_hash().expect("Failed to compute class hash");
                 let compiled_class_hash = Felt252::from(compiled_class_hash);
-                class_hash_to_compiled_class_hash.insert(to_felt252(&class_hash.0), compiled_class_hash);
+                class_hash_to_compiled_class_hash.insert(class_hash.0, compiled_class_hash);
 
                 compiled_class_hash_to_compiled_class.insert(compiled_class_hash, compiled_class.clone());
             }
@@ -125,7 +122,7 @@ where
 
     let general_config = StarknetGeneralConfig {
         starknet_os_config: StarknetOsConfig {
-            chain_id: default_general_config.starknet_os_config.chain_id,
+            chain_id: block_context.chain_info().chain_id.clone(),
             fee_token_address: block_context.chain_info().fee_token_addresses.strk_fee_token_address,
             deprecated_fee_token_address: block_context.chain_info().fee_token_addresses.eth_fee_token_address,
         },
@@ -140,7 +137,7 @@ where
         .visited_pcs
         .iter()
         .map(|(class_hash, visited_pcs)| {
-            let class_hash_felt = felt_api2vm(class_hash.0);
+            let class_hash_felt = class_hash.0;
             let compiled_class_hash_felt = class_hash_to_compiled_class_hash.get(&class_hash_felt).unwrap();
             (*compiled_class_hash_felt, visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
         })
@@ -169,7 +166,7 @@ where
         .class_hash_to_compiled_class_hash
         .keys()
         .chain(compiled_classes.keys())
-        .map(|class_hash| BigUint::from_bytes_be(class_hash.0.bytes()))
+        .map(|class_hash| class_hash.to_biguint())
         .collect();
 
     let contract_class_commitment_info =
@@ -183,7 +180,7 @@ where
         .unwrap_or_else(|e| panic!("Could not create contract class commitment info: {:?}", e));
 
     let deprecated_compiled_classes: HashMap<_, _> =
-        deprecated_compiled_classes.into_iter().map(|(k, v)| (felt_api2vm(k.0), v)).collect();
+        deprecated_compiled_classes.into_iter().map(|(k, v)| (k.0, v)).collect();
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info,

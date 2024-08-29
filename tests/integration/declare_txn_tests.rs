@@ -1,17 +1,17 @@
 use blockifier::context::BlockContext;
 use blockifier::declare_tx_args;
 use blockifier::execution::contract_class::ClassInfo;
-use blockifier::test_utils::NonceManager;
+use blockifier::test_utils::{NonceManager, BALANCE};
 use blockifier::transaction::test_utils::{calculate_class_info_for_testing, max_fee};
-use rstest::rstest;
+use rstest::{fixture, rstest};
 use starknet_api::core::CompiledClassHash;
 use starknet_api::transaction::{Fee, Resource, ResourceBounds, ResourceBoundsMapping, TransactionVersion};
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
 
 use crate::common::block_context;
-use crate::common::blockifier_contracts::load_cairo1_feature_contract;
-use crate::common::state::{initial_state_cairo0, initial_state_cairo1, StarknetTestState};
+use crate::common::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_feature_contract};
+use crate::common::state::{init_logging, initial_state_cairo1, StarknetStateBuilder, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 // Copied from the non-public Blockifier fn
@@ -52,8 +52,8 @@ async fn declare_v3_cairo1_account(
     let sender_address = account_contract.address;
 
     let contract_class = casm_class.to_blockifier_contract_class().unwrap();
-    let class_hash = starknet_api::core::ClassHash::try_from(contract_class_hash).unwrap();
-    let compiled_class_hash = CompiledClassHash::try_from(compiled_class_hash).unwrap();
+    let class_hash = starknet_api::core::ClassHash::from(contract_class_hash);
+    let compiled_class_hash = CompiledClassHash::from(compiled_class_hash);
 
     let class_info = ClassInfo::new(&contract_class.into(), sierra_class.sierra_program.len(), 0).unwrap();
 
@@ -111,8 +111,8 @@ async fn declare_cairo1_account(
     let sender_address = account_contract.address;
 
     let contract_class = casm_class.to_blockifier_contract_class().unwrap();
-    let class_hash = starknet_api::core::ClassHash::try_from(contract_class_hash).unwrap();
-    let compiled_class_hash = CompiledClassHash::try_from(compiled_class_hash).unwrap();
+    let class_hash = starknet_api::core::ClassHash::from(contract_class_hash);
+    let compiled_class_hash = CompiledClassHash::from(compiled_class_hash);
 
     let class_info = ClassInfo::new(&contract_class.into(), sierra_class.sierra_program.len(), 0).unwrap();
 
@@ -140,26 +140,38 @@ async fn declare_cairo1_account(
     .expect("OS run failed");
 }
 
+#[fixture]
+async fn initial_state_declare_cairo0(
+    block_context: BlockContext,
+    #[from(init_logging)] _logging: (),
+) -> StarknetTestState {
+    let account_with_dummy_validate = load_cairo0_feature_contract("account_with_dummy_validate");
+
+    StarknetStateBuilder::new(&block_context)
+        .deploy_cairo0_contract(account_with_dummy_validate.0, account_with_dummy_validate.1)
+        .set_default_balance(BALANCE, BALANCE)
+        .build()
+        .await
+}
+
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn declare_v1_cairo0_account(
-    #[future] initial_state_cairo0: StarknetTestState,
+    #[future] initial_state_declare_cairo0: StarknetTestState,
     block_context: BlockContext,
     max_fee: Fee,
 ) {
-    let initial_state = initial_state_cairo0.await;
+    let initial_state = initial_state_declare_cairo0.await;
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+
+    let (_, test_contract) = load_cairo0_feature_contract("test_contract");
+    let class_hash = test_contract.class_hash().unwrap();
 
     let mut nonce_manager = NonceManager::default();
-
-    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
-    let test_contract = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap();
-
     let tx_version = TransactionVersion::ONE;
 
-    let class_hash = test_contract.declaration.class_hash;
-
-    let blockifier_class = test_contract.declaration.class.get_blockifier_contract_class().unwrap().clone();
+    let blockifier_class = test_contract.to_blockifier_contract_class().unwrap();
     let class_info = calculate_class_info_for_testing(blockifier_class.into());
 
     let declare_tx = blockifier::test_utils::declare::declare_tx(
@@ -168,7 +180,7 @@ async fn declare_v1_cairo0_account(
             sender_address,
             version: tx_version,
             nonce: nonce_manager.next(sender_address),
-            class_hash: class_hash,
+            class_hash: class_hash.into(),
         },
         class_info,
     );

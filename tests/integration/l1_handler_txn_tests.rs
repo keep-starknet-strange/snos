@@ -7,8 +7,7 @@ use blockifier::transaction::transactions::L1HandlerTransaction;
 use futures::Future;
 use rstest::{fixture, rstest};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::felt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
 use crate::common::state::{init_logging, initial_state_cairo0, initial_state_syscalls, StarknetTestState};
@@ -49,7 +48,7 @@ async fn l1_handler<F>(
 
     let tx_version = TransactionVersion::ZERO;
 
-    let calldata_args = vec![stark_felt!(1234_u16), stark_felt!(42_u16)];
+    let calldata_args = vec![felt!(1234_u16), felt!(42_u16)];
     let l1_tx = L1HandlerTransaction {
         paid_fee_on_l1: max_fee,
         tx: starknet_api::transaction::L1HandlerTransaction {

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 
-use blockifier::state::cached_state::{CachedState, GlobalContractCache};
+use blockifier::state::cached_state::CachedState;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::Felt252;
@@ -24,13 +24,13 @@ use starknet_os::starknet::business_logic::fact_state::contract_state_objects::C
 use starknet_os::starknet::starknet_storage::CommitmentInfo;
 use starknet_os::starkware_utils::commitment_tree::base_types::Height;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-use starknet_os::utils::felt_api2vm;
 use starknet_os::{config, run_os};
+use starknet_os_types::chain_id::chain_id_from_felt;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_types_core::felt::Felt;
 
 use crate::reexecute::format_commitment_facts;
-use crate::rpc_utils::PathfinderClassProof;
+use crate::rpc_utils::{get_starknet_version, PathfinderClassProof};
 use crate::state_utils::get_processed_state_update;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
@@ -113,7 +113,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         reqwest::ClientBuilder::new().build().unwrap_or_else(|e| panic!("Could not build reqwest client: {e}"));
 
     // Step 1: build the block context
-    let chain_id = provider.chain_id().await?.to_string();
+    let chain_id = chain_id_from_felt(provider.chain_id().await?);
     log::debug!("provider's chain_id: {}", chain_id);
     let block_with_txs = match provider.get_block_with_txs(block_id).await? {
         MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
@@ -121,6 +121,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             panic!("Block is still pending!");
         }
     };
+
+    let starknet_version = get_starknet_version(&block_with_txs);
+    log::debug!("Starknet version: {:?}", starknet_version);
 
     // We only need to get the older block number and hash. No need to fetch all the txs
     let older_block = match provider
@@ -134,7 +137,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let block_context = build_block_context(chain_id.clone(), &block_with_txs);
+    let block_context = build_block_context(chain_id.clone(), &block_with_txs, starknet_version);
 
     let old_block_number = Felt252::from(older_block.block_number);
     let old_block_hash = older_block.block_hash;
@@ -155,7 +158,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ));
     let blockifier_state_reader = AsyncRpcStateReader::new(provider_for_blockifier, BlockId::Number(block_number - 1));
 
-    let mut blockifier_state = CachedState::new(blockifier_state_reader, GlobalContractCache::new(1024));
+    let mut blockifier_state = CachedState::new(blockifier_state_reader);
     let tx_execution_infos = reexecute_transactions_with_blockifier(
         &mut blockifier_state,
         &block_context,
@@ -189,9 +192,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let general_config = StarknetGeneralConfig {
         starknet_os_config: StarknetOsConfig {
-            // TODO: the string given by provider is in decimal, the OS expects hex
-            // chain_id: starknet_api::core::ChainId(chain_id.clone()),
-            chain_id: starknet_api::core::ChainId("SN_SEPOLIA".to_string()),
+            chain_id,
             fee_token_address: block_context.chain_info().fee_token_addresses.strk_fee_token_address,
             deprecated_fee_token_address: block_context.chain_info().fee_token_addresses.eth_fee_token_address,
         },
@@ -290,7 +291,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .visited_pcs
         .iter()
         .map(|(class_hash, visited_pcs)| {
-            (felt_api2vm(class_hash.0), visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
+            (class_hash.0, visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
         })
         .collect();
 

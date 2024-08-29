@@ -5,16 +5,15 @@ use cairo_vm::Felt252;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
+use starknet::core::types::BlockWithTxs;
 use starknet_api::core::{ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
-use starknet_api::{contract_address, patricia_key};
+use starknet_api::{contract_address, felt, patricia_key};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Length, NodePath};
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{Fact, HashFunctionType};
-use starknet_os::utils::{felt_api2vm, felt_vm2api};
 use starknet_types_core::felt::Felt;
 
 use crate::utils::get_all_accessed_keys;
@@ -137,7 +136,7 @@ pub(crate) async fn get_storage_proofs(
 ) -> Result<HashMap<Felt, PathfinderProof>, reqwest::Error> {
     let accessed_keys_by_address = {
         let mut keys = get_all_accessed_keys(tx_execution_infos);
-        keys.entry(contract_address!("0x1")).or_default().insert(felt_vm2api(old_block_number).try_into().unwrap());
+        keys.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
         keys
     };
 
@@ -149,9 +148,9 @@ pub(crate) async fn get_storage_proofs(
     }
 
     for (contract_address, storage_keys) in accessed_keys_by_address {
-        let contract_address_felt = felt_api2vm(*contract_address.key());
+        let contract_address_felt = *contract_address.key();
 
-        let keys: Vec<_> = storage_keys.iter().map(|storage_key| felt_api2vm(*storage_key.key())).collect();
+        let keys: Vec<_> = storage_keys.iter().map(|storage_key| *storage_key.key()).collect();
 
         let storage_proof = if keys.is_empty() {
             pathfinder_get_proof(client, rpc_provider, block_number, contract_address_felt, &[]).await?
@@ -298,4 +297,17 @@ pub(crate) fn verify_proof<H: HashFunctionType>(key: Felt, commitment: Felt, pro
     }
 
     Ok(())
+}
+
+pub(crate) fn get_starknet_version(block_with_txs: &BlockWithTxs) -> blockifier::versioned_constants::StarknetVersion {
+    let starknet_version_str = &block_with_txs.starknet_version;
+    match starknet_version_str.as_ref() {
+        "0.13.0" => blockifier::versioned_constants::StarknetVersion::V0_13_0,
+        "0.13.1" => blockifier::versioned_constants::StarknetVersion::V0_13_1,
+        "0.13.1.1" => blockifier::versioned_constants::StarknetVersion::V0_13_1_1,
+        "0.13.2" => blockifier::versioned_constants::StarknetVersion::Latest,
+        other => {
+            unimplemented!("Unsupported Starknet version: {}", other)
+        }
+    }
 }

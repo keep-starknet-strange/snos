@@ -6,8 +6,7 @@ use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use blockifier::transaction::transaction_execution::Transaction;
 use rstest::rstest;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
@@ -38,7 +37,7 @@ async fn test_syscall_library_call_cairo1(
     let test_contract_class_hash = test_contract.declaration.class_hash;
     let selector_felt = selector_from_name("recurse");
 
-    let return_result_calldata = vec![stark_felt!(1u128), stark_felt!(42u128)];
+    let return_result_calldata = vec![felt!(1u128), felt!(42u128)];
 
     let entrypoint_args = &[vec![test_contract_class_hash.0], vec![selector_felt.0], return_result_calldata].concat();
 

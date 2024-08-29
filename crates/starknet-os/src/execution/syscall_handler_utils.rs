@@ -261,7 +261,8 @@ fn write_failure(
 
     // Write the error data to a new memory segment.
     let revert_reason_start = vm.add_memory_segment();
-    let revert_reason_end = vm.load_data(revert_reason_start, &error_data.into_iter().map(Into::into).collect())?;
+    let revert_reason_end =
+        vm.load_data(revert_reason_start, &error_data.into_iter().map(Into::into).collect::<Vec<_>>())?;
 
     // Write the start and end pointers of the error data.
     write_maybe_relocatable(vm, ptr, revert_reason_start)?;

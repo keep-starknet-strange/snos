@@ -22,7 +22,6 @@ use crate::execution::syscall_handler_utils::{
     ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult, SyscallSelector, WriteResponseResult,
 };
 use crate::starknet::starknet_storage::PerContractStorage;
-use crate::utils::felt_api2vm;
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
@@ -162,14 +161,14 @@ impl SyscallHandler for CallContractHandler {
 
         *remaining_gas -= result.gas_consumed;
 
-        let retdata = result.retdata.0.iter().map(|sf| felt_api2vm(*sf)).collect();
+        let retdata = result.retdata.0;
 
         if result.failed {
             return Err(SyscallExecutionError::SyscallError { error_data: retdata });
         }
 
         let start_ptr = vm.add_temporary_segment();
-        vm.load_data(start_ptr, &retdata.iter().map(MaybeRelocatable::from).collect())?;
+        vm.load_data(start_ptr, &retdata.iter().map(MaybeRelocatable::from).collect::<Vec<_>>())?;
         Ok(ReadOnlySegment { start_ptr, length: retdata.len() })
     }
 
@@ -216,14 +215,14 @@ impl SyscallHandler for DeployHandler {
 
         *remaining_gas -= result.gas_consumed;
 
-        let retdata = result.retdata.0.iter().map(|sf| felt_api2vm(*sf)).collect();
+        let retdata = result.retdata.0;
 
         if result.failed {
             return Err(SyscallExecutionError::SyscallError { error_data: retdata });
         }
 
         let start_ptr = vm.add_temporary_segment();
-        vm.load_data(start_ptr, &retdata.iter().map(MaybeRelocatable::from).collect())?;
+        vm.load_data(start_ptr, &retdata.iter().map(MaybeRelocatable::from).collect::<Vec<_>>())?;
 
         let constructor_retdata = ReadOnlySegment { start_ptr, length: retdata.len() };
 
@@ -377,14 +376,14 @@ impl SyscallHandler for LibraryCallHandler {
 
         *remaining_gas -= result.gas_consumed;
 
-        let retdata = result.retdata.0.iter().map(|sf| felt_api2vm(*sf)).collect();
+        let retdata = result.retdata.0;
 
         if result.failed {
             return Err(SyscallExecutionError::SyscallError { error_data: retdata });
         }
 
         let start_ptr = vm.add_temporary_segment();
-        vm.load_data(start_ptr, &retdata.iter().map(MaybeRelocatable::from).collect())?;
+        vm.load_data(start_ptr, &retdata.iter().map(MaybeRelocatable::from).collect::<Vec<_>>())?;
         Ok(ReadOnlySegment { start_ptr, length: retdata.len() })
     }
 

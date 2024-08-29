@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use blockifier::abi::abi_utils::selector_from_name;
-use blockifier::block::BlockInfo;
+use blockifier::blockifier::block::BlockInfo;
+use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::declare::declare_tx;
@@ -16,10 +17,10 @@ use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
 use blockifier::versioned_constants::VersionedConstants;
 use blockifier::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
+use cairo_vm::Felt252;
 use rstest::{fixture, rstest};
 use starknet_api::core::{calculate_contract_address, ChainId, ContractAddress, EntryPointSelector};
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::felt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature, TransactionVersion,
 };
@@ -29,7 +30,6 @@ use starknet_os::io::output::StarknetOsOutput;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage_utils::unpack_blockifier_state_async;
-use starknet_os::utils::felt_api2vm;
 
 use crate::common::block_context;
 use crate::common::blockifier_contracts::load_cairo0_feature_contract;
@@ -139,7 +139,7 @@ async fn prepare_extensive_os_test_params(
     let test_contract = cairo0_contracts.get("test_contract_run_os").unwrap();
 
     for (salt, calldata) in salts.into_iter().zip(calldatas.into_iter()) {
-        let constructor_calldata: Vec<_> = calldata.iter().map(|&felt| stark_felt!(felt)).collect();
+        let constructor_calldata: Vec<_> = calldata.iter().map(|&felt| felt!(felt)).collect();
         deployed_txs_addresses.push(
             add_declare_and_deploy_contract_txs(
                 "test_contract_run_os",
@@ -298,7 +298,7 @@ async fn prepare_extensive_os_test_params(
         ],
     ));
 
-    let calldata_args = vec![stark_felt!(85_u16), stark_felt!(2_u16)];
+    let calldata_args = vec![felt!(85_u16), felt!(2_u16)];
     let l1_tx = L1HandlerTransaction {
         paid_fee_on_l1: max_fee(),
         tx: starknet_api::transaction::L1HandlerTransaction {
@@ -331,23 +331,25 @@ async fn prepare_extensive_os_test_params(
     let inner_invoke_tx = {
         let tx_args = invoke_tx_args! {
             sender_address: deploy_account_address,
+            version: TransactionVersion::ONE,
             calldata: create_calldata(test_contract1_address,
             "test_call_contract",
             &[
                 delegate_proxy_address.into(),
                 selector_from_name("test_get_tx_info").0,
                 1u128.into(),
-                (*deploy_account_address.0),
+                *deploy_account_address.0,
             ]),
             nonce: nonce_manager.next(deploy_account_address),
             signature: TransactionSignature(vec![100u128.into()]),
             max_fee: Fee(0x10000000000000000000000000u128),     // 2**100
         };
         let mut tx = invoke_tx(tx_args);
-        tx.tx_hash = TransactionHash(stark_felt!("0x19c90daecc4e3ed29743b0331024b3014b9f2c4620ee7ec441b4a7ec330583"));
+        tx.tx_hash = TransactionHash(felt!("0x538ed2ab8c30b384fda9cc92736a2212a0082444cce35135cdff5700885b156"));
         tx
     };
-    txs.push(Transaction::AccountTransaction(AccountTransaction::Invoke(inner_invoke_tx)));
+    let tx = Transaction::AccountTransaction(AccountTransaction::Invoke(inner_invoke_tx));
+    txs.push(tx);
 
     let test_contract2 = cairo0_contracts.get("test_contract2").unwrap();
 
@@ -410,7 +412,10 @@ async fn prepare_extensive_os_test_params(
 
 fn build_block_context(chain_id: ChainId, fee_token_address: ContractAddress) -> BlockContext {
     let block_info = BlockInfo::create_for_testing();
-    let versioned_constants = VersionedConstants::create_for_account_testing();
+    let mut versioned_constants = VersionedConstants::create_for_account_testing();
+    // Recent versions of Blockifier disable redeclaration of Cairo0 classes. We do that quite
+    // a bit in the test so the easy way out is to disable this feature.
+    versioned_constants.disable_cairo0_redeclaration = false;
 
     let chain_info = ChainInfo {
         chain_id,
@@ -420,7 +425,9 @@ fn build_block_context(chain_id: ChainId, fee_token_address: ContractAddress) ->
         },
     };
 
-    BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants)
+    let bouncer_config = BouncerConfig::max();
+
+    BlockContext::new(block_info, chain_info, versioned_constants, bouncer_config)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -431,8 +438,8 @@ fn add_declare_and_deploy_contract_txs(
     deploy_account_address: &ContractAddress,
     nonce_manager: &mut NonceManager,
     txs: &mut Vec<Transaction>,
-    salt: StarkFelt,
-    constructor_calldata: Vec<StarkFelt>,
+    salt: Felt252,
+    constructor_calldata: Vec<Felt252>,
 ) -> Result<ContractAddress, &'static str> {
     let contract = cairo0_contracts.get(contract).ok_or("Contract not found")?;
 
@@ -455,7 +462,7 @@ fn add_declare_and_deploy_contract_txs(
         contract.class_hash.0, // Class hash.
         salt,                  // Salt.
     ];
-    ctor_calldata.push(stark_felt!(constructor_calldata.len() as u128)); // Constructor calldata length.
+    ctor_calldata.push(felt!(constructor_calldata.len() as u128)); // Constructor calldata length.
     ctor_calldata.extend(constructor_calldata.iter());
     let invoke_tx = account_invoke_tx(invoke_tx_args! {
         sender_address: *deploy_account_address,
@@ -516,19 +523,19 @@ fn validate_os_output(os_output: &StarknetOsOutput, tx_contracts: &[ContractAddr
     let output_messages_to_l1 = &os_output.messages_to_l1;
 
     let expected_messages_to_l1 = [
-        felt_api2vm(*tx_contracts[0].0.key()), // from address
-        85.into(),                             // to address
-        2.into(),                              // PAYLOAD_SIZE
-        12.into(),                             // PAYLOAD_1
-        34.into(),                             // PAYLOAD_1
+        *tx_contracts[0].0.key(), // from address
+        85.into(),                // to address
+        2.into(),                 // PAYLOAD_SIZE
+        12.into(),                // PAYLOAD_1
+        34.into(),                // PAYLOAD_1
     ];
     assert_eq!(output_messages_to_l1, &expected_messages_to_l1);
 
     let expected_messages_to_l2 = [
-        85.into(),                             // from address
-        felt_api2vm(*tx_contracts[3].0.key()), // the delegate_proxy_address
-        0.into(),                              // Nonce
-        felt_api2vm(selector_from_name("deposit").0),
+        85.into(),                // from address
+        *tx_contracts[3].0.key(), // the delegate_proxy_address
+        0.into(),                 // Nonce
+        selector_from_name("deposit").0,
         1u64.into(), // PAYLOAD_SIZE
         2u64.into(), // PAYLOAD_1
     ];
@@ -566,7 +573,7 @@ pub async fn initial_state_full_itests(
 async fn run_os_tests(#[future] initial_state_full_itests: StarknetTestState) {
     let initial_state = initial_state_full_itests.await;
 
-    let chain_id = ChainId("SN_GOERLI".to_string());
+    let chain_id = ChainId::Sepolia;
     let mut nonce_manager = NonceManager::default();
 
     let dummy_token = initial_state.declared_cairo0_contracts.get("token_for_testing").unwrap();

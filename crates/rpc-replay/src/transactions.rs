@@ -7,8 +7,6 @@ use starknet::core::types::{InvokeTransaction, ResourceBoundsMapping, Transactio
 use starknet_api::core::PatriciaKey;
 use starknet_api::transaction::TransactionHash;
 
-use crate::utils::felt_vm2api;
-
 pub fn resource_bounds_core_to_api(
     resource_bounds: &ResourceBoundsMapping,
 ) -> starknet_api::transaction::ResourceBoundsMapping {
@@ -47,51 +45,45 @@ pub fn starknet_rs_to_blockifier(
         Transaction::Invoke(tx) => {
             let (tx_hash, api_tx) = match tx {
                 InvokeTransaction::V0(tx) => {
-                    let _tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let _tx_hash = TransactionHash(tx.transaction_hash);
                     unimplemented!("starknet_rs_to_blockifier with InvokeTransaction::V0");
                 }
                 InvokeTransaction::V1(tx) => {
-                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let tx_hash = TransactionHash(tx.transaction_hash);
                     let api_tx = starknet_api::transaction::InvokeTransaction::V1(
                         starknet_api::transaction::InvokeTransactionV1 {
                             max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
                             signature: starknet_api::transaction::TransactionSignature(
-                                tx.signature.clone().into_iter().map(felt_vm2api).collect(),
+                                tx.signature.clone().into_iter().collect(),
                             ),
-                            nonce: starknet_api::core::Nonce(felt_vm2api(tx.nonce)),
+                            nonce: starknet_api::core::Nonce(tx.nonce),
                             sender_address: starknet_api::core::ContractAddress(
-                                PatriciaKey::try_from(felt_vm2api(tx.sender_address)).unwrap(),
+                                PatriciaKey::try_from(tx.sender_address).unwrap(),
                             ),
                             calldata: starknet_api::transaction::Calldata(Arc::new(
-                                tx.calldata.clone().into_iter().map(felt_vm2api).collect(),
+                                tx.calldata.clone().into_iter().collect(),
                             )),
                         },
                     );
                     (tx_hash, api_tx)
                 }
                 InvokeTransaction::V3(tx) => {
-                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let tx_hash = TransactionHash(tx.transaction_hash);
                     let api_tx = starknet_api::transaction::InvokeTransaction::V3(
                         starknet_api::transaction::InvokeTransactionV3 {
                             resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
                             tip: starknet_api::transaction::Tip(tx.tip),
-                            signature: starknet_api::transaction::TransactionSignature(
-                                tx.signature.iter().copied().map(felt_vm2api).collect(),
-                            ),
-                            nonce: starknet_api::core::Nonce(felt_vm2api(tx.nonce)),
+                            signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
+                            nonce: starknet_api::core::Nonce(tx.nonce),
                             sender_address: starknet_api::core::ContractAddress(
-                                PatriciaKey::try_from(felt_vm2api(tx.sender_address)).unwrap(),
+                                PatriciaKey::try_from(tx.sender_address).unwrap(),
                             ),
-                            calldata: starknet_api::transaction::Calldata(Arc::new(
-                                tx.calldata.iter().copied().map(felt_vm2api).collect(),
-                            )),
+                            calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
                             nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
                             fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
-                            paymaster_data: starknet_api::transaction::PaymasterData(
-                                tx.paymaster_data.iter().copied().map(felt_vm2api).collect(),
-                            ),
+                            paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.to_vec()),
                             account_deployment_data: starknet_api::transaction::AccountDeploymentData(
-                                tx.account_deployment_data.iter().copied().map(felt_vm2api).collect(),
+                                tx.account_deployment_data.to_vec(),
                             ),
                         },
                     );

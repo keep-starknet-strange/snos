@@ -24,7 +24,7 @@ use crate::hints::vars;
 use crate::io::classes::write_class;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::core::os::contract_class::compiled_class_hash_objects::BytecodeSegmentStructureImpl;
-use crate::utils::{custom_hint_error, felt_api2vm, get_constant};
+use crate::utils::{custom_hint_error, get_constant};
 
 pub const LOAD_CLASS_FACTS: &str = indoc! {r#"
     ids.compiled_class_facts = segments.add()
@@ -234,7 +234,7 @@ pub fn fee_token_address(
     let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let fee_token_address = *os_input.general_config.starknet_os_config.fee_token_address.0.key();
     log::debug!("fee_token_address: {}", fee_token_address);
-    insert_value_into_ap(vm, felt_api2vm(fee_token_address))
+    insert_value_into_ap(vm, fee_token_address)
 }
 
 pub const DEPRECATED_FEE_TOKEN_ADDRESS: &str =
@@ -249,7 +249,7 @@ pub fn deprecated_fee_token_address(
     let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let deprecated_fee_token_address = *os_input.general_config.starknet_os_config.deprecated_fee_token_address.0.key();
     log::debug!("deprecated_fee_token_address: {}", deprecated_fee_token_address);
-    insert_value_into_ap(vm, felt_api2vm(deprecated_fee_token_address))
+    insert_value_into_ap(vm, deprecated_fee_token_address)
 }
 
 pub const SEQUENCER_ADDRESS: &str = "memory[ap] = to_felt_or_relocatable(syscall_handler.block_info.sequencer_address)";
@@ -261,7 +261,7 @@ pub fn sequencer_address(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let block_context = exec_scopes.get_ref::<BlockContext>(vars::scopes::BLOCK_CONTEXT)?;
-    insert_value_into_ap(vm, felt_api2vm(*block_context.block_info().sequencer_address.0.key()))
+    insert_value_into_ap(vm, *block_context.block_info().sequencer_address.0.key())
 }
 
 pub const GET_BLOCK_MAPPING: &str = indoc! {r#"

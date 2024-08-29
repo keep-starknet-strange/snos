@@ -138,7 +138,8 @@ pub fn prepare_constructor_execution(
         ap_tracking,
     )?;
 
-    let constructor_calldata = tx.constructor_calldata.unwrap_or_default().iter().map(|felt| felt.into()).collect();
+    let constructor_calldata =
+        tx.constructor_calldata.unwrap_or_default().iter().map(|felt| felt.into()).collect::<Vec<_>>();
     let constructor_calldata_base = vm.add_memory_segment();
     vm.load_data(constructor_calldata_base, &constructor_calldata)?;
     insert_value_from_var_name(vars::ids::CONSTRUCTOR_CALLDATA, constructor_calldata_base, vm, ids_data, ap_tracking)
@@ -586,7 +587,7 @@ pub fn tx_calldata(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let calldata =
-        tx.calldata.ok_or(custom_hint_error("tx.calldata is None"))?.iter().map(|felt| felt.into()).collect();
+        tx.calldata.ok_or(custom_hint_error("tx.calldata is None"))?.iter().map(|felt| felt.into()).collect::<Vec<_>>();
     let calldata_base = vm.add_memory_segment();
     vm.load_data(calldata_base, &calldata)?;
     insert_value_into_ap(vm, calldata_base)
@@ -849,7 +850,7 @@ pub fn gen_signature_arg(
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let signature = tx.signature.ok_or(custom_hint_error("tx.signature is None"))?;
     let signature_start_base = vm.add_memory_segment();
-    let signature = signature.iter().map(|f| MaybeRelocatable::Int(*f)).collect();
+    let signature = signature.iter().map(|f| MaybeRelocatable::Int(*f)).collect::<Vec<_>>();
     vm.load_data(signature_start_base, &signature)?;
 
     insert_value_from_var_name(vars::ids::SIGNATURE_START, signature_start_base, vm, ids_data, ap_tracking)?;

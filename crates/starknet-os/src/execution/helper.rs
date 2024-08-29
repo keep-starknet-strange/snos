@@ -150,7 +150,7 @@ where
             .iter()
             .filter_map(|call| {
                 if matches!(call.call.entry_point_type, EntryPointType::Constructor) {
-                    Some(Felt252::from_bytes_be_slice(call.call.storage_address.0.key().bytes()))
+                    Some(Felt252::from(call.call.storage_address))
                 } else {
                     None
                 }
@@ -171,13 +171,7 @@ where
             .into_iter();
 
         // unpack storage reads
-        eh_ref.execute_code_read_iter = call_info
-            .storage_read_values
-            .iter()
-            .map(|felt| Felt252::from_bytes_be_slice(felt.bytes()))
-            .collect::<Vec<Felt252>>()
-            .into_iter();
-
+        eh_ref.execute_code_read_iter = call_info.storage_read_values.clone().into_iter();
         eh_ref.call_info = Some(call_info);
     }
     pub async fn exit_call(&mut self) {
@@ -224,6 +218,7 @@ where
 
         let mut commitments = HashMap::new();
         for (key, storage) in storage_by_address.iter_mut() {
+            log::debug!("Computing commitment for contract address {}", key.to_hex_string());
             let commitment_info = storage.compute_commitment().await?;
             commitments.insert(*key, commitment_info);
         }
