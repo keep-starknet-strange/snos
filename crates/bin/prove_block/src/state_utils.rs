@@ -38,20 +38,16 @@ pub(crate) async fn get_processed_state_update(
     let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
     let contracts_subcalled: HashSet<Felt252> = get_subcalled_contracts_from_tx_traces(&traces);
 
-    let address_to_class_hash: HashMap<Felt252, Felt252> =
-        format_deployed_contracts(&state_diff, &contracts_subcalled, provider, block_id).await;
-    let address_to_nonce: HashMap<Felt252, Felt252> = format_state_update_nonces(&state_diff, transactions);
+    let accessed_address: HashSet<Felt252> = HashSet::new(); 
+    let address_to_class_hash: HashSet<Felt252> = get_deployed_contract_address(&state_diff);
+    let address_to_nonce: HashSet<Felt252> = get_nonce_updated_contract_address(&state_diff);
     let class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = format_declared_classes(&state_diff);
-    let storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>> = format_storage_updates(&state_diff);
+    let storage_updates: HashSet<Felt252> = get_storage_updated_contract_address(&state_diff);
 
     // Collect keys without consuming the HashMaps by borrowing and cloning the keys
-    let _accessed_addresses: HashSet<Felt252> = address_to_class_hash
-        .keys()
-        .copied()
-        .chain(address_to_nonce.keys().cloned())
-        .chain(storage_updates.keys().cloned())
-        .collect();
-
+    accessed_address.extend(address_to_nonce);
+    accessed_address.extend(storage_updates);
+    
     let accessed_addresses = contracts_subcalled;
 
     FormattedStateUpdate {
@@ -61,26 +57,15 @@ pub(crate) async fn get_processed_state_update(
 }
 
 /// Format StateDiff's NonceUpdate to a HashMap<contract_address, nonce>
-fn format_state_update_nonces(
+fn get_nonce_updated_contract_address(
     state_diff: &StateDiff,
-    transactions: &[InternalTransaction],
-) -> HashMap<Felt252, Felt252> {
-    let address_to_nonce: HashMap<Felt252, Felt252> = state_diff
+) -> HashSet<Felt252> {
+    let address_updated = state_diff
         .nonces
         .iter()
-        .map(|nonce_update| {
-            // derive original nonce
-            // TODO: understand what is going on here XD
-            let num_nonce_bumps =
-                Felt252::from(transactions.iter().fold(0, |acc, tx| {
-                    acc + if tx.sender_address == Some(nonce_update.contract_address) { 1 } else { 0 }
-                }));
-            assert!(nonce_update.nonce > num_nonce_bumps);
-            let previous_nonce = nonce_update.nonce - num_nonce_bumps;
-            (nonce_update.contract_address, previous_nonce)
-        })
+        .map(|nonce_update| nonce_update.contract_address)
         .collect();
-    address_to_nonce
+    address_updated
 }
 
 /// Format StateDiff's DeclaredClassItem to a HashMap<class_hash, compiled_class_hash>
@@ -91,14 +76,11 @@ fn format_declared_classes(state_diff: &StateDiff) -> HashMap<Felt252, Felt252> 
 }
 
 /// Format StateDiff's ContractStorageDiffItem to a HashMap<contract_address, HashMap<key, value>>
-fn format_storage_updates(state_diff: &StateDiff) -> HashMap<Felt252, HashMap<Felt252, Felt252>> {
-    let storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>> = state_diff
+fn get_storage_updated_contract_address(state_diff: &StateDiff) -> HashSet<Felt252> {
+    let storage_updates: HashSet<Felt252> = state_diff
         .storage_diffs
         .iter()
-        .map(|diffs| {
-            let storage_entries = diffs.storage_entries.iter().map(|e| (e.key, e.value)).collect();
-            (diffs.address, storage_entries)
-        })
+        .map(|diffs| diffs.address)
         .collect();
     storage_updates
 }
@@ -106,20 +88,10 @@ fn format_storage_updates(state_diff: &StateDiff) -> HashMap<Felt252, HashMap<Fe
 /// Formats `StateDiff`'s `DeployedContractItem` into a `HashMap<contract_address, class_hash>`.
 /// It also takes all subcalled contract addresses (which may or may not have diffs)
 /// and fetches the class hash if it wasn't included in the `StateDiff`.
-async fn format_deployed_contracts(
+async fn get_deployed_contract_address(
     state_diff: &StateDiff,
-    contracts_subcalled: &HashSet<Felt252>,
-    provider: &JsonRpcClient<HttpTransport>,
-    block_id: BlockId,
-) -> HashMap<Felt252, Felt252> {
-    let mut address_to_class_hash: HashMap<_, _> =
-        state_diff.deployed_contracts.iter().map(|contract| (contract.address, contract.class_hash)).collect();
-
-    for address in contracts_subcalled {
-        if !address_to_class_hash.contains_key(address) {
-            let class_hash = provider.get_class_hash_at(block_id, address).await.unwrap();
-            address_to_class_hash.insert(*address, class_hash);
-        }
-    }
+) -> HashSet<Felt252> {
+    let address_to_class_hash =
+        state_diff.deployed_contracts.iter().map(|contract| contract.address).collect();
     address_to_class_hash
 }
