@@ -98,8 +98,80 @@ pub fn starknet_rs_to_blockifier(
                 invoke,
             ))
         }
-        Transaction::DeployAccount(_tx) => {
-            unimplemented!("starknet_rs_tx_to_blockifier() with Deploy txn");
+        Transaction::DeployAccount(tx) => {
+            let (tx_hash, api_tx, contract_address) = match tx {
+                DeployAccountTransaction::V1(tx) => {
+                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let api_tx = starknet_api::transaction::DeployAccountTransaction::V1(
+                        starknet_api::transaction::DeployAccountTransactionV1 {
+                            max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
+                            signature: starknet_api::transaction::TransactionSignature(
+                                tx.signature.clone().into_iter().map(felt_vm2api).collect(),
+                            ),
+                            nonce: starknet_api::core::Nonce(felt_vm2api(tx.nonce)),
+                            class_hash: starknet_api::core::ClassHash(felt_vm2api(tx.class_hash)),
+                            contract_address_salt: starknet_api::transaction::ContractAddressSalt(felt_vm2api(
+                                tx.contract_address_salt,
+                            )),
+                            constructor_calldata: starknet_api::transaction::Calldata(Arc::new(
+                                tx.constructor_calldata.iter().copied().map(felt_vm2api).collect(),
+                            )),
+                        },
+                    );
+                    let contract_address = calculate_contract_address(
+                        api_tx.contract_address_salt(),
+                        api_tx.class_hash(),
+                        &api_tx.constructor_calldata(),
+                        ContractAddress::from(0_u8),
+                    )?;
+
+                    (tx_hash, api_tx, contract_address)
+                }
+                DeployAccountTransaction::V3(tx) => {
+                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let api_tx = starknet_api::transaction::DeployAccountTransaction::V3(
+                        starknet_api::transaction::DeployAccountTransactionV3 {
+                            resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
+                            tip: starknet_api::transaction::Tip(tx.tip),
+                            signature: starknet_api::transaction::TransactionSignature(
+                                tx.signature.clone().into_iter().map(felt_vm2api).collect(),
+                            ),
+                            nonce: starknet_api::core::Nonce(felt_vm2api(tx.nonce)),
+                            class_hash: starknet_api::core::ClassHash(felt_vm2api(tx.class_hash)),
+                            contract_address_salt: starknet_api::transaction::ContractAddressSalt(felt_vm2api(
+                                tx.contract_address_salt,
+                            )),
+                            constructor_calldata: starknet_api::transaction::Calldata(Arc::new(
+                                tx.constructor_calldata.iter().copied().map(felt_vm2api).collect(),
+                            )),
+                            nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
+                            fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
+                            paymaster_data: starknet_api::transaction::PaymasterData(
+                                tx.paymaster_data.iter().copied().map(felt_vm2api).collect(),
+                            ),
+                        },
+                    );
+                    let contract_address = calculate_contract_address(
+                        api_tx.contract_address_salt(),
+                        api_tx.class_hash(),
+                        &api_tx.constructor_calldata(),
+                        ContractAddress::from(0_u8),
+                    )?;
+
+                    (tx_hash, api_tx, contract_address)
+                }
+            };
+
+            let deploy_account = blockifier::transaction::transactions::DeployAccountTransaction {
+                tx: api_tx,
+                tx_hash,
+                contract_address,
+                only_query: false,
+            };
+
+            blockifier::transaction::transaction_execution::Transaction::AccountTransaction(
+                AccountTransaction::DeployAccount(deploy_account),
+            )
         }
         Transaction::Declare(_tx) => {
             unimplemented!("starknet_rs_tx_to_blockifier() with Declare txn");
