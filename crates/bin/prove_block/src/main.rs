@@ -147,7 +147,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    let processed_state_update = get_processed_state_update(&provider, block_id, &transactions).await;
+    let processed_state_update = get_processed_state_update(&provider, block_id).await;
 
     let accessed_contracts = processed_state_update.accessed_addresses;
 
