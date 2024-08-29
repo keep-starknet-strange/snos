@@ -20,6 +20,10 @@ license-file = "LICENSE"
 
 [workspace.dependencies]
 anyhow = "1.0.75"
+ark-ec = "0.4.2"
+ark-ff = "0.4.2"
+ark-secp256k1 = "0.4"
+ark-secp256r1 = "0.4"
 assert_matches = "1.5.0"
 base64 = "0.21.3"
 bitvec = { version = "1.0.1", features = ["serde"] }
@@ -30,7 +34,7 @@ cairo-lang-starknet-classes = { version = "=2.7.1" }
 cairo-lang-utils = { version = "=2.7.1" }
 cairo-lang-casm = { version = "=2.7.1" }
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
-cairo-vm = { version = "=1.0.1", features = ["extensive_hints", "cairo-1-hints"] }
+cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", rev = "40ebe36e64ffa429ff18cba8ef0bd7d2c122ac12", features = ["extensive_hints", "cairo-1-hints"] }
 clap = { version = "4.5.4", features = ["derive"] }
 env_logger = "0.11.3"
 flate2 = "1.0.32"

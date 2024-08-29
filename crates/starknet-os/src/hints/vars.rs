@@ -90,6 +90,7 @@ pub mod ids {
     pub const NEW_ROOT: &str = "new_root";
     pub const NEW_STATE_ENTRY: &str = "new_state_entry";
     pub const NODE: &str = "node";
+    pub const NOT_ON_CURVE: &str = "not_on_curve";
     pub const OLD_BLOCK_HASH: &str = "old_block_hash";
     pub const OLD_BLOCK_NUMBER: &str = "old_block_number";
     pub const OS_CONTEXT: &str = "os_context";
