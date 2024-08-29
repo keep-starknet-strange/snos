@@ -11,13 +11,7 @@ use crate::utils::get_subcalled_contracts_from_tx_traces;
 #[derive(Clone)]
 pub struct FormattedStateUpdate {
     // TODO: Use more descriptive types
-    #[allow(unused)]
-    pub address_to_class_hash: HashMap<Felt252, Felt252>,
-    #[allow(unused)]
-    pub address_to_nonce: HashMap<Felt252, Felt252>,
     pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
-    #[allow(unused)]
-    pub storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>>,
     pub accessed_addresses: HashSet<Felt252>,
 }
 
@@ -51,18 +45,17 @@ pub(crate) async fn get_processed_state_update(
     let storage_updates: HashMap<Felt252, HashMap<Felt252, Felt252>> = format_storage_updates(&state_diff);
 
     // Collect keys without consuming the HashMaps by borrowing and cloning the keys
-    let accessed_addresses: HashSet<Felt252> = address_to_class_hash
+    let _accessed_addresses: HashSet<Felt252> = address_to_class_hash
         .keys()
         .copied()
         .chain(address_to_nonce.keys().cloned())
         .chain(storage_updates.keys().cloned())
         .collect();
 
+    let accessed_addresses = contracts_subcalled;
+
     FormattedStateUpdate {
-        address_to_class_hash,
-        address_to_nonce,
         class_hash_to_compiled_class_hash,
-        storage_updates,
         accessed_addresses,
     }
 }

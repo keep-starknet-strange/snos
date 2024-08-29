@@ -115,6 +115,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Step 1: build the block context
     let chain_id = chain_id_from_felt(provider.chain_id().await?);
     log::debug!("provider's chain_id: {}", chain_id);
+
     let block_with_txs = match provider.get_block_with_txs(block_id).await? {
         MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
         MaybePendingBlockWithTxs::PendingBlock(_) => {
@@ -165,14 +166,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(tx).unwrap()).collect(),
     )?;
 
-    if tx_execution_infos.len() != transactions.len() {
-        log::warn!(
-            "Warning: blockifier reexecution yielded different num execution infos ({}) than transactions ({})",
-            tx_execution_infos.len(),
-            transactions.len()
-        );
-    }
-
     let storage_proofs =
         get_storage_proofs(&pathfinder_client, &args.rpc_provider, block_number, &tx_execution_infos, old_block_number)
             .await
@@ -217,9 +210,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         );
 
         let previous_tree = PatriciaTree { root: contract_storage_root, height: Height(251) };
-
-        let previous_storage_proof =
-            previous_storage_proofs.get(&contract_address).expect("there should be a previous storage proof");
 
         let contract_storage = ProverPerContractStorage::new(
             previous_block_id,
