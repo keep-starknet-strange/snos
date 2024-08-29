@@ -41,7 +41,7 @@ fn da_mode_core_to_api(
 pub fn starknet_rs_to_blockifier(
     sn_core_tx: &starknet::core::types::Transaction,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
-    let blockifier_tx: AccountTransaction = match sn_core_tx {
+    let blockifier_tx = match sn_core_tx {
         Transaction::Invoke(tx) => {
             let (tx_hash, api_tx) = match tx {
                 InvokeTransaction::V0(tx) => {
@@ -90,9 +90,13 @@ pub fn starknet_rs_to_blockifier(
                     (tx_hash, api_tx)
                 }
             };
+
             let invoke =
                 blockifier::transaction::transactions::InvokeTransaction { tx: api_tx, tx_hash, only_query: false };
-            AccountTransaction::Invoke(invoke)
+
+            blockifier::transaction::transaction_execution::Transaction::AccountTransaction(AccountTransaction::Invoke(
+                invoke,
+            ))
         }
         Transaction::DeployAccount(_tx) => {
             unimplemented!("starknet_rs_tx_to_blockifier() with Deploy txn");
@@ -106,5 +110,5 @@ pub fn starknet_rs_to_blockifier(
         _ => unimplemented!(),
     };
 
-    Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(blockifier_tx))
+    Ok(blockifier_tx)
 }
