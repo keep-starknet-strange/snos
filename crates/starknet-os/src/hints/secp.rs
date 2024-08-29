@@ -11,6 +11,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 
 use crate::cairo_types::syscalls::SecpNewResponse;
+use crate::hints::vars;
 
 pub const READ_EC_POINT_ADDRESS: &str = r#"memory[ap] = to_felt_or_relocatable(ids.response.ec_point.address_ if ids.not_on_curve == 0 else segments.add())"#;
 pub fn read_ec_point_from_address(
@@ -20,9 +21,9 @@ pub fn read_ec_point_from_address(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let not_on_curve = get_integer_from_var_name("not_on_curve", vm, ids_data, _ap_tracking)?;
+    let not_on_curve = get_integer_from_var_name(vars::ids::NOT_ON_CURVE, vm, ids_data, _ap_tracking)?;
     if not_on_curve == Felt252::ZERO {
-        let response = get_ptr_from_var_name("response", vm, ids_data, _ap_tracking)?;
+        let response = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, _ap_tracking)?;
         let ec_point = vm.get_relocatable((response + SecpNewResponse::ec_point_offset())?)?;
         insert_value_into_ap(vm, ec_point)?;
     } else {
