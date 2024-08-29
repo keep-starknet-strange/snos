@@ -5,12 +5,11 @@ use std::sync::Arc;
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use starknet::core::types::{
-    BlockId, DeclareTransaction, DeployAccountTransaction, InvokeTransaction, ResourceBoundsMapping, Transaction,
+    BlockId, DeclareTransaction, DeployAccountTransaction, Felt, InvokeTransaction, ResourceBoundsMapping, Transaction,
 };
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
 use starknet_api::core::{calculate_contract_address, ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Fee, TransactionHash};
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
@@ -110,20 +109,18 @@ pub async fn starknet_rs_to_blockifier(
         Transaction::DeployAccount(tx) => {
             let (tx_hash, api_tx, contract_address) = match tx {
                 DeployAccountTransaction::V1(tx) => {
-                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let tx_hash = TransactionHash(tx.transaction_hash);
                     let api_tx = starknet_api::transaction::DeployAccountTransaction::V1(
                         starknet_api::transaction::DeployAccountTransactionV1 {
                             max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
-                            signature: starknet_api::transaction::TransactionSignature(
-                                tx.signature.clone().into_iter().map(felt_vm2api).collect(),
-                            ),
-                            nonce: starknet_api::core::Nonce(felt_vm2api(tx.nonce)),
-                            class_hash: starknet_api::core::ClassHash(felt_vm2api(tx.class_hash)),
-                            contract_address_salt: starknet_api::transaction::ContractAddressSalt(felt_vm2api(
+                            signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+                            nonce: starknet_api::core::Nonce(tx.nonce),
+                            class_hash: starknet_api::core::ClassHash(tx.class_hash),
+                            contract_address_salt: starknet_api::transaction::ContractAddressSalt(
                                 tx.contract_address_salt,
-                            )),
+                            ),
                             constructor_calldata: starknet_api::transaction::Calldata(Arc::new(
-                                tx.constructor_calldata.iter().copied().map(felt_vm2api).collect(),
+                                tx.constructor_calldata.clone(),
                             )),
                         },
                     );
@@ -137,27 +134,23 @@ pub async fn starknet_rs_to_blockifier(
                     (tx_hash, api_tx, contract_address)
                 }
                 DeployAccountTransaction::V3(tx) => {
-                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let tx_hash = TransactionHash(tx.transaction_hash);
                     let api_tx = starknet_api::transaction::DeployAccountTransaction::V3(
                         starknet_api::transaction::DeployAccountTransactionV3 {
                             resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
                             tip: starknet_api::transaction::Tip(tx.tip),
-                            signature: starknet_api::transaction::TransactionSignature(
-                                tx.signature.clone().into_iter().map(felt_vm2api).collect(),
-                            ),
-                            nonce: starknet_api::core::Nonce(felt_vm2api(tx.nonce)),
-                            class_hash: starknet_api::core::ClassHash(felt_vm2api(tx.class_hash)),
-                            contract_address_salt: starknet_api::transaction::ContractAddressSalt(felt_vm2api(
+                            signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+                            nonce: starknet_api::core::Nonce(tx.nonce),
+                            class_hash: starknet_api::core::ClassHash(tx.class_hash),
+                            contract_address_salt: starknet_api::transaction::ContractAddressSalt(
                                 tx.contract_address_salt,
-                            )),
+                            ),
                             constructor_calldata: starknet_api::transaction::Calldata(Arc::new(
-                                tx.constructor_calldata.iter().copied().map(felt_vm2api).collect(),
+                                tx.constructor_calldata.clone(),
                             )),
                             nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
                             fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
-                            paymaster_data: starknet_api::transaction::PaymasterData(
-                                tx.paymaster_data.iter().copied().map(felt_vm2api).collect(),
-                            ),
+                            paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.clone()),
                         },
                     );
                     let contract_address = calculate_contract_address(
@@ -185,68 +178,56 @@ pub async fn starknet_rs_to_blockifier(
         Transaction::Declare(tx) => {
             let (tx_hash, api_tx, class_hash) = match tx {
                 DeclareTransaction::V1(tx) => {
-                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let tx_hash = TransactionHash(tx.transaction_hash);
                     let api_tx = starknet_api::transaction::DeclareTransaction::V1(
                         starknet_api::transaction::DeclareTransactionV0V1 {
                             max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
-                            signature: starknet_api::transaction::TransactionSignature(
-                                tx.signature.clone().into_iter().map(felt_vm2api).collect(),
-                            ),
-                            nonce: starknet_api::core::Nonce(felt_vm2api(tx.nonce)),
-                            class_hash: starknet_api::core::ClassHash(felt_vm2api(tx.class_hash)),
-                            sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(felt_vm2api(
+                            signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+                            nonce: starknet_api::core::Nonce(tx.nonce),
+                            class_hash: starknet_api::core::ClassHash(tx.class_hash),
+                            sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(
                                 tx.sender_address,
-                            ))?),
+                            )?),
                         },
                     );
 
                     (tx_hash, api_tx, tx.class_hash)
                 }
                 DeclareTransaction::V2(tx) => {
-                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let tx_hash = TransactionHash(tx.transaction_hash);
                     let api_tx = starknet_api::transaction::DeclareTransaction::V2(
                         starknet_api::transaction::DeclareTransactionV2 {
                             max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
-                            signature: starknet_api::transaction::TransactionSignature(
-                                tx.signature.clone().into_iter().map(felt_vm2api).collect(),
-                            ),
-                            nonce: starknet_api::core::Nonce(felt_vm2api(tx.nonce)),
-                            class_hash: starknet_api::core::ClassHash(felt_vm2api(tx.class_hash)),
-                            compiled_class_hash: starknet_api::core::CompiledClassHash(felt_vm2api(
-                                tx.compiled_class_hash,
-                            )),
-                            sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(felt_vm2api(
+                            signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+                            nonce: starknet_api::core::Nonce(tx.nonce),
+                            class_hash: starknet_api::core::ClassHash(tx.class_hash),
+                            compiled_class_hash: starknet_api::core::CompiledClassHash(tx.compiled_class_hash),
+                            sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(
                                 tx.sender_address,
-                            ))?),
+                            )?),
                         },
                     );
 
                     (tx_hash, api_tx, tx.class_hash)
                 }
                 DeclareTransaction::V3(tx) => {
-                    let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+                    let tx_hash = TransactionHash(tx.transaction_hash);
                     let api_tx = starknet_api::transaction::DeclareTransaction::V3(
                         starknet_api::transaction::DeclareTransactionV3 {
                             resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
                             tip: starknet_api::transaction::Tip(tx.tip),
-                            signature: starknet_api::transaction::TransactionSignature(
-                                tx.signature.clone().into_iter().map(felt_vm2api).collect(),
-                            ),
-                            nonce: starknet_api::core::Nonce(felt_vm2api(tx.nonce)),
-                            class_hash: starknet_api::core::ClassHash(felt_vm2api(tx.class_hash)),
-                            compiled_class_hash: starknet_api::core::CompiledClassHash(felt_vm2api(
-                                tx.compiled_class_hash,
-                            )),
-                            sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(felt_vm2api(
+                            signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+                            nonce: starknet_api::core::Nonce(tx.nonce),
+                            class_hash: starknet_api::core::ClassHash(tx.class_hash),
+                            compiled_class_hash: starknet_api::core::CompiledClassHash(tx.compiled_class_hash),
+                            sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(
                                 tx.sender_address,
-                            ))?),
+                            )?),
                             nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
                             fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
-                            paymaster_data: starknet_api::transaction::PaymasterData(
-                                tx.paymaster_data.iter().copied().map(felt_vm2api).collect(),
-                            ),
+                            paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.clone()),
                             account_deployment_data: starknet_api::transaction::AccountDeploymentData(
-                                tx.account_deployment_data.iter().copied().map(felt_vm2api).collect(),
+                                tx.account_deployment_data.clone(),
                             ),
                         },
                     );
@@ -284,17 +265,15 @@ pub async fn starknet_rs_to_blockifier(
             )
         }
         Transaction::L1Handler(tx) => {
-            let tx_hash = TransactionHash(felt_vm2api(tx.transaction_hash));
+            let tx_hash = TransactionHash(tx.transaction_hash);
             let api_tx = starknet_api::transaction::L1HandlerTransaction {
-                version: starknet_api::transaction::TransactionVersion(felt_vm2api(tx.version)),
-                nonce: starknet_api::core::Nonce(StarkFelt::from(tx.nonce)),
+                version: starknet_api::transaction::TransactionVersion(tx.version),
+                nonce: starknet_api::core::Nonce(Felt::from(tx.nonce)),
                 contract_address: starknet_api::core::ContractAddress(
-                    PatriciaKey::try_from(felt_vm2api(tx.contract_address)).unwrap(),
+                    PatriciaKey::try_from(tx.contract_address).unwrap(),
                 ),
-                entry_point_selector: starknet_api::core::EntryPointSelector(felt_vm2api(tx.entry_point_selector)),
-                calldata: starknet_api::transaction::Calldata(Arc::new(
-                    tx.calldata.iter().copied().map(felt_vm2api).collect(),
-                )),
+                entry_point_selector: starknet_api::core::EntryPointSelector(tx.entry_point_selector),
+                calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.clone())),
             };
 
             // TODO: Check Fee value
