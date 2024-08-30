@@ -407,19 +407,15 @@ pub async fn prove_block(
     Ok(run_os(config::DEFAULT_COMPILED_OS, layout, os_input, block_context, execution_helper)?)
 }
 
-pub fn debug_prove_error(err: ProveBlockError) {
-    match &err {
-        ProveBlockError::SnOsError(SnOsError::Runner(CairoRunError::VmException(vme))) => {
-            if let Some(traceback) = vme.traceback.as_ref() {
-                log::error!("traceback:\n{}", traceback);
-            }
-            if let Some(inst_location) = &vme.inst_location {
-                log::error!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
-                log::error!("inst_location:\n{:?}", inst_location);
-            }
+pub fn debug_prove_error(err: ProveBlockError) -> ProveBlockError {
+    if let ProveBlockError::SnOsError(SnOsError::Runner(CairoRunError::VmException(vme))) = &err {
+        if let Some(traceback) = vme.traceback.as_ref() {
+            log::error!("traceback:\n{}", traceback);
         }
-        _ => {
-            log::error!("exception:\n{:#?}", err);
+        if let Some(inst_location) = &vme.inst_location {
+            log::error!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
+            log::error!("inst_location:\n{:?}", inst_location);
         }
     }
+    err
 }
