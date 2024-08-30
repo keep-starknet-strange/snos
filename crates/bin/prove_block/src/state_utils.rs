@@ -70,7 +70,10 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
     accessed_addresses: &HashSet<Felt252>,
     address_to_class_hash: &HashMap<Felt252, Felt252>,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
-) -> Result<(HashMap<Felt252, GenericCasmContractClass>, HashMap<Felt252, GenericDeprecatedCompiledClass>), ProveBlockError> {
+) -> Result<
+    (HashMap<Felt252, GenericCasmContractClass>, HashMap<Felt252, GenericDeprecatedCompiledClass>),
+    ProveBlockError,
+> {
     let mut compiled_contract_classes: HashMap<Felt252, GenericCasmContractClass> = HashMap::new();
     // TODO: Handle deprecated classes
     let mut _deprecated_compiled_contract_classes: HashMap<Felt252, GenericDeprecatedCompiledClass> = HashMap::new();

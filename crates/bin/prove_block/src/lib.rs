@@ -216,15 +216,10 @@ pub async fn prove_block(
             .await
             .expect("Failed to fetch storage proofs");
 
-    let previous_storage_proofs = get_storage_proofs(
-        &pathfinder_client,
-        rpc_provider,
-        block_number - 1,
-        &tx_execution_infos,
-        old_block_number,
-    )
-    .await
-    .expect("Failed to fetch storage proofs");
+    let previous_storage_proofs =
+        get_storage_proofs(&pathfinder_client, rpc_provider, block_number - 1, &tx_execution_infos, old_block_number)
+            .await
+            .expect("Failed to fetch storage proofs");
 
     let default_general_config = StarknetGeneralConfig::default();
 
@@ -292,10 +287,9 @@ pub async fn prove_block(
     let class_proofs = get_class_proofs(&pathfinder_client, rpc_provider, block_number - 1, &class_hashes[..])
         .await
         .expect("Failed to fetch class proofs");
-    let previous_class_proofs =
-        get_class_proofs(&pathfinder_client, rpc_provider, block_number - 1, &class_hashes[..])
-            .await
-            .expect("Failed to fetch class proofs");
+    let previous_class_proofs = get_class_proofs(&pathfinder_client, rpc_provider, block_number - 1, &class_hashes[..])
+        .await
+        .expect("Failed to fetch class proofs");
 
     let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
         .visited_pcs
