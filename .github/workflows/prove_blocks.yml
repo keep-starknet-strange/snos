@@ -47,11 +47,7 @@ jobs:
           bash scripts/setup-tests.sh
 
       - name: Prove Blocks
+        env:
+          PATHFINDER_RPC_URL: ${{ secrets.PATHFINDER_RPC_URL }}
         run: |
-          # These blocks verify the following issues:
-          # * 76793: the first block that we managed to prove, only has a few invoke txs
-          # * 76766 / 76775: additional basic blocks
-          # * 86507 / 124533: a failing assert that happened because we used the wrong VersionedConstants
-          # * 87019: diff assert values in contract subcall
-          # * 76832: contains a reverted tx
-          bash scripts/prove-blocks.sh -p ${{ secrets.PATHFINDER_RPC_URL }} -b 76793,76766,76775,76832,86507,87019,124533
+          cargo test --release --package prove_block --test prove_block -- test_prove_selected_blocks --show-output --ignored

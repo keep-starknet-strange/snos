@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use anyhow::Error;
 use cairo_vm::Felt252;
 use starknet::core::types::{BlockId, MaybePendingStateUpdate, StateDiff};
 use starknet::providers::jsonrpc::HttpTransport;
@@ -10,6 +9,7 @@ use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
 use crate::utils::get_subcalled_contracts_from_tx_traces;
+use crate::ProveBlockError;
 
 #[derive(Clone)]
 pub struct FormattedStateUpdate {
@@ -26,7 +26,7 @@ pub struct FormattedStateUpdate {
 pub(crate) async fn get_formatted_state_update(
     provider: &JsonRpcClient<HttpTransport>,
     block_id: BlockId,
-) -> Result<FormattedStateUpdate, Error> {
+) -> Result<FormattedStateUpdate, ProveBlockError> {
     let state_update = match provider.get_state_update(block_id).await.expect("Failed to get state update") {
         MaybePendingStateUpdate::Update(update) => update,
         MaybePendingStateUpdate::PendingUpdate(_) => {
@@ -70,7 +70,7 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
     accessed_addresses: &HashSet<Felt252>,
     address_to_class_hash: &HashMap<Felt252, Felt252>,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
-) -> Result<(HashMap<Felt252, GenericCasmContractClass>, HashMap<Felt252, GenericDeprecatedCompiledClass>), Error> {
+) -> Result<(HashMap<Felt252, GenericCasmContractClass>, HashMap<Felt252, GenericDeprecatedCompiledClass>), ProveBlockError> {
     let mut compiled_contract_classes: HashMap<Felt252, GenericCasmContractClass> = HashMap::new();
     // TODO: Handle deprecated classes
     let mut _deprecated_compiled_contract_classes: HashMap<Felt252, GenericDeprecatedCompiledClass> = HashMap::new();
