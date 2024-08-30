@@ -218,12 +218,12 @@ pub async fn prove_block(
     }
 
     let storage_proofs =
-        get_storage_proofs(&pathfinder_client, &rpc_provider, block_number, &tx_execution_infos, old_block_number)
+        get_storage_proofs(&pathfinder_client, rpc_provider, block_number, &tx_execution_infos, old_block_number)
             .await
             .expect("Failed to fetch storage proofs");
 
     let previous_storage_proofs =
-        get_storage_proofs(&pathfinder_client, &rpc_provider, block_number - 1, &tx_execution_infos, old_block_number)
+        get_storage_proofs(&pathfinder_client, rpc_provider, block_number - 1, &tx_execution_infos, old_block_number)
             .await
             .expect("Failed to fetch storage proofs");
 
@@ -318,13 +318,12 @@ pub async fn prove_block(
     let class_hashes: Vec<&Felt252> = class_hash_to_compiled_class_hash.keys().collect();
     // TODO: we fetch proofs here for block-1, but we probably also need to fetch at the current
     //       block, likely for contracts that are deployed in this block
-    let class_proofs = get_class_proofs(&pathfinder_client, &rpc_provider, block_number - 1, &class_hashes[..])
+    let class_proofs = get_class_proofs(&pathfinder_client, rpc_provider, block_number - 1, &class_hashes[..])
         .await
         .expect("Failed to fetch class proofs");
-    let previous_class_proofs =
-        get_class_proofs(&pathfinder_client, &rpc_provider, block_number - 1, &class_hashes[..])
-            .await
-            .expect("Failed to fetch class proofs");
+    let previous_class_proofs = get_class_proofs(&pathfinder_client, rpc_provider, block_number - 1, &class_hashes[..])
+        .await
+        .expect("Failed to fetch class proofs");
 
     let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
         .visited_pcs
