@@ -1,10 +1,8 @@
 use std::error::Error;
 
 use cairo_vm::types::layout_name::LayoutName;
-use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use clap::Parser;
-use prove_block::ProveBlockError;
-use starknet_os::error::SnOsError::Runner;
+use prove_block::debug_prove_error;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -35,22 +33,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let layout = LayoutName::starknet_with_keccak;
 
     let result = prove_block::prove_block(block_number, &args.rpc_provider, layout).await;
-
-    match &result {
-        Err(ProveBlockError::SnOsError(Runner(VmException(vme)))) => {
-            if let Some(traceback) = vme.traceback.as_ref() {
-                log::error!("traceback:\n{}", traceback);
-            }
-            if let Some(inst_location) = &vme.inst_location {
-                log::error!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
-                log::error!("inst_location:\n{:?}", inst_location);
-            }
-        }
-        Err(_) => {
-            log::error!("exception:\n{:#?}", result);
-        }
-        _ => {}
-    }
-
+    let (_pie, _output) = result.map_err(debug_prove_error).expect("Block could not be proven");
     Ok(())
 }

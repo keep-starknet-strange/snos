@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use blockifier::state::cached_state::CachedState;
 use cairo_vm::types::layout_name::LayoutName;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage};
@@ -394,7 +395,22 @@ pub async fn prove_block(
         (old_block_number, old_block_hash),
     );
 
-    let result = run_os(config::DEFAULT_COMPILED_OS, layout, os_input, block_context, execution_helper)?;
+    Ok(run_os(config::DEFAULT_COMPILED_OS, layout, os_input, block_context, execution_helper)?)
+}
 
-    Ok(result)
+pub fn debug_prove_error(err: ProveBlockError) {
+    match &err {
+        ProveBlockError::SnOsError(SnOsError::Runner(CairoRunError::VmException(vme))) => {
+            if let Some(traceback) = vme.traceback.as_ref() {
+                log::error!("traceback:\n{}", traceback);
+            }
+            if let Some(inst_location) = &vme.inst_location {
+                log::error!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
+                log::error!("inst_location:\n{:?}", inst_location);
+            }
+        }
+        _ => {
+            log::error!("exception:\n{:#?}", err);
+        }
+    }
 }
