@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_relocatable_from_var_name;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_ptr_from_var_name, get_relocatable_from_var_name,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -11,6 +13,7 @@ use indoc::indoc;
 
 use crate::cairo_types::structs::ExecutionContext;
 use crate::execution::helper::ExecutionHelperWrapper;
+use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::vars;
 use crate::starknet::starknet_storage::PerContractStorage;
 use crate::utils::execute_coroutine;
@@ -50,4 +53,36 @@ where
     PCS: PerContractStorage + 'static,
 {
     execute_coroutine(start_tx_validate_declare_execution_context_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+}
+
+pub const SET_SHA256_SEGMENT_IN_SYSCALL_HANDLER: &str = indoc! {r#"syscall_handler.sha256_segment = ids.sha256_ptr"#};
+
+pub async fn set_sha256_segment_in_syscall_handler_async<PCS>(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+) -> Result<(), HintError>
+where
+    PCS: PerContractStorage + 'static,
+{
+    let sha256_ptr = get_ptr_from_var_name(vars::ids::SHA256_PTR, vm, ids_data, ap_tracking)?;
+
+    let syscall_handler: OsSyscallHandlerWrapper<PCS> = exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
+    syscall_handler.set_sha256_segment(sha256_ptr).await;
+
+    Ok(())
+}
+
+pub fn set_sha256_segment_in_syscall_handler<PCS>(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError>
+where
+    PCS: PerContractStorage + 'static,
+{
+    execute_coroutine(set_sha256_segment_in_syscall_handler_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
 }

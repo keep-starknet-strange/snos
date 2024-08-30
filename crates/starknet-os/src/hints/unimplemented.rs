@@ -48,9 +48,6 @@ for i in range(segment_size):
     memory.setdefault(base + i, 0)"#};
 
 #[allow(unused)]
-pub const HINT_8: &str = indoc! {r#"syscall_handler.sha256_segment = ids.sha256_ptr"#};
-
-#[allow(unused)]
 pub const HINT_9: &str = indoc! {r#"import itertools
 
 from starkware.python.utils import blockify

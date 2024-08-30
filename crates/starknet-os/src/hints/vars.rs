@@ -114,6 +114,7 @@ pub mod ids {
     pub const SELECTED_PTRS: &str = "selected_ptrs";
     pub const SELECTOR: &str = "selector";
     pub const SENDER_ADDRESS: &str = "sender_address";
+    pub const SHA256_PTR: &str = "sha256_ptr";
     pub const SIBLINGS: &str = "siblings";
     pub const SIGNATURE_LEN: &str = "signature_len";
     pub const SIGNATURE_START: &str = "signature_start";
