@@ -55,37 +55,29 @@ fn invoke_txn_to_blockifier(
             unimplemented!("starknet_rs_to_blockifier with InvokeTransaction::V0");
         }
         InvokeTransaction::V1(tx) => {
-            let api_tx =
-                starknet_api::transaction::InvokeTransaction::V1(starknet_api::transaction::InvokeTransactionV1 {
-                    max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
-                    signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
-                    nonce: starknet_api::core::Nonce(tx.nonce),
-                    sender_address: starknet_api::core::ContractAddress(
-                        PatriciaKey::try_from(tx.sender_address).unwrap(),
-                    ),
-                    calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
-                });
-            api_tx
+            starknet_api::transaction::InvokeTransaction::V1(starknet_api::transaction::InvokeTransactionV1 {
+                max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
+                signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
+                nonce: starknet_api::core::Nonce(tx.nonce),
+                sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address).unwrap()),
+                calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
+            })
         }
         InvokeTransaction::V3(tx) => {
-            let api_tx =
-                starknet_api::transaction::InvokeTransaction::V3(starknet_api::transaction::InvokeTransactionV3 {
-                    resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
-                    tip: starknet_api::transaction::Tip(tx.tip),
-                    signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
-                    nonce: starknet_api::core::Nonce(tx.nonce),
-                    sender_address: starknet_api::core::ContractAddress(
-                        PatriciaKey::try_from(tx.sender_address).unwrap(),
-                    ),
-                    calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
-                    nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
-                    fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
-                    paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.to_vec()),
-                    account_deployment_data: starknet_api::transaction::AccountDeploymentData(
-                        tx.account_deployment_data.to_vec(),
-                    ),
-                });
-            api_tx
+            starknet_api::transaction::InvokeTransaction::V3(starknet_api::transaction::InvokeTransactionV3 {
+                resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
+                tip: starknet_api::transaction::Tip(tx.tip),
+                signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
+                nonce: starknet_api::core::Nonce(tx.nonce),
+                sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address).unwrap()),
+                calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
+                nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
+                fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
+                paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.to_vec()),
+                account_deployment_data: starknet_api::transaction::AccountDeploymentData(
+                    tx.account_deployment_data.to_vec(),
+                ),
+            })
         }
     };
 
@@ -101,40 +93,30 @@ fn deploy_account_to_blockifier(
     let tx_hash = TransactionHash(*tx.transaction_hash());
 
     let api_tx = match tx {
-        DeployAccountTransaction::V1(tx) => {
-            let api_tx = starknet_api::transaction::DeployAccountTransaction::V1(
-                starknet_api::transaction::DeployAccountTransactionV1 {
-                    max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
-                    signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
-                    nonce: starknet_api::core::Nonce(tx.nonce),
-                    class_hash: starknet_api::core::ClassHash(tx.class_hash),
-                    contract_address_salt: starknet_api::transaction::ContractAddressSalt(tx.contract_address_salt),
-                    constructor_calldata: starknet_api::transaction::Calldata(Arc::new(
-                        tx.constructor_calldata.clone(),
-                    )),
-                },
-            );
-            api_tx
-        }
-        DeployAccountTransaction::V3(tx) => {
-            let api_tx = starknet_api::transaction::DeployAccountTransaction::V3(
-                starknet_api::transaction::DeployAccountTransactionV3 {
-                    resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
-                    tip: starknet_api::transaction::Tip(tx.tip),
-                    signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
-                    nonce: starknet_api::core::Nonce(tx.nonce),
-                    class_hash: starknet_api::core::ClassHash(tx.class_hash),
-                    contract_address_salt: starknet_api::transaction::ContractAddressSalt(tx.contract_address_salt),
-                    constructor_calldata: starknet_api::transaction::Calldata(Arc::new(
-                        tx.constructor_calldata.clone(),
-                    )),
-                    nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
-                    fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
-                    paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.clone()),
-                },
-            );
-            api_tx
-        }
+        DeployAccountTransaction::V1(tx) => starknet_api::transaction::DeployAccountTransaction::V1(
+            starknet_api::transaction::DeployAccountTransactionV1 {
+                max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
+                signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+                nonce: starknet_api::core::Nonce(tx.nonce),
+                class_hash: starknet_api::core::ClassHash(tx.class_hash),
+                contract_address_salt: starknet_api::transaction::ContractAddressSalt(tx.contract_address_salt),
+                constructor_calldata: starknet_api::transaction::Calldata(Arc::new(tx.constructor_calldata.clone())),
+            },
+        ),
+        DeployAccountTransaction::V3(tx) => starknet_api::transaction::DeployAccountTransaction::V3(
+            starknet_api::transaction::DeployAccountTransactionV3 {
+                resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
+                tip: starknet_api::transaction::Tip(tx.tip),
+                signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+                nonce: starknet_api::core::Nonce(tx.nonce),
+                class_hash: starknet_api::core::ClassHash(tx.class_hash),
+                contract_address_salt: starknet_api::transaction::ContractAddressSalt(tx.contract_address_salt),
+                constructor_calldata: starknet_api::transaction::Calldata(Arc::new(tx.constructor_calldata.clone())),
+                nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
+                fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
+                paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.clone()),
+            },
+        ),
     };
 
     let contract_address = calculate_contract_address(
@@ -187,7 +169,7 @@ async fn create_class_info(
         }
     };
 
-    Ok(ClassInfo::new(&blockifier_contract_class.into(), program_length, abi_length)?)
+    Ok(ClassInfo::new(&blockifier_contract_class, program_length, abi_length)?)
 }
 
 async fn declare_to_blockifier(
