@@ -53,4 +53,5 @@ jobs:
           # * 76766 / 76775: additional basic blocks
           # * 86507 / 124533: a failing assert that happened because we used the wrong VersionedConstants
           # * 87019: diff assert values in contract subcall
-          bash scripts/prove-blocks.sh -p ${{ secrets.PATHFINDER_RPC_URL }} -b 76793,76766,76775,86507,87019,124533
+          # * 76832: contains a reverted tx
+          bash scripts/prove-blocks.sh -p ${{ secrets.PATHFINDER_RPC_URL }} -b 76793,76766,76775,76832,86507,87019,124533
