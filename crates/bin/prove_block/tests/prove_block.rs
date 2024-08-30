@@ -5,12 +5,14 @@ use rstest::rstest;
 // # These blocks verify the following issues:
 // # * 76793: the first block that we managed to prove, only has a few invoke txs
 // # * 76766 / 76775: additional basic blocks
+// # * 76832: contains a reverted tx
 // # * 86507 / 124533: a failing assert that happened because we used the wrong VersionedConstants
 // # * 87019: diff assert values in contract subcall
 #[rstest]
 #[case::small_block_with_only_invoke_txs(76793)]
 #[case::additional_basic_blocks_1(76766)]
 #[case::additional_basic_blocks_2(76775)]
+#[case::block_with_reverted_tx(76832)]
 #[case::failing_assert_on_versioned_constants_1(86507)]
 #[case::failing_assert_on_versioned_constants_2(124533)]
 #[case::fix_diff_assert_values_in_contract_subcall(87019)]
