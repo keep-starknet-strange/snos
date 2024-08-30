@@ -61,7 +61,7 @@ pub fn check_os_output_read_only_syscall(os_output: StarknetOsOutput, block_cont
     // related to the fees.
     assert_eq!(os_output.contracts.len(), 2);
 
-    assert_eq!(os_output.block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
+    assert_eq!(os_output.new_block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
     assert!(os_output.classes.is_empty());
     assert!(os_output.messages_to_l1.is_empty());
     assert!(os_output.messages_to_l2.is_empty());
