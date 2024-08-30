@@ -50,4 +50,4 @@ jobs:
         env:
           PATHFINDER_RPC_URL: ${{ secrets.PATHFINDER_RPC_URL }}
         run: |
-          cargo test --release --package prove_block --test prove_block -- test_prove_selected_blocks --show-output --ignored 
+          cargo test --release --package prove_block --test prove_block -- test_prove_selected_blocks --show-output --ignored

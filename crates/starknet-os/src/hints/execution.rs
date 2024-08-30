@@ -894,18 +894,27 @@ where
 }
 
 pub const IS_REVERTED: &str = "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.is_reverted)";
-pub fn is_reverted(
+pub fn is_reverted<PCS>(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    // TODO: implement is_reverted when tx_execution_info abstraction is ready
-    // let execution_helper =
-    // exec_scopes.get::<ExecutionHelperWrapper>(vars::scopes::EXECUTION_HELPER)?;
-    // insert_value_into_ap(vm, Felt252::from(execution_helper. tx_execution_info.is_reverted))
-    insert_value_into_ap(vm, Felt252::ZERO)
+) -> Result<(), HintError>
+where
+    PCS: PerContractStorage + 'static,
+{
+    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
+    let is_reverted = execute_coroutine(async {
+        let eh_ref = execution_helper.execution_helper.read().await;
+        eh_ref
+            .tx_execution_info
+            .as_ref()
+            .ok_or(HintError::CustomHint("ExecutionHelper should have tx_execution_info".to_owned().into_boxed_str()))
+            .map(|tx_execution_info| tx_execution_info.is_reverted())
+    })??;
+
+    insert_value_into_ap(vm, Felt252::from(is_reverted))
 }
 
 pub const CHECK_EXECUTION: &str = indoc! {r#"
