@@ -12,8 +12,6 @@ use starknet_api::state::StorageKey;
 // TODO: check if we can handle this just reexecuting tx using blockifier
 pub(crate) fn get_subcalled_contracts_from_tx_traces(traces: &[TransactionTraceWithHash]) -> HashSet<Felt252> {
     let mut contracts_subcalled: HashSet<Felt252> = HashSet::new();
-    // let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx
-    // traces");
     for trace in traces {
         match &trace.trace_root {
             TransactionTrace::Invoke(invoke_trace) => {
@@ -24,7 +22,9 @@ pub(crate) fn get_subcalled_contracts_from_tx_traces(traces: &[TransactionTraceW
                     ExecuteInvocation::Success(inv) => {
                         process_function_invocations(inv, &mut contracts_subcalled);
                     }
-                    ExecuteInvocation::Reverted(_) => unimplemented!("handle reverted invoke trace"),
+                    ExecuteInvocation::Reverted(_) => {
+                        // Nothing to do
+                    }
                 }
                 if let Some(inv) = &invoke_trace.fee_transfer_invocation {
                     process_function_invocations(inv, &mut contracts_subcalled);
