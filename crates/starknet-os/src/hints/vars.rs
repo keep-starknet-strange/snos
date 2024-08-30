@@ -16,6 +16,7 @@ pub mod scopes {
     pub const DESCENT_MAP: &str = "descent_map";
     pub const DICT_MANAGER: &str = "dict_manager";
     pub const EXECUTION_HELPER: &str = "execution_helper";
+    pub const FIND_ELEMENT_MAX_SIZE: &str = "__find_element_max_size";
     pub const INITIAL_DICT: &str = "initial_dict";
     pub const IS_DEPRECATED: &str = "is_deprecated";
     pub const N_SELECTED_BUILTINS: &str = "n_selected_builtins";
@@ -35,6 +36,7 @@ pub mod scopes {
 pub mod ids {
     pub const ADDITIONAL_DATA: &str = "additional_data";
     pub const ALL_ENCODINGS: &str = "all_encodings";
+    pub const ARRAY_PTR: &str = "array_ptr";
     pub const BIT: &str = "bit";
     pub const BUILTIN_PARAMS: &str = "builtin_params";
     pub const BUILTIN_PTRS: &str = "builtin_ptrs";
@@ -63,11 +65,14 @@ pub mod ids {
     pub const EDGE: &str = "edge";
     pub const ELEMENTS: &str = "elements";
     pub const ELEMENTS_END: &str = "elements_end";
+    pub const ELM_SIZE: &str = "elm_size";
     pub const ENTRY_POINT_RETURN_VALUES: &str = "entry_point_return_values";
     pub const EXECUTION_CONTEXT: &str = "execution_context";
+    pub const EXISTS: &str = "exists";
     pub const FINAL_CONTRACT_STATE_ROOT: &str = "final_contract_state_root";
     pub const FINAL_ROOT: &str = "final_root";
     pub const HASH_PTR: &str = "hash_ptr";
+    pub const INDEX: &str = "index";
     pub const INITIAL_GAS: &str = "initial_gas";
     pub const IS_LEAF: &str = "is_leaf";
     pub const IS_SEGMENT_USED: &str = "is_segment_used";
@@ -78,11 +83,13 @@ pub mod ids {
     pub const INITIAL_ROOT: &str = "initial_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const USE_KZG_DA: &str = "use_kzg_da";
+    pub const KEY: &str = "key";
     pub const LENGTH: &str = "length";
     pub const LOW: &str = "low";
     pub const MAX_FEE: &str = "max_fee";
     pub const N: &str = "n";
     pub const N_BUILTINS: &str = "n_builtins";
+    pub const N_ELMS: &str = "n_elms";
     pub const N_COMPILED_CLASS_FACTS: &str = "n_compiled_class_facts";
     pub const N_SELECTED_BUILTINS: &str = "n_selected_builtins";
     pub const N_TXS: &str = "n_txs";

@@ -37,6 +37,7 @@ mod compiled_class;
 mod deprecated_compiled_class;
 mod execute_transactions;
 pub mod execution;
+mod find_element;
 mod output;
 mod patricia;
 mod secp;
@@ -161,6 +162,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(execution::WRITE_OLD_BLOCK_TO_STORAGE.into(), execution::write_old_block_to_storage::<PCS>);
     hints.insert(execution::WRITE_SYSCALL_RESULT.into(), execution::write_syscall_result::<PCS>);
     hints.insert(execution::WRITE_SYSCALL_RESULT_DEPRECATED.into(), execution::write_syscall_result_deprecated::<PCS>);
+    hints.insert(find_element::FIND_ELEMENT.into(), find_element::find_element);
     hints.insert(output::SET_AP_TO_BLOCK_HASH.into(), output::set_ap_to_block_hash);
     hints.insert(output::SET_STATE_UPDATES_START.into(), output::set_state_updates_start);
     hints.insert(output::SET_TREE_STRUCTURE.into(), output::set_tree_structure);
