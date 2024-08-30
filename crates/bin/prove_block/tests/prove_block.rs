@@ -14,5 +14,5 @@ use rstest::rstest;
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(block_number: u64) {
     let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
-    prove_block(block_number, &endpoint, LayoutName::starknet_with_keccak).await.expect("Block could not be proved");
+    prove_block(block_number, &endpoint, LayoutName::starknet_with_keccak).await.expect("Block could not be proven");
 }
