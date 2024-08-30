@@ -97,6 +97,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(deprecated_compiled_class::LOAD_DEPRECATED_CLASS_FACTS.into(), deprecated_compiled_class::load_deprecated_class_facts);
     hints.insert(deprecated_compiled_class::LOAD_DEPRECATED_CLASS_INNER.into(), deprecated_compiled_class::load_deprecated_class_inner);
     hints.insert(execute_syscalls::IS_BLOCK_NUMBER_IN_BLOCK_HASH_BUFFER.into(), execute_syscalls::is_block_number_in_block_hash_buffer);
+    hints.insert(execute_transactions::LOG_REMAINING_TXS.into(), execute_transactions::log_remaining_txs);
     hints.insert(execute_transactions::SET_SHA256_SEGMENT_IN_SYSCALL_HANDLER.into(), execute_transactions::set_sha256_segment_in_syscall_handler::<PCS>);
     hints.insert(execute_transactions::START_TX_VALIDATE_DECLARE_EXECUTION_CONTEXT.into(), execute_transactions::start_tx_validate_declare_execution_context::<PCS>);
     hints.insert(execution::ADD_RELOCATION_RULE.into(), execution::add_relocation_rule);

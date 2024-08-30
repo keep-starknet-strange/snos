@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_ptr_from_var_name, get_relocatable_from_var_name,
+    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -85,4 +85,20 @@ where
     PCS: PerContractStorage + 'static,
 {
     execute_coroutine(set_sha256_segment_in_syscall_handler_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+}
+
+pub const LOG_REMAINING_TXS: &str =
+    indoc! {r#"print(f"execute_transactions_inner: {ids.n_txs} transactions remaining.")"#};
+
+pub fn log_remaining_txs(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let n_txs = get_integer_from_var_name(vars::ids::N_TXS, vm, ids_data, ap_tracking)?;
+    log::debug!("{} transactions remaining.", n_txs);
+
+    Ok(())
 }
