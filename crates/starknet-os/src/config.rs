@@ -16,8 +16,8 @@ use starknet_api::{contract_address, felt, patricia_key};
 use crate::error::SnOsError;
 use crate::utils::ChainIdNum;
 
-pub fn default_layout() -> LayoutName {
-    LayoutName::starknet_with_keccak
+pub const fn default_layout() -> LayoutName {
+    LayoutName::all_cairo
 }
 
 // https://github.com/starkware-libs/blockifier/blob/8da582b285bfbc7d4c21178609bbd43f80a69240/crates/native_blockifier/src/py_block_executor.rs#L44
