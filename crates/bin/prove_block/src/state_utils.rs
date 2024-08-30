@@ -76,7 +76,7 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
 > {
     let mut compiled_contract_classes: HashMap<Felt252, GenericCasmContractClass> = HashMap::new();
     // TODO: Handle deprecated classes
-    let mut _deprecated_compiled_contract_classes: HashMap<Felt252, GenericDeprecatedCompiledClass> = HashMap::new();
+    let mut deprecated_compiled_contract_classes: HashMap<Felt252, GenericDeprecatedCompiledClass> = HashMap::new();
 
     for contract_address in accessed_addresses {
         let class_hash = match address_to_class_hash.get(contract_address) {
@@ -85,24 +85,24 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
         };
 
         let contract_class = provider.get_class(block_id, class_hash).await?;
-        let generic_cc = match contract_class {
+        match contract_class {
             starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
-                GenericSierraContractClass::from(flattened_sierra_cc)
+                let generic_sierra_cc = GenericSierraContractClass::from(flattened_sierra_cc);
+                let generic_sierra_cc: GenericCasmContractClass = generic_sierra_cc.compile()?;
+                let compiled_contract_hash: starknet_os_types::hash::GenericClassHash =
+                    generic_sierra_cc.class_hash()?;
+                compiled_contract_classes.insert(compiled_contract_hash.into(), generic_sierra_cc.clone());
+                // TODO: Sanity check computed hash is the same that the one provided by RPC (when available)
+                // TODO: We are inserting class_hash -> compiled class hash again
+                class_hash_to_compiled_class_hash.insert(*class_hash, compiled_contract_hash.into());
             }
-            starknet::core::types::ContractClass::Legacy(_) => {
-                unimplemented!("Fixme: Support legacy contract class")
+            starknet::core::types::ContractClass::Legacy(compressed_legacy_cc) => {
+                let generic_deprecated_cc = GenericDeprecatedCompiledClass::try_from(compressed_legacy_cc).unwrap();
+                deprecated_compiled_contract_classes.insert(*class_hash, generic_deprecated_cc);
             }
         };
-
-        let generic_cc: GenericCasmContractClass = generic_cc.compile()?;
-        let compiled_contract_hash: starknet_os_types::hash::GenericClassHash = generic_cc.class_hash()?;
-
-        // TODO: Sanity check computed hash is the same that the one provided by RPC (when available)
-        // TODO: We are inserting class_hash -> compiled class hash again
-        class_hash_to_compiled_class_hash.insert(*class_hash, compiled_contract_hash.into());
-        compiled_contract_classes.insert(compiled_contract_hash.into(), generic_cc.clone());
     }
-    Ok((compiled_contract_classes, _deprecated_compiled_contract_classes))
+    Ok((compiled_contract_classes, deprecated_compiled_contract_classes))
 }
 
 /// Format StateDiff's DeclaredClassItem to a HashMap<class_hash, compiled_class_hash>

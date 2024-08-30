@@ -28,6 +28,7 @@ use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree:
 use starknet_os::{config, run_os};
 use starknet_os_types::chain_id::chain_id_from_felt;
 use starknet_os_types::error::ContractClassError;
+use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
 use starknet_types_core::felt::Felt;
 use state_utils::get_formatted_state_update;
 
@@ -51,6 +52,7 @@ pub enum ProveBlockError {
     TreeError(TreeError),
     ContractClassError(ContractClassError),
     SnOsError(SnOsError),
+    LegacyClassDecompressionError(LegacyContractDecompressionError),
 }
 
 // Implement the Display trait for your error enum
@@ -62,6 +64,9 @@ impl fmt::Display for ProveBlockError {
             ProveBlockError::TreeError(err) => write!(f, "Tree Error: {}", err),
             ProveBlockError::ContractClassError(err) => write!(f, "Contract Class Error: {}", err),
             ProveBlockError::SnOsError(err) => write!(f, "SnOs Error: {}", err),
+            ProveBlockError::LegacyClassDecompressionError(err) => {
+                write!(f, "Legacy class decompression Error: {}", err)
+            }
         }
     }
 }
@@ -75,6 +80,7 @@ impl std::error::Error for ProveBlockError {
             ProveBlockError::TreeError(err) => Some(err),
             ProveBlockError::ContractClassError(err) => Some(err),
             ProveBlockError::SnOsError(err) => Some(err),
+            ProveBlockError::LegacyClassDecompressionError(err) => Some(err),
         }
     }
 }
