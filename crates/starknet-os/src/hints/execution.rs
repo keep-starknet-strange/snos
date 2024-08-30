@@ -478,10 +478,11 @@ where
     execute_coroutine(end_tx_async::<PCS>(exec_scopes))?
 }
 
+#[rustfmt::skip]
 pub const ENTER_CALL: &str = indoc! {r#"
-    execution_helper.enter_call(
-        execution_info_ptr=ids.execution_context.execution_info.address_)"#
-};
+execution_helper.enter_call(
+    cairo_execution_info=ids.execution_context.execution_info)"#};
+
 pub async fn enter_call_async<PCS>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -492,7 +493,9 @@ where
     PCS: PerContractStorage + 'static,
 {
     let execution_info_ptr = vm.get_relocatable(
-        (get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)? + 4i32).unwrap(),
+        (get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?
+            + ExecutionContext::execution_info_offset())
+        .unwrap(),
     )?;
 
     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;

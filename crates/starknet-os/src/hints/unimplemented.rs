@@ -23,10 +23,6 @@ padding = (message + IV + output) * number_of_missing_blocks
 segments.write_arg(ids.sha256_ptr_end, padding)"#};
 
 #[allow(unused)]
-pub const HINT_2: &str = indoc! {r#"execution_helper.enter_call(
-cairo_execution_info=ids.execution_context.execution_info)"#};
-
-#[allow(unused)]
 pub const HINT_3: &str = indoc! {r#"memory[ap] = to_felt_or_relocatable(os_input.prev_block_hash)"#};
 
 #[allow(unused)]
