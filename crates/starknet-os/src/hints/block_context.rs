@@ -357,7 +357,7 @@ pub fn write_use_kzg_da_to_mem(
     let value = block_context.block_info().use_kzg_da;
 
     if !value {
-        println!("Warning: skipping kzg_da (use_kzg_da = false)");
+        log::warn!("skipping kzg_da (use_kzg_da = false)");
     }
 
     vm.insert_value((vm.get_fp() + 15)?, Felt252::from(value)).map_err(HintError::Memory)
