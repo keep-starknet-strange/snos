@@ -170,6 +170,13 @@ pub async fn prove_block(
     let starknet_version = get_starknet_version(&block_with_txs);
     log::debug!("Starknet version: {:?}", starknet_version);
 
+    let previous_block = match provider.get_block_with_tx_hashes(block_id).await? {
+        MaybePendingBlockWithTxHashes::Block(block_with_txs) => block_with_txs,
+        MaybePendingBlockWithTxHashes::PendingBlock(_) => {
+            panic!("Block is still pending!");
+        }
+    };
+
     // We only need to get the older block number and hash. No need to fetch all the txs
     let older_block = match provider
         .get_block_with_tx_hashes(BlockId::Number(block_number - STORED_BLOCK_HASH_BUFFER))
@@ -387,6 +394,8 @@ pub async fn prove_block(
         general_config,
         transactions,
         new_block_hash: block_with_txs.block_hash,
+        prev_block_hash: previous_block.block_hash,
+        full_output: false,
     };
     let execution_helper = ExecutionHelperWrapper::<ProverPerContractStorage>::new(
         contract_storages,

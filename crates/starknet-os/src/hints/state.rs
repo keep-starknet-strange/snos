@@ -386,7 +386,9 @@ mod tests {
             general_config: Default::default(),
             transactions: Default::default(),
             new_block_hash: Default::default(),
+            prev_block_hash: Default::default(),
             compiled_class_visited_pcs: Default::default(),
+            full_output: false,
         }
     }
 

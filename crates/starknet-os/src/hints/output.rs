@@ -190,6 +190,7 @@ mod tests {
         .unwrap();
 
         let mut exec_scopes: ExecutionScopes = Default::default();
+        exec_scopes.insert_value(vars::scopes::SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES, true);
 
         set_tree_structure(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
             .expect("Hint should succeed");
