@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::sync::Arc;
 
-use blockifier::execution::contract_class::{self, ClassInfo};
+use blockifier::execution::contract_class::ClassInfo;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use starknet::core::types::{
     BlockId, DeclareTransaction, DeployAccountTransaction, Felt, InvokeTransaction, L1HandlerTransaction,
@@ -12,6 +12,7 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
 use starknet_api::core::{calculate_contract_address, ContractAddress, PatriciaKey};
 use starknet_api::transaction::{Fee, TransactionHash};
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
 pub fn resource_bounds_core_to_api(
@@ -162,20 +163,31 @@ async fn create_class_info(
     block_number: u64,
 ) -> Result<ClassInfo, Box<dyn Error>> {
     // TODO: improve this to avoid retrieving this twice. Already done in main.rs from prove_block
-    let starknet_contract_class = provider.get_class(BlockId::Number(block_number), class_hash).await?;
-    let generic_sierra_cc = match starknet_contract_class {
-        starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
-            GenericSierraContractClass::from(flattened_sierra_cc)
+    let starknet_contract_class: starknet::core::types::ContractClass =
+        provider.get_class(BlockId::Number(block_number), class_hash).await?;
+
+    let (blockifier_contract_class, program_length, abi_length) = match starknet_contract_class {
+        starknet::core::types::ContractClass::Sierra(sierra) => {
+            let generic_sierra = GenericSierraContractClass::from(sierra);
+            let flattened_sierra = generic_sierra.clone().to_starknet_core_contract_class()?;
+            let contract_class = blockifier::execution::contract_class::ContractClass::V1(
+                generic_sierra.compile()?.to_blockifier_contract_class()?,
+            );
+
+            (contract_class, flattened_sierra.sierra_program.len(), flattened_sierra.abi.len())
         }
-        starknet::core::types::ContractClass::Legacy(_) => {
-            unimplemented!("Fixme: Support legacy contract class")
+
+        starknet::core::types::ContractClass::Legacy(legacy) => {
+            let generic_legacy = GenericDeprecatedCompiledClass::try_from(legacy)?;
+            let contract_class = blockifier::execution::contract_class::ContractClass::V0(
+                generic_legacy.to_blockifier_contract_class()?,
+            );
+
+            (contract_class, 0, 0)
         }
     };
 
-    let flattened_sierra = generic_sierra_cc.clone().to_starknet_core_contract_class()?;
-    let contract_class = generic_sierra_cc.compile()?.to_blockifier_contract_class()?;
-
-    Ok(ClassInfo::new(&contract_class.into(), flattened_sierra.sierra_program.len(), flattened_sierra.abi.len())?)
+    Ok(ClassInfo::new(&blockifier_contract_class.into(), program_length, abi_length)?)
 }
 
 async fn declare_to_blockifier(
