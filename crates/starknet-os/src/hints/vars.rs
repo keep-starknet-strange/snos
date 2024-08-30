@@ -106,6 +106,7 @@ pub mod ids {
     pub const PATH: &str = "path";
     pub const PREV_ROOT: &str = "prev_root";
     pub const PREV_VALUE: &str = "prev_value";
+    pub const RANGE_CHECK96_PTR: &str = "range_check96_ptr";
     pub const REQUEST: &str = "request";
     pub const REQUEST_BLOCK_NUMBER: &str = "request_block_number";
     pub const REQUIRED_GAS: &str = "required_gas";

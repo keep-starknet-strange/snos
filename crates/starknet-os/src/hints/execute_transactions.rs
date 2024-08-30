@@ -6,6 +6,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
@@ -99,6 +100,36 @@ pub fn log_remaining_txs(
 ) -> Result<(), HintError> {
     let n_txs = get_integer_from_var_name(vars::ids::N_TXS, vm, ids_data, ap_tracking)?;
     log::debug!("{} transactions remaining.", n_txs);
+
+    Ok(())
+}
+
+#[rustfmt::skip]
+pub const FILL_HOLES_IN_RC96_SEGMENT: &str = indoc! {r#"
+rc96_ptr = ids.range_check96_ptr
+segment_size = rc96_ptr.offset
+base = rc96_ptr - segment_size
+
+for i in range(segment_size):
+    memory.setdefault(base + i, 0)"#};
+
+pub fn fill_holes_in_rc96_segment(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let rc96_ptr = get_ptr_from_var_name(vars::ids::RANGE_CHECK96_PTR, vm, ids_data, ap_tracking)?;
+    let segment_size = rc96_ptr.offset;
+    let base = Relocatable::from((rc96_ptr.segment_index, 0));
+
+    for i in 0..segment_size {
+        let address = (base + i)?;
+        if vm.get_maybe(&address).is_none() {
+            vm.insert_value(address, Felt252::ZERO)?;
+        }
+    }
 
     Ok(())
 }
