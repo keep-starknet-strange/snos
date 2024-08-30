@@ -13,6 +13,7 @@ use rpc_utils::{get_class_proofs, get_storage_proofs};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError, Url};
+use starknet_api::StarknetApiError;
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
@@ -57,6 +58,8 @@ pub enum ProveBlockError {
     SnOsError(#[from] SnOsError),
     #[error("Legacy class decompression Error: {0}")]
     LegacyContractDecompressionError(#[from] LegacyContractDecompressionError),
+    #[error("Starknet API Error: {0}")]
+    StarknetApiError(StarknetApiError),
 }
 
 fn compute_class_commitment(
