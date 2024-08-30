@@ -27,6 +27,7 @@ pub struct StarknetOsInput {
     pub general_config: StarknetGeneralConfig,
     pub transactions: Vec<InternalTransaction>,
     pub block_hash: Felt252,
+    pub full_output: bool,
 }
 
 impl StarknetOsInput {

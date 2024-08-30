@@ -193,6 +193,7 @@ where
         general_config,
         transactions,
         block_hash: Default::default(),
+        full_output: false,
     };
 
     let execution_helper = ExecutionHelperWrapper::new(
