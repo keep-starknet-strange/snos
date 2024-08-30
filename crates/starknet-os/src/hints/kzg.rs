@@ -17,17 +17,11 @@ use indoc::indoc;
 use num_bigint::BigInt;
 use num_traits::{Num, One, Zero};
 
-use crate::utils::execute_coroutine;
-
 const FIELD_ELEMENTS_PER_BLOB: usize = 4096;
 const COMMITMENT_BYTES_LENGTH: usize = 48;
 const COMMITMENT_LOW_BIT_LENGTH: usize = (COMMITMENT_BYTES_LENGTH * 8) / 2;
 const BLOB_SUBGROUP_GENERATOR: &str = "39033254847818212395286706435128746857159659164139250548781411570340225835782";
 const BLS_PRIME: &str = "52435875175126190479447740508185965837690552500527637822603658699938581184513";
-
-fn is_power_of_2(n: usize) -> bool {
-    n > 0 && (n & (n - 1)) == 0
-}
 
 fn fft(coeffs: &[BigInt], generator: &BigInt, prime: &BigInt, bit_reversed: bool) -> Result<Vec<BigInt>, io::Error> {
     fn _fft(coeffs: &[BigInt], group: &[BigInt], prime: &BigInt) -> Vec<BigInt> {
@@ -67,7 +61,7 @@ fn fft(coeffs: &[BigInt], generator: &BigInt, prime: &BigInt, bit_reversed: bool
     }
 
     let coeffs_len = coeffs.len();
-    assert!(is_power_of_2(coeffs_len), "Length is not a power of two.");
+    assert!(coeffs_len.is_power_of_two(), "Length is not a power of two.");
 
     let mut group = vec![BigInt::one()];
     for _ in 1..coeffs_len {
@@ -165,7 +159,7 @@ pub const WRITE_KZG_COMMITMENT_ADDRESS: &str = indoc! {r#"
     )"#
 };
 
-async fn write_kzg_commitment_address_async(
+pub fn write_kzg_commitment_address(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -177,9 +171,9 @@ async fn write_kzg_commitment_address_async(
     // NOTE: We end up using `state_updates_end` after referencing the cairo code
     let state_updates_end = get_ptr_from_var_name("state_updates_end", vm, ids_data, ap_tracking)?;
     let range: Vec<MaybeRelocatable> = vm
-        .get_range(state_updates_start, state_updates_end.offset - state_updates_start.offset)
+        .get_integer_range(state_updates_start, state_updates_end.offset - state_updates_start.offset)?
         .into_iter()
-        .map(|s| s.unwrap().into_owned())
+        .map(|s| MaybeRelocatable::Int(*s))
         .collect();
 
     let kzg_ptr = get_relocatable_from_var_name("kzg_commitment", vm, ids_data, ap_tracking)?;
@@ -201,16 +195,6 @@ async fn write_kzg_commitment_address_async(
     vm.write_arg(kzg_ptr, &splits)?;
 
     Ok(())
-}
-
-pub fn write_kzg_commitment_address(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    execute_coroutine(write_kzg_commitment_address_async(vm, exec_scopes, ids_data, ap_tracking, _constants))?
 }
 
 #[cfg(test)]
