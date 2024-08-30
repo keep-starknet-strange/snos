@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::insert_value_into_ap;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -39,6 +40,36 @@ pub fn configure_kzg_manager(
 ) -> Result<(), HintError> {
     set_variable_in_root_exec_scope(exec_scopes, vars::scopes::SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES, true);
     // TODO: set kzg_manager
+
+    Ok(())
+}
+
+pub const SET_AP_TO_PREV_BLOCK_HASH: &str = indoc! {r#"memory[ap] = to_felt_or_relocatable(os_input.prev_block_hash)"#};
+
+pub fn set_ap_to_prev_block_hash(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input: &StarknetOsInput = exec_scopes.get_ref(vars::scopes::OS_INPUT)?;
+    insert_value_into_ap(vm, os_input.prev_block_hash)?;
+
+    Ok(())
+}
+
+pub const SET_AP_TO_NEW_BLOCK_HASH: &str = "memory[ap] = to_felt_or_relocatable(os_input.new_block_hash)";
+
+pub fn set_ap_to_new_block_hash(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input: &StarknetOsInput = exec_scopes.get_ref(vars::scopes::OS_INPUT)?;
+    insert_value_into_ap(vm, os_input.new_block_hash)?;
 
     Ok(())
 }

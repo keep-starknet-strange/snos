@@ -386,7 +386,7 @@ pub async fn prove_block(
         class_hash_to_compiled_class_hash,
         general_config,
         transactions,
-        block_hash: block_with_txs.block_hash,
+        new_block_hash: block_with_txs.block_hash,
     };
     let execution_helper = ExecutionHelperWrapper::<ProverPerContractStorage>::new(
         contract_storages,

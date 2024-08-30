@@ -385,7 +385,7 @@ mod tests {
             class_hash_to_compiled_class_hash: Default::default(),
             general_config: Default::default(),
             transactions: Default::default(),
-            block_hash: Default::default(),
+            new_block_hash: Default::default(),
             compiled_class_visited_pcs: Default::default(),
         }
     }

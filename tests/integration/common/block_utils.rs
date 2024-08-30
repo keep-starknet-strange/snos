@@ -192,7 +192,8 @@ where
         class_hash_to_compiled_class_hash,
         general_config,
         transactions,
-        block_hash: Default::default(),
+        new_block_hash: Default::default(),
+        prev_block_hash: Default::default(),
         full_output: false,
     };
 
