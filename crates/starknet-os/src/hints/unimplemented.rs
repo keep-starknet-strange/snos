@@ -67,9 +67,6 @@ ids.evals = segments.add_temp_segment()
 segments.write_arg(ids.kzg_commitments.address_, list(itertools.chain(*kzg_commitments)))"#};
 
 #[allow(unused)]
-pub const HINT_10: &str = indoc! {r#"memory[fp + 12] = to_felt_or_relocatable(len(os_input.transactions))"#};
-
-#[allow(unused)]
 pub const HINT_11: &str = indoc! {r#"memory[fp + 19] = to_felt_or_relocatable(os_input.full_output)"#};
 
 #[allow(unused)]

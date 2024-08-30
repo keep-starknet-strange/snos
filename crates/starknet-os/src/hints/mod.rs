@@ -677,7 +677,7 @@ where
     execute_coroutine(skip_call_async::<PCS>(exec_scopes))?
 }
 
-const OS_INPUT_TRANSACTIONS: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";
+const OS_INPUT_TRANSACTIONS: &str = "memory[fp + 12] = to_felt_or_relocatable(len(os_input.transactions))";
 
 pub fn os_input_transactions(
     vm: &mut VirtualMachine,
@@ -688,5 +688,5 @@ pub fn os_input_transactions(
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let num_txns = os_input.transactions.len();
-    vm.insert_value((vm.get_fp() + 8)?, num_txns).map_err(HintError::Memory)
+    vm.insert_value((vm.get_fp() + 12)?, num_txns).map_err(HintError::Memory)
 }
