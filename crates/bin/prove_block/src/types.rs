@@ -60,7 +60,7 @@ fn invoke_tx_v3_to_internal_tx(tx: InvokeTransactionV3) -> InternalTransaction {
         account_deployment_data: Some(tx.account_deployment_data),
         nonce_data_availability_mode: Some(da_to_felt(tx.nonce_data_availability_mode)),
         fee_data_availability_mode: Some(da_to_felt(tx.fee_data_availability_mode)),
-        version: Some(Felt252::TWO),
+        version: Some(Felt252::THREE),
         contract_address: Some(tx.sender_address),
         entry_point_selector: Some(EXECUTE_ENTRY_POINT_FELT),
         entry_point_type: Some("EXTERNAL".to_string()),
