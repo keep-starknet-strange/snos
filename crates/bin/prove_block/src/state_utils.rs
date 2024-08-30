@@ -96,7 +96,7 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
                 class_hash_to_compiled_class_hash.insert(*class_hash, compiled_contract_hash.into());
             }
             starknet::core::types::ContractClass::Legacy(compressed_legacy_cc) => {
-                let generic_deprecated_cc = GenericDeprecatedCompiledClass::try_from(compressed_legacy_cc).unwrap();
+                let generic_deprecated_cc = GenericDeprecatedCompiledClass::try_from(compressed_legacy_cc)?;
                 deprecated_compiled_contract_classes.insert(*class_hash, generic_deprecated_cc);
             }
         };

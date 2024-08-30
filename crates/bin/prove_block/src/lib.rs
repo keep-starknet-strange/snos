@@ -52,7 +52,7 @@ pub enum ProveBlockError {
     TreeError(TreeError),
     ContractClassError(ContractClassError),
     SnOsError(SnOsError),
-    LegacyClassDecompressionError(LegacyContractDecompressionError),
+    LegacyContractDecompressionError(LegacyContractDecompressionError),
 }
 
 // Implement the Display trait for your error enum
@@ -64,7 +64,7 @@ impl fmt::Display for ProveBlockError {
             ProveBlockError::TreeError(err) => write!(f, "Tree Error: {}", err),
             ProveBlockError::ContractClassError(err) => write!(f, "Contract Class Error: {}", err),
             ProveBlockError::SnOsError(err) => write!(f, "SnOs Error: {}", err),
-            ProveBlockError::LegacyClassDecompressionError(err) => {
+            ProveBlockError::LegacyContractDecompressionError(err) => {
                 write!(f, "Legacy class decompression Error: {}", err)
             }
         }
@@ -80,7 +80,7 @@ impl std::error::Error for ProveBlockError {
             ProveBlockError::TreeError(err) => Some(err),
             ProveBlockError::ContractClassError(err) => Some(err),
             ProveBlockError::SnOsError(err) => Some(err),
-            ProveBlockError::LegacyClassDecompressionError(err) => Some(err),
+            ProveBlockError::LegacyContractDecompressionError(err) => Some(err),
         }
     }
 }
@@ -113,6 +113,12 @@ impl From<ContractClassError> for ProveBlockError {
 impl From<SnOsError> for ProveBlockError {
     fn from(err: SnOsError) -> ProveBlockError {
         ProveBlockError::SnOsError(err)
+    }
+}
+
+impl From<LegacyContractDecompressionError> for ProveBlockError {
+    fn from(err: LegacyContractDecompressionError) -> ProveBlockError {
+        ProveBlockError::LegacyContractDecompressionError(err)
     }
 }
 
