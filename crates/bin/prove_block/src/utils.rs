@@ -18,13 +18,8 @@ pub(crate) fn get_subcalled_contracts_from_tx_traces(traces: &[TransactionTraceW
                 if let Some(inv) = &invoke_trace.validate_invocation {
                     process_function_invocations(inv, &mut contracts_subcalled);
                 }
-                match &invoke_trace.execute_invocation {
-                    ExecuteInvocation::Success(inv) => {
-                        process_function_invocations(inv, &mut contracts_subcalled);
-                    }
-                    ExecuteInvocation::Reverted(_) => {
-                        // Nothing to do
-                    }
+                if let ExecuteInvocation::Success(inv) = &invoke_trace.execute_invocation {
+                    process_function_invocations(inv, &mut contracts_subcalled);
                 }
                 if let Some(inv) = &invoke_trace.fee_transfer_invocation {
                     process_function_invocations(inv, &mut contracts_subcalled);
