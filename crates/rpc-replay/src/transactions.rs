@@ -46,12 +46,21 @@ fn da_mode_core_to_api(
         starknet::core::types::DataAvailabilityMode::L2 => starknet_api::data_availability::DataAvailabilityMode::L2,
     }
 }
+
+fn felt_to_fee(fee: Felt) -> Result<Fee, StarknetApiError> {
+    let fee_u128 = fee
+        .to_bigint()
+        .try_into()
+        .map_err(|_| StarknetApiError::OutOfRange { string: "Felt to biguint conversion failed".to_string() })?;
+
+    Ok(Fee(fee_u128))
+}
 fn invoke_v1_to_blockifier(
     tx: &InvokeTransactionV1,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::InvokeTransaction::V1(starknet_api::transaction::InvokeTransactionV1 {
-        max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
+        max_fee: felt_to_fee(tx.max_fee)?,
         signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
         nonce: starknet_api::core::Nonce(tx.nonce),
         sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
@@ -66,7 +75,7 @@ fn invoke_v1_to_blockifier(
 
 fn invoke_v3_to_blockifier(
     tx: &InvokeTransactionV3,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::InvokeTransaction::V3(starknet_api::transaction::InvokeTransactionV3 {
         resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
@@ -101,11 +110,11 @@ fn create_contract_address(
 
 fn deploy_account_v1_to_blockifier(
     tx: &DeployAccountTransactionV1,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::DeployAccountTransaction::V1(
         starknet_api::transaction::DeployAccountTransactionV1 {
-            max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
+            max_fee: felt_to_fee(tx.max_fee)?,
             signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
             nonce: starknet_api::core::Nonce(tx.nonce),
             class_hash: starknet_api::core::ClassHash(tx.class_hash),
@@ -128,7 +137,7 @@ fn deploy_account_v1_to_blockifier(
 
 fn deploy_account_v3_to_blockifier(
     tx: &DeployAccountTransactionV3,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::DeployAccountTransaction::V3(
         starknet_api::transaction::DeployAccountTransactionV3 {
@@ -262,7 +271,7 @@ async fn declare_v3_to_blockifier(
 
 fn l1_handler_to_blockifier(
     tx: &L1HandlerTransaction,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::L1HandlerTransaction {
         version: starknet_api::transaction::TransactionVersion(tx.version),

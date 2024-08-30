@@ -166,7 +166,8 @@ pub async fn prove_block(
     let mut blockifier_state = CachedState::new(blockifier_state_reader);
     let mut txs = Vec::new();
     for tx in block_with_txs.transactions.iter() {
-        let transaction = starknet_rs_to_blockifier(tx, &provider, block_number).await?;
+        let transaction =
+            starknet_rs_to_blockifier(tx, &provider, block_number).await.map_err(ProveBlockError::from)?;
         txs.push(transaction);
     }
     let tx_execution_infos = reexecute_transactions_with_blockifier(&mut blockifier_state, &block_context, txs)?;
