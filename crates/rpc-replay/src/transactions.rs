@@ -54,7 +54,7 @@ fn invoke_v1_to_blockifier(
         max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
         signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
         nonce: starknet_api::core::Nonce(tx.nonce),
-        sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address).unwrap()),
+        sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
         calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
     });
 
@@ -73,7 +73,7 @@ fn invoke_v3_to_blockifier(
         tip: starknet_api::transaction::Tip(tx.tip),
         signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
         nonce: starknet_api::core::Nonce(tx.nonce),
-        sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address).unwrap()),
+        sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
         calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
         nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
         fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
@@ -267,7 +267,7 @@ fn l1_handler_to_blockifier(
     let api_tx = starknet_api::transaction::L1HandlerTransaction {
         version: starknet_api::transaction::TransactionVersion(tx.version),
         nonce: starknet_api::core::Nonce(Felt::from(tx.nonce)),
-        contract_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.contract_address).unwrap()),
+        contract_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.contract_address)?),
         entry_point_selector: starknet_api::core::EntryPointSelector(tx.entry_point_selector),
         calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.clone())),
     };
