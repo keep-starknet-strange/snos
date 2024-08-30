@@ -75,7 +75,6 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
     ProveBlockError,
 > {
     let mut compiled_contract_classes: HashMap<Felt252, GenericCasmContractClass> = HashMap::new();
-    // TODO: Handle deprecated classes
     let mut deprecated_compiled_contract_classes: HashMap<Felt252, GenericDeprecatedCompiledClass> = HashMap::new();
 
     for contract_address in accessed_addresses {
