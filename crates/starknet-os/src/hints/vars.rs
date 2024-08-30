@@ -12,7 +12,6 @@ pub mod scopes {
     pub const DEPRECATED_CLASS_HASHES: &str = "__deprecated_class_hashes";
     pub const DEPRECATED_SYSCALL_HANDLER: &str = "deprecated_syscall_handler";
     pub const DESCEND: &str = "descend";
-
     pub const DESCENT_MAP: &str = "descent_map";
     pub const DICT_MANAGER: &str = "dict_manager";
     pub const EXECUTION_HELPER: &str = "execution_helper";
@@ -27,6 +26,7 @@ pub mod scopes {
     pub const PATRICIA_TREE_MODE: &str = "patricia_tree_mode";
     pub const PREIMAGE: &str = "preimage";
     pub const RIGHT_CHILD: &str = "right_child";
+    pub const SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES: &str = "__serialize_data_availability_create_pages__";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";
     pub const TRANSACTIONS: &str = "transactions";
     pub const TX: &str = "tx";

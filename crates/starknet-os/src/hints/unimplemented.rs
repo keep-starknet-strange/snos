@@ -29,10 +29,6 @@ pub const HINT_3: &str = indoc! {r#"memory[ap] = to_felt_or_relocatable(os_input
 pub const HINT_4: &str = indoc! {r#"exit_syscall(selector=ids.SHA256_PROCESS_BLOCK_SELECTOR)"#};
 
 #[allow(unused)]
-pub const HINT_5: &str = indoc! {r#"__serialize_data_availability_create_pages__ = True
-kzg_manager = execution_helper.kzg_manager"#};
-
-#[allow(unused)]
 pub const HINT_6: &str = indoc! {r#"print(f"execute_transactions_inner: {ids.n_txs} transactions remaining.")"#};
 
 #[allow(unused)]

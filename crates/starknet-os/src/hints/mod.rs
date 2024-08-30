@@ -165,6 +165,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(execution::WRITE_SYSCALL_RESULT.into(), execution::write_syscall_result::<PCS>);
     hints.insert(execution::WRITE_SYSCALL_RESULT_DEPRECATED.into(), execution::write_syscall_result_deprecated::<PCS>);
     hints.insert(find_element::FIND_ELEMENT.into(), find_element::find_element);
+    hints.insert(os::CONFIGURE_KZG_MANAGER.into(), os::configure_kzg_manager);
     hints.insert(os::WRITE_FULL_OUTPUT_TO_MEM.into(), os::write_full_output_to_mem);
     hints.insert(output::SET_AP_TO_BLOCK_HASH.into(), output::set_ap_to_block_hash);
     hints.insert(output::SET_STATE_UPDATES_START.into(), output::set_state_updates_start);
