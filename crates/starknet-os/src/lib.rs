@@ -78,6 +78,7 @@ where
         .exec_scopes
         .insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, None::<PatriciaSkipValidationRunner>);
     cairo_runner.exec_scopes.insert_value(vars::scopes::PATRICIA_TREE_MODE, PatriciaTreeMode::State);
+    cairo_runner.exec_scopes.insert_value::<Option<usize>>(vars::scopes::FIND_ELEMENT_MAX_SIZE, None);
 
     // Run the Cairo VM
     let mut sn_hint_processor = hints::SnosHintProcessor::<PCS>::default();

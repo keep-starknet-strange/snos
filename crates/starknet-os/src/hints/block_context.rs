@@ -343,19 +343,24 @@ pub fn is_leaf(
 }
 
 pub const WRITE_USE_ZKG_DA_TO_MEM: &str = indoc! {r#"
-    memory[fp + 15] = to_felt_or_relocatable(syscall_handler.block_info.use_kzg_da)"#
+    memory[fp + 18] = to_felt_or_relocatable(syscall_handler.block_info.use_kzg_da and (
+        not os_input.full_output
+    ))"#
 };
 pub fn write_use_zkg_da_to_mem(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // TODO: add use_kzg_da to BlockContext
-    let value = Felt252::ZERO;
+    let block_context = exec_scopes.get_ref::<BlockContext>(vars::scopes::BLOCK_CONTEXT)?;
+    let use_kzg_da = block_context.block_info().use_kzg_da;
 
-    println!("Warning: skipping kzg_da (use_kzg_da = false)");
+    let os_input: &StarknetOsInput = exec_scopes.get_ref(vars::scopes::OS_INPUT)?;
+    let full_output = os_input.full_output;
 
-    vm.insert_value((vm.get_fp() + 15)?, value).map_err(HintError::Memory)
+    let use_kzg_da_felt = if use_kzg_da && !full_output { Felt252::ONE } else { Felt252::ZERO };
+
+    vm.insert_value((vm.get_fp() + 18)?, use_kzg_da_felt).map_err(HintError::Memory)
 }

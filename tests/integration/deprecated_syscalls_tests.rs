@@ -383,7 +383,7 @@ async fn test_syscall_deploy_cairo0(
     assert!(contract_changes_by_address.contains_key(expected_contract_address.key()));
 
     // Check other output fields
-    assert_eq!(os_output.block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
+    assert_eq!(os_output.new_block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
     assert!(os_output.classes.is_empty());
     assert!(os_output.messages_to_l1.is_empty());
     assert!(os_output.messages_to_l2.is_empty());

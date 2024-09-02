@@ -16,8 +16,8 @@ use starknet_api::{contract_address, felt, patricia_key};
 use crate::error::SnOsError;
 use crate::utils::ChainIdNum;
 
-pub fn default_layout() -> LayoutName {
-    LayoutName::starknet_with_keccak
+pub const fn default_layout() -> LayoutName {
+    LayoutName::all_cairo
 }
 
 // https://github.com/starkware-libs/blockifier/blob/8da582b285bfbc7d4c21178609bbd43f80a69240/crates/native_blockifier/src/py_block_executor.rs#L44
@@ -37,7 +37,7 @@ pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
 // TODO: update with relevant address
 pub const DEFAULT_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const DEFAULT_DEPRECATED_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
-pub const SEQUENCER_ADDR_0_13_0: &str = "0x4acb67f8e29379b475ccc408fc8269c116f64b4fe5a625644c507d7df07132";
+pub const SEQUENCER_ADDR_0_13_2: &str = "0x795488c127693ffb36733cc054f9e2be39241a794a4877dc8fc1dbe52750488";
 pub const CONTRACT_ADDRESS_BITS: usize = 251;
 pub const CONTRACT_CLASS_LEAF_VERSION: &[u8] = "CONTRACT_CLASS_LEAF_V0".as_bytes();
 
@@ -63,6 +63,10 @@ pub struct GasPriceBounds {
     pub max_fri_l1_data_gas_price: u128,
 }
 
+const fn default_use_kzg_da() -> bool {
+    true
+}
+
 #[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]
 pub struct StarknetGeneralConfig {
     pub starknet_os_config: StarknetOsConfig,
@@ -70,9 +74,9 @@ pub struct StarknetGeneralConfig {
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
     pub default_eth_price_in_fri: u128,
-    pub constant_gas_price: bool,
     pub sequencer_address: ContractAddress,
     pub enforce_l1_handler_fee: bool,
+    #[serde(default = "default_use_kzg_da")]
     pub use_kzg_da: bool,
 }
 
@@ -95,8 +99,7 @@ impl Default for StarknetGeneralConfig {
             invoke_tx_max_n_steps: MAX_STEPS_PER_TX,
             validate_max_n_steps: MAX_STEPS_PER_TX,
             default_eth_price_in_fri: 1_000_000_000_000_000_000_000,
-            constant_gas_price: false,
-            sequencer_address: contract_address!(SEQUENCER_ADDR_0_13_0),
+            sequencer_address: contract_address!(SEQUENCER_ADDR_0_13_2),
             enforce_l1_handler_fee: true,
             use_kzg_da: false,
         }
@@ -172,11 +175,10 @@ mod tests {
 
     #[test]
     fn parse_starknet_config() {
-        let expected_seq_addr = contract_address!(SEQUENCER_ADDR_0_13_0);
+        let expected_seq_addr = contract_address!(SEQUENCER_ADDR_0_13_2);
 
         let conf = StarknetGeneralConfig::from_default_file().expect("Failed to load default config file");
 
-        assert!(!conf.constant_gas_price);
         assert!(conf.enforce_l1_handler_fee);
 
         assert_eq!(1000000, conf.invoke_tx_max_n_steps);
