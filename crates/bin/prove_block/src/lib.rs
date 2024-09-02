@@ -150,7 +150,7 @@ pub async fn prove_block(
     let transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    let processed_state_update = get_formatted_state_update(&provider, block_id).await?;
+    let processed_state_update = get_formatted_state_update(&provider, previous_block_id, block_id).await?;
 
     let class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash;
 
@@ -217,16 +217,16 @@ pub async fn prove_block(
         )?;
         contract_storages.insert(contract_address, contract_storage);
 
-        let (class_hash, previous_nonce) = if [Felt252::ZERO, Felt252::ONE].contains(&contract_address) {
+        let (previous_class_hash, previous_nonce) = if [Felt252::ZERO, Felt252::ONE].contains(&contract_address) {
             (Felt252::ZERO, Felt252::ZERO)
         } else {
-            let class_hash = provider.get_class_hash_at(block_id, contract_address).await?;
+            let previous_class_hash = provider.get_class_hash_at(previous_block_id, contract_address).await?;
             let previous_nonce = provider.get_nonce(previous_block_id, contract_address).await?;
-            (class_hash, previous_nonce)
+            (previous_class_hash, previous_nonce)
         };
 
         let contract_state = ContractState {
-            contract_hash: class_hash.to_bytes_be().to_vec(),
+            contract_hash: previous_class_hash.to_bytes_be().to_vec(),
             storage_commitment_tree: previous_tree,
             nonce: previous_nonce,
         };
