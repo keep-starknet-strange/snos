@@ -170,7 +170,7 @@ pub async fn prove_block(
     let starknet_version = get_starknet_version(&block_with_txs);
     log::debug!("Starknet version: {:?}", starknet_version);
 
-    let previous_block = match provider.get_block_with_tx_hashes(block_id).await? {
+    let previous_block = match provider.get_block_with_tx_hashes(previous_block_id).await? {
         MaybePendingBlockWithTxHashes::Block(block_with_txs) => block_with_txs,
         MaybePendingBlockWithTxHashes::PendingBlock(_) => {
             panic!("Block is still pending!");
