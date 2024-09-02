@@ -22,7 +22,7 @@ Rust Library for running the [Starknet OS](https://hackmd.io/@pragma/ByP-iux1T) 
 poetry install
 poetry shell
 ```
-
+test
 **Run Tests**
 
 ```bash
