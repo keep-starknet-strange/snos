@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use blockifier::state::cached_state::CachedState;
 use cairo_vm::types::layout_name::LayoutName;
@@ -28,12 +28,13 @@ use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree:
 use starknet_os::{config, run_os};
 use starknet_os_types::chain_id::chain_id_from_felt;
 use starknet_os_types::error::ContractClassError;
-use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
 use starknet_types_core::felt::Felt;
+use state_utils::get_formatted_state_update;
+use thiserror::Error;
 
 use crate::reexecute::format_commitment_facts;
 use crate::rpc_utils::{get_starknet_version, PathfinderClassProof};
-use crate::state_utils::get_processed_state_update;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
 mod reexecute;
@@ -42,73 +43,20 @@ mod state_utils;
 mod types;
 mod utils;
 
-use std::fmt;
-
-// Define your error enum
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ProveBlockError {
-    RpcError(ProviderError),
-    ReExecutionError(Box<dyn std::error::Error>),
-    TreeError(TreeError),
-    ContractClassError(ContractClassError),
-    SnOsError(SnOsError),
-}
-
-// Implement the Display trait for your error enum
-impl fmt::Display for ProveBlockError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ProveBlockError::RpcError(err) => write!(f, "RPC Error: {}", err),
-            ProveBlockError::ReExecutionError(err) => write!(f, "Re-Execution Error: {}", err),
-            ProveBlockError::TreeError(err) => write!(f, "Tree Error: {}", err),
-            ProveBlockError::ContractClassError(err) => write!(f, "Contract Class Error: {}", err),
-            ProveBlockError::SnOsError(err) => write!(f, "SnOs Error: {}", err),
-        }
-    }
-}
-
-// Implement the Error trait for your error enum
-impl std::error::Error for ProveBlockError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ProveBlockError::RpcError(err) => Some(err),
-            ProveBlockError::ReExecutionError(err) => Some(&**err),
-            ProveBlockError::TreeError(err) => Some(err),
-            ProveBlockError::ContractClassError(err) => Some(err),
-            ProveBlockError::SnOsError(err) => Some(err),
-        }
-    }
-}
-
-// Implement From for each of the error types
-impl From<ProviderError> for ProveBlockError {
-    fn from(err: ProviderError) -> ProveBlockError {
-        ProveBlockError::RpcError(err)
-    }
-}
-
-impl From<Box<dyn std::error::Error>> for ProveBlockError {
-    fn from(err: Box<dyn std::error::Error>) -> ProveBlockError {
-        ProveBlockError::ReExecutionError(err)
-    }
-}
-
-impl From<TreeError> for ProveBlockError {
-    fn from(err: TreeError) -> ProveBlockError {
-        ProveBlockError::TreeError(err)
-    }
-}
-
-impl From<ContractClassError> for ProveBlockError {
-    fn from(err: ContractClassError) -> ProveBlockError {
-        ProveBlockError::ContractClassError(err)
-    }
-}
-
-impl From<SnOsError> for ProveBlockError {
-    fn from(err: SnOsError) -> ProveBlockError {
-        ProveBlockError::SnOsError(err)
-    }
+    #[error("RPC Error: {0}")]
+    RpcError(#[from] ProviderError),
+    #[error("Re-Execution Error: {0}")]
+    ReExecutionError(#[from] Box<dyn std::error::Error>),
+    #[error("Tree Error: {0}")]
+    TreeError(#[from] TreeError),
+    #[error("Contract Class Error: {0}")]
+    ContractClassError(#[from] ContractClassError),
+    #[error("SnOs Error: {0}")]
+    SnOsError(#[from] SnOsError),
+    #[error("Legacy class decompression Error: {0}")]
+    LegacyContractDecompressionError(#[from] LegacyContractDecompressionError),
 }
 
 fn compute_class_commitment(
@@ -151,15 +99,19 @@ pub async fn prove_block(
 ) -> Result<(CairoPie, StarknetOsOutput), ProveBlockError> {
     let block_id = BlockId::Number(block_number);
     let previous_block_id = BlockId::Number(block_number - 1);
-    let provider_url = &format!("{}/rpc/v0_7", rpc_provider);
-    let provider =
-        JsonRpcClient::new(HttpTransport::new(Url::parse(provider_url).expect("Could not parse provider url")));
+
+    let provider_url = format!("{}/rpc/v0_7", rpc_provider);
+    log::info!("provider url: {}", provider_url);
+    let provider = JsonRpcClient::new(HttpTransport::new(
+        Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
+    ));
     let pathfinder_client =
         reqwest::ClientBuilder::new().build().unwrap_or_else(|e| panic!("Could not build reqwest client: {e}"));
 
     // Step 1: build the block context
     let chain_id = chain_id_from_felt(provider.chain_id().await?);
     log::debug!("provider's chain_id: {}", chain_id);
+
     let block_with_txs = match provider.get_block_with_txs(block_id).await? {
         MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
         MaybePendingBlockWithTxs::PendingBlock(_) => {
@@ -198,16 +150,14 @@ pub async fn prove_block(
     let transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    let processed_state_update = get_processed_state_update(&provider, block_id, &transactions).await;
+    let processed_state_update = get_formatted_state_update(&provider, block_id).await?;
 
-    let accessed_contracts = processed_state_update.accessed_addresses;
-
-    let mut class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash.clone();
+    let class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash;
 
     // Workaround for JsonRpcClient not implementing Clone
-    // Use Arc?
-    let provider_for_blockifier =
-        JsonRpcClient::new(HttpTransport::new(Url::parse(provider_url).expect("Could not parse provider url")));
+    let provider_for_blockifier = JsonRpcClient::new(HttpTransport::new(
+        Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
+    ));
     let blockifier_state_reader = AsyncRpcStateReader::new(provider_for_blockifier, BlockId::Number(block_number - 1));
 
     let mut blockifier_state = CachedState::new(blockifier_state_reader);
@@ -216,14 +166,6 @@ pub async fn prove_block(
         &block_context,
         block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(tx).unwrap()).collect(),
     )?;
-
-    if tx_execution_infos.len() != transactions.len() {
-        log::warn!(
-            "Warning: blockifier reexecution yielded different num execution infos ({}) than transactions ({})",
-            tx_execution_infos.len(),
-            transactions.len()
-        );
-    }
 
     let storage_proofs =
         get_storage_proofs(&pathfinder_client, rpc_provider, block_number, &tx_execution_infos, old_block_number)
@@ -265,13 +207,10 @@ pub async fn prove_block(
 
         let previous_tree = PatriciaTree { root: contract_storage_root, height: Height(251) };
 
-        let previous_storage_proof =
-            previous_storage_proofs.get(&contract_address).expect("there should be a previous storage proof");
-
         let contract_storage = ProverPerContractStorage::new(
             previous_block_id,
             contract_address,
-            provider_url.to_owned(),
+            provider_url.clone(),
             previous_tree.root.into(),
             storage_proof,
             previous_storage_proof.clone(),
@@ -295,32 +234,7 @@ pub async fn prove_block(
         contract_states.insert(contract_address, contract_state);
     }
 
-    // ensure that we have all class_hashes and compiled_class_hashes for any accessed contracts
-    let mut accessed_class_hashes = HashSet::<_>::new();
-    let mut compiled_classes = HashMap::new();
-    for contract_address in &accessed_contracts {
-        if let Ok(class_hash) = provider.get_class_hash_at(BlockId::Number(block_number), contract_address).await {
-            let contract_class = provider.get_class(BlockId::Number(block_number), class_hash).await?;
-            let generic_sierra_cc = match contract_class {
-                starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
-                    GenericSierraContractClass::from(flattened_sierra_cc)
-                }
-                starknet::core::types::ContractClass::Legacy(_) => {
-                    unimplemented!("Fixme: Support legacy contract class")
-                }
-            };
-
-            accessed_class_hashes.insert(class_hash);
-
-            let generic_cc = generic_sierra_cc.compile()?;
-            let compiled_contract_hash = generic_cc.class_hash().unwrap();
-
-            class_hash_to_compiled_class_hash.insert(class_hash, compiled_contract_hash.into());
-            compiled_classes.insert(compiled_contract_hash.into(), generic_cc.clone());
-        } else {
-            log::warn!("No class hash available for contract {}", contract_address);
-        };
-    }
+    let compiled_classes = processed_state_update.compiled_classes;
 
     // query storage proofs for each accessed contract
     let class_hashes: Vec<&Felt252> = class_hash_to_compiled_class_hash.keys().collect();
@@ -340,20 +254,6 @@ pub async fn prove_block(
             (class_hash.0, visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
         })
         .collect();
-
-    log::debug!("class_hash_to_compiled_class_hash ({}):", class_hash_to_compiled_class_hash.len());
-    for (class_hash, compiled_class_hash) in &class_hash_to_compiled_class_hash {
-        log::debug!("    0x{:x} => 0x{:x}", class_hash, compiled_class_hash);
-    }
-
-    // Pass all contract addresses as expected accessed indices
-    // let contract_indices: HashSet<TreeIndex> =
-    //     contract_states.keys().chain(contract_storages.keys()).map(|address|
-    // address.to_biguint()).collect(); let contract_indices: Vec<TreeIndex> =
-    // contract_indices.into_iter().collect();
-
-    // let final_state =
-    // initial_state.clone().apply_commitment_state_diff(blockifier_state.to_state_diff()).await?;
 
     // We can extract data from any storage proof, use the one of the block hash contract
     let block_hash_storage_proof =

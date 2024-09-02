@@ -136,6 +136,7 @@ pub(crate) async fn get_storage_proofs(
 ) -> Result<HashMap<Felt, PathfinderProof>, reqwest::Error> {
     let accessed_keys_by_address = {
         let mut keys = get_all_accessed_keys(tx_execution_infos);
+        // We need to fetch the storage proof for the block hash contract
         keys.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
         keys
     };
