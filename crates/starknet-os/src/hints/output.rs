@@ -2,7 +2,7 @@ use std::cmp::min;
 use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -14,49 +14,57 @@ use indoc::indoc;
 use num_integer::div_ceil;
 
 use crate::hints::vars;
-use crate::io::input::StarknetOsInput;
+use crate::utils::get_variable_from_root_exec_scope;
 
 const MAX_PAGE_SIZE: usize = 3800;
 
-pub const SET_TREE_STRUCTURE: &str = indoc! {r#"
-	from starkware.python.math_utils import div_ceil
-	onchain_data_start = ids.da_start
-	onchain_data_size = ids.output_ptr - onchain_data_start
+#[rustfmt::skip]
+pub const SET_TREE_STRUCTURE: &str = indoc! {r#"from starkware.python.math_utils import div_ceil
 
-	max_page_size = 3800
-	n_pages = div_ceil(onchain_data_size, max_page_size)
-	for i in range(n_pages):
-	    start_offset = i * max_page_size
-	    output_builtin.add_page(
-	        page_id=1 + i,
-	        page_start=onchain_data_start + start_offset,
-	        page_size=min(onchain_data_size - start_offset, max_page_size),
-	    )
-	# Set the tree structure to a root with two children:
-	# * A leaf which represents the main part
-	# * An inner node for the onchain data part (which contains n_pages children).
-	#
-	# This is encoded using the following sequence:
-	output_builtin.add_attribute('gps_fact_topology', [
-	    # Push 1 + n_pages pages (all of the pages).
-	    1 + n_pages,
-	    # Create a parent node for the last n_pages.
-	    n_pages,
-	    # Don't push additional pages.
-	    0,
-	    # Take the first page (the main part) and the node that was created (onchain data)
-	    # and use them to construct the root of the fact tree.
-	    2,
-	])"#
-};
+if __serialize_data_availability_create_pages__:
+    onchain_data_start = ids.da_start
+    onchain_data_size = ids.output_ptr - onchain_data_start
+
+    max_page_size = 3800
+    n_pages = div_ceil(onchain_data_size, max_page_size)
+    for i in range(n_pages):
+        start_offset = i * max_page_size
+        output_builtin.add_page(
+            page_id=1 + i,
+            page_start=onchain_data_start + start_offset,
+            page_size=min(onchain_data_size - start_offset, max_page_size),
+        )
+    # Set the tree structure to a root with two children:
+    # * A leaf which represents the main part
+    # * An inner node for the onchain data part (which contains n_pages children).
+    #
+    # This is encoded using the following sequence:
+    output_builtin.add_attribute('gps_fact_topology', [
+        # Push 1 + n_pages pages (all of the pages).
+        1 + n_pages,
+        # Create a parent node for the last n_pages.
+        n_pages,
+        # Don't push additional pages.
+        0,
+        # Take the first page (the main part) and the node that was created (onchain data)
+        # and use them to construct the root of the fact tree.
+        2,
+    ])"#};
 
 pub fn set_tree_structure(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    let serialize_data_availability_create_pages: bool =
+        get_variable_from_root_exec_scope(exec_scopes, vars::scopes::SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES)?;
+
+    if !serialize_data_availability_create_pages {
+        return Ok(());
+    }
+
     let onchain_data_start = get_ptr_from_var_name(vars::ids::DA_START, vm, ids_data, ap_tracking)?;
     let output_ptr = get_ptr_from_var_name(vars::ids::OUTPUT_PTR, vm, ids_data, ap_tracking)?;
     let onchain_data_size = (output_ptr - onchain_data_start)?;
@@ -93,21 +101,6 @@ pub fn set_tree_structure(
             2,
         ],
     );
-
-    Ok(())
-}
-
-pub const SET_AP_TO_BLOCK_HASH: &str = "memory[ap] = to_felt_or_relocatable(os_input.block_hash)";
-
-pub fn set_ap_to_block_hash(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let os_input: &StarknetOsInput = exec_scopes.get_ref(vars::scopes::OS_INPUT)?;
-    insert_value_into_ap(vm, os_input.block_hash)?;
 
     Ok(())
 }
@@ -197,6 +190,7 @@ mod tests {
         .unwrap();
 
         let mut exec_scopes: ExecutionScopes = Default::default();
+        exec_scopes.insert_value(vars::scopes::SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES, true);
 
         set_tree_structure(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
             .expect("Hint should succeed");

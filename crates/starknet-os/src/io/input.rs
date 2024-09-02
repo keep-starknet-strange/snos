@@ -26,7 +26,9 @@ pub struct StarknetOsInput {
     pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
     pub general_config: StarknetGeneralConfig,
     pub transactions: Vec<InternalTransaction>,
-    pub block_hash: Felt252,
+    pub new_block_hash: Felt252,
+    pub prev_block_hash: Felt252,
+    pub full_output: bool,
 }
 
 impl StarknetOsInput {

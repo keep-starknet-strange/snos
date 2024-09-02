@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::Felt252;
+use cairo_vm::{any_box, Felt252};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Number;
 use serde_with::{DeserializeAs, SerializeAs};
@@ -144,6 +144,18 @@ where
         .get(name)
         .and_then(|var| var.downcast_ref::<T>().cloned())
         .ok_or(HintError::VariableNotInScopeError(name.to_string().into_boxed_str()))
+}
+
+/// Sets a variable in the root execution scope.
+///
+/// Some global variables are stored in the root execution scope on startup. We sometimes
+/// need access to these variables from a hint where we are already in a nested scope.
+/// This function sets the variable in the root scope regardless of the current scope.
+pub(crate) fn set_variable_in_root_exec_scope<T>(exec_scopes: &mut ExecutionScopes, name: &str, value: T)
+where
+    T: Clone + 'static,
+{
+    exec_scopes.data[0].insert(name.to_string(), any_box!(value));
 }
 
 /// Builds a custom hint error

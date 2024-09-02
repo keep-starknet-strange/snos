@@ -170,6 +170,13 @@ pub async fn prove_block(
     let starknet_version = get_starknet_version(&block_with_txs);
     log::debug!("Starknet version: {:?}", starknet_version);
 
+    let previous_block = match provider.get_block_with_tx_hashes(previous_block_id).await? {
+        MaybePendingBlockWithTxHashes::Block(block_with_txs) => block_with_txs,
+        MaybePendingBlockWithTxHashes::PendingBlock(_) => {
+            panic!("Block is still pending!");
+        }
+    };
+
     // We only need to get the older block number and hash. No need to fetch all the txs
     let older_block = match provider
         .get_block_with_tx_hashes(BlockId::Number(block_number - STORED_BLOCK_HASH_BUFFER))
@@ -386,7 +393,9 @@ pub async fn prove_block(
         class_hash_to_compiled_class_hash,
         general_config,
         transactions,
-        block_hash: block_with_txs.block_hash,
+        new_block_hash: block_with_txs.block_hash,
+        prev_block_hash: previous_block.block_hash,
+        full_output: false,
     };
     let execution_helper = ExecutionHelperWrapper::<ProverPerContractStorage>::new(
         contract_storages,
@@ -398,19 +407,15 @@ pub async fn prove_block(
     Ok(run_os(config::DEFAULT_COMPILED_OS, layout, os_input, block_context, execution_helper)?)
 }
 
-pub fn debug_prove_error(err: ProveBlockError) {
-    match &err {
-        ProveBlockError::SnOsError(SnOsError::Runner(CairoRunError::VmException(vme))) => {
-            if let Some(traceback) = vme.traceback.as_ref() {
-                log::error!("traceback:\n{}", traceback);
-            }
-            if let Some(inst_location) = &vme.inst_location {
-                log::error!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
-                log::error!("inst_location:\n{:?}", inst_location);
-            }
+pub fn debug_prove_error(err: ProveBlockError) -> ProveBlockError {
+    if let ProveBlockError::SnOsError(SnOsError::Runner(CairoRunError::VmException(vme))) = &err {
+        if let Some(traceback) = vme.traceback.as_ref() {
+            log::error!("traceback:\n{}", traceback);
         }
-        _ => {
-            log::error!("exception:\n{:#?}", err);
+        if let Some(inst_location) = &vme.inst_location {
+            log::error!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
+            log::error!("inst_location:\n{:?}", inst_location);
         }
     }
+    err
 }

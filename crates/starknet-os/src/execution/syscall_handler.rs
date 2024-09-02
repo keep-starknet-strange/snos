@@ -37,6 +37,7 @@ where
     pub exec_wrapper: ExecutionHelperWrapper<PCS>,
     pub syscall_ptr: Option<Relocatable>,
     pub segments: ReadOnlySegments,
+    pub sha256_segment: Option<Relocatable>,
 }
 
 /// OsSyscallHandler is wrapped in Rc<RefCell<_>> in order
@@ -68,6 +69,7 @@ where
                 exec_wrapper,
                 syscall_ptr: None,
                 segments: ReadOnlySegments::default(),
+                sha256_segment: None,
             })),
         }
     }
@@ -79,6 +81,11 @@ where
     pub async fn syscall_ptr(&self) -> Option<Relocatable> {
         let syscall_handler = self.syscall_handler.read().await;
         syscall_handler.syscall_ptr
+    }
+
+    pub async fn set_sha256_segment(&self, sha256_segment: Relocatable) {
+        let mut syscall_handler = self.syscall_handler.write().await;
+        syscall_handler.sha256_segment = Some(sha256_segment);
     }
 
     pub async fn validate_and_discard_syscall_ptr(&self, syscall_ptr_end: Relocatable) -> Result<(), HintError> {
