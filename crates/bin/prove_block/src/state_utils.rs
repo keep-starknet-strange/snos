@@ -41,7 +41,7 @@ pub(crate) async fn get_formatted_state_update(
     let accessed_addresses: HashSet<Felt252> = get_subcalled_contracts_from_tx_traces(&traces);
 
     let address_to_class_hash = format_deployed_contracts(&state_diff);
-    // TODO: Handle deprecated clasees
+    // TODO: Handle deprecated classes
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = format_declared_classes(&state_diff);
     let (compiled_contract_classes, _deprecated_compiled_contract_class) =
         build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(

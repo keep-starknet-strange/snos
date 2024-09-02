@@ -31,6 +31,7 @@ use starknet_os_types::error::ContractClassError;
 use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
 use starknet_types_core::felt::Felt;
 use state_utils::get_formatted_state_update;
+use thiserror::Error;
 
 use crate::reexecute::format_commitment_facts;
 use crate::rpc_utils::{get_starknet_version, PathfinderClassProof};
@@ -42,84 +43,20 @@ mod state_utils;
 mod types;
 mod utils;
 
-use std::fmt;
-
-// Define your error enum
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ProveBlockError {
-    RpcError(ProviderError),
-    ReExecutionError(Box<dyn std::error::Error>),
-    TreeError(TreeError),
-    ContractClassError(ContractClassError),
-    SnOsError(SnOsError),
-    LegacyContractDecompressionError(LegacyContractDecompressionError),
-}
-
-// Implement the Display trait for your error enum
-impl fmt::Display for ProveBlockError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ProveBlockError::RpcError(err) => write!(f, "RPC Error: {}", err),
-            ProveBlockError::ReExecutionError(err) => write!(f, "Re-Execution Error: {}", err),
-            ProveBlockError::TreeError(err) => write!(f, "Tree Error: {}", err),
-            ProveBlockError::ContractClassError(err) => write!(f, "Contract Class Error: {}", err),
-            ProveBlockError::SnOsError(err) => write!(f, "SnOs Error: {}", err),
-            ProveBlockError::LegacyContractDecompressionError(err) => {
-                write!(f, "Legacy class decompression Error: {}", err)
-            }
-        }
-    }
-}
-
-// Implement the Error trait for your error enum
-impl std::error::Error for ProveBlockError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ProveBlockError::RpcError(err) => Some(err),
-            ProveBlockError::ReExecutionError(err) => Some(&**err),
-            ProveBlockError::TreeError(err) => Some(err),
-            ProveBlockError::ContractClassError(err) => Some(err),
-            ProveBlockError::SnOsError(err) => Some(err),
-            ProveBlockError::LegacyContractDecompressionError(err) => Some(err),
-        }
-    }
-}
-
-// Implement From for each of the error types
-impl From<ProviderError> for ProveBlockError {
-    fn from(err: ProviderError) -> ProveBlockError {
-        ProveBlockError::RpcError(err)
-    }
-}
-
-impl From<Box<dyn std::error::Error>> for ProveBlockError {
-    fn from(err: Box<dyn std::error::Error>) -> ProveBlockError {
-        ProveBlockError::ReExecutionError(err)
-    }
-}
-
-impl From<TreeError> for ProveBlockError {
-    fn from(err: TreeError) -> ProveBlockError {
-        ProveBlockError::TreeError(err)
-    }
-}
-
-impl From<ContractClassError> for ProveBlockError {
-    fn from(err: ContractClassError) -> ProveBlockError {
-        ProveBlockError::ContractClassError(err)
-    }
-}
-
-impl From<SnOsError> for ProveBlockError {
-    fn from(err: SnOsError) -> ProveBlockError {
-        ProveBlockError::SnOsError(err)
-    }
-}
-
-impl From<LegacyContractDecompressionError> for ProveBlockError {
-    fn from(err: LegacyContractDecompressionError) -> ProveBlockError {
-        ProveBlockError::LegacyContractDecompressionError(err)
-    }
+    #[error("RPC Error: {0}")]
+    RpcError(#[from] ProviderError),
+    #[error("Re-Execution Error: {0}")]
+    ReExecutionError(#[from] Box<dyn std::error::Error>),
+    #[error("Tree Error: {0}")]
+    TreeError(#[from] TreeError),
+    #[error("Contract Class Error: {0}")]
+    ContractClassError(#[from] ContractClassError),
+    #[error("SnOs Error: {0}")]
+    SnOsError(#[from] SnOsError),
+    #[error("Legacy class decompression Error: {0}")]
+    LegacyContractDecompressionError(#[from] LegacyContractDecompressionError),
 }
 
 fn compute_class_commitment(
