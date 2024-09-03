@@ -18,6 +18,7 @@ use rstest::rstest;
 #[case::failing_assert_on_versioned_constants_2(124533)]
 #[case::fix_diff_assert_values_in_contract_subcall(87019)]
 #[case::invoke_with_replace_class(90000)]
+#[case::l1_handler(98000)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
