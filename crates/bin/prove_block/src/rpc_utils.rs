@@ -9,6 +9,7 @@ use starknet::core::types::BlockWithTxs;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::state::StorageKey;
 use starknet_api::{contract_address, felt, patricia_key};
+use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
@@ -271,7 +272,8 @@ pub(crate) async fn get_storage_proofs(
 /// To resolve this, we fetch the storage proof for a node that follows this edge in order
 /// to get the bottom node in the preimage and resolve the issue.
 fn get_key_following_edge(key: Felt, height: Height, edge_path: &EdgePath) -> Felt {
-    let mask = edge_path.value.to_bigint() << (251 - height.0);
+    assert!(height.0 < DEFAULT_STORAGE_TREE_HEIGHT);
+    let mask = edge_path.value.to_bigint() << (DEFAULT_STORAGE_TREE_HEIGHT - height.0);
     let new_key = (key.to_bigint() & !mask.clone()) | mask;
 
     Felt::from(new_key)
@@ -376,7 +378,7 @@ pub(crate) fn verify_proof<H: HashFunctionType>(
     loop {
         match trie_node_iter.next() {
             None => {
-                if index - start != 251 {
+                if index - start != DEFAULT_STORAGE_TREE_HEIGHT {
                     return Err(ProofVerificationError::KeyNotInProof { key, height: Height(index - start), proof });
                 }
                 break;

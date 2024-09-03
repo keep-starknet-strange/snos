@@ -172,7 +172,7 @@ impl PerContractStorage for ProverPerContractStorage {
         Ok(CommitmentInfo {
             previous_root: self.previous_tree_root,
             updated_root,
-            tree_height: DEFAULT_STORAGE_TREE_HEIGHT,
+            tree_height: DEFAULT_STORAGE_TREE_HEIGHT as usize,
             commitment_facts,
         })
     }
