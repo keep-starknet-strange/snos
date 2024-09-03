@@ -1,3 +1,4 @@
+use blockifier::blockifier::block::GasPrices;
 use blockifier::state::cached_state::CachedState;
 use blockifier::transaction::transactions::ExecutableTransaction as _;
 use blockifier::versioned_constants::StarknetVersion;
@@ -7,7 +8,7 @@ use rpc_replay::transactions::starknet_rs_to_blockifier;
 use rstest::rstest;
 use starknet::core::types::{BlockId, BlockWithTxs};
 use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, Url};
+use starknet::providers::{JsonRpcClient, Provider, Url};
 use starknet_api::core::ChainId;
 
 #[rstest]
@@ -26,7 +27,8 @@ async fn test_replay_block() {
     let provider = JsonRpcClient::new(HttpTransport::new(
         Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
     ));
-    let state_reader = AsyncRpcStateReader::new(provider, BlockId::Number(block_with_txs.block_number - 1));
+    let block_id = BlockId::Number(block_with_txs.block_number - 1);
+    let state_reader = AsyncRpcStateReader::new(provider, block_id);
     let mut state = CachedState::from(state_reader);
 
     let block_context = build_block_context(ChainId::Sepolia, &block_with_txs, StarknetVersion::V0_13_1);
@@ -35,8 +37,18 @@ async fn test_replay_block() {
     let provider = JsonRpcClient::new(HttpTransport::new(
         Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
     ));
-    for tx in block_with_txs.transactions.iter() {
-        let blockifier_tx = starknet_rs_to_blockifier(tx, &provider, block_with_txs.block_number).await.unwrap();
+
+    let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
+    let gas_prices = GasPrices {
+        eth_l1_gas_price: 1u128.try_into().unwrap(), // TODO: update with 4844
+        strk_l1_gas_price: 1u128.try_into().unwrap(),
+        eth_l1_data_gas_price: 1u128.try_into().unwrap(),
+        strk_l1_data_gas_price: 1u128.try_into().unwrap(),
+    };
+
+    for (tx, trace) in block_with_txs.transactions.iter().zip(traces.iter()) {
+        let blockifier_tx =
+            starknet_rs_to_blockifier(tx, trace, &gas_prices, &provider, block_with_txs.block_number).await.unwrap();
         let tx_result = blockifier_tx.execute(&mut state, &block_context, true, true);
 
         match tx_result {
