@@ -2,12 +2,14 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::sync::Arc;
 
+use blockifier::blockifier::block::GasPrices;
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use starknet::core::types::{
     BlockId, DeclareTransaction, DeclareTransactionV1, DeclareTransactionV2, DeclareTransactionV3,
     DeployAccountTransaction, DeployAccountTransactionV1, DeployAccountTransactionV3, Felt, InvokeTransaction,
     InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction, ResourceBoundsMapping, Transaction,
+    TransactionTrace, TransactionTraceWithHash,
 };
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
@@ -271,6 +273,8 @@ async fn declare_v3_to_blockifier(
 
 fn l1_handler_to_blockifier(
     tx: &L1HandlerTransaction,
+    trace: &TransactionTraceWithHash,
+    gas_prices: &GasPrices,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::L1HandlerTransaction {
@@ -280,10 +284,26 @@ fn l1_handler_to_blockifier(
         entry_point_selector: starknet_api::core::EntryPointSelector(tx.entry_point_selector),
         calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.clone())),
     };
-    // Fees are 0 for L1Handler transactions
-    let fee = Fee(0);
+
+    let (l1_gas, l1_data_gas) = match &trace.trace_root {
+        TransactionTrace::L1Handler(l1_handler) => (
+            l1_handler.execution_resources.data_resources.data_availability.l1_gas,
+            l1_handler.execution_resources.data_resources.data_availability.l1_data_gas,
+        ),
+        _ => unreachable!("Expected L1Handler type for TransactionTrace"),
+    };
+
+    let fee = if l1_gas == 0 {
+        gas_prices.eth_l1_data_gas_price.get() * l1_data_gas as u128
+    } else if l1_data_gas == 0 {
+        gas_prices.eth_l1_gas_price.get() * l1_gas as u128
+    } else {
+        unreachable!("Either l1_gas or l1_data_gas must be zero");
+    };
+
+    let paid_fee_on_l1 = Fee(fee);
     let l1_handler =
-        blockifier::transaction::transactions::L1HandlerTransaction { tx: api_tx, tx_hash, paid_fee_on_l1: fee };
+        blockifier::transaction::transactions::L1HandlerTransaction { tx: api_tx, tx_hash, paid_fee_on_l1 };
 
     Ok(blockifier::transaction::transaction_execution::Transaction::L1HandlerTransaction(l1_handler))
 }
@@ -291,11 +311,12 @@ fn l1_handler_to_blockifier(
 /// Maps starknet-core transactions to Blockifier-compatible types.
 pub async fn starknet_rs_to_blockifier(
     sn_core_tx: &starknet::core::types::Transaction,
+    trace: &TransactionTraceWithHash,
+    gas_prices: &GasPrices,
     provider: &JsonRpcClient<HttpTransport>,
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
     let blockifier_tx = match sn_core_tx {
-        // Transaction::Invoke(tx) => invoke_txn_to_blockifier(tx)?,
         Transaction::Invoke(tx) => match tx {
             InvokeTransaction::V0(_) => unimplemented!("starknet_rs_to_blockifier with InvokeTransaction::V0"),
             InvokeTransaction::V1(tx) => invoke_v1_to_blockifier(tx)?,
@@ -305,14 +326,13 @@ pub async fn starknet_rs_to_blockifier(
             DeployAccountTransaction::V1(tx) => deploy_account_v1_to_blockifier(tx)?,
             DeployAccountTransaction::V3(tx) => deploy_account_v3_to_blockifier(tx)?,
         },
-        // Transaction::Declare(tx) => declare_to_blockifier(tx, provider, block_number).await?,
         Transaction::Declare(tx) => match tx {
             DeclareTransaction::V0(_) => unimplemented!("starknet_rs_to_blockifier with DeclareTransaction::V0"),
             DeclareTransaction::V1(tx) => declare_v1_to_blockifier(tx, provider, block_number).await?,
             DeclareTransaction::V2(tx) => declare_v2_to_blockifier(tx, provider, block_number).await?,
             DeclareTransaction::V3(tx) => declare_v3_to_blockifier(tx, provider, block_number).await?,
         },
-        Transaction::L1Handler(tx) => l1_handler_to_blockifier(tx)?,
+        Transaction::L1Handler(tx) => l1_handler_to_blockifier(tx, trace, gas_prices)?,
         _ => unimplemented!(),
     };
 

@@ -153,7 +153,7 @@ pub async fn prove_block(
     let transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    let processed_state_update = get_formatted_state_update(&provider, previous_block_id, block_id).await?;
+    let (processed_state_update, traces) = get_formatted_state_update(&provider, previous_block_id, block_id).await?;
 
     let class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash;
 
@@ -164,10 +164,17 @@ pub async fn prove_block(
     let blockifier_state_reader = AsyncRpcStateReader::new(provider_for_blockifier, BlockId::Number(block_number - 1));
 
     let mut blockifier_state = CachedState::new(blockifier_state_reader);
+
+    if block_with_txs.transactions.len() != traces.len() {
+        log::warn!("Transactions and traces must have the same length");
+        return Err(ProveBlockError::RpcError(ProviderError::ArrayLengthMismatch));
+    }
     let mut txs = Vec::new();
-    for tx in block_with_txs.transactions.iter() {
+    for (tx, trace) in block_with_txs.transactions.iter().zip(traces.iter()) {
         let transaction =
-            starknet_rs_to_blockifier(tx, &provider, block_number).await.map_err(ProveBlockError::from)?;
+            starknet_rs_to_blockifier(tx, trace, &block_context.block_info().gas_prices, &provider, block_number)
+                .await
+                .map_err(ProveBlockError::from)?;
         txs.push(transaction);
     }
     let tx_execution_infos = reexecute_transactions_with_blockifier(&mut blockifier_state, &block_context, txs)?;
