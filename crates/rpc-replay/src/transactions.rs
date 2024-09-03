@@ -4,11 +4,13 @@ use std::sync::Arc;
 
 use blockifier::transaction::account_transaction::AccountTransaction;
 use starknet::core::types::{
-    Felt, InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3, ResourceBoundsMapping, Transaction,
+    InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3, ResourceBoundsMapping, Transaction,
 };
 use starknet_api::core::PatriciaKey;
 use starknet_api::transaction::{Fee, TransactionHash};
 use starknet_api::StarknetApiError;
+
+use crate::utils::felt_to_u128;
 
 pub fn resource_bounds_core_to_api(
     resource_bounds: &ResourceBoundsMapping,
@@ -40,20 +42,12 @@ fn da_mode_core_to_api(
     }
 }
 
-fn felt_to_fee(fee: Felt) -> Result<Fee, StarknetApiError> {
-    let fee_u128 = fee
-        .to_bigint()
-        .try_into()
-        .map_err(|_| StarknetApiError::OutOfRange { string: "Felt to biguint conversion failed".to_string() })?;
-
-    Ok(Fee(fee_u128))
-}
 fn invoke_v1_to_blockifier(
     tx: &InvokeTransactionV1,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::InvokeTransaction::V1(starknet_api::transaction::InvokeTransactionV1 {
-        max_fee: felt_to_fee(tx.max_fee)?,
+        max_fee: Fee(felt_to_u128(&tx.max_fee)),
         signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
         nonce: starknet_api::core::Nonce(tx.nonce),
         sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
