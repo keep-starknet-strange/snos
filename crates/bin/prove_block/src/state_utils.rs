@@ -101,8 +101,9 @@ async fn add_compiled_class_from_contract_to_os_input(
         block_id,
         class_hash_to_compiled_class_hash,
         compiled_contract_classes,
-        deprecated_compiled_contract_classes
-    ).await
+        deprecated_compiled_contract_classes,
+    )
+    .await
 }
 
 /// Fetches (+ compile) the contract class for the specified class at the specified block
@@ -120,8 +121,7 @@ async fn add_compiled_class_from_class_hash_to_os_input(
         return Ok(());
     }
 
-    let compiled_class =
-        get_compiled_class_for_class_hash(provider, block_id, class_hash).await?;
+    let compiled_class = get_compiled_class_for_class_hash(provider, block_id, class_hash).await?;
     let compiled_class_hash = compiled_class.class_hash()?;
 
     class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash.into());

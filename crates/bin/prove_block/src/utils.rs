@@ -12,7 +12,9 @@ use starknet_api::state::StorageKey;
 // TODO: check if we can handle this just reexecuting tx using blockifier
 //
 // Returns a HashSet of contracts and a HashSet of classes encountered along the way.
-pub(crate) fn get_subcalled_contracts_from_tx_traces(traces: &[TransactionTraceWithHash]) -> (HashSet<Felt252>, HashSet<Felt252>) {
+pub(crate) fn get_subcalled_contracts_from_tx_traces(
+    traces: &[TransactionTraceWithHash],
+) -> (HashSet<Felt252>, HashSet<Felt252>) {
     let mut contracts_subcalled: HashSet<Felt252> = HashSet::new();
     let mut classes_subcalled: HashSet<Felt252> = HashSet::new();
     for trace in traces {
@@ -42,7 +44,11 @@ pub(crate) fn get_subcalled_contracts_from_tx_traces(traces: &[TransactionTraceW
 /// Utility to extract all contract address in a nested call structure. Any given call can have
 /// nested calls, creating a tree structure of calls, so this fn traverses this structure and
 /// returns a set of all contracts encountered along the way.
-fn process_function_invocations(inv: &FunctionInvocation, contracts: &mut HashSet<Felt252>, classes: &mut HashSet<Felt252>) {
+fn process_function_invocations(
+    inv: &FunctionInvocation,
+    contracts: &mut HashSet<Felt252>,
+    classes: &mut HashSet<Felt252>,
+) {
     contracts.insert(inv.contract_address);
     classes.insert(inv.class_hash);
     for call in &inv.calls {
