@@ -4,7 +4,6 @@ use cairo_vm::Felt252;
 use starknet::core::types::{BlockId, MaybePendingStateUpdate, StateDiff};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
-use starknet_api::core::ContractAddress;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::compiled_class::GenericCompiledClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
