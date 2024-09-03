@@ -25,6 +25,10 @@ pub(crate) fn get_subcalled_contracts_from_tx_traces(traces: &[TransactionTraceW
                     process_function_invocations(inv, &mut contracts_subcalled);
                 }
             }
+            TransactionTrace::L1Handler(l1handler_trace) => {
+                process_function_invocations(&l1handler_trace.function_invocation, &mut contracts_subcalled);
+            }
+
             _ => unimplemented!("process other txn traces"),
         }
     }
