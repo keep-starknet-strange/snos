@@ -115,6 +115,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(execution::CONTRACT_ADDRESS.into(), execution::contract_address);
     hints.insert(execution::END_TX.into(), execution::end_tx::<PCS>);
     hints.insert(execution::ENTER_CALL.into(), execution::enter_call::<PCS>);
+    hints.insert(execution::ENTER_CALL_WITH_EXECUTION_INFO_PTR.into(), execution::enter_call::<PCS>);
     hints.insert(execution::ENTER_SCOPE_DEPRECATED_SYSCALL_HANDLER.into(), execution::enter_scope_deprecated_syscall_handler::<PCS>);
     hints.insert(execution::ENTER_SCOPE_DESCEND_EDGE.into(), execution::enter_scope_descend_edge);
     hints.insert(execution::ENTER_SCOPE_LEFT_CHILD.into(), execution::enter_scope_left_child);
@@ -169,6 +170,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(os::WRITE_FULL_OUTPUT_TO_MEM.into(), os::write_full_output_to_mem);
     hints.insert(os::SET_AP_TO_NEW_BLOCK_HASH.into(), os::set_ap_to_new_block_hash);
     hints.insert(os::SET_AP_TO_PREV_BLOCK_HASH.into(), os::set_ap_to_prev_block_hash);
+    hints.insert(os::SET_FP_PLUS_8_TO_TRANSACTIONS_LEN.into(), os::set_fp_plus_8_to_transactions_len);
     hints.insert(output::SET_STATE_UPDATES_START.into(), output::set_state_updates_start);
     hints.insert(output::SET_TREE_STRUCTURE.into(), output::set_tree_structure);
     hints.insert(patricia::ASSERT_CASE_IS_RIGHT.into(), patricia::assert_case_is_right);

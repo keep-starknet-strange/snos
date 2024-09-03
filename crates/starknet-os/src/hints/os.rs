@@ -73,3 +73,18 @@ pub fn set_ap_to_new_block_hash(
 
     Ok(())
 }
+
+pub const SET_FP_PLUS_8_TO_TRANSACTIONS_LEN: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";
+
+pub fn set_fp_plus_8_to_transactions_len(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input: &StarknetOsInput = exec_scopes.get_ref(vars::scopes::OS_INPUT)?;
+    let num_txns = os_input.transactions.len();
+
+    vm.insert_value((vm.get_fp() + 8)?, Felt252::from(num_txns)).map_err(HintError::Memory)
+}

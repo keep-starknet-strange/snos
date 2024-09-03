@@ -483,6 +483,12 @@ pub const ENTER_CALL: &str = indoc! {r#"
 execution_helper.enter_call(
     cairo_execution_info=ids.execution_context.execution_info)"#};
 
+#[rustfmt::skip]
+pub const ENTER_CALL_WITH_EXECUTION_INFO_PTR: &str = indoc! {r#"
+    execution_helper.enter_call(
+        execution_info_ptr=ids.execution_context.execution_info.address_)"#
+};
+
 pub async fn enter_call_async<PCS>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
