@@ -10,38 +10,52 @@ use starknet_api::state::StorageKey;
 /// Receives the transaction traces of a given block
 /// And extract the contracts addresses that where subcalled
 // TODO: check if we can handle this just reexecuting tx using blockifier
-pub(crate) fn get_subcalled_contracts_from_tx_traces(traces: &[TransactionTraceWithHash]) -> HashSet<Felt252> {
+//
+// Returns a HashSet of contracts and a HashSet of classes encountered along the way.
+pub(crate) fn get_subcalled_contracts_from_tx_traces(
+    traces: &[TransactionTraceWithHash],
+) -> (HashSet<Felt252>, HashSet<Felt252>) {
     let mut contracts_subcalled: HashSet<Felt252> = HashSet::new();
+    let mut classes_subcalled: HashSet<Felt252> = HashSet::new();
     for trace in traces {
         match &trace.trace_root {
             TransactionTrace::Invoke(invoke_trace) => {
                 if let Some(inv) = &invoke_trace.validate_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled);
+                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
                 }
                 if let ExecuteInvocation::Success(inv) = &invoke_trace.execute_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled);
+                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
                 }
                 if let Some(inv) = &invoke_trace.fee_transfer_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled);
+                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
                 }
             }
             TransactionTrace::L1Handler(l1handler_trace) => {
-                process_function_invocations(&l1handler_trace.function_invocation, &mut contracts_subcalled);
+                process_function_invocations(
+                    &l1handler_trace.function_invocation,
+                    &mut contracts_subcalled,
+                    &mut classes_subcalled,
+                );
             }
 
             _ => unimplemented!("process other txn traces"),
         }
     }
-    contracts_subcalled
+    (contracts_subcalled, classes_subcalled)
 }
 
 /// Utility to extract all contract address in a nested call structure. Any given call can have
 /// nested calls, creating a tree structure of calls, so this fn traverses this structure and
 /// returns a set of all contracts encountered along the way.
-fn process_function_invocations(inv: &FunctionInvocation, contracts: &mut HashSet<Felt252>) {
+fn process_function_invocations(
+    inv: &FunctionInvocation,
+    contracts: &mut HashSet<Felt252>,
+    classes: &mut HashSet<Felt252>,
+) {
     contracts.insert(inv.contract_address);
+    classes.insert(inv.class_hash);
     for call in &inv.calls {
-        process_function_invocations(call, contracts);
+        process_function_invocations(call, contracts, classes);
     }
 }
 
