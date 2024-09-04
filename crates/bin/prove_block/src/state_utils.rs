@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use cairo_vm::Felt252;
-use starknet::core::types::{BlockId, MaybePendingStateUpdate, StateDiff};
+use starknet::core::types::{BlockId, MaybePendingStateUpdate, StateDiff, TransactionTraceWithHash};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
 use starknet_api::core::ContractAddress;
@@ -30,7 +30,7 @@ pub(crate) async fn get_formatted_state_update(
     provider: &JsonRpcClient<HttpTransport>,
     previous_block_id: BlockId,
     block_id: BlockId,
-) -> Result<FormattedStateUpdate, ProveBlockError> {
+) -> Result<(FormattedStateUpdate, Vec<TransactionTraceWithHash>), ProveBlockError> {
     let state_update = match provider.get_state_update(block_id).await.expect("Failed to get state update") {
         MaybePendingStateUpdate::Update(update) => update,
         MaybePendingStateUpdate::PendingUpdate(_) => {
@@ -56,7 +56,10 @@ pub(crate) async fn get_formatted_state_update(
         )
         .await?;
 
-    Ok(FormattedStateUpdate { class_hash_to_compiled_class_hash, compiled_classes: compiled_contract_classes })
+    Ok((
+        FormattedStateUpdate { class_hash_to_compiled_class_hash, compiled_classes: compiled_contract_classes },
+        traces,
+    ))
 }
 
 /// Retrieves the compiled class associated to the contract address at a specific block
