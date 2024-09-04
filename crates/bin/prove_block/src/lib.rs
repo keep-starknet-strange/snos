@@ -13,6 +13,7 @@ use rpc_utils::{get_class_proofs, get_storage_proofs};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError, Url};
+use starknet_api::StarknetApiError;
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
@@ -57,6 +58,8 @@ pub enum ProveBlockError {
     SnOsError(#[from] SnOsError),
     #[error("Legacy class decompression Error: {0}")]
     LegacyContractDecompressionError(#[from] LegacyContractDecompressionError),
+    #[error("Starknet API Error: {0}")]
+    StarknetApiError(StarknetApiError),
 }
 
 fn compute_class_commitment(
@@ -150,7 +153,7 @@ pub async fn prove_block(
     let transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    let processed_state_update = get_formatted_state_update(&provider, previous_block_id, block_id).await?;
+    let (processed_state_update, traces) = get_formatted_state_update(&provider, previous_block_id, block_id).await?;
 
     let class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash;
 
@@ -161,11 +164,15 @@ pub async fn prove_block(
     let blockifier_state_reader = AsyncRpcStateReader::new(provider_for_blockifier, BlockId::Number(block_number - 1));
 
     let mut blockifier_state = CachedState::new(blockifier_state_reader);
-    let tx_execution_infos = reexecute_transactions_with_blockifier(
-        &mut blockifier_state,
-        &block_context,
-        block_with_txs.transactions.iter().map(|tx| starknet_rs_to_blockifier(tx).unwrap()).collect(),
-    )?;
+
+    assert_eq!(block_with_txs.transactions.len(), traces.len(), "Transactions and traces must have the same length");
+    let mut txs = Vec::new();
+    for (tx, trace) in block_with_txs.transactions.iter().zip(traces.iter()) {
+        let transaction = starknet_rs_to_blockifier(tx, trace, &block_context.block_info().gas_prices)
+            .map_err(ProveBlockError::from)?;
+        txs.push(transaction);
+    }
+    let tx_execution_infos = reexecute_transactions_with_blockifier(&mut blockifier_state, &block_context, txs)?;
 
     let storage_proofs =
         get_storage_proofs(&pathfinder_client, rpc_provider, block_number, &tx_execution_infos, old_block_number)
