@@ -159,13 +159,12 @@ impl PerContractStorage for ProverPerContractStorage {
 
         let commitment_facts = format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);
 
-        let previous_contract_data = self
-            .previous_storage_proof
-            .contract_data
-            .as_ref()
-            .expect("previous storage proof should have a contract_data field");
-
-        let previous_commitment_facts = format_commitment_facts::<PedersenHash>(&previous_contract_data.storage_proofs);
+        let previous_commitment_facts = match &self.previous_storage_proof.contract_data {
+            None => HashMap::default(),
+            Some(previous_contract_data) => {
+                format_commitment_facts::<PedersenHash>(&previous_contract_data.storage_proofs)
+            }
+        };
 
         let commitment_facts = commitment_facts.into_iter().chain(previous_commitment_facts.into_iter()).collect();
 

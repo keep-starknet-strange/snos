@@ -1,7 +1,7 @@
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
-use starknet::core::types::{BlockId, Felt};
+use starknet::core::types::{BlockId, Felt, StarknetError};
 use starknet::providers::jsonrpc::JsonRpcTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -62,13 +62,13 @@ where
     }
 
     pub async fn get_class_hash_at_async(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
-        let nonce = self
-            .provider
-            .get_class_hash_at(self.block_id, *contract_address.key())
-            .await
-            .map_err(provider_error_to_state_error)?;
+        let class_hash = match self.provider.get_class_hash_at(self.block_id, *contract_address.key()).await {
+            Ok(class_hash) => Ok(class_hash),
+            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(ClassHash::default().0),
+            Err(e) => Err(provider_error_to_state_error(e)),
+        }?;
 
-        Ok(ClassHash(nonce))
+        Ok(ClassHash(class_hash))
     }
 
     pub async fn get_compiled_contract_class_async(&self, class_hash: ClassHash) -> StateResult<ContractClass> {

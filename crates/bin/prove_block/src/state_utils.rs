@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use cairo_vm::Felt252;
-use starknet::core::types::{BlockId, MaybePendingStateUpdate, StateDiff, TransactionTraceWithHash};
+use starknet::core::types::{BlockId, MaybePendingStateUpdate, StarknetError, StateDiff, TransactionTraceWithHash};
 use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, Provider};
+use starknet::providers::{JsonRpcClient, Provider, ProviderError};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::compiled_class::GenericCompiledClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
@@ -164,7 +164,9 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
     for contract_address in accessed_addresses {
         // In case there is a class change, we need to get the compiled class for
         // the block to prove and for the previous block as they may differ.
-        add_compiled_class_from_contract_to_os_input(
+        // Note that we must also consider the case where the contract was deployed in the current
+        // block, so we can ignore "ContractNotFound" failures.
+        if let Err(e) = add_compiled_class_from_contract_to_os_input(
             provider,
             *contract_address,
             previous_block_id,
@@ -172,7 +174,16 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
             &mut compiled_contract_classes,
             &mut deprecated_compiled_contract_classes,
         )
-        .await?;
+        .await
+        {
+            match e {
+                ProveBlockError::RpcError(ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
+                    // The contract was deployed in the current block, nothing to worry about
+                }
+                _ => return Err(e),
+            }
+        }
+
         add_compiled_class_from_contract_to_os_input(
             provider,
             *contract_address,

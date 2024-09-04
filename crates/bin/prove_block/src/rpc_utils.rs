@@ -175,7 +175,12 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     let mut storage_proof =
         fetch_storage_proof_for_contract(client, rpc_provider, contract_address_felt, &keys, block_number).await?;
 
-    let contract_data = storage_proof.contract_data.as_ref().expect("Storage proof should have contract_data");
+    let contract_data = match &storage_proof.contract_data {
+        None => {
+            return Ok(storage_proof);
+        }
+        Some(contract_data) => contract_data,
+    };
     let additional_keys = verify_storage_proof(contract_data, &keys);
 
     // Fetch additional proofs required to fill gaps in the storage trie that could make
