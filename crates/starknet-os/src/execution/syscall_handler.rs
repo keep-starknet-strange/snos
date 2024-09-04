@@ -17,7 +17,8 @@ use crate::execution::constants::{
     KECCAK_ROUND_COST_GAS_COST, LIBRARY_CALL_GAS_COST, REPLACE_CLASS_GAS_COST, SECP256K1_ADD_GAS_COST,
     SECP256K1_GET_POINT_FROM_X_GAS_COST, SECP256K1_GET_XY_GAS_COST, SECP256K1_MUL_GAS_COST, SECP256K1_NEW_GAS_COST,
     SECP256R1_ADD_GAS_COST, SECP256R1_GET_POINT_FROM_X_GAS_COST, SECP256R1_GET_XY_GAS_COST, SECP256R1_MUL_GAS_COST,
-    SECP256R1_NEW_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, STORAGE_READ_GAS_COST, STORAGE_WRITE_GAS_COST, SHA256_PROCESS_BLOCK_GAS_COST,
+    SECP256R1_NEW_GAS_COST, SEND_MESSAGE_TO_L1_GAS_COST, SHA256_PROCESS_BLOCK_GAS_COST, STORAGE_READ_GAS_COST,
+    STORAGE_WRITE_GAS_COST,
 };
 use crate::execution::secp_handler::{
     SecpAddHandler, SecpGetPointFromXHandler, SecpGetXyHandler, SecpMulHandler, SecpNewHandler,
@@ -83,8 +84,8 @@ where
 
     pub async fn set_sha256_segment(&self, sha256_segment: Relocatable) {
         let syscall_handler = self.syscall_handler.write().await;
-        let mut execution_helper = syscall_handler.exec_wrapper.execution_helper.write().await; 
-        execution_helper.sha256_segment =  Some(sha256_segment);
+        let mut execution_helper = syscall_handler.exec_wrapper.execution_helper.write().await;
+        execution_helper.sha256_segment = Some(sha256_segment);
     }
 
     pub async fn validate_and_discard_syscall_ptr(&self, syscall_ptr_end: Relocatable) -> Result<(), HintError> {
@@ -687,7 +688,7 @@ pub struct Sha256ProcessBlockResponse {
     pub state_ptr: Relocatable,
 }
 
-impl<PCS> SyscallHandler<PCS> for Sha256ProcessBlockHandler 
+impl<PCS> SyscallHandler<PCS> for Sha256ProcessBlockHandler
 where
     PCS: PerContractStorage + 'static,
 {
@@ -705,13 +706,13 @@ where
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
         write_maybe_relocatable(vm, ptr, response.state_ptr)?;
         Ok(())
-    } 
+    }
 
     async fn execute(
         request: Self::Request,
         vm: &mut VirtualMachine,
         exec_wrapper: &mut ExecutionHelperWrapper<PCS>,
-        remaining_gas: &mut u64,
+        _remaining_gas: &mut u64,
     ) -> SyscallResult<Self::Response> {
         let mut eh_ref = exec_wrapper.execution_helper.write().await;
         const SHA256_BLOCK_SIZE: usize = 16;
@@ -719,34 +720,29 @@ where
         let data = vm.get_integer_range(request.input_start, SHA256_BLOCK_SIZE)?;
         const SHA256_STATE_SIZE: usize = 8;
         let prev_state = vm.get_integer_range(request.state_ptr, SHA256_STATE_SIZE)?;
-    
-        let data_as_bytes =
-            sha2::digest::generic_array::GenericArray::from_exact_iter(data.iter().flat_map(|felt| {
-                felt.to_bigint()
-                    .to_u32()
-                    .expect("libfunc should ensure the input is an [u32; 16].")
-                    .to_be_bytes()
-            }))
-            .expect(
-                "u32.to_be_bytes() returns 4 bytes, and data.len() == 16. So data contains 64 bytes.",
-            );
-    
+
+        let data_as_bytes = sha2::digest::generic_array::GenericArray::from_exact_iter(data.iter().flat_map(|felt| {
+            felt.to_bigint().to_u32().expect("libfunc should ensure the input is an [u32; 16].").to_be_bytes()
+        }))
+        .expect("u32.to_be_bytes() returns 4 bytes, and data.len() == 16. So data contains 64 bytes.");
+
         let mut state_as_words: [u32; SHA256_STATE_SIZE] = core::array::from_fn(|i| {
-            prev_state[i].to_bigint().to_u32().expect(
-                "libfunc only accepts SHA256StateHandle which can only be created from an Array<u32>.",
-            )
+            prev_state[i]
+                .to_bigint()
+                .to_u32()
+                .expect("libfunc only accepts SHA256StateHandle which can only be created from an Array<u32>.")
         });
-    
+
         sha2::compress256(&mut state_as_words, &[data_as_bytes]);
-    
+
         let segment = eh_ref.sha256_segment.unwrap_or(vm.add_memory_segment());
-    
+
         let response = segment;
         let data: Vec<MaybeRelocatable> =
             state_as_words.iter().map(|&arg| MaybeRelocatable::from(Felt252::from(arg))).collect();
-    
-            eh_ref.sha256_segment = Some(vm.load_data(segment, &data)?);
-    
+
+        eh_ref.sha256_segment = Some(vm.load_data(segment, &data)?);
+
         Ok(Sha256ProcessBlockResponse { state_ptr: response })
     }
 }
