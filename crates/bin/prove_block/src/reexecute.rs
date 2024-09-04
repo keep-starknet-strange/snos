@@ -54,13 +54,13 @@ pub fn reexecute_transactions_with_blockifier<S: StateReader>(
             let tx_result = tx.execute(state, block_context, true, true);
             match tx_result {
                 Err(e) => {
-                    panic!("Transaction {} ({}/{}) failed in blockifier: {}", tx_hash, index + 1, n_txs, e);
+                    panic!("Transaction {:x} ({}/{}) failed in blockifier: {}", tx_hash.0, index + 1, n_txs, e);
                 }
                 Ok(info) => {
                     if info.is_reverted() {
                         log::warn!(
-                            "Transaction {} ({}/{}) reverted: {:?}",
-                            tx_hash,
+                            "Transaction {:x} ({}/{}) reverted: {:?}",
+                            tx_hash.0,
                             index + 1,
                             n_txs,
                             info.revert_error
@@ -172,7 +172,7 @@ impl PerContractStorage for ProverPerContractStorage {
         Ok(CommitmentInfo {
             previous_root: self.previous_tree_root,
             updated_root,
-            tree_height: DEFAULT_STORAGE_TREE_HEIGHT,
+            tree_height: DEFAULT_STORAGE_TREE_HEIGHT as usize,
             commitment_facts,
         })
     }

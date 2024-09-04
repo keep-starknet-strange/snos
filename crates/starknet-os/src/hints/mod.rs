@@ -38,7 +38,9 @@ mod compiled_class;
 mod deprecated_compiled_class;
 mod execute_transactions;
 pub mod execution;
+mod find_element;
 mod kzg;
+mod os;
 mod output;
 mod patricia;
 mod secp;
@@ -99,6 +101,9 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(deprecated_compiled_class::LOAD_DEPRECATED_CLASS_FACTS.into(), deprecated_compiled_class::load_deprecated_class_facts);
     hints.insert(deprecated_compiled_class::LOAD_DEPRECATED_CLASS_INNER.into(), deprecated_compiled_class::load_deprecated_class_inner);
     hints.insert(execute_syscalls::IS_BLOCK_NUMBER_IN_BLOCK_HASH_BUFFER.into(), execute_syscalls::is_block_number_in_block_hash_buffer);
+    hints.insert(execute_transactions::FILL_HOLES_IN_RC96_SEGMENT.into(), execute_transactions::fill_holes_in_rc96_segment);
+    hints.insert(execute_transactions::LOG_REMAINING_TXS.into(), execute_transactions::log_remaining_txs);
+    hints.insert(execute_transactions::SET_SHA256_SEGMENT_IN_SYSCALL_HANDLER.into(), execute_transactions::set_sha256_segment_in_syscall_handler::<PCS>);
     hints.insert(execute_transactions::START_TX_VALIDATE_DECLARE_EXECUTION_CONTEXT.into(), execute_transactions::start_tx_validate_declare_execution_context::<PCS>);
     hints.insert(execution::ADD_RELOCATION_RULE.into(), execution::add_relocation_rule);
     hints.insert(execution::ASSERT_TRANSACTION_HASH.into(), execution::assert_transaction_hash);
@@ -161,7 +166,11 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(execution::WRITE_OLD_BLOCK_TO_STORAGE.into(), execution::write_old_block_to_storage::<PCS>);
     hints.insert(execution::WRITE_SYSCALL_RESULT.into(), execution::write_syscall_result::<PCS>);
     hints.insert(execution::WRITE_SYSCALL_RESULT_DEPRECATED.into(), execution::write_syscall_result_deprecated::<PCS>);
-    hints.insert(output::SET_AP_TO_BLOCK_HASH.into(), output::set_ap_to_block_hash);
+    hints.insert(find_element::FIND_ELEMENT.into(), find_element::find_element);
+    hints.insert(os::CONFIGURE_KZG_MANAGER.into(), os::configure_kzg_manager);
+    hints.insert(os::WRITE_FULL_OUTPUT_TO_MEM.into(), os::write_full_output_to_mem);
+    hints.insert(os::SET_AP_TO_NEW_BLOCK_HASH.into(), os::set_ap_to_new_block_hash);
+    hints.insert(os::SET_AP_TO_PREV_BLOCK_HASH.into(), os::set_ap_to_prev_block_hash);
     hints.insert(output::SET_STATE_UPDATES_START.into(), output::set_state_updates_start);
     hints.insert(output::SET_TREE_STRUCTURE.into(), output::set_tree_structure);
     hints.insert(patricia::ASSERT_CASE_IS_RIGHT.into(), patricia::assert_case_is_right);
@@ -679,7 +688,7 @@ where
     execute_coroutine(skip_call_async::<PCS>(exec_scopes))?
 }
 
-const OS_INPUT_TRANSACTIONS: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";
+const OS_INPUT_TRANSACTIONS: &str = "memory[fp + 12] = to_felt_or_relocatable(len(os_input.transactions))";
 
 pub fn os_input_transactions(
     vm: &mut VirtualMachine,
@@ -690,5 +699,5 @@ pub fn os_input_transactions(
 ) -> Result<(), HintError> {
     let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
     let num_txns = os_input.transactions.len();
-    vm.insert_value((vm.get_fp() + 8)?, num_txns).map_err(HintError::Memory)
+    vm.insert_value((vm.get_fp() + 12)?, num_txns).map_err(HintError::Memory)
 }

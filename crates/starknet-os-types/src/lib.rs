@@ -2,8 +2,9 @@
 
 pub mod casm_contract_class;
 pub mod chain_id;
+pub mod compiled_class;
 pub mod deprecated_compiled_class;
 pub mod error;
 pub mod hash;
 pub mod sierra_contract_class;
-pub(crate) mod starknet_core_addons;
+pub mod starknet_core_addons;

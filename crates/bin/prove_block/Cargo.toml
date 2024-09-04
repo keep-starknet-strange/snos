@@ -29,6 +29,7 @@ starknet = { workspace = true }
 starknet-os = { workspace = true }
 starknet-os-types = { workspace = true }
 starknet-types-core = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 num-bigint = { workspace = true }
 

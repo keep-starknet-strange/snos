@@ -12,10 +12,10 @@ pub mod scopes {
     pub const DEPRECATED_CLASS_HASHES: &str = "__deprecated_class_hashes";
     pub const DEPRECATED_SYSCALL_HANDLER: &str = "deprecated_syscall_handler";
     pub const DESCEND: &str = "descend";
-
     pub const DESCENT_MAP: &str = "descent_map";
     pub const DICT_MANAGER: &str = "dict_manager";
     pub const EXECUTION_HELPER: &str = "execution_helper";
+    pub const FIND_ELEMENT_MAX_SIZE: &str = "__find_element_max_size";
     pub const INITIAL_DICT: &str = "initial_dict";
     pub const IS_DEPRECATED: &str = "is_deprecated";
     pub const N_SELECTED_BUILTINS: &str = "n_selected_builtins";
@@ -26,6 +26,7 @@ pub mod scopes {
     pub const PATRICIA_TREE_MODE: &str = "patricia_tree_mode";
     pub const PREIMAGE: &str = "preimage";
     pub const RIGHT_CHILD: &str = "right_child";
+    pub const SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES: &str = "__serialize_data_availability_create_pages__";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";
     pub const TRANSACTIONS: &str = "transactions";
     pub const TX: &str = "tx";
@@ -35,6 +36,7 @@ pub mod scopes {
 pub mod ids {
     pub const ADDITIONAL_DATA: &str = "additional_data";
     pub const ALL_ENCODINGS: &str = "all_encodings";
+    pub const ARRAY_PTR: &str = "array_ptr";
     pub const BIT: &str = "bit";
     pub const BUILTIN_PARAMS: &str = "builtin_params";
     pub const BUILTIN_PTRS: &str = "builtin_ptrs";
@@ -63,11 +65,14 @@ pub mod ids {
     pub const EDGE: &str = "edge";
     pub const ELEMENTS: &str = "elements";
     pub const ELEMENTS_END: &str = "elements_end";
+    pub const ELM_SIZE: &str = "elm_size";
     pub const ENTRY_POINT_RETURN_VALUES: &str = "entry_point_return_values";
     pub const EXECUTION_CONTEXT: &str = "execution_context";
+    pub const EXISTS: &str = "exists";
     pub const FINAL_CONTRACT_STATE_ROOT: &str = "final_contract_state_root";
     pub const FINAL_ROOT: &str = "final_root";
     pub const HASH_PTR: &str = "hash_ptr";
+    pub const INDEX: &str = "index";
     pub const INITIAL_GAS: &str = "initial_gas";
     pub const IS_LEAF: &str = "is_leaf";
     pub const IS_SEGMENT_USED: &str = "is_segment_used";
@@ -78,13 +83,16 @@ pub mod ids {
     pub const INITIAL_ROOT: &str = "initial_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const USE_KZG_DA: &str = "use_kzg_da";
+    pub const KEY: &str = "key";
     pub const LENGTH: &str = "length";
     pub const LOW: &str = "low";
     pub const MAX_FEE: &str = "max_fee";
     pub const N: &str = "n";
     pub const N_BUILTINS: &str = "n_builtins";
+    pub const N_ELMS: &str = "n_elms";
     pub const N_COMPILED_CLASS_FACTS: &str = "n_compiled_class_facts";
     pub const N_SELECTED_BUILTINS: &str = "n_selected_builtins";
+    pub const N_TXS: &str = "n_txs";
     pub const N_UPDATES: &str = "n_updates";
     pub const NEW_LENGTH: &str = "new_length";
     pub const NEW_ROOT: &str = "new_root";
@@ -98,6 +106,7 @@ pub mod ids {
     pub const PATH: &str = "path";
     pub const PREV_ROOT: &str = "prev_root";
     pub const PREV_VALUE: &str = "prev_value";
+    pub const RANGE_CHECK96_PTR: &str = "range_check96_ptr";
     pub const REQUEST: &str = "request";
     pub const REQUEST_BLOCK_NUMBER: &str = "request_block_number";
     pub const REQUIRED_GAS: &str = "required_gas";
@@ -114,6 +123,7 @@ pub mod ids {
     pub const SELECTED_PTRS: &str = "selected_ptrs";
     pub const SELECTOR: &str = "selector";
     pub const SENDER_ADDRESS: &str = "sender_address";
+    pub const SHA256_PTR: &str = "sha256_ptr";
     pub const SIBLINGS: &str = "siblings";
     pub const SIGNATURE_LEN: &str = "signature_len";
     pub const SIGNATURE_START: &str = "signature_start";
