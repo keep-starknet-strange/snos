@@ -8,8 +8,6 @@ use starknet::core::types::{
     Felt, InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction, ResourceBoundsMapping,
     Transaction, TransactionTrace, TransactionTraceWithHash,
 };
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::JsonRpcClient;
 use starknet_api::core::PatriciaKey;
 use starknet_api::transaction::{Fee, TransactionHash};
 use starknet_api::StarknetApiError;
@@ -125,12 +123,10 @@ fn l1_handler_to_blockifier(
 }
 
 /// Maps starknet-core transactions to Blockifier-compatible types.
-pub async fn starknet_rs_to_blockifier(
+pub fn starknet_rs_to_blockifier(
     sn_core_tx: &starknet::core::types::Transaction,
     trace: &TransactionTraceWithHash,
     gas_prices: &GasPrices,
-    _provider: &JsonRpcClient<HttpTransport>,
-    _block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
     let blockifier_tx = match sn_core_tx {
         Transaction::Invoke(tx) => match tx {

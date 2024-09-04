@@ -165,16 +165,11 @@ pub async fn prove_block(
 
     let mut blockifier_state = CachedState::new(blockifier_state_reader);
 
-    if block_with_txs.transactions.len() != traces.len() {
-        log::warn!("Transactions and traces must have the same length");
-        return Err(ProveBlockError::RpcError(ProviderError::ArrayLengthMismatch));
-    }
+    assert_eq!(block_with_txs.transactions.len(), traces.len(), "Transactions and traces must have the same length");
     let mut txs = Vec::new();
     for (tx, trace) in block_with_txs.transactions.iter().zip(traces.iter()) {
-        let transaction =
-            starknet_rs_to_blockifier(tx, trace, &block_context.block_info().gas_prices, &provider, block_number)
-                .await
-                .map_err(ProveBlockError::from)?;
+        let transaction = starknet_rs_to_blockifier(tx, trace, &block_context.block_info().gas_prices)
+            .map_err(ProveBlockError::from)?;
         txs.push(transaction);
     }
     let tx_execution_infos = reexecute_transactions_with_blockifier(&mut blockifier_state, &block_context, txs)?;
