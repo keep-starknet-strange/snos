@@ -48,7 +48,7 @@ fn fft(coeffs: &[BigInt], generator: &BigInt, prime: &BigInt, bit_reversed: bool
             result.push((f_even[i].clone() + &group_mul_f_odd[i]) % prime);
         }
         for i in 0..f_even.len() {
-            // Ensure non-negative diff
+            // Ensure non-negative diff by adding prime to the value before applying the modulo
             let diff = (f_even[i].clone() - &group_mul_f_odd[i] + prime) % prime;
             result.push(diff);
         }
