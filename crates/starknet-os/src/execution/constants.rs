@@ -1,6 +1,7 @@
 // Gas Cost.
 // See documentation in core/os/constants.cairo.
 pub const BLOCK_HASH_CONTRACT_ADDRESS: u64 = 1;
+pub const BITWISE_BUILTIN_GAS_COST: u64 = 594;
 
 pub const STEP_GAS_COST: u64 = 100;
 pub const RANGE_CHECK_GAS_COST: u64 = 70;
@@ -38,6 +39,9 @@ pub const KECCAK_ROUND_COST_GAS_COST: u64 = 180000;
 pub const LIBRARY_CALL_GAS_COST: u64 = CALL_CONTRACT_GAS_COST;
 #[allow(unused)]
 pub const REPLACE_CLASS_GAS_COST: u64 = SYSCALL_BASE_GAS_COST + 50 * STEP_GAS_COST;
+#[allow(unused)]
+pub const SHA256_PROCESS_BLOCK_GAS_COST: u64 = 1115 * BITWISE_BUILTIN_GAS_COST + 65 * RANGE_CHECK_GAS_COST +
+    1852 * STEP_GAS_COST + 1 * SYSCALL_BASE_GAS_COST;
 #[allow(unused)]
 pub const SECP256K1_ADD_GAS_COST: u64 = 406 * STEP_GAS_COST + 29 * RANGE_CHECK_GAS_COST;
 #[allow(unused)]
