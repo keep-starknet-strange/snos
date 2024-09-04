@@ -10,7 +10,7 @@ use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
 use rpc_utils::{get_class_proofs, get_storage_proofs};
-use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs};
+use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, StarknetError};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError, Url};
 use starknet_api::StarknetApiError;
@@ -202,9 +202,12 @@ pub async fn prove_block(
     for (contract_address, storage_proof) in storage_proofs.clone() {
         let previous_storage_proof =
             previous_storage_proofs.get(&contract_address).expect("failed to find previous storage proof");
-        let contract_storage_root = previous_storage_proof.contract_data.as_ref().unwrap().root.into();
-        // let previous_storage_entries =
-        // previous_storage_changes_by_contract.get(&contract_address).unwrap();
+        let contract_storage_root = previous_storage_proof
+            .contract_data
+            .as_ref()
+            .map(|contract_data| contract_data.root)
+            .unwrap_or(Felt::ZERO)
+            .into();
 
         log::debug!(
             "Storage root 0x{:x} for contract 0x{:x}",
@@ -227,8 +230,17 @@ pub async fn prove_block(
         let (previous_class_hash, previous_nonce) = if [Felt252::ZERO, Felt252::ONE].contains(&contract_address) {
             (Felt252::ZERO, Felt252::ZERO)
         } else {
-            let previous_class_hash = provider.get_class_hash_at(previous_block_id, contract_address).await?;
-            let previous_nonce = provider.get_nonce(previous_block_id, contract_address).await?;
+            let previous_class_hash = match provider.get_class_hash_at(previous_block_id, contract_address).await {
+                Ok(class_hash) => Ok(class_hash),
+                Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt252::ZERO),
+                Err(e) => Err(e),
+            }?;
+
+            let previous_nonce = match provider.get_nonce(previous_block_id, contract_address).await {
+                Ok(nonce) => Ok(nonce),
+                Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt252::ZERO),
+                Err(e) => Err(e),
+            }?;
             (previous_class_hash, previous_nonce)
         };
 
