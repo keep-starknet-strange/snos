@@ -61,7 +61,7 @@ where
     pub secp256r1_syscall_processor: SecpSyscallProcessor<ark_secp256r1::Config>,
 
     // Sha256 segments
-    pub sha256_segment: Option<Relocatable>, 
+    pub sha256_segment: Option<Relocatable>,
 }
 /// ExecutionHelper is wrapped in Rc<RefCell<_>> in order
 /// to clone the refrence when entering and exiting vm scopes
