@@ -28,7 +28,7 @@ assert_matches = "1.5.0"
 base64 = "0.21.3"
 bitvec = { version = "1.0.1", features = ["serde"] }
 # Point to the latest commit of branch msl/snos-0.6.0-rc.2
-blockifier = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "01b97d9354faefa5f0cd520b5efbe73178213f7e", features = ["testing"] }
+blockifier = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = ["testing"] }
 cairo-lang-starknet = { version = "=2.7.1" }
 cairo-lang-starknet-classes = { version = "=2.7.1" }
 cairo-lang-utils = { version = "=2.7.1" }
@@ -62,7 +62,7 @@ serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
 serde_with = "3.3.0"
 serde_yaml = "0.9.25"
 starknet = "0.11.0"
-starknet_api = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "01b97d9354faefa5f0cd520b5efbe73178213f7e", features = ["testing"] }
+starknet_api = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = ["testing"] }
 starknet-core = "0.11.1"
 starknet-crypto = "0.6.2"
 starknet-os = { path = "crates/starknet-os" }
