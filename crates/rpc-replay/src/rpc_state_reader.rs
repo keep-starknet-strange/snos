@@ -70,12 +70,13 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_contract_class_async(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
-        let contract_class = self
-            .rpc_client
-            .starknet_rpc()
-            .get_class(self.block_id, class_hash.0)
-            .await
-            .map_err(provider_error_to_state_error)?;
+        let contract_class = match self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0).await {
+            Ok(contract_class) => Ok(contract_class),
+            Err(ProviderError::StarknetError(StarknetError::ClassHashNotFound)) => {
+                Err(StateError::UndeclaredClassHash(ClassHash(class_hash.0)))
+            }
+            Err(e) => Err(provider_error_to_state_error(e)),
+        }?;
 
         let contract_class: ContractClass = match contract_class {
             starknet::core::types::ContractClass::Sierra(sierra_class) => {
