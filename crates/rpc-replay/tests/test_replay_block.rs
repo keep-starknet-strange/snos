@@ -41,7 +41,9 @@ async fn test_replay_block() {
 
     for (tx, trace) in block_with_txs.transactions.iter().zip(traces.iter()) {
         let blockifier_tx =
-            starknet_rs_to_blockifier(tx, trace, &gas_prices, &provider, previous_block_number).await.unwrap();
+            starknet_rs_to_blockifier(tx, trace, &gas_prices, rpc_client.starknet_rpc(), previous_block_number)
+                .await
+                .unwrap();
         let tx_result = blockifier_tx.execute(&mut state, &block_context, true, true);
 
         match tx_result {
