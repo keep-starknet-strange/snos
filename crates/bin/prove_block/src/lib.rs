@@ -254,6 +254,7 @@ pub async fn prove_block(
     }
 
     let compiled_classes = processed_state_update.compiled_classes;
+    let deprecated_compiled_classes = processed_state_update.deprecated_compiled_classes;
 
     // query storage proofs for each accessed contract
     let class_hashes: Vec<&Felt252> = class_hash_to_compiled_class_hash.keys().collect();
@@ -305,7 +306,7 @@ pub async fn prove_block(
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
         contract_class_commitment_info,
-        deprecated_compiled_classes: Default::default(),
+        deprecated_compiled_classes,
         compiled_classes,
         compiled_class_visited_pcs: visited_pcs,
         contracts: contract_states,

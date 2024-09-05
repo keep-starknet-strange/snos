@@ -18,6 +18,7 @@ pub struct FormattedStateUpdate {
     // TODO: Use more descriptive types
     pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
     pub compiled_classes: HashMap<Felt252, GenericCasmContractClass>,
+    pub deprecated_compiled_classes: HashMap<Felt252, GenericDeprecatedCompiledClass>,
 }
 
 /// Given the `block_id` of the target block to prove, it:
@@ -45,7 +46,7 @@ pub(crate) async fn get_formatted_state_update(
 
     // TODO: Handle deprecated classes
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = format_declared_classes(&state_diff);
-    let (compiled_contract_classes, _deprecated_compiled_contract_class) =
+    let (compiled_contract_classes, deprecated_compiled_contract_classes) =
         build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
             provider,
             previous_block_id,
@@ -57,7 +58,11 @@ pub(crate) async fn get_formatted_state_update(
         .await?;
 
     Ok((
-        FormattedStateUpdate { class_hash_to_compiled_class_hash, compiled_classes: compiled_contract_classes },
+        FormattedStateUpdate {
+            class_hash_to_compiled_class_hash,
+            compiled_classes: compiled_contract_classes,
+            deprecated_compiled_classes: deprecated_compiled_contract_classes,
+        },
         traces,
     ))
 }
