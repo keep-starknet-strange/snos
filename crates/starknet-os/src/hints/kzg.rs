@@ -270,20 +270,24 @@ pub async fn store_da_segment_async<PCS>(
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
+    constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError>
 where
     PCS: PerContractStorage + 'static,
 {
-    let state_updates_start = get_relocatable_from_var_name(vars::ids::STATE_UPDATES_START, vm, ids_data, ap_tracking)?;
+    let state_updates_start = get_ptr_from_var_name(vars::ids::STATE_UPDATES_START, vm, ids_data, ap_tracking)?;
     let da_size = get_integer_from_var_name(vars::ids::DA_SIZE, vm, ids_data, ap_tracking)?.to_biguint();
     let da_size: usize = da_size.try_into().map_err(|_| HintError::BigintToU32Fail)?;
 
     let da_segment: Vec<Felt252> =
         vm.get_integer_range(state_updates_start, da_size)?.into_iter().map(|s| *s).collect();
 
-    let blob_length = get_integer_from_var_name(vars::ids::BLOB_LENGTH, vm, ids_data, ap_tracking)?.to_biguint();
-    let blob_length: usize = blob_length.try_into().map_err(|_| HintError::BigintToU32Fail)?;
+    // TODO: "BLOB_LENGTH" doesn't appear to be in scope, although it's clear from the OS code that it's
+    // 4096 let blob_length = get_integer_from_var_name(vars::ids::BLOB_LENGTH, vm, ids_data,
+    // ap_tracking)?.to_biguint(); let blob_length = get_constant(vars::ids::BLOB_LENGTH,
+    // constants)?.to_biguint(); let blob_length: usize = blob_length.try_into().map_err(|_|
+    // HintError::BigintToU32Fail)?;
+    let blob_length: usize = 4096;
 
     let kzg_commitments: Vec<(Felt252, Felt252)> = da_segment
         .chunks(blob_length)
@@ -307,7 +311,8 @@ where
     insert_value_from_var_name(vars::ids::KZG_COMMITMENTS, kzg_commitments_segment, vm, ids_data, ap_tracking)?;
     insert_value_from_var_name(vars::ids::EVALS, evals_segment, vm, ids_data, ap_tracking)?;
 
-    let kzg_commitments_flattened: Vec<Felt252> = kzg_commitments.into_iter().flat_map(|c| [c.0, c.1]).collect();
+    let kzg_commitments_flattened: Vec<MaybeRelocatable> =
+        kzg_commitments.into_iter().flat_map(|c| [c.0.into(), c.1.into()]).collect();
     vm.write_arg(kzg_commitments_segment, &kzg_commitments_flattened)?;
 
     Ok(())
