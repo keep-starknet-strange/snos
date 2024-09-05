@@ -42,11 +42,12 @@ where
     T: JsonRpcTransport + Sync + Send + 'static,
 {
     pub async fn get_storage_at_async(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt> {
-        let storage_value = self
-            .provider
-            .get_storage_at(*contract_address.key(), *key.0.key(), self.block_id)
-            .await
-            .map_err(provider_error_to_state_error)?;
+        let storage_value =
+            match self.provider.get_storage_at(*contract_address.key(), *key.0.key(), self.block_id).await {
+                Ok(value) => Ok(value),
+                Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
+                Err(e) => Err(provider_error_to_state_error(e)),
+            }?;
 
         Ok(storage_value)
     }

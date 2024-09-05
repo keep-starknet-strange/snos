@@ -10,9 +10,9 @@ use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
 use reqwest::Url;
-use starknet::core::types::BlockId;
+use starknet::core::types::{BlockId, StarknetError};
 use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, Provider as _};
+use starknet::providers::{JsonRpcClient, Provider as _, ProviderError};
 use starknet_api::transaction::TransactionHash;
 use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use starknet_os::crypto::pedersen::PedersenHash;
@@ -182,7 +182,12 @@ impl PerContractStorage for ProverPerContractStorage {
         } else {
             let key_felt = Felt252::from(key.clone());
             // TODO: this should be fallible
-            let value = self.provider.get_storage_at(self.contract_address, key_felt, self.block_id).await.unwrap();
+            let value = match self.provider.get_storage_at(self.contract_address, key_felt, self.block_id).await {
+                Ok(value) => Ok(value),
+                Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt252::ZERO),
+                Err(e) => Err(e),
+            }
+            .unwrap();
             self.ongoing_storage_changes.insert(key, value);
             Some(value)
         }
