@@ -737,11 +737,12 @@ where
 
         let segment = eh_ref.sha256_segment.unwrap_or(vm.add_memory_segment());
 
-        let response = segment;
+        let response = (segment + 24)?; // 'out_state' is 24 bytes into 'struct Sha256ProcessBlock'
         let data: Vec<MaybeRelocatable> =
             state_as_words.iter().map(|&arg| MaybeRelocatable::from(Felt252::from(arg))).collect();
 
-        eh_ref.sha256_segment = Some(vm.load_data(segment, &data)?);
+        // side effect: this advances sha256_segment by 32 bytes (the size of struct Sha256ProcessBlock)
+        eh_ref.sha256_segment = Some(vm.load_data(response, &data)?);
 
         Ok(Sha256ProcessBlockResponse { state_ptr: response })
     }
