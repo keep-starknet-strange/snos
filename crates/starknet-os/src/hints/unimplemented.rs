@@ -1,3 +1,5 @@
+use indoc::indoc;
+
 #[allow(unused)]
 pub const HINT_1: &str = indoc! {r#"# Add dummy pairs of input and output.
 from starkware.cairo.common.cairo_sha256.sha256_utils import (

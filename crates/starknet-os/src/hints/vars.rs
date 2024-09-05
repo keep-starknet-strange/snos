@@ -83,6 +83,7 @@ pub mod ids {
     pub const INITIAL_ROOT: &str = "initial_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const USE_KZG_DA: &str = "use_kzg_da";
+    pub const KZG_COMMITMENT: &str = "kzg_commitment";
     pub const KEY: &str = "key";
     pub const LENGTH: &str = "length";
     pub const LOW: &str = "low";
@@ -130,6 +131,7 @@ pub mod ids {
     pub const SRC_PTR: &str = "src_ptr";
     pub const STATE_ENTRY: &str = "state_entry";
     pub const STATE_UPDATES_START: &str = "state_updates_start";
+    pub const STATE_UPDATES_END: &str = "state_updates_end";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
     pub const TRANSACTION_HASH: &str = "transaction_hash";
     pub const TX_EXECUTION_CONTEXT: &str = "tx_execution_context";
