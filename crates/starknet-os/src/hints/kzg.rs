@@ -5,7 +5,8 @@ use std::path::Path;
 
 use c_kzg::{Blob, KzgCommitment, BYTES_PER_FIELD_ELEMENT};
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_ptr_from_var_name, get_relocatable_from_var_name,
+    get_integer_from_var_name, get_ptr_from_var_name, get_reference_from_var_name, get_relocatable_from_var_name,
+    insert_value_from_var_name,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -19,6 +20,9 @@ use num_bigint::{BigInt, ParseBigIntError};
 use num_traits::{Num, One, Zero};
 
 use super::vars;
+use crate::execution::helper::ExecutionHelperWrapper;
+use crate::starknet::starknet_storage::PerContractStorage;
+use crate::utils::execute_coroutine;
 
 const FIELD_ELEMENTS_PER_BLOB: usize = 4096;
 const COMMITMENT_BYTES_LENGTH: usize = 48;
@@ -226,6 +230,85 @@ pub fn write_kzg_commitment_address(
         .map(MaybeRelocatable::Int)
         .collect::<Vec<MaybeRelocatable>>();
     vm.write_arg(kzg_ptr, &splits)?;
+
+    Ok(())
+}
+
+pub const STORE_DA_SEGMENT: &str = indoc! {r#"import itertools
+
+from starkware.python.utils import blockify
+
+kzg_manager.store_da_segment(
+    da_segment=memory.get_range_as_ints(addr=ids.state_updates_start, size=ids.da_size)
+)
+kzg_commitments = [
+    kzg_manager.polynomial_coefficients_to_kzg_commitment_callback(chunk)
+    for chunk in blockify(kzg_manager.da_segment, chunk_size=ids.BLOB_LENGTH)
+]
+
+ids.n_blobs = len(kzg_commitments)
+ids.kzg_commitments = segments.add_temp_segment()
+ids.evals = segments.add_temp_segment()
+
+segments.write_arg(ids.kzg_commitments.address_, list(itertools.chain(*kzg_commitments)))"#};
+
+pub fn store_da_segment<PCS>(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError>
+where
+    PCS: PerContractStorage + 'static,
+{
+    execute_coroutine(store_da_segment_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking, constants))?
+}
+
+pub async fn store_da_segment_async<PCS>(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError>
+where
+    PCS: PerContractStorage + 'static,
+{
+    let state_updates_start = get_relocatable_from_var_name(vars::ids::STATE_UPDATES_START, vm, ids_data, ap_tracking)?;
+    let da_size = get_integer_from_var_name(vars::ids::DA_SIZE, vm, ids_data, ap_tracking)?.to_biguint();
+    let da_size: usize = da_size.try_into().map_err(|_| HintError::BigintToU32Fail)?;
+
+    let da_segment: Vec<Felt252> =
+        vm.get_integer_range(state_updates_start, da_size)?.into_iter().map(|s| *s).collect();
+
+    let blob_length = get_integer_from_var_name(vars::ids::BLOB_LENGTH, vm, ids_data, ap_tracking)?.to_biguint();
+    let blob_length: usize = blob_length.try_into().map_err(|_| HintError::BigintToU32Fail)?;
+
+    let kzg_commitments: Vec<(Felt252, Felt252)> = da_segment
+        .chunks(blob_length)
+        .into_iter()
+        .map(|chunk| {
+            let coefficients: Vec<BigInt> = chunk.iter().map(|f| f.to_bigint()).collect();
+            let res: (BigInt, BigInt) = polynomial_coefficients_to_kzg_commitment(coefficients).unwrap(); // TODO: unwrap
+            (res.0.into(), res.1.into())
+        })
+        .collect();
+
+    let ehw = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
+    let kzg_manager = &mut ehw.execution_helper.write().await.kzg_manager;
+    kzg_manager.store_da_segment(da_segment)?;
+
+    let n_blobs = kzg_commitments.len();
+    let kzg_commitments_segment = vm.add_temporary_segment();
+    let evals_segment = vm.add_temporary_segment();
+
+    insert_value_from_var_name(vars::ids::N_BLOBS, n_blobs, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::KZG_COMMITMENTS, kzg_commitments_segment, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(vars::ids::EVALS, evals_segment, vm, ids_data, ap_tracking)?;
+
+    let kzg_commitments_flattened: Vec<Felt252> = kzg_commitments.into_iter().flat_map(|c| [c.0, c.1]).collect();
+    vm.write_arg(kzg_commitments_segment, &kzg_commitments_flattened)?;
 
     Ok(())
 }
