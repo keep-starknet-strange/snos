@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use cairo_vm::Felt252;
+use rpc_client::RpcClient;
 use starknet::core::types::{BlockId, MaybePendingStateUpdate, StarknetError, StateDiff, TransactionTraceWithHash};
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, Provider, ProviderError};
+use starknet::providers::{Provider, ProviderError};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::compiled_class::GenericCompiledClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
@@ -27,28 +27,30 @@ pub struct FormattedStateUpdate {
 /// - Formats the RPC state updates to be "SharedState compatible."
 /// - Consolidates that information into a `FormattedStateUpdate`.
 pub(crate) async fn get_formatted_state_update(
-    provider: &JsonRpcClient<HttpTransport>,
+    rpc_client: &RpcClient,
     previous_block_id: BlockId,
     block_id: BlockId,
 ) -> Result<(FormattedStateUpdate, Vec<TransactionTraceWithHash>), ProveBlockError> {
-    let state_update = match provider.get_state_update(block_id).await.expect("Failed to get state update") {
-        MaybePendingStateUpdate::Update(update) => update,
-        MaybePendingStateUpdate::PendingUpdate(_) => {
-            panic!("Block is still pending!")
-        }
-    };
+    let state_update =
+        match rpc_client.starknet_rpc().get_state_update(block_id).await.expect("Failed to get state update") {
+            MaybePendingStateUpdate::Update(update) => update,
+            MaybePendingStateUpdate::PendingUpdate(_) => {
+                panic!("Block is still pending!")
+            }
+        };
     let state_diff = state_update.state_diff;
 
     // Extract other contracts used in our block from the block trace
     // We need this to get all the class hashes used and correctly feed address_to_class_hash
-    let traces = provider.trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
+    let traces =
+        rpc_client.starknet_rpc().trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
     let (accessed_addresses, accessed_classes) = get_subcalled_contracts_from_tx_traces(&traces);
 
     // TODO: Handle deprecated classes
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = format_declared_classes(&state_diff);
     let (compiled_contract_classes, deprecated_compiled_contract_classes) =
         build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
-            provider,
+            rpc_client,
             previous_block_id,
             block_id,
             &accessed_addresses,
@@ -70,11 +72,11 @@ pub(crate) async fn get_formatted_state_update(
 /// Retrieves the compiled class for the given class hash at a specific block
 /// by getting the class from the RPC and compiling it to CASM if necessary (Cairo 1).
 async fn get_compiled_class_for_class_hash(
-    provider: &JsonRpcClient<HttpTransport>,
+    provider: &RpcClient,
     block_id: BlockId,
     class_hash: Felt252,
 ) -> Result<GenericCompiledClass, ProveBlockError> {
-    let contract_class = provider.get_class(block_id, class_hash).await?;
+    let contract_class = provider.starknet_rpc().get_class(block_id, class_hash).await?;
 
     let compiled_class = match contract_class {
         starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
@@ -94,16 +96,16 @@ async fn get_compiled_class_for_class_hash(
 /// Fetches (+ compile) the contract class for the specified contract at the specified block
 /// and adds it to the hashmaps that will then be added to the OS input.
 async fn add_compiled_class_from_contract_to_os_input(
-    provider: &JsonRpcClient<HttpTransport>,
+    rpc_client: &RpcClient,
     contract_address: Felt,
     block_id: BlockId,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
     compiled_contract_classes: &mut HashMap<Felt, GenericCasmContractClass>,
     deprecated_compiled_contract_classes: &mut HashMap<Felt, GenericDeprecatedCompiledClass>,
 ) -> Result<(), ProveBlockError> {
-    let class_hash = provider.get_class_hash_at(block_id, contract_address).await?;
+    let class_hash = rpc_client.starknet_rpc().get_class_hash_at(block_id, contract_address).await?;
     add_compiled_class_from_class_hash_to_os_input(
-        provider,
+        rpc_client,
         class_hash,
         block_id,
         class_hash_to_compiled_class_hash,
@@ -116,7 +118,7 @@ async fn add_compiled_class_from_contract_to_os_input(
 /// Fetches (+ compile) the contract class for the specified class at the specified block
 /// and adds it to the hashmaps that will then be added to the OS input.
 async fn add_compiled_class_from_class_hash_to_os_input(
-    provider: &JsonRpcClient<HttpTransport>,
+    provider: &RpcClient,
     class_hash: Felt,
     block_id: BlockId,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
@@ -153,7 +155,7 @@ async fn add_compiled_class_from_class_hash_to_os_input(
 /// The resulting compiled classes and any associated mappings are returned, while
 /// the `class_hash_to_compiled_class_hash` map is updated with new entries.
 async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
-    provider: &JsonRpcClient<HttpTransport>,
+    provider: &RpcClient,
     previous_block_id: BlockId,
     block_id: BlockId,
     accessed_addresses: &HashSet<Felt252>,

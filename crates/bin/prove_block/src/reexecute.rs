@@ -9,10 +9,10 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
-use reqwest::Url;
+use rpc_client::pathfinder::proofs::{PathfinderProof, TrieNode};
+use rpc_client::RpcClient;
 use starknet::core::types::{BlockId, StarknetError};
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, Provider as _, ProviderError};
+use starknet::providers::{Provider as _, ProviderError};
 use starknet_api::transaction::TransactionHash;
 use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use starknet_os::crypto::pedersen::PedersenHash;
@@ -23,8 +23,6 @@ use starknet_os::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFac
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
 use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{Fact, HashFunctionType};
-
-use crate::rpc_utils::{PathfinderProof, TrieNode};
 
 /// Retrieves the transaction hash from a Blockifier `Transaction` object.
 fn get_tx_hash(tx: &Transaction) -> TransactionHash {
@@ -77,7 +75,7 @@ pub fn reexecute_transactions_with_blockifier<S: StateReader>(
 }
 
 pub(crate) struct ProverPerContractStorage {
-    provider: JsonRpcClient<HttpTransport>,
+    rpc_client: RpcClient,
     block_id: BlockId,
     contract_address: Felt252,
     previous_tree_root: Felt252,
@@ -88,19 +86,15 @@ pub(crate) struct ProverPerContractStorage {
 
 impl ProverPerContractStorage {
     pub fn new(
+        rpc_client: RpcClient,
         block_id: BlockId,
         contract_address: Felt252,
-        provider_url: String,
         previous_tree_root: Felt252,
         storage_proof: PathfinderProof,
         previous_storage_proof: PathfinderProof,
     ) -> Result<Self, TreeError> {
-        let provider = JsonRpcClient::new(HttpTransport::new(
-            Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
-        ));
-
         Ok(Self {
-            provider,
+            rpc_client,
             block_id,
             contract_address,
             previous_tree_root,
@@ -182,7 +176,12 @@ impl PerContractStorage for ProverPerContractStorage {
         } else {
             let key_felt = Felt252::from(key.clone());
             // TODO: this should be fallible
-            let value = match self.provider.get_storage_at(self.contract_address, key_felt, self.block_id).await {
+            let value = match self
+                .rpc_client
+                .starknet_rpc()
+                .get_storage_at(self.contract_address, key_felt, self.block_id)
+                .await
+            {
                 Ok(value) => Ok(value),
                 Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt252::ZERO),
                 Err(e) => Err(e),

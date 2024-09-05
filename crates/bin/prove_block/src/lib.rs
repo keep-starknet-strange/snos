@@ -6,13 +6,14 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage};
+use rpc_client::pathfinder::proofs::PathfinderClassProof;
+use rpc_client::RpcClient;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::starknet_rs_to_blockifier;
 use rpc_utils::{get_class_proofs, get_storage_proofs};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, StarknetError};
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, Provider, ProviderError, Url};
+use starknet::providers::{Provider, ProviderError};
 use starknet_api::StarknetApiError;
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
@@ -35,7 +36,7 @@ use state_utils::get_formatted_state_update;
 use thiserror::Error;
 
 use crate::reexecute::format_commitment_facts;
-use crate::rpc_utils::{get_starknet_version, PathfinderClassProof};
+use crate::rpc_utils::get_starknet_version;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
 mod reexecute;
@@ -103,19 +104,13 @@ pub async fn prove_block(
     let block_id = BlockId::Number(block_number);
     let previous_block_id = BlockId::Number(block_number - 1);
 
-    let provider_url = format!("{}/rpc/v0_7", rpc_provider);
-    log::info!("provider url: {}", provider_url);
-    let provider = JsonRpcClient::new(HttpTransport::new(
-        Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
-    ));
-    let pathfinder_client =
-        reqwest::ClientBuilder::new().build().unwrap_or_else(|e| panic!("Could not build reqwest client: {e}"));
+    let rpc_client = RpcClient::new(rpc_provider);
 
     // Step 1: build the block context
-    let chain_id = chain_id_from_felt(provider.chain_id().await?);
+    let chain_id = chain_id_from_felt(rpc_client.starknet_rpc().chain_id().await?);
     log::debug!("provider's chain_id: {}", chain_id);
 
-    let block_with_txs = match provider.get_block_with_txs(block_id).await? {
+    let block_with_txs = match rpc_client.starknet_rpc().get_block_with_txs(block_id).await? {
         MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
         MaybePendingBlockWithTxs::PendingBlock(_) => {
             panic!("Block is still pending!");
@@ -125,7 +120,7 @@ pub async fn prove_block(
     let starknet_version = get_starknet_version(&block_with_txs);
     log::debug!("Starknet version: {:?}", starknet_version);
 
-    let previous_block = match provider.get_block_with_tx_hashes(previous_block_id).await? {
+    let previous_block = match rpc_client.starknet_rpc().get_block_with_tx_hashes(previous_block_id).await? {
         MaybePendingBlockWithTxHashes::Block(block_with_txs) => block_with_txs,
         MaybePendingBlockWithTxHashes::PendingBlock(_) => {
             panic!("Block is still pending!");
@@ -133,7 +128,8 @@ pub async fn prove_block(
     };
 
     // We only need to get the older block number and hash. No need to fetch all the txs
-    let older_block = match provider
+    let older_block = match rpc_client
+        .starknet_rpc()
         .get_block_with_tx_hashes(BlockId::Number(block_number - STORED_BLOCK_HASH_BUFFER))
         .await
         .unwrap()
@@ -153,15 +149,11 @@ pub async fn prove_block(
     let transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    let (processed_state_update, traces) = get_formatted_state_update(&provider, previous_block_id, block_id).await?;
+    let (processed_state_update, traces) = get_formatted_state_update(&rpc_client, previous_block_id, block_id).await?;
 
     let class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash;
 
-    // Workaround for JsonRpcClient not implementing Clone
-    let provider_for_blockifier = JsonRpcClient::new(HttpTransport::new(
-        Url::parse(provider_url.as_str()).expect("Could not parse provider url"),
-    ));
-    let blockifier_state_reader = AsyncRpcStateReader::new(provider_for_blockifier, BlockId::Number(block_number - 1));
+    let blockifier_state_reader = AsyncRpcStateReader::new(rpc_client.clone(), BlockId::Number(block_number - 1));
 
     let mut blockifier_state = CachedState::new(blockifier_state_reader);
 
@@ -174,13 +166,12 @@ pub async fn prove_block(
     }
     let tx_execution_infos = reexecute_transactions_with_blockifier(&mut blockifier_state, &block_context, txs)?;
 
-    let storage_proofs =
-        get_storage_proofs(&pathfinder_client, rpc_provider, block_number, &tx_execution_infos, old_block_number)
-            .await
-            .expect("Failed to fetch storage proofs");
+    let storage_proofs = get_storage_proofs(&rpc_client, block_number, &tx_execution_infos, old_block_number)
+        .await
+        .expect("Failed to fetch storage proofs");
 
     let previous_storage_proofs =
-        get_storage_proofs(&pathfinder_client, rpc_provider, block_number - 1, &tx_execution_infos, old_block_number)
+        get_storage_proofs(&rpc_client, block_number - 1, &tx_execution_infos, old_block_number)
             .await
             .expect("Failed to fetch storage proofs");
 
@@ -218,9 +209,9 @@ pub async fn prove_block(
         let previous_tree = PatriciaTree { root: contract_storage_root, height: Height(251) };
 
         let contract_storage = ProverPerContractStorage::new(
+            rpc_client.clone(),
             previous_block_id,
             contract_address,
-            provider_url.clone(),
             previous_tree.root.into(),
             storage_proof,
             previous_storage_proof.clone(),
@@ -230,13 +221,14 @@ pub async fn prove_block(
         let (previous_class_hash, previous_nonce) = if [Felt252::ZERO, Felt252::ONE].contains(&contract_address) {
             (Felt252::ZERO, Felt252::ZERO)
         } else {
-            let previous_class_hash = match provider.get_class_hash_at(previous_block_id, contract_address).await {
-                Ok(class_hash) => Ok(class_hash),
-                Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt252::ZERO),
-                Err(e) => Err(e),
-            }?;
+            let previous_class_hash =
+                match rpc_client.starknet_rpc().get_class_hash_at(previous_block_id, contract_address).await {
+                    Ok(class_hash) => Ok(class_hash),
+                    Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt252::ZERO),
+                    Err(e) => Err(e),
+                }?;
 
-            let previous_nonce = match provider.get_nonce(previous_block_id, contract_address).await {
+            let previous_nonce = match rpc_client.starknet_rpc().get_nonce(previous_block_id, contract_address).await {
                 Ok(nonce) => Ok(nonce),
                 Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt252::ZERO),
                 Err(e) => Err(e),
@@ -260,12 +252,10 @@ pub async fn prove_block(
     let class_hashes: Vec<&Felt252> = class_hash_to_compiled_class_hash.keys().collect();
     // TODO: we fetch proofs here for block-1, but we probably also need to fetch at the current
     //       block, likely for contracts that are deployed in this block
-    let class_proofs = get_class_proofs(&pathfinder_client, rpc_provider, block_number - 1, &class_hashes[..])
-        .await
-        .expect("Failed to fetch class proofs");
-    let previous_class_proofs = get_class_proofs(&pathfinder_client, rpc_provider, block_number - 1, &class_hashes[..])
-        .await
-        .expect("Failed to fetch class proofs");
+    let class_proofs =
+        get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..]).await.expect("Failed to fetch class proofs");
+    let previous_class_proofs =
+        get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..]).await.expect("Failed to fetch class proofs");
 
     let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
         .visited_pcs

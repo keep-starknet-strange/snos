@@ -5,9 +5,10 @@ members = [
     "crates/bin/hint_tool",
     "crates/bin/prove_block",
     "crates/cairo-type-derive",
+    "crates/rpc-client",
+    "crates/rpc-replay",
     "crates/starknet-os",
     "crates/starknet-os-types",
-    "crates/rpc-replay",
     "tests",
 ]
 
@@ -56,6 +57,7 @@ pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev =
 pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "starknet-gateway-types" }
 pathfinder-serde = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-serde" }
 reqwest = { version = "0.11.18", features = ["blocking", "json"] }
+rpc-client = { path = "crates/rpc-client" }
 rpc-replay = { path = "crates/rpc-replay" }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
