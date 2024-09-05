@@ -9,6 +9,7 @@ use rstest::rstest;
 // # * 86507 / 124533: a failing assert that happened because we used the wrong VersionedConstants
 // # * 87019: diff assert values in contract subcall
 // # * 90000: one of the subcalls results in a call to `replace_class()`.
+// # * 87041: block with nonce bump inconsistency
 #[rstest]
 #[case::small_block_with_only_invoke_txs(76793)]
 #[case::additional_basic_blocks_1(76766)]
@@ -21,6 +22,7 @@ use rstest::rstest;
 #[case::write_to_zero_with_edge_node(125622)]
 #[case::l1_handler(98000)]
 #[case::invoke_with_call_to_deploy_syscall(124534)]
+#[case::block_with_nonce_bump_inconsistency(87041)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
