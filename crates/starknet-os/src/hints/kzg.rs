@@ -21,7 +21,7 @@ use num_traits::{Num, One, Zero};
 use super::vars;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::starknet::starknet_storage::PerContractStorage;
-use crate::utils::{execute_coroutine, get_constant};
+use crate::utils::execute_coroutine;
 
 const FIELD_ELEMENTS_PER_BLOB: usize = 4096;
 const COMMITMENT_BYTES_LENGTH: usize = 48;
