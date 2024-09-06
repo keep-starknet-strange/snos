@@ -11,23 +11,24 @@ use rstest::rstest;
 // # * 90000: one of the subcalls results in a call to `replace_class()`.
 // # * 87041: block with nonce bump inconsistency
 #[rstest]
-// #[case::small_block_with_only_invoke_txs(76793)]
-// #[case::additional_basic_blocks_1(76766)]
-// #[case::additional_basic_blocks_2(76775)]
-// #[case::block_with_reverted_tx(76832)]
-// #[case::failing_assert_on_versioned_constants_1(86507)]
-// #[case::failing_assert_on_versioned_constants_2(124533)]
-// #[case::fix_diff_assert_values_in_contract_subcall(87019)]
-// #[case::invoke_with_replace_class(90000)]
-// #[case::write_to_zero_with_edge_node(125622)]
-// #[case::l1_handler(98000)]
-// #[case::invoke_with_call_to_deploy_syscall(124534)]
-// #[ignore = "Requires a running Pathfinder node"]
+#[case::small_block_with_only_invoke_txs(76793)]
+#[case::additional_basic_blocks_1(76766)]
+#[case::additional_basic_blocks_2(76775)]
+#[case::block_with_reverted_tx(76832)]
+#[case::failing_assert_on_versioned_constants_1(86507)]
+#[case::failing_assert_on_versioned_constants_2(124533)]
+#[case::fix_diff_assert_values_in_contract_subcall(87019)]
+#[case::invoke_with_replace_class(90000)]
+#[case::write_to_zero_with_edge_node(125622)]
+#[case::l1_handler(98000)]
+#[case::invoke_with_call_to_deploy_syscall(124534)]
+#[ignore = "Requires a running Pathfinder node"]
 #[case::block_with_nonce_bump_inconsistency(17462)]
+#[case::deploy_account_v1(97581)]
+#[case::deploy_account_v3(101556)]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
-    let endpoint = std::env::var("PATHFINDER_RPC_URL").unwrap_or("http://81.16.176.130:9545".to_owned());
-    println!("running");
+    let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
     prove_block(block_number, &endpoint, LayoutName::all_cairo)
         .await
         .map_err(debug_prove_error)
