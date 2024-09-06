@@ -19,7 +19,6 @@ use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
-use kzg::{write_kzg_commitment_address, WRITE_KZG_COMMITMENT_ADDRESS};
 use num_bigint::BigInt;
 
 use crate::execution::execute_syscalls;
@@ -249,7 +248,6 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(block_context::WRITE_USE_KZG_DA_TO_MEM.into(), block_context::write_use_kzg_da_to_mem);
     hints.insert(compiled_class::SET_AP_TO_SEGMENT_HASH.into(), compiled_class::set_ap_to_segment_hash);
     hints.insert(secp::READ_EC_POINT_ADDRESS.into(), secp::read_ec_point_from_address);
-    hints.insert(WRITE_KZG_COMMITMENT_ADDRESS.into(), write_kzg_commitment_address);
     hints
 }
 

@@ -5,7 +5,7 @@ use std::path::Path;
 
 use c_kzg::{Blob, KzgCommitment, BYTES_PER_FIELD_ELEMENT};
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -181,56 +181,6 @@ fn to_bytes(x: &BigInt, length: usize) -> Vec<u8> {
 fn serialize_blob(blob: &[BigInt]) -> Vec<u8> {
     assert_eq!(blob.len(), FIELD_ELEMENTS_PER_BLOB, "Bad blob size.");
     blob.iter().flat_map(|x| to_bytes(x, BYTES_PER_FIELD_ELEMENT)).collect()
-}
-
-pub const WRITE_KZG_COMMITMENT_ADDRESS: &str = indoc! {r#"
-    execution_helper.store_da_segment(
-        da_segment=memory.get_range_as_ints(addr=ids.state_updates_start, size=ids.da_size)
-    )
-    segments.write_arg(
-        ids.kzg_commitment.address_,
-        execution_helper.polynomial_coefficients_to_kzg_commitment_callback(
-            execution_helper.da_segment
-        )
-    )"#
-};
-
-pub fn write_kzg_commitment_address(
-    vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let state_updates_start = get_ptr_from_var_name(vars::ids::STATE_UPDATES_START, vm, ids_data, ap_tracking)?;
-    // NOTE: This hint uses `ids.da_size` but the references provided are not valid
-    // NOTE: We end up using `state_updates_end` after referencing the cairo code
-    let state_updates_end = get_ptr_from_var_name(vars::ids::STATE_UPDATES_END, vm, ids_data, ap_tracking)?;
-    let range: Vec<MaybeRelocatable> = vm
-        .get_integer_range(state_updates_start, state_updates_end.offset - state_updates_start.offset)?
-        .into_iter()
-        .map(|s| MaybeRelocatable::Int(*s))
-        .collect();
-
-    let kzg_ptr = get_relocatable_from_var_name(vars::ids::KZG_COMMITMENT, vm, ids_data, ap_tracking)?;
-
-    let da_segment = range
-        .iter()
-        .map(|c| {
-            c.get_int().map(|i| i.to_bigint()).ok_or(HintError::CustomHint(
-                "DA segment must contain only integer entries".to_owned().into_boxed_str(),
-            ))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let commitments = polynomial_coefficients_to_kzg_commitment(da_segment)
-        .map_err(|e| HintError::CustomHint(e.to_string().into_boxed_str()))?;
-    let splits: Vec<MaybeRelocatable> = [commitments.0.into(), commitments.1.into()]
-        .into_iter()
-        .map(MaybeRelocatable::Int)
-        .collect::<Vec<MaybeRelocatable>>();
-    vm.write_arg(kzg_ptr, &splits)?;
-
-    Ok(())
 }
 
 pub const STORE_DA_SEGMENT: &str = indoc! {r#"import itertools
