@@ -123,7 +123,7 @@ where
         Self {
             execution_helper: Rc::new(RwLock::new(ExecutionHelper {
                 _prev_block_context: prev_block_context,
-                kzg_manager: KzgManager::new(),
+                kzg_manager: Default::default(),
                 tx_execution_info_iter: tx_execution_infos.into_iter(),
                 tx_execution_info: None,
                 tx_info_ptr: None,

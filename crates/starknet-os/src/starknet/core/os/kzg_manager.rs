@@ -1,19 +1,12 @@
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct KzgManager {
     da_segment: Option<Vec<Felt252>>,
 }
 
 impl KzgManager {
-    pub fn new() -> Self {
-        Self { da_segment: None }
-
-        // TODO: pythonic impl also takes callback to handle chunk processing in the form of:
-        // CoefficientsToKzgCommitmentCallback = Callable[[List[int]], Tuple[int, int]]
-    }
-
     pub fn store_da_segment(&mut self, da_segment: Vec<Felt252>) -> Result<(), HintError> {
         // Stores the data-availabilty segment, to be used for computing the KZG commitment
         // and published on L1 using a blob transaction.

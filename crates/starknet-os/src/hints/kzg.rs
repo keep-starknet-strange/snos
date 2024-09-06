@@ -5,8 +5,7 @@ use std::path::Path;
 
 use c_kzg::{Blob, KzgCommitment, BYTES_PER_FIELD_ELEMENT};
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_reference_from_var_name, get_relocatable_from_var_name,
-    insert_value_from_var_name,
+    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -270,7 +269,7 @@ pub async fn store_da_segment_async<PCS>(
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    constants: &HashMap<String, Felt252>,
+    _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError>
 where
     PCS: PerContractStorage + 'static,
@@ -291,7 +290,6 @@ where
 
     let kzg_commitments: Vec<(Felt252, Felt252)> = da_segment
         .chunks(blob_length)
-        .into_iter()
         .map(|chunk| {
             let coefficients: Vec<BigInt> = chunk.iter().map(|f| f.to_bigint()).collect();
             let res: (BigInt, BigInt) = polynomial_coefficients_to_kzg_commitment(coefficients).unwrap(); // TODO: unwrap
