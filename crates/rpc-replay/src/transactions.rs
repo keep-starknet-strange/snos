@@ -5,13 +5,13 @@ use std::sync::Arc;
 use blockifier::blockifier::block::GasPrices;
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::transaction::account_transaction::AccountTransaction;
+use rpc_client::RpcClient;
 use starknet::core::types::{
     BlockId, DeclareTransaction, DeclareTransactionV1, DeclareTransactionV2, DeclareTransactionV3, Felt,
     InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction, ResourceBoundsMapping,
     Transaction, TransactionTrace, TransactionTraceWithHash,
 };
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, Provider};
+use starknet::providers::Provider;
 use starknet_api::core::PatriciaKey;
 use starknet_api::transaction::{Fee, TransactionHash};
 use starknet_api::StarknetApiError;
@@ -93,12 +93,12 @@ fn invoke_v3_to_blockifier(
 
 async fn create_class_info(
     class_hash: Felt,
-    provider: &JsonRpcClient<HttpTransport>,
+    client: &RpcClient,
     block_number: u64,
 ) -> Result<ClassInfo, Box<dyn Error>> {
     // TODO: improve this to avoid retrieving this twice. Already done in main.rs from prove_block
     let starknet_contract_class: starknet::core::types::ContractClass =
-        provider.get_class(BlockId::Number(block_number), class_hash).await?;
+        client.starknet_rpc().get_class(BlockId::Number(block_number), class_hash).await?;
 
     let (blockifier_contract_class, program_length, abi_length) = match starknet_contract_class {
         starknet::core::types::ContractClass::Sierra(sierra) => {
@@ -126,7 +126,7 @@ async fn create_class_info(
 
 async fn declare_v1_to_blockifier(
     tx: &DeclareTransactionV1,
-    provider: &JsonRpcClient<HttpTransport>,
+    client: &RpcClient,
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
     let tx_hash = TransactionHash(tx.transaction_hash);
@@ -137,7 +137,7 @@ async fn declare_v1_to_blockifier(
         class_hash: starknet_api::core::ClassHash(tx.class_hash),
         sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
     });
-    let class_info = create_class_info(tx.class_hash, provider, block_number).await?;
+    let class_info = create_class_info(tx.class_hash, client, block_number).await?;
     let declare = blockifier::transaction::transactions::DeclareTransaction::new(api_tx, tx_hash, class_info)?;
 
     Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(AccountTransaction::Declare(
@@ -147,7 +147,7 @@ async fn declare_v1_to_blockifier(
 
 async fn declare_v2_to_blockifier(
     tx: &DeclareTransactionV2,
-    provider: &JsonRpcClient<HttpTransport>,
+    client: &RpcClient,
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
     let tx_hash = TransactionHash(tx.transaction_hash);
@@ -159,7 +159,7 @@ async fn declare_v2_to_blockifier(
         compiled_class_hash: starknet_api::core::CompiledClassHash(tx.compiled_class_hash),
         sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
     });
-    let class_info = create_class_info(tx.class_hash, provider, block_number).await?;
+    let class_info = create_class_info(tx.class_hash, client, block_number).await?;
     let declare = blockifier::transaction::transactions::DeclareTransaction::new(api_tx, tx_hash, class_info)?;
 
     Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(AccountTransaction::Declare(
@@ -169,7 +169,7 @@ async fn declare_v2_to_blockifier(
 
 async fn declare_v3_to_blockifier(
     tx: &DeclareTransactionV3,
-    provider: &JsonRpcClient<HttpTransport>,
+    client: &RpcClient,
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
     let tx_hash = TransactionHash(tx.transaction_hash);
@@ -186,7 +186,7 @@ async fn declare_v3_to_blockifier(
         paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.clone()),
         account_deployment_data: starknet_api::transaction::AccountDeploymentData(tx.account_deployment_data.clone()),
     });
-    let class_info = create_class_info(tx.class_hash, provider, block_number).await?;
+    let class_info = create_class_info(tx.class_hash, client, block_number).await?;
     let declare = blockifier::transaction::transactions::DeclareTransaction::new(api_tx, tx_hash, class_info)?;
 
     Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(AccountTransaction::Declare(
@@ -236,7 +236,7 @@ pub async fn starknet_rs_to_blockifier(
     sn_core_tx: &starknet::core::types::Transaction,
     trace: &TransactionTraceWithHash,
     gas_prices: &GasPrices,
-    provider: &JsonRpcClient<HttpTransport>,
+    client: &RpcClient,
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
     let blockifier_tx = match sn_core_tx {
@@ -247,9 +247,9 @@ pub async fn starknet_rs_to_blockifier(
         },
         Transaction::Declare(tx) => match tx {
             DeclareTransaction::V0(_) => unimplemented!("starknet_rs_to_blockifier with DeclareTransaction::V0"),
-            DeclareTransaction::V1(tx) => declare_v1_to_blockifier(tx, provider, block_number).await?,
-            DeclareTransaction::V2(tx) => declare_v2_to_blockifier(tx, provider, block_number).await?,
-            DeclareTransaction::V3(tx) => declare_v3_to_blockifier(tx, provider, block_number).await?,
+            DeclareTransaction::V1(tx) => declare_v1_to_blockifier(tx, client, block_number).await?,
+            DeclareTransaction::V2(tx) => declare_v2_to_blockifier(tx, client, block_number).await?,
+            DeclareTransaction::V3(tx) => declare_v3_to_blockifier(tx, client, block_number).await?,
         },
         Transaction::L1Handler(tx) => l1_handler_to_blockifier(tx, trace, gas_prices)?,
         Transaction::DeployAccount(_tx) => {
