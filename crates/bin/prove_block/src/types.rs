@@ -166,7 +166,7 @@ fn deploy_account_v1_to_internal_tx(input: DeployAccountTransactionV1) -> Intern
         constructor_calldata: Some(input.constructor_calldata.clone()),
         class_hash: Some(input.class_hash),
         r#type: "DEPLOY_ACCOUNT".to_string(),
-        version: Some(Felt252::ZERO),
+        version: Some(Felt252::ONE),
         entry_point_selector,
         contract_address: Some(
             *calculate_contract_address(
@@ -197,6 +197,7 @@ pub fn deploy_account_v3_to_internal_tx(input: DeployAccountTransactionV3) -> In
         nonce_data_availability_mode: Some(da_to_felt(input.nonce_data_availability_mode)),
         fee_data_availability_mode: Some(da_to_felt(input.fee_data_availability_mode)),
         r#type: "DEPLOY_ACCOUNT".to_string(),
+        version: Some(Felt252::THREE),
         ..Default::default()
     }
 }
