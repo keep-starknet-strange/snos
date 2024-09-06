@@ -219,6 +219,12 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
 
 /// Format StateDiff's DeclaredClassItem to a HashMap<class_hash, compiled_class_hash>
 fn format_declared_classes(state_diff: &StateDiff) -> HashMap<Felt252, Felt252> {
+    // The comment below explicits that the value should be 0 for new classes:
+    // From execute_transactions.cairo
+    // Note that prev_value=0 enforces that a class may be declared only once.
+    // dict_update{dict_ptr=contract_class_changes}(
+    //     key=[class_hash_ptr], prev_value=0, new_value=compiled_class_hash
+    // );
     let class_hash_to_compiled_class_hash =
         state_diff.declared_classes.iter().map(|class| (class.class_hash, Felt::ZERO)).collect();
     class_hash_to_compiled_class_hash
