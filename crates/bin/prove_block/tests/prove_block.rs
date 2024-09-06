@@ -23,6 +23,7 @@ use rstest::rstest;
 #[case::l1_handler(98000)]
 #[case::invoke_with_call_to_deploy_syscall(124534)]
 #[case::block_with_nonce_bump_inconsistency(87041)]
+#[case::declare_tx(76840)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
