@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use cairo_vm::Felt252;
 use rpc_replay::transactions::resource_bounds_core_to_api;
 use starknet::core::types::{
@@ -6,6 +8,8 @@ use starknet::core::types::{
     InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction,
     Transaction,
 };
+use starknet_api::core::{calculate_contract_address, ClassHash};
+use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_os::io::InternalTransaction;
 
 // entry point for "__execute__"
@@ -152,15 +156,29 @@ fn declare_v3_to_internal_tx(input: DeclareTransactionV3) -> InternalTransaction
 }
 
 fn deploy_account_v1_to_internal_tx(input: DeployAccountTransactionV1) -> InternalTransaction {
+    let entry_point_selector = Some(Felt252::ZERO);
     InternalTransaction {
         hash_value: input.transaction_hash,
         max_fee: Some(input.max_fee),
         signature: Some(input.signature.into_iter().map(Felt252::from).collect()),
         nonce: Some(input.nonce),
         contract_address_salt: Some(input.contract_address_salt),
-        constructor_calldata: Some(input.constructor_calldata.into_iter().map(Felt252::from).collect()),
+        constructor_calldata: Some(input.constructor_calldata.clone()),
         class_hash: Some(input.class_hash),
         r#type: "DEPLOY_ACCOUNT".to_string(),
+        version: Some(Felt252::ZERO),
+        entry_point_selector,
+        contract_address: Some(
+            *calculate_contract_address(
+                ContractAddressSalt(input.contract_address_salt),
+                ClassHash(input.class_hash),
+                &Calldata(Arc::new(input.constructor_calldata)),
+                Default::default(),
+            )
+            .unwrap()
+            .0
+            .key(),
+        ),
         ..Default::default()
     }
 }

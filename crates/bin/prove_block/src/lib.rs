@@ -253,7 +253,7 @@ pub async fn prove_block(
     // TODO: we fetch proofs here for block-1, but we probably also need to fetch at the current
     //       block, likely for contracts that are deployed in this block
     let class_proofs =
-        get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..]).await.expect("Failed to fetch class proofs");
+        get_class_proofs(&rpc_client, block_number, &class_hashes[..]).await.expect("Failed to fetch class proofs");
     let previous_class_proofs =
         get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..]).await.expect("Failed to fetch class proofs");
 
