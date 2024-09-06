@@ -226,7 +226,8 @@ pub fn decode_output<I: Iterator<Item = Felt252>>(output_iter: &mut I) -> Result
     };
 
     if use_kzg_da {
-        let _: Vec<_> = output_iter.by_ref().take(5).collect();
+        // TODO: this needs an explanation
+        let _: Vec<_> = output_iter.by_ref().take(6).collect();
     }
 
     let messages_to_l1 = read_variable_length_segment(output_iter, "L1 messages")?;
