@@ -55,6 +55,7 @@ where
     pub execute_code_read_iter: IntoIter<Felt252>,
     // Per-contract storage
     pub storage_by_address: ContractStorageMap<PCS>,
+
     // Secp syscall processors.
     pub secp256k1_syscall_processor: SecpSyscallProcessor<ark_secp256k1::Config>,
     pub secp256r1_syscall_processor: SecpSyscallProcessor<ark_secp256r1::Config>,

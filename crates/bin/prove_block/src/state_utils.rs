@@ -27,7 +27,7 @@ pub struct FormattedStateUpdate {
 /// - Formats the RPC state updates to be "SharedState compatible."
 /// - Consolidates that information into a `FormattedStateUpdate`.
 pub(crate) async fn get_formatted_state_update(
-    provider: &JsonRpcClient<HttpTransport>,
+    rpc_client: &RpcClient,
     previous_block_id: BlockId,
     block_id: BlockId,
 ) -> Result<(FormattedStateUpdate, Vec<TransactionTraceWithHash>), ProveBlockError> {

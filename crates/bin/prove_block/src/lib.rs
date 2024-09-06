@@ -36,7 +36,7 @@ use state_utils::get_formatted_state_update;
 use thiserror::Error;
 
 use crate::reexecute::format_commitment_facts;
-use crate::rpc_utils::{get_starknet_version, PathfinderClassProof};
+use crate::rpc_utils::get_starknet_version;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
 mod reexecute;
@@ -326,6 +326,7 @@ pub fn debug_prove_error(err: ProveBlockError) -> ProveBlockError {
             log::error!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
             log::error!("inst_location:\n{:?}", inst_location);
         }
+        log::error!("\ninner_exc error: {}\n", vme.inner_exc);
     }
     err
 }
