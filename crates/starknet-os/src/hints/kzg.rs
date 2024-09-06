@@ -21,7 +21,7 @@ use num_traits::{Num, One, Zero};
 use super::vars;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::starknet::starknet_storage::PerContractStorage;
-use crate::utils::execute_coroutine;
+use crate::utils::{execute_coroutine, get_constant};
 
 const FIELD_ELEMENTS_PER_BLOB: usize = 4096;
 const COMMITMENT_BYTES_LENGTH: usize = 48;
@@ -219,7 +219,7 @@ pub async fn store_da_segment_async<PCS>(
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
+    constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError>
 where
     PCS: PerContractStorage + 'static,
@@ -231,9 +231,8 @@ where
     let da_segment: Vec<Felt252> =
         vm.get_integer_range(state_updates_start, da_size)?.into_iter().map(|s| *s).collect();
 
-    // TODO: "BLOB_LENGTH" doesn't appear to be in scope either via get_integer_from_var_name()
-    // or get_constant(). It's clear from the OS code that it's 4096, so we use that here.
-    let blob_length: usize = 4096;
+    let blob_length = get_constant(vars::ids::BLOB_LENGTH, constants)?.to_biguint();
+    let blob_length: usize = blob_length.try_into().map_err(|_| HintError::BigintToU32Fail)?;
 
     let kzg_commitments: Vec<(Felt252, Felt252)> = da_segment
         .chunks(blob_length)

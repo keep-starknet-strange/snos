@@ -38,7 +38,7 @@ pub mod ids {
     pub const ALL_ENCODINGS: &str = "all_encodings";
     pub const ARRAY_PTR: &str = "array_ptr";
     pub const BIT: &str = "bit";
-    pub const BLOB_LENGTH: &str = "BLOB_LENGTH";
+    pub const BLOB_LENGTH: &str = "starkware.starknet.core.os.data_availability.commitment.BLOB_LENGTH";
     pub const BUILTIN_PARAMS: &str = "builtin_params";
     pub const BUILTIN_PTRS: &str = "builtin_ptrs";
     pub const CALL_RESPONSE: &str = "call_response";
