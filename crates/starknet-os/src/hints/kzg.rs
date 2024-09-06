@@ -89,7 +89,7 @@ fn inner_fft(coeffs: &[BigInt], group: &[BigInt], prime: &BigInt) -> Vec<BigInt>
 
 /// Computes the FFT of `coeffs`, assuming the size of the coefficient array is a power of two and
 /// equals to the generator's multiplicative order.
-/// 
+///
 /// See more: https://github.com/starkware-libs/cairo-lang/blob/v0.13.2/src/starkware/python/math_utils.py#L304
 fn fft(coeffs: &[BigInt], generator: &BigInt, prime: &BigInt, bit_reversed: bool) -> Result<Vec<BigInt>, FftError> {
     if coeffs.is_empty() {

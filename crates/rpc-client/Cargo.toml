@@ -1,0 +1,16 @@
+[package]
+name = "rpc-client"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license-file.workspace = true
+
+[dependencies]
+log = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+starknet = { workspace = true }
+starknet-os = { workspace = true }
+starknet-types-core = { workspace = true }
+thiserror = { workspace = true }
