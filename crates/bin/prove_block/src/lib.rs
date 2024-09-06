@@ -71,7 +71,7 @@ fn compute_class_commitment(
         assert!(previous_class_proof.verify(*class_hash).is_ok());
     }
 
-    for (class_hash, class_proof) in previous_class_proofs {
+    for (class_hash, class_proof) in class_proofs {
         assert!(class_proof.verify(*class_hash).is_ok());
     }
 
