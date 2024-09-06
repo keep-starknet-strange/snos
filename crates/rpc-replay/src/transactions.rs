@@ -5,9 +5,9 @@ use std::sync::Arc;
 use blockifier::blockifier::block::GasPrices;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use starknet::core::types::{
-    DeployAccountTransaction, DeployAccountTransactionV1, Felt, InvokeTransaction, InvokeTransactionV1,
-    InvokeTransactionV3, L1HandlerTransaction, ResourceBoundsMapping, Transaction, TransactionTrace,
-    TransactionTraceWithHash,
+    DeployAccountTransaction, DeployAccountTransactionV1, DeployAccountTransactionV3, Felt, InvokeTransaction,
+    InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction, ResourceBoundsMapping, Transaction,
+    TransactionTrace, TransactionTraceWithHash,
 };
 use starknet_api::core::{calculate_contract_address, ContractAddress, PatriciaKey};
 use starknet_api::transaction::{Fee, TransactionHash};
@@ -123,6 +123,18 @@ fn l1_handler_to_blockifier(
     Ok(blockifier::transaction::transaction_execution::Transaction::L1HandlerTransaction(l1_handler))
 }
 
+fn create_contract_address(
+    api_tx: &starknet_api::transaction::DeployAccountTransaction,
+) -> Result<ContractAddress, StarknetApiError> {
+    calculate_contract_address(
+        api_tx.contract_address_salt(),
+        api_tx.class_hash(),
+        &api_tx.constructor_calldata(),
+        // When the contract is deployed via a DEPLOY_ACCOUNT transaction: 0
+        ContractAddress::from(0_u8),
+    )
+}
+
 fn deploy_account_v1_to_blockifier(
     tx: &DeployAccountTransactionV1,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
@@ -166,6 +178,37 @@ fn deploy_account_v1_to_blockifier(
     ))
 }
 
+fn deploy_account_v3_to_blockifier(
+    tx: &DeployAccountTransactionV3,
+) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
+    let tx_hash = TransactionHash(tx.transaction_hash);
+    let api_tx = starknet_api::transaction::DeployAccountTransaction::V3(
+        starknet_api::transaction::DeployAccountTransactionV3 {
+            resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
+            tip: starknet_api::transaction::Tip(tx.tip),
+            signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+            nonce: starknet_api::core::Nonce(tx.nonce),
+            class_hash: starknet_api::core::ClassHash(tx.class_hash),
+            contract_address_salt: starknet_api::transaction::ContractAddressSalt(tx.contract_address_salt),
+            constructor_calldata: starknet_api::transaction::Calldata(Arc::new(tx.constructor_calldata.clone())),
+            nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
+            fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
+            paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.clone()),
+        },
+    );
+    let contract_address = create_contract_address(&api_tx)?;
+    let deploy_account = blockifier::transaction::transactions::DeployAccountTransaction {
+        tx: api_tx,
+        tx_hash,
+        contract_address,
+        only_query: false,
+    };
+
+    Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(
+        AccountTransaction::DeployAccount(deploy_account),
+    ))
+}
+
 /// Maps starknet-core transactions to Blockifier-compatible types.
 pub fn starknet_rs_to_blockifier(
     sn_core_tx: &starknet::core::types::Transaction,
@@ -181,7 +224,7 @@ pub fn starknet_rs_to_blockifier(
         Transaction::L1Handler(tx) => l1_handler_to_blockifier(tx, trace, gas_prices)?,
         Transaction::DeployAccount(tx) => match tx {
             DeployAccountTransaction::V1(tx) => deploy_account_v1_to_blockifier(tx)?,
-            DeployAccountTransaction::V3(_) => todo!(),
+            DeployAccountTransaction::V3(tx) => deploy_account_v3_to_blockifier(tx)?,
         },
         Transaction::Declare(_tx) => {
             unimplemented!("starknet_rs_tx_to_blockifier() with Declare txn");
