@@ -220,6 +220,6 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
 /// Format StateDiff's DeclaredClassItem to a HashMap<class_hash, compiled_class_hash>
 fn format_declared_classes(state_diff: &StateDiff) -> HashMap<Felt252, Felt252> {
     let class_hash_to_compiled_class_hash =
-        state_diff.declared_classes.iter().map(|class| (class.class_hash, class.compiled_class_hash)).collect();
+        state_diff.declared_classes.iter().map(|class| (class.class_hash, Felt::ZERO)).collect();
     class_hash_to_compiled_class_hash
 }
