@@ -23,14 +23,18 @@ async fn test_replay_block() {
 
     let rpc_provider = "http://localhost:9545";
     let rpc_client = RpcClient::new(rpc_provider);
-    let block_id = BlockId::Number(block_with_txs.block_number - 1);
-    let state_reader = AsyncRpcStateReader::new(rpc_client.clone(), block_id);
+    let previous_block_number = block_with_txs.block_number - 1;
+    let previous_block_id = BlockId::Number(previous_block_number);
+    let state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);
     let mut state = CachedState::from(state_reader);
 
     let block_context = build_block_context(ChainId::Sepolia, &block_with_txs, StarknetVersion::V0_13_1);
 
-    let traces =
-        rpc_client.starknet_rpc().trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
+    let traces = rpc_client
+        .starknet_rpc()
+        .trace_block_transactions(previous_block_id)
+        .await
+        .expect("Failed to get block tx traces");
     let gas_prices = GasPrices {
         eth_l1_gas_price: 1u128.try_into().unwrap(),
         strk_l1_gas_price: 1u128.try_into().unwrap(),
@@ -39,7 +43,8 @@ async fn test_replay_block() {
     };
 
     for (tx, trace) in block_with_txs.transactions.iter().zip(traces.iter()) {
-        let blockifier_tx = starknet_rs_to_blockifier(tx, trace, &gas_prices).unwrap();
+        let blockifier_tx =
+            starknet_rs_to_blockifier(tx, trace, &gas_prices, &rpc_client, previous_block_number).await.unwrap();
         let tx_result = blockifier_tx.execute(&mut state, &block_context, true, true);
 
         match tx_result {
