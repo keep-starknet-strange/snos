@@ -460,12 +460,13 @@ mod tests {
         );
         assert_eq!(result.class_hash, Some(input.class_hash));
         assert_eq!(result.r#type, "DEPLOY_ACCOUNT".to_string());
+        assert!(result.contract_address.is_some());
+        assert_eq!(result.entry_point_selector, Some(Felt::ZERO));
 
         // Check defaulted fields
-        assert_eq!(result.contract_address, None);
         assert_eq!(result.contract_hash, None);
         assert_eq!(result.compiled_class_hash, None);
-        assert_eq!(result.entry_point_selector, None);
+
         assert_eq!(result.tip, None);
         assert_eq!(result.resource_bounds, None);
         assert_eq!(result.paymaster_data, None);
