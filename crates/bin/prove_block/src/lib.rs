@@ -10,7 +10,7 @@ use rpc_client::pathfinder::proofs::PathfinderClassProof;
 use rpc_client::RpcClient;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
-use rpc_replay::transactions::starknet_rs_to_blockifier;
+use rpc_replay::transactions::{starknet_rs_to_blockifier, ToBlockifierError};
 use rpc_utils::{get_class_proofs, get_storage_proofs};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, StarknetError};
 use starknet::providers::{Provider, ProviderError};
@@ -61,6 +61,8 @@ pub enum ProveBlockError {
     LegacyContractDecompressionError(#[from] LegacyContractDecompressionError),
     #[error("Starknet API Error: {0}")]
     StarknetApiError(StarknetApiError),
+    #[error("To Blockifier Error: {0}")]
+    ToBlockifierError(#[from] ToBlockifierError),
 }
 
 fn compute_class_commitment(
@@ -162,8 +164,7 @@ pub async fn prove_block(
     for (tx, trace) in block_with_txs.transactions.iter().zip(traces.iter()) {
         let transaction =
             starknet_rs_to_blockifier(tx, trace, &block_context.block_info().gas_prices, &rpc_client, block_number)
-                .await
-                .map_err(ProveBlockError::from)?;
+                .await?;
         txs.push(transaction);
     }
     let tx_execution_infos = reexecute_transactions_with_blockifier(&mut blockifier_state, &block_context, txs)?;

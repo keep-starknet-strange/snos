@@ -1,24 +1,42 @@
 use std::collections::BTreeMap;
-use std::error::Error;
 use std::sync::Arc;
 
 use blockifier::blockifier::block::GasPrices;
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::errors::TransactionExecutionError;
 use rpc_client::RpcClient;
 use starknet::core::types::{
     BlockId, DeclareTransaction, DeclareTransactionV1, DeclareTransactionV2, DeclareTransactionV3, Felt,
     InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction, ResourceBoundsMapping,
     Transaction, TransactionTrace, TransactionTraceWithHash,
 };
-use starknet::providers::Provider;
+use starknet::providers::{Provider, ProviderError};
 use starknet_api::core::PatriciaKey;
 use starknet_api::transaction::{Fee, TransactionHash};
 use starknet_api::StarknetApiError;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
+use thiserror::Error;
 
 use crate::utils::felt_to_u128;
+
+#[derive(Error, Debug)]
+pub enum ToBlockifierError {
+    #[error("RPC Error: {0}")]
+    RpcError(#[from] ProviderError),
+    #[error("OS Contract Class Error: {0}")]
+    StarknetContractClassError(#[from] starknet_os_types::error::ContractClassError),
+    #[error("Blockifier Contract Class Error: {0}")]
+    BlockifierContractClassError(#[from] blockifier::execution::errors::ContractClassError),
+    #[error("Legacy Contract Decompression Error: {0}")]
+    LegacyContractDecompressionError(#[from] LegacyContractDecompressionError),
+    #[error("Starknet API Error: {0}")]
+    StarknetApiError(#[from] StarknetApiError),
+    #[error("Transaction Execution Error: {0}")]
+    TransactionExecutionError(#[from] TransactionExecutionError),
+}
 
 pub fn resource_bounds_core_to_api(
     resource_bounds: &ResourceBoundsMapping,
@@ -52,7 +70,7 @@ fn da_mode_core_to_api(
 
 fn invoke_v1_to_blockifier(
     tx: &InvokeTransactionV1,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::InvokeTransaction::V1(starknet_api::transaction::InvokeTransactionV1 {
         max_fee: Fee(felt_to_u128(&tx.max_fee)),
@@ -70,7 +88,7 @@ fn invoke_v1_to_blockifier(
 
 fn invoke_v3_to_blockifier(
     tx: &InvokeTransactionV3,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::InvokeTransaction::V3(starknet_api::transaction::InvokeTransactionV3 {
         resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
@@ -91,12 +109,15 @@ fn invoke_v3_to_blockifier(
     )))
 }
 
+/// Creates a ClassInfo instance from the given class hash by retrieving the contract class
+/// from the Starknet RPC client and converting it to a Blockifier-compatible format.
+/// Handle both Sierra and Legacy classes
 async fn create_class_info(
     class_hash: Felt,
     client: &RpcClient,
     block_number: u64,
-) -> Result<ClassInfo, Box<dyn Error>> {
-    // TODO: improve this to avoid retrieving this twice. Already done in main.rs from prove_block
+) -> Result<ClassInfo, ToBlockifierError> {
+    // TODO: improve this to avoid retrieving this twice. Already done in lib.rs from prove_block
     let starknet_contract_class: starknet::core::types::ContractClass =
         client.starknet_rpc().get_class(BlockId::Number(block_number), class_hash).await?;
 
@@ -128,7 +149,7 @@ async fn declare_v1_to_blockifier(
     tx: &DeclareTransactionV1,
     client: &RpcClient,
     block_number: u64,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::DeclareTransaction::V1(starknet_api::transaction::DeclareTransactionV0V1 {
         max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
@@ -149,7 +170,7 @@ async fn declare_v2_to_blockifier(
     tx: &DeclareTransactionV2,
     client: &RpcClient,
     block_number: u64,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::DeclareTransaction::V2(starknet_api::transaction::DeclareTransactionV2 {
         max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
@@ -171,7 +192,7 @@ async fn declare_v3_to_blockifier(
     tx: &DeclareTransactionV3,
     client: &RpcClient,
     block_number: u64,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::DeclareTransaction::V3(starknet_api::transaction::DeclareTransactionV3 {
         resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
@@ -198,7 +219,7 @@ fn l1_handler_to_blockifier(
     tx: &L1HandlerTransaction,
     trace: &TransactionTraceWithHash,
     gas_prices: &GasPrices,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::L1HandlerTransaction {
         version: starknet_api::transaction::TransactionVersion(tx.version),
@@ -238,7 +259,7 @@ pub async fn starknet_rs_to_blockifier(
     gas_prices: &GasPrices,
     client: &RpcClient,
     block_number: u64,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, Box<dyn Error>> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let blockifier_tx = match sn_core_tx {
         Transaction::Invoke(tx) => match tx {
             InvokeTransaction::V0(_) => unimplemented!("starknet_rs_to_blockifier with InvokeTransaction::V0"),
