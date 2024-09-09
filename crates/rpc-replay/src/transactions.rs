@@ -152,7 +152,7 @@ async fn declare_v1_to_blockifier(
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::DeclareTransaction::V1(starknet_api::transaction::DeclareTransactionV0V1 {
-        max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
+        max_fee: starknet_api::transaction::Fee(felt_to_u128(&tx.max_fee)),
         signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
         nonce: starknet_api::core::Nonce(tx.nonce),
         class_hash: starknet_api::core::ClassHash(tx.class_hash),
@@ -173,7 +173,7 @@ async fn declare_v2_to_blockifier(
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::DeclareTransaction::V2(starknet_api::transaction::DeclareTransactionV2 {
-        max_fee: starknet_api::transaction::Fee(tx.max_fee.to_biguint().try_into()?),
+        max_fee: starknet_api::transaction::Fee(felt_to_u128(&tx.max_fee)),
         signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
         nonce: starknet_api::core::Nonce(tx.nonce),
         class_hash: starknet_api::core::ClassHash(tx.class_hash),
