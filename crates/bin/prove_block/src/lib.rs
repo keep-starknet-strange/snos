@@ -254,8 +254,9 @@ pub async fn prove_block(
     //       block, likely for contracts that are deployed in this block
     let class_proofs =
         get_class_proofs(&rpc_client, block_number, &class_hashes[..]).await.expect("Failed to fetch class proofs");
-    let previous_class_proofs =
-        get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..]).await.expect("Failed to fetch class proofs");
+    let previous_class_proofs = get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..])
+        .await
+        .expect("Failed to fetch previous class proofs");
 
     let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
         .visited_pcs

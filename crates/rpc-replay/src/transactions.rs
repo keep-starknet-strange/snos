@@ -123,7 +123,8 @@ fn l1_handler_to_blockifier(
     Ok(blockifier::transaction::transaction_execution::Transaction::L1HandlerTransaction(l1_handler))
 }
 
-fn create_contract_address(
+/// Calculates a contract address for deploy transaction
+fn recalculate_contract_address(
     api_tx: &starknet_api::transaction::DeployAccountTransaction,
 ) -> Result<ContractAddress, StarknetApiError> {
     calculate_contract_address(
@@ -196,7 +197,7 @@ fn deploy_account_v3_to_blockifier(
             paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.clone()),
         },
     );
-    let contract_address = create_contract_address(&api_tx)?;
+    let contract_address = recalculate_contract_address(&api_tx)?;
     let deploy_account = blockifier::transaction::transactions::DeployAccountTransaction {
         tx: api_tx,
         tx_hash,
