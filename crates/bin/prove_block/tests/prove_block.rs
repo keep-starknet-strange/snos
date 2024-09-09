@@ -10,6 +10,7 @@ use rstest::rstest;
 // # * 87019: diff assert values in contract subcall
 // # * 90000: one of the subcalls results in a call to `replace_class()`.
 // # * 87041: block with nonce bump inconsistency
+// # * 66645 / 66777: Blob DA blocks
 #[rstest]
 #[case::small_block_with_only_invoke_txs(76793)]
 #[case::additional_basic_blocks_1(76766)]
@@ -23,6 +24,8 @@ use rstest::rstest;
 #[case::l1_handler(98000)]
 #[case::invoke_with_call_to_deploy_syscall(124534)]
 #[case::block_with_nonce_bump_inconsistency(87041)]
+#[case::block_with_blob_da_1(66645)]
+#[case::block_with_blob_da_2(66777)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
