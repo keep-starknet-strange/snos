@@ -20,6 +20,7 @@ const CONFIG_HASH_OFFSET: usize = 7;
 const USE_KZG_DA_OFFSET: usize = 8;
 const FULL_OUTPUT_OFFSET: usize = 9;
 const HEADER_SIZE: usize = 10;
+const KZG_N_BLOBS_OFFSET: usize = 1;
 
 /// Represents the changes in a contract instance.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -226,8 +227,16 @@ pub fn decode_output<I: Iterator<Item = Felt252>>(output_iter: &mut I) -> Result
     };
 
     if use_kzg_da {
-        // TODO: this needs an explanation
-        let _: Vec<_> = output_iter.by_ref().take(6).collect();
+        // Skip KZG data.
+        let kzg_segment: Vec<_> = output_iter.by_ref().take(2).collect();
+        let n_blobs: usize = kzg_segment
+            .get(KZG_N_BLOBS_OFFSET)
+            .expect("Should have n_blobs in header when using kzg da")
+            .to_biguint()
+            .try_into()
+            .expect("n_blobs should fit in a usize");
+        // Skip 'n_blobs' commitments and evaluations.
+        let _: Vec<_> = output_iter.by_ref().take(2 * 2 * n_blobs).collect();
     }
 
     let messages_to_l1 = read_variable_length_segment(output_iter, "L1 messages")?;
