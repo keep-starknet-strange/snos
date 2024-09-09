@@ -41,7 +41,7 @@ pub enum FftError {
     ParseBigIntError(ParseBigIntError),
 
     #[error("Encountered a c_kzg error: {0}")]
-    CKzgError(c_kzg::Error),
+    CKzgError(#[from] c_kzg::Error),
 
     #[error("Encountered an internal io error: {0}")]
     IoError(io::Error),
