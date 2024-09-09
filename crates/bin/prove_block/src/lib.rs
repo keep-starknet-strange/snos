@@ -68,11 +68,11 @@ fn compute_class_commitment(
     class_proofs: &HashMap<Felt, PathfinderClassProof>,
 ) -> CommitmentInfo {
     for (class_hash, previous_class_proof) in previous_class_proofs {
-        assert!(previous_class_proof.verify(*class_hash).is_ok());
+        previous_class_proof.verify(*class_hash).expect("Could not verify previous_class_proof");
     }
 
     for (class_hash, class_proof) in class_proofs {
-        assert!(class_proof.verify(*class_hash).is_ok());
+        class_proof.verify(*class_hash).expect("Could not verify class_proof");
     }
 
     let previous_class_proofs: Vec<_> = previous_class_proofs.values().cloned().collect();
