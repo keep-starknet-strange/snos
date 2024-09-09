@@ -72,6 +72,9 @@ impl AsyncRpcStateReader {
     pub async fn get_compiled_contract_class_async(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         let contract_class = match self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0).await {
             Ok(contract_class) => Ok(contract_class),
+            // If the ContractClass is declared in the current block,
+            // might trigger this error when trying to get it on the previous block.
+            // Returning a `UndeclaredClassHash` allows blockifier to continue execution
             Err(ProviderError::StarknetError(StarknetError::ClassHashNotFound)) => {
                 Err(StateError::UndeclaredClassHash(ClassHash(class_hash.0)))
             }
