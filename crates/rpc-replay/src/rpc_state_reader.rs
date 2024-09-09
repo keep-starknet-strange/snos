@@ -75,6 +75,7 @@ impl AsyncRpcStateReader {
             // If the ContractClass is declared in the current block,
             // might trigger this error when trying to get it on the previous block.
             // Returning a `UndeclaredClassHash` allows blockifier to continue execution
+            // Reference: https://github.com/starkware-libs/sequencer/blob/1ade15c645882e3a0bd70ef8f79b23fc66a517e0/crates/blockifier/src/state/cached_state.rs#L178-L200
             Err(ProviderError::StarknetError(StarknetError::ClassHashNotFound)) => {
                 Err(StateError::UndeclaredClassHash(ClassHash(class_hash.0)))
             }
