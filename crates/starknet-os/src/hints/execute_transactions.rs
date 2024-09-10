@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name,
 };
+use cairo_vm::hint_processor::builtin_hint_processor::sha256_utils::sha256_finalize;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -130,6 +131,39 @@ pub fn fill_holes_in_rc96_segment(
             vm.insert_value(address, Felt252::ZERO)?;
         }
     }
+
+    Ok(())
+}
+
+#[allow(unused)]
+pub const HINT_1: &str = indoc! {r#"# Add dummy pairs of input and output.
+from starkware.cairo.common.cairo_sha256.sha256_utils import (
+    IV,
+    compute_message_schedule,
+    sha2_compress_function,
+)
+
+number_of_missing_blocks = (-ids.n) % ids.BATCH_SIZE
+assert 0 <= number_of_missing_blocks < 20
+_sha256_input_chunk_size_felts = ids.SHA256_INPUT_CHUNK_SIZE_FELTS
+assert 0 <= _sha256_input_chunk_size_felts < 100
+
+message = [0] * _sha256_input_chunk_size_felts
+w = compute_message_schedule(message)
+output = sha2_compress_function(IV, w)
+padding = (message + IV + output) * number_of_missing_blocks
+segments.write_arg(ids.sha256_ptr_end, padding)"#};
+
+pub fn hint_1(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    // All the logic that is needed here is already implemented in cairo-vm
+    // Check sha256_utils.rs for implementation details
+    sha256_finalize(vm, ids_data, ap_tracking)?;
 
     Ok(())
 }
