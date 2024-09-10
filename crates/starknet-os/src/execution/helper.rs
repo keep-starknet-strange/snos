@@ -15,6 +15,7 @@ use tokio::sync::RwLock;
 
 use super::secp_handler::SecpSyscallProcessor;
 use crate::config::STORED_BLOCK_HASH_BUFFER;
+use crate::starknet::core::os::kzg_manager::KzgManager;
 use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
 use crate::storage::storage::StorageError;
 
@@ -27,6 +28,7 @@ where
     PCS: PerContractStorage,
 {
     pub _prev_block_context: Option<BlockContext>,
+    pub kzg_manager: KzgManager,
     // Pointer tx execution info
     pub tx_execution_info_iter: IntoIter<TransactionExecutionInfo>,
     // Tx info for transaction currently being executed
@@ -81,6 +83,7 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ExecutionHelper")
             .field("_prev_block_context", &self._prev_block_context)
+            .field("kzg_manager", &self.kzg_manager)
             .field("tx_execution_info_iter", &self.tx_execution_info_iter)
             .field("tx_execution_info", &self.tx_execution_info)
             .field("tx_info_ptr", &self.tx_info_ptr)
@@ -120,6 +123,7 @@ where
         Self {
             execution_helper: Rc::new(RwLock::new(ExecutionHelper {
                 _prev_block_context: prev_block_context,
+                kzg_manager: Default::default(),
                 tx_execution_info_iter: tx_execution_infos.into_iter(),
                 tx_execution_info: None,
                 tx_info_ptr: None,

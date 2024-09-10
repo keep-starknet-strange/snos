@@ -11,7 +11,7 @@ use indoc::indoc;
 
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
-use crate::utils::set_variable_in_root_exec_scope;
+use crate::utils::{execute_coroutine, set_variable_in_root_exec_scope};
 
 pub const WRITE_FULL_OUTPUT_TO_MEM: &str = indoc! {r#"memory[fp + 19] = to_felt_or_relocatable(os_input.full_output)"#};
 
@@ -32,6 +32,15 @@ pub const CONFIGURE_KZG_MANAGER: &str = indoc! {r#"__serialize_data_availability
 kzg_manager = execution_helper.kzg_manager"#};
 
 pub fn configure_kzg_manager(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    execute_coroutine(configure_kzg_manager_async(vm, exec_scopes, ids_data, ap_tracking, constants))?
+}
+pub async fn configure_kzg_manager_async(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
@@ -39,7 +48,8 @@ pub fn configure_kzg_manager(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     set_variable_in_root_exec_scope(exec_scopes, vars::scopes::SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES, true);
-    // TODO: set kzg_manager
+
+    // We don't leave kzg_manager in scope here, it can be obtained through execution_helper later
 
     Ok(())
 }

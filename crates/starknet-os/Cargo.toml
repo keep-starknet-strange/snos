@@ -19,6 +19,7 @@ cairo-lang-starknet-classes = { workspace = true }
 cairo-lang-casm = { workspace = true }
 cairo-type-derive = { path = "../cairo-type-derive" }
 cairo-vm = { workspace = true }
+c-kzg = { workspace = true }
 futures = { workspace = true }
 futures-util = { workspace = true }
 heck = { workspace = true }

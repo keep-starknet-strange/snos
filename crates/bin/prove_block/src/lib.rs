@@ -10,7 +10,7 @@ use rpc_client::pathfinder::proofs::PathfinderClassProof;
 use rpc_client::RpcClient;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
-use rpc_replay::transactions::starknet_rs_to_blockifier;
+use rpc_replay::transactions::{starknet_rs_to_blockifier, ToBlockifierError};
 use rpc_utils::{get_class_proofs, get_storage_proofs};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, StarknetError};
 use starknet::providers::{Provider, ProviderError};
@@ -61,6 +61,8 @@ pub enum ProveBlockError {
     LegacyContractDecompressionError(#[from] LegacyContractDecompressionError),
     #[error("Starknet API Error: {0}")]
     StarknetApiError(StarknetApiError),
+    #[error("To Blockifier Error: {0}")]
+    ToBlockifierError(#[from] ToBlockifierError),
 }
 
 fn compute_class_commitment(
@@ -68,11 +70,11 @@ fn compute_class_commitment(
     class_proofs: &HashMap<Felt, PathfinderClassProof>,
 ) -> CommitmentInfo {
     for (class_hash, previous_class_proof) in previous_class_proofs {
-        assert!(previous_class_proof.verify(*class_hash).is_ok());
+        previous_class_proof.verify(*class_hash).expect("Could not verify previous_class_proof");
     }
 
-    for (class_hash, class_proof) in previous_class_proofs {
-        assert!(class_proof.verify(*class_hash).is_ok());
+    for (class_hash, class_proof) in class_proofs {
+        class_proof.verify(*class_hash).expect("Could not verify class_proof");
     }
 
     let previous_class_proofs: Vec<_> = previous_class_proofs.values().cloned().collect();
@@ -160,8 +162,9 @@ pub async fn prove_block(
     assert_eq!(block_with_txs.transactions.len(), traces.len(), "Transactions and traces must have the same length");
     let mut txs = Vec::new();
     for (tx, trace) in block_with_txs.transactions.iter().zip(traces.iter()) {
-        let transaction = starknet_rs_to_blockifier(tx, trace, &block_context.block_info().gas_prices)
-            .map_err(ProveBlockError::from)?;
+        let transaction =
+            starknet_rs_to_blockifier(tx, trace, &block_context.block_info().gas_prices, &rpc_client, block_number)
+                .await?;
         txs.push(transaction);
     }
     let tx_execution_infos = reexecute_transactions_with_blockifier(&mut blockifier_state, &block_context, txs)?;
@@ -253,9 +256,10 @@ pub async fn prove_block(
     // TODO: we fetch proofs here for block-1, but we probably also need to fetch at the current
     //       block, likely for contracts that are deployed in this block
     let class_proofs =
-        get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..]).await.expect("Failed to fetch class proofs");
-    let previous_class_proofs =
-        get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..]).await.expect("Failed to fetch class proofs");
+        get_class_proofs(&rpc_client, block_number, &class_hashes[..]).await.expect("Failed to fetch class proofs");
+    let previous_class_proofs = get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..])
+        .await
+        .expect("Failed to fetch previous class proofs");
 
     let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
         .visited_pcs
@@ -326,6 +330,7 @@ pub fn debug_prove_error(err: ProveBlockError) -> ProveBlockError {
             log::error!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
             log::error!("inst_location:\n{:?}", inst_location);
         }
+        log::error!("\ninner_exc error: {}\n", vme.inner_exc);
     }
     err
 }

@@ -38,6 +38,7 @@ mod deprecated_compiled_class;
 mod execute_transactions;
 pub mod execution;
 mod find_element;
+mod kzg;
 mod os;
 mod output;
 mod patricia;
@@ -169,6 +170,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(os::WRITE_FULL_OUTPUT_TO_MEM.into(), os::write_full_output_to_mem);
     hints.insert(os::SET_AP_TO_NEW_BLOCK_HASH.into(), os::set_ap_to_new_block_hash);
     hints.insert(os::SET_AP_TO_PREV_BLOCK_HASH.into(), os::set_ap_to_prev_block_hash);
+    hints.insert(kzg::STORE_DA_SEGMENT.into(), kzg::store_da_segment::<PCS>);
     hints.insert(output::SET_STATE_UPDATES_START.into(), output::set_state_updates_start);
     hints.insert(output::SET_TREE_STRUCTURE.into(), output::set_tree_structure);
     hints.insert(patricia::ASSERT_CASE_IS_RIGHT.into(), patricia::assert_case_is_right);
@@ -243,7 +245,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(syscalls::STORAGE_WRITE.into(), syscalls::storage_write::<PCS>);
     hints.insert(transaction_hash::ADDITIONAL_DATA_NEW_SEGMENT.into(), transaction_hash::additional_data_new_segment);
     hints.insert(transaction_hash::DATA_TO_HASH_NEW_SEGMENT.into(), transaction_hash::data_to_hash_new_segment);
-    hints.insert(block_context::WRITE_USE_ZKG_DA_TO_MEM.into(), block_context::write_use_zkg_da_to_mem);
+    hints.insert(block_context::WRITE_USE_KZG_DA_TO_MEM.into(), block_context::write_use_kzg_da_to_mem);
     hints.insert(compiled_class::SET_AP_TO_SEGMENT_HASH.into(), compiled_class::set_ap_to_segment_hash);
     hints.insert(secp::READ_EC_POINT_ADDRESS.into(), secp::read_ec_point_from_address);
     hints
