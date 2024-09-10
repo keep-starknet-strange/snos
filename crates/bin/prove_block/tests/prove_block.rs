@@ -10,6 +10,7 @@ use rstest::rstest;
 // # * 87019: diff assert values in contract subcall
 // # * 90000: one of the subcalls results in a call to `replace_class()`.
 // # * 87041: block with nonce bump inconsistency
+// # * 66645 / 66776: Blob DA blocks
 // # * 97581, 101556, 102076 deploy account txns
 #[rstest]
 #[case::small_block_with_only_invoke_txs(76793)]
@@ -24,6 +25,8 @@ use rstest::rstest;
 #[case::l1_handler(98000)]
 #[case::invoke_with_call_to_deploy_syscall(124534)]
 #[case::block_with_nonce_bump_inconsistency(87041)]
+#[case::block_with_blob_da_1(66645)]
+#[case::block_with_blob_da_2(66776)]
 #[case::declare_tx(76840)]
 #[case::deploy_account_v1(97581)]
 #[case::deploy_account_v3(101556)]

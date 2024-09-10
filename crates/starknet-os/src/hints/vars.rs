@@ -38,6 +38,7 @@ pub mod ids {
     pub const ALL_ENCODINGS: &str = "all_encodings";
     pub const ARRAY_PTR: &str = "array_ptr";
     pub const BIT: &str = "bit";
+    pub const BLOB_LENGTH: &str = "starkware.starknet.core.os.data_availability.commitment.BLOB_LENGTH";
     pub const BUILTIN_PARAMS: &str = "builtin_params";
     pub const BUILTIN_PTRS: &str = "builtin_ptrs";
     pub const CALL_RESPONSE: &str = "call_response";
@@ -57,6 +58,7 @@ pub mod ids {
     pub const CONTRACT_STATE_CHANGES: &str = "contract_state_changes";
     pub const CURRENT_BLOCK_NUMBER: &str = "current_block_number";
     pub const CURRENT_HASH: &str = "current_hash";
+    pub const DA_SIZE: &str = "da_size";
     pub const DA_START: &str = "da_start";
     pub const DATA_TO_HASH: &str = "data_to_hash";
     pub const DEPRECATED_TX_INFO: &str = "deprecated_tx_info";
@@ -69,6 +71,7 @@ pub mod ids {
     pub const ENTRY_POINT_RETURN_VALUES: &str = "entry_point_return_values";
     pub const EXECUTION_CONTEXT: &str = "execution_context";
     pub const EXISTS: &str = "exists";
+    pub const EVALS: &str = "evals";
     pub const FINAL_CONTRACT_STATE_ROOT: &str = "final_contract_state_root";
     pub const FINAL_ROOT: &str = "final_root";
     pub const HASH_PTR: &str = "hash_ptr";
@@ -83,11 +86,14 @@ pub mod ids {
     pub const INITIAL_ROOT: &str = "initial_root";
     pub const IS_ON_CURVE: &str = "is_on_curve";
     pub const USE_KZG_DA: &str = "use_kzg_da";
+    pub const KZG_COMMITMENT: &str = "kzg_commitment";
     pub const KEY: &str = "key";
+    pub const KZG_COMMITMENTS: &str = "kzg_commitments";
     pub const LENGTH: &str = "length";
     pub const LOW: &str = "low";
     pub const MAX_FEE: &str = "max_fee";
     pub const N: &str = "n";
+    pub const N_BLOBS: &str = "n_blobs";
     pub const N_BUILTINS: &str = "n_builtins";
     pub const N_ELMS: &str = "n_elms";
     pub const N_COMPILED_CLASS_FACTS: &str = "n_compiled_class_facts";
@@ -130,6 +136,7 @@ pub mod ids {
     pub const SRC_PTR: &str = "src_ptr";
     pub const STATE_ENTRY: &str = "state_entry";
     pub const STATE_UPDATES_START: &str = "state_updates_start";
+    pub const STATE_UPDATES_END: &str = "state_updates_end";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
     pub const TRANSACTION_HASH: &str = "transaction_hash";
     pub const TX_EXECUTION_CONTEXT: &str = "tx_execution_context";
