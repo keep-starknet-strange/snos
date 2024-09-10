@@ -2,7 +2,7 @@ use std::error::Error;
 
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
-use prove_block::debug_prove_error;
+use prove_block::{debug_prove_error, ProveBlockError};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -24,7 +24,7 @@ fn init_logging() {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Box<ProveBlockError>> {
     init_logging();
 
     let args = Args::parse();
@@ -33,6 +33,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let layout = LayoutName::all_cairo;
 
     let result = prove_block::prove_block(block_number, &args.rpc_provider, layout).await;
-    let (_pie, _output) = result.map_err(debug_prove_error).expect("Block could not be proven");
-    Ok(())
+    match result {
+        Ok((_pie, _output)) => {
+            println!("Block {} proven successfully", block_number);
+            Ok(())
+        },
+        Err(err) => {
+            // Use debug_prove_error to format the error and return it
+            let formatted_error = debug_prove_error(err);
+            eprintln!("Error proving block {}: {:?}", block_number, formatted_error);
+            Err(Box::new(formatted_error)) // Return the error here
+        }
+    }
 }
+
