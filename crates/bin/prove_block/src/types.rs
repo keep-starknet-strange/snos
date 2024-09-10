@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use cairo_vm::Felt252;
 use rpc_replay::transactions::resource_bounds_core_to_api;
 use starknet::core::types::{
@@ -6,6 +8,8 @@ use starknet::core::types::{
     InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction,
     Transaction,
 };
+use starknet_api::core::{calculate_contract_address, ClassHash};
+use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_os::io::InternalTransaction;
 
 // entry point for "__execute__"
@@ -101,6 +105,7 @@ fn declare_v0_to_internal_tx(input: DeclareTransactionV0) -> InternalTransaction
         signature: Some(input.signature.into_iter().map(Felt252::from).collect()),
         class_hash: Some(input.class_hash),
         r#type: "DECLARE".to_string(),
+        version: Some(Felt252::ZERO),
         ..Default::default()
     }
 }
@@ -114,6 +119,7 @@ fn declare_v1_to_internal_tx(input: DeclareTransactionV1) -> InternalTransaction
         nonce: Some(input.nonce),
         class_hash: Some(input.class_hash),
         r#type: "DECLARE".to_string(),
+        version: Some(Felt252::ONE),
         ..Default::default()
     }
 }
@@ -128,6 +134,7 @@ fn declare_v2_to_internal_tx(input: DeclareTransactionV2) -> InternalTransaction
         nonce: Some(input.nonce),
         class_hash: Some(input.class_hash),
         r#type: "DECLARE".to_string(),
+        version: Some(Felt252::TWO),
         ..Default::default()
     }
 }
@@ -147,20 +154,35 @@ fn declare_v3_to_internal_tx(input: DeclareTransactionV3) -> InternalTransaction
         nonce_data_availability_mode: Some(da_to_felt(input.nonce_data_availability_mode)),
         fee_data_availability_mode: Some(da_to_felt(input.fee_data_availability_mode)),
         r#type: "DECLARE".to_string(),
+        version: Some(Felt252::THREE),
         ..Default::default()
     }
 }
 
 fn deploy_account_v1_to_internal_tx(input: DeployAccountTransactionV1) -> InternalTransaction {
+    let entry_point_selector = Some(Felt252::ZERO);
     InternalTransaction {
         hash_value: input.transaction_hash,
         max_fee: Some(input.max_fee),
         signature: Some(input.signature.into_iter().map(Felt252::from).collect()),
         nonce: Some(input.nonce),
         contract_address_salt: Some(input.contract_address_salt),
-        constructor_calldata: Some(input.constructor_calldata.into_iter().map(Felt252::from).collect()),
+        constructor_calldata: Some(input.constructor_calldata.clone()),
         class_hash: Some(input.class_hash),
         r#type: "DEPLOY_ACCOUNT".to_string(),
+        version: Some(Felt252::ONE),
+        entry_point_selector,
+        contract_address: Some(
+            *calculate_contract_address(
+                ContractAddressSalt(input.contract_address_salt),
+                ClassHash(input.class_hash),
+                &Calldata(Arc::new(input.constructor_calldata)),
+                Default::default(),
+            )
+            .unwrap()
+            .0
+            .key(),
+        ),
         ..Default::default()
     }
 }
@@ -179,6 +201,7 @@ pub fn deploy_account_v3_to_internal_tx(input: DeployAccountTransactionV3) -> In
         nonce_data_availability_mode: Some(da_to_felt(input.nonce_data_availability_mode)),
         fee_data_availability_mode: Some(da_to_felt(input.fee_data_availability_mode)),
         r#type: "DEPLOY_ACCOUNT".to_string(),
+        version: Some(Felt252::THREE),
         ..Default::default()
     }
 }
@@ -441,12 +464,13 @@ mod tests {
         );
         assert_eq!(result.class_hash, Some(input.class_hash));
         assert_eq!(result.r#type, "DEPLOY_ACCOUNT".to_string());
+        assert!(result.contract_address.is_some());
+        assert_eq!(result.entry_point_selector, Some(Felt::ZERO));
 
         // Check defaulted fields
-        assert_eq!(result.contract_address, None);
         assert_eq!(result.contract_hash, None);
         assert_eq!(result.compiled_class_hash, None);
-        assert_eq!(result.entry_point_selector, None);
+
         assert_eq!(result.tip, None);
         assert_eq!(result.resource_bounds, None);
         assert_eq!(result.paymaster_data, None);
