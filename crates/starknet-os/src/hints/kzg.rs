@@ -56,9 +56,7 @@ fn inner_fft(coeffs: &[BigInt], group: &[BigInt], prime: &BigInt) -> Vec<BigInt>
     }
 
     // These calls involve a clone and a collect
-    // This not cheap and can possibly be improved with using `T: Iter<BigInt>`.
-    // It is tricky though as the method is very recursive and would require
-    // increasing the `recursive_limit` to crazy numbers
+    // This not cheap and can possibly be improved by using dynamic iterators or transform the function to make it not recursive
     let f_even = inner_fft(
         &coeffs.iter().step_by(2).cloned().collect::<Vec<_>>(),
         &group.iter().step_by(2).cloned().collect::<Vec<_>>(),
