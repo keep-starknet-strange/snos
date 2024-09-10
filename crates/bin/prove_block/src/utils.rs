@@ -46,7 +46,19 @@ pub(crate) fn get_subcalled_contracts_from_tx_traces(
                 );
             }
 
-            _ => unimplemented!("process other txn traces"),
+            TransactionTrace::DeployAccount(deploy_trace) => {
+                if let Some(inv) = &deploy_trace.validate_invocation {
+                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
+                }
+                if let Some(inv) = &deploy_trace.fee_transfer_invocation {
+                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
+                }
+                process_function_invocations(
+                    &deploy_trace.constructor_invocation,
+                    &mut contracts_subcalled,
+                    &mut classes_subcalled,
+                );
+            }
         }
     }
     (contracts_subcalled, classes_subcalled)

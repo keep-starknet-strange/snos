@@ -48,13 +48,12 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_nonce_at_async(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        let nonce = self
-            .rpc_client
-            .starknet_rpc()
-            .get_nonce(self.block_id, *contract_address.key())
-            .await
-            .map_err(provider_error_to_state_error)?;
-
+        let res = self.rpc_client.starknet_rpc().get_nonce(self.block_id, *contract_address.key()).await;
+        let nonce = match res {
+            Ok(value) => Ok(value),
+            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
+            Err(e) => Err(provider_error_to_state_error(e)),
+        }?;
         Ok(Nonce(nonce))
     }
 

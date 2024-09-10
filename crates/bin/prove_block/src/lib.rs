@@ -70,11 +70,11 @@ fn compute_class_commitment(
     class_proofs: &HashMap<Felt, PathfinderClassProof>,
 ) -> CommitmentInfo {
     for (class_hash, previous_class_proof) in previous_class_proofs {
-        assert!(previous_class_proof.verify(*class_hash).is_ok());
+        previous_class_proof.verify(*class_hash).expect("Could not verify previous_class_proof");
     }
 
     for (class_hash, class_proof) in class_proofs {
-        assert!(class_proof.verify(*class_hash).is_ok());
+        class_proof.verify(*class_hash).expect("Could not verify class_proof");
     }
 
     let previous_class_proofs: Vec<_> = previous_class_proofs.values().cloned().collect();
@@ -257,8 +257,9 @@ pub async fn prove_block(
     //       block, likely for contracts that are deployed in this block
     let class_proofs =
         get_class_proofs(&rpc_client, block_number, &class_hashes[..]).await.expect("Failed to fetch class proofs");
-    let previous_class_proofs =
-        get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..]).await.expect("Failed to fetch class proofs");
+    let previous_class_proofs = get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..])
+        .await
+        .expect("Failed to fetch previous class proofs");
 
     let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
         .visited_pcs
