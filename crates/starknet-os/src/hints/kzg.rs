@@ -50,6 +50,22 @@ pub enum FftError {
     TooManyCoefficients,
 }
 
+/// Performs the recursive Fast Fourier Transform (FFT) on the input coefficient vector `coeffs`
+/// using the provided group elements `group` and modulus `prime`.
+///
+/// # Arguments
+///
+/// * `coeffs` - A slice of `BigInt` representing the coefficients of the polynomial.
+/// * `group` - A slice of `BigInt` representing the precomputed group elements for the FFT.
+/// * `prime` - A `BigInt` representing the prime modulus for the field operations.
+///
+/// # Returns
+///
+/// A `Vec<BigInt>` containing the transformed coefficients after applying the FFT.
+///
+/// # See More
+/// - https://en.wikipedia.org/wiki/Fast_Fourier_transform
+/// - https://github.com/starkware-libs/cairo-lang/blob/v0.13.2/src/starkware/python/math_utils.py#L310
 fn inner_fft(coeffs: &[BigInt], group: &[BigInt], prime: &BigInt) -> Vec<BigInt> {
     if coeffs.len() == 1 {
         return coeffs.to_vec();
