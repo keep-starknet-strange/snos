@@ -24,6 +24,7 @@ use rstest::rstest;
 #[case::l1_handler(98000)]
 #[case::invoke_with_call_to_deploy_syscall(124534)]
 #[case::block_with_nonce_bump_inconsistency(87041)]
+#[case::declare_tx(76840)]
 #[case::deploy_account_v1(97581)]
 #[case::deploy_account_v3(101556)]
 #[case::deploy_account_many_txs(102076)]

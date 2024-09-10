@@ -105,6 +105,7 @@ fn declare_v0_to_internal_tx(input: DeclareTransactionV0) -> InternalTransaction
         signature: Some(input.signature.into_iter().map(Felt252::from).collect()),
         class_hash: Some(input.class_hash),
         r#type: "DECLARE".to_string(),
+        version: Some(Felt252::ZERO),
         ..Default::default()
     }
 }
@@ -118,6 +119,7 @@ fn declare_v1_to_internal_tx(input: DeclareTransactionV1) -> InternalTransaction
         nonce: Some(input.nonce),
         class_hash: Some(input.class_hash),
         r#type: "DECLARE".to_string(),
+        version: Some(Felt252::ONE),
         ..Default::default()
     }
 }
@@ -132,6 +134,7 @@ fn declare_v2_to_internal_tx(input: DeclareTransactionV2) -> InternalTransaction
         nonce: Some(input.nonce),
         class_hash: Some(input.class_hash),
         r#type: "DECLARE".to_string(),
+        version: Some(Felt252::TWO),
         ..Default::default()
     }
 }
@@ -151,6 +154,7 @@ fn declare_v3_to_internal_tx(input: DeclareTransactionV3) -> InternalTransaction
         nonce_data_availability_mode: Some(da_to_felt(input.nonce_data_availability_mode)),
         fee_data_availability_mode: Some(da_to_felt(input.fee_data_availability_mode)),
         r#type: "DECLARE".to_string(),
+        version: Some(Felt252::THREE),
         ..Default::default()
     }
 }

@@ -30,6 +30,14 @@ pub(crate) fn get_subcalled_contracts_from_tx_traces(
                     process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
                 }
             }
+            TransactionTrace::Declare(declare_trace) => {
+                if let Some(inv) = &declare_trace.validate_invocation {
+                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
+                }
+                if let Some(inv) = &declare_trace.fee_transfer_invocation {
+                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
+                }
+            }
             TransactionTrace::L1Handler(l1handler_trace) => {
                 process_function_invocations(
                     &l1handler_trace.function_invocation,
@@ -51,8 +59,6 @@ pub(crate) fn get_subcalled_contracts_from_tx_traces(
                     &mut classes_subcalled,
                 );
             }
-
-            _ => unimplemented!("process other txn traces"),
         }
     }
     (contracts_subcalled, classes_subcalled)
