@@ -6,10 +6,13 @@ use starknet_core::types::contract::legacy::{
     LegacyContractClass, LegacyEntrypointOffset, RawLegacyAbiEntry, RawLegacyEntryPoint, RawLegacyEntryPoints,
     RawLegacyEvent, RawLegacyFunction, RawLegacyL1Handler, RawLegacyMember, RawLegacyStruct,
 };
+use starknet_core::types::contract::{AbiEntry, SierraClass, SierraClassDebugInfo};
 use starknet_core::types::{
-    CompressedLegacyContractClass, LegacyContractAbiEntry, LegacyContractEntryPoint, LegacyEntryPointsByType,
-    LegacyFunctionAbiEntry, LegacyFunctionAbiType, LegacyStructMember,
+    CompressedLegacyContractClass, FlattenedSierraClass, LegacyContractAbiEntry, LegacyContractEntryPoint,
+    LegacyEntryPointsByType, LegacyFunctionAbiEntry, LegacyFunctionAbiType, LegacyStructMember,
 };
+
+use crate::sierra_contract_class::StarknetCoreSierraContractClass;
 
 fn raw_abi_entry_from_legacy_function_abi_entry(entry: LegacyFunctionAbiEntry) -> RawLegacyAbiEntry {
     match entry.r#type {
@@ -117,6 +120,23 @@ pub(crate) fn decompress_starknet_core_contract_class(
         ),
         program,
     })
+}
+
+pub(crate) fn starknet_core_sierra_class_from_flattened(flattened_contract_class: FlattenedSierraClass) -> SierraClass {
+    // Some classes have invalid ABI strings on the RPC. If the conversion fails, just default
+    // to an empty vector here.
+    let abi: Vec<AbiEntry> = serde_json::from_str(&flattened_contract_class.abi).unwrap_or_default();
+    StarknetCoreSierraContractClass {
+        sierra_program: flattened_contract_class.sierra_program,
+        sierra_program_debug_info: SierraClassDebugInfo {
+            type_names: vec![],
+            libfunc_names: vec![],
+            user_func_names: vec![],
+        },
+        contract_class_version: flattened_contract_class.contract_class_version,
+        entry_points_by_type: flattened_contract_class.entry_points_by_type,
+        abi,
+    }
 }
 
 #[cfg(test)]

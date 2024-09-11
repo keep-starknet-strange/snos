@@ -123,14 +123,15 @@ async fn create_class_info(
         client.starknet_rpc().get_class(BlockId::Number(block_number), class_hash).await?;
 
     let (blockifier_contract_class, program_length, abi_length) = match starknet_contract_class {
-        starknet::core::types::ContractClass::Sierra(sierra) => {
-            let generic_sierra = GenericSierraContractClass::from(sierra);
-            let flattened_sierra = generic_sierra.clone().to_starknet_core_contract_class()?;
+        starknet::core::types::ContractClass::Sierra(sierra_class) => {
+            let program_length = sierra_class.sierra_program.len();
+            let abi_length = sierra_class.abi.len();
+            let generic_sierra = GenericSierraContractClass::from(sierra_class);
             let contract_class = blockifier::execution::contract_class::ContractClass::V1(
                 generic_sierra.compile()?.to_blockifier_contract_class()?,
             );
 
-            (contract_class, flattened_sierra.sierra_program.len(), flattened_sierra.abi.len())
+            (contract_class, program_length, abi_length)
         }
 
         starknet::core::types::ContractClass::Legacy(legacy) => {
