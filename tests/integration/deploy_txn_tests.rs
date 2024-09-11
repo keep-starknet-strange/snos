@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use blockifier::context::BlockContext;
 use blockifier::deploy_account_tx_args;
 use blockifier::test_utils::deploy_account::deploy_account_tx;
@@ -105,6 +107,7 @@ async fn deploy_cairo0_account(
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");
@@ -196,6 +199,7 @@ async fn deploy_cairo1_account(
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");

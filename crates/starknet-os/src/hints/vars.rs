@@ -9,6 +9,7 @@ pub mod scopes {
     pub const COMPILED_CLASS_FACTS: &str = "compiled_class_facts";
     pub const COMPILED_CLASS_VISITED_PCS: &str = "compiled_class_visited_pcs";
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
+    pub const COMPONENT_HASHES: &str = "component_hashes";
     pub const DEPRECATED_CLASS_HASHES: &str = "__deprecated_class_hashes";
     pub const DEPRECATED_SYSCALL_HANDLER: &str = "deprecated_syscall_handler";
     pub const DESCEND: &str = "descend";
@@ -55,6 +56,7 @@ pub mod ids {
     pub const CONSTRUCTOR_CALLDATA_SIZE: &str = "constructor_calldata_size";
     pub const CONTRACT_ADDRESS: &str = "contract_address";
     pub const CONTRACT_ADDRESS_SALT: &str = "contract_address_salt";
+    pub const CONTRACT_CLASS_COMPONENT_HASHES: &str = "contract_class_component_hashes";
     pub const CONTRACT_STATE_CHANGES: &str = "contract_state_changes";
     pub const CURRENT_BLOCK_NUMBER: &str = "current_block_number";
     pub const CURRENT_HASH: &str = "current_hash";

@@ -307,6 +307,7 @@ pub async fn prove_block(
         class_hash_to_compiled_class_hash,
         general_config,
         transactions,
+        declared_class_hash_to_component_hashes: Default::default(),
         new_block_hash: block_with_txs.block_hash,
         prev_block_hash: previous_block.block_hash,
         full_output: false,

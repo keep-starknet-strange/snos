@@ -1,7 +1,26 @@
 use indoc::indoc;
 
 #[allow(unused)]
-pub const HINT_1: &str = indoc! {r#"# Add dummy pairs of input and output.
+pub const HINT_1: &str = indoc! {r#"import itertools
+
+from starkware.python.utils import blockify
+
+kzg_manager.store_da_segment(
+    da_segment=memory.get_range_as_ints(addr=ids.state_updates_start, size=ids.da_size)
+)
+kzg_commitments = [
+    kzg_manager.polynomial_coefficients_to_kzg_commitment_callback(chunk)
+    for chunk in blockify(kzg_manager.da_segment, chunk_size=ids.BLOB_LENGTH)
+]
+
+ids.n_blobs = len(kzg_commitments)
+ids.kzg_commitments = segments.add_temp_segment()
+ids.evals = segments.add_temp_segment()
+
+segments.write_arg(ids.kzg_commitments.address_, list(itertools.chain(*kzg_commitments)))"#};
+
+#[allow(unused)]
+pub const HINT_3: &str = indoc! {r#"# Add dummy pairs of input and output.
 from starkware.cairo.common.cairo_sha256.sha256_utils import (
     IV,
     compute_message_schedule,
