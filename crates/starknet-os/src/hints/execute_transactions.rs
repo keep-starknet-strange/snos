@@ -174,7 +174,7 @@ pub fn set_component_hashes(
         ));
     }
 
-    let class_component_hashes: Vec<_> = class_component_hashes.iter().map(|x| MaybeRelocatable::from(x)).collect();
+    let class_component_hashes: Vec<_> = class_component_hashes.iter().map(MaybeRelocatable::from).collect();
 
     let arg_segment = vm.gen_arg(&class_component_hashes)?;
     insert_value_from_var_name(vars::ids::CONTRACT_CLASS_COMPONENT_HASHES, arg_segment, vm, ids_data, ap_tracking)?;

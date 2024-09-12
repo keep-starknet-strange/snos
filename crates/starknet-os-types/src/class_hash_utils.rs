@@ -20,7 +20,7 @@ fn compute_hash_on_sierra_entry_points<'a, EntryPoints: Iterator<Item = &'a Sier
     entry_points: EntryPoints,
 ) -> Felt {
     let flat_entry_points =
-        entry_points.flat_map(|entry_point| [Felt::from(entry_point.selector), Felt::from(entry_point.function_idx)]);
+        entry_points.flat_map(|entry_point| [entry_point.selector, Felt::from(entry_point.function_idx)]);
 
     poseidon_hash_many_felts(flat_entry_points)
 }
