@@ -31,7 +31,7 @@ fn hash_abi(abi: &str) -> Felt {
 
 /// Holds the hashes of the contract class components, to be used for calculating the final hash.
 /// Note: the order of the struct member must not be changed since it determines the hash order.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ContractClassComponentHashes {
     contract_class_version: Felt,
     external_functions_hash: Felt,

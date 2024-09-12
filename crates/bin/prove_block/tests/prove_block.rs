@@ -31,7 +31,7 @@ use rstest::rstest;
 #[case::deploy_account_v1(97581)]
 #[case::deploy_account_v3(101556)]
 #[case::deploy_account_many_txs(102076)]
-// #[ignore = "Requires a running Pathfinder node"]
+#[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
     let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
