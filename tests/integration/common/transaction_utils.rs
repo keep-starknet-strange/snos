@@ -886,7 +886,8 @@ where
         execute_txs(state, &block_context, txs, deprecated_contract_classes, contract_classes).await;
 
     let layout = config::default_layout();
-    let result = run_os(config::DEFAULT_COMPILED_OS, layout, os_input, block_context, execution_helper);
+    let uncompressed_os = config::gunzip_default_os().expect("Could not uncrompress default OS");
+    let result = run_os(uncompressed_os.as_bytes(), layout, os_input, block_context, execution_helper);
 
     match &result {
         Err(Runner(VmException(vme))) => {

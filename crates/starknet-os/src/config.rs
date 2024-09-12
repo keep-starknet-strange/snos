@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::io::Read as _;
 use std::path::PathBuf;
 
 use blockifier::blockifier::block::{BlockInfo, GasPrices};
@@ -7,6 +8,7 @@ use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::transaction::objects::FeeType;
 use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
+use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -23,7 +25,7 @@ pub const fn default_layout() -> LayoutName {
 // https://github.com/starkware-libs/blockifier/blob/8da582b285bfbc7d4c21178609bbd43f80a69240/crates/native_blockifier/src/py_block_executor.rs#L44
 const MAX_STEPS_PER_TX: u32 = 4_000_000;
 
-pub const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../build/os_latest.json");
+pub const DEFAULT_COMPILED_OS_GZIPPED: &[u8] = include_bytes!("../../../build/os_latest.json.gz");
 
 const DEFAULT_CONFIG_PATH: &str = "../../cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 pub const STORED_BLOCK_HASH_BUFFER: u64 = 10;
@@ -65,6 +67,20 @@ pub struct GasPriceBounds {
 
 const fn default_use_kzg_da() -> bool {
     true
+}
+
+/// un-gzips the default OS that is baked into the binary.
+///
+/// Uncompressed, this file is roughly 40M, and compresses effectively down to less than 1M.
+/// So it is included in the binary in gzipped form with this fn provided to reinflate it.
+///
+/// NOTE: the results are not cached, so this will always be an expensive call.
+pub fn gunzip_default_os() -> std::io::Result<String> {
+    let mut decoder = GzDecoder::new(DEFAULT_COMPILED_OS_GZIPPED);
+    let mut os_gunzipped = String::new();
+    let uncompressed_size = decoder.read_to_string(&mut os_gunzipped)?;
+    log::debug!("Os inflated from {}b (gzipped) to {}b (raw json)", DEFAULT_COMPILED_OS_GZIPPED.len(), uncompressed_size);
+    Ok(os_gunzipped)
 }
 
 #[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]

@@ -318,7 +318,8 @@ pub async fn prove_block(
         (old_block_number, old_block_hash),
     );
 
-    Ok(run_os(config::DEFAULT_COMPILED_OS, layout, os_input, block_context, execution_helper)?)
+    let uncompressed_os = config::gunzip_default_os().expect("Could not uncrompress default OS");
+    Ok(run_os(uncompressed_os.as_bytes(), layout, os_input, block_context, execution_helper)?)
 }
 
 pub fn debug_prove_error(err: ProveBlockError) -> ProveBlockError {
