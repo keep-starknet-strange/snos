@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use blockifier::context::BlockContext;
 use cairo_vm::cairo_run::CairoRunConfig;
 use cairo_vm::types::layout_name::LayoutName;
@@ -11,8 +9,6 @@ use error::SnOsError;
 use execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use execution::helper::ExecutionHelperWrapper;
 use io::output::StarknetOsOutput;
-use starknet_api::core::ClassHash;
-use starknet_os_types::class_hash_utils::ContractClassComponentHashes;
 
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::types::{PatriciaSkipValidationRunner, PatriciaTreeMode};
