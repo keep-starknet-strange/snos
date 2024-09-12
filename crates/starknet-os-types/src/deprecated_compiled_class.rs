@@ -1,5 +1,5 @@
 use std::cell::OnceCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -20,9 +20,9 @@ pub type BlockifierDeprecatedClass = blockifier::execution::contract_class::Cont
 /// Fields are boxed in an RC for cheap cloning.
 #[derive(Debug, Clone)]
 pub struct GenericDeprecatedCompiledClass {
-    blockifier_contract_class: OnceCell<Rc<BlockifierDeprecatedClass>>,
-    starknet_api_contract_class: OnceCell<Rc<StarknetApiDeprecatedClass>>,
-    starknet_core_contract_class: OnceCell<Rc<StarknetCoreDeprecatedClass>>,
+    blockifier_contract_class: OnceCell<Arc<BlockifierDeprecatedClass>>,
+    starknet_api_contract_class: OnceCell<Arc<StarknetApiDeprecatedClass>>,
+    starknet_core_contract_class: OnceCell<Arc<StarknetCoreDeprecatedClass>>,
     serialized_class: OnceCell<Vec<u8>>,
     class_hash: OnceCell<GenericClassHash>,
 }
@@ -56,13 +56,13 @@ impl GenericDeprecatedCompiledClass {
 
     pub fn get_starknet_api_contract_class(&self) -> Result<&StarknetApiDeprecatedClass, ContractClassError> {
         self.starknet_api_contract_class
-            .get_or_try_init(|| self.build_starknet_api_class().map(Rc::new))
+            .get_or_try_init(|| self.build_starknet_api_class().map(Arc::new))
             .map(|boxed| boxed.as_ref())
     }
 
     pub fn get_blockifier_contract_class(&self) -> Result<&BlockifierDeprecatedClass, ContractClassError> {
         self.blockifier_contract_class
-            .get_or_try_init(|| self.build_blockifier_class().map(Rc::new))
+            .get_or_try_init(|| self.build_blockifier_class().map(Arc::new))
             .map(|boxed| boxed.as_ref())
     }
 
@@ -128,7 +128,7 @@ impl From<StarknetApiDeprecatedClass> for GenericDeprecatedCompiledClass {
     fn from(starknet_api_class: StarknetApiDeprecatedClass) -> Self {
         Self {
             blockifier_contract_class: Default::default(),
-            starknet_api_contract_class: OnceCell::from(Rc::new(starknet_api_class)),
+            starknet_api_contract_class: OnceCell::from(Arc::new(starknet_api_class)),
             starknet_core_contract_class: Default::default(),
             serialized_class: Default::default(),
             class_hash: Default::default(),
@@ -151,7 +151,7 @@ impl TryFrom<CompressedStarknetCoreDeprecatedClass> for GenericDeprecatedCompile
 impl From<BlockifierDeprecatedClass> for GenericDeprecatedCompiledClass {
     fn from(blockifier_class: BlockifierDeprecatedClass) -> Self {
         Self {
-            blockifier_contract_class: OnceCell::from(Rc::new(blockifier_class)),
+            blockifier_contract_class: OnceCell::from(Arc::new(blockifier_class)),
             starknet_api_contract_class: Default::default(),
             starknet_core_contract_class: Default::default(),
             serialized_class: Default::default(),
@@ -165,7 +165,7 @@ impl From<StarknetCoreDeprecatedClass> for GenericDeprecatedCompiledClass {
         Self {
             blockifier_contract_class: Default::default(),
             starknet_api_contract_class: Default::default(),
-            starknet_core_contract_class: OnceCell::from(Rc::new(starknet_core_class)),
+            starknet_core_contract_class: OnceCell::from(Arc::new(starknet_core_class)),
             serialized_class: Default::default(),
             class_hash: Default::default(),
         }
