@@ -10,3 +10,4 @@ git submodule update --init
 echo -e "\nremoving compiled contracts/programs...\n"
 rm starkware
 rm -rf build/!(os_latest.json)
+rm -rf build/!(os_latest.json.gz)

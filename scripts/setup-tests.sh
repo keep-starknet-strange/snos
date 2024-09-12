@@ -44,6 +44,7 @@ cairo-compile tests/integration/programs/fact.cairo --output build/programs/fact
 # compile os with debug info
 cairo-compile --debug_info_with_source cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_debug.json --cairo_path cairo-lang/src
 cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
+gzip -f build/os_latest.json
 
 # compile starknet contract
 echo -e "compiling starknet contracts...\n"
