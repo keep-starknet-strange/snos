@@ -135,8 +135,7 @@ pub fn fill_holes_in_rc96_segment(
     Ok(())
 }
 
-#[allow(unused)]
-pub const HINT_1: &str = indoc! {r#"# Add dummy pairs of input and output.
+pub const SHA2_FINALIZE: &str = indoc! {r#"# Add dummy pairs of input and output.
 from starkware.cairo.common.cairo_sha256.sha256_utils import (
     IV,
     compute_message_schedule,
@@ -154,7 +153,7 @@ output = sha2_compress_function(IV, w)
 padding = (message + IV + output) * number_of_missing_blocks
 segments.write_arg(ids.sha256_ptr_end, padding)"#};
 
-pub fn hint_1(
+pub fn sha2_finalize(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,

@@ -249,7 +249,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(block_context::WRITE_USE_KZG_DA_TO_MEM.into(), block_context::write_use_kzg_da_to_mem);
     hints.insert(compiled_class::SET_AP_TO_SEGMENT_HASH.into(), compiled_class::set_ap_to_segment_hash);
     hints.insert(secp::READ_EC_POINT_ADDRESS.into(), secp::read_ec_point_from_address);
-    hints.insert(execute_transactions::HINT_1.into(), execute_transactions::hint_1);
+    hints.insert(execute_transactions::SHA2_FINALIZE.into(), execute_transactions::sha2_finalize);
     hints
 }
 
