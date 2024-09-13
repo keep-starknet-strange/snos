@@ -151,6 +151,8 @@ pub(crate) async fn get_storage_proofs(
 /// not be included in the proof as the key does not follow the edge. We need to compute a key
 /// that will follow the edge in order to get that bottom node. For example, the key 0x00B0 will
 /// follow that edge.
+/// 
+/// An important note is that heigh = 0 at the level of leaf nodes (as opposed to the rest of the OS)
 ///
 /// To achieve this, we zero the part of the key at the height of the edge and then replace it
 /// with the path of the edge. This is achieved with bitwise operations. For our example,
