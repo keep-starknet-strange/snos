@@ -41,6 +41,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
 serde_yaml = { workspace = true }
+sha2 = { workspace = true }
 starknet_api = { workspace = true }
 starknet-crypto = { workspace = true }
 starknet-os-types = { path = "../starknet-os-types" }

@@ -215,7 +215,8 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(syscalls::EXIT_LIBRARY_CALL_L1_HANDLER_SYSCALL.into(), syscalls::exit_library_call_l1_handler_syscall);
     hints.insert(syscalls::EXIT_LIBRARY_CALL_SYSCALL.into(), syscalls::exit_library_call_syscall);
     hints.insert(syscalls::EXIT_REPLACE_CLASS_SYSCALL.into(), syscalls::exit_replace_class_syscall);
-    hints.insert(syscalls::EXIT_SECP256K1_ADD_SYSCALL.into(), syscalls::exit_secp256k1_add_syscall);
+    hints.insert(syscalls::EXIT_SECP256K1_ADD_SYSCALL.into(), syscalls::exit_sha256_process_block_syscall);
+    hints.insert(syscalls::EXIT_SHA256_PROCESS_BLOCK_SYSCALL.into(), syscalls::exit_secp256k1_add_syscall);
     hints.insert(syscalls::EXIT_SECP256K1_GET_POINT_FROM_X_SYSCALL.into(), syscalls::exit_secp256k1_get_point_from_x_syscall);
     hints.insert(syscalls::EXIT_SECP256K1_GET_XY_SYSCALL.into(), syscalls::exit_secp256k1_get_xy_syscall);
     hints.insert(syscalls::EXIT_SECP256K1_MUL_SYSCALL.into(), syscalls::exit_secp256k1_mul_syscall);
@@ -248,6 +249,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(block_context::WRITE_USE_KZG_DA_TO_MEM.into(), block_context::write_use_kzg_da_to_mem);
     hints.insert(compiled_class::SET_AP_TO_SEGMENT_HASH.into(), compiled_class::set_ap_to_segment_hash);
     hints.insert(secp::READ_EC_POINT_ADDRESS.into(), secp::read_ec_point_from_address);
+    hints.insert(execute_transactions::SHA2_FINALIZE.into(), execute_transactions::sha2_finalize);
     hints
 }
 
