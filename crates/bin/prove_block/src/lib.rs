@@ -319,7 +319,7 @@ pub async fn prove_block(
     );
 
     let uncompressed_os = config::gunzip_default_os().expect("Could not uncompress default OS");
-    Ok(run_os(uncompressed_os.as_bytes(), layout, os_input, block_context, execution_helper)?)
+    Ok(run_os(uncompressed_os.as_slice(), layout, os_input, block_context, execution_helper)?)
 }
 
 pub fn debug_prove_error(err: ProveBlockError) -> ProveBlockError {

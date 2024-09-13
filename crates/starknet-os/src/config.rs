@@ -75,10 +75,10 @@ const fn default_use_kzg_da() -> bool {
 /// So it is included in the binary in gzipped form with this fn provided to reinflate it.
 ///
 /// NOTE: the results are not cached, so this will always be an expensive call.
-pub fn gunzip_default_os() -> std::io::Result<String> {
+pub fn gunzip_default_os() -> std::io::Result<Vec<u8>> {
     let mut decoder = GzDecoder::new(DEFAULT_COMPILED_OS_GZIPPED);
-    let mut os_gunzipped = String::new();
-    let uncompressed_size = decoder.read_to_string(&mut os_gunzipped)?;
+    let mut os_gunzipped = Vec::<u8>::new();
+    let uncompressed_size = decoder.read_to_end(&mut os_gunzipped)?;
     log::debug!(
         "Os inflated from {}b (gzipped) to {}b (raw json)",
         DEFAULT_COMPILED_OS_GZIPPED.len(),

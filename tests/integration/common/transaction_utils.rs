@@ -887,7 +887,7 @@ where
 
     let layout = config::default_layout();
     let uncompressed_os = config::gunzip_default_os().expect("Could not uncompress default OS");
-    let result = run_os(uncompressed_os.as_bytes(), layout, os_input, block_context, execution_helper);
+    let result = run_os(uncompressed_os.as_slice(), layout, os_input, block_context, execution_helper);
 
     match &result {
         Err(Runner(VmException(vme))) => {
