@@ -13,7 +13,7 @@ use rstest::rstest;
 // # * 87041: block with nonce bump inconsistency
 // # * 66645 / 66776: Blob DA blocks
 // # * 97581, 101556, 102076 deploy account txns
-// # * 155016 / 125622 fix writes to zero (storage value not included in the tree) 
+// # * 155016 / 125622 fix writes to zero (storage value not included in the tree)
 #[rstest]
 #[case::small_block_with_only_invoke_txs(76793)]
 #[case::additional_basic_blocks_1(76766)]
