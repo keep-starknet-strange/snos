@@ -12,7 +12,7 @@ use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::{starknet_rs_to_blockifier, ToBlockifierError};
 use rpc_utils::{get_class_proofs, get_storage_proofs};
-use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, StarknetError};
+use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, StarknetError, TransactionExecutionStatus};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::StarknetApiError;
 use starknet_os::config::{StarknetGeneralConfig, StarknetOsConfig, STORED_BLOCK_HASH_BUFFER};
@@ -169,9 +169,21 @@ pub async fn prove_block(
     }
     let tx_execution_infos = reexecute_transactions_with_blockifier(&mut blockifier_state, &block_context, txs)?;
 
+
+    /*
+    let mut classes_from_blockifier = HashSet<_>::new();
+    let crawl_blockifier_txs = |info: &CallInfo| {
+        classes_from_blockifier.insert(info.call.class)
+    }
+    */
+
     let storage_proofs = get_storage_proofs(&rpc_client, block_number, &tx_execution_infos, old_block_number)
         .await
         .expect("Failed to fetch storage proofs");
+
+    for (contract_address, _) in &storage_proofs {
+        // we have our missing contract here, but we want the class hash and cch from it
+    }
 
     let previous_storage_proofs =
         get_storage_proofs(&rpc_client, block_number - 1, &tx_execution_infos, old_block_number)
@@ -296,6 +308,11 @@ pub async fn prove_block(
     };
 
     let contract_class_commitment_info = compute_class_commitment(&previous_class_proofs, &class_proofs);
+
+    log::warn!("classes going into os input:");
+    for (class_hash, class) in &compiled_classes {
+        log::warn!("  - {:x} => {:?}", class_hash, class.class_hash().unwrap());
+    }
 
     let os_input = StarknetOsInput {
         contract_state_commitment_info,

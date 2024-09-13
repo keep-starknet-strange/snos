@@ -6,6 +6,7 @@ use cairo_vm::Felt252;
 use starknet::core::types::{ExecuteInvocation, FunctionInvocation, TransactionTrace, TransactionTraceWithHash};
 use starknet_api::core::ContractAddress;
 use starknet_api::state::StorageKey;
+use starknet_os::io::classes;
 
 /// Receives the transaction traces of a given block
 /// And extract the contracts addresses that where subcalled
@@ -61,6 +62,12 @@ pub(crate) fn get_subcalled_contracts_from_tx_traces(
             }
         }
     }
+
+    log::warn!("Classes observed during subcall crawl");
+    for class_hash in &classes_subcalled {
+        log::warn!(" - 0x{:x}", class_hash);
+    }
+
     (contracts_subcalled, classes_subcalled)
 }
 

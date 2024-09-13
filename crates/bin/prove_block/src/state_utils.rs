@@ -185,7 +185,21 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
         {
             match e {
                 ProveBlockError::RpcError(ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
-                    // The contract was deployed in the current block, nothing to worry about
+                    // TODO: investigate this comment, what is the exact case we're hitting? deploy or declare?
+                    // The contract was declared in the current block, and we may need it if it is later deployed in the same block
+                    if let Err(e) = add_compiled_class_from_contract_to_os_input(
+                        provider,
+                        *contract_address,
+                        block_id,
+                        class_hash_to_compiled_class_hash,
+                        &mut compiled_contract_classes,
+                        &mut deprecated_compiled_contract_classes,
+                    )
+                    .await
+                    {
+                        panic!("really don't want this");
+                    }
+                    
                 }
                 _ => return Err(e),
             }
