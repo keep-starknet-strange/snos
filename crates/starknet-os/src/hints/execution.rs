@@ -1274,6 +1274,7 @@ pub fn add_relocation_rule(
 
     let dest_ptr = if let Ok(infos) = get_ptr_from_var_name(vars::ids::INFOS, vm, ids_data, ap_tracking) {
         let infos_0_end = vm.get_relocatable((infos + 1)?)?;
+        log::warn!("rewriting dest_ptr for segment_arena workaround");
         (infos_0_end + 1u32)?
     } else {
         get_ptr_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?
