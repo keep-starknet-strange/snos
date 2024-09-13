@@ -79,7 +79,11 @@ pub fn gunzip_default_os() -> std::io::Result<String> {
     let mut decoder = GzDecoder::new(DEFAULT_COMPILED_OS_GZIPPED);
     let mut os_gunzipped = String::new();
     let uncompressed_size = decoder.read_to_string(&mut os_gunzipped)?;
-    log::debug!("Os inflated from {}b (gzipped) to {}b (raw json)", DEFAULT_COMPILED_OS_GZIPPED.len(), uncompressed_size);
+    log::debug!(
+        "Os inflated from {}b (gzipped) to {}b (raw json)",
+        DEFAULT_COMPILED_OS_GZIPPED.len(),
+        uncompressed_size
+    );
     Ok(os_gunzipped)
 }
 
