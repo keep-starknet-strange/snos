@@ -1264,7 +1264,22 @@ pub fn add_relocation_rule(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let src_ptr = get_ptr_from_var_name(vars::ids::SRC_PTR, vm, ids_data, ap_tracking)?;
-    let dest_ptr = get_ptr_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?;
+
+    // Bugfix: this is a workaround for an issue in cairo-vm related to the way it computes
+    // `dest_ptr` in `segment_arena.cairo`. For some reason it sets `dest_ptr` to 0 (felt) instead
+    // of a valid relocatable value.
+    // As this hint is used in other places, we need to determine if we are in `segments_arena`
+    // first. We check this by determining if the "infos" variable is declared.
+    // If it is the case, we simply recompute `dest_ptr` manually.
+
+    let dest_ptr = if let Ok(infos) = get_ptr_from_var_name(vars::ids::INFOS, vm, ids_data, ap_tracking) {
+        let infos_0_end = vm.get_relocatable((infos + 1)?)?;
+        let computed_dest_ptr = (infos_0_end + 1u32)?;
+        computed_dest_ptr
+    } else {
+        get_ptr_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?
+    };
+
     vm.add_relocation_rule(src_ptr, dest_ptr)?;
 
     Ok(())
