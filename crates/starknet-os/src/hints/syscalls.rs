@@ -682,6 +682,17 @@ pub fn exit_replace_class_syscall(
 ) -> Result<(), HintError> {
     exit_syscall("REPLACE_CLASS_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
 }
+pub const EXIT_SHA256_PROCESS_BLOCK_SYSCALL: &str = "exit_syscall(selector=ids.SHA256_PROCESS_BLOCK_SELECTOR)";
+
+pub fn exit_sha256_process_block_syscall(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    exit_syscall("SHA256_PROCESS_BLOCK_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+}
 pub const EXIT_SECP256K1_ADD_SYSCALL: &str = "exit_syscall(selector=ids.SECP256K1_ADD_SELECTOR)";
 
 pub fn exit_secp256k1_add_syscall(

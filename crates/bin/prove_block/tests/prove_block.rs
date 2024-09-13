@@ -7,17 +7,21 @@ use rstest::rstest;
 // # * 76766 / 76775: additional basic blocks
 // # * 76832: contains a reverted tx
 // # * 86507 / 124533: a failing assert that happened because we used the wrong VersionedConstants
+// # * 87023: failing for Core(TestLessThanOrEqualAddress) hint not being implemented in cairo vm and SHA256_PROCESS_BLOCK syscall in SNOS
 // # * 87019: diff assert values in contract subcall
 // # * 90000: one of the subcalls results in a call to `replace_class()`.
 // # * 87041: block with nonce bump inconsistency
 // # * 66645 / 66776: Blob DA blocks
 // # * 97581, 101556, 102076 deploy account txns
+// # * 155016 / 125622 fix writes to zero (storage value not included in the tree)
+// # * 160035: EvalCircuit hint used
 #[rstest]
 #[case::small_block_with_only_invoke_txs(76793)]
 #[case::additional_basic_blocks_1(76766)]
 #[case::additional_basic_blocks_2(76775)]
 #[case::block_with_reverted_tx(76832)]
 #[case::failing_assert_on_versioned_constants_1(86507)]
+#[case::core_hint_test_less_than_or_equal_address(87023)]
 #[case::failing_assert_on_versioned_constants_2(124533)]
 #[case::fix_diff_assert_values_in_contract_subcall(87019)]
 #[case::invoke_with_replace_class(90000)]
@@ -31,6 +35,8 @@ use rstest::rstest;
 #[case::deploy_account_v1(97581)]
 #[case::deploy_account_v3(101556)]
 #[case::deploy_account_many_txs(102076)]
+#[case::edge_bottom_not_found(155016)]
+#[case::eval_circuit(160035)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {

@@ -119,7 +119,11 @@ pub fn verify_proof<H: HashFunctionType>(
         match trie_node_iter.next() {
             None => {
                 if index - start != DEFAULT_STORAGE_TREE_HEIGHT {
-                    return Err(ProofVerificationError::KeyNotInProof { key, height: Height(index - start), proof });
+                    return Err(ProofVerificationError::KeyNotInProof {
+                        key,
+                        height: Height(DEFAULT_STORAGE_TREE_HEIGHT - (index - start)),
+                        proof,
+                    });
                 }
                 break;
             }
