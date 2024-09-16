@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{BufReader, Write};
+use std::io::{BufReader, Read as _, Write};
 use std::path::PathBuf;
 
 use blockifier::execution::hint_code;
@@ -12,6 +13,7 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachineBuilder;
 use cairo_vm::vm::vm_memory::memory_segments::MemorySegmentManager;
 use clap::Parser;
+use flate2::read::GzDecoder;
 use serde::Deserialize;
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::hints::SnosHintProcessor;
@@ -54,9 +56,10 @@ struct Args {
     #[arg(long)]
     out_file: Option<PathBuf>,
 
-    /// Input JSON file (e.g. "os_latest.json")
+    /// Input JSON file, optionally gzipped (e.g. "os_latest.json.gz"). Will be transparently
+    /// decormpressed if needed.
     #[arg(long)]
-    #[clap(default_value = Some("../../build/os_latest.json"))]
+    #[clap(default_value = Some("../../../build/os_latest.json.gz"))]
     in_file: PathBuf,
 }
 
@@ -79,8 +82,22 @@ fn main() -> std::io::Result<()> {
 
     let mut result = Vec::new();
 
+    // load the os JSON. if it ends with 'gz' we will attempt to gunzip it
+    let os_buf = if args.in_file.extension() == Some(OsStr::new("gz")) {
+        let compressed_buf = BufReader::new(File::open(args.in_file)?);
+        let mut decoder = GzDecoder::new(compressed_buf);
+        let mut os_gunzipped = Vec::<u8>::new();
+        let _ = decoder.read_to_end(&mut os_gunzipped)?;
+        os_gunzipped
+    } else {
+        let mut os_raw = Vec::<u8>::new();
+        let mut reader = BufReader::new(File::open(args.in_file)?);
+        let _ = reader.read_to_end(&mut os_raw)?;
+        os_raw
+    };
+
     let os: Os =
-        serde_json::from_reader(BufReader::new(File::open(args.in_file)?)).expect("Failed to parse os_latest.json");
+        serde_json::from_slice(os_buf.as_slice()).expect("Failed to parse os_latest.json");
     let os_hints = os.hints.into_values().flatten().map(|h| h.code.to_string()).collect::<HashSet<_>>();
     let syscall_hints = hint_code::SYSCALL_HINTS.into_iter().map(|h| h.to_string()).collect::<HashSet<_>>();
 
