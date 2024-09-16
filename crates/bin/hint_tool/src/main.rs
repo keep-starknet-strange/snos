@@ -96,8 +96,7 @@ fn main() -> std::io::Result<()> {
         os_raw
     };
 
-    let os: Os =
-        serde_json::from_slice(os_buf.as_slice()).expect("Failed to parse os_latest.json");
+    let os: Os = serde_json::from_slice(os_buf.as_slice()).expect("Failed to parse os_latest.json");
     let os_hints = os.hints.into_values().flatten().map(|h| h.code.to_string()).collect::<HashSet<_>>();
     let syscall_hints = hint_code::SYSCALL_HINTS.into_iter().map(|h| h.to_string()).collect::<HashSet<_>>();
 
