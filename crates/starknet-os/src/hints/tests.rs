@@ -12,6 +12,7 @@ pub mod tests {
     use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
     use crate::execution::helper::ContractStorageMap;
+    use crate::hints::execute_transactions::fill_holes_in_rc96_segment;
     use crate::hints::*;
     use crate::starknet::starknet_storage::OsSingleStarknetStorage;
     use crate::storage::dict_storage::DictStorage;
@@ -277,5 +278,46 @@ pub mod tests {
                 hint
             );
         }
+    }
+
+    #[test]
+    fn test_fill_holes_in_rc96_segment() {
+        let mut vm = VirtualMachine::new(false);
+        vm.set_fp(1);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+
+        let mut exec_scopes = ExecutionScopes::new();
+        let ids_data = ids_data![vars::ids::RANGE_CHECK96_PTR];
+        let ap_tracking = ApTracking::default();
+        let constants = HashMap::new();
+
+        let mut rc96_segment = vm.add_memory_segment();
+        rc96_segment.offset = 10;
+        insert_value_from_var_name(vars::ids::RANGE_CHECK96_PTR, rc96_segment, &mut vm, &ids_data, &ap_tracking)
+            .expect("insert_value_from_var_name");
+
+        let rc96_base = with_offset(rc96_segment, 0);
+        vm.insert_value(rc96_base, Felt252::THREE).expect("insert value at base");
+        for i in 1..rc96_segment.offset {
+            let address = with_offset(rc96_segment, i);
+            assert_eq!(vm.get_maybe(&address), None);
+        }
+
+        fill_holes_in_rc96_segment(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
+            .expect("fill_holes_in_rc96_segment failed");
+
+        // Make sure existing value isn't overwritten
+        assert_eq!(vm.get_maybe(&rc96_base), Some(Felt252::THREE.into()));
+
+        for i in 1..rc96_segment.offset {
+            let address = with_offset(rc96_segment, i);
+            assert_eq!(vm.get_maybe(&address), Some(Felt252::ZERO.into()));
+        }
+    }
+
+    fn with_offset(mut relocatable: Relocatable, offset: usize) -> Relocatable {
+        relocatable.offset = offset;
+        relocatable
     }
 }
