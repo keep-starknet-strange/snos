@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use prove_block::{debug_prove_error, ProveBlockError};
