@@ -52,7 +52,7 @@ pub(crate) async fn get_formatted_state_update(
         state_diff.declared_classes.iter().map(|declared_item| declared_item.class_hash).collect();
 
     // TODO: Handle deprecated classes
-    let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = format_declared_classes(&state_diff);
+    let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = HashMap::new();
     let (compiled_contract_classes, deprecated_compiled_contract_classes, declared_class_hash_component_hashes) =
         build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
             rpc_client,
@@ -64,6 +64,9 @@ pub(crate) async fn get_formatted_state_update(
             &mut class_hash_to_compiled_class_hash,
         )
         .await?;
+
+    // OS will expect a Zero in compiled_class_hash for new classes. Overwrite the needed entries.
+    format_declared_classes(&state_diff, &mut class_hash_to_compiled_class_hash);
 
     Ok((
         FormattedStateUpdate {
@@ -232,15 +235,18 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
     Ok((compiled_contract_classes, deprecated_compiled_contract_classes, declared_class_hash_to_component_hashes))
 }
 
-/// Format StateDiff's DeclaredClassItem to a HashMap<class_hash, compiled_class_hash>
-fn format_declared_classes(state_diff: &StateDiff) -> HashMap<Felt252, Felt252> {
+fn format_declared_classes(state_diff: &StateDiff, class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>) {
     // The comment below explicits that the value should be 0 for new classes:
     // From execute_transactions.cairo
     // Note that prev_value=0 enforces that a class may be declared only once.
     // dict_update{dict_ptr=contract_class_changes}(
     //     key=[class_hash_ptr], prev_value=0, new_value=compiled_class_hash
     // );
-    let class_hash_to_compiled_class_hash =
-        state_diff.declared_classes.iter().map(|class| (class.class_hash, Felt::ZERO)).collect();
-    class_hash_to_compiled_class_hash
+
+    // class_hash_to_compiled_class_hash is already populated. However, for classes
+    // that are defined in state_diff.declared_classes, we need to set the
+    // compiled_class_hashes to zero as it was explain above
+    for class in state_diff.declared_classes.iter() {
+        class_hash_to_compiled_class_hash.insert(class.class_hash, Felt::ZERO);
+    }
 }
