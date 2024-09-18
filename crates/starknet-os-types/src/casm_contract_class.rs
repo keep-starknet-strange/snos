@@ -1,5 +1,5 @@
 use std::cell::OnceCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -16,9 +16,9 @@ pub type BlockifierCasmClass = blockifier::execution::contract_class::ContractCl
 /// Fields are boxed in an RC for cheap cloning.
 #[derive(Debug, Clone)]
 pub struct GenericCasmContractClass {
-    blockifier_contract_class: OnceCell<Rc<BlockifierCasmClass>>,
-    cairo_lang_contract_class: OnceCell<Rc<CairoLangCasmClass>>,
-    serialized_class: OnceCell<Rc<Vec<u8>>>,
+    blockifier_contract_class: OnceCell<Arc<BlockifierCasmClass>>,
+    cairo_lang_contract_class: OnceCell<Arc<CairoLangCasmClass>>,
+    serialized_class: OnceCell<Arc<Vec<u8>>>,
     class_hash: OnceCell<GenericClassHash>,
 }
 
@@ -40,7 +40,7 @@ impl GenericCasmContractClass {
         Self {
             blockifier_contract_class: OnceCell::new(),
             cairo_lang_contract_class: OnceCell::new(),
-            serialized_class: OnceCell::from(Rc::new(serialized_class)),
+            serialized_class: OnceCell::from(Arc::new(serialized_class)),
             class_hash: OnceCell::new(),
         }
     }
@@ -62,7 +62,7 @@ impl GenericCasmContractClass {
         if let Some(serialized_class) = &self.serialized_class.get() {
             let cairo_lang_class = cairo_lang_contract_class_from_bytes(serialized_class)?;
             self.cairo_lang_contract_class
-                .set(Rc::new(cairo_lang_class.clone()))
+                .set(Arc::new(cairo_lang_class.clone()))
                 .expect("cairo-lang class is already set");
             return blockifier_contract_class_from_cairo_lang_class(cairo_lang_class);
         }
@@ -71,13 +71,13 @@ impl GenericCasmContractClass {
     }
     pub fn get_cairo_lang_contract_class(&self) -> Result<&CairoLangCasmClass, ContractClassError> {
         self.cairo_lang_contract_class
-            .get_or_try_init(|| self.build_cairo_lang_class().map(Rc::new))
+            .get_or_try_init(|| self.build_cairo_lang_class().map(Arc::new))
             .map(|boxed| boxed.as_ref())
     }
 
     pub fn get_blockifier_contract_class(&self) -> Result<&BlockifierCasmClass, ContractClassError> {
         self.blockifier_contract_class
-            .get_or_try_init(|| self.build_blockifier_class().map(Rc::new))
+            .get_or_try_init(|| self.build_blockifier_class().map(Arc::new))
             .map(|boxed| boxed.as_ref())
     }
 
@@ -130,7 +130,7 @@ impl From<CairoLangCasmClass> for GenericCasmContractClass {
     fn from(cairo_lang_class: CairoLangCasmClass) -> Self {
         Self {
             blockifier_contract_class: Default::default(),
-            cairo_lang_contract_class: OnceCell::from(Rc::new(cairo_lang_class)),
+            cairo_lang_contract_class: OnceCell::from(Arc::new(cairo_lang_class)),
             serialized_class: Default::default(),
             class_hash: Default::default(),
         }
@@ -140,7 +140,7 @@ impl From<CairoLangCasmClass> for GenericCasmContractClass {
 impl From<BlockifierCasmClass> for GenericCasmContractClass {
     fn from(blockifier_class: BlockifierCasmClass) -> Self {
         Self {
-            blockifier_contract_class: OnceCell::from(Rc::new(blockifier_class)),
+            blockifier_contract_class: OnceCell::from(Arc::new(blockifier_class)),
             cairo_lang_contract_class: Default::default(),
             serialized_class: Default::default(),
             class_hash: Default::default(),

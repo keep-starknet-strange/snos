@@ -132,6 +132,7 @@ pub mod ids {
     pub const SELECTOR: &str = "selector";
     pub const SENDER_ADDRESS: &str = "sender_address";
     pub const SHA256_PTR: &str = "sha256_ptr";
+    pub const SHA256_PTR_END: &str = "sha256_ptr_end";
     pub const SIBLINGS: &str = "siblings";
     pub const SIGNATURE_LEN: &str = "signature_len";
     pub const SIGNATURE_START: &str = "signature_start";
@@ -151,6 +152,9 @@ pub mod ids {
     pub const WORD: &str = "word";
     pub const Y: &str = "y";
     pub const Y_SQUARE_INT: &str = "y_square_int";
+    pub const BATCH_SIZE: &str = "starkware.cairo.common.cairo_sha256.sha256_utils.BATCH_SIZE";
+    pub const SHA256_INPUT_CHUNK_SIZE_FELTS: &str =
+        "starkware.cairo.common.cairo_sha256.sha256_utils.SHA256_INPUT_CHUNK_SIZE_FELTS";
 }
 
 pub mod constants {

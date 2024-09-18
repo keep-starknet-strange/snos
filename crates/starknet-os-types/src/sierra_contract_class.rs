@@ -1,5 +1,5 @@
 use std::cell::OnceCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use cairo_vm::Felt252;
 use serde::ser::Error;
@@ -19,11 +19,11 @@ pub type StarknetCoreSierraContractClass = starknet_core::types::FlattenedSierra
 /// contract class types in Starknet and provides utility methods.
 /// Operations are implemented as lazily as possible, i.e. we only convert
 /// between different types if strictly necessary.
-/// Fields are boxed in an RC for cheap cloning.
+/// Fields are boxed in an Arc for cheap cloning.
 #[derive(Debug, Clone)]
 pub struct GenericSierraContractClass {
-    cairo_lang_contract_class: OnceCell<Rc<CairoLangSierraContractClass>>,
-    starknet_core_contract_class: OnceCell<Rc<StarknetCoreSierraContractClass>>,
+    cairo_lang_contract_class: OnceCell<Arc<CairoLangSierraContractClass>>,
+    starknet_core_contract_class: OnceCell<Arc<StarknetCoreSierraContractClass>>,
     serialized_class: OnceCell<Vec<u8>>,
     class_hash: OnceCell<GenericClassHash>,
 }
@@ -60,13 +60,13 @@ impl GenericSierraContractClass {
     }
     pub fn get_cairo_lang_contract_class(&self) -> Result<&CairoLangSierraContractClass, ContractClassError> {
         self.cairo_lang_contract_class
-            .get_or_try_init(|| self.build_cairo_lang_class().map(Rc::new))
+            .get_or_try_init(|| self.build_cairo_lang_class().map(Arc::new))
             .map(|boxed| boxed.as_ref())
     }
 
     pub fn get_starknet_core_contract_class(&self) -> Result<&StarknetCoreSierraContractClass, ContractClassError> {
         self.starknet_core_contract_class
-            .get_or_try_init(|| self.build_starknet_core_class().map(Rc::new))
+            .get_or_try_init(|| self.build_starknet_core_class().map(Arc::new))
             .map(|boxed| boxed.as_ref())
     }
 
@@ -181,7 +181,7 @@ impl<'de> Deserialize<'de> for GenericSierraContractClass {
 impl From<CairoLangSierraContractClass> for GenericSierraContractClass {
     fn from(cairo_lang_class: CairoLangSierraContractClass) -> Self {
         Self {
-            cairo_lang_contract_class: OnceCell::from(Rc::new(cairo_lang_class)),
+            cairo_lang_contract_class: OnceCell::from(Arc::new(cairo_lang_class)),
             starknet_core_contract_class: Default::default(),
             serialized_class: Default::default(),
             class_hash: Default::default(),
@@ -193,7 +193,7 @@ impl From<StarknetCoreSierraContractClass> for GenericSierraContractClass {
     fn from(starknet_core_class: StarknetCoreSierraContractClass) -> Self {
         Self {
             cairo_lang_contract_class: Default::default(),
-            starknet_core_contract_class: OnceCell::from(Rc::new(starknet_core_class)),
+            starknet_core_contract_class: OnceCell::from(Arc::new(starknet_core_class)),
             serialized_class: Default::default(),
             class_hash: Default::default(),
         }
