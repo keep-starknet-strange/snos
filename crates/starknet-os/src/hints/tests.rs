@@ -296,7 +296,8 @@ pub mod tests {
         let constants = HashMap::new();
 
         let mut rc96_segment = vm.add_memory_segment();
-        rc96_segment.offset = 10;
+        let rc96_segment_size = 10;
+        rc96_segment.offset = rc96_segment_size;
         insert_value_from_var_name(vars::ids::RANGE_CHECK96_PTR, rc96_segment, &mut vm, &ids_data, &ap_tracking)
             .expect("insert_value_from_var_name");
 
@@ -313,7 +314,7 @@ pub mod tests {
         // Make sure existing value isn't overwritten
         assert_eq!(vm.get_maybe(&rc96_base), Some(Felt252::THREE.into()));
 
-        for i in 1..rc96_segment.offset {
+        for i in 1..rc96_segment_size {
             let address = with_offset(rc96_segment, i);
             assert_eq!(vm.get_maybe(&address), Some(Felt252::ZERO.into()));
         }
@@ -336,7 +337,10 @@ pub mod tests {
         insert_value_from_var_name(ELM_SIZE, Felt252::ZERO, &mut vm, &ids_data, &ap_tracking).unwrap();
 
         let result = search_sorted_optimistic(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants);
-        assert!(matches!(result, Err(HintError::AssertionFailed(_))), "{:?}", result);
+        match result {
+            Err(HintError::AssertionFailed(msg)) => assert_eq!(msg.as_ref(), "elm_size is zero"),
+            _ => panic!("{:?}", result),
+        }
     }
 
     #[test]
@@ -358,7 +362,10 @@ pub mod tests {
         insert_value_from_var_name(N_ELMS, Felt252::THREE, &mut vm, &ids_data, &ap_tracking).unwrap();
 
         let result = search_sorted_optimistic(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants);
-        assert!(matches!(result, Err(HintError::AssertionFailed(_))), "{:?}", result);
+        match result {
+            Err(HintError::AssertionFailed(msg)) => assert!(msg.as_ref().contains("can only be used with n_elms<=2")),
+            _ => panic!("{:?}", result),
+        }
     }
 
     #[test]
