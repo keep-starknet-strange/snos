@@ -8,13 +8,17 @@ pub mod tests {
     use num_bigint::BigInt;
     use rstest::{fixture, rstest};
     use starknet_api::transaction::Fee;
+    use vars::ids::{ARRAY_PTR, ELM_SIZE, EXISTS, INDEX, KEY, N_ELMS};
 
     use crate::config::STORED_BLOCK_HASH_BUFFER;
     use crate::crypto::pedersen::PedersenHash;
     use crate::execution::helper::ContractStorageMap;
+    use crate::hints::execute_transactions::fill_holes_in_rc96_segment;
+    use crate::hints::find_element::search_sorted_optimistic;
     use crate::hints::*;
     use crate::starknet::starknet_storage::OsSingleStarknetStorage;
     use crate::storage::dict_storage::DictStorage;
+    use crate::utils::set_variable_in_root_exec_scope;
 
     #[allow(clippy::upper_case_acronyms)]
     type PCS = OsSingleStarknetStorage<DictStorage, PedersenHash>;
@@ -265,7 +269,7 @@ pub mod tests {
             indices
         }
 
-        // look for any duplicatses in EXTENSIVE_HINTS and print out all occurrences if found
+        // look for any duplicates in EXTENSIVE_HINTS and print out all occurrences if found
         let mut hints: HashMap<String, ExtensiveHintImpl> = HashMap::new();
         for (hint, hint_impl) in &EXTENSIVE_HINTS {
             let hint_str = hint.to_string();
@@ -277,5 +281,144 @@ pub mod tests {
                 hint
             );
         }
+    }
+
+    #[test]
+    fn test_fill_holes_in_rc96_segment() {
+        let mut vm = VirtualMachine::new(false);
+        vm.set_fp(1);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+
+        let mut exec_scopes = ExecutionScopes::new();
+        let ids_data = ids_data![vars::ids::RANGE_CHECK96_PTR];
+        let ap_tracking = ApTracking::default();
+        let constants = HashMap::new();
+
+        let mut rc96_segment = vm.add_memory_segment();
+        let rc96_segment_size = 10;
+        rc96_segment.offset = rc96_segment_size;
+        insert_value_from_var_name(vars::ids::RANGE_CHECK96_PTR, rc96_segment, &mut vm, &ids_data, &ap_tracking)
+            .expect("insert_value_from_var_name");
+
+        let rc96_base = with_offset(rc96_segment, 0);
+        vm.insert_value(rc96_base, Felt252::THREE).expect("insert value at base");
+        for i in 1..rc96_segment.offset {
+            let address = with_offset(rc96_segment, i);
+            assert_eq!(vm.get_maybe(&address), None);
+        }
+
+        fill_holes_in_rc96_segment(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)
+            .expect("fill_holes_in_rc96_segment failed");
+
+        // Make sure existing value isn't overwritten
+        assert_eq!(vm.get_maybe(&rc96_base), Some(Felt252::THREE.into()));
+
+        for i in 1..rc96_segment_size {
+            let address = with_offset(rc96_segment, i);
+            assert_eq!(vm.get_maybe(&address), Some(Felt252::ZERO.into()));
+        }
+    }
+
+    #[test]
+    fn test_search_sorted_optimistic_with_zero_sized_elements() {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(2);
+
+        let mut exec_scopes = ExecutionScopes::new();
+        let ids_data = ids_data![ARRAY_PTR, ELM_SIZE];
+        let ap_tracking = ApTracking::default();
+        let constants = HashMap::new();
+
+        let array_ptr = vm.add_memory_segment();
+        insert_value_from_var_name(ARRAY_PTR, array_ptr, &mut vm, &ids_data, &ap_tracking).unwrap();
+        insert_value_from_var_name(ELM_SIZE, Felt252::ZERO, &mut vm, &ids_data, &ap_tracking).unwrap();
+
+        let result = search_sorted_optimistic(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants);
+        match result {
+            Err(HintError::AssertionFailed(msg)) => assert_eq!(msg.as_ref(), "elm_size is zero"),
+            _ => panic!("{:?}", result),
+        }
+    }
+
+    #[test]
+    fn test_search_sorted_optimistic_with_too_many_elements() {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(3);
+
+        let mut exec_scopes = ExecutionScopes::new();
+        set_variable_in_root_exec_scope(&mut exec_scopes, vars::scopes::FIND_ELEMENT_MAX_SIZE, Some(2usize));
+        let ids_data = ids_data![ARRAY_PTR, ELM_SIZE, N_ELMS];
+        let ap_tracking = ApTracking::default();
+        let constants = HashMap::new();
+
+        let array_ptr = vm.add_memory_segment();
+        insert_value_from_var_name(ARRAY_PTR, array_ptr, &mut vm, &ids_data, &ap_tracking).unwrap();
+        insert_value_from_var_name(ELM_SIZE, Felt252::ONE, &mut vm, &ids_data, &ap_tracking).unwrap();
+        insert_value_from_var_name(N_ELMS, Felt252::THREE, &mut vm, &ids_data, &ap_tracking).unwrap();
+
+        let result = search_sorted_optimistic(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants);
+        match result {
+            Err(HintError::AssertionFailed(msg)) => assert!(msg.as_ref().contains("can only be used with n_elms<=2")),
+            _ => panic!("{:?}", result),
+        }
+    }
+
+    #[test]
+    fn test_search_sorted_optimistic_present() {
+        let (index, exists) = exec_search_sorted_optimistic_on_2_4_6_array(Felt252::from(6)).unwrap();
+        assert_eq!(index, Felt252::TWO);
+        assert_eq!(exists, Felt252::ONE);
+    }
+
+    #[test]
+    fn test_search_sorted_optimistic_smaller_value_present() {
+        let (index, exists) = exec_search_sorted_optimistic_on_2_4_6_array(Felt252::from(3)).unwrap();
+        assert_eq!(index, Felt252::ONE);
+        assert_eq!(exists, Felt252::ZERO);
+    }
+
+    #[test]
+    fn test_search_sorted_optimistic_smaller_value_not_present() {
+        let (index, exists) = exec_search_sorted_optimistic_on_2_4_6_array(Felt252::ONE).unwrap();
+        assert_eq!(index, Felt252::ZERO);
+        assert_eq!(exists, Felt252::ZERO);
+    }
+
+    fn exec_search_sorted_optimistic_on_2_4_6_array(key: Felt252) -> Result<(Felt252, Felt252), HintError> {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(6);
+
+        let mut exec_scopes = ExecutionScopes::new();
+        set_variable_in_root_exec_scope(&mut exec_scopes, vars::scopes::FIND_ELEMENT_MAX_SIZE, Some(3usize));
+        let ids_data = ids_data![ARRAY_PTR, ELM_SIZE, N_ELMS, KEY, INDEX, EXISTS];
+        let ap_tracking = ApTracking::default();
+        let constants = HashMap::new();
+
+        let array_ptr = vm.add_memory_segment();
+        vm.insert_value(with_offset(array_ptr, 0), Felt252::from(2))?;
+        vm.insert_value(with_offset(array_ptr, 1), Felt252::from(4))?;
+        vm.insert_value(with_offset(array_ptr, 2), Felt252::from(6))?;
+        insert_value_from_var_name(ARRAY_PTR, array_ptr, &mut vm, &ids_data, &ap_tracking)?;
+        insert_value_from_var_name(ELM_SIZE, Felt252::ONE, &mut vm, &ids_data, &ap_tracking)?;
+        insert_value_from_var_name(N_ELMS, Felt252::THREE, &mut vm, &ids_data, &ap_tracking)?;
+        insert_value_from_var_name(KEY, key, &mut vm, &ids_data, &ap_tracking)?;
+
+        search_sorted_optimistic(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants)?;
+
+        let index = get_integer_from_var_name(INDEX, &vm, &ids_data, &ap_tracking)?;
+        let exists = get_integer_from_var_name(EXISTS, &vm, &ids_data, &ap_tracking)?;
+        Ok((index, exists))
+    }
+
+    fn with_offset(mut relocatable: Relocatable, offset: usize) -> Relocatable {
+        relocatable.offset = offset;
+        relocatable
     }
 }
