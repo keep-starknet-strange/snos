@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use blockifier::context::BlockContext;
 use blockifier::invoke_tx_args;
 use blockifier::test_utils::{create_calldata, NonceManager};
@@ -48,6 +50,7 @@ async fn return_result_cairo0_account(
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");
@@ -88,6 +91,7 @@ async fn return_result_cairo1_account(
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");
@@ -197,6 +201,7 @@ async fn syscalls_cairo1(
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");

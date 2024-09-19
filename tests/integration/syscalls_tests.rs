@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::context::BlockContext;
 use blockifier::invoke_tx_args;
@@ -59,6 +61,7 @@ async fn test_syscall_library_call_cairo1(
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");
@@ -101,6 +104,7 @@ async fn test_syscall_replace_class_cairo1(
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");
@@ -139,6 +143,7 @@ async fn test_syscall_keccak_cairo1(
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");
@@ -180,6 +185,7 @@ async fn test_syscall_test_secp_cairo1(
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");
