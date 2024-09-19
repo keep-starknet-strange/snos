@@ -614,6 +614,7 @@ async fn run_os_tests(#[future] initial_state_full_itests: StarknetTestState) {
         txs,
         initial_state.cairo0_compiled_classes,
         Default::default(),
+        HashMap::default(),
     )
     .await
     .unwrap();

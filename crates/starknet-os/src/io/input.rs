@@ -26,6 +26,8 @@ pub struct StarknetOsInput {
     pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
     pub general_config: StarknetGeneralConfig,
     pub transactions: Vec<InternalTransaction>,
+    /// A mapping from Cairo 1 declared class hashes to the hashes of the contract class components.
+    pub declared_class_hash_to_component_hashes: HashMap<Felt252, Vec<Felt252>>,
     pub new_block_hash: Felt252,
     pub prev_block_hash: Felt252,
     pub full_output: bool,
