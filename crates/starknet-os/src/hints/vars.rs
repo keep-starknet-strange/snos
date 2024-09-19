@@ -78,6 +78,7 @@ pub mod ids {
     pub const FINAL_ROOT: &str = "final_root";
     pub const HASH_PTR: &str = "hash_ptr";
     pub const INDEX: &str = "index";
+    pub const INFOS: &str = "infos";
     pub const INITIAL_GAS: &str = "initial_gas";
     pub const IS_LEAF: &str = "is_leaf";
     pub const IS_SEGMENT_USED: &str = "is_segment_used";

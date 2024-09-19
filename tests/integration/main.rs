@@ -9,3 +9,5 @@ mod pie;
 mod run_os;
 mod sharp;
 mod syscalls_tests;
+
+mod segments_tests;
