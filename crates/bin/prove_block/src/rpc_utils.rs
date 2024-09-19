@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
+use num_bigint::BigInt;
 use rpc_client::pathfinder::proofs::{
     ContractData, EdgePath, PathfinderClassProof, PathfinderProof, ProofVerificationError, TrieNode,
 };
@@ -144,10 +145,25 @@ pub(crate) async fn get_storage_proofs(
 /// on a "Edge bottom not found in preimage" error.
 /// To resolve this, we fetch the storage proof for a node that follows this edge in order
 /// to get the bottom node in the preimage and resolve the issue.
+///
+/// For example, if following a key 0x00A0 we encounter an edge 0xB0 starting from height 8
+/// to height 4 (i.e. the length of the edge is 4), then the bottom node of the edge will
+/// not be included in the proof as the key does not follow the edge. We need to compute a key
+/// that will follow the edge in order to get that bottom node. For example, the key 0x00B0 will
+/// follow that edge.
+///
+/// An important note is that heigh = 0 at the level of leaf nodes (as opposed to the rest of the OS)
+///
+/// To achieve this, we zero the part of the key at the height of the edge and then replace it
+/// with the path of the edge. This is achieved with bitwise operations. For our example,
+/// this function will compute the new key as `(key & 0xFF0F) | 0x00B0`.
 fn get_key_following_edge(key: Felt, height: Height, edge_path: &EdgePath) -> Felt {
     assert!(height.0 < DEFAULT_STORAGE_TREE_HEIGHT);
-    let mask = edge_path.value.to_bigint() << (DEFAULT_STORAGE_TREE_HEIGHT - height.0);
-    let new_key = (key.to_bigint() & !mask.clone()) | mask;
+
+    let shift = height.0;
+    let clear_mask = ((BigInt::from(1) << edge_path.len) - BigInt::from(1)) << shift;
+    let mask = edge_path.value.to_bigint() << shift;
+    let new_key = (key.to_bigint() & !clear_mask) | mask;
 
     Felt::from(new_key)
 }
@@ -207,18 +223,36 @@ pub(crate) fn get_starknet_version(block_with_txs: &BlockWithTxs) -> blockifier:
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
 
-    #[test]
-    fn test_modified_key() {
-        let key = Felt::from_hex_unchecked("0x281a73a6708b6c7df8ab477abbf99929586bd745d4ed2e45190d6d5edff1a6c");
-        let expected_modified_key =
-            Felt::from_hex_unchecked("0x2c1a73a6708b6c7df8ab477abbf99929586bd745d4ed2e45190d6d5edff1a6c");
-
-        let height = Height(5);
-        let edge_path = EdgePath { len: 1, value: Felt::from(0x1) };
-
+    #[rstest]
+    #[case(
+        Felt::from_hex_unchecked("0x00A0"),
+        Felt::from_hex_unchecked("0x00B0"),
+        EdgePath { len: 4, value: Felt::from(0xB) },
+        Height(4),
+    )]
+    #[case(
+        Felt::from_hex_unchecked("0x1357"),
+        Felt::from_hex_unchecked("0x13A7"),
+        EdgePath { len: 4, value: Felt::from(0xA) },
+        Height(4),
+    )]
+    #[case(
+        Felt::from_hex_unchecked("0x281a73a6708b6c7df8ab477abbf99929586bd745d4ed2e45190d6d5edff1a6c"),
+        Felt::from_hex_unchecked("0x2c1a73a6708b6c7df8ab477abbf99929586bd745d4ed2e45190d6d5edff1a6c"),
+        EdgePath { len: 1, value: Felt::from(0x1) },
+        Height(246),
+    )]
+    fn test_modified_key(
+        #[case] key: Felt,
+        #[case] expected_key: Felt,
+        #[case] edge_path: EdgePath,
+        #[case] height: Height,
+    ) {
         let modified_key = get_key_following_edge(key, height, &edge_path);
-        assert_eq!(modified_key, expected_modified_key);
+        assert_eq!(modified_key, expected_key);
     }
 }
