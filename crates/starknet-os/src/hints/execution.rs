@@ -413,16 +413,17 @@ pub fn os_context_segments(
 
 // TODO(#66): fix syscall entry
 // DROP THE ADDED VARIABLES
-pub const ENTER_SYSCALL_SCOPES: &str = indoc! {r#"
-    vm_enter_scope({
-        '__deprecated_class_hashes': __deprecated_class_hashes,
-        'transactions': iter(os_input.transactions),
-        'execution_helper': execution_helper,
-        'deprecated_syscall_handler': deprecated_syscall_handler,
-        'syscall_handler': syscall_handler,
-         '__dict_manager': __dict_manager,
-    })"#
+pub const ENTER_SYSCALL_SCOPES: &str = indoc! {r#"vm_enter_scope({
+    '__deprecated_class_hashes': __deprecated_class_hashes,
+    'transactions': iter(os_input.transactions),
+    'component_hashes': os_input.declared_class_hash_to_component_hashes,
+    'execution_helper': execution_helper,
+    'deprecated_syscall_handler': deprecated_syscall_handler,
+    'syscall_handler': syscall_handler,
+     '__dict_manager': __dict_manager,
+})"#
 };
+
 pub fn enter_syscall_scopes<PCS>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -437,6 +438,7 @@ where
     let deprecated_class_hashes: Box<dyn Any> =
         Box::new(exec_scopes.get::<HashSet<Felt252>>(vars::scopes::DEPRECATED_CLASS_HASHES)?);
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
+    let component_hashes: Box<dyn Any> = Box::new(os_input.declared_class_hash_to_component_hashes);
     let execution_helper: Box<dyn Any> =
         Box::new(exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?);
     let deprecated_syscall_handler: Box<dyn Any> =
@@ -446,11 +448,12 @@ where
     let dict_manager: Box<dyn Any> = Box::new(exec_scopes.get_dict_manager()?);
     exec_scopes.enter_scope(HashMap::from_iter([
         (String::from(vars::scopes::DEPRECATED_CLASS_HASHES), deprecated_class_hashes),
-        (String::from("transactions"), transactions),
+        (String::from(vars::scopes::TRANSACTIONS), transactions),
+        (String::from(vars::scopes::COMPONENT_HASHES), component_hashes),
         (String::from(vars::scopes::EXECUTION_HELPER), execution_helper),
         (String::from(vars::scopes::DEPRECATED_SYSCALL_HANDLER), deprecated_syscall_handler),
         (String::from(vars::scopes::SYSCALL_HANDLER), syscall_handler),
-        (String::from("dict_manager"), dict_manager),
+        (String::from(vars::scopes::DICT_MANAGER), dict_manager),
     ]));
     Ok(())
 }
