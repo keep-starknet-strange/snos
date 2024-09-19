@@ -48,13 +48,12 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_nonce_at_async(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        let nonce = self
-            .rpc_client
-            .starknet_rpc()
-            .get_nonce(self.block_id, *contract_address.key())
-            .await
-            .map_err(provider_error_to_state_error)?;
-
+        let res = self.rpc_client.starknet_rpc().get_nonce(self.block_id, *contract_address.key()).await;
+        let nonce = match res {
+            Ok(value) => Ok(value),
+            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
+            Err(e) => Err(provider_error_to_state_error(e)),
+        }?;
         Ok(Nonce(nonce))
     }
 
@@ -70,12 +69,17 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_contract_class_async(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
-        let contract_class = self
-            .rpc_client
-            .starknet_rpc()
-            .get_class(self.block_id, class_hash.0)
-            .await
-            .map_err(provider_error_to_state_error)?;
+        let contract_class = match self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0).await {
+            Ok(contract_class) => Ok(contract_class),
+            // If the ContractClass is declared in the current block,
+            // might trigger this error when trying to get it on the previous block.
+            // Returning a `UndeclaredClassHash` allows blockifier to continue execution
+            // Reference: https://github.com/starkware-libs/sequencer/blob/1ade15c645882e3a0bd70ef8f79b23fc66a517e0/crates/blockifier/src/state/cached_state.rs#L178-L200
+            Err(ProviderError::StarknetError(StarknetError::ClassHashNotFound)) => {
+                Err(StateError::UndeclaredClassHash(ClassHash(class_hash.0)))
+            }
+            Err(e) => Err(provider_error_to_state_error(e)),
+        }?;
 
         let contract_class: ContractClass = match contract_class {
             starknet::core::types::ContractClass::Sierra(sierra_class) => {

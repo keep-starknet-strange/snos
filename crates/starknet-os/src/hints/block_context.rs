@@ -342,12 +342,12 @@ pub fn is_leaf(
     insert_value_from_var_name(vars::ids::IS_LEAF, is_leaf, vm, ids_data, ap_tracking)
 }
 
-pub const WRITE_USE_ZKG_DA_TO_MEM: &str = indoc! {r#"
+pub const WRITE_USE_KZG_DA_TO_MEM: &str = indoc! {r#"
     memory[fp + 18] = to_felt_or_relocatable(syscall_handler.block_info.use_kzg_da and (
         not os_input.full_output
     ))"#
 };
-pub fn write_use_zkg_da_to_mem(
+pub fn write_use_kzg_da_to_mem(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     _ids_data: &HashMap<String, HintReference>,
