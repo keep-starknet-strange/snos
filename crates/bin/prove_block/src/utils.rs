@@ -128,9 +128,6 @@ fn get_accessed_storage_keys(call_info: &CallInfo) -> HashMap<ContractAddress, H
         .or_default()
         .extend(call_info.accessed_storage_keys.iter().copied());
 
-    let storage_keys: Vec<_> = call_info.accessed_storage_keys.iter().map(|x| x.key().to_hex_string()).collect();
-    log::debug!("{}: {:?}", contract_address.to_string(), storage_keys);
-
     for inner_call in &call_info.inner_calls {
         let inner_call_storage_keys = get_accessed_storage_keys(inner_call);
         for (contract_address, storage_keys) in inner_call_storage_keys {

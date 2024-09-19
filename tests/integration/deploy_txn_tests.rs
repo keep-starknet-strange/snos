@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use blockifier::context::BlockContext;
 use blockifier::deploy_account_tx_args;
 use blockifier::test_utils::deploy_account::deploy_account_tx;
@@ -105,6 +107,7 @@ async fn deploy_cairo0_account(
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");
@@ -122,7 +125,7 @@ pub async fn initial_state_for_deploy_v3(
     // This is the hardcoded class hash of `account_with_long_validate` (Cairo 1).
     // Recomputing it automatically requires a significant amount of code reorganization so
     // we hardcode it for simplicity.
-    let class_hash = class_hash!("0x075a5292e8eb5d722d4388ba904779dd2cf10fea514ece0d5ca9868224ccf6fc");
+    let class_hash = class_hash!("0x72855ff806e711ce53afc058e13ae8f44d74902ed6f884bb15af7fb0949d9cd");
 
     let deploy_args = DeployArgs {
         contract_address_salt: ContractAddressSalt::default(),
@@ -196,6 +199,7 @@ async fn deploy_cairo1_account(
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");

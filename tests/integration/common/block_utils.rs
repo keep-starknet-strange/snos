@@ -22,6 +22,7 @@ use starknet_os::starkware_utils::commitment_tree::base_types::{Height, TreeInde
 use starknet_os::storage::storage::Storage;
 use starknet_os::storage::storage_utils::build_starknet_storage_async;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+use starknet_os_types::class_hash_utils::ContractClassComponentHashes;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 pub async fn os_hints<S>(
@@ -31,6 +32,7 @@ pub async fn os_hints<S>(
     tx_execution_infos: Vec<TransactionExecutionInfo>,
     deprecated_compiled_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     compiled_classes: HashMap<ClassHash, GenericCasmContractClass>,
+    declared_class_hash_to_component_hashes: HashMap<ClassHash, ContractClassComponentHashes>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
 where
     S: Storage,
@@ -182,6 +184,12 @@ where
     let deprecated_compiled_classes: HashMap<_, _> =
         deprecated_compiled_classes.into_iter().map(|(k, v)| (k.0, v)).collect();
 
+    let declared_class_hash_to_component_hashes: HashMap<Felt252, Vec<Felt252>> =
+        declared_class_hash_to_component_hashes
+            .into_iter()
+            .map(|(class_hash, components)| (class_hash.0, components.to_vec()))
+            .collect();
+
     let os_input = StarknetOsInput {
         contract_state_commitment_info,
         contract_class_commitment_info,
@@ -192,6 +200,7 @@ where
         class_hash_to_compiled_class_hash,
         general_config,
         transactions,
+        declared_class_hash_to_component_hashes,
         new_block_hash: Default::default(),
         prev_block_hash: Default::default(),
         full_output: false,

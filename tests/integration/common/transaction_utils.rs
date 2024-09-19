@@ -39,6 +39,7 @@ use starknet_os::storage::storage::Storage;
 use starknet_os::{config, run_os};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::chain_id::chain_id_to_felt;
+use starknet_os_types::class_hash_utils::ContractClassComponentHashes;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 
 use crate::common::block_utils::os_hints;
@@ -828,6 +829,7 @@ async fn execute_txs<S>(
     txs: Vec<Transaction>,
     deprecated_contract_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, GenericCasmContractClass>,
+    declared_class_hash_to_component_hashes: HashMap<ClassHash, ContractClassComponentHashes>,
 ) -> (StarknetOsInput, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
 where
     S: Storage,
@@ -869,21 +871,38 @@ where
             }
         })
         .collect();
-    os_hints(block_context, state, internal_txs, execution_infos, deprecated_contract_classes, contract_classes).await
+    os_hints(
+        block_context,
+        state,
+        internal_txs,
+        execution_infos,
+        deprecated_contract_classes,
+        contract_classes,
+        declared_class_hash_to_component_hashes,
+    )
+    .await
 }
 
 pub async fn execute_txs_and_run_os<S>(
     state: CachedState<SharedState<S, PedersenHash>>,
     block_context: BlockContext,
     txs: Vec<Transaction>,
-    deprecated_contract_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
-    contract_classes: HashMap<ClassHash, GenericCasmContractClass>,
+    deprecated_compiled_contract_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
+    compiled_contract_classes: HashMap<ClassHash, GenericCasmContractClass>,
+    declared_class_hash_to_component_hashes: HashMap<ClassHash, ContractClassComponentHashes>,
 ) -> Result<(CairoPie, StarknetOsOutput), SnOsError>
 where
     S: Storage,
 {
-    let (os_input, execution_helper) =
-        execute_txs(state, &block_context, txs, deprecated_contract_classes, contract_classes).await;
+    let (os_input, execution_helper) = execute_txs(
+        state,
+        &block_context,
+        txs,
+        deprecated_compiled_contract_classes,
+        compiled_contract_classes,
+        declared_class_hash_to_component_hashes,
+    )
+    .await;
 
     let layout = config::default_layout();
     let uncompressed_os = config::gunzip_default_os().expect("Could not uncompress default OS");
