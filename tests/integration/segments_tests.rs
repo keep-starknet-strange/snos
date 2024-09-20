@@ -33,12 +33,32 @@ async fn test_segment_arena(
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_segment_arena_1", &vec![]),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let tx2 = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
         calldata: create_calldata(contract_address, "test_segment_arena", &vec![]),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
     });
 
-    let txs = vec![Transaction::AccountTransaction(tx)];
+    let tx3 = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_segment_arena_3", &vec![]),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let txs = vec![
+        Transaction::AccountTransaction(tx),
+        Transaction::AccountTransaction(tx2),
+        Transaction::AccountTransaction(tx3),
+    ];
 
     let (_pie, os_output) = execute_txs_and_run_os(
         initial_state.cached_state,
@@ -49,6 +69,8 @@ async fn test_segment_arena(
     )
     .await
     .expect("OS run failed");
+
+    log::warn!("done");
 }
 
 #[rstest(

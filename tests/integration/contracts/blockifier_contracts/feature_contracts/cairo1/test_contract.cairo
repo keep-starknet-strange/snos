@@ -464,6 +464,15 @@ mod TestContract {
         starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
     }
 
+    #[external(v0)]
+    fn test_segment_arena_1(ref self: ContractState) -> felt252 {
+        let mut x = felt252_dict_new::<felt252>();
+        x.insert(0, 100);
+        let sum = x.get(0);
+        x.squash();
+        sum
+    }
+
     /// Tests the segment arena builtin, by creating dictionaries (`felt252_dict_new()` and
     /// `squash()` use the segment arena builtin).
     ///
@@ -495,25 +504,4 @@ mod TestContract {
         z.squash();
         sum
     }
-
-    /*
-    /// Tests the segment arena builtin, by creating dictionaries (`felt252_dict_new()` and
-    /// `squash()` use the segment arena builtin).
-    ///
-    /// Expected return value: 200.
-    #[external(v0)]
-    fn test_segment_arena_advanced(ref self: ContractState, num_dicts: usize, num_writes: usize) -> felt252 {
-        let mut val = 0;
-	for _ in 0..num_dicts {
-            let mut dict = felt252_dict_new::<felt252>();
-            for index in 0..num_writes {
-                dict.insert(index.into(), val);
-                val += 13;
-            };
-            dict.squash();
-	};
-
-        val
-    }
-    */
 }
