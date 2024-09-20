@@ -250,6 +250,11 @@ pub async fn prove_block(
 
     let compiled_classes = processed_state_update.compiled_classes;
     let deprecated_compiled_classes = processed_state_update.deprecated_compiled_classes;
+    let declared_class_hash_component_hashes: HashMap<_, _> = processed_state_update
+        .declared_class_hash_component_hashes
+        .into_iter()
+        .map(|(class_hash, component_hashes)| (class_hash, component_hashes.to_vec()))
+        .collect();
 
     // query storage proofs for each accessed contract
     let class_hashes: Vec<&Felt252> = class_hash_to_compiled_class_hash.keys().collect();
@@ -307,6 +312,7 @@ pub async fn prove_block(
         class_hash_to_compiled_class_hash,
         general_config,
         transactions,
+        declared_class_hash_to_component_hashes: declared_class_hash_component_hashes,
         new_block_hash: block_with_txs.block_hash,
         prev_block_hash: previous_block.block_hash,
         full_output: false,

@@ -102,6 +102,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(execute_syscalls::IS_BLOCK_NUMBER_IN_BLOCK_HASH_BUFFER.into(), execute_syscalls::is_block_number_in_block_hash_buffer);
     hints.insert(execute_transactions::FILL_HOLES_IN_RC96_SEGMENT.into(), execute_transactions::fill_holes_in_rc96_segment);
     hints.insert(execute_transactions::LOG_REMAINING_TXS.into(), execute_transactions::log_remaining_txs);
+    hints.insert(execute_transactions::SET_COMPONENT_HASHES.into(), execute_transactions::set_component_hashes);
     hints.insert(execute_transactions::SET_SHA256_SEGMENT_IN_SYSCALL_HANDLER.into(), execute_transactions::set_sha256_segment_in_syscall_handler::<PCS>);
     hints.insert(execute_transactions::START_TX_VALIDATE_DECLARE_EXECUTION_CONTEXT.into(), execute_transactions::start_tx_validate_declare_execution_context::<PCS>);
     hints.insert(execution::ADD_RELOCATION_RULE.into(), execution::add_relocation_rule);
@@ -165,7 +166,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(execution::WRITE_OLD_BLOCK_TO_STORAGE.into(), execution::write_old_block_to_storage::<PCS>);
     hints.insert(execution::WRITE_SYSCALL_RESULT.into(), execution::write_syscall_result::<PCS>);
     hints.insert(execution::WRITE_SYSCALL_RESULT_DEPRECATED.into(), execution::write_syscall_result_deprecated::<PCS>);
-    hints.insert(find_element::FIND_ELEMENT.into(), find_element::find_element);
+    hints.insert(find_element::SEARCH_SORTED_OPTIMISTIC.into(), find_element::search_sorted_optimistic);
     hints.insert(os::CONFIGURE_KZG_MANAGER.into(), os::configure_kzg_manager);
     hints.insert(os::WRITE_FULL_OUTPUT_TO_MEM.into(), os::write_full_output_to_mem);
     hints.insert(os::SET_AP_TO_NEW_BLOCK_HASH.into(), os::set_ap_to_new_block_hash);

@@ -21,6 +21,11 @@ async fn test_segment_arena(
     max_fee: Fee,
     tx_version: TransactionVersion,
 ) {
+<<<<<<< HEAD
+=======
+    use std::collections::HashMap;
+
+>>>>>>> main
     let initial_state = initial_state_syscalls.await;
 
     let mut nonce_manager = NonceManager::default();
@@ -33,19 +38,31 @@ async fn test_segment_arena(
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: sender_address,
+<<<<<<< HEAD
         calldata: create_calldata(contract_address, "test_segment_arena", &vec![]),
+=======
+        calldata: create_calldata(contract_address, "test_segment_arena", &[]),
+>>>>>>> main
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
     });
 
     let txs = vec![Transaction::AccountTransaction(tx)];
 
+<<<<<<< HEAD
     let (_pie, os_output) = execute_txs_and_run_os(
+=======
+    let (_pie, _os_output) = execute_txs_and_run_os(
+>>>>>>> main
         initial_state.cached_state,
         block_context,
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+<<<<<<< HEAD
+=======
+        HashMap::default(),
+>>>>>>> main
     )
     .await
     .expect("OS run failed");

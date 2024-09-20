@@ -35,7 +35,7 @@ cairo-lang-starknet-classes = { version = "=2.7.1" }
 cairo-lang-utils = { version = "=2.7.1" }
 cairo-lang-casm = { version = "=2.7.1" }
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
-cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", rev = "19b07b4c0c59265a2d79b6b0bead9c7490ede6e9", features = ["cairo-1-hints", "extensive_hints", "mod_builtin"] }
+cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", branch = "notlesh/segment-arena-relocation-fix", features = ["cairo-1-hints", "extensive_hints", "mod_builtin"] }
 clap = { version = "4.5.4", features = ["derive"] }
 c-kzg = { version = "1.0.3" }
 env_logger = "0.11.3"

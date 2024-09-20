@@ -37,6 +37,7 @@ async fn test_kzg_da_cairo_1(#[future] initial_state_cairo1: StarknetTestState, 
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        Default::default(),
     )
     .await
     .expect("OS run failed");
@@ -68,6 +69,7 @@ async fn test_kzg_da_cairo_0(#[future] initial_state_cairo0: StarknetTestState, 
         txs,
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
+        Default::default(),
     )
     .await
     .expect("OS run failed");

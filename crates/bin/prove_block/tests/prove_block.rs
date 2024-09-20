@@ -15,6 +15,7 @@ use rstest::rstest;
 // # * 97581, 101556, 102076 deploy account txns
 // # * 155016 / 125622 fix writes to zero (storage value not included in the tree)
 // # * 160035: EvalCircuit hint used
+// # * 164333 / 169203: Declare and Deploy on the same block
 #[rstest]
 #[case::small_block_with_only_invoke_txs(76793)]
 #[case::additional_basic_blocks_1(76766)]
@@ -37,6 +38,8 @@ use rstest::rstest;
 #[case::deploy_account_many_txs(102076)]
 #[case::edge_bottom_not_found(155016)]
 #[case::eval_circuit(160035)]
+#[case::declare_and_deploy_in_same_block(164333)]
+#[case::declare_and_deploy_in_same_block(169206)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
