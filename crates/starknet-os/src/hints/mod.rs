@@ -312,7 +312,7 @@ where
         let extensive_hints = EXTENSIVE_HINTS.into_iter().map(|(h, i)| (h.to_string(), i)).collect();
         Self {
             builtin_hint_proc: BuiltinHintProcessor::new_empty(),
-            cairo1_builtin_hint_proc: Cairo1HintProcessor::new(Default::default(), Default::default(), false),
+            cairo1_builtin_hint_proc: Cairo1HintProcessor::new(Default::default(), Default::default(), true),
             hints,
             extensive_hints,
             run_resources: Default::default(),
