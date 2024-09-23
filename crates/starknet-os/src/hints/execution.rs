@@ -413,15 +413,15 @@ pub fn os_context_segments(
 
 // TODO(#66): fix syscall entry
 // DROP THE ADDED VARIABLES
-pub const ENTER_SYSCALL_SCOPES: &str = indoc! {r#"vm_enter_scope({
-    '__deprecated_class_hashes': __deprecated_class_hashes,
-    'transactions': iter(os_input.transactions),
-    'component_hashes': os_input.declared_class_hash_to_component_hashes,
-    'execution_helper': execution_helper,
-    'deprecated_syscall_handler': deprecated_syscall_handler,
-    'syscall_handler': syscall_handler,
-     '__dict_manager': __dict_manager,
-})"#
+pub const ENTER_SYSCALL_SCOPES: &str = indoc! {r#"
+    vm_enter_scope({
+        '__deprecated_class_hashes': __deprecated_class_hashes,
+        'transactions': iter(os_input.transactions),
+        'execution_helper': execution_helper,
+        'deprecated_syscall_handler': deprecated_syscall_handler,
+        'syscall_handler': syscall_handler,
+         '__dict_manager': __dict_manager,
+    })"#
 };
 
 pub fn enter_syscall_scopes<PCS>(
