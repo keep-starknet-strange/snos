@@ -39,12 +39,13 @@ impl GenericSierraContractClass {
     }
 
     fn build_cairo_lang_class(&self) -> Result<CairoLangSierraContractClass, ContractClassError> {
-        if let Ok(serialized_class) = self.get_serialized_contract_class() {
-            let contract_class = serde_json::from_slice(serialized_class)?;
-            return Ok(contract_class);
+        match self.get_serialized_contract_class() {
+            Ok(serialized_class) => {
+                let contract_class = serde_json::from_slice(serialized_class)?;
+                return Ok(contract_class);
+            }
+            Err(e) => Err(e),
         }
-
-        Err(ContractClassError::NoPossibleConversion)
     }
 
     pub fn get_serialized_contract_class(&self) -> Result<&Vec<u8>, ContractClassError> {

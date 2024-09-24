@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::error::ContractClassError;
+use crate::error::{ContractClassError, ConversionError};
 use crate::hash::GenericClassHash;
 
 pub type CairoLangCasmClass = cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
@@ -25,8 +25,9 @@ pub struct GenericCasmContractClass {
 fn blockifier_contract_class_from_cairo_lang_class(
     cairo_lang_class: CairoLangCasmClass,
 ) -> Result<BlockifierCasmClass, ContractClassError> {
-    let blockifier_class: BlockifierCasmClass =
-        cairo_lang_class.try_into().map_err(|_| ContractClassError::BlockifierConversionError)?;
+    let blockifier_class: BlockifierCasmClass = cairo_lang_class
+        .try_into()
+        .map_err(|e| ContractClassError::ConversionError(ConversionError::BlockifierError(Box::new(e))))?;
     Ok(blockifier_class)
 }
 
@@ -51,7 +52,7 @@ impl GenericCasmContractClass {
             return Ok(contract_class);
         }
 
-        Err(ContractClassError::NoPossibleConversion)
+        Err(ContractClassError::ConversionError(ConversionError::CairoLangClassMissing))
     }
 
     fn build_blockifier_class(&self) -> Result<BlockifierCasmClass, ContractClassError> {
@@ -67,7 +68,7 @@ impl GenericCasmContractClass {
             return blockifier_contract_class_from_cairo_lang_class(cairo_lang_class);
         }
 
-        Err(ContractClassError::NoPossibleConversion)
+        Err(ContractClassError::ConversionError(ConversionError::BlockifierClassMissing))
     }
     pub fn get_cairo_lang_contract_class(&self) -> Result<&CairoLangCasmClass, ContractClassError> {
         self.cairo_lang_contract_class
