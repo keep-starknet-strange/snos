@@ -85,7 +85,7 @@ async fn return_result_cairo1_account(
     });
 
     let txs = vec![return_result_tx].into_iter().map(Into::into).collect();
-    let _result = execute_txs_and_run_os(
+    let result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
         txs,
@@ -95,6 +95,9 @@ async fn return_result_cairo1_account(
     )
     .await
     .expect("OS run failed");
+
+    let pie = result.0;
+    pie.run_memory_validity_checks().expect("memory validity check failed");
 }
 
 #[rstest(

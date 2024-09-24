@@ -1,7 +1,11 @@
 use std::collections::HashMap;
+use std::fs::File;
 use std::path::Path;
+use std::io::{self, Write};
+
 
 use cairo_vm::types::builtin_name::BuiltinName;
+use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::cairo_pie::{
     BuiltinAdditionalData, CairoPie, CairoPieAdditionalData, OutputBuiltinAdditionalData, SegmentInfo,
 };
@@ -89,4 +93,34 @@ fn convert_b64_to_raw(os_pie_string: String) {
         let file_path = dst.join(format!("{file:}.{:}", if file != "memory" { "json" } else { "bin" }));
         assert!(file_path.exists(), "Missing file {:}", file_path.to_string_lossy());
     }
+}
+
+#[rstest]
+fn test_pie_read_and_verify() {
+    let file_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("valid_pie.zip");    
+    let pie = CairoPie::read_zip_file(&file_path).unwrap();
+    let pie_memory: &Vec<((usize, usize), cairo_vm::types::relocatable::MaybeRelocatable)> = &pie.memory.0;
+    // let mut file = File::create("output.json").unwrap();
+    // let json_data = serde_json::to_string_pretty(&pie_memory).unwrap();
+    // file.write_all(json_data.as_bytes()).unwrap();
+    let _ = pie.run_validity_checks();
+    fn find_element(vec: &Vec<((usize, usize), MaybeRelocatable)>) -> Option<&((usize, usize),MaybeRelocatable)> {
+        vec.iter()
+            .find(|((x, y), _)| *x == 2 && *y == 2)
+            .map(|item: &((usize, usize), MaybeRelocatable)| item)
+    }
+
+    if let Some(value) = find_element(&pie_memory) {
+        println!("{:?}", value);
+    }
+}
+
+#[rstest]
+fn test_pie_read_and_verify_2() {
+    let file_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("173404_generated.zip");    
+    let file_path_starkware = Path::new(env!("CARGO_MANIFEST_DIR")).join("173404_starkware.zip");    
+    let pie = CairoPie::read_zip_file(&file_path).unwrap();
+    let pie_starkware = CairoPie::read_zip_file(&file_path_starkware).unwrap();
+
+   pie_starkware.check_pie_compatibility(&pie).unwrap();
 }
