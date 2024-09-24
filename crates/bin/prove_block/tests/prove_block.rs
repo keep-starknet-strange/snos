@@ -47,8 +47,10 @@ use rstest::rstest;
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
     let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
-    prove_block(block_number, &endpoint, LayoutName::all_cairo)
+    let (pie, _output) = prove_block(block_number, &endpoint, LayoutName::all_cairo)
         .await
         .map_err(debug_prove_error)
         .expect("Block could not be proven");
+
+    assert!(pie.run_validity_checks().is_ok());
 }
