@@ -52,5 +52,5 @@ async fn test_prove_selected_blocks(#[case] block_number: u64) {
         .map_err(debug_prove_error)
         .expect("Block could not be proven");
 
-    assert!(pie.run_validity_checks().is_ok());
+    pie.run_validity_checks().expect("Cairo Pie run validity checks failed");
 }
