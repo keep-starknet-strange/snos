@@ -920,7 +920,7 @@ where
         Err(_) => {
             println!("exception:\n{:#?}", result);
         }
-        Ok((pie, output)) => {
+        Ok((pie, _output)) => {
             pie.run_validity_checks().expect("Validity check failed");
         }
     }
