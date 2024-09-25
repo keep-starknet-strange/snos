@@ -50,7 +50,7 @@ async fn test_prove_selected_blocks(#[case] block_number: u64) {
     let (pie, _output) = prove_block(block_number, &endpoint, LayoutName::all_cairo)
         .await
         .map_err(debug_prove_error)
-        .expect("Block could not be proven");
+        .expect("OS failed to generate Cairo Pie");
 
     pie.run_validity_checks().expect("Cairo Pie run validity checks failed");
 }
