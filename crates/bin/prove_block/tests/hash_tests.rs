@@ -1,10 +1,9 @@
 use std::io::Read;
 
 use flate2::read::GzDecoder;
+use pathfinder_gateway_types::class_hash::compute_class_hash;
 use rpc_client::RpcClient;
 use rstest::rstest;
-use serde::Serialize;
-// use starknet::core::types::contract::legacy::LegacyContractClass;
 use starknet::core::types::BlockId;
 use starknet::providers::Provider;
 use starknet_core::types::contract::legacy::{
@@ -12,8 +11,8 @@ use starknet_core::types::contract::legacy::{
     RawLegacyEvent, RawLegacyFunction, RawLegacyL1Handler, RawLegacyMember, RawLegacyStruct,
 };
 use starknet_core::types::{
-    CompressedLegacyContractClass, LegacyContractAbiEntry, LegacyContractEntryPoint, LegacyEntryPointsByType,
-    LegacyFunctionAbiEntry, LegacyFunctionAbiType, LegacyStructMember,
+    LegacyContractAbiEntry, LegacyContractEntryPoint, LegacyEntryPointsByType, LegacyFunctionAbiEntry,
+    LegacyFunctionAbiType, LegacyStructMember,
 };
 use starknet_os_types::compiled_class::GenericCompiledClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
@@ -96,15 +95,17 @@ async fn test_recompute_class_hash2(#[case] class_hash_str: String, #[case] bloc
         }
     };
 
-    let recompressed_legacy_class = legacy_contract_class.compress().unwrap();
-    assert_eq!(compressed_legacy_contract_class, recompressed_legacy_class);
+    let serialized_class = serde_json::to_vec(&legacy_contract_class).unwrap();
+    let recomputed_class_hash =
+        Felt::from_bytes_be(&compute_class_hash(&serialized_class).unwrap().hash().0.to_be_bytes());
 
-    // let recomputed_class_hash = Felt::from(compiled_class.class_hash().unwrap());
+    println!("Class hash: {:#x}", class_hash);
+    println!("Recomputed class hash: {:#x}", recomputed_class_hash);
 
-    // println!("Class hash: {:#x}", class_hash);
-    // println!("Recomputed class hash: {:#x}", recomputed_class_hash);
+    assert_eq!(class_hash, recomputed_class_hash);
 
-    // assert_eq!(class_hash, recomputed_class_hash);
+    // let recompressed_legacy_class = legacy_contract_class.compress().unwrap();
+    // assert_eq!(compressed_legacy_contract_class, recompressed_legacy_class);
 }
 
 fn raw_abi_entry_from_legacy_function_abi_entry(entry: LegacyFunctionAbiEntry) -> RawLegacyAbiEntry {

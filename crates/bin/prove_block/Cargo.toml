@@ -21,6 +21,7 @@ hex = { workspace = true }
 pathfinder-common = { workspace = true }
 pathfinder-crypto = { workspace = true }
 pathfinder-serde = { workspace = true }
+pathfinder-gateway-types = { workspace = true }
 reqwest = { workspace = true }
 rpc-client = { workspace = true }
 rpc-replay = { workspace = true }
