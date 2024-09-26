@@ -136,8 +136,10 @@ impl Serializable for BinaryNodeFact {
     }
 }
 
+#[allow(clippy::too_long_first_doc_paragraph)]
 /// A node in a Patricia-Merkle tree that represents the edge to a subtree that contains data
 /// with value != 0.
+/// 
 /// Represented by three values embedding this information (elaborated below).
 /// Note that the bottom_node cannot be an edge node itself (otherwise, they would have both been
 /// fused to a bigger edge node).
