@@ -15,7 +15,7 @@ pub type BlockifierDeprecatedClass = blockifier::execution::contract_class::Cont
 
 /// A generic contract class that supports conversion to/from the most commonly used
 /// contract class types in Starknet and provides utility methods.
-/// 
+///
 /// Operations are implemented as lazily as possible, i.e. we only convert
 /// between different types if strictly necessary.
 /// Fields are boxed in an RC for cheap cloning.

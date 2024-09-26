@@ -1,7 +1,7 @@
 use crate::storage::storage::{Storage, StorageError};
 
 /// A composite storage is a storage object made of one main and one fallback storages.
-/// 
+///
 /// It will first attempt to look up the main storage then try the fallback one if it could
 /// not find any value in the main storage.
 pub struct CompositeStorage<M, F>
