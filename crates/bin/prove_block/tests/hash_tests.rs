@@ -7,8 +7,8 @@ use rstest::rstest;
 use starknet::core::types::BlockId;
 use starknet::providers::Provider;
 use starknet_core::types::contract::legacy::{
-    LegacyContractClass, LegacyEntrypointOffset, RawLegacyAbiEntry, RawLegacyEntryPoint, RawLegacyEntryPoints,
-    RawLegacyEvent, RawLegacyFunction, RawLegacyL1Handler, RawLegacyMember, RawLegacyStruct,
+    LegacyContractClass, LegacyEntrypointOffset, RawLegacyAbiEntry, RawLegacyConstructor, RawLegacyEntryPoint,
+    RawLegacyEntryPoints, RawLegacyEvent, RawLegacyFunction, RawLegacyL1Handler, RawLegacyMember, RawLegacyStruct,
 };
 use starknet_core::types::{
     LegacyContractAbiEntry, LegacyContractEntryPoint, LegacyEntryPointsByType, LegacyFunctionAbiEntry,
@@ -110,14 +110,17 @@ async fn test_recompute_class_hash2(#[case] class_hash_str: String, #[case] bloc
 
 fn raw_abi_entry_from_legacy_function_abi_entry(entry: LegacyFunctionAbiEntry) -> RawLegacyAbiEntry {
     match entry.r#type {
-        LegacyFunctionAbiType::Function | LegacyFunctionAbiType::Constructor => {
-            RawLegacyAbiEntry::Function(RawLegacyFunction {
-                inputs: entry.inputs,
-                name: entry.name,
-                outputs: entry.outputs,
-                state_mutability: entry.state_mutability,
-            })
-        }
+        LegacyFunctionAbiType::Function => RawLegacyAbiEntry::Function(RawLegacyFunction {
+            inputs: entry.inputs,
+            name: entry.name,
+            outputs: entry.outputs,
+            state_mutability: entry.state_mutability,
+        }),
+        LegacyFunctionAbiType::Constructor => RawLegacyAbiEntry::Constructor(RawLegacyConstructor {
+            inputs: entry.inputs,
+            name: entry.name,
+            outputs: entry.outputs,
+        }),
         LegacyFunctionAbiType::L1Handler => RawLegacyAbiEntry::L1Handler(RawLegacyL1Handler {
             inputs: entry.inputs,
             name: entry.name,
