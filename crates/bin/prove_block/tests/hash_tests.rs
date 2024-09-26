@@ -153,7 +153,7 @@ fn raw_legacy_abi_entry_from_legacy_contract_abi_entry(
 
 fn raw_legacy_entrypoint_from_legacy_entrypoint(legacy_entry_point: LegacyContractEntryPoint) -> RawLegacyEntryPoint {
     RawLegacyEntryPoint {
-        offset: LegacyEntrypointOffset::U64AsHex(legacy_entry_point.offset),
+        offset: LegacyEntrypointOffset::U64AsInt(legacy_entry_point.offset),
         selector: legacy_entry_point.selector,
     }
 }
