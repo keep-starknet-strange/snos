@@ -52,10 +52,10 @@ fn write_to_zip<W: Write + Seek>(pie: CairoPie, mut zip: ZipWriter<W>) -> Result
             let pie_mem_bytes = hex::decode(pie_s[file].to_string().trim_matches('"'))
                 .map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
 
-            zip.start_file(&format!("{file}.bin"), options).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
+            zip.start_file(format!("{file}.bin"), options).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
             zip.write_all(&pie_mem_bytes).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
         } else {
-            zip.start_file(&format!("{file}.json"), options).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
+            zip.start_file(format!("{file}.json"), options).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
             zip.write_all(pie_s[file].to_string().as_bytes()).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
         };
     }
@@ -71,7 +71,7 @@ pub fn decode_base64_to_unzipped(pie_str: &str, dst: &str) -> Result<(), SnOsErr
         general_purpose::STANDARD.decode(pie_str.as_bytes()).map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
     ZipArchive::new(Cursor::new(&buffer))
         .unwrap()
-        .extract(&PathBuf::from(dst))
+        .extract(PathBuf::from(dst))
         .map_err(|e| SnOsError::PieZipping(format!("{e}")))?;
     Ok(())
 }
