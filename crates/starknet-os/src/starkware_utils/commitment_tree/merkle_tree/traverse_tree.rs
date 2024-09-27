@@ -17,7 +17,7 @@ where
 
 /// Traverses a tree as follows:
 /// 1. Starts by calling get_children_callback(root). This function should return the children of
-/// root in the tree that you want to visit.
+///    root in the tree that you want to visit.
 /// 2. Call get_children_callback() on each of the children to get more nodes, and repeat.
 ///
 /// The order of execution is not guaranteed, except that it is more similar to DFS than BFS in
