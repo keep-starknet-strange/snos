@@ -146,28 +146,34 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
 
 impl PerContractStorage for ProverPerContractStorage {
     async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
-        // TODO: error code
-        let contract_data =
-            self.storage_proof.contract_data.as_ref().expect("storage proof should have a contract_data field");
-        let updated_root = contract_data.root;
+        if let Some(contract_data) = self.storage_proof.contract_data.as_ref() {
+            let updated_root = contract_data.root;
 
-        let commitment_facts = format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);
+            let commitment_facts = format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);
 
-        let previous_commitment_facts = match &self.previous_storage_proof.contract_data {
-            None => HashMap::default(),
-            Some(previous_contract_data) => {
-                format_commitment_facts::<PedersenHash>(&previous_contract_data.storage_proofs)
-            }
-        };
+            let previous_commitment_facts = match &self.previous_storage_proof.contract_data {
+                None => HashMap::default(),
+                Some(previous_contract_data) => {
+                    format_commitment_facts::<PedersenHash>(&previous_contract_data.storage_proofs)
+                }
+            };
 
-        let commitment_facts = commitment_facts.into_iter().chain(previous_commitment_facts.into_iter()).collect();
+            let commitment_facts = commitment_facts.into_iter().chain(previous_commitment_facts.into_iter()).collect();
 
-        Ok(CommitmentInfo {
-            previous_root: self.previous_tree_root,
-            updated_root,
-            tree_height: DEFAULT_STORAGE_TREE_HEIGHT as usize,
-            commitment_facts,
-        })
+            Ok(CommitmentInfo {
+                previous_root: self.previous_tree_root,
+                updated_root,
+                tree_height: DEFAULT_STORAGE_TREE_HEIGHT as usize,
+                commitment_facts,
+            })
+        } else {
+            Ok(CommitmentInfo {
+                previous_root: self.previous_tree_root,
+                updated_root: Felt252::ZERO,
+                tree_height: DEFAULT_STORAGE_TREE_HEIGHT as usize,
+                commitment_facts: Default::default(),
+            })
+        }
     }
 
     async fn read(&mut self, key: TreeIndex) -> Option<Felt252> {
