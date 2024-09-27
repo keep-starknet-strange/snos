@@ -1,9 +1,18 @@
+use reqwest::{Response, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
 use starknet_types_core::felt::Felt;
 
 use crate::pathfinder::proofs::{PathfinderClassProof, PathfinderProof};
+
+#[derive(Debug, thiserror::Error)]
+pub enum ClientError {
+    #[error("Encountered a request error: {0}")]
+    ReqwestError(#[from] reqwest::Error),
+    #[error("Encountered a custom error: {0}")]
+    Msg(String),
+}
 
 fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::Value {
     json!({
@@ -19,7 +28,7 @@ async fn post_jsonrpc_request<T: DeserializeOwned>(
     rpc_provider: &str,
     method: &str,
     params: serde_json::Value,
-) -> Result<T, reqwest::Error> {
+) -> Result<T, ClientError> {
     let request = jsonrpc_request(method, params);
     let response = client.post(format!("{}/rpc/pathfinder/v0.1", rpc_provider)).json(&request).send().await?;
 
@@ -28,10 +37,19 @@ async fn post_jsonrpc_request<T: DeserializeOwned>(
         result: T,
     }
 
-    let response_text = response.text().await?;
-    let response: TransactionReceiptResponse<T> =
-        serde_json::from_str(&response_text).unwrap_or_else(|_| panic!("Error: {}", response_text));
+    let response: TransactionReceiptResponse<T> = handle_error(response).await?;
+
     Ok(response.result)
+}
+
+async fn handle_error<T: DeserializeOwned>(response: Response) -> Result<T, ClientError> {
+    match response.status() {
+        StatusCode::OK => Ok(response.json().await?),
+        s => {
+            let error = response.text().await?;
+            Err(ClientError::Msg(format!("Received response: {s:?} Error: {error}")))
+        }
+    }
 }
 
 pub struct PathfinderRpcClient {
@@ -56,7 +74,7 @@ impl PathfinderRpcClient {
         block_number: u64,
         contract_address: Felt,
         keys: &[Felt],
-    ) -> Result<PathfinderProof, reqwest::Error> {
+    ) -> Result<PathfinderProof, ClientError> {
         post_jsonrpc_request(
             &self.http_client,
             &self.rpc_base_url,
@@ -70,7 +88,7 @@ impl PathfinderRpcClient {
         &self,
         block_number: u64,
         class_hash: &Felt,
-    ) -> Result<PathfinderClassProof, reqwest::Error> {
+    ) -> Result<PathfinderClassProof, ClientError> {
         log::debug!("querying pathfinder_getClassProof for {:x}", class_hash);
         post_jsonrpc_request(
             &self.http_client,
