@@ -43,12 +43,16 @@ use rstest::rstest;
 #[case::declare_and_deploy_in_same_block(169206)]
 #[case::dest_ptr_not_a_relocatable(155140)]
 #[case::dest_ptr_not_a_relocatable_2(155830)]
+#[case::inconsistent_cairo0_class_hash_0(30000)]
+#[case::inconsistent_cairo0_class_hash_1(204936)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
     let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
-    prove_block(block_number, &endpoint, LayoutName::all_cairo)
+    let (pie, _output) = prove_block(block_number, &endpoint, LayoutName::all_cairo)
         .await
         .map_err(debug_prove_error)
-        .expect("Block could not be proven");
+        .expect("OS failed to generate Cairo Pie");
+
+    pie.run_validity_checks().expect("Cairo Pie run validity checks failed");
 }
