@@ -135,7 +135,8 @@ impl<'preimage> Iterator for PreimageNodeIterator<'preimage> {
 /// The Python implementation returns a generator as follows:
 /// * if node is a leaf: [0]
 /// * Otherwise: [left, right] where each child is either None if empty or a generator defined
-/// recursively.
+///   recursively.
+///
 /// Note that this does not necessarily traverse the entire tree. The caller may open the branches
 /// as they wish.
 fn preimage_tree(height: Height, preimage: &Preimage, node: Triplet) -> PreimageNodeIterator {
