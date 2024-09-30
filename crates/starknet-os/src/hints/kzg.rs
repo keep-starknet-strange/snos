@@ -149,6 +149,8 @@ fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> Resul
     let commitment_bytes =
         blob_to_kzg_commitment(&Blob::from_bytes(&blob).map_err(FftError::CKzgError)?).map_err(FftError::CKzgError)?;
 
+    println!(">>>> kzg commitment : {:?}", commitment_bytes.as_hex_string());
+
     assert_eq!(commitment_bytes.len(), COMMITMENT_BYTES_LENGTH, "Bad commitment bytes length.");
     let commitment_by: Result<Vec<_>, _> = commitment_bytes.bytes().collect();
     Ok(split_commitment(from_bytes(&commitment_by.map_err(FftError::IoError)?)))
