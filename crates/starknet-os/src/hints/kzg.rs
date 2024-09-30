@@ -16,7 +16,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::{BigInt, ParseBigIntError};
-use num_traits::{Num, One, Zero};
+use num_traits::{FromBytes, Num, One, Zero};
 
 use super::vars;
 use crate::execution::helper::ExecutionHelperWrapper;
@@ -162,8 +162,10 @@ fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> Resul
     println!(">>>> kzg commitment : {:?}", commitment_bytes.as_hex_string());
 
     assert_eq!(commitment_bytes.len(), COMMITMENT_BYTES_LENGTH, "Bad commitment bytes length.");
-    let commitment_by: Result<Vec<_>, _> = commitment_bytes.bytes().collect();
-    Ok(split_commitment(from_bytes(&commitment_by.map_err(FftError::IoError)?)))
+
+    let kzg_bigint = BigInt::from_be_bytes(commitment_bytes.as_slice());
+
+    Ok(split_commitment(kzg_bigint))
 }
 
 fn polynomial_coefficients_to_blob(coefficients: Vec<BigInt>) -> Result<Vec<u8>, FftError> {
