@@ -29,7 +29,7 @@ fi
 for BLOCK_NUMBER in "${BLOCK_NUMBERS[@]}"; do
   echo "Executing for block number: $BLOCK_NUMBER"
   cargo run -p prove_block --release -- --block-number "$BLOCK_NUMBER" --rpc-provider "$PROVIDER"
-  
+
   # Check if the cargo command failed
   if [ $? -ne 0 ]; then
     echo "Command failed for block number: $BLOCK_NUMBER. Exiting."
