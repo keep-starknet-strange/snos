@@ -144,6 +144,7 @@ fn split_commitment(num: BigInt) -> (BigInt, BigInt) {
 }
 
 fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> Result<(BigInt, BigInt), FftError> {
+    println!(">>>> blob : {:?}", coefficients);
     let blob = polynomial_coefficients_to_blob(coefficients)?;
     let commitment_bytes =
         blob_to_kzg_commitment(&Blob::from_bytes(&blob).map_err(FftError::CKzgError)?).map_err(FftError::CKzgError)?;
