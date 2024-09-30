@@ -138,7 +138,7 @@ fn fft(coeffs: &[BigInt], generator: &BigInt, prime: &BigInt, bit_reversed: bool
     Ok(values)
 }
 
-fn split_commitment(num: &BigInt) -> (BigInt, BigInt) {
+fn split_commitment(num: BigInt) -> (BigInt, BigInt) {
     // Ensure the input is 384 bits (48 bytes)
     let num = num & &((BigInt::from(1) << 384) - 1);
 
