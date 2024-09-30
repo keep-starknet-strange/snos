@@ -26,6 +26,7 @@ use crate::utils::{execute_coroutine, get_constant};
 const FIELD_ELEMENTS_PER_BLOB: usize = 4096;
 const COMMITMENT_BYTES_LENGTH: usize = 48;
 const COMMITMENT_LOW_BIT_LENGTH: usize = (COMMITMENT_BYTES_LENGTH * 8) / 2;
+const COMMITMENT_HALF_BIT_LENGTH: usize = COMMITMENT_LOW_BIT_LENGTH / 2;
 const BLOB_SUBGROUP_GENERATOR: &str = "39033254847818212395286706435128746857159659164139250548781411570340225835782";
 const BLS_PRIME: &str = "52435875175126190479447740508185965837690552500527637822603658699938581184513";
 
@@ -138,9 +139,10 @@ fn fft(coeffs: &[BigInt], generator: &BigInt, prime: &BigInt, bit_reversed: bool
 }
 
 fn split_commitment(num: BigInt) -> (BigInt, BigInt) {
-    let low_part = &num % (BigInt::one() << COMMITMENT_LOW_BIT_LENGTH);
-    let high_part = &num >> COMMITMENT_LOW_BIT_LENGTH;
-    (low_part, high_part)
+    let mask = (BigInt::from(1) << COMMITMENT_HALF_BIT_LENGTH) - 1;
+    let low_part = num.clone() & &mask;
+    let high_part = num >> COMMITMENT_HALF_BIT_LENGTH;
+    (high_part, low_part)
 }
 
 fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> Result<(BigInt, BigInt), FftError> {
