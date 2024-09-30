@@ -256,6 +256,7 @@ where
         .map(|chunk| {
             let coefficients: Vec<BigInt> = chunk.iter().map(|f| f.to_bigint()).collect();
             let res: (BigInt, BigInt) = polynomial_coefficients_to_kzg_commitment(coefficients).unwrap(); // TODO: unwrap
+            println!("res: >>> : {:?}", res);
             (res.0.into(), res.1.into())
         })
         .collect();
