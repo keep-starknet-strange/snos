@@ -138,11 +138,19 @@ fn fft(coeffs: &[BigInt], generator: &BigInt, prime: &BigInt, bit_reversed: bool
     Ok(values)
 }
 
-fn split_commitment(num: BigInt) -> (BigInt, BigInt) {
-    let mask = (BigInt::from(1) << COMMITMENT_HALF_BIT_LENGTH) - 1;
-    let low_part = num.clone() & &mask;
-    let high_part = num >> COMMITMENT_HALF_BIT_LENGTH;
-    (high_part, low_part)
+fn split_commitment(num: &BigInt) -> (BigInt, BigInt) {
+    // Ensure the input is 384 bits (48 bytes)
+    let num = num & &((BigInt::from(1) << 384) - 1);
+
+    // Calculate midpoint (384 bits / 2 = 192 bits)
+    let mid_point = 192;
+
+    // Split the number
+    let mask = (BigInt::from(1) << mid_point) - 1;
+    let low = &num & &mask;
+    let high = &num >> mid_point;
+
+    (high, low)
 }
 
 fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> Result<(BigInt, BigInt), FftError> {
