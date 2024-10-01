@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::io::{self, Read};
 use std::num::ParseIntError;
 use std::path::Path;
 
@@ -16,7 +15,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::{BigInt, ParseBigIntError};
-use num_traits::{FromBytes, Num, One, Zero};
+use num_traits::{Num, One, Zero};
 
 use super::vars;
 use crate::execution::helper::ExecutionHelperWrapper;
@@ -25,8 +24,6 @@ use crate::utils::{execute_coroutine, get_constant};
 
 const FIELD_ELEMENTS_PER_BLOB: usize = 4096;
 const COMMITMENT_BYTES_LENGTH: usize = 48;
-const COMMITMENT_LOW_BIT_LENGTH: usize = (COMMITMENT_BYTES_LENGTH * 8) / 2;
-const COMMITMENT_HALF_BIT_LENGTH: usize = COMMITMENT_LOW_BIT_LENGTH / 2;
 const BLOB_SUBGROUP_GENERATOR: &str = "39033254847818212395286706435128746857159659164139250548781411570340225835782";
 const BLS_PRIME: &str = "52435875175126190479447740508185965837690552500527637822603658699938581184513";
 
@@ -44,9 +41,8 @@ pub enum FftError {
     #[error("Encountered a c_kzg error: {0}")]
     CKzgError(#[from] c_kzg::Error),
 
-    #[error("Encountered an internal io error: {0}")]
-    IoError(io::Error),
-
+    // #[error("Encountered an internal io error: {0}")]
+    // IoError(io::Error),
     #[error("Too many coefficients")]
     TooManyCoefficients,
 }
@@ -183,10 +179,6 @@ fn polynomial_coefficients_to_blob(coefficients: Vec<BigInt>) -> Result<Vec<u8>,
 pub fn blob_to_kzg_commitment(blob: &Blob) -> Result<KzgCommitment, c_kzg::Error> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("kzg").join("trusted_setup.txt");
     c_kzg::KzgCommitment::blob_to_kzg_commitment(blob, &c_kzg::KzgSettings::load_trusted_setup_file(&path)?)
-}
-
-fn from_bytes(bytes: &[u8]) -> BigInt {
-    BigInt::from_bytes_le(num_bigint::Sign::Plus, bytes)
 }
 
 fn to_bytes(x: &BigInt, length: usize) -> Vec<u8> {
