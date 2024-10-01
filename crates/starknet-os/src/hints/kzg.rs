@@ -150,21 +150,15 @@ fn split_commitment(num: BigInt) -> (BigInt, BigInt) {
     let low = &num & &mask;
     let high = &num >> mid_point;
 
-    (high, low)
+    (low, high)
 }
 
 fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> Result<(BigInt, BigInt), FftError> {
-    println!(">>>> blob : {:?}", coefficients);
     let blob = polynomial_coefficients_to_blob(coefficients)?;
     let commitment_bytes =
         blob_to_kzg_commitment(&Blob::from_bytes(&blob).map_err(FftError::CKzgError)?).map_err(FftError::CKzgError)?;
-
-    println!(">>>> kzg commitment : {:?}", commitment_bytes.as_hex_string());
-
     assert_eq!(commitment_bytes.len(), COMMITMENT_BYTES_LENGTH, "Bad commitment bytes length.");
-
-    let kzg_bigint = BigInt::from_be_bytes(commitment_bytes.as_slice());
-
+    let kzg_bigint = BigInt::from_str_radix(&commitment_bytes.as_hex_string(), 16).unwrap();
     Ok(split_commitment(kzg_bigint))
 }
 
@@ -268,7 +262,6 @@ where
         .map(|chunk| {
             let coefficients: Vec<BigInt> = chunk.iter().map(|f| f.to_bigint()).collect();
             let res: (BigInt, BigInt) = polynomial_coefficients_to_kzg_commitment(coefficients).unwrap(); // TODO: unwrap
-            println!("res: >>> : {:?}", res);
             (res.0.into(), res.1.into())
         })
         .collect();
