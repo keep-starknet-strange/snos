@@ -9,6 +9,7 @@ license-file.workspace = true
 blockifier = { workspace = true }
 cairo-vm = { workspace = true }
 clap = { workspace = true }
+flate2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 starknet-os = { path = "../../starknet-os" }
