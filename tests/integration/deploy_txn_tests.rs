@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use blockifier::context::BlockContext;
-use blockifier::deploy_account_tx_args;
 use blockifier::test_utils::deploy_account::deploy_account_tx;
-use blockifier::test_utils::{NonceManager, BALANCE};
+use blockifier::test_utils::{create_calldata, NonceManager, BALANCE};
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::test_utils::max_fee;
+use blockifier::transaction::test_utils::{self, max_fee};
+use blockifier::{deploy_account_tx_args, invoke_tx_args};
 use cairo_vm::Felt252;
 use rstest::{fixture, rstest};
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
@@ -37,7 +37,7 @@ pub async fn initial_state_for_deploy_v1(
 ) -> (StarknetTestState, DeployArgs) {
     let account_with_dummy_validate = load_cairo0_feature_contract("account_with_dummy_validate");
     let account_with_long_validate = load_cairo0_feature_contract("account_with_long_validate");
-
+    let test_contract = load_cairo0_feature_contract("test_contract");
     // This is the hardcoded class hash of `account_with_long_validate` (Cairo 0).
     // Recomputing it automatically requires a significant amount of code reorganization so
     // we hardcode it for simplicity.
@@ -62,6 +62,7 @@ pub async fn initial_state_for_deploy_v1(
     let state = StarknetStateBuilder::new(&block_context)
         .deploy_cairo0_contract(account_with_dummy_validate.0, account_with_dummy_validate.1)
         .deploy_cairo0_contract(account_with_long_validate.0, account_with_long_validate.1)
+        .deploy_cairo0_contract(test_contract.0, test_contract.1)
         .fund_account(deployed_contract_address, BALANCE, BALANCE)
         .set_default_balance(BALANCE, BALANCE)
         .build()
@@ -121,7 +122,7 @@ pub async fn initial_state_for_deploy_v3(
 ) -> (StarknetTestState, DeployArgs) {
     let account_with_dummy_validate = load_cairo1_feature_contract("account_with_dummy_validate");
     let account_with_long_validate = load_cairo1_feature_contract("account_with_long_validate");
-
+    let test_contract = load_cairo1_feature_contract("test_contract");
     // This is the hardcoded class hash of `account_with_long_validate` (Cairo 1).
     // Recomputing it automatically requires a significant amount of code reorganization so
     // we hardcode it for simplicity.
@@ -154,6 +155,7 @@ pub async fn initial_state_for_deploy_v3(
             account_with_long_validate.1,
             account_with_long_validate.2,
         )
+        .deploy_cairo1_contract(test_contract.0, test_contract.1, test_contract.2)
         .fund_account(deployed_contract_address, BALANCE, BALANCE)
         .set_default_balance(BALANCE, BALANCE)
         .build()
@@ -193,6 +195,108 @@ async fn deploy_cairo1_account(
     );
 
     let txs = vec![AccountTransaction::DeployAccount(deploy_account_tx)].into_iter().map(Into::into).collect();
+    let _result = execute_txs_and_run_os(
+        initial_state.cached_state,
+        block_context,
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+        HashMap::default(),
+    )
+    .await
+    .expect("OS run failed");
+}
+
+#[rstest]
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn deploy_via_invoke_cairo0_account(
+    #[future] initial_state_for_deploy_v1: (StarknetTestState, DeployArgs),
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let (initial_state, deploy_args) = initial_state_for_deploy_v1.await;
+
+    let tx_version = TransactionVersion::ONE;
+    let mut nonce_manager = NonceManager::default();
+    let account_with_long_validate = initial_state.deployed_cairo0_contracts.get("account_with_long_validate").unwrap();
+    let test_contract = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap();
+
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = test_contract.address;
+
+    let deployed_account_class_hash = account_with_long_validate.declaration.class_hash;
+    assert_eq!(deployed_account_class_hash, deploy_args.class_hash);
+    let contract_address_salt = ContractAddressSalt::default();
+    let constructor_args = vec![Felt252::from(100u64), Felt252::from(200u64)];
+    let test_deploy_args = &[
+        vec![deploy_args.class_hash.0, contract_address_salt.0],
+        vec![Felt252::from(constructor_args.len() as u64)],
+        constructor_args.clone(),
+        vec![Felt252::ZERO],
+    ]
+    .concat();
+
+    let tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_deploy", test_deploy_args),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let txs = vec![tx].into_iter().map(Into::into).collect();
+    let _result = execute_txs_and_run_os(
+        initial_state.cached_state,
+        block_context,
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+        HashMap::default(),
+    )
+    .await
+    .expect("OS run failed");
+}
+
+#[rstest]
+// We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn deploy_via_invoke_cairo1_account(
+    #[future] initial_state_for_deploy_v3: (StarknetTestState, DeployArgs),
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let (initial_state, deploy_args) = initial_state_for_deploy_v3.await;
+
+    let tx_version = TransactionVersion::THREE;
+    let mut nonce_manager = NonceManager::default();
+    let account_with_long_validate = initial_state.deployed_cairo1_contracts.get("account_with_long_validate").unwrap();
+    let test_contract = initial_state.deployed_cairo1_contracts.get("test_contract").unwrap();
+
+    let sender_address = initial_state.deployed_cairo1_contracts.get("account_with_dummy_validate").unwrap().address;
+    let contract_address = test_contract.address;
+
+    let deployed_account_class_hash = account_with_long_validate.declaration.class_hash;
+    assert_eq!(deployed_account_class_hash, deploy_args.class_hash);
+    let contract_address_salt = ContractAddressSalt::default();
+    let constructor_args = vec![Felt252::from(100u64), Felt252::from(200u64)];
+    let test_deploy_args = &[
+        vec![deploy_args.class_hash.0, contract_address_salt.0],
+        vec![Felt252::from(constructor_args.len() as u64)],
+        constructor_args.clone(),
+        vec![Felt252::ONE],
+    ]
+    .concat();
+
+    let tx = test_utils::account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: sender_address,
+        calldata: create_calldata(contract_address, "test_deploy", test_deploy_args),
+        version: tx_version,
+        nonce: nonce_manager.next(sender_address),
+    });
+
+    let txs = vec![tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
         initial_state.cached_state,
         block_context,
