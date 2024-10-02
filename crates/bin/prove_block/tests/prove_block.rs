@@ -45,6 +45,8 @@ use rstest::rstest;
 #[case::dest_ptr_not_a_relocatable_2(155830)]
 #[case::inconsistent_cairo0_class_hash_0(30000)]
 #[case::inconsistent_cairo0_class_hash_1(204936)]
+#[case::no_possible_convertion_1(155007)]
+#[case::no_possible_convertion_2(155029)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {

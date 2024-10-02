@@ -11,7 +11,7 @@ pub enum ClientError {
     #[error("Encountered a request error: {0}")]
     ReqwestError(#[from] reqwest::Error),
     #[error("Encountered a custom error: {0}")]
-    Msg(String),
+    CustomError(String),
 }
 
 fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::Value {
@@ -47,7 +47,7 @@ async fn handle_error<T: DeserializeOwned>(response: Response) -> Result<T, Clie
         StatusCode::OK => Ok(response.json().await?),
         s => {
             let error = response.text().await?;
-            Err(ClientError::Msg(format!("Received response: {s:?} Error: {error}")))
+            Err(ClientError::CustomError(format!("Received response: {s:?} Error: {error}")))
         }
     }
 }
