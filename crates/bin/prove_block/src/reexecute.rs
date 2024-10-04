@@ -146,25 +146,21 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
 
 impl PerContractStorage for ProverPerContractStorage {
     async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
-        let (updated_root, commitment_facts) = match self.storage_proof.contract_data.as_ref() {
-            Some(contract_data) => {
-                let updated_root = contract_data.root;
-                let commitment_facts = format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);
+        // TODO: error code
+        let contract_data =
+            self.storage_proof.contract_data.as_ref().expect("storage proof should have a contract_data field");
+        let updated_root = contract_data.root;
 
-                let previous_commitment_facts = match &self.previous_storage_proof.contract_data {
-                    None => HashMap::default(),
-                    Some(previous_contract_data) => {
-                        format_commitment_facts::<PedersenHash>(&previous_contract_data.storage_proofs)
-                    }
-                };
+        let commitment_facts = format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);
 
-                let commitment_facts =
-                    commitment_facts.into_iter().chain(previous_commitment_facts.into_iter()).collect();
-                (updated_root, commitment_facts)
+        let previous_commitment_facts = match &self.previous_storage_proof.contract_data {
+            None => HashMap::default(),
+            Some(previous_contract_data) => {
+                format_commitment_facts::<PedersenHash>(&previous_contract_data.storage_proofs)
             }
-            // Defaults when no contract data is available
-            None => (Felt252::ZERO, HashMap::default()),
         };
+
+        let commitment_facts = commitment_facts.into_iter().chain(previous_commitment_facts.into_iter()).collect();
 
         Ok(CommitmentInfo {
             previous_root: self.previous_tree_root,
