@@ -6,7 +6,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
-use pathfinder_gateway_types::class_hash::{compute_cairo_hinted_class_hash, json};
+use pathfinder_gateway_types::class_hash::{compute_cairo_hinted_class_hash, json, prepare_json_contract_definition};
 use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, EntryPointType};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 
@@ -67,9 +67,13 @@ pub fn get_deprecated_contract_class_struct(
     vm.insert_value((class_base + 8)?, builtins_base)?;
 
     let contract_definition_dump = serde_json::to_vec(&deprecated_class).expect("Serialization should not fail");
-    let cairo_contract_class_json =
+    let mut cairo_contract_class_json =
         serde_json::from_slice::<json::CairoContractDefinition<'_>>(&contract_definition_dump)
             .expect("Deserialization should not fail");
+
+    // This functions perform some tweaks for old Cairo contracts in order to keep backward compatibility and compute the right hash
+    prepare_json_contract_definition(&mut cairo_contract_class_json)
+        .map_err(|_| custom_hint_error("Processing Cairo contracts for backward compatibility failed"))?;
 
     let hinted_class_hash = {
         let class_hash =

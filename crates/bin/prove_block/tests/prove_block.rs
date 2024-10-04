@@ -1,4 +1,6 @@
 use cairo_vm::types::layout_name::LayoutName;
+use cairo_vm::types::relocatable::MaybeRelocatable;
+use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use prove_block::{debug_prove_error, prove_block};
 use rstest::rstest;
 
@@ -45,14 +47,46 @@ use rstest::rstest;
 #[case::dest_ptr_not_a_relocatable_2(155830)]
 #[case::inconsistent_cairo0_class_hash_0(30000)]
 #[case::inconsistent_cairo0_class_hash_1(204936)]
+#[case::reference_pie_with_full_output_enabled(173404)]
+#[case::inconsistent_cairo0_class_hash_2(159674)]
+#[case::inconsistent_cairo0_class_hash_3(164180)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
     let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
-    let (pie, _output) = prove_block(block_number, &endpoint, LayoutName::all_cairo)
+    let (snos_pie, _snos_output) = prove_block(block_number, &endpoint, LayoutName::all_cairo, true)
         .await
         .map_err(debug_prove_error)
-        .expect("OS failed to generate Cairo Pie");
+        .expect("OS generate Cairo PIE");
+    snos_pie.run_validity_checks().expect("Valid SNOS PIE");
 
-    pie.run_validity_checks().expect("Cairo Pie run validity checks failed");
+    if let Some(reference_pie_bytes) = get_reference_pie_bytes(block_number) {
+        println!("Block {}: Checking against reference PIE", block_number);
+        let reference_pie = CairoPie::from_bytes(&reference_pie_bytes).expect("reference PIE");
+        reference_pie.run_validity_checks().expect("Valid reference PIE");
+
+        let output_segment_index = 2;
+        assert_eq!(
+            get_memory_segment(&reference_pie, output_segment_index),
+            get_memory_segment(&snos_pie, output_segment_index)
+        );
+    }
+}
+
+fn get_reference_pie_bytes(block_number: u64) -> Option<Vec<u8>> {
+    match block_number {
+        173404 => Some(include_bytes!("../reference-pies/173404.zip").to_vec()),
+        _ => None,
+    }
+}
+
+fn get_memory_segment(pie: &CairoPie, index: usize) -> Vec<(usize, &MaybeRelocatable)> {
+    let mut segment = pie
+        .memory
+        .0
+        .iter()
+        .filter_map(|((segment_index, offset), value)| (*segment_index == index).then_some((*offset, value)))
+        .collect::<Vec<_>>();
+    segment.sort_by(|(offset1, _), (offset2, _)| offset1.cmp(offset2));
+    segment
 }

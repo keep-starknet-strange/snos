@@ -53,10 +53,10 @@ log = "0.4.19"
 num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2.16"
-pathfinder-common = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-common" }
-pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-crypto" }
-pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "starknet-gateway-types" }
-pathfinder-serde = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "49a2de4ef52726d1fb5ef906ff95f48af8076169", package = "pathfinder-serde" }
+pathfinder-common = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "pathfinder-common" }
+pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "pathfinder-crypto" }
+pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "starknet-gateway-types" }
+pathfinder-serde = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "pathfinder-serde" }
 reqwest = { version = "0.11.18", features = ["blocking", "json"] }
 rpc-client = { path = "crates/rpc-client" }
 rpc-replay = { path = "crates/rpc-replay" }
