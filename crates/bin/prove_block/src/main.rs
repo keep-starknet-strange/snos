@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use prove_block::debug_prove_error;
@@ -24,7 +22,7 @@ fn init_logging() {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() {
     init_logging();
 
     let args = Args::parse();
@@ -32,7 +30,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let block_number = args.block_number;
     let layout = LayoutName::all_cairo;
 
-    let result = prove_block::prove_block(block_number, &args.rpc_provider, layout).await;
-    let (_pie, _output) = result.map_err(debug_prove_error).expect("Block could not be proven");
-    Ok(())
+    let result = prove_block::prove_block(block_number, &args.rpc_provider, layout, true).await;
+    let (pie, _snos_output) = result.map_err(debug_prove_error).expect("Block proven");
+    pie.run_validity_checks().expect("Valid PIE");
 }
