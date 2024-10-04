@@ -41,8 +41,6 @@ pub enum FftError {
     #[error("Encountered a c_kzg error: {0}")]
     CKzgError(#[from] c_kzg::Error),
 
-    // #[error("Encountered an internal io error: {0}")]
-    // IoError(io::Error),
     #[error("Too many coefficients")]
     TooManyCoefficients,
 }
@@ -154,7 +152,8 @@ fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> Resul
     let commitment_bytes =
         blob_to_kzg_commitment(&Blob::from_bytes(&blob).map_err(FftError::CKzgError)?).map_err(FftError::CKzgError)?;
     assert_eq!(commitment_bytes.len(), COMMITMENT_BYTES_LENGTH, "Bad commitment bytes length.");
-    let kzg_bigint = BigInt::from_str_radix(&commitment_bytes.as_hex_string(), 16).unwrap();
+    let kzg_bigint =
+        BigInt::from_str_radix(&commitment_bytes.as_hex_string(), 16).map_err(FftError::ParseBigIntError)?;
     Ok(split_commitment(kzg_bigint))
 }
 
