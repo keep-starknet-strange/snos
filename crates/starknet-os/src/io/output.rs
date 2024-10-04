@@ -4,7 +4,7 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::BuiltinRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
-use num_traits::ToPrimitive;
+use num_traits::{ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
 
 use crate::error::SnOsError;
@@ -71,7 +71,7 @@ impl StarknetOsOutput {
     pub fn from_run(vm: &VirtualMachine) -> Result<Self, SnOsError> {
         let (output_base, output_size) = get_output_info(vm)?;
         let raw_output = get_raw_output(vm, output_base, output_size)?;
-        decode_output(&mut raw_output.into_iter())
+        deserialize_os_output(&mut raw_output.into_iter())
     }
 }
 
@@ -134,66 +134,101 @@ fn next_as_usize<I: Iterator<Item = Felt252>>(output_iter: &mut I, item_name: &s
         .ok_or(SnOsError::CatchAll(format!("{item_name} segment size is too large")))
 }
 
-fn parse_contract_changes<I: Iterator<Item = Felt252>>(output_iter: &mut I) -> Result<ContractChanges, SnOsError> {
-    let addr = next_or_fail(output_iter, "contract change addr")?;
-    let class_nonce_n_changes = next_or_fail(output_iter, "contract change class_nonce_n_changes")?;
-
-    let two_exp_64 =
+// Reverse of output_contract_state_inner in state/output.cairo
+fn deserialize_contract_state_inner<I: Iterator<Item = Felt252>>(
+    output_iter: &mut I,
+    full_output: Felt252,
+) -> Result<ContractChanges, SnOsError> {
+    let bound =
         Felt252::from(1u128 << 64).try_into().expect("2**64 should be considered non-zero. Did you change the value?");
-    let (class_nonce, n_changes) = class_nonce_n_changes.div_rem(&two_exp_64);
-    let (class_updated, nonce) = class_nonce.div_rem(&two_exp_64);
 
-    let class_hash = if class_updated != Felt252::ZERO {
-        Some(next_or_fail(output_iter, "contract change class_hash")?)
+    let addr = next_or_fail(output_iter, "contract change addr")?;
+
+    let value = next_or_fail(output_iter, "contract change value")?;
+    let (value, n_actual_updates) = value.div_rem(&bound);
+    let (was_class_updated, new_state_nonce) = value.div_rem(&bound);
+
+    #[allow(clippy::collapsible_else_if)] // Mirror the Cairo code as much as possible
+    let new_state_class_hash = if !full_output.is_zero() {
+        next_or_fail(output_iter, "contract change prev_state.class_hash")?;
+        Some(next_or_fail(output_iter, "contract change new_state.class_hash")?)
     } else {
-        None
+        if !was_class_updated.is_zero() {
+            Some(next_or_fail(output_iter, "contract change new_state.class_hash")?)
+        } else {
+            None
+        }
     };
 
-    let n_changes =
-        n_changes.to_usize().expect("n_changes should be 64-bit by definition. Did you modify the parsing above?");
-    let mut storage_changes = HashMap::with_capacity(n_changes);
+    let n_actual_updates = n_actual_updates
+        .to_usize()
+        .expect("n_updates should be 64-bit by definition. Did you modify the parsing above?");
+    let storage_changes = deserialize_da_changes(output_iter, n_actual_updates, full_output)?;
 
-    for i in 0..n_changes {
-        let key = next_or_fail(output_iter, &format!("contract change key #{i}"))?;
-        let value = next_or_fail(output_iter, &format!("contract change value #{i}"))?;
-
-        storage_changes.insert(key, value);
-    }
-
-    Ok(ContractChanges { addr, nonce, class_hash, storage_changes })
+    Ok(ContractChanges { addr, nonce: new_state_nonce, class_hash: new_state_class_hash, storage_changes })
 }
 
-fn parse_all_contract_changes<I: Iterator<Item = Felt252>>(
+// Reverse of serialize_da_changes in state/output.cairo
+fn deserialize_da_changes<I: Iterator<Item = Felt252>>(
     output_iter: &mut I,
-) -> Result<Vec<ContractChanges>, SnOsError> {
-    let n_contract_changes = next_as_usize(output_iter, "contracts")?;
-    let mut contracts = Vec::with_capacity(n_contract_changes);
-
-    for _ in 0..n_contract_changes {
-        contracts.push(parse_contract_changes(output_iter)?)
-    }
-
-    Ok(contracts)
-}
-
-fn parse_all_class_changes<I: Iterator<Item = Felt252>>(
-    output_iter: &mut I,
+    n_updates: usize,
+    full_output: Felt252,
 ) -> Result<HashMap<Felt252, Felt252>, SnOsError> {
-    let n_class_changes = next_as_usize(output_iter, "classes")?;
+    let mut storage_changes = HashMap::with_capacity(n_updates);
 
-    let mut classes = HashMap::new();
+    for i in 0..n_updates {
+        let key = next_or_fail(output_iter, &format!("contract change key #{i}"))?;
+        if !full_output.is_zero() {
+            next_or_fail(output_iter, &format!("contract change prev_value #{i}"))?;
+        }
+        let new_value = next_or_fail(output_iter, &format!("contract change new_value #{i}"))?;
+        storage_changes.insert(key, new_value);
+    }
 
-    for i in 0..n_class_changes {
+    Ok(storage_changes)
+}
+
+// Reverse of output_contract_state in state/output.cairo
+fn deserialize_contract_state<I: Iterator<Item = Felt252>>(
+    output_iter: &mut I,
+    full_output: Felt252,
+) -> Result<Vec<ContractChanges>, SnOsError> {
+    let output_n_updates = next_as_usize(output_iter, "output_n_updates")?;
+    let mut contract_changes = Vec::with_capacity(output_n_updates);
+
+    for _ in 0..output_n_updates {
+        contract_changes.push(deserialize_contract_state_inner(output_iter, full_output)?)
+    }
+
+    Ok(contract_changes)
+}
+
+// Reverse of output_contract_class_da_changes in state/output.cairo
+fn deserialize_contract_class_da_changes<I: Iterator<Item = Felt252>>(
+    output_iter: &mut I,
+    full_output: Felt252,
+) -> Result<HashMap<Felt252, Felt252>, SnOsError> {
+    let n_actual_updates = next_as_usize(output_iter, "n_actual_updates")?;
+
+    let mut classes = HashMap::with_capacity(n_actual_updates);
+
+    for i in 0..n_actual_updates {
         let class_hash = next_or_fail(output_iter, &format!("class hash #{i}"))?;
+        if !full_output.is_zero() {
+            next_or_fail(output_iter, &format!("previous compiled class hash #{i}"))?;
+        }
         let compiled_class_hash = next_or_fail(output_iter, &format!("compiled class hash #{i}"))?;
-
         classes.insert(class_hash, compiled_class_hash);
     }
 
     Ok(classes)
 }
 
-pub fn decode_output<I: Iterator<Item = Felt252>>(output_iter: &mut I) -> Result<StarknetOsOutput, SnOsError> {
+// Reverse of serialize_messages in os/output.cairo
+fn deserialize_messages<I>(output_iter: &mut I) -> Result<(Vec<Felt252>, Vec<Felt252>), SnOsError>
+where
+    I: Iterator<Item = Felt252>,
+{
     /// Reads a section with a variable length from the iterator.
     /// Some sections start with a length field N followed by N items.
     fn read_variable_length_segment<I: Iterator<Item = Felt252>>(
@@ -201,32 +236,41 @@ pub fn decode_output<I: Iterator<Item = Felt252>>(output_iter: &mut I) -> Result
         item_name: &str,
     ) -> Result<Vec<Felt252>, SnOsError> {
         let n_items = next_as_usize(output_iter, item_name)?;
-        let items = output_iter.by_ref().take(n_items).collect();
-
-        Ok(items)
+        read_segment(output_iter, n_items, item_name)
     }
 
-    let header: Vec<Felt252> = output_iter.by_ref().take(HEADER_SIZE).collect();
-    if header.len() != HEADER_SIZE {
+    let messages_to_l1 = read_variable_length_segment(output_iter, "L1 messages")?;
+    let messages_to_l2 = read_variable_length_segment(output_iter, "L2 messages")?;
+    Ok((messages_to_l1, messages_to_l2))
+}
+
+fn read_segment<I: Iterator<Item = Felt252>>(
+    output_iter: &mut I,
+    length: usize,
+    item_name: &str,
+) -> Result<Vec<Felt252>, SnOsError> {
+    let segment = output_iter.by_ref().take(length).collect::<Vec<_>>();
+    if segment.len() != length {
         return Err(SnOsError::CatchAll(format!(
-            "Expected the header to have {} elements, could only read {}",
-            HEADER_SIZE,
-            header.len()
+            "Expected {} {}, could only read {}",
+            length,
+            item_name,
+            segment.len()
         )));
     }
+    Ok(segment)
+}
 
-    let use_kzg_da = {
-        let use_kzg_da_felt = header[USE_KZG_DA_OFFSET];
-        if use_kzg_da_felt == Felt252::ZERO {
-            false
-        } else if use_kzg_da_felt == Felt252::ONE {
-            true
-        } else {
-            return Err(SnOsError::CatchAll(format!("Invalid KZG flag: {}", use_kzg_da_felt.to_biguint())));
-        }
-    };
+// Reverse of serialize_os_output in os/output.cairo
+pub fn deserialize_os_output<I>(output_iter: &mut I) -> Result<StarknetOsOutput, SnOsError>
+where
+    I: Iterator<Item = Felt252>,
+{
+    let header = read_segment(output_iter, HEADER_SIZE, "header elements")?;
+    let use_kzg_da = header[USE_KZG_DA_OFFSET];
+    let full_output = header[FULL_OUTPUT_OFFSET];
 
-    if use_kzg_da {
+    if !use_kzg_da.is_zero() {
         // Skip KZG data.
         let kzg_segment: Vec<_> = output_iter.by_ref().take(2).collect();
         let n_blobs: usize = kzg_segment
@@ -239,13 +283,13 @@ pub fn decode_output<I: Iterator<Item = Felt252>>(output_iter: &mut I) -> Result
         let _: Vec<_> = output_iter.by_ref().take(2 * 2 * n_blobs).collect();
     }
 
-    let messages_to_l1 = read_variable_length_segment(output_iter, "L1 messages")?;
-    let messages_to_l2 = read_variable_length_segment(output_iter, "L2 messages")?;
+    let (messages_to_l1, messages_to_l2) = deserialize_messages(output_iter)?;
 
-    let (contracts, classes) = if !use_kzg_da {
-        let contracts = parse_all_contract_changes(output_iter)?;
-        let classes = parse_all_class_changes(output_iter)?;
-        (contracts, classes)
+    let (contract_changes, classes) = if use_kzg_da.is_zero() {
+        (
+            deserialize_contract_state(output_iter, full_output)?,
+            deserialize_contract_class_da_changes(output_iter, full_output)?,
+        )
     } else {
         (vec![], HashMap::default())
     };
@@ -259,11 +303,11 @@ pub fn decode_output<I: Iterator<Item = Felt252>>(output_iter: &mut I) -> Result
         new_block_hash: header[NEW_BLOCK_HASH_OFFSET],
         os_program_hash: header[OS_PROGRAM_HASH_OFFSET],
         starknet_os_config_hash: header[CONFIG_HASH_OFFSET],
-        use_kzg_da: header[USE_KZG_DA_OFFSET],
-        full_output: header[FULL_OUTPUT_OFFSET],
+        use_kzg_da,
+        full_output,
         messages_to_l1,
         messages_to_l2,
-        contracts,
+        contracts: contract_changes,
         classes,
     })
 }
