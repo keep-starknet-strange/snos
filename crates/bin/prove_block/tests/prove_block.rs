@@ -48,6 +48,8 @@ use rstest::rstest;
 #[case::inconsistent_cairo0_class_hash_0(30000)]
 #[case::inconsistent_cairo0_class_hash_1(204936)]
 #[case::reference_pie_with_full_output_enabled(173404)]
+#[case::inconsistent_cairo0_class_hash_2(159674)]
+#[case::inconsistent_cairo0_class_hash_3(164180)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
