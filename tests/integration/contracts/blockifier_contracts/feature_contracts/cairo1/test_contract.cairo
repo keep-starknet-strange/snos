@@ -190,6 +190,20 @@ mod TestContract {
             .unwrap_syscall();
     }
 
+    #[external(v0)]
+    fn test_deploy_no_calldata(
+        self: @ContractState,
+        class_hash: ClassHash,
+        contract_address_salt: felt252,
+        deploy_from_zero: bool,
+    ) {
+        let calldata: Array::<felt252> = Default::default();
+        syscalls::deploy_syscall(
+            class_hash, contract_address_salt, calldata.span(), deploy_from_zero
+        )
+            .unwrap_syscall();
+    }
+
 
     #[external(v0)]
     fn test_keccak(ref self: ContractState) {
