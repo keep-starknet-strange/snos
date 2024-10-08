@@ -138,7 +138,12 @@ fn add_compiled_class_to_os_input(
     let compiled_class = compile_contract_class(contract_class)?;
     let compiled_class_hash = compiled_class.class_hash()?;
 
-    class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash.into());
+    // Remove deprecated classes from HashMap
+    if matches!(&compiled_class, GenericCompiledClass::Cairo0(_)) {
+        log::warn!("Skipping deprecated class for ch_to_cch: 0x{:x}", class_hash);
+    } else {
+        class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash.into());
+    }
 
     match compiled_class {
         GenericCompiledClass::Cairo0(deprecated_cc) => {
