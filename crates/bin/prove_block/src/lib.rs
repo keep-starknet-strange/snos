@@ -102,6 +102,7 @@ pub async fn prove_block(
     block_number: u64,
     rpc_provider: &str,
     layout: LayoutName,
+    full_output: bool,
 ) -> Result<(CairoPie, StarknetOsOutput), ProveBlockError> {
     let block_id = BlockId::Number(block_number);
     let previous_block_id = BlockId::Number(block_number - 1);
@@ -133,8 +134,7 @@ pub async fn prove_block(
     let older_block = match rpc_client
         .starknet_rpc()
         .get_block_with_tx_hashes(BlockId::Number(block_number - STORED_BLOCK_HASH_BUFFER))
-        .await
-        .unwrap()
+        .await?
     {
         MaybePendingBlockWithTxHashes::Block(block_with_txs_hashes) => block_with_txs_hashes,
         MaybePendingBlockWithTxHashes::PendingBlock(_) => {
@@ -315,7 +315,7 @@ pub async fn prove_block(
         declared_class_hash_to_component_hashes: declared_class_hash_component_hashes,
         new_block_hash: block_with_txs.block_hash,
         prev_block_hash: previous_block.block_hash,
-        full_output: false,
+        full_output,
     };
     let execution_helper = ExecutionHelperWrapper::<ProverPerContractStorage>::new(
         contract_storages,

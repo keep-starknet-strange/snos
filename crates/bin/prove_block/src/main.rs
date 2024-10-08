@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<ProveBlockError>> {
     let block_number = args.block_number;
     let layout = LayoutName::all_cairo;
 
-    let result = prove_block::prove_block(block_number, &args.rpc_provider, layout).await;
+    let result = prove_block::prove_block(block_number, &args.rpc_provider, layout, true).await;
     match result {
         Ok((_pie, _output)) => {
             println!("Block {} proven successfully", block_number);
