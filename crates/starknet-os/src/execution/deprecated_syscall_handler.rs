@@ -15,6 +15,7 @@ use crate::cairo_types::syscalls::{
     TxInfo,
 };
 use crate::starknet::starknet_storage::PerContractStorage;
+use crate::execution::constants::{VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING};
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
@@ -136,9 +137,11 @@ where
         let syscall_handler = self.deprecated_syscall_handler.read().await;
 
         let block_number = syscall_handler.block_info.block_number;
+        let rounded_block_number = (block_number.0 / VALIDATE_BLOCK_NUMBER_ROUNDING ) * VALIDATE_BLOCK_NUMBER_ROUNDING;
+
 
         let response_offset = GetBlockNumber::response_offset() + GetBlockNumberResponse::block_number_offset();
-        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(block_number.0))?;
+        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(rounded_block_number))?;
 
         Ok(())
     }
@@ -151,10 +154,11 @@ where
         let syscall_handler = self.deprecated_syscall_handler.read().await;
 
         let block_timestamp = syscall_handler.block_info.block_timestamp;
+        let rounded_block_timestamp = (block_timestamp.0 / VALIDATE_TIMESTAMP_ROUNDING) * VALIDATE_TIMESTAMP_ROUNDING;
 
         let response_offset =
             GetBlockTimestamp::response_offset() + GetBlockTimestampResponse::block_timestamp_offset();
-        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(block_timestamp.0))?;
+        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(rounded_block_timestamp))?;
 
         Ok(())
     }
