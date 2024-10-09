@@ -87,7 +87,7 @@ fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<Felt
     if let Err(errors) = contract_data.verify(keys) {
         for error in errors {
             match error {
-                ProofVerificationError::KeyNotInProof { key, height, proof } => {
+                ProofVerificationError::KeyNotInProof { key, height, proof, .. } => {
                     if let Some(TrieNode::Edge { child: _, path }) = proof.last() {
                         let modified_key = get_key_following_edge(key, height, path);
                         log::trace!(

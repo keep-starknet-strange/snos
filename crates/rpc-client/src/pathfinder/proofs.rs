@@ -49,7 +49,7 @@ pub struct ContractData {
 #[derive(thiserror::Error, Debug)]
 pub enum ProofVerificationError<'a> {
     #[error("Proof verification failed for key {}. Proof stopped at height {}.", key.to_hex_string(), height.0)]
-    KeyNotInProof { key: Felt, height: Height, proof: &'a [TrieNode] },
+    KeyNotInProof { key: Felt, height: Height, proof: &'a [TrieNode], non_existence_proof: bool },
 
     #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
     InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
@@ -88,7 +88,17 @@ pub struct PathfinderClassProof {
 impl PathfinderClassProof {
     /// Verifies that the class proof is valid.
     pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
-        verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof)
+        if let Err(e) = verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof) {
+            match e {
+                ProofVerificationError::KeyNotInProof { non_existence_proof, .. } => {
+                    if !non_existence_proof {
+                        return Err(e);
+                    }
+                }
+                _ => return Err(e),
+            }
+        }
+        Ok(())
     }
 }
 
@@ -114,6 +124,7 @@ pub fn verify_proof<H: HashFunctionType>(
     // The tree height is 251, so the first 5 bits are ignored.
     let start = 5;
     let mut index = start;
+    let mut non_existence_proof = false;
 
     loop {
         match trie_node_iter.next() {
@@ -123,6 +134,7 @@ pub fn verify_proof<H: HashFunctionType>(
                         key,
                         height: Height(DEFAULT_STORAGE_TREE_HEIGHT - (index - start)),
                         proof,
+                        non_existence_proof,
                     });
                 }
                 break;
@@ -147,7 +159,7 @@ pub fn verify_proof<H: HashFunctionType>(
                             // 1. We correctly moved towards the target as far as possible, and
                             // 2. Hashing all the nodes along the path results in the root hash, which means
                             // 3. The target definitely does not exist in this tree
-                            break;
+                            non_existence_proof = true;
                         }
                         parent_hash = *child;
                         index += path.len;
