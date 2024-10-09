@@ -93,7 +93,7 @@ impl PathfinderClassProof {
 }
 
 // Types defined for Deserialize functionality
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct EdgePath {
     pub len: u64,
     pub value: Felt,
@@ -139,6 +139,16 @@ pub fn verify_proof<H: HashFunctionType>(
                         index += 1;
                     }
                     TrieNode::Edge { child, path } => {
+                        let path_bits = path.value.to_bits_be();
+                        let relevant_path_bits = &path_bits[path_bits.len() - path.len as usize..];
+                        let key_bits_slice = &bits[index as usize..(index + path.len) as usize];
+                        if relevant_path_bits != key_bits_slice {
+                            // If paths don't match, we've found a proof of non-membership because:
+                            // 1. We correctly moved towards the target as far as possible, and
+                            // 2. Hashing all the nodes along the path results in the root hash, which means
+                            // 3. The target definitely does not exist in this tree
+                            break;
+                        }
                         parent_hash = *child;
                         index += path.len;
                     }
