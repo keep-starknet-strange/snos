@@ -1,9 +1,10 @@
-use cairo_vm::Felt252;
-use cairo_vm::{cairo_run::CairoRunConfig, types::layout_name::LayoutName};
-use clap::Parser;
+use cairo_vm::cairo_run::CairoRunConfig;
+use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::types::program::Program;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
+use cairo_vm::Felt252;
+use clap::Parser;
 use starknet_os::error::SnOsError;
 use starknet_os::hints;
 use starknet_os::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
@@ -37,8 +38,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let allow_missing_builtins = cairo_run_config.allow_missing_builtins.unwrap_or(false);
 
     // Load the Starknet OS Program
-    let program =
-        Program::from_bytes(program_bytes.as_bytes(), Some(cairo_run_config.entrypoint)).map_err(|e| SnOsError::Runner(e.into()))?;
+    let program = Program::from_bytes(program_bytes.as_bytes(), Some(cairo_run_config.entrypoint))
+        .map_err(|e| SnOsError::Runner(e.into()))?;
 
     // Init cairo runner
     let mut cairo_runner = CairoRunner::new(
@@ -69,14 +70,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
-
 }
 
-struct DummyPCS {
-}
+struct DummyPCS {}
 
 impl PerContractStorage for DummyPCS {
-    async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> { unimplemented!(); }
-    async fn read(&mut self, key: TreeIndex) -> Option<Felt252> { unimplemented!(); }
-    fn write(&mut self, key: TreeIndex, value: Felt252) { unimplemented!(); }
+    async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
+        unimplemented!();
+    }
+    async fn read(&mut self, key: TreeIndex) -> Option<Felt252> {
+        unimplemented!();
+    }
+    fn write(&mut self, key: TreeIndex, value: Felt252) {
+        unimplemented!();
+    }
 }
