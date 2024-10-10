@@ -40,12 +40,10 @@ impl GenericSierraContractClass {
     }
 
     fn build_cairo_lang_class(&self) -> Result<CairoLangSierraContractClass, ContractClassError> {
-        if let Ok(serialized_class) = self.get_serialized_contract_class() {
-            let contract_class = serde_json::from_slice(serialized_class)?;
-            return Ok(contract_class);
-        }
-
-        Err(ContractClassError::NoPossibleConversion)
+        self.get_serialized_contract_class().and_then(|res| {
+            let contract_class = serde_json::from_slice(res)?;
+            Ok(contract_class)
+        })
     }
 
     pub fn get_serialized_contract_class(&self) -> Result<&Vec<u8>, ContractClassError> {
@@ -140,7 +138,8 @@ impl TryFrom<&FlattenedSierraClass> for FlattenedSierraClassWithAbi {
     type Error = serde_json::error::Error;
 
     fn try_from(sierra_class: &FlattenedSierraClass) -> Result<Self, Self::Error> {
-        let abi: Option<cairo_lang_starknet_classes::abi::Contract> = serde_json::from_str(&sierra_class.abi)?;
+        let abi: Option<cairo_lang_starknet_classes::abi::Contract> =
+            serde_json::from_str(&sierra_class.abi).unwrap_or_default();
 
         Ok(Self {
             sierra_program: sierra_class.sierra_program.clone(),

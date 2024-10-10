@@ -4,7 +4,7 @@ use std::sync::Arc;
 use pathfinder_gateway_types::class_hash::compute_class_hash;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::error::ContractClassError;
+use crate::error::{ContractClassError, ConversionError};
 use crate::hash::GenericClassHash;
 use crate::starknet_core_addons::{decompress_starknet_core_contract_class, LegacyContractDecompressionError};
 
@@ -45,7 +45,7 @@ impl GenericDeprecatedCompiledClass {
             return Ok(contract_class);
         }
 
-        Err(ContractClassError::NoPossibleConversion)
+        Err(ContractClassError::ConversionError(ConversionError::StarknetClassMissing))
     }
 
     fn build_blockifier_class(&self) -> Result<BlockifierDeprecatedClass, ContractClassError> {
