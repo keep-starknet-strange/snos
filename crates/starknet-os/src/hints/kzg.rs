@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::io::{self, Read};
 use std::num::ParseIntError;
 use std::path::Path;
 
@@ -25,9 +24,10 @@ use crate::utils::{execute_coroutine, get_constant};
 
 const FIELD_ELEMENTS_PER_BLOB: usize = 4096;
 const COMMITMENT_BYTES_LENGTH: usize = 48;
-const COMMITMENT_LOW_BIT_LENGTH: usize = (COMMITMENT_BYTES_LENGTH * 8) / 2;
 const BLOB_SUBGROUP_GENERATOR: &str = "39033254847818212395286706435128746857159659164139250548781411570340225835782";
 const BLS_PRIME: &str = "52435875175126190479447740508185965837690552500527637822603658699938581184513";
+const COMMITMENT_BITS: usize = 384;
+const COMMITMENT_BITS_MIDPOINT: usize = COMMITMENT_BITS / 2;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FftError {
@@ -42,9 +42,6 @@ pub enum FftError {
 
     #[error("Encountered a c_kzg error: {0}")]
     CKzgError(#[from] c_kzg::Error),
-
-    #[error("Encountered an internal io error: {0}")]
-    IoError(io::Error),
 
     #[error("Too many coefficients")]
     TooManyCoefficients,
@@ -138,19 +135,25 @@ fn fft(coeffs: &[BigInt], generator: &BigInt, prime: &BigInt, bit_reversed: bool
 }
 
 fn split_commitment(num: BigInt) -> (BigInt, BigInt) {
-    let low_part = &num % (BigInt::one() << COMMITMENT_LOW_BIT_LENGTH);
-    let high_part = &num >> COMMITMENT_LOW_BIT_LENGTH;
-    (low_part, high_part)
+    // Ensure the input is 384 bits (48 bytes)
+    let num = num & &((BigInt::from(1) << COMMITMENT_BITS) - 1);
+
+    // Split the number
+    let mask = (BigInt::from(1) << COMMITMENT_BITS_MIDPOINT) - 1;
+    let low = &num & &mask;
+    let high = &num >> COMMITMENT_BITS_MIDPOINT;
+
+    (low, high)
 }
 
 fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> Result<(BigInt, BigInt), FftError> {
     let blob = polynomial_coefficients_to_blob(coefficients)?;
     let commitment_bytes =
         blob_to_kzg_commitment(&Blob::from_bytes(&blob).map_err(FftError::CKzgError)?).map_err(FftError::CKzgError)?;
-
     assert_eq!(commitment_bytes.len(), COMMITMENT_BYTES_LENGTH, "Bad commitment bytes length.");
-    let commitment_by: Result<Vec<_>, _> = commitment_bytes.bytes().collect();
-    Ok(split_commitment(from_bytes(&commitment_by.map_err(FftError::IoError)?)))
+    let kzg_bigint =
+        BigInt::from_str_radix(&commitment_bytes.as_hex_string(), 16).map_err(FftError::ParseBigIntError)?;
+    Ok(split_commitment(kzg_bigint))
 }
 
 fn polynomial_coefficients_to_blob(coefficients: Vec<BigInt>) -> Result<Vec<u8>, FftError> {
@@ -174,10 +177,6 @@ fn polynomial_coefficients_to_blob(coefficients: Vec<BigInt>) -> Result<Vec<u8>,
 pub fn blob_to_kzg_commitment(blob: &Blob) -> Result<KzgCommitment, c_kzg::Error> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("kzg").join("trusted_setup.txt");
     c_kzg::KzgCommitment::blob_to_kzg_commitment(blob, &c_kzg::KzgSettings::load_trusted_setup_file(&path)?)
-}
-
-fn from_bytes(bytes: &[u8]) -> BigInt {
-    BigInt::from_bytes_le(num_bigint::Sign::Plus, bytes)
 }
 
 fn to_bytes(x: &BigInt, length: usize) -> Vec<u8> {
@@ -344,5 +343,27 @@ mod test {
             fft(&[BigInt::from(121212u64)], &BigInt::one(), &prime, bit_reversed).unwrap(),
             vec![BigInt::from(121212u64)]
         );
+    }
+
+    /// All the expected values are checked using the contract logic given here in
+    /// starknet core contract :
+    /// https://github.com/starkware-libs/cairo-lang/blob/a86e92bfde9c171c0856d7b46580c66e004922f3/src/starkware/starknet/solidity/Starknet.sol#L209
+    #[rstest]
+    #[case(
+        BigInt::from_str_radix("b7a71dc9d8e15ea474a69c0531e720cf5474b189ac9afc81590b91a225b1bf7fa5877ec546d090e0059f019c74675362", 16).unwrap(),
+        (
+            BigInt::from_str_radix("590b91a225b1bf7fa5877ec546d090e0059f019c74675362", 16).unwrap(),
+            BigInt::from_str_radix("b7a71dc9d8e15ea474a69c0531e720cf5474b189ac9afc81", 16).unwrap(),
+        )
+    )]
+    #[case(
+        BigInt::from_str_radix("a797c1973c99961e357246ee81bde0acbdd27e801d186ccb051732ecbaa75842afd3d8860d40b3e8eeea433bce18b5c8", 16).unwrap(),
+        (
+            BigInt::from_str_radix("51732ecbaa75842afd3d8860d40b3e8eeea433bce18b5c8", 16).unwrap(),
+            BigInt::from_str_radix("a797c1973c99961e357246ee81bde0acbdd27e801d186ccb", 16).unwrap(),
+        )
+    )]
+    fn test_split_commitment_function(#[case] commitment: BigInt, #[case] expected_output: (BigInt, BigInt)) {
+        assert_eq!(split_commitment(commitment), expected_output);
     }
 }
