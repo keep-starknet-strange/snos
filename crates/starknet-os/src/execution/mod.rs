@@ -1,4 +1,4 @@
-mod constants;
+pub mod constants;
 pub mod deprecated_syscall_handler;
 pub mod execute_syscalls;
 pub mod helper;

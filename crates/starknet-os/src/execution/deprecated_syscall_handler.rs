@@ -8,6 +8,7 @@ use cairo_vm::Felt252;
 use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
+use super::syscall_handler;
 use crate::cairo_types::syscalls::{
     CallContract, CallContractResponse, Deploy, DeployResponse, GetBlockNumber, GetBlockNumberResponse,
     GetBlockTimestamp, GetBlockTimestampResponse, GetContractAddress, GetContractAddressResponse, GetSequencerAddress,
@@ -135,6 +136,10 @@ where
 
     pub async fn get_block_number(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         let syscall_handler = self.deprecated_syscall_handler.read().await;
+        let bla = syscall_handler.exec_wrapper.execution_helper.read().await;
+        let tx_info = bla.tx_execution_info.clone().unwrap();
+        let validate = tx_info.validate_call_info.clone().unwrap();
+        let execute = tx_info.execute_call_info.clone().unwrap();
 
         let block_number = syscall_handler.block_info.block_number;
         let rounded_block_number = (block_number.0 / VALIDATE_BLOCK_NUMBER_ROUNDING ) * VALIDATE_BLOCK_NUMBER_ROUNDING;
