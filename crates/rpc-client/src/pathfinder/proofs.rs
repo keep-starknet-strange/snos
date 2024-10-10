@@ -48,11 +48,14 @@ pub struct ContractData {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProofVerificationError<'a> {
-    #[error("Proof verification failed for key {}. Proof stopped at height {}.", key.to_hex_string(), height.0)]
-    KeyNotInProof { key: Felt, height: Height, proof: &'a [TrieNode], non_existence_proof: bool },
+    #[error("Non-inclusion proof for key {}. Height {}.", key.to_hex_string(), height.0)]
+    NonExistenceProof { key: Felt, height: Height, proof: &'a [TrieNode] },
 
     #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
     InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
+
+    #[error("Proof verification failed for key {:#x}.", key)]
+    KeyNotInProof { key: Felt },
 }
 
 impl ContractData {
@@ -90,11 +93,7 @@ impl PathfinderClassProof {
     pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
         if let Err(e) = verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof) {
             match e {
-                ProofVerificationError::KeyNotInProof { non_existence_proof, .. } => {
-                    if !non_existence_proof {
-                        return Err(e);
-                    }
-                }
+                ProofVerificationError::NonExistenceProof { .. } => {}
                 _ => return Err(e),
             }
         }
@@ -129,13 +128,14 @@ pub fn verify_proof<H: HashFunctionType>(
     loop {
         match trie_node_iter.next() {
             None => {
-                if index - start != DEFAULT_STORAGE_TREE_HEIGHT {
-                    return Err(ProofVerificationError::KeyNotInProof {
+                if non_existence_proof {
+                    return Err(ProofVerificationError::NonExistenceProof {
                         key,
                         height: Height(DEFAULT_STORAGE_TREE_HEIGHT - (index - start)),
                         proof,
-                        non_existence_proof,
                     });
+                } else if index - start != DEFAULT_STORAGE_TREE_HEIGHT {
+                    return Err(ProofVerificationError::KeyNotInProof { key });
                 }
                 break;
             }
