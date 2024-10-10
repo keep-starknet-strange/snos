@@ -48,11 +48,14 @@ pub struct ContractData {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProofVerificationError<'a> {
-    #[error("Proof verification failed for key {}. Proof stopped at height {}.", key.to_hex_string(), height.0)]
-    KeyNotInProof { key: Felt, height: Height, proof: &'a [TrieNode] },
+    #[error("Non-inclusion proof for key {}. Height {}.", key.to_hex_string(), height.0)]
+    NonExistenceProof { key: Felt, height: Height, proof: &'a [TrieNode] },
 
     #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
     InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
+
+    #[error("Proof verification failed for key {:#x}.", key)]
+    KeyNotInProof { key: Felt },
 }
 
 impl ContractData {
@@ -88,12 +91,18 @@ pub struct PathfinderClassProof {
 impl PathfinderClassProof {
     /// Verifies that the class proof is valid.
     pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
-        verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof)
+        if let Err(e) = verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof) {
+            match e {
+                ProofVerificationError::NonExistenceProof { .. } => {}
+                _ => return Err(e),
+            }
+        }
+        Ok(())
     }
 }
 
 // Types defined for Deserialize functionality
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct EdgePath {
     pub len: u64,
     pub value: Felt,
@@ -114,16 +123,19 @@ pub fn verify_proof<H: HashFunctionType>(
     // The tree height is 251, so the first 5 bits are ignored.
     let start = 5;
     let mut index = start;
+    let mut non_existence_proof = false;
 
     loop {
         match trie_node_iter.next() {
             None => {
-                if index - start != DEFAULT_STORAGE_TREE_HEIGHT {
-                    return Err(ProofVerificationError::KeyNotInProof {
+                if non_existence_proof {
+                    return Err(ProofVerificationError::NonExistenceProof {
                         key,
                         height: Height(DEFAULT_STORAGE_TREE_HEIGHT - (index - start)),
                         proof,
                     });
+                } else if index - start != DEFAULT_STORAGE_TREE_HEIGHT {
+                    return Err(ProofVerificationError::KeyNotInProof { key });
                 }
                 break;
             }
@@ -139,6 +151,16 @@ pub fn verify_proof<H: HashFunctionType>(
                         index += 1;
                     }
                     TrieNode::Edge { child, path } => {
+                        let path_bits = path.value.to_bits_be();
+                        let relevant_path_bits = &path_bits[path_bits.len() - path.len as usize..];
+                        let key_bits_slice = &bits[index as usize..(index + path.len) as usize];
+                        if relevant_path_bits != key_bits_slice {
+                            // If paths don't match, we've found a proof of non-membership because:
+                            // 1. We correctly moved towards the target as far as possible, and
+                            // 2. Hashing all the nodes along the path results in the root hash, which means
+                            // 3. The target definitely does not exist in this tree
+                            non_existence_proof = true;
+                        }
                         parent_hash = *child;
                         index += path.len;
                     }
