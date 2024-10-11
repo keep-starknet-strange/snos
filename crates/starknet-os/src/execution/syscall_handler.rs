@@ -296,7 +296,19 @@ where
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
         write_felt(vm, ptr, response.contract_address)?;
-        write_segment(vm, ptr, response.constructor_retdata)?;
+
+        // Bugfix:
+        // When retdata size is 0, the OS will return retdata as a Int(0) instead of a relocatable
+        // as a result of `cast(0, felt*)`. To work around this, we can write the same here so that
+        // later the OS will assert this value is the same as retdata; that is, both need to be the
+        // same value which is Int(0).
+        if response.constructor_retdata.length == 0 {
+            log::warn!("Writing Felt::ZERO instead of pointer since retdata size is 0");
+            write_felt(vm, ptr, Felt252::ZERO)?; // casted pointer
+            write_felt(vm, ptr, Felt252::ZERO)?; // size
+        } else {
+            write_segment(vm, ptr, response.constructor_retdata)?;
+        }
         Ok(())
     }
 }
