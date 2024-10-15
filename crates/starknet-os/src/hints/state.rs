@@ -362,7 +362,8 @@ pub fn write_split_result(
 
 #[cfg(test)]
 mod tests {
-    use std::{borrow::Cow, rc::Rc};
+    use std::borrow::Cow;
+    use std::rc::Rc;
 
     use rstest::{fixture, rstest};
 
