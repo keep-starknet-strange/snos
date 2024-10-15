@@ -22,14 +22,13 @@ use rstest::rstest;
 use starknet_api::core::calculate_contract_address;
 use starknet_api::felt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionVersion};
+use starknet_os::execution::constants::{VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING};
 use starknet_os_types::chain_id::chain_id_to_felt;
 
 use crate::common::block_context;
 use crate::common::state::{initial_state_cairo0, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 use crate::common::utils::check_os_output_read_only_syscall;
-
-use starknet_os::execution::constants::{VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING};
 
 // ::{VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING};
 

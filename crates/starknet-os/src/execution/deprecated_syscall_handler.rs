@@ -8,15 +8,14 @@ use cairo_vm::Felt252;
 use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
+use crate::cairo_types::new_syscalls::{BlockInfo as BlockInfoStruct, ExecutionInfo};
 use crate::cairo_types::syscalls::{
     CallContract, CallContractResponse, Deploy, DeployResponse, GetBlockNumber, GetBlockNumberResponse,
     GetBlockTimestamp, GetBlockTimestampResponse, GetContractAddress, GetContractAddressResponse, GetSequencerAddress,
     GetSequencerAddressResponse, GetTxInfo, GetTxInfoResponse, GetTxSignature, GetTxSignatureResponse, LibraryCall,
     TxInfo,
 };
-use crate::cairo_types::new_syscalls::{ExecutionInfo, BlockInfo as BlockInfoStruct};
 use crate::starknet::starknet_storage::PerContractStorage;
-use crate::execution::constants::{VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING};
 
 /// DeprecatedSyscallHandler implementation for execution of system calls in the StarkNet OS
 #[derive(Debug)]
@@ -138,10 +137,11 @@ where
         let syscall_handler = self.deprecated_syscall_handler.read().await;
         let execution_helper = syscall_handler.exec_wrapper.execution_helper.read().await;
 
-        let execution_info_ptr = execution_helper.call_execution_info_ptr.ok_or(HintError::SyscallError("Execution info pointer not set".to_string().into_boxed_str()))?;
-        let block_info_pointer = vm.get_relocatable((execution_info_ptr + ExecutionInfo::block_info_offset())?)?;   
-        let block_number= vm.get_integer((block_info_pointer + BlockInfoStruct::block_number_offset())?)?.into_owned();
-
+        let execution_info_ptr = execution_helper
+            .call_execution_info_ptr
+            .ok_or(HintError::SyscallError("Execution info pointer not set".to_string().into_boxed_str()))?;
+        let block_info_pointer = vm.get_relocatable((execution_info_ptr + ExecutionInfo::block_info_offset())?)?;
+        let block_number = vm.get_integer((block_info_pointer + BlockInfoStruct::block_number_offset())?)?.into_owned();
 
         let response_offset = GetBlockNumber::response_offset() + GetBlockNumberResponse::block_number_offset();
         vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(block_number))?;
@@ -157,9 +157,12 @@ where
         let syscall_handler = self.deprecated_syscall_handler.read().await;
         let execution_helper = syscall_handler.exec_wrapper.execution_helper.read().await;
 
-        let execution_info_ptr = execution_helper.call_execution_info_ptr.ok_or(HintError::SyscallError("Execution info pointer not set".to_string().into_boxed_str()))?;
-        let block_info_pointer = vm.get_relocatable((execution_info_ptr + ExecutionInfo::block_info_offset())?)?;   
-        let block_timestamp = vm.get_integer((block_info_pointer + BlockInfoStruct::block_timestamp_offset())?)?.into_owned();
+        let execution_info_ptr = execution_helper
+            .call_execution_info_ptr
+            .ok_or(HintError::SyscallError("Execution info pointer not set".to_string().into_boxed_str()))?;
+        let block_info_pointer = vm.get_relocatable((execution_info_ptr + ExecutionInfo::block_info_offset())?)?;
+        let block_timestamp =
+            vm.get_integer((block_info_pointer + BlockInfoStruct::block_timestamp_offset())?)?.into_owned();
 
         let response_offset =
             GetBlockTimestamp::response_offset() + GetBlockTimestampResponse::block_timestamp_offset();
