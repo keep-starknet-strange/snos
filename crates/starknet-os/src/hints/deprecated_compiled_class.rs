@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::collections::hash_map::IntoIter;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_ptr_from_var_name, insert_value_from_var_name};
 use cairo_vm::hint_processor::hint_processor_definition::{HintExtension, HintProcessor, HintReference};
@@ -35,7 +36,7 @@ pub fn load_deprecated_class_facts(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Arc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     let deprecated_class_hashes: HashSet<Felt252> =
         HashSet::from_iter(os_input.deprecated_compiled_classes.keys().cloned());
     exec_scopes.insert_value(vars::scopes::DEPRECATED_CLASS_HASHES, deprecated_class_hashes);
@@ -48,7 +49,7 @@ pub fn load_deprecated_class_facts(
         ids_data,
         ap_tracking,
     )?;
-    let scoped_classes: Box<dyn Any> = Box::new(os_input.deprecated_compiled_classes.into_iter());
+    let scoped_classes: Box<dyn Any> = Box::new(os_input.deprecated_compiled_classes.clone().into_iter());
     exec_scopes.enter_scope(HashMap::from([(String::from(vars::scopes::COMPILED_CLASS_FACTS), scoped_classes)]));
 
     Ok(())

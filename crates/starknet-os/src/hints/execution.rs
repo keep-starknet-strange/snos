@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::vec::IntoIter;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
@@ -435,11 +436,11 @@ pub fn enter_syscall_scopes<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Arc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     let deprecated_class_hashes: Box<dyn Any> =
         Box::new(exec_scopes.get::<HashSet<Felt252>>(vars::scopes::DEPRECATED_CLASS_HASHES)?);
-    let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
-    let component_hashes: Box<dyn Any> = Box::new(os_input.declared_class_hash_to_component_hashes);
+    let transactions: Box<dyn Any> = Box::new(os_input.transactions.clone().into_iter());
+    let component_hashes: Box<dyn Any> = Box::new(os_input.declared_class_hash_to_component_hashes.clone());
     let execution_helper: Box<dyn Any> =
         Box::new(exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?);
     let deprecated_syscall_handler: Box<dyn Any> =
