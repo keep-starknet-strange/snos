@@ -77,7 +77,7 @@ where
     for c in contracts.keys() {
         let address = ContractAddress(PatriciaKey::try_from(*c).unwrap());
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
-        contract_address_to_class_hash.insert(Felt252::from(address), Felt252::from(class_hash.0));
+        contract_address_to_class_hash.insert(Felt252::from(address), class_hash.0);
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
             V0(_) => {} // deprecated_compiled_classes are passed in by caller
