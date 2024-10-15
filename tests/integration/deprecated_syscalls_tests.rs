@@ -97,7 +97,7 @@ async fn test_syscall_get_block_number_cairo0(
 
     let block_number = block_context.block_info().block_number.0;
 
-    let tx_version = TransactionVersion::THREE;
+    let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
