@@ -144,7 +144,7 @@ where
         let block_number = vm.get_integer((block_info_pointer + BlockInfoStruct::block_number_offset())?)?.into_owned();
 
         let response_offset = GetBlockNumber::response_offset() + GetBlockNumberResponse::block_number_offset();
-        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(block_number))?;
+        vm.insert_value((syscall_ptr + response_offset)?, block_number)?;
 
         Ok(())
     }
@@ -166,7 +166,7 @@ where
 
         let response_offset =
             GetBlockTimestamp::response_offset() + GetBlockTimestampResponse::block_timestamp_offset();
-        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(block_timestamp))?;
+        vm.insert_value((syscall_ptr + response_offset)?, block_timestamp)?;
 
         Ok(())
     }
