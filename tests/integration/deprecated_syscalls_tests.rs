@@ -143,15 +143,13 @@ async fn test_syscall_get_block_timestamp_cairo0(
     let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
 
     let block_timestamp = block_context.block_info().block_timestamp.0;
-    let rounded_block_timestamp = (block_timestamp / VALIDATE_TIMESTAMP_ROUNDING) * VALIDATE_TIMESTAMP_ROUNDING;
-    let expected_block_timestamp = felt!(rounded_block_timestamp);
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: sender_address,
-        calldata: create_calldata(contract_address, "test_get_block_timestamp", &[expected_block_timestamp]),
+        calldata: create_calldata(contract_address, "test_get_block_timestamp", &[felt!(block_timestamp)]),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
     });
