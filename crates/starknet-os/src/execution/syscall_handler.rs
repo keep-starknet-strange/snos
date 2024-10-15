@@ -299,28 +299,27 @@ where
                 .contract_address_to_class_hash
                 .get(&contract_address)
                 .expect("No class_hash for contract_address");
-            let num_constructors = if let Some(compiled_class_hash) =
-                os_input.class_hash_to_compiled_class_hash.get(class_hash)
-            {
-                let casm = os_input.compiled_classes.get(compiled_class_hash).expect("No CASM");
-                let num_constructors = casm
-                    .get_cairo_lang_contract_class()
-                    .expect("couldn't get cairo lang class")
-                    .entry_points_by_type
-                    .constructor
-                    .len();
-                num_constructors
-            } else {
-                let deprecated_cc = os_input.deprecated_compiled_classes.get(class_hash).expect("no deprecated CC");
-                let num_constructors = deprecated_cc
-                    .get_starknet_api_contract_class()
-                    .expect("couldn't get starknet api class")
-                    .entry_points_by_type
-                    .get(&starknet_api::deprecated_contract_class::EntryPointType::Constructor)
-                    .expect("should have constructor list")
-                    .len();
-                num_constructors
-            };
+            let num_constructors =
+                if let Some(compiled_class_hash) = os_input.class_hash_to_compiled_class_hash.get(class_hash) {
+                    let casm = os_input.compiled_classes.get(compiled_class_hash).expect("No CASM");
+                    let num_constructors = casm
+                        .get_cairo_lang_contract_class()
+                        .expect("couldn't get cairo lang class")
+                        .entry_points_by_type
+                        .constructor
+                        .len();
+                    num_constructors
+                } else {
+                    let deprecated_cc = os_input.deprecated_compiled_classes.get(class_hash).expect("no deprecated CC");
+                    let num_constructors = deprecated_cc
+                        .get_starknet_api_contract_class()
+                        .expect("couldn't get starknet api class")
+                        .entry_points_by_type
+                        .get(&starknet_api::deprecated_contract_class::EntryPointType::Constructor)
+                        .expect("should have constructor list")
+                        .len();
+                    num_constructors
+                };
 
             need_retdata_hack = num_constructors == 0;
         });
