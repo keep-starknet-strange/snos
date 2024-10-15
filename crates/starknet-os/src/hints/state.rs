@@ -382,6 +382,7 @@ mod tests {
             deprecated_compiled_classes: Default::default(),
             compiled_classes: Default::default(),
             contracts: Default::default(),
+            contract_address_to_class_hash: Default::default(),
             class_hash_to_compiled_class_hash: Default::default(),
             general_config: Default::default(),
             transactions: Default::default(),

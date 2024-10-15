@@ -1942,7 +1942,7 @@ mod tests {
 
     #[fixture]
     fn execution_helper(block_context: BlockContext, old_block_number_and_hash: (Felt252, Felt252)) -> EHW {
-        EHW::new(ContractStorageMap::default(), vec![], &block_context, old_block_number_and_hash)
+        EHW::new(ContractStorageMap::default(), vec![], &block_context, None, old_block_number_and_hash)
     }
 
     #[fixture]
