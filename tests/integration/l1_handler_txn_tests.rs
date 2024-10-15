@@ -62,7 +62,7 @@ async fn l1_handler<F>(
         tx_hash: Default::default(),
     };
     let txs = vec![l1_tx].into_iter().map(Into::into).collect();
-    let _result = execute_txs_and_run_os(
+    let _result = execute_txs_and_run_os(crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context,
         txs,
