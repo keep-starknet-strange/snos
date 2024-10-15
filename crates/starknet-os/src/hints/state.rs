@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
@@ -51,7 +52,7 @@ pub fn set_preimage_for_state_commitments(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     insert_value_from_var_name(
         vars::ids::INITIAL_ROOT,
         os_input.contract_state_commitment_info.previous_root,
@@ -67,7 +68,8 @@ pub fn set_preimage_for_state_commitments(
         ap_tracking,
     )?;
 
-    let preimage = os_input.contract_state_commitment_info.commitment_facts;
+    // TODO: can we avoid this clone?
+    let preimage = os_input.contract_state_commitment_info.commitment_facts.clone();
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
     let merkle_height = get_constant(vars::constants::MERKLE_HEIGHT, constants)?;
@@ -94,7 +96,7 @@ pub fn set_preimage_for_class_commitments(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     insert_value_from_var_name(
         vars::ids::INITIAL_ROOT,
         os_input.contract_class_commitment_info.previous_root,
@@ -113,7 +115,8 @@ pub fn set_preimage_for_class_commitments(
     log::debug!("Setting class trie mode");
     exec_scopes.data[0].insert(vars::scopes::PATRICIA_TREE_MODE.to_string(), any_box!(PatriciaTreeMode::Class));
 
-    let preimage = os_input.contract_class_commitment_info.commitment_facts;
+    // TODO: can we avoid this clone?
+    let preimage = os_input.contract_class_commitment_info.commitment_facts.clone();
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
     let merkle_height = get_constant(vars::constants::MERKLE_HEIGHT, constants)?;
@@ -163,6 +166,7 @@ pub fn set_preimage_for_current_commitment_info(
         ap_tracking,
     )?;
 
+    // TODO: can we avoid this clone?
     let preimage = commitment_info.commitment_facts.clone();
 
     let merkle_height = get_constant(vars::constants::MERKLE_HEIGHT, constants)?;
@@ -247,6 +251,7 @@ pub fn load_bottom(
     let edge = get_relocatable_from_var_name(vars::ids::EDGE, vm, ids_data, ap_tracking)?;
     let edge_bottom = vm.get_integer((edge + NodeEdge::bottom_offset())?)?;
 
+    // TODO: avoid clone here
     let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
     let preimage_vec = preimage
         .get(&edge_bottom)
@@ -320,7 +325,7 @@ where
     PCS: PerContractStorage + 'static,
 {
     let execution_helper: ExecutionHelperWrapper<PCS> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
-    let os_input: StarknetOsInput = exec_scopes.get(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
 
     let commitment_info_by_address = execute_coroutine(execution_helper.compute_storage_commitments())??;
 
@@ -358,6 +363,7 @@ pub fn write_split_result(
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
+    use std::rc::Rc;
 
     use rstest::{fixture, rstest};
 
@@ -382,6 +388,7 @@ mod tests {
             deprecated_compiled_classes: Default::default(),
             compiled_classes: Default::default(),
             contracts: Default::default(),
+            contract_address_to_class_hash: Default::default(),
             class_hash_to_compiled_class_hash: Default::default(),
             general_config: Default::default(),
             transactions: Default::default(),
@@ -410,7 +417,7 @@ mod tests {
         ]);
 
         let mut exec_scopes: ExecutionScopes = Default::default();
-        exec_scopes.insert_value(vars::scopes::OS_INPUT, os_input);
+        exec_scopes.insert_value(vars::scopes::OS_INPUT, Rc::new(os_input));
 
         set_preimage_for_state_commitments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 
@@ -442,7 +449,7 @@ mod tests {
         ]);
 
         let mut exec_scopes: ExecutionScopes = Default::default();
-        exec_scopes.insert_value(vars::scopes::OS_INPUT, os_input);
+        exec_scopes.insert_value(vars::scopes::OS_INPUT, Rc::new(os_input));
 
         set_preimage_for_class_commitments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 

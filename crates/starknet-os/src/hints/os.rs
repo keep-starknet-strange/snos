@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::insert_value_into_ap;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
@@ -22,7 +23,7 @@ pub fn write_full_output_to_mem(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input: &StarknetOsInput = exec_scopes.get_ref(vars::scopes::OS_INPUT)?;
+    let os_input: Rc<StarknetOsInput> = exec_scopes.get(vars::scopes::OS_INPUT)?;
     let full_output = os_input.full_output;
 
     vm.insert_value((vm.get_fp() + 19)?, Felt252::from(full_output)).map_err(HintError::Memory)
@@ -63,7 +64,7 @@ pub fn set_ap_to_prev_block_hash(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input: &StarknetOsInput = exec_scopes.get_ref(vars::scopes::OS_INPUT)?;
+    let os_input: Rc<StarknetOsInput> = exec_scopes.get(vars::scopes::OS_INPUT)?;
     insert_value_into_ap(vm, os_input.prev_block_hash)?;
 
     Ok(())
@@ -78,7 +79,7 @@ pub fn set_ap_to_new_block_hash(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input: &StarknetOsInput = exec_scopes.get_ref(vars::scopes::OS_INPUT)?;
+    let os_input: Rc<StarknetOsInput> = exec_scopes.get(vars::scopes::OS_INPUT)?;
     insert_value_into_ap(vm, os_input.new_block_hash)?;
 
     Ok(())

@@ -358,6 +358,7 @@ mod test {
             ContractStorageMap::default(),
             execution_infos,
             &block_context,
+            None,
             old_block_number_and_hash,
         );
 

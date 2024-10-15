@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use blockifier::context::BlockContext;
 use cairo_vm::cairo_run::CairoRunConfig;
 use cairo_vm::types::layout_name::LayoutName;
@@ -32,7 +34,7 @@ pub mod utils;
 pub fn run_os<PCS>(
     compiled_os: &[u8],
     layout: LayoutName,
-    os_input: StarknetOsInput,
+    os_input: Rc<StarknetOsInput>,
     block_context: BlockContext,
     execution_helper: ExecutionHelperWrapper<PCS>,
 ) -> Result<(CairoPie, StarknetOsOutput), SnOsError>
