@@ -55,6 +55,7 @@ use rstest::rstest;
 #[case::key_not_in_proof_0(155087)]
 #[case::key_not_in_proof_1(162388)]
 #[case::key_not_in_proof_2(155172)]
+#[case::l1_gas_and_l1_gas_price_are_0(161476)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
