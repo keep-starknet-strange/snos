@@ -45,8 +45,6 @@ mod state_utils;
 mod types;
 mod utils;
 
-pub const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.json");
-
 #[derive(Debug, Error)]
 pub enum ProveBlockError {
     #[error("RPC Error: {0}")]
@@ -101,6 +99,7 @@ fn compute_class_commitment(
 }
 
 pub async fn prove_block(
+    compiled_os: &[u8],
     block_number: u64,
     rpc_provider: &str,
     layout: LayoutName,
@@ -326,7 +325,7 @@ pub async fn prove_block(
         (old_block_number, old_block_hash),
     );
 
-    Ok(run_os(DEFAULT_COMPILED_OS, layout, os_input, block_context, execution_helper)?)
+    Ok(run_os(compiled_os, layout, os_input, block_context, execution_helper)?)
 }
 
 pub fn debug_prove_error(err: ProveBlockError) -> ProveBlockError {
