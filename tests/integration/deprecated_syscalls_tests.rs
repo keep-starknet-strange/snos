@@ -22,7 +22,6 @@ use rstest::rstest;
 use starknet_api::core::calculate_contract_address;
 use starknet_api::felt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionVersion};
-use starknet_os::execution::constants::{VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING};
 use starknet_os_types::chain_id::chain_id_to_felt;
 
 use crate::common::block_context;
@@ -99,8 +98,6 @@ async fn test_syscall_get_block_number_cairo0(
     let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
 
     let block_number = block_context.block_info().block_number.0;
-    let rounded_block_number = (block_number / VALIDATE_BLOCK_NUMBER_ROUNDING) * VALIDATE_BLOCK_NUMBER_ROUNDING;
-    // let expected_block_number = felt!(rounded_block_number);
 
     let tx_version = TransactionVersion::THREE;
     let mut nonce_manager = NonceManager::default();
