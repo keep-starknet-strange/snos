@@ -191,6 +191,7 @@ pub async fn prove_block(
 
     let mut contract_states = HashMap::new();
     let mut contract_storages = ContractStorageMap::new();
+    let mut contract_address_to_class_hash = HashMap::new();
 
     // TODO: remove this clone()
     for (contract_address, storage_proof) in storage_proofs.clone() {
@@ -236,6 +237,10 @@ pub async fn prove_block(
                 Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt252::ZERO),
                 Err(e) => Err(e),
             }?;
+
+            let class_hash = rpc_client.starknet_rpc().get_class_hash_at(block_id, contract_address).await?;
+            contract_address_to_class_hash.insert(contract_address, class_hash);
+
             (previous_class_hash, previous_nonce)
         };
 
@@ -309,6 +314,7 @@ pub async fn prove_block(
         compiled_classes,
         compiled_class_visited_pcs: visited_pcs,
         contracts: contract_states,
+        contract_address_to_class_hash,
         class_hash_to_compiled_class_hash,
         general_config,
         transactions,
@@ -321,6 +327,7 @@ pub async fn prove_block(
         contract_storages,
         tx_execution_infos,
         &block_context,
+        Some(os_input.clone()),
         (old_block_number, old_block_hash),
     );
 
