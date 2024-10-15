@@ -160,9 +160,9 @@ where
         let execution_info_ptr = execution_helper
             .call_execution_info_ptr
             .ok_or(HintError::SyscallError("Execution info pointer not set".to_string().into_boxed_str()))?;
-        let block_info_pointer = vm.get_relocatable((execution_info_ptr + ExecutionInfo::block_info_offset())?)?;
+        let block_info_ptr = vm.get_relocatable((execution_info_ptr + ExecutionInfo::block_info_offset())?)?;
         let block_timestamp =
-            vm.get_integer((block_info_pointer + BlockInfoStruct::block_timestamp_offset())?)?.into_owned();
+            vm.get_integer((block_info_ptr + BlockInfoStruct::block_timestamp_offset())?)?.into_owned();
 
         let response_offset =
             GetBlockTimestamp::response_offset() + GetBlockTimestampResponse::block_timestamp_offset();
