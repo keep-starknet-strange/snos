@@ -140,8 +140,8 @@ where
         let execution_info_ptr = execution_helper
             .call_execution_info_ptr
             .ok_or(HintError::SyscallError("Execution info pointer not set".to_string().into_boxed_str()))?;
-        let block_info_pointer = vm.get_relocatable((execution_info_ptr + ExecutionInfo::block_info_offset())?)?;
-        let block_number = vm.get_integer((block_info_pointer + BlockInfoStruct::block_number_offset())?)?.into_owned();
+        let block_info_ptr = vm.get_relocatable((execution_info_ptr + ExecutionInfo::block_info_offset())?)?;
+        let block_number = vm.get_integer((block_info_ptr + BlockInfoStruct::block_number_offset())?)?.into_owned();
 
         let response_offset = GetBlockNumber::response_offset() + GetBlockNumberResponse::block_number_offset();
         vm.insert_value((syscall_ptr + response_offset)?, block_number)?;
