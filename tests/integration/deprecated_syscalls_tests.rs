@@ -29,8 +29,6 @@ use crate::common::state::{initial_state_cairo0, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 use crate::common::utils::check_os_output_read_only_syscall;
 
-// ::{VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING};
-
 #[rstest]
 // We need to use the multi_thread runtime to use task::block_in_place for sync -> async calls.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
