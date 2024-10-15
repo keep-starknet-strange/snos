@@ -238,12 +238,19 @@ fn l1_handler_to_blockifier(
         _ => unreachable!("Expected L1Handler type for TransactionTrace"),
     };
 
-    let fee = if l1_gas == 0 {
-        gas_prices.eth_l1_data_gas_price.get() * l1_data_gas as u128
-    } else if l1_data_gas == 0 {
-        gas_prices.eth_l1_gas_price.get() * l1_gas as u128
-    } else {
-        unreachable!("Either l1_gas or l1_data_gas must be zero");
+    let fee = match (l1_gas, l1_data_gas) {
+        // There are the cases where both these values are zero and that means no matter what we multiply,
+        // we will get a value of 0.
+        // Having the fee as 0 for L1 handler will fail on the blockifier execution
+        // Learn more:
+        // https://github.com/starkware-libs/sequencer/blob/b5a877719dc2ce5b1ca833f14d9473c1f1c27059/crates/blockifier/src/transaction/transaction_execution.rs#L166
+        // The comment(which is not very helpful) on the line above is:
+        // // For now, assert only that any amount of fee was paid.
+        // More investigations are recommended
+        (0, 0) => 1u128,
+        (0, l1_data_gas) => gas_prices.eth_l1_data_gas_price.get() * l1_data_gas as u128,
+        (l1_gas, 0) => gas_prices.eth_l1_gas_price.get() * l1_gas as u128,
+        _ => unreachable!("At least l1_gas or l1_data_gas must be zero"),
     };
 
     let paid_fee_on_l1 = Fee(fee);
