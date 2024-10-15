@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::rc::Rc;
 
 use blockifier::context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
@@ -34,7 +34,7 @@ pub async fn os_hints<S>(
     deprecated_compiled_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     compiled_classes: HashMap<ClassHash, GenericCasmContractClass>,
     declared_class_hash_to_component_hashes: HashMap<ClassHash, ContractClassComponentHashes>,
-) -> (Arc<StarknetOsInput>, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
+) -> (Rc<StarknetOsInput>, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
 where
     S: Storage,
 {
@@ -199,7 +199,7 @@ where
             .map(|(class_hash, components)| (class_hash.0, components.to_vec()))
             .collect();
 
-    let os_input = Arc::new(StarknetOsInput {
+    let os_input = Rc::new(StarknetOsInput {
         contract_state_commitment_info,
         contract_class_commitment_info,
         deprecated_compiled_classes,

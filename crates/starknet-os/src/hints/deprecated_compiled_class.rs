@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::collections::hash_map::IntoIter;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::rc::Rc;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_ptr_from_var_name, insert_value_from_var_name};
 use cairo_vm::hint_processor::hint_processor_definition::{HintExtension, HintProcessor, HintReference};
@@ -36,7 +36,7 @@ pub fn load_deprecated_class_facts(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<Arc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     let deprecated_class_hashes: HashSet<Felt252> =
         HashSet::from_iter(os_input.deprecated_compiled_classes.keys().cloned());
     exec_scopes.insert_value(vars::scopes::DEPRECATED_CLASS_HASHES, deprecated_class_hashes);

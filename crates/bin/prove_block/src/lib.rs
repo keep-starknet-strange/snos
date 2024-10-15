@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::rc::Rc;
 
 use blockifier::state::cached_state::CachedState;
 use cairo_vm::types::layout_name::LayoutName;
@@ -308,7 +308,7 @@ pub async fn prove_block(
 
     let contract_class_commitment_info = compute_class_commitment(&previous_class_proofs, &class_proofs);
 
-    let os_input = Arc::new(StarknetOsInput {
+    let os_input = Rc::new(StarknetOsInput {
         contract_state_commitment_info,
         contract_class_commitment_info,
         deprecated_compiled_classes,

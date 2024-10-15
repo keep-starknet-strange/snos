@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::rc::Rc;
 
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::context::BlockContext;
@@ -831,7 +831,7 @@ async fn execute_txs<S>(
     deprecated_contract_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, GenericCasmContractClass>,
     declared_class_hash_to_component_hashes: HashMap<ClassHash, ContractClassComponentHashes>,
-) -> (Arc<StarknetOsInput>, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
+) -> (Rc<StarknetOsInput>, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
 where
     S: Storage,
 {

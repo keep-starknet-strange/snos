@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::vec::IntoIter;
 
 use blockifier::context::BlockContext;
@@ -30,7 +29,7 @@ where
     PCS: PerContractStorage,
 {
     pub _prev_block_context: Option<BlockContext>,
-    pub os_input: Option<Arc<StarknetOsInput>>,
+    pub os_input: Option<Rc<StarknetOsInput>>,
     pub kzg_manager: KzgManager,
     // Pointer tx execution info
     pub tx_execution_info_iter: IntoIter<TransactionExecutionInfo>,
@@ -115,7 +114,7 @@ where
         contract_storage_map: ContractStorageMap<PCS>,
         tx_execution_infos: Vec<TransactionExecutionInfo>,
         block_context: &BlockContext,
-        os_input: Option<Arc<StarknetOsInput>>,
+        os_input: Option<Rc<StarknetOsInput>>,
         old_block_number_and_hash: (Felt252, Felt252),
     ) -> Self {
         // Block number and block hash (current_block_number - buffer) block buffer=STORED_BLOCK_HASH_BUFFER

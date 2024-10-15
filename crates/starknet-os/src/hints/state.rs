@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::rc::Rc;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
@@ -52,7 +52,7 @@ pub fn set_preimage_for_state_commitments(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<Arc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     insert_value_from_var_name(
         vars::ids::INITIAL_ROOT,
         os_input.contract_state_commitment_info.previous_root,
@@ -96,7 +96,7 @@ pub fn set_preimage_for_class_commitments(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<Arc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     insert_value_from_var_name(
         vars::ids::INITIAL_ROOT,
         os_input.contract_class_commitment_info.previous_root,
@@ -325,7 +325,7 @@ where
     PCS: PerContractStorage + 'static,
 {
     let execution_helper: ExecutionHelperWrapper<PCS> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
-    let os_input = exec_scopes.get::<Arc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
 
     let commitment_info_by_address = execute_coroutine(execution_helper.compute_storage_commitments())??;
 
@@ -362,7 +362,7 @@ pub fn write_split_result(
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
+    use std::{borrow::Cow, rc::Rc};
 
     use rstest::{fixture, rstest};
 
@@ -416,7 +416,7 @@ mod tests {
         ]);
 
         let mut exec_scopes: ExecutionScopes = Default::default();
-        exec_scopes.insert_value(vars::scopes::OS_INPUT, Arc::new(os_input));
+        exec_scopes.insert_value(vars::scopes::OS_INPUT, Rc::new(os_input));
 
         set_preimage_for_state_commitments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 
@@ -448,7 +448,7 @@ mod tests {
         ]);
 
         let mut exec_scopes: ExecutionScopes = Default::default();
-        exec_scopes.insert_value(vars::scopes::OS_INPUT, Arc::new(os_input));
+        exec_scopes.insert_value(vars::scopes::OS_INPUT, Rc::new(os_input));
 
         set_preimage_for_class_commitments(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
 
