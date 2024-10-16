@@ -53,9 +53,6 @@ pub enum ProofVerificationError<'a> {
 
     #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
     InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
-
-    #[error("Proof verification failed for key {:#x}.", key)]
-    KeyNotInProof { key: Felt },
 }
 
 impl ContractData {
@@ -128,14 +125,12 @@ pub fn verify_proof<H: HashFunctionType>(
     loop {
         match trie_node_iter.next() {
             None => {
-                if non_existence_proof {
+                if non_existence_proof || (index - start != DEFAULT_STORAGE_TREE_HEIGHT) {
                     return Err(ProofVerificationError::NonExistenceProof {
                         key,
                         height: Height(DEFAULT_STORAGE_TREE_HEIGHT - (index - start)),
                         proof,
                     });
-                } else if index - start != DEFAULT_STORAGE_TREE_HEIGHT {
-                    return Err(ProofVerificationError::KeyNotInProof { key });
                 }
                 break;
             }
