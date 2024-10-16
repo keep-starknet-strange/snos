@@ -53,6 +53,9 @@ pub enum ProofVerificationError<'a> {
 
     #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
     InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
+
+    #[error("Conversion error")]
+    ConversionError,
 }
 
 impl ContractData {
@@ -140,9 +143,15 @@ pub fn verify_proof<H: HashFunctionType>(
                         index += 1;
                     }
                     TrieNode::Edge { child, path } => {
+                        let path_len_usize: usize =
+                            path.len.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
+                        let index_usize: usize =
+                            index.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
+
                         let path_bits = path.value.to_bits_be();
-                        let relevant_path_bits = &path_bits[path_bits.len() - path.len as usize..];
-                        let key_bits_slice = &bits[index as usize..(index + path.len) as usize];
+                        let relevant_path_bits = &path_bits[path_bits.len() - path_len_usize..];
+                        let key_bits_slice = &bits[index_usize..(index_usize + path_len_usize)];
+
                         if relevant_path_bits != key_bits_slice {
                             // If paths don't match, we've found a proof of non-membership because:
                             // 1. We correctly moved towards the target as far as possible, and
