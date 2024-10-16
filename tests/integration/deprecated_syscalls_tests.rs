@@ -95,14 +95,14 @@ async fn test_syscall_get_block_number_cairo0(
     let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
     let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
 
-    let expected_block_number = felt!(block_context.block_info().block_number.0);
+    let block_number = block_context.block_info().block_number.0;
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: sender_address,
-        calldata: create_calldata(contract_address, "test_get_block_number", &[expected_block_number]),
+        calldata: create_calldata(contract_address, "test_get_block_number", &[felt!(block_number)]),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
     });
@@ -136,14 +136,14 @@ async fn test_syscall_get_block_timestamp_cairo0(
     let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
     let contract_address = initial_state.deployed_cairo0_contracts.get("test_contract").unwrap().address;
 
-    let expected_block_timestamp = felt!(block_context.block_info().block_timestamp.0);
+    let block_timestamp = block_context.block_info().block_timestamp.0;
 
     let tx_version = TransactionVersion::ZERO;
     let mut nonce_manager = NonceManager::default();
     let tx = test_utils::account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: sender_address,
-        calldata: create_calldata(contract_address, "test_get_block_timestamp", &[expected_block_timestamp]),
+        calldata: create_calldata(contract_address, "test_get_block_timestamp", &[felt!(block_timestamp)]),
         version: tx_version,
         nonce: nonce_manager.next(sender_address),
     });

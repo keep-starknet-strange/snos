@@ -103,3 +103,26 @@ pub struct StorageWriteRequest {
 pub struct ReplaceClassRequest {
     pub class_hash: Felt252,
 }
+
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct ExecutionInfo {
+    block_info: Relocatable,
+    tx_info: Relocatable,
+    // Entry-point-specific info.
+    caller_address: Felt252,
+    // The execution is done in the context of the contract at this address.
+    // It controls the storage being used, messages sent to L1, calling contracts, etc.
+    contract_address: Felt252,
+    // The entry point selector.
+    selector: Felt252,
+}
+
+#[allow(unused)]
+#[derive(FieldOffsetGetters)]
+pub struct BlockInfo {
+    block_number: Felt252,
+    block_timestamp: Felt252,
+    // The address of the sequencer that is creating this block.
+    sequencer_address: Felt252,
+}
