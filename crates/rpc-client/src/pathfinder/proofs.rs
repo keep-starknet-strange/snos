@@ -88,13 +88,7 @@ pub struct PathfinderClassProof {
 impl PathfinderClassProof {
     /// Verifies that the class proof is valid.
     pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
-        if let Err(e) = verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof) {
-            match e {
-                ProofVerificationError::NonExistenceProof { .. } => {}
-                _ => return Err(e),
-            }
-        }
-        Ok(())
+        verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof)
     }
 }
 
