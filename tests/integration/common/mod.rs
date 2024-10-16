@@ -16,6 +16,8 @@ pub mod state;
 pub mod transaction_utils;
 pub mod utils;
 
+pub const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../build/os_latest.json");
+
 #[fixture]
 pub fn setup_runner() -> CairoRunner {
     let program_content = fs::read("../build/programs/fact.json").unwrap();

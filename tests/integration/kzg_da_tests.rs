@@ -32,6 +32,7 @@ async fn test_kzg_da_cairo_1(#[future] initial_state_cairo1: StarknetTestState, 
     };
     let txs = vec![l1_tx].into_iter().map(Into::into).collect();
     let (_, output) = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         BlockContext::create_for_account_testing_with_kzg(true),
         txs,
@@ -64,6 +65,7 @@ async fn test_kzg_da_cairo_0(#[future] initial_state_cairo0: StarknetTestState, 
     };
     let txs = vec![l1_tx].into_iter().map(Into::into).collect();
     let (_, output) = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         BlockContext::create_for_account_testing_with_kzg(true),
         txs,

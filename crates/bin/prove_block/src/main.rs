@@ -2,6 +2,8 @@ use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use prove_block::debug_prove_error;
 
+pub const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.json");
+
 #[derive(Parser, Debug)]
 struct Args {
     /// Block to prove.
@@ -30,7 +32,7 @@ async fn main() {
     let block_number = args.block_number;
     let layout = LayoutName::all_cairo;
 
-    let result = prove_block::prove_block(block_number, &args.rpc_provider, layout, true).await;
+    let result = prove_block::prove_block(DEFAULT_COMPILED_OS, block_number, &args.rpc_provider, layout, true).await;
     let (pie, _snos_output) = result.map_err(debug_prove_error).expect("Block proven");
     pie.run_validity_checks().expect("Valid PIE");
 }

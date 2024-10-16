@@ -43,6 +43,7 @@ async fn test_segment_arena(
     let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, _os_output) = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context,
         txs,

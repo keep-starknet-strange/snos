@@ -609,6 +609,7 @@ async fn run_os_tests(#[future] initial_state_full_itests: StarknetTestState) {
     let cached_state = CachedState::from(shared_state);
 
     let (_pie, os_output) = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         cached_state,
         block_context,
         txs,

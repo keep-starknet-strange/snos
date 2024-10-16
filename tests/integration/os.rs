@@ -45,6 +45,7 @@ async fn return_result_cairo0_account(
 
     let txs = vec![return_result_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context,
         txs,
@@ -86,6 +87,7 @@ async fn return_result_cairo1_account(
 
     let txs = vec![return_result_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context,
         txs,
@@ -196,6 +198,7 @@ async fn syscalls_cairo1(
     .collect();
 
     let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context,
         txs,
