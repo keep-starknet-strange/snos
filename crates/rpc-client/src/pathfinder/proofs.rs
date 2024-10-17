@@ -112,56 +112,43 @@ pub fn verify_proof<H: HashFunctionType>(
     let bits = key.to_bits_be();
 
     let mut parent_hash = commitment;
-    let mut trie_node_iter = proof.iter();
 
     // The tree height is 251, so the first 5 bits are ignored.
     let start = 5;
     let mut index = start;
-    let mut non_existence_proof = false;
 
-    loop {
-        match trie_node_iter.next() {
-            None => {
-                if non_existence_proof || (index - start != DEFAULT_STORAGE_TREE_HEIGHT) {
+    for node in proof.iter() {
+        let node_hash = node.hash::<H>();
+        if node_hash != parent_hash {
+            return Err(ProofVerificationError::InvalidChildNodeHash { node_hash, parent_hash });
+        }
+
+        match node {
+            TrieNode::Binary { left, right } => {
+                parent_hash = if bits[index as usize] { *right } else { *left };
+                index += 1;
+            }
+            TrieNode::Edge { child, path } => {
+                let path_len_usize: usize = path.len.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
+                let index_usize: usize = index.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
+
+                let path_bits = path.value.to_bits_be();
+                let relevant_path_bits = &path_bits[path_bits.len() - path_len_usize..];
+                let key_bits_slice = &bits[index_usize..(index_usize + path_len_usize)];
+
+                parent_hash = *child;
+                index += path.len;
+
+                if relevant_path_bits != key_bits_slice {
+                    // If paths don't match, we've found a proof of non-membership because:
+                    // 1. We correctly moved towards the target as far as possible, and
+                    // 2. Hashing all the nodes along the path results in the root hash, which means
+                    // 3. The target definitely does not exist in this tree
                     return Err(ProofVerificationError::NonExistenceProof {
                         key,
                         height: Height(DEFAULT_STORAGE_TREE_HEIGHT - (index - start)),
                         proof,
                     });
-                }
-                break;
-            }
-            Some(node) => {
-                let node_hash = node.hash::<H>();
-                if node_hash != parent_hash {
-                    return Err(ProofVerificationError::InvalidChildNodeHash { node_hash, parent_hash });
-                }
-
-                match node {
-                    TrieNode::Binary { left, right } => {
-                        parent_hash = if bits[index as usize] { *right } else { *left };
-                        index += 1;
-                    }
-                    TrieNode::Edge { child, path } => {
-                        let path_len_usize: usize =
-                            path.len.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
-                        let index_usize: usize =
-                            index.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
-
-                        let path_bits = path.value.to_bits_be();
-                        let relevant_path_bits = &path_bits[path_bits.len() - path_len_usize..];
-                        let key_bits_slice = &bits[index_usize..(index_usize + path_len_usize)];
-
-                        if relevant_path_bits != key_bits_slice {
-                            // If paths don't match, we've found a proof of non-membership because:
-                            // 1. We correctly moved towards the target as far as possible, and
-                            // 2. Hashing all the nodes along the path results in the root hash, which means
-                            // 3. The target definitely does not exist in this tree
-                            non_existence_proof = true;
-                        }
-                        parent_hash = *child;
-                        index += path.len;
-                    }
                 }
             }
         }
