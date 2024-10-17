@@ -133,27 +133,19 @@ pub async fn prove_block(
     // We only need to get the older block number and hash. No need to fetch all the txs
     // This is a workaorund to catch the case where the block number is less than the buffer and still preserve the check
     // The OS will also handle the case where the block number is less than the buffer.
-    let older_block_number = if block_number <= STORED_BLOCK_HASH_BUFFER {
-        1
-    } else {
-        block_number - STORED_BLOCK_HASH_BUFFER
-    };
+    let older_block_number =
+        if block_number <= STORED_BLOCK_HASH_BUFFER { 1 } else { block_number - STORED_BLOCK_HASH_BUFFER };
 
-    let older_block = match rpc_client
-        .starknet_rpc()
-        .get_block_with_tx_hashes(BlockId::Number(older_block_number))
-        .await?
-    {
-        MaybePendingBlockWithTxHashes::Block(block_with_txs_hashes) => block_with_txs_hashes,
-        MaybePendingBlockWithTxHashes::PendingBlock(_) => {
-            panic!("Block is still pending!");
-        }
-    };
+    let older_block =
+        match rpc_client.starknet_rpc().get_block_with_tx_hashes(BlockId::Number(older_block_number)).await? {
+            MaybePendingBlockWithTxHashes::Block(block_with_txs_hashes) => block_with_txs_hashes,
+            MaybePendingBlockWithTxHashes::PendingBlock(_) => {
+                panic!("Block is still pending!");
+            }
+        };
     let old_block_number = Felt252::from(older_block.block_number);
     let old_block_hash = older_block.block_hash;
     let block_context = build_block_context(chain_id.clone(), &block_with_txs, starknet_version);
-
-
 
     // TODO: nasty clone, the conversion fns don't take references
     let transactions: Vec<_> =
