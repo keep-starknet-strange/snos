@@ -1,3 +1,4 @@
+use rpc_client::pathfinder::proofs::ProofVerificationError;
 use rpc_client::RpcClient;
 use rstest::rstest;
 use starknet::core::types::BlockId;
@@ -12,7 +13,7 @@ use starknet_types_core::felt::Felt;
 // Contract address 0x7a3c142b1ef242f093642604c2ac2259da0efa3a0517715c34a722ba2ecd048
 #[case::correct_hash_computation_1("0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", 30000)]
 #[ignore = "Requires a running Pathfinder node"]
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_recompute_class_hash(#[case] class_hash_str: String, #[case] block_number: u64) {
     let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
     let class_hash = Felt::from_hex(&class_hash_str).unwrap();
@@ -34,4 +35,69 @@ async fn test_recompute_class_hash(#[case] class_hash_str: String, #[case] block
     println!("Recomputed class hash: {:#x}", recomputed_class_hash);
 
     assert_eq!(class_hash, recomputed_class_hash);
+}
+
+// This defines only the error type that we expect. Dummy values are used
+const DUMMY_NON_EXISTENCE_PROOF: ProofVerificationError = ProofVerificationError::NonExistenceProof {
+    key: Felt::ZERO,
+    height: starknet_os::starkware_utils::commitment_tree::base_types::Height(1),
+    proof: &[],
+};
+
+#[rstest]
+#[case::key_not_in_proof(
+    "0x05dec330eebf36c8672b60db4a718d44762d3ae6d1333e553197acb47ee5a062",
+    56354,
+    Err(DUMMY_NON_EXISTENCE_PROOF)
+)]
+// #[case::key_not_in_proof("0x05dec330eebf36c8672b60db4a718d44762d3ae6d1333e553197acb47ee5a062", 56355)]
+#[case::key_not_in_proof(
+    "0x05dec330eebf36c8672b60db4a718d44762d3ae6d1333e553197acb47ee5a062",
+    56355,
+    Err(DUMMY_NON_EXISTENCE_PROOF)
+)]
+// // Non-inclusion proof on 174967. Declared on the following block
+#[case::key_not_in_proof(
+    "0x062f6d32e5b109af12d1bd916fea424344f51d442953d801f613ca526de9eb7f",
+    174967,
+    Err(DUMMY_NON_EXISTENCE_PROOF)
+)]
+#[case::key_not_in_proof(
+    "0x062f6d32e5b109af12d1bd916fea424344f51d442953d801f613ca526de9eb7f",
+    174968,
+    Ok(())
+)]
+// // Non-inclusion proof on 156854. Declared on the following block
+#[case::key_not_in_proof(
+    "0xbe81515dadb87e4531317998f3b7c6028834315c43506e74b3fe866dfbfa3c",
+    156854,
+    Err(DUMMY_NON_EXISTENCE_PROOF)
+)]
+#[case::key_not_in_proof(
+    "0xbe81515dadb87e4531317998f3b7c6028834315c43506e74b3fe866dfbfa3c",
+    156855,
+    Ok(())
+)]
+#[ignore = "Requires a running Pathfinder node"]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_class_proof_verification(
+    #[case] class_hash_str: String,
+    #[case] block_number: u64,
+    #[case] expected_result: Result<(), ProofVerificationError<'_>>,
+) {
+    let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
+    let class_hash = Felt::from_hex(&class_hash_str).unwrap();
+    let rpc_client = RpcClient::new(&endpoint);
+
+    let class_proof = rpc_client.pathfinder_rpc().get_class_proof(block_number, &class_hash).await.unwrap();
+    let result = class_proof.verify(class_hash);
+
+    match (result, expected_result) {
+        (Ok(()), Ok(())) => {}
+        (
+            Err(ProofVerificationError::NonExistenceProof { .. }),
+            Err(ProofVerificationError::NonExistenceProof { .. }),
+        ) => {}
+        _ => panic!("Result doesn't match the expected one"),
+    }
 }

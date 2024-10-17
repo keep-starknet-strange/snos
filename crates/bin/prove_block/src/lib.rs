@@ -6,7 +6,7 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage};
-use rpc_client::pathfinder::proofs::PathfinderClassProof;
+use rpc_client::pathfinder::proofs::{PathfinderClassProof, ProofVerificationError};
 use rpc_client::RpcClient;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
@@ -70,11 +70,21 @@ fn compute_class_commitment(
     class_proofs: &HashMap<Felt, PathfinderClassProof>,
 ) -> CommitmentInfo {
     for (class_hash, previous_class_proof) in previous_class_proofs {
-        previous_class_proof.verify(*class_hash).expect("Could not verify previous_class_proof");
+        if let Err(e) = previous_class_proof.verify(*class_hash) {
+            match e {
+                ProofVerificationError::NonExistenceProof { .. } => {}
+                _ => panic!("Previous class proof verification failed"),
+            }
+        }
     }
 
     for (class_hash, class_proof) in class_proofs {
-        class_proof.verify(*class_hash).expect("Could not verify class_proof");
+        if let Err(e) = class_proof.verify(*class_hash) {
+            match e {
+                ProofVerificationError::NonExistenceProof { .. } => {}
+                _ => panic!("Current class proof verification failed"),
+            }
+        }
     }
 
     let previous_class_proofs: Vec<_> = previous_class_proofs.values().cloned().collect();
