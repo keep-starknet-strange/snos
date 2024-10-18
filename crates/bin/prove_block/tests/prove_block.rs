@@ -57,6 +57,7 @@ pub const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_late
 #[case::key_not_in_proof_0(155087)]
 #[case::key_not_in_proof_1(162388)]
 #[case::key_not_in_proof_2(155172)]
+#[case::l1_gas_and_l1_gas_price_are_0(161476)]
 #[case::key_not_in_proof_3(156855)]
 #[case::key_not_in_proof_4(174968)]
 #[case::timestamp_rounding_1(162389)]
