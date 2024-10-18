@@ -88,18 +88,20 @@ fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<Felt
     if let Err(errors) = contract_data.verify(keys) {
         for error in errors {
             match error {
-                ProofVerificationError::KeyNotInProof { key, height, proof } => {
+                ProofVerificationError::NonExistenceProof { key, height, proof } => {
                     if let Some(TrieNode::Edge { child: _, path }) = proof.last() {
-                        let modified_key = get_key_following_edge(key, height, path);
-                        log::trace!(
-                            "Fetching modified key {} for key {}",
-                            modified_key.to_hex_string(),
-                            key.to_hex_string()
-                        );
-                        additional_keys.push(modified_key);
+                        if height.0 < DEFAULT_STORAGE_TREE_HEIGHT {
+                            let modified_key = get_key_following_edge(key, height, path);
+                            log::trace!(
+                                "Fetching modified key {} for key {}",
+                                modified_key.to_hex_string(),
+                                key.to_hex_string()
+                            );
+                            additional_keys.push(modified_key);
+                        }
                     }
                 }
-                ProofVerificationError::InvalidChildNodeHash { .. } => {
+                _ => {
                     panic!("Proof verification failed: {}", error);
                 }
             }

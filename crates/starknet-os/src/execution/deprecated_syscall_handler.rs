@@ -8,6 +8,7 @@ use cairo_vm::Felt252;
 use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
+use crate::cairo_types::new_syscalls::{BlockInfo as BlockInfoStruct, ExecutionInfo};
 use crate::cairo_types::syscalls::{
     CallContract, CallContractResponse, Deploy, DeployResponse, GetBlockNumber, GetBlockNumberResponse,
     GetBlockTimestamp, GetBlockTimestampResponse, GetContractAddress, GetContractAddressResponse, GetSequencerAddress,
@@ -134,11 +135,16 @@ where
 
     pub async fn get_block_number(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         let syscall_handler = self.deprecated_syscall_handler.read().await;
+        let execution_helper = syscall_handler.exec_wrapper.execution_helper.read().await;
 
-        let block_number = syscall_handler.block_info.block_number;
+        let execution_info_ptr = execution_helper
+            .call_execution_info_ptr
+            .ok_or(HintError::SyscallError("Execution info pointer not set".to_string().into_boxed_str()))?;
+        let block_info_ptr = vm.get_relocatable((execution_info_ptr + ExecutionInfo::block_info_offset())?)?;
+        let block_number = vm.get_integer((block_info_ptr + BlockInfoStruct::block_number_offset())?)?.into_owned();
 
         let response_offset = GetBlockNumber::response_offset() + GetBlockNumberResponse::block_number_offset();
-        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(block_number.0))?;
+        vm.insert_value((syscall_ptr + response_offset)?, block_number)?;
 
         Ok(())
     }
@@ -149,12 +155,18 @@ where
         vm: &mut VirtualMachine,
     ) -> Result<(), HintError> {
         let syscall_handler = self.deprecated_syscall_handler.read().await;
+        let execution_helper = syscall_handler.exec_wrapper.execution_helper.read().await;
 
-        let block_timestamp = syscall_handler.block_info.block_timestamp;
+        let execution_info_ptr = execution_helper
+            .call_execution_info_ptr
+            .ok_or(HintError::SyscallError("Execution info pointer not set".to_string().into_boxed_str()))?;
+        let block_info_ptr = vm.get_relocatable((execution_info_ptr + ExecutionInfo::block_info_offset())?)?;
+        let block_timestamp =
+            vm.get_integer((block_info_ptr + BlockInfoStruct::block_timestamp_offset())?)?.into_owned();
 
         let response_offset =
             GetBlockTimestamp::response_offset() + GetBlockTimestampResponse::block_timestamp_offset();
-        vm.insert_value((syscall_ptr + response_offset)?, Felt252::from(block_timestamp.0))?;
+        vm.insert_value((syscall_ptr + response_offset)?, block_timestamp)?;
 
         Ok(())
     }
@@ -358,6 +370,7 @@ mod test {
             ContractStorageMap::default(),
             execution_infos,
             &block_context,
+            None,
             old_block_number_and_hash,
         );
 

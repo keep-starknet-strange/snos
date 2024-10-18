@@ -83,6 +83,7 @@ async fn declare_v3_cairo1_account(
 
     let txs = vec![declare_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context,
         txs,
@@ -149,6 +150,7 @@ async fn declare_cairo1_account(
 
     let txs = vec![declare_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context,
         txs,
@@ -207,6 +209,7 @@ async fn declare_v1_cairo0_account(
 
     let txs = vec![declare_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context,
         txs,
