@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::context::BlockContext;
@@ -830,7 +831,7 @@ async fn execute_txs<S>(
     deprecated_contract_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, GenericCasmContractClass>,
     declared_class_hash_to_component_hashes: HashMap<ClassHash, ContractClassComponentHashes>,
-) -> (StarknetOsInput, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
+) -> (Rc<StarknetOsInput>, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
 where
     S: Storage,
 {
@@ -917,6 +918,7 @@ where
                 log::error!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
                 log::error!("inst_location:\n{:?}", inst_location);
             }
+            log::error!("\ninner_exc error: {}\n", vme.inner_exc);
         }
         Err(_) => {
             println!("exception:\n{:#?}", result);
