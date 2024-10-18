@@ -8,7 +8,7 @@ use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{Fact, HashFunctionType};
 use starknet_types_core::felt::Felt;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub enum TrieNode {
     #[serde(rename = "binary")]
     Binary { left: Felt, right: Felt },
@@ -48,11 +48,14 @@ pub struct ContractData {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProofVerificationError<'a> {
-    #[error("Proof verification failed for key {}. Proof stopped at height {}.", key.to_hex_string(), height.0)]
-    KeyNotInProof { key: Felt, height: Height, proof: &'a [TrieNode] },
+    #[error("Non-inclusion proof for key {}. Height {}.", key.to_hex_string(), height.0)]
+    NonExistenceProof { key: Felt, height: Height, proof: &'a [TrieNode] },
 
     #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
     InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
+
+    #[error("Conversion error")]
+    ConversionError,
 }
 
 impl ContractData {
@@ -93,7 +96,7 @@ impl PathfinderClassProof {
 }
 
 // Types defined for Deserialize functionality
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct EdgePath {
     pub len: u64,
     pub value: Felt,
@@ -109,39 +112,43 @@ pub fn verify_proof<H: HashFunctionType>(
     let bits = key.to_bits_be();
 
     let mut parent_hash = commitment;
-    let mut trie_node_iter = proof.iter();
 
     // The tree height is 251, so the first 5 bits are ignored.
     let start = 5;
     let mut index = start;
 
-    loop {
-        match trie_node_iter.next() {
-            None => {
-                if index - start != DEFAULT_STORAGE_TREE_HEIGHT {
-                    return Err(ProofVerificationError::KeyNotInProof {
+    for node in proof.iter() {
+        let node_hash = node.hash::<H>();
+        if node_hash != parent_hash {
+            return Err(ProofVerificationError::InvalidChildNodeHash { node_hash, parent_hash });
+        }
+
+        match node {
+            TrieNode::Binary { left, right } => {
+                parent_hash = if bits[index as usize] { *right } else { *left };
+                index += 1;
+            }
+            TrieNode::Edge { child, path } => {
+                let path_len_usize: usize = path.len.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
+                let index_usize: usize = index.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
+
+                let path_bits = path.value.to_bits_be();
+                let relevant_path_bits = &path_bits[path_bits.len() - path_len_usize..];
+                let key_bits_slice = &bits[index_usize..(index_usize + path_len_usize)];
+
+                parent_hash = *child;
+                index += path.len;
+
+                if relevant_path_bits != key_bits_slice {
+                    // If paths don't match, we've found a proof of non-membership because:
+                    // 1. We correctly moved towards the target as far as possible, and
+                    // 2. Hashing all the nodes along the path results in the root hash, which means
+                    // 3. The target definitely does not exist in this tree
+                    return Err(ProofVerificationError::NonExistenceProof {
                         key,
                         height: Height(DEFAULT_STORAGE_TREE_HEIGHT - (index - start)),
                         proof,
                     });
-                }
-                break;
-            }
-            Some(node) => {
-                let node_hash = node.hash::<H>();
-                if node_hash != parent_hash {
-                    return Err(ProofVerificationError::InvalidChildNodeHash { node_hash, parent_hash });
-                }
-
-                match node {
-                    TrieNode::Binary { left, right } => {
-                        parent_hash = if bits[index as usize] { *right } else { *left };
-                        index += 1;
-                    }
-                    TrieNode::Edge { child, path } => {
-                        parent_hash = *child;
-                        index += path.len;
-                    }
                 }
             }
         }
