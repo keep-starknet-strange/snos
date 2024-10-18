@@ -885,6 +885,7 @@ where
 }
 
 pub async fn execute_txs_and_run_os<S>(
+    compiled_os: &[u8],
     state: CachedState<SharedState<S, PedersenHash>>,
     block_context: BlockContext,
     txs: Vec<Transaction>,
@@ -906,7 +907,7 @@ where
     .await;
 
     let layout = config::default_layout();
-    let result = run_os(config::DEFAULT_COMPILED_OS, layout, os_input, block_context, execution_helper);
+    let result = run_os(compiled_os, layout, os_input, block_context, execution_helper);
 
     match &result {
         Err(Runner(VmException(vme))) => {

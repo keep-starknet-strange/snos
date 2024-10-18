@@ -103,6 +103,7 @@ async fn deploy_cairo0_account(
 
     let txs = vec![deploy_account_tx].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context,
         txs,
@@ -198,6 +199,7 @@ async fn deploy_cairo1_account(
 
     let txs = vec![AccountTransaction::DeployAccount(deploy_account_tx)].into_iter().map(Into::into).collect();
     let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context,
         txs,
