@@ -319,8 +319,8 @@ where
                     num_constructors
                 };
 
-            let need_retdata_hack = num_constructors == 0;
-            need_retdata_hack
+            // we need the hack if there are no constructor entry points
+            num_constructors == 0
         } else {
             false
         };
