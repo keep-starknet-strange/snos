@@ -55,6 +55,8 @@ use rstest::rstest;
 #[case::key_not_in_proof_0(155087)]
 #[case::key_not_in_proof_1(162388)]
 #[case::key_not_in_proof_2(155172)]
+#[case::timestamp_rounding_1(162389)]
+#[case::timestamp_rounding_2(167815)]
 #[case::retdata_not_a_relocatable(160033)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
