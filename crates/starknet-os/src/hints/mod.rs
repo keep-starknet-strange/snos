@@ -536,10 +536,10 @@ pub const BREAKPOINT: &str = "breakpoint()";
 
 pub fn breakpoint(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let pc = vm.get_pc();
     let fp = vm.get_fp();
@@ -558,6 +558,13 @@ pub fn breakpoint(
     // println!("\tap_tracking -> {ap_tracking:?}");
     // println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
     // println!("\tids -> {:?}", ids_data);
+    
+    log::debug!("\tids_data ({}):", ids_data.len());
+    for (i, (k, v)) in ids_data.iter().enumerate() {
+        let value = get_maybe_relocatable_from_var_name(k, vm, ids_data, ap_tracking)?;
+        log::debug!("\t\t[{}] \"{}\": \"{:?}\"", i, k, value);
+    }
+    
     log::debug!("-----------END BREAKPOINT-----------");
     Ok(())
 }
