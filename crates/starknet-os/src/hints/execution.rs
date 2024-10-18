@@ -1128,8 +1128,9 @@ pub fn check_new_deploy_response(
     // points. Immediately following this, `add_relocation_rule()` will be called with src=0, dest=0
     // and it will also no-op.
     //
-    // see add_relocation_rule() here:
-    // https://github.com/starkware-libs/cairo-lang/blob/a86e92bfde9c171c0856d7b46580c66e004922f3/src/starkware/cairo/common/segments.cairo#L5
+    // If "retdata" is an Int instead of a Relocatable, then the vm will error when we try to
+    // request it as such. In this case, there is no retdata anyway, so there is no need to assert
+    // that the contents are equal.
     let retdata_start_key: Relocatable =
         (response_ptr + new_syscalls::DeployResponse::constructor_retdata_start_offset())?;
     let maybe_retdata_start = vm
