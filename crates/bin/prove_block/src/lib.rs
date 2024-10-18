@@ -22,12 +22,12 @@ use starknet_os::error::SnOsError::{self};
 use starknet_os::execution::helper::{ContractStorageMap, ExecutionHelperWrapper};
 use starknet_os::io::input::StarknetOsInput;
 use starknet_os::io::output::StarknetOsOutput;
+use starknet_os::run_os;
 use starknet_os::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use starknet_os::starknet::starknet_storage::CommitmentInfo;
 use starknet_os::starkware_utils::commitment_tree::base_types::Height;
 use starknet_os::starkware_utils::commitment_tree::errors::TreeError;
 use starknet_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::PatriciaTree;
-use starknet_os::{config, run_os};
 use starknet_os_types::chain_id::chain_id_from_felt;
 use starknet_os_types::error::ContractClassError;
 use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
@@ -109,6 +109,7 @@ fn compute_class_commitment(
 }
 
 pub async fn prove_block(
+    compiled_os: &[u8],
     block_number: u64,
     rpc_provider: &str,
     layout: LayoutName,
@@ -334,7 +335,7 @@ pub async fn prove_block(
         (old_block_number, old_block_hash),
     );
 
-    Ok(run_os(config::DEFAULT_COMPILED_OS, layout, os_input, block_context, execution_helper)?)
+    Ok(run_os(compiled_os, layout, os_input, block_context, execution_helper)?)
 }
 
 pub fn debug_prove_error(err: ProveBlockError) -> ProveBlockError {
