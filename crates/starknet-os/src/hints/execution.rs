@@ -1127,6 +1127,9 @@ pub fn check_new_deploy_response(
     // can happen sometimes when a constructor is called but not defined in the class'es entry
     // points. Immediately following this, `add_relocation_rule()` will be called with src=0, dest=0
     // and it will also no-op.
+    //
+    // see add_relocation_rule() here:
+    // https://github.com/starkware-libs/cairo-lang/blob/a86e92bfde9c171c0856d7b46580c66e004922f3/src/starkware/cairo/common/segments.cairo#L5
     let retdata_start_key: Relocatable =
         (response_ptr + new_syscalls::DeployResponse::constructor_retdata_start_offset())?;
     let maybe_retdata_start = vm
@@ -1134,7 +1137,7 @@ pub fn check_new_deploy_response(
         .ok_or(HintError::VariableNotInScopeError("retdata".to_string().into_boxed_str()))?;
     let zero = MaybeRelocatable::Int(Felt252::ZERO);
     if maybe_retdata_start == zero {
-        log::warn!("retdata_start is 0, not a relocatable. doing nothing");
+        log::warn!("retdata_start is 0, not a relocatable, ignoring add_relocation_rule()");
         return Ok(());
     }
 
