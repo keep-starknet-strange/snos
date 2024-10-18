@@ -56,6 +56,7 @@ async fn test_syscall_library_call_cairo1(
     let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, os_output) = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context.clone(),
         txs,
@@ -99,6 +100,7 @@ async fn test_syscall_replace_class_cairo1(
     let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, _os_output) = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context.clone(),
         txs,
@@ -138,6 +140,7 @@ async fn test_syscall_keccak_cairo1(
     let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, _os_output) = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context.clone(),
         txs,
@@ -180,6 +183,7 @@ async fn test_syscall_test_secp_cairo1(
     let txs = vec![Transaction::AccountTransaction(tx)];
 
     let (_pie, os_output) = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
         initial_state.cached_state,
         block_context.clone(),
         txs,
