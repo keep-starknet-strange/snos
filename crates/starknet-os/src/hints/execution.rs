@@ -1129,7 +1129,9 @@ pub fn check_new_deploy_response(
     // and it will also no-op.
     let retdata_start_key: Relocatable =
         (response_ptr + new_syscalls::DeployResponse::constructor_retdata_start_offset())?;
-    let maybe_retdata_start = vm.get_maybe(&retdata_start_key).unwrap();
+    let maybe_retdata_start = vm
+        .get_maybe(&retdata_start_key)
+        .ok_or(HintError::VariableNotInScopeError("retdata".to_string().into_boxed_str()))?;
     let zero = MaybeRelocatable::Int(Felt252::ZERO);
     if maybe_retdata_start == zero {
         log::warn!("retdata_start is 0, not a relocatable. doing nothing");
