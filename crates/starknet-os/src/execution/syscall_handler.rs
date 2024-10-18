@@ -292,9 +292,7 @@ where
             "No more deployed contracts available to replay".to_string().into_boxed_str(),
         ))?;
 
-        // TODO: hideous clone
-        let mut need_retdata_hack = false;
-        execution_helper.os_input.clone().inspect(|os_input| {
+        let need_retdata_hack = if let Some(os_input) = execution_helper.os_input.as_ref() {
             let class_hash = os_input
                 .contract_address_to_class_hash
                 .get(&contract_address)
@@ -321,8 +319,11 @@ where
                     num_constructors
                 };
 
-            need_retdata_hack = num_constructors == 0;
-        });
+            let need_retdata_hack = num_constructors == 0;
+            need_retdata_hack
+        } else {
+            false
+        };
 
         Ok(DeployResponse { contract_address, constructor_retdata, need_retdata_hack })
     }
