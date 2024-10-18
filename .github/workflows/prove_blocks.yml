@@ -56,4 +56,4 @@ jobs:
         env:
           PATHFINDER_RPC_URL: ${{ secrets.PATHFINDER_RPC_URL }}
         run: |
-          cargo test --release --package prove_block --test hash_tests -- test_recompute_class_hash test_class_proof_verification --show-output --ignored
+          cargo test --release --package prove_block --test hash_tests -- test_recompute_class_hash test_class_proof_verification_ok test_class_proof_verification_non_inclusion --show-output --ignored

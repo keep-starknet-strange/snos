@@ -8,7 +8,7 @@ use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{Fact, HashFunctionType};
 use starknet_types_core::felt::Felt;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub enum TrieNode {
     #[serde(rename = "binary")]
     Binary { left: Felt, right: Felt },
