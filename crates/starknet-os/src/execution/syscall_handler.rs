@@ -336,6 +336,8 @@ where
         // as a result of `cast(0, felt*)`. To work around this, we can write the same here so that
         // later the OS will assert this value is the same as retdata; that is, both need to be the
         // same value which is Int(0).
+        //
+        // retdata is cast here: https://github.com/starkware-libs/cairo-lang/blob/a86e92bfde9c171c0856d7b46580c66e004922f3/src/starkware/starknet/core/os/execution/execute_entry_point.cairo#L170
         if response.need_retdata_hack {
             log::warn!("Writing Felt::ZERO instead of pointer since retdata size is 0");
             write_felt(vm, ptr, Felt252::ZERO)?; // casted pointer
