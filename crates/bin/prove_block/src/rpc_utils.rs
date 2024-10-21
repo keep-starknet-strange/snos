@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use num_bigint::BigInt;
+use rpc_client::pathfinder::client::ClientError;
 use rpc_client::pathfinder::proofs::{
     ContractData, EdgePath, PathfinderClassProof, PathfinderProof, ProofVerificationError, TrieNode,
 };
@@ -25,7 +26,7 @@ async fn fetch_storage_proof_for_contract(
     contract_address: Felt,
     keys: &[Felt],
     block_number: u64,
-) -> Result<PathfinderProof, reqwest::Error> {
+) -> Result<PathfinderProof, ClientError> {
     let storage_proof = if keys.is_empty() {
         rpc_client.pathfinder_rpc().get_proof(block_number, contract_address, &[]).await?
     } else {
@@ -50,7 +51,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     contract_address: ContractAddress,
     storage_keys: KeyIter,
     block_number: u64,
-) -> Result<PathfinderProof, reqwest::Error> {
+) -> Result<PathfinderProof, ClientError> {
     let contract_address_felt = *contract_address.key();
     let keys: Vec<_> = storage_keys.map(|storage_key| *storage_key.key()).collect();
 
@@ -87,18 +88,20 @@ fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<Felt
     if let Err(errors) = contract_data.verify(keys) {
         for error in errors {
             match error {
-                ProofVerificationError::KeyNotInProof { key, height, proof } => {
+                ProofVerificationError::NonExistenceProof { key, height, proof } => {
                     if let Some(TrieNode::Edge { child: _, path }) = proof.last() {
-                        let modified_key = get_key_following_edge(key, height, path);
-                        log::trace!(
-                            "Fetching modified key {} for key {}",
-                            modified_key.to_hex_string(),
-                            key.to_hex_string()
-                        );
-                        additional_keys.push(modified_key);
+                        if height.0 < DEFAULT_STORAGE_TREE_HEIGHT {
+                            let modified_key = get_key_following_edge(key, height, path);
+                            log::trace!(
+                                "Fetching modified key {} for key {}",
+                                modified_key.to_hex_string(),
+                                key.to_hex_string()
+                            );
+                            additional_keys.push(modified_key);
+                        }
                     }
                 }
-                ProofVerificationError::InvalidChildNodeHash { .. } => {
+                _ => {
                     panic!("Proof verification failed: {}", error);
                 }
             }
@@ -113,7 +116,7 @@ pub(crate) async fn get_storage_proofs(
     block_number: u64,
     tx_execution_infos: &[TransactionExecutionInfo],
     old_block_number: Felt,
-) -> Result<HashMap<Felt, PathfinderProof>, reqwest::Error> {
+) -> Result<HashMap<Felt, PathfinderProof>, ClientError> {
     let accessed_keys_by_address = {
         let mut keys = get_all_accessed_keys(tx_execution_infos);
         // We need to fetch the storage proof for the block hash contract
@@ -124,11 +127,8 @@ pub(crate) async fn get_storage_proofs(
     let mut storage_proofs = HashMap::new();
 
     log::info!("Contracts we're fetching proofs for:");
-    for contract_address in accessed_keys_by_address.keys() {
-        log::info!("    {}", contract_address.to_string());
-    }
-
     for (contract_address, storage_keys) in accessed_keys_by_address {
+        log::info!("    Fetching proof for {}", contract_address.to_string());
         let contract_address_felt = *contract_address.key();
         let storage_proof =
             get_storage_proof_for_contract(client, contract_address, storage_keys.into_iter(), block_number).await?;
@@ -196,7 +196,7 @@ pub(crate) async fn get_class_proofs(
     rpc_client: &RpcClient,
     block_number: u64,
     class_hashes: &[&Felt],
-) -> Result<HashMap<Felt252, PathfinderClassProof>, reqwest::Error> {
+) -> Result<HashMap<Felt252, PathfinderClassProof>, ClientError> {
     let mut proofs: HashMap<Felt252, PathfinderClassProof> = HashMap::with_capacity(class_hashes.len());
     for class_hash in class_hashes {
         let proof = rpc_client.pathfinder_rpc().get_class_proof(block_number, class_hash).await?;
