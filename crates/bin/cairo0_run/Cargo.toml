@@ -1,0 +1,32 @@
+[package]
+name = "cairo0_run"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license-file.workspace = true
+
+
+[dependencies]
+anyhow = { workspace = true }
+blockifier = { workspace = true }
+cairo-lang-starknet-classes = { workspace = true }
+cairo-lang-utils = { workspace = true }
+cairo-vm = { workspace = true }
+clap = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+futures-core = { workspace = true }
+pathfinder-common = { workspace = true }
+pathfinder-crypto = { workspace = true }
+pathfinder-serde = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+starknet_api = { workspace = true }
+starknet-os = { workspace = true }
+starknet-os-types = { workspace = true }
+starknet-types-core = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+num-bigint = { workspace = true }
