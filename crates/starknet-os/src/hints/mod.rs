@@ -537,10 +537,10 @@ pub const BREAKPOINT: &str = "breakpoint()";
 
 pub fn breakpoint(
     vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
+    _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    constants: &HashMap<String, Felt252>,
+    _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let pc = vm.get_pc();
     let fp = vm.get_fp();
@@ -561,7 +561,7 @@ pub fn breakpoint(
     // println!("\tids -> {:?}", ids_data);
 
     log::debug!("\tids_data ({}):", ids_data.len());
-    for (i, (k, v)) in ids_data.iter().enumerate() {
+    for (i, (k, _v)) in ids_data.iter().enumerate() {
         let value = get_maybe_relocatable_from_var_name(k, vm, ids_data, ap_tracking)?;
         log::debug!("\t\t[{}] \"{}\": \"{:?}\"", i, k, value);
     }

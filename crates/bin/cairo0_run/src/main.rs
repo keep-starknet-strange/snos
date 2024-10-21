@@ -78,10 +78,10 @@ impl PerContractStorage for DummyPCS {
     async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
         unimplemented!();
     }
-    async fn read(&mut self, key: TreeIndex) -> Option<Felt252> {
+    async fn read(&mut self, _key: TreeIndex) -> Option<Felt252> {
         unimplemented!();
     }
-    fn write(&mut self, key: TreeIndex, value: Felt252) {
+    fn write(&mut self, _key: TreeIndex, _value: Felt252) {
         unimplemented!();
     }
 }
