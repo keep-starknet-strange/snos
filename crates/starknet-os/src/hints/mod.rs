@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 use cairo_lang_casm::hints::{Hint, StarknetHint};
 use cairo_lang_casm::operand::{BinOpOperand, DerefOrImmediate, Operation, Register, ResOperand};
@@ -471,9 +472,9 @@ pub fn initialize_state_changes(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     let mut state_dict: HashMap<MaybeRelocatable, MaybeRelocatable> = HashMap::new();
-    for (addr, contract_state) in os_input.contracts {
+    for (addr, contract_state) in &os_input.contracts {
         let change_base = vm.add_memory_segment();
         vm.insert_value(change_base, Felt252::from_bytes_be_slice(&contract_state.contract_hash))?;
         let storage_commitment_base = vm.add_memory_segment();
@@ -496,9 +497,9 @@ pub fn initialize_class_hashes(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     let mut class_dict: HashMap<MaybeRelocatable, MaybeRelocatable> = HashMap::new();
-    for (class_hash, compiled_class_hash) in os_input.class_hash_to_compiled_class_hash {
+    for (class_hash, compiled_class_hash) in &os_input.class_hash_to_compiled_class_hash {
         class_dict.insert(MaybeRelocatable::from(class_hash), MaybeRelocatable::from(compiled_class_hash));
     }
 
@@ -706,7 +707,7 @@ pub fn os_input_transactions(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     let num_txns = os_input.transactions.len();
     vm.insert_value((vm.get_fp() + 12)?, num_txns).map_err(HintError::Memory)
 }
