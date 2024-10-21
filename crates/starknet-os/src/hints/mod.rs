@@ -558,13 +558,13 @@ pub fn breakpoint(
     // println!("\tap_tracking -> {ap_tracking:?}");
     // println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
     // println!("\tids -> {:?}", ids_data);
-    
+
     log::debug!("\tids_data ({}):", ids_data.len());
     for (i, (k, v)) in ids_data.iter().enumerate() {
         let value = get_maybe_relocatable_from_var_name(k, vm, ids_data, ap_tracking)?;
         log::debug!("\t\t[{}] \"{}\": \"{:?}\"", i, k, value);
     }
-    
+
     log::debug!("-----------END BREAKPOINT-----------");
     Ok(())
 }
