@@ -34,6 +34,7 @@ use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
 use starknet_types_core::felt::Felt;
 use state_utils::get_formatted_state_update;
 use thiserror::Error;
+use cairo_vm::types::relocatable::MaybeRelocatable;
 
 use crate::reexecute::format_commitment_facts;
 use crate::rpc_utils::get_starknet_version;
@@ -339,4 +340,15 @@ pub fn debug_prove_error(err: ProveBlockError) -> ProveBlockError {
         log::error!("\ninner_exc error: {}\n", vme.inner_exc);
     }
     err
+}
+
+pub fn get_memory_segment(pie: &CairoPie, index: usize) -> Vec<(usize, &MaybeRelocatable)> {
+    let mut segment = pie
+        .memory
+        .0
+        .iter()
+        .filter_map(|((segment_index, offset), value)| (*segment_index == index).then_some((*offset, value)))
+        .collect::<Vec<_>>();
+    segment.sort_by(|(offset1, _), (offset2, _)| offset1.cmp(offset2));
+    segment
 }
