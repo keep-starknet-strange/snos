@@ -21,7 +21,7 @@ async fn run_test() {
     log::info!("Block number is {}", block_number);
     log::info!("Running prove_block");
 
-    let endpoint = "http://81.16.176.130:9545";
+    let endpoint = "http://localhost:9545";
     let (snos_pie, _snos_output) = prove_block(block_number, &endpoint, LayoutName::all_cairo, true)
         .await
         .map_err(debug_prove_error)
