@@ -11,23 +11,16 @@ async fn run_test() {
     let reference_pie = CairoPie::from_bytes(&reference_pie_bytes).expect("reference PIE");
     reference_pie.run_validity_checks().expect("Valid reference PIE");
 
-    log::info!("Reference pie is valid");
-
     let block_number: u64 = felt_to_usize(&get_pie_block_number(&reference_pie))
         .unwrap()
         .try_into()
         .expect("Block number is too big");
-
-    log::info!("Block number is {}", block_number);
-    log::info!("Running prove_block");
 
     let endpoint = "http://localhost:9545";
     let (snos_pie, _snos_output) = prove_block(block_number, &endpoint, LayoutName::all_cairo, true)
         .await
         .map_err(debug_prove_error)
         .expect("OS generate Cairo PIE");
-
-    log::info!("Finish running prove block");
 
     snos_pie.run_validity_checks().expect("Valid SNOS PIE");
 
