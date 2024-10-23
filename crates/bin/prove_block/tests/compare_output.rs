@@ -1,28 +1,45 @@
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
-use num_bigint::BigInt;
+use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
 use prove_block::{prove_block, get_memory_segment, debug_prove_error};
 use cairo_vm::types::layout_name::LayoutName;
 
+#[tokio::test(flavor = "multi_thread")]
 async fn run_test() {
     // fetch_pie_from_remote;
     let reference_pie_bytes = include_bytes!("../reference-pies/173404.zip").to_vec();
     let reference_pie = CairoPie::from_bytes(&reference_pie_bytes).expect("reference PIE");
-    reference_pie.run_validity_checks().expect("Valid reference PIE"); 
+    reference_pie.run_validity_checks().expect("Valid reference PIE");
 
-    let block_number = get_pie__block_number(&reference_pie);
-    let block_number: BigInt  = block_number.try_into().expect("Block number is too big");
+    log::info!("Reference pie is valid");
 
-    let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
+    let block_number: u64 = felt_to_usize(&get_pie_block_number(&reference_pie))
+        .unwrap()
+        .try_into()
+        .expect("Block number is too big");
+
+    log::info!("Block number is {}", block_number);
+    log::info!("Running prove_block");
+
+    let endpoint = "http://81.16.176.130:9545";
     let (snos_pie, _snos_output) = prove_block(block_number, &endpoint, LayoutName::all_cairo, true)
         .await
         .map_err(debug_prove_error)
         .expect("OS generate Cairo PIE");
+
+    log::info!("Finish running prove block");
+
     snos_pie.run_validity_checks().expect("Valid SNOS PIE");
+
+    let output_segment_index = 2;
+    assert_eq!(
+        get_memory_segment(&reference_pie, output_segment_index),
+        get_memory_segment(&snos_pie, output_segment_index)
+    );
 }
 
 
-fn get_pie__block_number(cairo_pie: &CairoPie) -> Felt252 {
+fn get_pie_block_number(cairo_pie: &CairoPie) -> Felt252 {
     // We know that current block number is on position (2,3)
     // Output segment, position 3.
     let output_segment_index = 2_usize;
@@ -41,7 +58,7 @@ fn test_get_pie_block_number_fail() {
     let reference_pie = CairoPie::from_bytes(&reference_pie_bytes).expect("reference PIE");
     reference_pie.run_validity_checks().expect("Valid reference PIE");
 
-    let block_number = get_pie__block_number(&reference_pie);
+    let block_number = get_pie_block_number(&reference_pie);
     assert_ne!(block_number, Felt252::from(173403));
 }
 
@@ -51,6 +68,6 @@ fn test_get_pie_block_number() {
     let reference_pie = CairoPie::from_bytes(&reference_pie_bytes).expect("reference PIE");
     reference_pie.run_validity_checks().expect("Valid reference PIE");
 
-    let block_number = get_pie__block_number(&reference_pie);
+    let block_number = get_pie_block_number(&reference_pie);
     assert_eq!(block_number, Felt252::from(173404));
 }
