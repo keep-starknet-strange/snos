@@ -52,6 +52,8 @@ async fn main() {
         get_memory_segment(&reference_pie, output_segment_index),
         get_memory_segment(&snos_pie, output_segment_index)
     );    
+
+    log::info!("SNOS Pie has the same output as reference pie");
 }
 
 fn get_pie_block_number(cairo_pie: &CairoPie) -> Felt252 {
