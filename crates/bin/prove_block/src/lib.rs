@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use blockifier::state::cached_state::CachedState;
 use cairo_vm::types::layout_name::LayoutName;
+use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
@@ -34,7 +35,6 @@ use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
 use starknet_types_core::felt::Felt;
 use state_utils::get_formatted_state_update;
 use thiserror::Error;
-use cairo_vm::types::relocatable::MaybeRelocatable;
 
 use crate::reexecute::format_commitment_facts;
 use crate::rpc_utils::get_starknet_version;
