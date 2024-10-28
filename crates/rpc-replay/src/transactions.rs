@@ -247,7 +247,7 @@ fn l1_handler_to_blockifier(
         // The comment(which is not very helpful) on the line above is:
         // // For now, assert only that any amount of fee was paid.
         // More investigations are recommended
-        (0, 0) => 1u128,
+        (0, 0) => 1_000_000_000_000u128,
         (0, l1_data_gas) => gas_prices.eth_l1_data_gas_price.get() * l1_data_gas as u128,
         (l1_gas, 0) => gas_prices.eth_l1_gas_price.get() * l1_gas as u128,
         _ => unreachable!("At least l1_gas or l1_data_gas must be zero"),
