@@ -244,6 +244,7 @@ fn l1_handler_to_blockifier(
         // Having the fee as 0 for L1 handler will fail on the blockifier execution
         // Learn more:
         // https://github.com/starkware-libs/sequencer/blob/b5a877719dc2ce5b1ca833f14d9473c1f1c27059/crates/blockifier/src/transaction/transaction_execution.rs#L166
+        // https://github.com/eqlabs/pathfinder/blob/eb81bf149fe516c3542a90a5c1715c5a3a141d0b/crates/rpc/src/executor.rs#L548
         // The comment(which is not very helpful) on the line above is:
         // // For now, assert only that any amount of fee was paid.
         // More investigations are recommended
