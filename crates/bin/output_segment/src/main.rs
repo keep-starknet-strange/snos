@@ -38,6 +38,8 @@ async fn main() {
         .try_into()
         .expect("Block number is too big");
 
+        log::info!("Runnin SNOS for block number: {}", block_number);
+
     let endpoint = "http://localhost:9545";
     let (snos_pie, _snos_output) = prove_block(block_number, &endpoint, LayoutName::all_cairo, true)
         .await
