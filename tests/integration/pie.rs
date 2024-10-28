@@ -103,6 +103,7 @@ fn deserialize_serialize_pie() {
     pie_read.write_zip_file(&path_write).expect("Could not write pie");
     let pie_write = CairoPie::read_zip_file(&path_write).unwrap();
 
+    // This currently fails
     pie_write.check_pie_compatibility(&pie_read).expect("Compatible pies");
 
     // This also fail (pies are not compatible)
