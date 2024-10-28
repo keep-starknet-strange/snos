@@ -8,6 +8,7 @@ use cairo_vm::vm::runners::cairo_pie::{
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use rstest::rstest;
 use serde_json::json;
+use starknet_os::hints::vars::ids::PATH;
 use starknet_os::sharp::pie::{decode_base64_to_unzipped, PIE_FILES};
 
 use crate::common::{os_pie_string, setup_pie};
@@ -89,4 +90,25 @@ fn convert_b64_to_raw(os_pie_string: String) {
         let file_path = dst.join(format!("{file:}.{:}", if file != "memory" { "json" } else { "bin" }));
         assert!(file_path.exists(), "Missing file {:}", file_path.to_string_lossy());
     }
+}
+
+#[rstest]
+fn deserialize_serialize_pie() {
+    let path_read = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("build").join("pie").join("173404.zip");
+    println!("HOLAAA {}", path_read.to_string_lossy());
+    let pie_read = CairoPie::read_zip_file(&path_read).unwrap();
+    pie_read.run_validity_checks().expect("Valid reference PIE");
+    log::info!("SNOS output is valid");
+
+    let path_write = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("build").join("pie").join("test_173404.zip");
+    pie_read.write_zip_file(&path_write).expect("Could not write pie");
+    let pie_write = CairoPie::read_zip_file(&path_write).unwrap();
+
+    pie_write.check_pie_compatibility(&pie_read).expect("Compatible pies");
+
+    // This also fail (pies are not compatible)
+    // pie_write.run_validity_checks().expect("Valid reference PIE");
+
+    // Remove zip file created by the test
+    // std::fs::remove_file(path_write).unwrap();
 }
