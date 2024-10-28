@@ -95,7 +95,6 @@ fn convert_b64_to_raw(os_pie_string: String) {
 #[rstest]
 fn deserialize_serialize_pie() {
     let path_read = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("build").join("pie").join("173404.zip");
-    println!("HOLAAA {}", path_read.to_string_lossy());
     let pie_read = CairoPie::read_zip_file(&path_read).unwrap();
     pie_read.run_validity_checks().expect("Valid reference PIE");
     log::info!("SNOS output is valid");
