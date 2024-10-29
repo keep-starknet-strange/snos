@@ -37,8 +37,6 @@ pub fn felt_to_u128(felt: &Felt) -> Result<u128, FeltConversionError> {
 
 #[cfg(test)]
 mod tests {
-    use std::u128;
-
     use starknet::core::types::Felt;
 
     use super::*;
