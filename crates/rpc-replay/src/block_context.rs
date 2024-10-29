@@ -1,3 +1,5 @@
+use std::num::NonZeroU128;
+
 use blockifier::blockifier::block::{BlockInfo, GasPrices};
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
@@ -25,11 +27,17 @@ pub fn build_block_context(
         block_number: BlockNumber(block.block_number),
         block_timestamp: BlockTimestamp(block.timestamp),
         sequencer_address,
+        // Inspiration taken from Papyrus:
+        // https://github.com/starkware-libs/sequencer/blob/7218aa1f7ca3fe21c0a2bede2570820939ffe069/crates/papyrus_execution/src/lib.rs#L363-L371
         gas_prices: GasPrices {
-            eth_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_wei).try_into().unwrap(),
-            strk_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_fri).try_into().unwrap(),
-            eth_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_wei).try_into().unwrap(),
-            strk_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_fri).try_into().unwrap(),
+            eth_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_wei).try_into().unwrap_or(NonZeroU128::MIN),
+            strk_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_fri).try_into().unwrap_or(NonZeroU128::MIN),
+            eth_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_wei)
+                .try_into()
+                .unwrap_or(NonZeroU128::MIN),
+            strk_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_fri)
+                .try_into()
+                .unwrap_or(NonZeroU128::MIN),
         },
         use_kzg_da,
     };
@@ -51,4 +59,45 @@ pub fn build_block_context(
     let bouncer_config = BouncerConfig::max();
 
     BlockContext::new(block_info, chain_info, versioned_constants.clone(), bouncer_config)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use starknet::core::types::{Felt, ResourcePrice};
+    use starknet_api::core::ChainId;
+
+    use super::*;
+
+    #[test]
+    fn test_build_block_context_with_zero_gas_prices() {
+        let chain_id = ChainId::Mainnet;
+        // We don't really care about most of the fields.
+        // What's important here is to set to zero different gas prices
+        let block = BlockWithTxs {
+            status: starknet::core::types::BlockStatus::AcceptedOnL1,
+            block_hash: Felt::ZERO,
+            parent_hash: Felt::ZERO,
+            block_number: 1,
+            new_root: Felt::ZERO,
+            timestamp: 0,
+            sequencer_address: Felt::ZERO,
+            l1_gas_price: ResourcePrice { price_in_wei: Felt::ZERO, price_in_fri: Felt::ZERO },
+            l1_data_gas_price: ResourcePrice { price_in_wei: Felt::ZERO, price_in_fri: Felt::ZERO },
+            l1_da_mode: L1DataAvailabilityMode::Blob,
+            starknet_version: String::from("0.13.2.1"),
+            transactions: vec![],
+        };
+
+        let starknet_version = blockifier::versioned_constants::StarknetVersion::Latest;
+
+        // Call this function must not fail
+        let block_context = build_block_context(chain_id, &block, starknet_version);
+
+        // Verify that gas prices were set to NonZeroU128::MIN
+        assert_eq!(block_context.block_info().gas_prices.eth_l1_gas_price, NonZeroU128::MIN);
+        assert_eq!(block_context.block_info().gas_prices.strk_l1_gas_price, NonZeroU128::MIN);
+        assert_eq!(block_context.block_info().gas_prices.eth_l1_data_gas_price, NonZeroU128::MIN);
+        assert_eq!(block_context.block_info().gas_prices.strk_l1_data_gas_price, NonZeroU128::MIN);
+    }
 }
