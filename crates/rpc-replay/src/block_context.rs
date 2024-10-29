@@ -4,18 +4,29 @@ use blockifier::blockifier::block::{BlockInfo, GasPrices};
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::versioned_constants::VersionedConstants;
-use starknet::core::types::{BlockWithTxs, L1DataAvailabilityMode};
+use starknet::core::types::{BlockWithTxs, Felt, L1DataAvailabilityMode};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::{contract_address, felt, patricia_key};
 
-use crate::utils::felt_to_u128;
+use crate::utils::{felt_to_u128, FeltConversionError};
+
+fn felt_to_gas_price(price: &Felt) -> Result<NonZeroU128, FeltConversionError> {
+    // Inspiration taken from Papyrus:
+    // https://github.com/starkware-libs/sequencer/blob/7218aa1f7ca3fe21c0a2bede2570820939ffe069/crates/papyrus_execution/src/lib.rs#L363-L371
+    if *price == Felt::ZERO {
+        return Ok(NonZeroU128::MIN);
+    }
+
+    // If felt_to_u128 conversion is ok, it won't fail cause we're catching the zero above
+    Ok(NonZeroU128::new(felt_to_u128(price)?).unwrap())
+}
 
 pub fn build_block_context(
     chain_id: ChainId,
     block: &BlockWithTxs,
     starknet_version: blockifier::versioned_constants::StarknetVersion,
-) -> BlockContext {
+) -> Result<BlockContext, FeltConversionError> {
     let sequencer_address_hex = block.sequencer_address.to_hex_string();
     let sequencer_address = contract_address!(sequencer_address_hex.as_str());
     let use_kzg_da = match block.l1_da_mode {
@@ -27,17 +38,11 @@ pub fn build_block_context(
         block_number: BlockNumber(block.block_number),
         block_timestamp: BlockTimestamp(block.timestamp),
         sequencer_address,
-        // Inspiration taken from Papyrus:
-        // https://github.com/starkware-libs/sequencer/blob/7218aa1f7ca3fe21c0a2bede2570820939ffe069/crates/papyrus_execution/src/lib.rs#L363-L371
         gas_prices: GasPrices {
-            eth_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_wei).try_into().unwrap_or(NonZeroU128::MIN),
-            strk_l1_gas_price: felt_to_u128(&block.l1_gas_price.price_in_fri).try_into().unwrap_or(NonZeroU128::MIN),
-            eth_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_wei)
-                .try_into()
-                .unwrap_or(NonZeroU128::MIN),
-            strk_l1_data_gas_price: felt_to_u128(&block.l1_data_gas_price.price_in_fri)
-                .try_into()
-                .unwrap_or(NonZeroU128::MIN),
+            eth_l1_gas_price: felt_to_gas_price(&block.l1_gas_price.price_in_wei)?,
+            strk_l1_gas_price: felt_to_gas_price(&block.l1_gas_price.price_in_fri)?,
+            eth_l1_data_gas_price: felt_to_gas_price(&block.l1_data_gas_price.price_in_wei)?,
+            strk_l1_data_gas_price: felt_to_gas_price(&block.l1_data_gas_price.price_in_fri)?,
         },
         use_kzg_da,
     };
@@ -58,7 +63,7 @@ pub fn build_block_context(
     let versioned_constants = VersionedConstants::get(starknet_version);
     let bouncer_config = BouncerConfig::max();
 
-    BlockContext::new(block_info, chain_info, versioned_constants.clone(), bouncer_config)
+    Ok(BlockContext::new(block_info, chain_info, versioned_constants.clone(), bouncer_config))
 }
 
 #[cfg(test)]
@@ -92,7 +97,7 @@ mod tests {
         let starknet_version = blockifier::versioned_constants::StarknetVersion::Latest;
 
         // Call this function must not fail
-        let block_context = build_block_context(chain_id, &block, starknet_version);
+        let block_context = build_block_context(chain_id, &block, starknet_version).unwrap();
 
         // Verify that gas prices were set to NonZeroU128::MIN
         assert_eq!(block_context.block_info().gas_prices.eth_l1_gas_price, NonZeroU128::MIN);
