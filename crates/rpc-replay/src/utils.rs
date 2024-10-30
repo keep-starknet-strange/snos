@@ -20,14 +20,8 @@ pub enum FeltConversionError {
 pub fn felt_to_u128(felt: &Felt) -> Result<u128, FeltConversionError> {
     let digits = felt.to_be_digits();
 
-    println!("digits {:?}", digits);
-
     // Check if there are any significant bits in the higher 128 bits
     if digits[0] != 0 || digits[1] != 0 {
-        return Err(FeltConversionError::OverflowError);
-    }
-    // Lower two digits must not be u64::MAX at the same time
-    if digits[2] == u64::MAX && digits[3] == u64::MAX {
         return Err(FeltConversionError::OverflowError);
     }
 
@@ -45,10 +39,6 @@ mod tests {
     fn test_felt_to_u128_overflow() {
         // digits[0] || digits[1] != 0
         let overflow_felt = Felt::from(u128::MAX) + Felt::ONE;
-        assert!(felt_to_u128(&overflow_felt).is_err());
-
-        // digits[2] && digits[3] != u64::MAX
-        let overflow_felt = Felt::from(((u64::MAX as u128) << 64) + u64::MAX as u128);
         assert!(felt_to_u128(&overflow_felt).is_err());
     }
 
