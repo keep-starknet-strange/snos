@@ -6,10 +6,21 @@ use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
+use clap::Parser;
 use prove_block::{debug_prove_error, get_memory_segment, prove_block};
 
+#[derive(Parser, Debug)]
+struct Args {
+    /// sftp to fetch data from
+    /// format <user>@<host>:path/to/dir.
+    #[arg(long = "sftp-path")]
+    sftp_path: String,
+}
+
 fn init_logging() {
-    let target = Box::new(std::fs::File::create("../result-logs/all_logs.log").expect("Can't create file"));
+    let target = Box::new(
+        std::fs::File::create("crates/bin/output_segment/result-logs/all_logs.log").expect("Can't create file"),
+    );
 
     env_logger::Builder::new()
         .format(|buf, record| {
@@ -23,18 +34,19 @@ fn init_logging() {
 #[tokio::main]
 async fn main() {
     init_logging();
-    for line in read_to_string("../reference-pies/pie_list.txt").unwrap().lines() {
+    let args = Args::parse();
+
+    for line in read_to_string("crates/bin/output_segment/reference-pies/pie_list.txt").unwrap().lines() {
         let file = line.trim();
 
+        // Runs the sftp command to read a pie
         log::info!("Fething pie from server: {}", file);
-        let host: String = "pie-download@s-c741e4f1fc6d4b93b.server.transfer.us-east-2.amazonaws.com:\
-                            namespace=sharp6-sepolia/year=2024/month=09/day=01/"
-            .to_owned()
-            + file;
+        let host: String = args.sftp_path.to_owned() + file;
 
         let dest: String = "/tmp/".to_owned() + file;
         let _command = Command::new("sftp").args([host + " " + &dest]).output().unwrap();
 
+        // Loads the pie as bytes
         let reference_pie_bytes = fs::read(&dest).unwrap();
         let reference_pie = CairoPie::from_bytes(&reference_pie_bytes).expect("reference PIE");
         reference_pie.run_validity_checks().expect("Valid reference PIE");
@@ -54,18 +66,34 @@ async fn main() {
 
         let output_segment_index = 2;
 
+        let mut output_file: std::fs::File;
+
         if get_memory_segment(&reference_pie, output_segment_index)
             == get_memory_segment(&snos_pie, output_segment_index)
         {
             log::info!("SNOS Pie has the same output as reference pie");
 
-            std::fs::copy("../result-logs/all_logs.log", "../result-logs/SUCCESS - ".to_owned() + file)
-                .expect("Can't create new log file");
+            output_file = std::fs::File::create("crates/bin/output_segment/result-logs/SUCCESS - ".to_owned() + file)
+                .expect("Can't create file");
         } else {
             log::info!("SNOS Pie has a different output as reference pie");
 
-            std::fs::copy("../result-logs/all_logs.log", "../result-logs/FAILURE - ".to_owned() + file)
-                .expect("Can't create new log file");
+            output_file = std::fs::File::create("crates/bin/output_segment/result-logs/FAILURE - ".to_owned() + file)
+                .expect("Can't create file");
+        }
+
+        let mut begin_copy = false;
+
+        for log_line in read_to_string("crates/bin/output_segment/result-logs/all_logs.log").unwrap().lines() {
+            if log_line.contains(file) {
+                begin_copy = true;
+            }
+
+            let write_line = log_line.to_owned() + "\n";
+
+            if begin_copy {
+                let _ = output_file.write(write_line.as_bytes());
+            }
         }
 
         fs::remove_file(dest).unwrap();

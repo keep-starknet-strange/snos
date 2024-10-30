@@ -1,0 +1,742 @@
+[INFO output_segment] - Fething pie from server: 000023_oczkdbzk
+[INFO output_segment] - Running SNOS for block number: 151727
+[INFO rpc_client::client] - Starknet RPC URL: http://81.16.176.130:9545/rpc/v0_7
+[INFO rpc_client::pathfinder::client] - Starknet RPC URL: http://81.16.176.130:9545/rpc/v0_7
+[DEBUG reqwest::connect] - starting new connection: http://81.16.176.130:9545/
+[DEBUG prove_block] - provider's chain_id: SN_SEPOLIA
+[DEBUG prove_block] - Starknet version: V0_13_2
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: false, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 4 (5)
+[DEBUG minilp::solver] - restored feasibility in 162 iterations, obj.: 95
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: false, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 57 (152)
+[DEBUG minilp::solver] - restored feasibility in 75 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: false, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 57 (152)
+[DEBUG minilp::solver] - restored feasibility in 82 iterations, obj.: 230
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: true, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: true, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: true, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: true, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: true, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 236, constraints: 148, primal feasible: false, dual feasible: true, nnz: 678
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 123 (1700)
+[DEBUG minilp::solver] - restored feasibility in 93 iterations, obj.: 4423
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 753, constraints: 420, primal feasible: false, dual feasible: true, nnz: 2351
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 364 (829910)
+[DEBUG minilp::solver] - restored feasibility in 362 iterations, obj.: 2207020
+[DEBUG minilp::solver] - initialized solver: vars: 651, constraints: 407, primal feasible: false, dual feasible: true, nnz: 1766
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 292 (7051140)
+[DEBUG minilp::solver] - restored feasibility in 277 iterations, obj.: 1162690
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: false, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 292 (9130860)
+[DEBUG minilp::solver] - restored feasibility in 268 iterations, obj.: 10781510
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: false, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 13 (41)
+[DEBUG minilp::solver] - restored feasibility in 686 iterations, obj.: 899
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 331 (2973)
+[DEBUG minilp::solver] - restored feasibility in 381 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 331 (2973)
+[DEBUG minilp::solver] - restored feasibility in 391 iterations, obj.: 3653
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: false, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 2 (2)
+[DEBUG minilp::solver] - restored feasibility in 4 iterations, obj.: 1
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: false, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 3 (3)
+[DEBUG minilp::solver] - restored feasibility in 80 iterations, obj.: 18
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 47 (136)
+[DEBUG minilp::solver] - restored feasibility in 68 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 47 (136)
+[DEBUG minilp::solver] - restored feasibility in 53 iterations, obj.: 129
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: true, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: true, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: true, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 1687, constraints: 953, primal feasible: false, dual feasible: true, nnz: 6085
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 803 (19717)
+[DEBUG minilp::solver] - restored feasibility in 713 iterations, obj.: 62872
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 4185, constraints: 2300, primal feasible: false, dual feasible: true, nnz: 15639
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 2016 (6665460)
+[DEBUG minilp::solver] - restore feasibility iter 1000: obj.: 9864680, infeas. vars: 1027 (1381390)
+[DEBUG minilp::solver] - restore feasibility iter 2000: obj.: 14587250, infeas. vars: 36 (2570)
+[DEBUG minilp::solver] - restored feasibility in 2038 iterations, obj.: 14590110
+[DEBUG minilp::solver] - initialized solver: vars: 3702, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11385
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 1702 (73191420)
+[DEBUG minilp::solver] - restore feasibility iter 1000: obj.: 7330110, infeas. vars: 661 (1063210)
+[DEBUG minilp::solver] - restored feasibility in 1599 iterations, obj.: 7342680
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 1702 (86026640)
+[DEBUG minilp::solver] - restore feasibility iter 1000: obj.: 96558690, infeas. vars: 636 (839150)
+[DEBUG minilp::solver] - restored feasibility in 1573 iterations, obj.: 97448790
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: false, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 4 (7)
+[DEBUG minilp::solver] - restored feasibility in 197 iterations, obj.: 125
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: false, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 58 (192)
+[DEBUG minilp::solver] - restored feasibility in 73 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: false, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 58 (192)
+[DEBUG minilp::solver] - restored feasibility in 80 iterations, obj.: 426
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: false, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 2 (2)
+[DEBUG minilp::solver] - restored feasibility in 4 iterations, obj.: 1
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: true, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: true, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: true, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: true, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 710, constraints: 443, primal feasible: false, dual feasible: true, nnz: 2150
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 363 (4876)
+[DEBUG minilp::solver] - restored feasibility in 308 iterations, obj.: 12244
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 1396, constraints: 807, primal feasible: false, dual feasible: true, nnz: 4678
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 702 (1750040)
+[DEBUG minilp::solver] - restored feasibility in 688 iterations, obj.: 3774950
+[DEBUG minilp::solver] - initialized solver: vars: 1199, constraints: 781, primal feasible: false, dual feasible: true, nnz: 3413
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 549 (14906030)
+[DEBUG minilp::solver] - restored feasibility in 518 iterations, obj.: 2334760
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: false, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 549 (18697390)
+[DEBUG minilp::solver] - restored feasibility in 506 iterations, obj.: 35039280
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: false, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 33 (159)
+[DEBUG minilp::solver] - restored feasibility in 72 iterations, obj.: 130
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 25 (255)
+[DEBUG minilp::solver] - restored feasibility in 26 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 25 (255)
+[DEBUG minilp::solver] - restored feasibility in 26 iterations, obj.: 255
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: true, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: true, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: false, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 1 (1)
+[DEBUG minilp::solver] - restored feasibility in 184 iterations, obj.: 157
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 96 (482)
+[DEBUG minilp::solver] - restored feasibility in 111 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 96 (482)
+[DEBUG minilp::solver] - restored feasibility in 123 iterations, obj.: 534
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: true, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: true, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 776, constraints: 443, primal feasible: false, dual feasible: true, nnz: 1963
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 304 (4231)
+[DEBUG minilp::solver] - restored feasibility in 266 iterations, obj.: 30845
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 1936, constraints: 1081, primal feasible: false, dual feasible: true, nnz: 8289
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 925 (3286950)
+[DEBUG minilp::solver] - restored feasibility in 926 iterations, obj.: 6270940
+[DEBUG minilp::solver] - initialized solver: vars: 1715, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5908
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 771 (53566080)
+[DEBUG minilp::solver] - restored feasibility in 742 iterations, obj.: 4217980
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 771 (45130120)
+[DEBUG minilp::solver] - restored feasibility in 724 iterations, obj.: 46933790
+[DEBUG blockifier::transaction::transactions] - Executing Transaction...
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: false, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 13 (41)
+[DEBUG minilp::solver] - restored feasibility in 686 iterations, obj.: 899
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 331 (2973)
+[DEBUG minilp::solver] - restored feasibility in 381 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 331 (2973)
+[DEBUG minilp::solver] - restored feasibility in 391 iterations, obj.: 3653
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: false, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 2 (2)
+[DEBUG minilp::solver] - restored feasibility in 4 iterations, obj.: 1
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: false, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 3 (3)
+[DEBUG minilp::solver] - restored feasibility in 80 iterations, obj.: 18
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 47 (136)
+[DEBUG minilp::solver] - restored feasibility in 68 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 47 (136)
+[DEBUG minilp::solver] - restored feasibility in 53 iterations, obj.: 129
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: true, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: true, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 4149, constraints: 2300, primal feasible: true, dual feasible: true, nnz: 15567
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: true, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 1687, constraints: 953, primal feasible: false, dual feasible: true, nnz: 6085
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 803 (19717)
+[DEBUG minilp::solver] - restored feasibility in 713 iterations, obj.: 62872
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 423, constraints: 533, primal feasible: true, dual feasible: true, nnz: 1066
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 36, constraints: 72, primal feasible: true, dual feasible: true, nnz: 144
+[DEBUG minilp::solver] - initialized solver: vars: 4185, constraints: 2300, primal feasible: false, dual feasible: true, nnz: 15639
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 2016 (6665460)
+[DEBUG minilp::solver] - restore feasibility iter 1000: obj.: 9864680, infeas. vars: 1027 (1381390)
+[DEBUG minilp::solver] - restore feasibility iter 2000: obj.: 14587250, infeas. vars: 36 (2570)
+[DEBUG minilp::solver] - restored feasibility in 2038 iterations, obj.: 14590110
+[DEBUG minilp::solver] - initialized solver: vars: 3702, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11385
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 1702 (73191420)
+[DEBUG minilp::solver] - restore feasibility iter 1000: obj.: 7330110, infeas. vars: 661 (1063210)
+[DEBUG minilp::solver] - restored feasibility in 1599 iterations, obj.: 7342680
+[DEBUG minilp::solver] - initialized solver: vars: 3666, constraints: 2237, primal feasible: false, dual feasible: true, nnz: 11313
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 1702 (86026640)
+[DEBUG minilp::solver] - restore feasibility iter 1000: obj.: 96558690, infeas. vars: 636 (839150)
+[DEBUG minilp::solver] - restored feasibility in 1573 iterations, obj.: 97448790
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: false, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 4 (5)
+[DEBUG minilp::solver] - restored feasibility in 162 iterations, obj.: 95
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: false, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 57 (152)
+[DEBUG minilp::solver] - restored feasibility in 75 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: false, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 57 (152)
+[DEBUG minilp::solver] - restored feasibility in 82 iterations, obj.: 230
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: true, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: true, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: true, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: true, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 739, constraints: 420, primal feasible: true, dual feasible: true, nnz: 2323
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: true, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 236, constraints: 148, primal feasible: false, dual feasible: true, nnz: 678
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 123 (1700)
+[DEBUG minilp::solver] - restored feasibility in 93 iterations, obj.: 4423
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 93, constraints: 123, primal feasible: true, dual feasible: true, nnz: 246
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 14, constraints: 28, primal feasible: true, dual feasible: true, nnz: 56
+[DEBUG minilp::solver] - initialized solver: vars: 753, constraints: 420, primal feasible: false, dual feasible: true, nnz: 2351
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 364 (829910)
+[DEBUG minilp::solver] - restored feasibility in 362 iterations, obj.: 2207020
+[DEBUG minilp::solver] - initialized solver: vars: 651, constraints: 407, primal feasible: false, dual feasible: true, nnz: 1766
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 292 (7051140)
+[DEBUG minilp::solver] - restored feasibility in 277 iterations, obj.: 1162690
+[DEBUG minilp::solver] - initialized solver: vars: 637, constraints: 407, primal feasible: false, dual feasible: true, nnz: 1738
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 292 (9130860)
+[DEBUG minilp::solver] - restored feasibility in 268 iterations, obj.: 10781510
+[DEBUG blockifier::transaction::transactions] - Transaction execution complete and committed.
+[DEBUG blockifier::transaction::transactions] - Executing Transaction...
+[DEBUG blockifier::transaction::transactions] - Transaction execution complete and committed.
+[DEBUG blockifier::transaction::transactions] - Executing Transaction...
+[DEBUG blockifier::transaction::transactions] - Transaction execution complete and committed.
+[DEBUG blockifier::transaction::transactions] - Executing Transaction...
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: false, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 4 (7)
+[DEBUG minilp::solver] - restored feasibility in 197 iterations, obj.: 125
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: false, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 58 (192)
+[DEBUG minilp::solver] - restored feasibility in 73 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: false, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 58 (192)
+[DEBUG minilp::solver] - restored feasibility in 80 iterations, obj.: 426
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: false, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 2 (2)
+[DEBUG minilp::solver] - restored feasibility in 4 iterations, obj.: 1
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: true, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: true, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: true, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1376, constraints: 807, primal feasible: true, dual feasible: true, nnz: 4638
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: true, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 710, constraints: 443, primal feasible: false, dual feasible: true, nnz: 2150
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 363 (4876)
+[DEBUG minilp::solver] - restored feasibility in 308 iterations, obj.: 12244
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 188, constraints: 245, primal feasible: true, dual feasible: true, nnz: 490
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 20, constraints: 40, primal feasible: true, dual feasible: true, nnz: 80
+[DEBUG minilp::solver] - initialized solver: vars: 1396, constraints: 807, primal feasible: false, dual feasible: true, nnz: 4678
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 702 (1750040)
+[DEBUG minilp::solver] - restored feasibility in 688 iterations, obj.: 3774950
+[DEBUG minilp::solver] - initialized solver: vars: 1199, constraints: 781, primal feasible: false, dual feasible: true, nnz: 3413
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 549 (14906030)
+[DEBUG minilp::solver] - restored feasibility in 518 iterations, obj.: 2334760
+[DEBUG minilp::solver] - initialized solver: vars: 1179, constraints: 781, primal feasible: false, dual feasible: true, nnz: 3373
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 549 (18697390)
+[DEBUG minilp::solver] - restored feasibility in 506 iterations, obj.: 35039280
+[DEBUG blockifier::transaction::transactions] - Transaction execution complete and committed.
+[DEBUG blockifier::transaction::transactions] - Executing Transaction...
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: false, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 33 (159)
+[DEBUG minilp::solver] - restored feasibility in 72 iterations, obj.: 130
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 25 (255)
+[DEBUG minilp::solver] - restored feasibility in 26 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 25 (255)
+[DEBUG minilp::solver] - restored feasibility in 26 iterations, obj.: 255
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: true, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: true, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: false, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 1 (1)
+[DEBUG minilp::solver] - restored feasibility in 184 iterations, obj.: 157
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 96 (482)
+[DEBUG minilp::solver] - restored feasibility in 111 iterations, obj.: 0
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 96 (482)
+[DEBUG minilp::solver] - restored feasibility in 123 iterations, obj.: 534
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: true, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1903, constraints: 1081, primal feasible: true, dual feasible: true, nnz: 8223
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: true, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 776, constraints: 443, primal feasible: false, dual feasible: true, nnz: 1963
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 304 (4231)
+[DEBUG minilp::solver] - restored feasibility in 266 iterations, obj.: 30845
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 212, constraints: 271, primal feasible: true, dual feasible: true, nnz: 542
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 33, constraints: 66, primal feasible: true, dual feasible: true, nnz: 132
+[DEBUG minilp::solver] - initialized solver: vars: 1936, constraints: 1081, primal feasible: false, dual feasible: true, nnz: 8289
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 925 (3286950)
+[DEBUG minilp::solver] - restored feasibility in 926 iterations, obj.: 6270940
+[DEBUG minilp::solver] - initialized solver: vars: 1715, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5908
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 771 (53566080)
+[DEBUG minilp::solver] - restored feasibility in 742 iterations, obj.: 4217980
+[DEBUG minilp::solver] - initialized solver: vars: 1682, constraints: 1040, primal feasible: false, dual feasible: true, nnz: 5842
+[DEBUG minilp::solver] - restore feasibility iter 0: obj.: 0, infeas. vars: 771 (45130120)
+[DEBUG minilp::solver] - restored feasibility in 724 iterations, obj.: 46933790
+[DEBUG blockifier::transaction::transactions] - Transaction execution complete and committed.
+[INFO prove_block::rpc_utils] - Contracts we're fetching proofs for:
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x01b08e27ab436cd491631156da5f3aa7ff04aee1e6ca925eb2ca84397c22b74d
+[DEBUG reqwest::connect] - starting new connection: http://81.16.176.130:9545/
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x060c69136b39319547a4df303b6b3a26fab8b2d78de90b6bd215ce82e9cb515c
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x07265154fa14bb5a062d141d631cff3e1ad0298c07e4d6339b825ca49b51296c
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x064b4dacea78c6394572f4534400abb74a872a059b68630fba80895c646aa97f
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x07e6bc05477f7f844ed818616e5588588a1bb2284b7abe0f2b431b073c33d6c6
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x07ff77f34f3b31b634b4bdb2dc792bfccb7cc1c0a942de51b30af361fb455704
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x064fd80fcb41d00214430574a0aa19d21cc5d6452aeb4996f31b6e9ba4f466a0
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x03da250675d8c2bb7cef7e1b7fdfe17aa4d5752ed82a9333e4f9a12b22e521aa
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x0000000000000000000000000000000000000000000000000000000000000001
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x012af3b1e79b2c20a61ca4b714851ac446e48208518c655ee61f46b45e87c65c
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x01abdb0c3319b72218653a0a94962ee66ebe27fd6b0bde234d1eddfccec57ed0
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x036031daa264c24520b11d93af622c848b2499b66b41d611bac95e13cfca131a
+[INFO prove_block::rpc_utils] - Contracts we're fetching proofs for:
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x07265154fa14bb5a062d141d631cff3e1ad0298c07e4d6339b825ca49b51296c
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x012af3b1e79b2c20a61ca4b714851ac446e48208518c655ee61f46b45e87c65c
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x064b4dacea78c6394572f4534400abb74a872a059b68630fba80895c646aa97f
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x07e6bc05477f7f844ed818616e5588588a1bb2284b7abe0f2b431b073c33d6c6
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x036031daa264c24520b11d93af622c848b2499b66b41d611bac95e13cfca131a
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x01abdb0c3319b72218653a0a94962ee66ebe27fd6b0bde234d1eddfccec57ed0
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x07ff77f34f3b31b634b4bdb2dc792bfccb7cc1c0a942de51b30af361fb455704
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x060c69136b39319547a4df303b6b3a26fab8b2d78de90b6bd215ce82e9cb515c
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x064fd80fcb41d00214430574a0aa19d21cc5d6452aeb4996f31b6e9ba4f466a0
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x01b08e27ab436cd491631156da5f3aa7ff04aee1e6ca925eb2ca84397c22b74d
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x03da250675d8c2bb7cef7e1b7fdfe17aa4d5752ed82a9333e4f9a12b22e521aa
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x0000000000000000000000000000000000000000000000000000000000000001
+[INFO prove_block::rpc_utils] -     Fetching proof for 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+[DEBUG prove_block] - Storage root 0x237f6c0c117c827ab6b3300a897f689ffecd963b4d9ca4ccae6fff951404821 for contract 0x1b08e27ab436cd491631156da5f3aa7ff04aee1e6ca925eb2ca84397c22b74d
+[DEBUG prove_block] - Storage root 0x248252fb06f8ee8c2254a92068a24fa6c5e900b571aa9b0515bd6d36e9caaf3 for contract 0x1abdb0c3319b72218653a0a94962ee66ebe27fd6b0bde234d1eddfccec57ed0
+[DEBUG prove_block] - Storage root 0x2c1be9fc5426b45c440ecfd4553a7258f0146e7a03123c4b055a6b4e43580bc for contract 0x7ff77f34f3b31b634b4bdb2dc792bfccb7cc1c0a942de51b30af361fb455704
+[DEBUG prove_block] - Storage root 0x4300a460fae5c08faf08c9550f41a7cea9f14991da455da73e2335b9501c42f for contract 0x60c69136b39319547a4df303b6b3a26fab8b2d78de90b6bd215ce82e9cb515c
+[DEBUG prove_block] - Storage root 0x522584d0700685be7839317fc130c19b9bf78215dfdb870755169e4a513a40e for contract 0x64fd80fcb41d00214430574a0aa19d21cc5d6452aeb4996f31b6e9ba4f466a0
+[DEBUG prove_block] - Storage root 0x42818c6f131453a66e0ce3681f960516f923bafde72979c99117e4cd82fbca3 for contract 0x3da250675d8c2bb7cef7e1b7fdfe17aa4d5752ed82a9333e4f9a12b22e521aa
+[DEBUG prove_block] - Storage root 0x547ce2673f432ce4f81f13ebad1a4d048c0c5f295737c63ee7bc5a20be93f59 for contract 0x64b4dacea78c6394572f4534400abb74a872a059b68630fba80895c646aa97f
+[DEBUG prove_block] - Storage root 0x5ac496afbab05937545b29f38ad9679be9ca8fbefc5c3cde7a473957bd41ab4 for contract 0x7e6bc05477f7f844ed818616e5588588a1bb2284b7abe0f2b431b073c33d6c6
+[DEBUG prove_block] - Storage root 0x1f678ac3bf843e9e204c3218abda7d6befe3ace73d14a34e41377ddbacfb72d for contract 0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+[DEBUG prove_block] - Storage root 0x261c1427ac1c85bb8e4593cddc0bb6cbd92a7dcf61831298bd05307e0b9a179 for contract 0x1
+[DEBUG prove_block] - Storage root 0x75d81bf420d883aca42d670ef99bce6d66ee28bce02e76256b85b1c7c4f96cd for contract 0x12af3b1e79b2c20a61ca4b714851ac446e48208518c655ee61f46b45e87c65c
+[DEBUG prove_block] - Storage root 0x4a99a8ac141c749d7c495a787cd0b41322b10d4a441e9870adbe48b5d0c59ea for contract 0x7265154fa14bb5a062d141d631cff3e1ad0298c07e4d6339b825ca49b51296c
+[DEBUG prove_block] - Storage root 0x1ba75628c3a2d582617253aaf472594606e4d06fc196a018d7bb51839dafab for contract 0x36031daa264c24520b11d93af622c848b2499b66b41d611bac95e13cfca131a
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 2e167703c1deef69c6c5076133d3491fc75d1d1f486e6a8375712d28ff10fa4
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 36078334509b514626504edc9fb252328d1a240e4e948bef8d0c08dff45927f
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 306288971002bd7906e3a607d504dfb28dcbdc7655a115984e567dce3b67e8f
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for e2eb8f5672af4e6a4e8a8f1b44989685e668489b0a25437733756c5a34a1d6
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 24a9edbfa7082accfceabf6a92d7160086f346d622f28741bf1c651c412c9ab
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 230f20832d73433a0ef69663545aabb607a3bbc0ff0a5f75e5d9716730e4141
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 7f3777c99f3700505ea966676aac4a0d692c2a9f5e667f4c606b51ca1dd3420
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 1802ef5db98ab3942114e3ae171a20bd7f8d76b91e356c4478a41d146666e85
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 2240507a20f7edd18192dd9119ddd91dd20b06a661b1ceaf547395e279cd13d
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 2e167703c1deef69c6c5076133d3491fc75d1d1f486e6a8375712d28ff10fa4
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 36078334509b514626504edc9fb252328d1a240e4e948bef8d0c08dff45927f
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 306288971002bd7906e3a607d504dfb28dcbdc7655a115984e567dce3b67e8f
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for e2eb8f5672af4e6a4e8a8f1b44989685e668489b0a25437733756c5a34a1d6
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 24a9edbfa7082accfceabf6a92d7160086f346d622f28741bf1c651c412c9ab
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 230f20832d73433a0ef69663545aabb607a3bbc0ff0a5f75e5d9716730e4141
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 7f3777c99f3700505ea966676aac4a0d692c2a9f5e667f4c606b51ca1dd3420
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 1802ef5db98ab3942114e3ae171a20bd7f8d76b91e356c4478a41d146666e85
+[DEBUG rpc_client::pathfinder::client] - querying pathfinder_getClassProof for 2240507a20f7edd18192dd9119ddd91dd20b06a661b1ceaf547395e279cd13d
+[DEBUG prove_block] - previous class trie root: 0x7e4a4961269b4b03cbc4f9be8e0545fd3797ed528e26d5f10cf56a654389ebd
+[DEBUG prove_block] - current class trie root: 0x7e4a4961269b4b03cbc4f9be8e0545fd3797ed528e26d5f10cf56a654389ebd
+[DEBUG starknet_os::hints::block_context] - deprecated_fee_token_address: 2087021424722619777119509474943472645767659996348769578120564519014510906823
+[DEBUG starknet_os::hints::block_context] - fee_token_address: 2009894490435840142178314390393166646092438090257831307886760648929397478285
+[DEBUG starknet_os::hints::execution] - writing block number: 151717 -> block hash: 44233925516588952343121636034400422339818346724923394027395762931358106348
+[DEBUG starknet_os::hints::execute_transactions] - 5 transactions remaining.
+[DEBUG starknet_os::hints::execution] - executing INVOKE_FUNCTION on: 2846926717630266698672835019093407652640169985318354334056866406075606935935
+[DEBUG starknet_os::hints::execute_transactions] - 4 transactions remaining.
+[DEBUG starknet_os::hints::execution] - executing INVOKE_FUNCTION on: 3573862435624445465967475010800753449999091392303088210447367487638453081798
+[DEBUG starknet_os::hints::execute_transactions] - 3 transactions remaining.
+[DEBUG starknet_os::hints::execution] - executing INVOKE_FUNCTION on: 3617563809027683035078722732746094905125229152812095583690998629048770713348
+[DEBUG starknet_os::hints::execute_transactions] - 2 transactions remaining.
+[DEBUG starknet_os::hints::execution] - executing INVOKE_FUNCTION on: 3233891460970654901888731955756307493216470457986376669155463350302610106732
+[DEBUG starknet_os::hints::execute_transactions] - 1 transactions remaining.
+[DEBUG starknet_os::hints::execution] - executing INVOKE_FUNCTION on: 1742366744656706496911661908664048180866879455515299119936133256914252669354
+[DEBUG starknet_os::hints::execute_transactions] - 0 transactions remaining.
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x1
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x12af3b1e79b2c20a61ca4b714851ac446e48208518c655ee61f46b45e87c65c
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x7265154fa14bb5a062d141d631cff3e1ad0298c07e4d6339b825ca49b51296c
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x36031daa264c24520b11d93af622c848b2499b66b41d611bac95e13cfca131a
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x60c69136b39319547a4df303b6b3a26fab8b2d78de90b6bd215ce82e9cb515c
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x7e6bc05477f7f844ed818616e5588588a1bb2284b7abe0f2b431b073c33d6c6
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x7ff77f34f3b31b634b4bdb2dc792bfccb7cc1c0a942de51b30af361fb455704
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x64b4dacea78c6394572f4534400abb74a872a059b68630fba80895c646aa97f
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x1b08e27ab436cd491631156da5f3aa7ff04aee1e6ca925eb2ca84397c22b74d
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x1abdb0c3319b72218653a0a94962ee66ebe27fd6b0bde234d1eddfccec57ed0
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x3da250675d8c2bb7cef7e1b7fdfe17aa4d5752ed82a9333e4f9a12b22e521aa
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x64fd80fcb41d00214430574a0aa19d21cc5d6452aeb4996f31b6e9ba4f466a0
+[DEBUG starknet_os::execution::helper] - Computing commitment for contract address 0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+[DEBUG starknet_os::hints::state] - Setting class trie mode
+[DEBUG starknet_os] - output: {
+  "initial_root": "0x67538116dfa444363c17ef9f72f7badda4588355ad2adeac322be21c9d9155d",
+  "final_root": "0x3a07196f2aa054d00f70ca02980361e29e6ea372dff358783e68fd92ace737f",
+  "prev_block_number": "0x250ae",
+  "new_block_number": "0x250af",
+  "prev_block_hash": "0x5f0c7e27c9ba542b3e545f658b42bdfd6f22b019da9ec0d9ef41619b976ef38",
+  "new_block_hash": "0x5ba39423d806a9d6650883bb6a18da48b69e71a8bc0ee8dfeb52c5f8389cdd3",
+  "os_program_hash": "0x0",
+  "starknet_os_config_hash": "0x504fa6e5eb930c0d8329d4a77d98391f2730dab8516600aeaf733a6123432",
+  "use_kzg_da": "0x0",
+  "full_output": "0x1",
+  "messages_to_l1": [],
+  "messages_to_l2": [],
+  "contracts": [
+    {
+      "addr": "0x1",
+      "nonce": "0x0",
+      "class_hash": "0x0",
+      "storage_changes": {
+        "0x250a5": "0x1909177c67567c0b6d759a116b38ad3cbd946e046dea70a5de76876faa02ec"
+      }
+    },
+    {
+      "addr": "0x12af3b1e79b2c20a61ca4b714851ac446e48208518c655ee61f46b45e87c65c",
+      "nonce": "0x0",
+      "class_hash": "0x1802ef5db98ab3942114e3ae171a20bd7f8d76b91e356c4478a41d146666e85",
+      "storage_changes": {
+        "0x38d63c1b3293c308377b068c055e9c9e12ba18c0a076d060265e0bc6cb9624b": "0x314924118945405ac0bcd6181457712795c0effc29d8dd3be86d3f3ec62adc1",
+        "0x62cb54d16e0cb01eb5af14b1307e40a5bf85a7be670df6bd663d6719caf31ce": "0x7265154fa14bb5a062d141d631cff3e1ad0298c07e4d6339b825ca49b51296c",
+        "0xbaeba0f5ed6ac90c16af8f420e3cf06d669e737a57a707a2290dde3889a055": "0xb80000000000c3200005a",
+        "0x16b4c715edbf6d7e831b5099b32bd56f29cc1d682ba194a458178577d8a1450": "0x20",
+        "0x5f2b7c647157ab4a0622938989f21b3c5e392dfd9f1c4b8d00020915f059534": "0x3440232006200383600645a",
+        "0x2be2d281ef362678b6cffd6279ae3e21545fe2db5c8762eb92a65ed035f70c": "0x7ab48ca80290878400000000000000000000000066d3ae36",
+        "0x86fad5d4fe75751ac908d08388fab8d0a43378e9a3b69f1d062946511b7923": "0x45707978",
+        "0x218732d6162632af3a76e6fdd0cedd7ad4ced63c18b6a2a6f70a8e66e909db7": "0x7265154fa14bb5a062d141d631cff3e1ad0298c07e4d6339b825ca49b51296c",
+        "0x5e76ba8309f5f482a8d9fcfb6b650c4db5e28e3decebbe68b69aee445cb21b": "0x13f",
+        "0x1bcc25d52d57109d4727d89d348ab09ab094f4af3cba5c6635eac99cb881b4b": "0x38e40000733c82408318c6000000e010085"
+      }
+    },
+    {
+      "addr": "0x1abdb0c3319b72218653a0a94962ee66ebe27fd6b0bde234d1eddfccec57ed0",
+      "nonce": "0x3",
+      "class_hash": "0x24a9edbfa7082accfceabf6a92d7160086f346d622f28741bf1c651c412c9ab",
+      "storage_changes": {
+        "0x39c32c868222fec0635731943ed0863d040a15778fd7024206843bc010dbd8b": "0x1"
+      }
+    },
+    {
+      "addr": "0x1b08e27ab436cd491631156da5f3aa7ff04aee1e6ca925eb2ca84397c22b74d",
+      "nonce": "0x0",
+      "class_hash": "0x306288971002bd7906e3a607d504dfb28dcbdc7655a115984e567dce3b67e8f",
+      "storage_changes": {}
+    },
+    {
+      "addr": "0x36031daa264c24520b11d93af622c848b2499b66b41d611bac95e13cfca131a",
+      "nonce": "0x0",
+      "class_hash": "0x230f20832d73433a0ef69663545aabb607a3bbc0ff0a5f75e5d9716730e4141",
+      "storage_changes": {
+        "0x5010d50b0f81a389e215d0b7fe4739836cced9ccab6521ef48258a9261a3ded": "0x3bbd2b309d44304b416b90a1af817acf",
+        "0x5010d50b0f81a389e215d0b7fe4739836cced9ccab6521ef48258a9261a3dee": "0x37f4e1c8c6a46b66a3578c5adfc7e3b",
+        "0x5010d50b0f81a389e215d0b7fe4739836cced9ccab6521ef48258a9261a3dec": "0x66d3ae34"
+      }
+    },
+    {
+      "addr": "0x3da250675d8c2bb7cef7e1b7fdfe17aa4d5752ed82a9333e4f9a12b22e521aa",
+      "nonce": "0x1a5c",
+      "class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
+      "storage_changes": {}
+    },
+    {
+      "addr": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+      "nonce": "0x0",
+      "class_hash": "0x7f3777c99f3700505ea966676aac4a0d692c2a9f5e667f4c606b51ca1dd3420",
+      "storage_changes": {
+        "0x1a641dc8ec86636089a8a2fd4cd1342ed8ccea62231356505ff59d365d6c8d7": "0x48079b30f098a045",
+        "0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a": "0x21aada5b89a2fcc534",
+        "0x48e72804b17e01d1e927eea236e6c01be7bae5263f05ac2e70d13aa80e5465b": "0x16d39cbbd0e27f4d",
+        "0x62290099b158bc42f85051878f5b15233e64f2be364590f1091a51989688092": "0x1d23fef2a29b1c17",
+        "0x31f214e67e98f0f145b628a519478fa61a41609347f64e3de768474dac63924": "0x2bcfed6e76fbe7d",
+        "0x2fe4c250c5507bd2a68de28a04d98134bd5b99e6b394fd760eff1641d69cdad": "0x294b6d3b87259c",
+        "0x118bd9e40b93fbef7807d934fc17b8c9d74dc4efb6214e5b2eb49c33c4771dd": "0x18efc88f18ec445b",
+        "0x46f50252f7930b93626e142ed3c108859e52dcfa3be73934e56e3f984b0d440": "0x1e3056d6d92254",
+        "0x1c11d6d0dc3b40a047b6b0f987d7d9accd8e6e833a2462b77443faf45f13bf4": "0x16a0f5baf397a"
+      }
+    },
+    {
+      "addr": "0x60c69136b39319547a4df303b6b3a26fab8b2d78de90b6bd215ce82e9cb515c",
+      "nonce": "0x0",
+      "class_hash": "0x2e167703c1deef69c6c5076133d3491fc75d1d1f486e6a8375712d28ff10fa4",
+      "storage_changes": {
+        "0x5e8d8ab4179c9bca945b8fff2b5510a8dce34082bce7a297493a52405aed461": "0x41b",
+        "0x6492e996f4bfdbaeba82dfecfe80d6392cc1270a1803f92f99f1e77a86aed5": "0x3",
+        "0x13bf858dec51b2ce0c870598a2aa4bd191f2e75bdf61ea3960076c8dd529f7d": "0x81d4a4b06b8594d",
+        "0x2403eb3419fe8983c50c13e8661d53ffbe266dcac3fb85902ca9914adf69ee": "0x461fbe6f3ac9f",
+        "0x19e28dbddbd98b67a7e91d63340795c295b01123e3a4ab2f9446ac11162e48b": "0x726617c5545f2a7711b608b372e4185edee15a4ae0af1c45f990fc393726806"
+      }
+    },
+    {
+      "addr": "0x64b4dacea78c6394572f4534400abb74a872a059b68630fba80895c646aa97f",
+      "nonce": "0x9b46",
+      "class_hash": "0x36078334509b514626504edc9fb252328d1a240e4e948bef8d0c08dff45927f",
+      "storage_changes": {}
+    },
+    {
+      "addr": "0x64fd80fcb41d00214430574a0aa19d21cc5d6452aeb4996f31b6e9ba4f466a0",
+      "nonce": "0x0",
+      "class_hash": "0x2240507a20f7edd18192dd9119ddd91dd20b06a661b1ceaf547395e279cd13d",
+      "storage_changes": {
+        "0x4fd8c68232ce35356583525c9042230e9961881457cfb497fcd7ff77c9e4680": "0xb0fefa2949e26400000",
+        "0x2fdcdb2145422e12226cb8abfc717b85837b3616ace9ac1aaf4cb2a48823b70": "0xabe0d3c9196fab60000",
+        "0x2fe4c250c5507bd2a68de28a04d98134bd5b99e6b394fd760eff1641d69cdad": "0xa7266c8a14401180000",
+        "0x118bd9e40b93fbef7807d934fc17b8c9d74dc4efb6214e5b2eb49c33c4771dd": "0x1564bd258ab724100000",
+        "0x678380ec71ba6d9a14fd4653385d5106120a62e95a25a357fc69dff1940e9c4": "0x158b1e9ed39214a0000"
+      }
+    },
+    {
+      "addr": "0x7265154fa14bb5a062d141d631cff3e1ad0298c07e4d6339b825ca49b51296c",
+      "nonce": "0x30f",
+      "class_hash": "0x36078334509b514626504edc9fb252328d1a240e4e948bef8d0c08dff45927f",
+      "storage_changes": {}
+    },
+    {
+      "addr": "0x7e6bc05477f7f844ed818616e5588588a1bb2284b7abe0f2b431b073c33d6c6",
+      "nonce": "0x6cb",
+      "class_hash": "0x36078334509b514626504edc9fb252328d1a240e4e948bef8d0c08dff45927f",
+      "storage_changes": {}
+    },
+    {
+      "addr": "0x7ff77f34f3b31b634b4bdb2dc792bfccb7cc1c0a942de51b30af361fb455704",
+      "nonce": "0x4a8",
+      "class_hash": "0xe2eb8f5672af4e6a4e8a8f1b44989685e668489b0a25437733756c5a34a1d6",
+      "storage_changes": {}
+    }
+  ],
+  "classes": {}
+}
+[INFO output_segment] - SNOS Pie has the same output as reference pie
