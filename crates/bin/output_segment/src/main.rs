@@ -6,13 +6,17 @@ use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use clap::Parser;
-use prove_block::{debug_prove_error, get_memory_segment, prove_block};
+use prove_block::{debug_prove_error, get_memory_segment, prove_block, DEFAULT_COMPILED_OS};
 
 #[derive(Parser, Debug)]
 struct Args {
     /// Pie-zip to compare.
     #[arg(long = "pie-path")]
     zip_pie_path: PathBuf,
+
+    /// RPC endpoint to use for fact fetching
+    #[arg(long = "rpc-provider", default_value = "http://localhost:9545")]
+    rpc_provider: String,
 }
 
 fn init_logging() {
@@ -30,6 +34,7 @@ async fn main() {
     let args = Args::parse();
 
     let zip_pie_path = args.zip_pie_path;
+    let endpoint = args.rpc_provider;
 
     let reference_pie_bytes = fs::read(zip_pie_path).unwrap();
     let reference_pie = CairoPie::from_bytes(&reference_pie_bytes).expect("reference PIE");
@@ -40,11 +45,11 @@ async fn main() {
 
     log::info!("Runnin SNOS for block number: {}", block_number);
 
-    let endpoint = "http://81.16.176.130:9545";
-    let (snos_pie, _snos_output) = prove_block(block_number, endpoint, LayoutName::all_cairo, true)
-        .await
-        .map_err(debug_prove_error)
-        .expect("OS generate Cairo PIE");
+    let (snos_pie, _snos_output) =
+        prove_block(DEFAULT_COMPILED_OS, block_number, &endpoint, LayoutName::all_cairo, true)
+            .await
+            .map_err(debug_prove_error)
+            .expect("OS generate Cairo PIE");
 
     snos_pie.run_validity_checks().expect("Valid SNOS PIE");
 
