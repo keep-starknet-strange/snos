@@ -33,7 +33,7 @@ EOF
         echo "Successfully downloaded $file" 
 
         # Run the Rust program with the downloaded file using the specified command
-        if RUST_LOG="debug,minilp::solver=info" cargo run -p output_segment --release -- --pie-path "$LOCAL_DIR/$file"; then
+        if RUST_LOG="debug,minilp::solver=info" cargo run -p output_segment --release -- --rpc-provider "http://81.16.176.130:9545" --pie-path "$LOCAL_DIR/$file"; then
             echo "Successfully processed $file" | tee -a "$LOG_FILE"
         else
             echo "Failed to process $file" | tee -a "$LOG_FILE"
