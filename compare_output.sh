@@ -1,9 +1,21 @@
 #!/bin/bash
 
-# Configuration
-SFTP_SERVER="s-c741e4f1fc6d4b93b.server.transfer.us-east-2.amazonaws.com"
-SFTP_USER="pie-download"
-REMOTE_PATH="namespace=sharp6-sepolia/year=2024/month=09/day=01/"
+# Check Configuration is supplied
+if [[ -z "$SFTP_USER" ]]; then
+    echo "Please provide the SFTP_USER."
+    exit 1
+fi
+
+if [[ -z "$SFTP_SERVER" ]]; then
+    echo "Please provide the SFTP_SERVER"
+    exit 1
+fi
+
+if [[ -z "$REMOTE_PATH" ]]; then
+    echo "Please provide the REMOTE_PATH"
+    exit 1
+fi
+
 LOCAL_DIR="./downloaded_files"
 LOG_FILE="./snos_run.log"
 
