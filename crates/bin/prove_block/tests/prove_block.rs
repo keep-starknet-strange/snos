@@ -3,6 +3,8 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use prove_block::{debug_prove_error, get_memory_segment, prove_block};
 use rstest::rstest;
 
+pub const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.json");
+
 // # These blocks verify the following issues:
 // # * 76793: the first block that we managed to prove, only has a few invoke txs
 // # * 76766 / 76775: additional basic blocks
@@ -54,16 +56,22 @@ use rstest::rstest;
 #[case::key_not_in_proof_0(155087)]
 #[case::key_not_in_proof_1(162388)]
 #[case::key_not_in_proof_2(155172)]
+#[case::l1_gas_and_l1_gas_price_are_0(161476)]
+#[case::key_not_in_proof_3(156855)]
+#[case::key_not_in_proof_4(174968)]
 #[case::timestamp_rounding_1(162389)]
 #[case::timestamp_rounding_2(167815)]
+#[case::missing_constant_max_high(164684)]
+#[case::retdata_not_a_relocatable(160033)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
     let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
-    let (snos_pie, _snos_output) = prove_block(block_number, &endpoint, LayoutName::all_cairo, true)
-        .await
-        .map_err(debug_prove_error)
-        .expect("OS generate Cairo PIE");
+    let (snos_pie, _snos_output) =
+        prove_block(DEFAULT_COMPILED_OS, block_number, &endpoint, LayoutName::all_cairo, true)
+            .await
+            .map_err(debug_prove_error)
+            .expect("OS generate Cairo PIE");
     snos_pie.run_validity_checks().expect("Valid SNOS PIE");
 
     if let Some(reference_pie_bytes) = get_reference_pie_bytes(block_number) {

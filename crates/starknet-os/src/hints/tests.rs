@@ -98,6 +98,7 @@ pub mod tests {
             ContractStorageMap::default(),
             execution_infos,
             &block_context,
+            None,
             old_block_number_and_hash,
         );
         exec_helper.start_tx(None).await;
@@ -165,7 +166,7 @@ pub mod tests {
         // we need an execution info in order to start a tx
         let execution_infos = vec![transaction_execution_info];
         let exec_helper =
-            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, old_block_number_and_hash);
+            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, None, old_block_number_and_hash);
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
@@ -199,7 +200,7 @@ pub mod tests {
         // execution info to chew through
         let execution_infos = vec![transaction_execution_info];
         let exec_helper =
-            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, old_block_number_and_hash);
+            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, None, old_block_number_and_hash);
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
@@ -241,7 +242,7 @@ pub mod tests {
 
         let execution_infos = vec![transaction_execution_info];
         let exec_helper =
-            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, old_block_number_and_hash);
+            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, None, old_block_number_and_hash);
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 

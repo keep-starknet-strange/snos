@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::context::BlockContext;
@@ -830,7 +831,7 @@ async fn execute_txs<S>(
     deprecated_contract_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     contract_classes: HashMap<ClassHash, GenericCasmContractClass>,
     declared_class_hash_to_component_hashes: HashMap<ClassHash, ContractClassComponentHashes>,
-) -> (StarknetOsInput, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
+) -> (Rc<StarknetOsInput>, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
 where
     S: Storage,
 {
@@ -884,6 +885,7 @@ where
 }
 
 pub async fn execute_txs_and_run_os<S>(
+    compiled_os: &[u8],
     state: CachedState<SharedState<S, PedersenHash>>,
     block_context: BlockContext,
     txs: Vec<Transaction>,
@@ -905,7 +907,7 @@ where
     .await;
 
     let layout = config::default_layout();
-    let result = run_os(config::DEFAULT_COMPILED_OS, layout, os_input, block_context, execution_helper);
+    let result = run_os(compiled_os, layout, os_input, block_context, execution_helper);
 
     match &result {
         Err(Runner(VmException(vme))) => {
@@ -916,6 +918,7 @@ where
                 log::error!("died at: {}:{}", inst_location.input_file.filename, inst_location.start_line);
                 log::error!("inst_location:\n{:?}", inst_location);
             }
+            log::error!("\ninner_exc error: {}\n", vme.inner_exc);
         }
         Err(_) => {
             println!("exception:\n{:#?}", result);

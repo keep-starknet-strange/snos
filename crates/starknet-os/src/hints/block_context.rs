@@ -2,6 +2,7 @@ use core::panic;
 use std::any::Any;
 use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use blockifier::context::BlockContext;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
@@ -41,7 +42,7 @@ pub fn load_class_facts(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input: Rc<StarknetOsInput> = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?.clone();
     let compiled_class_facts_ptr = vm.add_memory_segment();
     insert_value_from_var_name(vars::ids::COMPILED_CLASS_FACTS, compiled_class_facts_ptr, vm, ids_data, ap_tracking)?;
 
@@ -53,8 +54,8 @@ pub fn load_class_facts(
         ap_tracking,
     )?;
 
-    let compiled_class_facts: Box<dyn Any> = Box::new(os_input.compiled_classes.into_iter());
-    let compiled_class_visited_pcs: Box<dyn Any> = Box::new(os_input.compiled_class_visited_pcs);
+    let compiled_class_facts: Box<dyn Any> = Box::new(os_input.compiled_classes.clone().into_iter());
+    let compiled_class_visited_pcs: Box<dyn Any> = Box::new(os_input.compiled_class_visited_pcs.clone());
     exec_scopes.enter_scope(HashMap::from([
         (String::from(vars::scopes::COMPILED_CLASS_FACTS), compiled_class_facts),
         (String::from(vars::scopes::COMPILED_CLASS_VISITED_PCS), compiled_class_visited_pcs),
@@ -218,7 +219,7 @@ pub fn chain_id(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     let chain_id = chain_id_to_felt(&os_input.general_config.starknet_os_config.chain_id);
     insert_value_into_ap(vm, chain_id)
 }
@@ -231,7 +232,7 @@ pub fn fee_token_address(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     let fee_token_address = *os_input.general_config.starknet_os_config.fee_token_address.0.key();
     log::debug!("fee_token_address: {}", fee_token_address);
     insert_value_into_ap(vm, fee_token_address)
@@ -246,7 +247,7 @@ pub fn deprecated_fee_token_address(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     let deprecated_fee_token_address = *os_input.general_config.starknet_os_config.deprecated_fee_token_address.0.key();
     log::debug!("deprecated_fee_token_address: {}", deprecated_fee_token_address);
     insert_value_into_ap(vm, deprecated_fee_token_address)
@@ -357,7 +358,7 @@ pub fn write_use_kzg_da_to_mem(
     let block_context = exec_scopes.get_ref::<BlockContext>(vars::scopes::BLOCK_CONTEXT)?;
     let use_kzg_da = block_context.block_info().use_kzg_da;
 
-    let os_input: &StarknetOsInput = exec_scopes.get_ref(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     let full_output = os_input.full_output;
 
     let use_kzg_da_felt = if use_kzg_da && !full_output { Felt252::ONE } else { Felt252::ZERO };

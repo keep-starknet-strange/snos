@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 use blockifier::context::BlockContext;
 use blockifier::execution::contract_class::ContractClass::{V0, V1};
@@ -33,7 +34,7 @@ pub async fn os_hints<S>(
     deprecated_compiled_classes: HashMap<ClassHash, GenericDeprecatedCompiledClass>,
     compiled_classes: HashMap<ClassHash, GenericCasmContractClass>,
     declared_class_hash_to_component_hashes: HashMap<ClassHash, ContractClassComponentHashes>,
-) -> (StarknetOsInput, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
+) -> (Rc<StarknetOsInput>, ExecutionHelperWrapper<OsSingleStarknetStorage<S, PedersenHash>>)
 where
     S: Storage,
 {
@@ -71,9 +72,12 @@ where
         .map(|(class_hash, _compiled_class_hash)| (class_hash.0, Felt252::ZERO))
         .collect();
 
+    let mut contract_address_to_class_hash = HashMap::new();
+
     for c in contracts.keys() {
         let address = ContractAddress(PatriciaKey::try_from(*c).unwrap());
         let class_hash = blockifier_state.get_class_hash_at(address).unwrap();
+        contract_address_to_class_hash.insert(Felt252::from(address), class_hash.0);
         let blockifier_class = blockifier_state.get_compiled_contract_class(class_hash).unwrap();
         match blockifier_class {
             V0(_) => {} // deprecated_compiled_classes are passed in by caller
@@ -113,6 +117,11 @@ where
     log::debug!("classes");
     for c in compiled_classes.keys() {
         log::debug!("\t{}", c);
+    }
+
+    log::debug!("contract address to class_hash");
+    for (a, ch) in &contract_address_to_class_hash {
+        log::debug!("\t{} -> {}", a, ch);
     }
 
     log::debug!("class_hash to compiled_class_hash");
@@ -190,13 +199,14 @@ where
             .map(|(class_hash, components)| (class_hash.0, components.to_vec()))
             .collect();
 
-    let os_input = StarknetOsInput {
+    let os_input = Rc::new(StarknetOsInput {
         contract_state_commitment_info,
         contract_class_commitment_info,
         deprecated_compiled_classes,
         compiled_classes: compiled_class_hash_to_compiled_class,
         compiled_class_visited_pcs,
         contracts,
+        contract_address_to_class_hash,
         class_hash_to_compiled_class_hash,
         general_config,
         transactions,
@@ -204,12 +214,13 @@ where
         new_block_hash: Default::default(),
         prev_block_hash: Default::default(),
         full_output: false,
-    };
+    });
 
     let execution_helper = ExecutionHelperWrapper::new(
         contract_storage_map,
         tx_execution_infos,
         block_context,
+        Some(os_input.clone()),
         (Felt252::from(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64)),
     );
 

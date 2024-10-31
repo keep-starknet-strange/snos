@@ -105,11 +105,11 @@ mod tests {
         TEST_CONTRACT_SIERRA_CLASS,
         ContractClassComponentHashes {
             contract_class_version: Felt::from_hex_unchecked("0x434f4e54524143545f434c4153535f56302e312e30"),
-            external_functions_hash: Felt::from_hex_unchecked("0x36e860e1b55e22bf8ef7c84ad021ea718035ecddb0f690640abfdfa8afbe9f7"),
-            l1_handlers_hash: Felt::from_hex_unchecked("0x67f476df563e9995e5ec07abe031ee6e91209b6753de0f55cf1f734e4e97ab7"),
-            constructors_hash: Felt::from_hex_unchecked("0x2d110662880724966ec540bfc070c2652d11f518ddb4b4008bc6697b3796bc4"),
-            abi_hash: Felt::from_hex_unchecked("0x24e66ecb31bb31e172571b7651bc93ede3d2ffabcd7f44fd06daf5e8169fd99"),
-            sierra_program_hash: Felt::from_hex_unchecked("0x4d83801d2a12eb9704585ce206b65737229ff66caa483a4f986935549d0af88"),
+            external_functions_hash: Felt::from_hex_unchecked("0x22ea1c879b5fdb2f25faa8c85f749e4d9e5216827e4920456523679da537054"),
+            l1_handlers_hash: Felt::from_hex_unchecked("0x5a1be23d9907cf863d6547a10e0da2e5b20f2e2a3079102e98c46b4eab8d9a3"),
+            constructors_hash: Felt::from_hex_unchecked("0x32efa33857ba35a456c993af69ba93f2f936a4208070afb7b28fa10bcae83f0"),
+            abi_hash: Felt::from_hex_unchecked("0x6e6ccf79d27ce45711cda5964b29bf1558f01938ca005bee0ae17de6915199"),
+            sierra_program_hash: Felt::from_hex_unchecked("0x50d763c8720c24bb5c895be3dbfd68d296499a381d1e00ff626be93fbbec762"),
         }
     )]
     #[case::empty_contract(

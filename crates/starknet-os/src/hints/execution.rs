@@ -1,11 +1,13 @@
 use std::any::Any;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use std::vec::IntoIter;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
+    get_integer_from_var_name, get_maybe_relocatable_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
+    insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
@@ -434,11 +436,11 @@ pub fn enter_syscall_scopes<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let os_input = exec_scopes.get::<StarknetOsInput>(vars::scopes::OS_INPUT)?;
+    let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
     let deprecated_class_hashes: Box<dyn Any> =
         Box::new(exec_scopes.get::<HashSet<Felt252>>(vars::scopes::DEPRECATED_CLASS_HASHES)?);
-    let transactions: Box<dyn Any> = Box::new(os_input.transactions.into_iter());
-    let component_hashes: Box<dyn Any> = Box::new(os_input.declared_class_hash_to_component_hashes);
+    let transactions: Box<dyn Any> = Box::new(os_input.transactions.clone().into_iter());
+    let component_hashes: Box<dyn Any> = Box::new(os_input.declared_class_hash_to_component_hashes.clone());
     let execution_helper: Box<dyn Any> =
         Box::new(exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?);
     let deprecated_syscall_handler: Box<dyn Any> =
@@ -1119,6 +1121,27 @@ pub fn check_new_deploy_response(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let response_ptr = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
+
+    // Bugfix:
+    // If constructor_retdata_start is a Int(0) instead of a Relocatable, we need to do nothing. This
+    // can happen sometimes when a constructor is called but not defined in the class'es entry
+    // points. Immediately following this, `add_relocation_rule()` will be called with src=0, dest=0
+    // and it will also no-op.
+    //
+    // If "retdata" is an Int instead of a Relocatable, then the vm will error when we try to
+    // request it as such. In this case, there is no retdata anyway, so there is no need to assert
+    // that the contents are equal.
+    let retdata_start_key: Relocatable =
+        (response_ptr + new_syscalls::DeployResponse::constructor_retdata_start_offset())?;
+    let maybe_retdata_start = vm
+        .get_maybe(&retdata_start_key)
+        .ok_or(HintError::VariableNotInScopeError("retdata".to_string().into_boxed_str()))?;
+    let zero = MaybeRelocatable::Int(Felt252::ZERO);
+    if maybe_retdata_start == zero {
+        log::warn!("retdata_start is 0, not a relocatable, ignoring add_relocation_rule()");
+        return Ok(());
+    }
+
     let constructor_retdata_start =
         vm.get_relocatable((response_ptr + new_syscalls::DeployResponse::constructor_retdata_start_offset())?)?;
     let constructor_retdata_end =
@@ -1266,6 +1289,19 @@ pub fn add_relocation_rule(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    // Bugfix:
+    // add_relocation_rule() can be called sometimes with Int(0) instead of Relocatables. This is
+    // a result of `cast(0, felt*)` being treated as Int(0). We can work around this here by
+    // ensuring that both src and dest end up being Int(0), and in that case we no-op here.
+    let src_ptr_maybe = get_maybe_relocatable_from_var_name(vars::ids::SRC_PTR, vm, ids_data, ap_tracking)?;
+    let dest_ptr_maybe = get_maybe_relocatable_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?;
+
+    let zero = MaybeRelocatable::Int(Felt252::ZERO);
+    if src_ptr_maybe == zero && dest_ptr_maybe == zero {
+        log::warn!("add_relocation_rule with Int(0) => Int(0), doing nothing");
+        return Ok(());
+    }
+
     let src_ptr = get_ptr_from_var_name(vars::ids::SRC_PTR, vm, ids_data, ap_tracking)?;
 
     assert_eq!(src_ptr.offset, 0, "src_ptr offset should be 0");
@@ -1913,7 +1949,7 @@ mod tests {
 
     #[fixture]
     fn execution_helper(block_context: BlockContext, old_block_number_and_hash: (Felt252, Felt252)) -> EHW {
-        EHW::new(ContractStorageMap::default(), vec![], &block_context, old_block_number_and_hash)
+        EHW::new(ContractStorageMap::default(), vec![], &block_context, None, old_block_number_and_hash)
     }
 
     #[fixture]

@@ -15,7 +15,7 @@ use crate::starknet::business_logic::fact_state::contract_state_objects::Contrac
 use crate::starknet::starknet_storage::CommitmentInfo;
 use crate::utils::Felt252HexNoPrefix;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct StarknetOsInput {
     pub contract_state_commitment_info: CommitmentInfo,
     pub contract_class_commitment_info: CommitmentInfo,
@@ -23,6 +23,7 @@ pub struct StarknetOsInput {
     pub compiled_classes: HashMap<Felt252, GenericCasmContractClass>,
     pub compiled_class_visited_pcs: HashMap<Felt252, Vec<Felt252>>,
     pub contracts: HashMap<Felt252, ContractState>,
+    pub contract_address_to_class_hash: HashMap<Felt252, Felt252>,
     pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
     pub general_config: StarknetGeneralConfig,
     pub transactions: Vec<InternalTransaction>,
