@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Usage: compare_output.sh <SFTP_USER> <SFTP_SERVER> <REMOTE_PATH> <RPC_PROVIDER>
+# SFTP_USER="" SFTP_SERVER="" REMOTE_PATH="" RPC_PROVIDER=""  ./compare_output.sh
+
 # Check Configuration is supplied
 if [[ -z "$SFTP_USER" ]]; then
     echo "Please provide the SFTP_USER."
@@ -13,6 +16,11 @@ fi
 
 if [[ -z "$REMOTE_PATH" ]]; then
     echo "Please provide the REMOTE_PATH"
+    exit 1
+fi
+
+if [[ -z "$RPC_PROVIDER" ]]; then
+    echo "Please provide the RPC_PROVIDER"
     exit 1
 fi
 
@@ -45,7 +53,7 @@ EOF
         echo "Successfully downloaded $file" 
 
         # Run the Rust program with the downloaded file using the specified command
-        if RUST_LOG="debug,minilp::solver=info" cargo run -p output_segment --release -- --rpc-provider "http://81.16.176.130:9545" --pie-path "$LOCAL_DIR/$file"; then
+        if RUST_LOG="debug,minilp::solver=info" cargo run -p output_segment --release -- --rpc-provider $RPC_PROVIDER --pie-path "$LOCAL_DIR/$file"; then
             echo "Successfully processed $file" | tee -a "$LOG_FILE"
         else
             echo "Failed to process $file" | tee -a "$LOG_FILE"

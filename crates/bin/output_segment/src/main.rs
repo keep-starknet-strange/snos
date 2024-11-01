@@ -36,7 +36,7 @@ async fn main() {
     let zip_pie_path = args.zip_pie_path;
     let endpoint = args.rpc_provider;
 
-    let reference_pie_bytes = fs::read(zip_pie_path).unwrap();
+    let reference_pie_bytes = fs::read(zip_pie_path).expect("Read Reference PIE");
     let reference_pie = CairoPie::from_bytes(&reference_pie_bytes).expect("reference PIE");
     reference_pie.run_validity_checks().expect("Valid reference PIE");
 
@@ -53,6 +53,13 @@ async fn main() {
 
     snos_pie.run_validity_checks().expect("Valid SNOS PIE");
 
+    // While initializing cairo-vm, the first segment is the the one containing the program instructions
+    // After that, the builtins are loaded in order. The first one is always the output builtin 
+    // References: 
+    // https://github.com/lambdaclass/cairo-vm/blob/159f67da19964cc54a95423a69470a26e534a13d/vm/src/vm/runners/cairo_runner.rs#L249-L279
+    // https://github.com/lambdaclass/cairo-vm/blob/159f67da19964cc54a95423a69470a26e534a13d/vm/src/vm/runners/cairo_runner.rs#L456-L466
+    // cairo-vm test output segment:
+    // https://github.com/lambdaclass/cairo-vm/blob/159f67da19964cc54a95423a69470a26e534a13d/cairo1-run/src/cairo_run.rs#L1732
     let output_segment_index = 2;
 
     assert_eq!(
