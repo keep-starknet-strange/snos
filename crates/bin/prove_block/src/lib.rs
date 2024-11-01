@@ -75,6 +75,8 @@ pub enum ProveBlockError {
 fn compute_class_commitment(
     previous_class_proofs: &HashMap<Felt, PathfinderClassProof>,
     class_proofs: &HashMap<Felt, PathfinderClassProof>,
+    previous_root: Felt,
+    updated_root: Felt,
 ) -> CommitmentInfo {
     for (class_hash, previous_class_proof) in previous_class_proofs {
         if let Err(e) = previous_class_proof.verify(*class_hash) {
@@ -96,9 +98,6 @@ fn compute_class_commitment(
 
     let previous_class_proofs: Vec<_> = previous_class_proofs.values().cloned().collect();
     let class_proofs: Vec<_> = class_proofs.values().cloned().collect();
-
-    let previous_root = previous_class_proofs[0].class_commitment;
-    let updated_root = class_proofs[0].class_commitment;
 
     let previous_class_proofs: Vec<_> = previous_class_proofs.into_iter().map(|proof| proof.class_proof).collect();
     let class_proofs: Vec<_> = class_proofs.into_iter().map(|proof| proof.class_proof).collect();
@@ -304,6 +303,13 @@ pub async fn prove_block(
         .get(&Felt::ONE)
         .expect("there should be a previous storage proof for the block hash contract");
 
+    // The root of the class commitment tree for previous and current block
+    // Using requested storage proof instead of getting them from class proofs
+    // If the block doesn't contain transactions, `class_proofs` will be empty
+    // Pathfinder will send a None on class_commitment when the tree is not initialized, ie, root is zero
+    let updated_root = block_hash_storage_proof.class_commitment.unwrap_or(Felt::ZERO);
+    let previous_root = previous_block_hash_storage_proof.class_commitment.unwrap_or(Felt::ZERO);
+
     let previous_contract_trie_root = previous_block_hash_storage_proof.contract_proof[0].hash::<PedersenHash>();
     let current_contract_trie_root = block_hash_storage_proof.contract_proof[0].hash::<PedersenHash>();
 
@@ -323,7 +329,8 @@ pub async fn prove_block(
         commitment_facts: global_state_commitment_facts,
     };
 
-    let contract_class_commitment_info = compute_class_commitment(&previous_class_proofs, &class_proofs);
+    let contract_class_commitment_info =
+        compute_class_commitment(&previous_class_proofs, &class_proofs, previous_root, updated_root);
 
     let os_input = Rc::new(StarknetOsInput {
         contract_state_commitment_info,
