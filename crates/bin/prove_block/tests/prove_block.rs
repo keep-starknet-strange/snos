@@ -1,10 +1,7 @@
 use cairo_vm::types::layout_name::LayoutName;
-use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
-use prove_block::{debug_prove_error, prove_block};
+use prove_block::{debug_prove_error, get_memory_segment, prove_block, DEFAULT_COMPILED_OS};
 use rstest::rstest;
-
-pub const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.json");
 
 // # These blocks verify the following issues:
 // # * 76793: the first block that we managed to prove, only has a few invoke txs
@@ -93,15 +90,4 @@ fn get_reference_pie_bytes(block_number: u64) -> Option<Vec<u8>> {
         173404 => Some(include_bytes!("../reference-pies/173404.zip").to_vec()),
         _ => None,
     }
-}
-
-fn get_memory_segment(pie: &CairoPie, index: usize) -> Vec<(usize, &MaybeRelocatable)> {
-    let mut segment = pie
-        .memory
-        .0
-        .iter()
-        .filter_map(|((segment_index, offset), value)| (*segment_index == index).then_some((*offset, value)))
-        .collect::<Vec<_>>();
-    segment.sort_by(|(offset1, _), (offset2, _)| offset1.cmp(offset2));
-    segment
 }
