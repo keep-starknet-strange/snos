@@ -15,6 +15,8 @@ where
 pub enum FeltConversionError {
     #[error("Overflow Error: Felt exceeds u128 max value")]
     OverflowError,
+    #[error("{0}")]
+    CustomError(String),
 }
 
 pub fn felt_to_u128(felt: &Felt) -> Result<u128, FeltConversionError> {
