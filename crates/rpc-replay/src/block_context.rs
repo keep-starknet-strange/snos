@@ -107,4 +107,51 @@ mod tests {
         assert_eq!(block_context.block_info().gas_prices.eth_l1_data_gas_price, NonZeroU128::MIN);
         assert_eq!(block_context.block_info().gas_prices.strk_l1_data_gas_price, NonZeroU128::MIN);
     }
+
+    #[test]
+    fn test_build_block_context_with_custom_gas_prices() {
+        let chain_id = ChainId::Mainnet;
+
+        // Expected values for gas price
+        let wei_l1_price = 1234;
+        let fri_l1_price = 5678;
+        let wei_l1_data_price = 9012;
+        let fri_l1_data_price = 3456;
+
+        let block = BlockWithTxs {
+            status: starknet::core::types::BlockStatus::AcceptedOnL1,
+            block_hash: Felt::ZERO,
+            parent_hash: Felt::ZERO,
+            block_number: 1,
+            new_root: Felt::ZERO,
+            timestamp: 0,
+            sequencer_address: Felt::ZERO,
+            l1_gas_price: ResourcePrice {
+                price_in_wei: Felt::from(wei_l1_price),
+                price_in_fri: Felt::from(fri_l1_price),
+            },
+            l1_data_gas_price: ResourcePrice {
+                price_in_wei: Felt::from(wei_l1_data_price),
+                price_in_fri: Felt::from(fri_l1_data_price),
+            },
+            l1_da_mode: L1DataAvailabilityMode::Blob,
+            starknet_version: String::from("0.13.2.1"),
+            transactions: vec![],
+        };
+
+        let starknet_version = blockifier::versioned_constants::StarknetVersion::Latest;
+        let block_context = build_block_context(chain_id, &block, starknet_version).unwrap();
+
+        // Verify that gas prices match our input values
+        assert_eq!(block_context.block_info().gas_prices.eth_l1_gas_price, NonZeroU128::new(wei_l1_price).unwrap());
+        assert_eq!(block_context.block_info().gas_prices.strk_l1_gas_price, NonZeroU128::new(fri_l1_price).unwrap());
+        assert_eq!(
+            block_context.block_info().gas_prices.eth_l1_data_gas_price,
+            NonZeroU128::new(wei_l1_data_price).unwrap()
+        );
+        assert_eq!(
+            block_context.block_info().gas_prices.strk_l1_data_gas_price,
+            NonZeroU128::new(fri_l1_data_price).unwrap()
+        );
+    }
 }
