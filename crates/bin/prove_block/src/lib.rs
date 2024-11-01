@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use blockifier::state::cached_state::CachedState;
 use cairo_vm::types::layout_name::LayoutName;
+use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
@@ -45,6 +46,8 @@ mod rpc_utils;
 mod state_utils;
 mod types;
 mod utils;
+
+pub const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.json");
 
 #[derive(Debug, Error)]
 pub enum ProveBlockError {
@@ -358,4 +361,15 @@ pub fn debug_prove_error(err: ProveBlockError) -> ProveBlockError {
         log::error!("\ninner_exc error: {}\n", vme.inner_exc);
     }
     err
+}
+
+pub fn get_memory_segment(pie: &CairoPie, index: usize) -> Vec<(usize, &MaybeRelocatable)> {
+    let mut segment = pie
+        .memory
+        .0
+        .iter()
+        .filter_map(|((segment_index, offset), value)| (*segment_index == index).then_some((*offset, value)))
+        .collect::<Vec<_>>();
+    segment.sort_by(|(offset1, _), (offset2, _)| offset1.cmp(offset2));
+    segment
 }

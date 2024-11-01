@@ -3,6 +3,7 @@ resolver = "2"
 
 members = [
     "crates/bin/hint_tool",
+    "crates/bin/output_segment",
     "crates/bin/prove_block",
     "crates/cairo-type-derive",
     "crates/rpc-client",
