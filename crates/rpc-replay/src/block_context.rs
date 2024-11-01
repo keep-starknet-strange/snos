@@ -21,7 +21,7 @@ fn felt_to_gas_price(price: &Felt) -> Result<NonZeroU128, FeltConversionError> {
     // Catch here if price > U128::MAX
     let gas_price = felt_to_u128(price)?;
     // If felt_to_u128 conversion is ok, it won't fail cause we're catching the zero above
-    Ok(NonZeroU128::new(gas_price).ok_or(FeltConversionError::CustomError("Gas price cannot be zero".to_string()))?)
+    NonZeroU128::new(gas_price).ok_or(FeltConversionError::CustomError("Gas price cannot be zero".to_string()))
 }
 
 pub fn build_block_context(
