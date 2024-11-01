@@ -54,8 +54,8 @@ async fn main() {
     snos_pie.run_validity_checks().expect("Valid SNOS PIE");
 
     // While initializing cairo-vm, the first segment is the the one containing the program instructions
-    // After that, the builtins are loaded in order. The first one is always the output builtin 
-    // References: 
+    // After that, the builtins are loaded in order. The first one is always the output builtin
+    // References:
     // https://github.com/lambdaclass/cairo-vm/blob/159f67da19964cc54a95423a69470a26e534a13d/vm/src/vm/runners/cairo_runner.rs#L249-L279
     // https://github.com/lambdaclass/cairo-vm/blob/159f67da19964cc54a95423a69470a26e534a13d/vm/src/vm/runners/cairo_runner.rs#L456-L466
     // cairo-vm test output segment:
