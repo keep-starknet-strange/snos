@@ -90,3 +90,27 @@ fn convert_b64_to_raw(os_pie_string: String) {
         assert!(file_path.exists(), "Missing file {:}", file_path.to_string_lossy());
     }
 }
+
+#[rstest]
+fn deserialize_serialize_pie() {
+    let path_read =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("integration").join("common").join("data").join("173404.zip");
+    let pie_read = CairoPie::read_zip_file(&path_read).unwrap();
+    pie_read.run_validity_checks().expect("Valid reference PIE");
+    println!("SNOS output is valid");
+
+    let path_write =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("integration").join("common").join("data").join("173404_test.zip");
+    pie_read.write_zip_file(&path_write).expect("Could not write pie");
+    let pie_write = CairoPie::read_zip_file(&path_write).unwrap();
+
+    pie_write.check_pie_compatibility(&pie_read).expect("Compatible pies");
+
+    println!("Pies are compatibles");
+
+    pie_write.run_validity_checks().expect("Valid reference PIE");
+
+    println!("Written file is valid");
+    // Remove zip file created by the test
+    std::fs::remove_file(path_write).unwrap();
+}
