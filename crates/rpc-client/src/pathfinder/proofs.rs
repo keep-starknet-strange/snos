@@ -38,7 +38,7 @@ impl TrieNode {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct ContractData {
     /// Root of the Contract state tree
     pub root: Felt,
