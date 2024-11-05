@@ -21,7 +21,7 @@ use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
 use thiserror::Error;
 
-use crate::utils::felt_to_u128;
+use crate::utils::{felt_to_u128, FeltConversionError};
 
 #[derive(Error, Debug)]
 pub enum ToBlockifierError {
@@ -37,6 +37,8 @@ pub enum ToBlockifierError {
     StarknetApiError(#[from] StarknetApiError),
     #[error("Transaction Execution Error: {0}")]
     TransactionExecutionError(#[from] TransactionExecutionError),
+    #[error("Felt Conversion Error: {0}")]
+    FeltConversionError(#[from] FeltConversionError),
 }
 
 pub fn resource_bounds_core_to_api(
@@ -74,7 +76,7 @@ fn invoke_v1_to_blockifier(
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::InvokeTransaction::V1(starknet_api::transaction::InvokeTransactionV1 {
-        max_fee: Fee(felt_to_u128(&tx.max_fee)),
+        max_fee: Fee(felt_to_u128(&tx.max_fee)?),
         signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
         nonce: starknet_api::core::Nonce(tx.nonce),
         sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
@@ -153,7 +155,7 @@ async fn declare_v1_to_blockifier(
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::DeclareTransaction::V1(starknet_api::transaction::DeclareTransactionV0V1 {
-        max_fee: starknet_api::transaction::Fee(felt_to_u128(&tx.max_fee)),
+        max_fee: starknet_api::transaction::Fee(felt_to_u128(&tx.max_fee)?),
         signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
         nonce: starknet_api::core::Nonce(tx.nonce),
         class_hash: starknet_api::core::ClassHash(tx.class_hash),
@@ -174,7 +176,7 @@ async fn declare_v2_to_blockifier(
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::DeclareTransaction::V2(starknet_api::transaction::DeclareTransactionV2 {
-        max_fee: starknet_api::transaction::Fee(felt_to_u128(&tx.max_fee)),
+        max_fee: starknet_api::transaction::Fee(felt_to_u128(&tx.max_fee)?),
         signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
         nonce: starknet_api::core::Nonce(tx.nonce),
         class_hash: starknet_api::core::ClassHash(tx.class_hash),
@@ -276,11 +278,11 @@ fn recalculate_contract_address(
 
 fn deploy_account_v1_to_blockifier(
     tx: &DeployAccountTransactionV1,
-) -> Result<blockifier::transaction::transaction_execution::Transaction, StarknetApiError> {
+) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
 
     let (max_fee, signature, nonce, class_hash, constructor_calldata, contract_address_salt) = (
-        Fee(felt_to_u128(&tx.max_fee)),
+        Fee(felt_to_u128(&tx.max_fee)?),
         starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
         starknet_api::core::Nonce(tx.nonce),
         starknet_api::core::ClassHash(tx.class_hash),
@@ -292,8 +294,8 @@ fn deploy_account_v1_to_blockifier(
         class_hash,
         &constructor_calldata,
         ContractAddress::default(),
-    )
-    .unwrap();
+    )?;
+
     let api_tx = starknet_api::transaction::DeployAccountTransaction::V1(
         starknet_api::transaction::DeployAccountTransactionV1 {
             max_fee,
