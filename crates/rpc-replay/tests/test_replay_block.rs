@@ -28,7 +28,8 @@ async fn test_replay_block() {
     let state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);
     let mut state = CachedState::from(state_reader);
 
-    let block_context = build_block_context(ChainId::Sepolia, &block_with_txs, StarknetVersion::V0_13_1);
+    let block_context = build_block_context(ChainId::Sepolia, &block_with_txs, StarknetVersion::V0_13_1)
+        .expect("Failed to build block context");
 
     let traces = rpc_client
         .starknet_rpc()
