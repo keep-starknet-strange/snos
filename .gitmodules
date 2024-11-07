@@ -1,4 +1,4 @@
 [submodule "cairo-lang"]
 	path = cairo-lang
-	url = https://github.com/starkware-libs/cairo-lang.git
+	url = https://github.com/moonsong-labs/cairo-lang.git
 	ignore = all
