@@ -6,7 +6,7 @@ use std::vec::IntoIter;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_maybe_relocatable_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
     insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
@@ -1290,12 +1290,12 @@ pub fn add_relocation_rule(
     let dest_ptr = if let Ok(infos) = get_ptr_from_var_name(vars::ids::INFOS, vm, ids_data, ap_tracking) {
         let infos_0_end = vm.get_relocatable((infos + 1)?)?;
         log::warn!("rewriting dest_ptr for segment_arena workaround");
-        (infos_0_end + 1u32)?.into()
+        (infos_0_end + 1u32)?
     } else {
-        get_maybe_relocatable_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?
+        get_ptr_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?
     };
 
-    vm.add_relocation_rule_maybe_relocatable(src_ptr, dest_ptr)?;
+    vm.add_relocation_rule(src_ptr, dest_ptr)?;
 
     Ok(())
 }
