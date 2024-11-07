@@ -6,8 +6,7 @@ use std::vec::IntoIter;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
-    insert_value_into_ap,
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
@@ -1274,7 +1273,6 @@ pub fn add_relocation_rule(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-
     let src_ptr = get_ptr_from_var_name(vars::ids::SRC_PTR, vm, ids_data, ap_tracking)?;
 
     assert_eq!(src_ptr.offset, 0, "src_ptr offset should be 0");
