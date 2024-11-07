@@ -1,4 +1,4 @@
 [submodule "cairo-lang"]
 	path = cairo-lang
-	url = https://github.com/Moonsong-Labs/cairo-lang
+	url = https://github.com/notlesh/cairo-lang
 	ignore = all
