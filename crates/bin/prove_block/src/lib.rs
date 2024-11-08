@@ -48,8 +48,6 @@ mod state_utils;
 mod types;
 mod utils;
 
-pub const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.json");
-
 #[derive(Debug, Error)]
 pub enum ProveBlockError {
     #[error("RPC Error: {0}")]

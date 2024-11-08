@@ -1109,7 +1109,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "1.0.1"
-source = "git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04#1fa902bafae507424b5ea83a625830ffe6b0eca5"
+source = "git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization#6036ab9533e1754f1612fbea9c9d2a27063ca5f8"
 dependencies = [
  "anyhow",
  "ark-ff",
@@ -2041,7 +2041,7 @@ name = "hint_tool"
 version = "0.1.0"
 dependencies = [
  "blockifier",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "clap",
  "serde",
  "serde_json",
@@ -2904,7 +2904,7 @@ dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "clap",
  "env_logger",
  "futures-core",
@@ -3245,7 +3245,7 @@ dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "clap",
  "env_logger",
  "futures-core",
@@ -4436,7 +4436,7 @@ dependencies = [
  "cairo-lang-starknet",
  "cairo-lang-starknet-classes",
  "cairo-type-derive",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "futures",
  "futures-util",
  "heck 0.4.1",
@@ -4475,7 +4475,7 @@ version = "0.1.0"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "flate2",
  "indoc",
  "num-bigint",
@@ -4755,7 +4755,7 @@ version = "0.1.0"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "env_logger",
  "futures",
  "log",
