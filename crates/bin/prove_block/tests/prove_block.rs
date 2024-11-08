@@ -1,7 +1,7 @@
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use prove_block::{debug_prove_error, get_memory_segment, prove_block};
-use rstest::rstest; 
+use rstest::rstest;
 const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.json");
 
 // # These blocks verify the following issues:
