@@ -358,3 +358,73 @@ async fn deploy_via_invoke_no_calldata_cairo1_account(
     .await
     .expect("OS run failed");
 }
+
+#[rstest]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn deploy_cairo0_via_proxy(block_context: BlockContext, max_fee: Fee) {
+    let test_proxy = load_cairo0_feature_contract("test_proxy");
+    let test_proxy_account = load_cairo0_feature_contract("test_proxy_account");
+    let class_hash = class_hash!("0x1583cf1817fbd5b625b60695ddc506e5f1784e30518ca2ea9e56caa0c5c5509");
+
+    let args: Vec<Felt252> = [
+        "0x9ea83ef3294e2b3e2655642e8340dfacc330175a70fe79367e199215b7ffa1", // test_proxy_account contract
+        "0x1b1a0649752af1b28b3dc29a1556eee781e4a4c3a1f7f53f90fa834de098c4d", // selector_from_name("foo")
+        "0x2", // len of foo() arguments
+        "0x0", // arg1
+        "0x0", // arg2
+    ]
+    .into_iter()
+    .map(Felt252::from_hex_unchecked)
+    .collect();
+
+    let ctor_calldata = Calldata(args.into());
+    let deployed_contract_address = calculate_contract_address(
+        ContractAddressSalt::default(),
+        class_hash,
+        &ctor_calldata,
+        contract_address!("0x0"),
+    )
+    .expect("Failed to calculate the contract address");
+
+    let initial_state = StarknetStateBuilder::new(&block_context)
+        .deploy_cairo0_contract(test_proxy.0, test_proxy.1)
+        .deploy_cairo0_contract(test_proxy_account.0, test_proxy_account.1)
+        .fund_account(deployed_contract_address, BALANCE, BALANCE)
+        .set_default_balance(BALANCE, BALANCE)
+        .build()
+        .await;
+
+    let tx_version = TransactionVersion::ONE;
+    let mut nonce_manager = NonceManager::default();
+
+    let test_proxy = initial_state.deployed_cairo0_contracts.get("test_proxy").unwrap();
+
+    let deployed_account_class_hash = test_proxy.declaration.class_hash;
+    // Sanity check, as we hardcode the class hash in the fixture we verify that we have
+    // the right one.
+    assert_eq!(class_hash, deployed_account_class_hash);
+
+    let deploy_account_tx = AccountTransaction::DeployAccount(deploy_account_tx(
+        deploy_account_tx_args! {
+            class_hash: deployed_account_class_hash,
+            max_fee,
+            contract_address_salt: ContractAddressSalt::default(),
+            version: tx_version,
+            constructor_calldata: ctor_calldata
+        },
+        &mut nonce_manager,
+    ));
+
+    let txs = vec![deploy_account_tx].into_iter().map(Into::into).collect();
+    let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
+        initial_state.cached_state,
+        block_context,
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+        HashMap::default(),
+    )
+    .await
+    .expect("OS run failed");
+}
