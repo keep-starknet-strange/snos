@@ -1,5 +1,5 @@
 <div align="center">
-<img src="./docs/images/SNOS.png" height="150">
+<img src="./docs/images/SNOS.png" height="400" width="500">
 
 
 ### ⚡ SNOS ⚡
