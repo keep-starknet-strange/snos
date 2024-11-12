@@ -45,12 +45,12 @@ git clone https://github.com/keep-starknet-strange/snos.git --recursive
 In order to compile the starknet os cairo program, you need to install the cairo compiler.
 
 - Either follow [cairo docs](https://docs.cairo-lang.org/quickstart.html)
-- Or use the provided Makefile  
+- Or run the following script:
 ```bash
-make deps
+./setup-scripts/setup-cairo.sh
 ```
 
-This will create a virtual environment needed to compile the cairo program.
+This will create a virtual environment and download needed dependencies to compile cairo programs.
 
 ## Test Setup
 
