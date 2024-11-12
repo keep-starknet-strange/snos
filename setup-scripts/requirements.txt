@@ -1,2 +1,0 @@
-sympy==1.11.1
-cairo-lang==0.13.2
