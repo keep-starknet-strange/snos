@@ -22,11 +22,15 @@ The [Starknet OS](https://github.com/starkware-libs/cairo-lang/blob/master/src/s
 
 It accomplishes this by re-executing the transactions included in the block and verifying the consistency of the Starknet state.
 
-Executing this program yields a PIE (Program Independent Execution), which can later be used to generate a Stark proof of execution integrity.
+Executing this program yields a [PIE](https://github.com/starkware-libs/cairo-lang/blob/a86e92bfde9c171c0856d7b46580c66e004922f3/src/starkware/cairo/lang/vm/cairo_pie.py#L219-L225) ([Program Independent Execution](https://github.com/lambdaclass/cairo-vm/blob/60252573255bdf77cf980d689db5b8539dde5e52/vm/src/vm/runners/cairo_pie.rs#L132-L138)), which can later be used to generate a Stark proof of execution integrity.
 
 If this proof is accepted by the Starknet L1 verifiers, the block is considered valid, and the Starknet state root is updated in the [StarknetCore contract](https://etherscan.io/address/0xc662c410c0ecf747543f5ba90660f6abebd9c8c4#code).
 
+## 🛠️ Getting Started 
+### Dependencies
 
+- [Rust 1.76.0 or newer](https://www.rust-lang.org/tools/install)
+- Cargo
 
 ## Test Setup
 
