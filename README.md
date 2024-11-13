@@ -117,6 +117,15 @@ Once you have a synced full node, you can start generating PIEs of a given block
 cargo run --release -p prove_block -- --block-number 200000 --rpc-provider http://0.0.0.0:9545
 ```
 
+## 📚 Documentation
+- [The Cairo Book](https://book.cairo-lang.org/)
+- [How Cairo Works](https://docs.cairo-lang.org/how_cairo_works/index.html)
+- [Starknet Docs](https://docs.starknet.io/)
+  -  [Starknet State](https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/)
+- [MoonsongLabs talk in StarknetCC](https://www.youtube.com/watch?v=xHc_pKXN9h8)
+- [Pragma Article on os.cairo](https://hackmd.io/@pragma/ByP-iux1T)
+
+
 ## 📜 License
 
 This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
