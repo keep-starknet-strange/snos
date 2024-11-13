@@ -13,6 +13,7 @@ use rpc_client::RpcClient;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::{starknet_rs_to_blockifier, ToBlockifierError};
+use rpc_replay::utils::FeltConversionError;
 use rpc_utils::{get_class_proofs, get_storage_proofs};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, StarknetError};
 use starknet::providers::{Provider, ProviderError};
@@ -47,8 +48,6 @@ mod state_utils;
 mod types;
 mod utils;
 
-pub const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.json");
-
 #[derive(Debug, Error)]
 pub enum ProveBlockError {
     #[error("RPC Error: {0}")]
@@ -67,6 +66,8 @@ pub enum ProveBlockError {
     StarknetApiError(StarknetApiError),
     #[error("To Blockifier Error: {0}")]
     ToBlockifierError(#[from] ToBlockifierError),
+    #[error("Felt Conversion Error: {0}")]
+    FeltConversionError(#[from] FeltConversionError),
 }
 
 fn compute_class_commitment(
@@ -160,7 +161,7 @@ pub async fn prove_block(
         };
     let old_block_number = Felt252::from(older_block.block_number);
     let old_block_hash = older_block.block_hash;
-    let block_context = build_block_context(chain_id.clone(), &block_with_txs, starknet_version);
+    let block_context = build_block_context(chain_id.clone(), &block_with_txs, starknet_version)?;
 
     // TODO: nasty clone, the conversion fns don't take references
     let transactions: Vec<_> =
