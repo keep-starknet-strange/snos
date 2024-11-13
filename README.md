@@ -15,6 +15,20 @@
 
 </div>
 
+## Table of Contents
+- [Table of Contents](#table-of-contents)
+- [📖 About](#-about)
+- [🛠️ Getting Started](#️-getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [🧪 Running Tests](#-running-tests)
+  - [Run Tests](#run-tests)
+  - [Reset Tests](#reset-tests)
+- [🚀 Usage](#-usage)
+  - [Adding SNOS as a Dependency](#adding-snos-as-a-dependency)
+  - [Using the **prove_block** Binary](#using-the-prove_block-binary)
+- [📜 License](#-license)
+
 
 ## 📖 About
 
