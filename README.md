@@ -27,6 +27,8 @@
 - [🚀 Usage](#-usage)
   - [Adding SNOS as a Dependency](#adding-snos-as-a-dependency)
   - [Using the **prove_block** Binary](#using-the-prove_block-binary)
+- [🤝 Related Projects](#-related-projects)
+- [📚 Documentation](#-documentation)
 - [📜 License](#-license)
 
 
@@ -117,13 +119,30 @@ Once you have a synced full node, you can start generating PIEs of a given block
 cargo run --release -p prove_block -- --block-number 200000 --rpc-provider http://0.0.0.0:9545
 ```
 
+## 🤝 Related Projects
+
+- [cairo compiler](https://github.com/starkware-libs/cairo): A blazing fast compiler for Cairo, written in Rust
+- [cairo vm](https://github.com/lambdaclass/cairo-vm): A faster and safer implementation of the Cairo VM in Rust
+- [blockifier](https://github.com/starkware-libs/sequencer/tree/7218aa1f7ca3fe21c0a2bede2570820939ffe069/crates/blockifier): The transaction-executing component in the Starknet sequencer.
+- [pathfinder](https://github.com/eqlabs/pathfinder): A Starknet full node written in Rust
+- [madara](https://github.com/madara-alliance/madara): A powerful Starknet client written in Rust.
+
 ## 📚 Documentation
+
+### Cairo:
 - [The Cairo Book](https://book.cairo-lang.org/)
 - [How Cairo Works](https://docs.cairo-lang.org/how_cairo_works/index.html)
+- [Cairo – a Turing-complete STARK-friendly CPU architecture](https://eprint.iacr.org/2021/1063)
+- [A Verified Algebraic Representation of Cairo Program Execution](https://arxiv.org/pdf/2109.14534)
+
+### Starknet
 - [Starknet Docs](https://docs.starknet.io/)
   -  [Starknet State](https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/)
 - [MoonsongLabs talk in StarknetCC](https://www.youtube.com/watch?v=xHc_pKXN9h8)
+
+### StarknetOS
 - [Pragma Article on os.cairo](https://hackmd.io/@pragma/ByP-iux1T)
+- [os.cairo code](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/core/os/os.cairo)
 
 
 ## 📜 License
