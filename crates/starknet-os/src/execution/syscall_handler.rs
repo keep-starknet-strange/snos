@@ -313,7 +313,7 @@ where
                         .get_starknet_api_contract_class()
                         .expect("couldn't get starknet api class")
                         .entry_points_by_type
-                        .get(&starknet_api::deprecated_contract_class::EntryPointType::Constructor)
+                        .get(&starknet_api::contract_class::EntryPointType::Constructor)
                         .expect("should have constructor list")
                         .len();
                     num_constructors

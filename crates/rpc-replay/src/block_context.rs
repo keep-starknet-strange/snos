@@ -1,33 +1,31 @@
-use std::num::NonZeroU128;
-
 use blockifier::blockifier::block::{BlockInfo, GasPrices};
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::versioned_constants::VersionedConstants;
 use starknet::core::types::{BlockWithTxs, Felt, L1DataAvailabilityMode};
-use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
-use starknet_api::{contract_address, felt, patricia_key};
+use starknet_api::block::{BlockNumber, BlockTimestamp, GasPrice, NonzeroGasPrice};
+use starknet_api::contract_address;
+use starknet_api::core::ChainId;
 
 use crate::utils::{felt_to_u128, FeltConversionError};
 
-fn felt_to_gas_price(price: &Felt) -> Result<NonZeroU128, FeltConversionError> {
+fn felt_to_gas_price(price: &Felt) -> Result<starknet_api::block::NonzeroGasPrice, FeltConversionError> {
     // Inspiration taken from Papyrus:
     // https://github.com/starkware-libs/sequencer/blob/7218aa1f7ca3fe21c0a2bede2570820939ffe069/crates/papyrus_execution/src/lib.rs#L363-L371
     if *price == Felt::ZERO {
-        return Ok(NonZeroU128::MIN);
+        // Default will set GasPrice = 1
+        return Ok(starknet_api::block::NonzeroGasPrice::default());
     }
 
     // Catch here if price > U128::MAX
     let gas_price = felt_to_u128(price)?;
-    // If felt_to_u128 conversion is ok, it won't fail cause we're catching the zero above
-    NonZeroU128::new(gas_price).ok_or(FeltConversionError::CustomError("Gas price cannot be zero".to_string()))
+    NonzeroGasPrice::new(GasPrice(gas_price)).map_err(|e| FeltConversionError::CustomError(e.to_string()))
 }
 
 pub fn build_block_context(
     chain_id: ChainId,
     block: &BlockWithTxs,
-    starknet_version: blockifier::versioned_constants::StarknetVersion,
+    starknet_version: starknet_api::block::StarknetVersion,
 ) -> Result<BlockContext, FeltConversionError> {
     let sequencer_address_hex = block.sequencer_address.to_hex_string();
     let sequencer_address = contract_address!(sequencer_address_hex.as_str());
@@ -40,12 +38,14 @@ pub fn build_block_context(
         block_number: BlockNumber(block.block_number),
         block_timestamp: BlockTimestamp(block.timestamp),
         sequencer_address,
-        gas_prices: GasPrices {
-            eth_l1_gas_price: felt_to_gas_price(&block.l1_gas_price.price_in_wei)?,
-            strk_l1_gas_price: felt_to_gas_price(&block.l1_gas_price.price_in_fri)?,
-            eth_l1_data_gas_price: felt_to_gas_price(&block.l1_data_gas_price.price_in_wei)?,
-            strk_l1_data_gas_price: felt_to_gas_price(&block.l1_data_gas_price.price_in_fri)?,
-        },
+        gas_prices: GasPrices::new(
+            felt_to_gas_price(&block.l1_gas_price.price_in_wei)?,
+            felt_to_gas_price(&block.l1_gas_price.price_in_fri)?,
+            felt_to_gas_price(&block.l1_data_gas_price.price_in_wei)?,
+            felt_to_gas_price(&block.l1_data_gas_price.price_in_fri)?,
+            NonzeroGasPrice::default(),
+            NonzeroGasPrice::default(),
+        ),
         use_kzg_da,
     };
 
@@ -62,7 +62,7 @@ pub fn build_block_context(
         },
     };
 
-    let versioned_constants = VersionedConstants::get(starknet_version);
+    let versioned_constants = VersionedConstants::get(&starknet_version)?;
     let bouncer_config = BouncerConfig::max();
 
     Ok(BlockContext::new(block_info, chain_info, versioned_constants.clone(), bouncer_config))
@@ -71,6 +71,9 @@ pub fn build_block_context(
 #[cfg(test)]
 mod tests {
 
+    use std::num::NonZeroU128;
+
+    use blockifier::transaction::objects::FeeType;
     use starknet::core::types::{Felt, ResourcePrice};
     use starknet_api::core::ChainId;
 
@@ -96,16 +99,28 @@ mod tests {
             transactions: vec![],
         };
 
-        let starknet_version = blockifier::versioned_constants::StarknetVersion::Latest;
+        let starknet_version = starknet_api::block::StarknetVersion::LATEST;
 
         // Call this function must not fail
         let block_context = build_block_context(chain_id, &block, starknet_version).unwrap();
 
-        // Verify that gas prices were set to NonZeroU128::MIN
-        assert_eq!(block_context.block_info().gas_prices.eth_l1_gas_price, NonZeroU128::MIN);
-        assert_eq!(block_context.block_info().gas_prices.strk_l1_gas_price, NonZeroU128::MIN);
-        assert_eq!(block_context.block_info().gas_prices.eth_l1_data_gas_price, NonZeroU128::MIN);
-        assert_eq!(block_context.block_info().gas_prices.strk_l1_data_gas_price, NonZeroU128::MIN);
+        // Verify that gas prices were set to NonzeroGasPrice::default() --> 1
+        assert_eq!(
+            block_context.block_info().gas_prices.get_l1_gas_price_by_fee_type(&FeeType::Eth),
+            NonzeroGasPrice::default()
+        );
+        assert_eq!(
+            block_context.block_info().gas_prices.get_l1_gas_price_by_fee_type(&FeeType::Strk),
+            NonzeroGasPrice::default()
+        );
+        assert_eq!(
+            block_context.block_info().gas_prices.get_l1_data_gas_price_by_fee_type(&FeeType::Eth),
+            NonzeroGasPrice::default()
+        );
+        assert_eq!(
+            block_context.block_info().gas_prices.get_l1_data_gas_price_by_fee_type(&FeeType::Strk),
+            NonzeroGasPrice::default()
+        );
     }
 
     #[test]
@@ -139,19 +154,26 @@ mod tests {
             transactions: vec![],
         };
 
-        let starknet_version = blockifier::versioned_constants::StarknetVersion::Latest;
+        let starknet_version = starknet_api::block::StarknetVersion::LATEST;
         let block_context = build_block_context(chain_id, &block, starknet_version).unwrap();
 
         // Verify that gas prices match our input values
-        assert_eq!(block_context.block_info().gas_prices.eth_l1_gas_price, NonZeroU128::new(wei_l1_price).unwrap());
-        assert_eq!(block_context.block_info().gas_prices.strk_l1_gas_price, NonZeroU128::new(fri_l1_price).unwrap());
         assert_eq!(
-            block_context.block_info().gas_prices.eth_l1_data_gas_price,
-            NonZeroU128::new(wei_l1_data_price).unwrap()
+            block_context.block_info().gas_prices.get_l1_gas_price_by_fee_type(&FeeType::Eth),
+            NonzeroGasPrice::new_unchecked(wei_l1_price)
         );
         assert_eq!(
-            block_context.block_info().gas_prices.strk_l1_data_gas_price,
-            NonZeroU128::new(fri_l1_data_price).unwrap()
+            block_context.block_info().gas_prices.get_l1_gas_price_by_fee_type(&FeeType::Eth),
+            NonzeroGasPrice::new_unchecked(fri_l1_price)
+        );
+
+        assert_eq!(
+            block_context.block_info().gas_prices.get_l1_data_gas_price_by_fee_type(&FeeType::Eth),
+            NonzeroGasPrice::new_unchecked(wei_l1_data_price)
+        );
+        assert_eq!(
+            block_context.block_info().gas_prices.get_l1_data_gas_price_by_fee_type(&FeeType::Eth),
+            NonzeroGasPrice::new_unchecked(fri_l1_data_price)
         );
     }
 }

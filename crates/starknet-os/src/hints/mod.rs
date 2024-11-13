@@ -583,7 +583,7 @@ where
             .tx_execution_info
             .as_ref()
             .ok_or(HintError::CustomHint("ExecutionHelper should have tx_execution_info".to_owned().into_boxed_str()))
-            .map(|tx_execution_info| tx_execution_info.transaction_receipt.fee)
+            .map(|tx_execution_info| tx_execution_info.receipt.fee)
     })??;
 
     insert_value_into_ap(vm, Felt252::from(actual_fee.0))

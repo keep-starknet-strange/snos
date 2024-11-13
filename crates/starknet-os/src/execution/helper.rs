@@ -10,7 +10,7 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
-use starknet_api::deprecated_contract_class::EntryPointType;
+use starknet_api::contract_class::EntryPointType;
 use tokio::sync::RwLock;
 
 use super::secp_handler::SecpSyscallProcessor;

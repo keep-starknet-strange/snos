@@ -9,9 +9,9 @@ use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
-use starknet_api::{contract_address, felt, patricia_key};
+use starknet_api::block::{BlockNumber, BlockTimestamp, NonzeroGasPrice};
+use starknet_api::contract_address;
+use starknet_api::core::{ChainId, ContractAddress};
 
 use crate::error::SnOsError;
 use crate::utils::ChainIdNum;
@@ -125,12 +125,14 @@ impl StarknetGeneralConfig {
             block_timestamp: BlockTimestamp(0),
 
             sequencer_address: self.sequencer_address,
-            gas_prices: GasPrices {
-                eth_l1_gas_price: 1u128.try_into().unwrap(), // TODO: update with 4844
-                strk_l1_gas_price: 1u128.try_into().unwrap(),
-                eth_l1_data_gas_price: 1u128.try_into().unwrap(),
-                strk_l1_data_gas_price: 1u128.try_into().unwrap(),
-            },
+            gas_prices: GasPrices::new(
+                NonzeroGasPrice::default(),
+                NonzeroGasPrice::default(),
+                NonzeroGasPrice::default(),
+                NonzeroGasPrice::default(),
+                NonzeroGasPrice::default(),
+                NonzeroGasPrice::default(),
+            ),
             use_kzg_da: false,
         };
 

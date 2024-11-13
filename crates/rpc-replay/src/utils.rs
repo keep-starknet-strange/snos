@@ -17,6 +17,8 @@ pub enum FeltConversionError {
     OverflowError,
     #[error("{0}")]
     CustomError(String),
+    #[error("VersionedConstantError: {0}")]
+    VersionedConstantsError(#[from] blockifier::versioned_constants::VersionedConstantsError),
 }
 
 pub fn felt_to_u128(felt: &Felt) -> Result<u128, FeltConversionError> {

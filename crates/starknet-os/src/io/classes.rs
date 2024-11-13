@@ -7,7 +7,8 @@ use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use pathfinder_gateway_types::class_hash::{compute_cairo_hinted_class_hash, json, prepare_json_contract_definition};
-use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, EntryPointType};
+use starknet_api::contract_class::EntryPointType;
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 
 use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
