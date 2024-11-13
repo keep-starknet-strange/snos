@@ -53,15 +53,6 @@ In order to compile the starknet os cairo program, you need to install the cairo
 This will create a virtual environment and download needed dependencies to compile cairo programs.
 
 ## Test Setup
-
-**Cairo Env**
-(see: https://docs.cairo-lang.org/0.12.0/quickstart.html)
-
-```bash
-poetry install
-poetry shell
-```
-
 **Run Tests**
 
 ```bash
