@@ -1,10 +1,10 @@
 use cairo_vm::Felt252;
-use starknet_api::transaction::{Resource, ResourceBoundsMapping};
+use starknet_api::transaction::fields::{DeprecatedResourceBoundsMapping, Resource};
 
 pub const L1_GAS: &str = "L1_GAS";
 pub const L2_GAS: &str = "L2_GAS";
 
-pub fn create_resource_bounds_list(resource_bounds: &ResourceBoundsMapping) -> Vec<Felt252> {
+pub fn create_resource_bounds_list(resource_bounds: &DeprecatedResourceBoundsMapping) -> Vec<Felt252> {
     let l1_gas = Felt252::from_bytes_be_slice(L1_GAS.as_bytes());
     let l2_gas = Felt252::from_bytes_be_slice(L2_GAS.as_bytes());
 

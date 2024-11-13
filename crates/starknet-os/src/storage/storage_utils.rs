@@ -121,14 +121,14 @@ pub async fn build_starknet_storage_async<S: Storage + Send + Sync, H: HashFunct
 /// Note that this makes a serialize -> deserialize pass, so it is not cheap!
 pub fn deprecated_contract_class_api2vm(
     api_class: &starknet_api::deprecated_contract_class::ContractClass,
-) -> serde_json::Result<blockifier::execution::contract_class::ContractClass> {
+) -> serde_json::Result<blockifier::execution::contract_class::RunnableContractClass> {
     let serialized = serde_json::to_string(&api_class)?;
 
     let vm_class_v0_inner: blockifier::execution::contract_class::ContractClassV0Inner =
         serde_json::from_str(serialized.as_str())?;
 
     let vm_class_v0 = blockifier::execution::contract_class::ContractClassV0(std::sync::Arc::new(vm_class_v0_inner));
-    let vm_class = blockifier::execution::contract_class::ContractClass::V0(vm_class_v0);
+    let vm_class = blockifier::execution::contract_class::RunnableContractClass::V0(vm_class_v0);
 
     Ok(vm_class)
 }

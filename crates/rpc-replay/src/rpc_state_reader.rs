@@ -1,9 +1,10 @@
-use blockifier::execution::contract_class::ContractClass;
+use blockifier::execution::contract_class::RunnableContractClass;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
 use rpc_client::client::RpcClient;
 use starknet::core::types::{BlockId, Felt, StarknetError};
 use starknet::providers::{Provider, ProviderError};
+use starknet_api::contract_class::ContractClass;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
@@ -68,7 +69,7 @@ impl AsyncRpcStateReader {
         Ok(ClassHash(class_hash))
     }
 
-    pub async fn get_compiled_contract_class_async(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+    pub async fn get_compiled_contract_class_async(&self, class_hash: ClassHash) -> StateResult<RunnableContractClass> {
         let contract_class = match self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0).await {
             Ok(contract_class) => Ok(contract_class),
             // If the ContractClass is declared in the current block,
@@ -134,7 +135,7 @@ impl StateReader for AsyncRpcStateReader {
             .map_err(|e| StateError::StateReadError(e.to_string()))?
     }
 
-    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<RunnableContractClass> {
         execute_coroutine(self.get_compiled_contract_class_async(class_hash)).map_err(to_state_err)?
     }
 

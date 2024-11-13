@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use blockifier::context::BlockContext;
-use blockifier::execution::contract_class::ContractClass::{V0, V1};
+use blockifier::execution::contract_class::RunnableContractClass::{V0, V1};
 use blockifier::state::cached_state::{CachedState, CommitmentStateDiff};
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
