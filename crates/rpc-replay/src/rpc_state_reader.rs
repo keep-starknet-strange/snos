@@ -4,7 +4,6 @@ use blockifier::state::state_api::{StateReader, StateResult};
 use rpc_client::client::RpcClient;
 use starknet::core::types::{BlockId, Felt, StarknetError};
 use starknet::providers::{Provider, ProviderError};
-use starknet_api::contract_class::ContractClass;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
@@ -82,7 +81,7 @@ impl AsyncRpcStateReader {
             Err(e) => Err(provider_error_to_state_error(e)),
         }?;
 
-        let contract_class: ContractClass = match contract_class {
+        let contract_class: RunnableContractClass = match contract_class {
             starknet::core::types::ContractClass::Sierra(sierra_class) => {
                 let contract_class = GenericSierraContractClass::from(sierra_class);
                 let compiled_class = contract_class.compile().map_err(to_state_err)?;

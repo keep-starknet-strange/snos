@@ -14,6 +14,7 @@ use starknet::core::types::{
     TransactionTrace, TransactionTraceWithHash,
 };
 use starknet::providers::{Provider, ProviderError};
+use starknet_api::block::GasPrice;
 use starknet_api::core::{calculate_contract_address, ContractAddress, PatriciaKey};
 use starknet_api::execution_resources::GasAmount;
 use starknet_api::transaction::fields::{Fee, ValidResourceBounds};
@@ -46,20 +47,20 @@ pub enum ToBlockifierError {
 
 pub fn resource_bounds_core_to_api(
     resource_bounds: &ResourceBoundsMapping,
-) -> starknet_api::transaction::ResourceBoundsMapping {
-    starknet_api::transaction::ResourceBoundsMapping(BTreeMap::from([
+) -> starknet_api::transaction::fields::DeprecatedResourceBoundsMapping {
+    starknet_api::transaction::fields::DeprecatedResourceBoundsMapping(BTreeMap::from([
         (
-            starknet_api::transaction::Resource::L1Gas,
-            starknet_api::transaction::ResourceBounds {
-                max_amount: resource_bounds.l1_gas.max_amount,
-                max_price_per_unit: resource_bounds.l1_gas.max_price_per_unit,
+            starknet_api::transaction::fields::Resource::L1Gas,
+            starknet_api::transaction::fields::ResourceBounds {
+                max_amount: GasAmount(resource_bounds.l1_gas.max_amount),
+                max_price_per_unit: GasPrice(resource_bounds.l1_gas.max_price_per_unit),
             },
         ),
         (
-            starknet_api::transaction::Resource::L2Gas,
-            starknet_api::transaction::ResourceBounds {
-                max_amount: resource_bounds.l2_gas.max_amount,
-                max_price_per_unit: resource_bounds.l2_gas.max_price_per_unit,
+            starknet_api::transaction::fields::Resource::L2Gas,
+            starknet_api::transaction::fields::ResourceBounds {
+                max_amount: GasAmount(resource_bounds.l2_gas.max_amount),
+                max_price_per_unit: GasPrice(resource_bounds.l2_gas.max_price_per_unit),
             },
         ),
     ]))
@@ -98,7 +99,7 @@ fn invoke_v3_to_blockifier(
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::InvokeTransaction::V3(starknet_api::transaction::InvokeTransactionV3 {
-        resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
+        resource_bounds: ValidResourceBounds::try_from(resource_bounds_core_to_api(&tx.resource_bounds))?,
         tip: starknet_api::transaction::fields::Tip(tx.tip),
         signature: starknet_api::transaction::fields::TransactionSignature(tx.signature.to_vec()),
         nonce: starknet_api::core::Nonce(tx.nonce),
@@ -135,18 +136,17 @@ async fn create_class_info(
         starknet::core::types::ContractClass::Sierra(sierra) => {
             let generic_sierra = GenericSierraContractClass::from(sierra);
             let flattened_sierra = generic_sierra.clone().to_starknet_core_contract_class()?;
-            let contract_class = starknet_api::contract_class::ContractClass::V1(
-                generic_sierra.compile()?.to_blockifier_contract_class()?,
-            );
+
+            let casm_contract = generic_sierra.compile()?;
+            let contract_class =
+                starknet_api::contract_class::ContractClass::V1(casm_contract.to_cairo_lang_contract_class()?);
 
             (contract_class, flattened_sierra.sierra_program.len(), flattened_sierra.abi.len())
         }
-
         starknet::core::types::ContractClass::Legacy(legacy) => {
             let generic_legacy = GenericDeprecatedCompiledClass::try_from(legacy)?;
             let contract_class =
-                starknet_api::contract_class::ContractClass::V0(generic_legacy.to_blockifier_contract_class()?);
-
+                starknet_api::contract_class::ContractClass::V0(generic_legacy.to_starknet_api_contract_class()?);
             (contract_class, 0, 0)
         }
     };
@@ -200,7 +200,7 @@ async fn declare_v3_to_blockifier(
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::DeclareTransaction::V3(starknet_api::transaction::DeclareTransactionV3 {
-        resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
+        resource_bounds: ValidResourceBounds::try_from(resource_bounds_core_to_api(&tx.resource_bounds))?,
         tip: starknet_api::transaction::fields::Tip(tx.tip),
         signature: starknet_api::transaction::fields::TransactionSignature(tx.signature.clone()),
         nonce: starknet_api::core::Nonce(tx.nonce),
@@ -323,7 +323,7 @@ fn deploy_account_v3_to_blockifier(
     let tx_hash = TransactionHash(tx.transaction_hash);
     let api_tx = starknet_api::transaction::DeployAccountTransaction::V3(
         starknet_api::transaction::DeployAccountTransactionV3 {
-            resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
+            resource_bounds: ValidResourceBounds::try_from(resource_bounds_core_to_api(&tx.resource_bounds))?,
             tip: starknet_api::transaction::fields::Tip(tx.tip),
             signature: starknet_api::transaction::fields::TransactionSignature(tx.signature.clone()),
             nonce: starknet_api::core::Nonce(tx.nonce),

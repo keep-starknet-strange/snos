@@ -5,7 +5,7 @@ pub mod output;
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use starknet_api::transaction::ResourceBoundsMapping;
+use starknet_api::transaction::fields::DeprecatedResourceBoundsMapping;
 
 use crate::utils::{Felt252HexNoPrefix, Felt252Str};
 
@@ -66,7 +66,7 @@ pub struct InternalTransaction {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tip: Option<Felt252>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub resource_bounds: Option<ResourceBoundsMapping>,
+    pub resource_bounds: Option<DeprecatedResourceBoundsMapping>,
     #[serde_as(as = "Option<Vec<Felt252Str>>")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub paymaster_data: Option<Vec<Felt252>>,

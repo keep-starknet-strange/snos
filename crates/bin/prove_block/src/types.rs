@@ -9,7 +9,7 @@ use starknet::core::types::{
     Transaction,
 };
 use starknet_api::core::{calculate_contract_address, ClassHash};
-use starknet_api::transaction::{Calldata, ContractAddressSalt};
+use starknet_api::transaction::fields::{Calldata, ContractAddressSalt};
 use starknet_os::io::InternalTransaction;
 
 // entry point for "__execute__"

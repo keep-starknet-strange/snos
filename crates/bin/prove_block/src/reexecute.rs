@@ -27,12 +27,12 @@ use starknet_os::storage::storage::{Fact, HashFunctionType};
 /// Retrieves the transaction hash from a Blockifier `Transaction` object.
 fn get_tx_hash(tx: &Transaction) -> TransactionHash {
     match tx {
-        Transaction::AccountTransaction(account_tx) => match account_tx {
+        Transaction::Account(account_tx) => match account_tx {
             AccountTransaction::Declare(declare_tx) => declare_tx.tx_hash,
-            AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.tx_hash,
-            AccountTransaction::Invoke(invoke_tx) => invoke_tx.tx_hash,
+            AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.tx.tx_hash,
+            AccountTransaction::Invoke(invoke_tx) => invoke_tx.tx.tx_hash,
         },
-        Transaction::L1HandlerTransaction(l1_handler_tx) => l1_handler_tx.tx_hash,
+        Transaction::L1Handler(l1_handler_tx) => l1_handler_tx.tx_hash,
     }
 }
 

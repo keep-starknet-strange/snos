@@ -9,9 +9,9 @@ use rpc_client::pathfinder::proofs::{
 };
 use rpc_client::RpcClient;
 use starknet::core::types::BlockWithTxs;
-use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::contract_address;
+use starknet_api::core::ContractAddress;
 use starknet_api::state::StorageKey;
-use starknet_api::{contract_address, felt, patricia_key};
 use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use starknet_os::starkware_utils::commitment_tree::base_types::Height;
 use starknet_types_core::felt::Felt;
@@ -207,14 +207,14 @@ pub(crate) async fn get_class_proofs(
     Ok(proofs)
 }
 
-pub(crate) fn get_starknet_version(block_with_txs: &BlockWithTxs) -> blockifier::versioned_constants::StarknetVersion {
+pub(crate) fn get_starknet_version(block_with_txs: &BlockWithTxs) -> starknet_api::block::StarknetVersion {
     let starknet_version_str = &block_with_txs.starknet_version;
     match starknet_version_str.as_ref() {
-        "0.13.0" => blockifier::versioned_constants::StarknetVersion::V0_13_0,
-        "0.13.1" => blockifier::versioned_constants::StarknetVersion::V0_13_1,
-        "0.13.1.1" => blockifier::versioned_constants::StarknetVersion::V0_13_1_1,
-        "0.13.2" => blockifier::versioned_constants::StarknetVersion::V0_13_2,
-        "0.13.2.1" => blockifier::versioned_constants::StarknetVersion::Latest,
+        "0.13.0" => starknet_api::block::StarknetVersion::V0_13_0,
+        "0.13.1" => starknet_api::block::StarknetVersion::V0_13_1,
+        "0.13.1.1" => starknet_api::block::StarknetVersion::V0_13_1_1,
+        "0.13.2" => starknet_api::block::StarknetVersion::V0_13_2,
+        "0.13.2.1" => starknet_api::block::StarknetVersion::LATEST,
         other => {
             unimplemented!("Unsupported Starknet version: {}", other)
         }
