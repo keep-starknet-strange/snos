@@ -7,9 +7,11 @@
 
   [Report Bug](https://github.com/keep-starknet-strange/snos/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=bug%3A+) · [Request Feature](https://github.com/keep-starknet-strange/snos/issues/new?labels=enhancement&title=feat%3A+)
 
-  ![Check Workflow Status](https://github.com/keep-starknet-strange/snos/actions/workflows/check.yml/badge.svg)
-  ![license](https://img.shields.io/github/license/keep-starknet-strange/snos)
-  ![PRs Welcome](https://img.shields.io/static/v1?color=blue&label=PRs&style=flat&message=welcome)
+  [![Check Workflow Status](https://github.com/keep-starknet-strange/snos/actions/workflows/check.yml/badge.svg)](https://github.com/keep-starknet-strange/snos/actions/workflows/check.yml)
+[![license](https://img.shields.io/github/license/keep-starknet-strange/snos)](/LICENSE)
+[![pr-welcome]](#-contributing)
+
+[pr-welcome]: https://img.shields.io/static/v1?color=blue&label=PRs&style=flat&message=welcome
 </div>
 
 ---
