@@ -65,10 +65,15 @@ In order to compile the Starknet OS Cairo program, you’ll need the Cairo compi
 ./setup-scripts/setup-cairo.sh
 ```
 
-This will create a virtual environment and download needed dependencies to compile cairo programs.
+This will create a virtual environment and download needed dependencies to compile cairo programs. You will need to activate it to compile Cairo programs.
 
 ## 🧪 Running Tests
 To verify your setup, follow these steps:
+
+### Activate snos-env:
+```bash
+ source ./snos-env/bin/activate
+ ```
 
 ### Run Tests
 
