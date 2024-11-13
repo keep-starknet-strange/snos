@@ -12,9 +12,9 @@
 [![pr-welcome]](#-contributing)
 
 [pr-welcome]: https://img.shields.io/static/v1?color=blue&label=PRs&style=flat&message=welcome
+
 </div>
 
----
 
 ## 📖 About
 
@@ -69,3 +69,19 @@ If you need to reset the test environment:
 ```bash
 ./scripts/reset-tests.sh
 ```
+
+##  🚀 Usage 
+### Adding SNOS as a dependency
+
+You can add the following to your rust project's `Cargo.toml`:
+
+```toml
+starknet-os = { git = "https://github.com/keep-starknet-strange/snos", rev = "662d1706f5855044e52ebf688a18dd80016c8700" }
+```
+
+### Using **prove_block** binary
+
+
+## 📜 License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
