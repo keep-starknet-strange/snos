@@ -79,7 +79,18 @@ You can add the following to your rust project's `Cargo.toml`:
 starknet-os = { git = "https://github.com/keep-starknet-strange/snos", rev = "662d1706f5855044e52ebf688a18dd80016c8700" }
 ```
 
-### Using **prove_block** binary
+### Using the **prove_block** Binary
+
+To execute correctly, SNOS requires detailed block information, including:
+
+- **State changes**: Information about new classes, contracts, and any modifications to contract storage.
+- **Storage proofs**: Proofs from both class and contract tries, essential for validating that updated values match the global state root.
+- **Transaction execution Information**: Data on calls, subcalls, and specific program counters (PCs) visited during execution.
+
+The `prove_block` binary handles this entire process by collecting, formatting, and feeding the necessary data into the OS, ensuring the correct `OSInput` is passed for execution.
+
+To accomplish this, it queries the required information from a full node. Currently, Pathfinder is the only full node implementing all the necessary RPC methods, so a synced [Pathfinder](https://github.com/eqlabs/pathfinder) instance running as an [**archive node**](https://github.com/eqlabs/pathfinder?tab=readme-ov-file#state-trie-pruning) (to provide access to storage proofs) is required to execute this binary successfully.
+
 
 
 ## 📜 License
