@@ -83,15 +83,25 @@ starknet-os = { git = "https://github.com/keep-starknet-strange/snos", rev = "66
 
 To execute correctly, SNOS requires detailed block information, including:
 
-- **State changes**: Information about new classes, contracts, and any modifications to contract storage.
-- **Storage proofs**: Proofs from both class and contract tries, essential for validating that updated values match the global state root.
-- **Transaction execution Information**: Data on calls, subcalls, and specific program counters (PCs) visited during execution.
+- **State changes**: Information about new classes, contracts, and any modifications to contract storage. (See [StateDiff](https://github.com/xJonathanLEI/starknet-rs/blob/5c676a64031901b5a203168fd8ef8d6b40a5862f/starknet-core/src/types/codegen.rs#L1723-L1737))
+- **Storage proofs**: [Merkle Proofs](https://www.quicknode.com/docs/starknet/pathfinder_getProof) from both class and contract tries, needed for validating that updated values match the global state root.
+- **Transaction execution Information**: Data on [calls, subcalls](https://github.com/starkware-libs/sequencer/blob/7aa546acde88c94825992501662788e716db5fe0/crates/blockifier/src/transaction/objects.rs#L168-L183), and specific program counters visited ([VisitedPCs](https://github.com/starkware-libs/sequencer/blob/7aa546acde88c94825992501662788e716db5fe0/crates/blockifier/src/state/cached_state.rs#L34-L35)) during execution.
 
 The `prove_block` binary handles this entire process by collecting, formatting, and feeding the necessary data into the OS, ensuring the correct `OSInput` is passed for execution.
 
 To accomplish this, it queries the required information from a full node. Currently, Pathfinder is the only full node implementing all the necessary RPC methods, so a synced [Pathfinder](https://github.com/eqlabs/pathfinder) instance running as an [**archive node**](https://github.com/eqlabs/pathfinder?tab=readme-ov-file#state-trie-pruning) (to provide access to storage proofs) is required to execute this binary successfully.
 
+For example, you can run Pathfinder executing:
 
+```bash
+PATHFINDER_ETHEREUM_API_URL="YOUR_KEY" ./target/release/pathfinder --data-directory /home/herman/pathfinder-data --http-rpc 0.0.0.0:9545 --storage.state-tries archive
+```
+
+Once you have a synced full node, you can start generating PIEs of a given block by running:
+
+```bash
+cargo run --release -p prove_block -- --block-number 200000 --rpc-provider http://0.0.0.0:9545
+```
 
 ## 📜 License
 
