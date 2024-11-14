@@ -627,7 +627,7 @@ where
     PCS: PerContractStorage + 'static,
 {
     let deprecated_tx_info_ptr =
-        get_relocatable_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
+        get_ptr_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
 
     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.start_tx(Some(deprecated_tx_info_ptr)).await;
