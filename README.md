@@ -44,7 +44,7 @@ By re-executing transactions from a block and verifying consistency, it produces
 
 Ensure you have the following dependencies installed:
 - [Rust 1.76.0 or newer](https://www.rust-lang.org/tools/install)
-- Cargo (included with Rust)
+- Cargo 
 - [pyenv](https://github.com/pyenv/pyenv-installer?tab=readme-ov-file#install) (recommended for managing Python versions)
 
 ### Installation
@@ -100,7 +100,7 @@ You can add the following to your rust project's `Cargo.toml`:
 starknet-os = { git = "https://github.com/keep-starknet-strange/snos", rev = "662d1706f5855044e52ebf688a18dd80016c8700" }
 ```
 
-### Using the **prove_block** Binary
+### Using the `prove_block` Binary
 
 To execute correctly, SNOS requires detailed block information, including:
 
