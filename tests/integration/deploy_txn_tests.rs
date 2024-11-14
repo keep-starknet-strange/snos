@@ -434,9 +434,9 @@ async fn deploy_cairo0_via_proxy(block_context: BlockContext, max_fee: Fee) {
     let args: Vec<Felt252> = [
         "0x9ea83ef3294e2b3e2655642e8340dfacc330175a70fe79367e199215b7ffa1", // test_proxy_account contract
         "0x1b1a0649752af1b28b3dc29a1556eee781e4a4c3a1f7f53f90fa834de098c4d", // selector_from_name("foo")
-        "0x2",                                                               // len of foo() arguments
-        "0x0",                                                               // arg1
-        "0x0",                                                               // arg2
+        "0x2",                                                              // len of foo() arguments
+        "0x0",                                                              // arg1
+        "0x0",                                                              // arg2
     ]
     .into_iter()
     .map(Felt252::from_hex_unchecked)
