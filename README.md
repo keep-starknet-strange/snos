@@ -1,29 +1,84 @@
 <div align="center">
-<h1>
-    SNOS
-    <br>
+  <img src="./docs/images/SNOS.png" height="400" width="500">
+  
+  ### ✨ SNOS ✨
+  
+  A Rust Library for running the [Starknet OS](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/core/os/os.cairo).
 
-![SN_Ver_0.12.2](https://img.shields.io/badge/Starknet-0.12.2-0C0C4C.svg?labelColor=282d33&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNTgiIGhlaWdodD0iMTU5IiBmaWxsPSJub25lIiB4bWxuczp2PSJodHRwczovL3ZlY3RhLmlvL25hbm8iPjxnIGZpbGwtcnVsZT0iZXZlbm9kZCI+PHBhdGggZD0iTTAgNzkuOTk2YzAgNDMuNjMxIDM1LjM2OSA3OC45OTkgNzguOTk5IDc4Ljk5OVMxNTggMTIzLjYyNyAxNTggNzkuOTk2IDEyMi42MjkuOTk4IDc4Ljk5OS45OTggMCAzNi4zNjYgMCA3OS45OTZ6IiBmaWxsPSIjMGMwYzRmIi8+PHBhdGggZD0iTTQ0LjE1NCA2MS4zODVsMS45NS02LjAyNWMuMzk2LTEuMjI1IDEuMzYzLTIuMTc5IDIuNTkzLTIuNTU1bDYuMDU0LTEuODYyYS45LjkgMCAwIDAgLjAxNC0xLjcwOGwtNi4wMjctMS45NWMtMS4yMjMtLjM5Ni0yLjE3Ny0xLjM2NC0yLjU1NS0yLjU5M2wtMS44Ni02LjA1NGEuOS45IDAgMCAwLTEuNzA4LS4wMTFsLTEuOTUgNi4wMjVjLS4zOTYgMS4yMjMtMS4zNjQgMi4xNzctMi41OTMgMi41NTVsLTYuMDU0IDEuODZjLS44MzguMjU4LS44NDcgMS40MzgtLjAxNCAxLjcwOGw2LjAyNyAxLjk1YTMuOTUgMy45NSAwIDAgMSAyLjU1NSAyLjU5NmwxLjg2IDYuMDUyYS45LjkgMCAwIDAgMS43MDguMDE0eiIgZmlsbD0iI2ZhZmFmYSIvPjxwYXRoIGQ9Ik0xMzkuODQ4IDU3Ljg3OWMtMi40OTYtMi43OTEtNi4zOTEtNC4zNjItMTAuMTc4LTUuMDA3LTMuODE3LS42MTktNy44Mi0uNTYxLTExLjU4OC4xMDgtNy42MjUgMS4yOS0xNC41NTIgNC40NDctMjAuNTk0IDguMzQyLTMuMTM4IDEuOTExLTUuODEzIDQuMTIzLTguNTg1IDYuMzc2LTEuMzM2IDEuMTM5LTIuNTUzIDIuMzUyLTMuODIyIDMuNTQ4bC0zLjQ2NSAzLjQ0OGMtMy43NjUgMy45MzYtNy40NzcgNy41MjEtMTEuMDY3IDEwLjQ5Mi0zLjYwNSAyLjk1OC02Ljk3NiA1LjIwNC0xMC4yOTggNi43NzItMy4zMiAxLjU3Ny02Ljg3MiAyLjUwNC0xMS41MDIgMi42NTMtNC41ODkuMTYyLTEwLjAxOS0uNjY2LTE1LjgyNy0yLjAzNC01LjgzOS0xLjM2MS0xMS45NzEtMy4zMDEtMTguODIyLTQuOTcxIDIuMzkxIDYuNjMzIDUuOTkxIDEyLjQ5NCAxMC42MTMgMTcuODUyIDQuNjc3IDUuMjY1IDEwLjUxNiAxMC4wNjQgMTguMDE4IDEzLjIyIDcuMzkzIDMuMjI2IDE2LjY4NCA0LjM4MyAyNS4zNzIgMi42MzYgOC43MS0xLjY3NiAxNi4zNTQtNS43MDcgMjIuNTMzLTEwLjM2OCA2LjE5NC00LjcwOSAxMS4yMDYtMTAuMDc0IDE1LjQzMS0xNS42NSAxLjE2Ni0xLjU0MSAxLjc4My0yLjQwMyAyLjYyNy0zLjYwN2wyLjMzMy0zLjQ1NWMxLjYyMS0yLjEzNyAzLjA5Ny00LjU3MSA0LjcwMS02LjY4OSAzLjE0Ni00LjQzNSA2LjI0OC04Ljg2NSA5Ljg1Mi0xMi45NDcgMS44MTQtMi4wNyAzLjcyNy00LjA1IDUuOTg1LTUuOTUzIDEuMTI2LS45MjkgMi4zNDMtMS44MzggMy42OTEtMi42NTdhMTcuNSAxNy41IDAgMCAxIDQuNTkyLTIuMTA5eiIgZmlsbD0idXJsKCNBKSIvPjxwYXRoIGQ9Ik0xMzkuODQ4IDU3Ljg3OGMtMi42ODEtNi43NjYtNy42NjYtMTIuNDYxLTE0LjM1Ny0xNi42NjQtNi42NS00LjE1Ny0xNS44ODYtNi4yNzgtMjUuMDM5LTQuNDY5LTQuNTIxLjg3NC04LjkwMiAyLjU1OC0xMi43NDYgNC44LTMuODI3IDIuMjMzLTcuMjU2IDQuOTIxLTEwLjIyNSA3LjgwNS0xLjQ4MiAxLjQ0Ny0yLjgyNyAyLjk1Ni00LjE2NCA0LjQ3NGwtMy40NjQgNC40MTYtNS4zNSA3LjEwOWMtNi44MiA5LjE0Ni0xNC4xNjUgMTkuODY1LTI2LjIxOCAyMy4wNDItMTEuODMyIDMuMTE4LTE2Ljk2NC4zNTctMjQuMTg2LS43ODQgMS4zMiAzLjQwOSAyLjk1NiA2LjcyIDUuMTc0IDkuNjMyIDIuMTc2IDIuOTcyIDQuNzQ2IDUuNzYzIDcuOTQyIDguMTU1IDEuNjE1IDEuMTQ5IDMuMzIgMi4yODMgNS4yMTMgMy4yNDUgMS44ODUuOTI5IDMuOTE4IDEuNzQ3IDYuMDg4IDIuMzYzIDQuMzE2IDEuMTgzIDkuMTc1IDEuNTk3IDEzLjg4Ljk2MSA0LjcwNy0uNjI4IDkuMjA2LTIuMTIgMTMuMTM5LTQuMTAxIDMuOTYyLTEuOTYyIDcuNDEzLTQuMzUyIDEwLjQ5NC02Ljg3NCA2LjEyNi01LjA4NyAxMC44OS0xMC43MDggMTQuOTE1LTE2LjM4OSAyLjAyNC0yLjg0MSAzLjg2Mi01LjczNSA1LjU2MS04LjYzbDItMy40NDcgMS44NTgtMi45NjVjMi41MzUtMy43OTMgNS4wMTQtNi44MzQgOC4wMjUtOS4xMTcgMi45NjktMi4zNDIgNy4xMDQtNC4wNzIgMTIuNjI5LTQuNDc0IDUuNTAyLS40MDcgMTEuODU0LjM0NSAxOC44MyAxLjkxM3oiIGZpbGw9IiNmYWZhZmEiLz48cGF0aCBkPSJNMTEwLjA4MSAxMTQuMDk1YzAgNC45NjkgNC4wMzEgOSA5IDlhOSA5IDAgMSAwIDAtMThjLTQuOTY5IDAtOSA0LjAzLTkgOXoiIGZpbGw9InVybCgjQikiLz48L2c+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJBIiB4MT0iMTM5LjE3NiIgeTE9IjU1LjUwNSIgeDI9IjI4LjUiIHkyPSIxMTciIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBzdG9wLWNvbG9yPSIjZWM3OTZiIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZTE3NWIxIi8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9IkIiIHgxPSIxMjguMDciIHkxPSIxMDcuNzgxIiB4Mj0iMTEwLjA2OSIgeTI9IjEwOS42ODUiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBzdG9wLWNvbG9yPSIjZWM3OTZiIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZTE3NWIxIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PC9zdmc+)
-[![Check Workflow Status](https://github.com/keep-starknet-strange/snos/actions/workflows/check.yml/badge.svg)](https://github.com/keep-starknet-strange/snos/actions/workflows/check.yml)
+  [Report Bug](https://github.com/keep-starknet-strange/snos/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=bug%3A+) · [Request Feature](https://github.com/keep-starknet-strange/snos/issues/new?labels=enhancement&title=feat%3A+)
 
-[![Exploration_Team](https://img.shields.io/badge/Exploration_Team-29296E.svg?&style=for-the-badge&logo=data:image/svg%2bxml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJhIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODEgMTgxIj48ZGVmcz48c3R5bGU+LmJ7ZmlsbDojZmZmO308L3N0eWxlPjwvZGVmcz48cGF0aCBjbGFzcz0iYiIgZD0iTTE3Ni43Niw4OC4xOGwtMzYtMzcuNDNjLTEuMzMtMS40OC0zLjQxLTIuMDQtNS4zMS0xLjQybC0xMC42MiwyLjk4LTEyLjk1LDMuNjNoLjc4YzUuMTQtNC41Nyw5LjktOS41NSwxNC4yNS0xNC44OSwxLjY4LTEuNjgsMS44MS0yLjcyLDAtNC4yN0w5Mi40NSwuNzZxLTEuOTQtMS4wNC00LjAxLC4xM2MtMTIuMDQsMTIuNDMtMjMuODMsMjQuNzQtMzYsMzcuNjktMS4yLDEuNDUtMS41LDMuNDQtLjc4LDUuMThsNC4yNywxNi41OGMwLDIuNzIsMS40Miw1LjU3LDIuMDcsOC4yOS00LjczLTUuNjEtOS43NC0xMC45Ny0xNS4wMi0xNi4wNi0xLjY4LTEuODEtMi41OS0xLjgxLTQuNCwwTDQuMzksODguMDVjLTEuNjgsMi4zMy0xLjgxLDIuMzMsMCw0LjUzbDM1Ljg3LDM3LjNjMS4zNiwxLjUzLDMuNSwyLjEsNS40NCwxLjQybDExLjQtMy4xMSwxMi45NS0zLjYzdi45MWMtNS4yOSw0LjE3LTEwLjIyLDguNzYtMTQuNzYsMTMuNzNxLTMuNjMsMi45OC0uNzgsNS4zMWwzMy40MSwzNC44NGMyLjIsMi4yLDIuOTgsMi4yLDUuMTgsMGwzNS40OC0zNy4xN2MxLjU5LTEuMzgsMi4xNi0zLjYsMS40Mi01LjU3LTEuNjgtNi4wOS0zLjI0LTEyLjMtNC43OS0xOC4zOS0uNzQtMi4yNy0xLjIyLTQuNjItMS40Mi02Ljk5LDQuMyw1LjkzLDkuMDcsMTEuNTIsMTQuMjUsMTYuNzEsMS42OCwxLjY4LDIuNzIsMS42OCw0LjQsMGwzNC4zMi0zNS43NHExLjU1LTEuODEsMC00LjAxWm0tNzIuMjYsMTUuMTVjLTMuMTEtLjc4LTYuMDktMS41NS05LjE5LTIuNTktMS43OC0uMzQtMy42MSwuMy00Ljc5LDEuNjhsLTEyLjk1LDEzLjg2Yy0uNzYsLjg1LTEuNDUsMS43Ni0yLjA3LDIuNzJoLS42NWMxLjMtNS4zMSwyLjcyLTEwLjYyLDQuMDEtMTUuOGwxLjY4LTYuNzNjLjg0LTIuMTgsLjE1LTQuNjUtMS42OC02LjA5bC0xMi45NS0xNC4xMmMtLjY0LS40NS0xLjE0LTEuMDgtMS40Mi0xLjgxbDE5LjA0LDUuMTgsMi41OSwuNzhjMi4wNCwuNzYsNC4zMywuMTQsNS43LTEuNTVsMTIuOTUtMTQuMzhzLjc4LTEuMDQsMS42OC0xLjE3Yy0xLjgxLDYuNi0yLjk4LDE0LjEyLTUuNDQsMjAuNDYtMS4wOCwyLjk2LS4wOCw2LjI4LDIuNDYsOC4xNiw0LjI3LDQuMTQsOC4yOSw4LjU1LDEyLjk1LDEyLjk1LDAsMCwxLjMsLjkxLDEuNDIsMi4wN2wtMTMuMzQtMy42M1oiLz48L3N2Zz4=)](https://github.com/keep-starknet-strange)
+  [![Check Workflow Status](https://github.com/keep-starknet-strange/snos/actions/workflows/check.yml/badge.svg)](https://github.com/keep-starknet-strange/snos/actions/workflows/check.yml)
+[![license](https://img.shields.io/github/license/keep-starknet-strange/snos)](/LICENSE)
+[![pr-welcome]](#-contributing)
 
-</h1>
+[pr-welcome]: https://img.shields.io/static/v1?color=blue&label=PRs&style=flat&message=welcome
+
 </div>
 
-Rust Library for running the [Starknet OS](https://hackmd.io/@pragma/ByP-iux1T) via the [Cairo VM](https://github.com/lambdaclass/cairo-vm).
+## Table of Contents
+- [Table of Contents](#table-of-contents)
+- [📖 About](#-about)
+- [🛠️ Getting Started](#️-getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [🧪 Running Tests](#-running-tests)
+  - [Run Tests](#run-tests)
+  - [Reset Tests](#reset-tests)
+- [🚀 Usage](#-usage)
+  - [Adding SNOS as a Dependency](#adding-snos-as-a-dependency)
+  - [Using the **prove_block** Binary](#using-the-prove_block-binary)
+- [🤝 Related Projects](#-related-projects)
+- [📚 Documentation](#-documentation)
+- [📜 License](#-license)
 
-## Test Setup
 
-**Cairo Env**
-(see: https://docs.cairo-lang.org/0.12.0/quickstart.html)
+## 📖 About
 
+[Starknet OS](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/core/os/os.cairo) is a [Cairo](https://www.cairo-lang.org/) program designed to prove the integrity of state transitions between blocks on Starknet.
+
+By re-executing transactions from a block and verifying consistency, it produces a [PIE](https://github.com/starkware-libs/cairo-lang/blob/a86e92bfde9c171c0856d7b46580c66e004922f3/src/starkware/cairo/lang/vm/cairo_pie.py#L219-L225) (Program Independent Execution) result. This PIE can be used to generate a STARK proof of integrity, which, if accepted by Starknet L1 verifiers, confirms block validity and updates the Starknet state root in the [StarknetCore contract](https://etherscan.io/address/0xc662c410c0ecf747543f5ba90660f6abebd9c8c4#code).
+
+## 🛠️ Getting Started
+
+### Prerequisites
+
+Ensure you have the following dependencies installed:
+- [Rust 1.76.0 or newer](https://www.rust-lang.org/tools/install)
+
+#### Optional
+- [pyenv](https://github.com/pyenv/pyenv-installer?tab=readme-ov-file#install) (recommended for managing Python versions and setting up environment)
+
+- [rclone](https://rclone.org/install/) (recommended for downloading Pathfinder's database and being able to quickly use [`prove_block`](#using-the-prove_block-binary) binary)
+
+### Installation
+
+1. **Clone the Repository**
+
+Clone this repository and its submodules:
+   ```bash
+   git clone https://github.com/keep-starknet-strange/snos.git --recursive
+  ``` 
+
+#### Install project dependencies
+In order to compile the Starknet OS Cairo program, you’ll need the Cairo compiler:
+
+- Follow the [Cairo documentation](https://docs.cairo-lang.org/quickstart.html)
+- Or simply run:
 ```bash
-poetry install
-poetry shell
+./setup-scripts/setup-cairo.sh
 ```
 
-**Run Tests**
+This will create a virtual environment and download needed dependencies to compile cairo programs. You will need to activate it to compile Cairo programs.
+
+## 🧪 Running Tests
+To verify your setup, follow these steps:
+
+### Activate snos-env:
+```bash
+ source ./snos-env/bin/activate
+ ```
+
+### Run Tests
 
 ```bash
 ./scripts/setup-tests.sh
@@ -31,8 +86,73 @@ poetry shell
 cargo test
 ```
 
-**Reset Tests**
+### Reset Tests
+
+If you need to reset the test environment:
 
 ```bash
 ./scripts/reset-tests.sh
 ```
+
+##  🚀 Usage 
+### Adding SNOS as a dependency
+
+You can add the following to your rust project's `Cargo.toml`:
+
+```toml
+starknet-os = { git = "https://github.com/keep-starknet-strange/snos", rev = "662d1706f5855044e52ebf688a18dd80016c8700" }
+```
+
+### Using the `prove_block` Binary
+
+To execute correctly, SNOS requires detailed block information, including:
+
+- **State changes**: Information about new classes, contracts, and any modifications to contract storage. (See [StateDiff](https://github.com/xJonathanLEI/starknet-rs/blob/5c676a64031901b5a203168fd8ef8d6b40a5862f/starknet-core/src/types/codegen.rs#L1723-L1737))
+- **Storage proofs**: [Merkle Proofs](https://www.quicknode.com/docs/starknet/pathfinder_getProof) from both class and contract tries, needed for validating that updated values match the global state root.
+- **Transaction execution Information**: Data on [calls, subcalls](https://github.com/starkware-libs/sequencer/blob/7aa546acde88c94825992501662788e716db5fe0/crates/blockifier/src/transaction/objects.rs#L168-L183), and specific program counters visited ([VisitedPCs](https://github.com/starkware-libs/sequencer/blob/7aa546acde88c94825992501662788e716db5fe0/crates/blockifier/src/state/cached_state.rs#L34-L35)) during execution.
+
+The `prove_block` binary handles this entire process by collecting, formatting, and feeding the necessary data into the OS, ensuring the correct `OSInput` is passed for execution.
+
+To accomplish this, it queries the required information from a full node. Currently, Pathfinder is the only full node implementing all the necessary RPC methods, so a synced [Pathfinder](https://github.com/eqlabs/pathfinder) instance running as an [**archive node**](https://github.com/eqlabs/pathfinder?tab=readme-ov-file#state-trie-pruning) (to provide access to storage proofs) is required to execute this binary successfully.
+
+For example, you can run Pathfinder executing:
+
+```bash
+PATHFINDER_ETHEREUM_API_URL="YOUR_KEY" ./target/release/pathfinder --data-directory /home/herman/pathfinder-data --http-rpc 0.0.0.0:9545 --storage.state-tries archive
+```
+
+Once you have a synced full node, you can start generating PIEs of a given block by running:
+
+```bash
+cargo run --release -p prove_block -- --block-number 200000 --rpc-provider http://0.0.0.0:9545
+```
+
+## 🤝 Related Projects
+
+- [cairo compiler](https://github.com/starkware-libs/cairo): A blazing fast compiler for Cairo, written in Rust
+- [cairo vm](https://github.com/lambdaclass/cairo-vm): A faster and safer implementation of the Cairo VM in Rust
+- [blockifier](https://github.com/starkware-libs/sequencer/tree/7218aa1f7ca3fe21c0a2bede2570820939ffe069/crates/blockifier): The transaction-executing component in the Starknet sequencer.
+- [pathfinder](https://github.com/eqlabs/pathfinder): A Starknet full node written in Rust
+- [madara](https://github.com/madara-alliance/madara): A powerful Starknet client written in Rust.
+
+## 📚 Documentation
+
+### Cairo:
+- [The Cairo Book](https://book.cairo-lang.org/)
+- [How Cairo Works](https://docs.cairo-lang.org/how_cairo_works/index.html)
+- [Cairo – a Turing-complete STARK-friendly CPU architecture](https://eprint.iacr.org/2021/1063)
+- [A Verified Algebraic Representation of Cairo Program Execution](https://arxiv.org/pdf/2109.14534)
+
+### Starknet
+- [Starknet Docs](https://docs.starknet.io/)
+  -  [Starknet State](https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/)
+- [MoonsongLabs talk in StarknetCC](https://www.youtube.com/watch?v=xHc_pKXN9h8)
+
+### StarknetOS
+- [Pragma Article on os.cairo](https://hackmd.io/@pragma/ByP-iux1T)
+- [os.cairo code](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/core/os/os.cairo)
+
+
+## 📜 License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.

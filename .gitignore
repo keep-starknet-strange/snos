@@ -12,6 +12,8 @@ build/*
 # Cairo dependencies
 cairo-lang
 venv
+snos-env
+.python-version
 # Hint Dependency symlink
 starkware
 
