@@ -44,8 +44,11 @@ By re-executing transactions from a block and verifying consistency, it produces
 
 Ensure you have the following dependencies installed:
 - [Rust 1.76.0 or newer](https://www.rust-lang.org/tools/install)
-- Cargo 
-- [pyenv](https://github.com/pyenv/pyenv-installer?tab=readme-ov-file#install) (recommended for managing Python versions)
+
+#### Optional
+- [pyenv](https://github.com/pyenv/pyenv-installer?tab=readme-ov-file#install) (recommended for managing Python versions and setting up environment)
+
+- [rclone](https://rclone.org/install/) (recommended for downloading Pathfinder's database and being able to quickly use [`prove_block`](#using-the-prove_block-binary) binary)
 
 ### Installation
 
