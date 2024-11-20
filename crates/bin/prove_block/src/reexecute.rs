@@ -41,14 +41,14 @@ fn get_tx_hash(tx: &Transaction) -> TransactionHash {
 pub fn reexecute_transactions_with_blockifier<S: StateReader>(
     state: &mut CachedState<S>,
     block_context: &BlockContext,
-    previous_block_hash: Felt252,
+    buffer_block_hash: Felt252,
     txs: Vec<Transaction>,
 ) -> Result<Vec<TransactionExecutionInfo>, Box<dyn Error>> {
     let current_block_number = block_context.block_info().block_number;
-    let previous_block_number_and_hash = if current_block_number.0 >= STORED_BLOCK_HASH_BUFFER {
+    let buffer_block_number_and_hash = if current_block_number.0 >= STORED_BLOCK_HASH_BUFFER {
         Some(BlockNumberHashPair {
             number: starknet_api::block::BlockNumber(current_block_number.0 - STORED_BLOCK_HASH_BUFFER),
-            hash: starknet_api::block::BlockHash(previous_block_hash),
+            hash: starknet_api::block::BlockHash(buffer_block_hash),
         })
     } else {
         None
@@ -57,7 +57,7 @@ pub fn reexecute_transactions_with_blockifier<S: StateReader>(
     // Writes the hash of the (current_block_number - N) block under its block number in the dedicated
     // contract state, where N=STORED_BLOCK_HASH_BUFFER.
     // https://github.com/starkware-libs/sequencer/blob/ee6513d338011067e46c55db4aa6926c8e57650e/crates/blockifier/src/blockifier/block.rs#L110
-    pre_process_block(state, previous_block_number_and_hash, current_block_number)?;
+    pre_process_block(state, buffer_block_number_and_hash, current_block_number)?;
 
     let n_txs = txs.len();
     let tx_execution_infos = txs
