@@ -62,6 +62,8 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::timestamp_rounding_2(167815)]
 #[case::missing_constant_max_high(164684)]
 #[case::retdata_not_a_relocatable(160033)]
+#[case::reexecute_with_blockifier(161599)]
+#[case::reexecute_with_blockifier(174156)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
