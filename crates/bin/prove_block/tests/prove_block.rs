@@ -62,6 +62,7 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::timestamp_rounding_2(167815)]
 #[case::missing_constant_max_high(164684)]
 #[case::retdata_not_a_relocatable(160033)]
+#[case::get_tx_info_using_ptr_over_relocatable(243766)]
 // The following four tests were added due to errors encountered during reexecution with blockifier
 #[case::dict_error_no_value_found_for_key(161599)]
 #[case::peekable_peek_is_none(174156)]
