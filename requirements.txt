@@ -1,0 +1,5 @@
+sympy==1.11.1
+cairo-lang==0.13.2
+ecdsa==0.18.0
+bitarray==2.7.3
+fastecdsa==2.3.0

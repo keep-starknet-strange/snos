@@ -385,18 +385,8 @@ mod tests {
                 tree_height: 251_usize,
                 commitment_facts: Default::default(),
             },
-            deprecated_compiled_classes: Default::default(),
-            compiled_classes: Default::default(),
-            contracts: Default::default(),
-            contract_address_to_class_hash: Default::default(),
-            class_hash_to_compiled_class_hash: Default::default(),
-            general_config: Default::default(),
-            transactions: Default::default(),
-            declared_class_hash_to_component_hashes: Default::default(),
-            new_block_hash: Default::default(),
-            prev_block_hash: Default::default(),
-            compiled_class_visited_pcs: Default::default(),
             full_output: false,
+            ..Default::default()
         }
     }
 

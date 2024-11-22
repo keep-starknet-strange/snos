@@ -2,5 +2,5 @@
 
 bash scripts/teardown-tests.sh
 
-bash scripts/setup-tests.sh
+bash setup-scripts/setup-tests.sh
 
