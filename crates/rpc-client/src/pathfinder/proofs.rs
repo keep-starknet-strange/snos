@@ -75,7 +75,7 @@ impl ContractData {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct PathfinderProof {
-    pub state_commitment: Felt,
+    pub state_commitment: Option<Felt>,
     pub class_commitment: Option<Felt>,
     pub contract_proof: Vec<TrieNode>,
     pub contract_data: Option<ContractData>,
