@@ -149,7 +149,7 @@ pub async fn prove_block(
     // This is a workaorund to catch the case where the block number is less than the buffer and still preserve the check
     // The OS will also handle the case where the block number is less than the buffer.
     let older_block_number =
-        if block_number <= STORED_BLOCK_HASH_BUFFER { 1 } else { block_number - STORED_BLOCK_HASH_BUFFER };
+        if block_number <= STORED_BLOCK_HASH_BUFFER { 0 } else { block_number - STORED_BLOCK_HASH_BUFFER };
 
     let older_block =
         match rpc_client.starknet_rpc().get_block_with_tx_hashes(BlockId::Number(older_block_number)).await? {
