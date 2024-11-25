@@ -58,18 +58,22 @@ mod tests {
 
         let key1 = vec![0, 1, 1];
         let key2 = vec![0, 2, 2];
+        let key3 = vec![0, 3, 3];
         let value1 = "hello".as_bytes().to_vec();
         let value2 = "goodbye".as_bytes().to_vec();
+        let value3 = "yes".as_bytes().to_vec();
 
         s1.set_value(key1.clone(), value1.clone()).await.unwrap();
         s2.set_value(key2.clone(), value2.clone()).await.unwrap();
 
-        let storage = CompositeStorage::new(s1, s2);
+        let mut storage = CompositeStorage::new(s1, s2);
 
+        storage.set_value(key3.clone(), value3.clone()).await.unwrap();
         assert_eq!(storage.get_value(&key1).await.unwrap(), Some(value1));
         assert_eq!(storage.get_value(&key2).await.unwrap(), Some(value2));
+        assert_eq!(storage.get_value(&key3).await.unwrap(), Some(value3));
 
-        let missing_key = vec![0, 3, 3];
+        let missing_key = vec![0, 4, 4];
         assert_eq!(storage.get_value(&missing_key).await.unwrap(), None);
     }
 }
