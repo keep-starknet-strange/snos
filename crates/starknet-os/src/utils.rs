@@ -170,15 +170,94 @@ mod tests {
     use super::*;
 
     #[serde_as]
-    #[derive(Serialize)]
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct ChainIdOnly {
         #[serde_as(as = "ChainIdNum")]
         chain_id: ChainId,
     }
 
+    #[serde_as]
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct FeltStrOnly {
+        #[serde_as(as = "Felt252Str")]
+        felt: Felt252,
+    }
+
+    #[serde_as]
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct FeltNumOnly {
+        #[serde_as(as = "Felt252Num")]
+        felt: Felt252,
+    }
+
+    #[serde_as]
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct FeltHexOnly {
+        #[serde_as(as = "Felt252HexNoPrefix")]
+        felt: Felt252,
+    }
+
     #[test]
-    fn chain_id_num_ok() {
+    fn test_utils_chain_id_num_ok() {
+        let expected = "{\"chain_id\":\"0x534e5f5345504f4c4941\"}".to_owned();
         let c = ChainIdOnly { chain_id: ChainId::Sepolia };
-        serde_json::to_string(&c).unwrap();
+        let result = serde_json::to_string(&c).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_chain_id_num_deser_ok() {
+        let expected = ChainIdOnly { chain_id: ChainId::Other("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\u{1}".to_string()) };
+        let json = r#"{ "chain_id": 1 }"#;
+        let result: ChainIdOnly = serde_json::from_str(json).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_felt_252_str_ok() {
+        let expected = "{\"felt\":\"0x0\"}".to_owned();
+        let f = FeltStrOnly { felt: Felt252::ZERO };
+        let result = serde_json::to_string(&f).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_felt_252_str_deser_ok() {
+        let expected = FeltStrOnly { felt: Felt252::ONE };
+        let json = r#"{ "felt": "0x1" }"#;
+        let result: FeltStrOnly = serde_json::from_str(json).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_felt_252_num_ok() {
+        let expected = "{\"felt\":0}".to_owned();
+        let f = FeltNumOnly { felt: Felt252::ZERO };
+        let result = serde_json::to_string(&f).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_felt_252_num_deser_ok() {
+        let expected = FeltNumOnly { felt: Felt252::ONE };
+        let json = r#"{ "felt": 1 }"#;
+        let result: FeltNumOnly = serde_json::from_str(json).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_felt_252_hex_ok() {
+        let expected = "{\"felt\":\"00\"}".to_owned();
+        let f = FeltHexOnly { felt: Felt252::ZERO };
+        let result = serde_json::to_string(&f).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_felt_252_hex_deser_ok() {
+        let expected = FeltHexOnly { felt: Felt252::ONE };
+        let json = r#"{ "felt": "1" }"#;
+        let result: FeltHexOnly = serde_json::from_str(json).unwrap();
+        assert_eq!(expected, result);
     }
 }
