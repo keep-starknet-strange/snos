@@ -158,7 +158,9 @@ pub mod tests {
         vm.add_memory_segment();
         vm.add_memory_segment();
 
-        let ids_data = ids_data![vars::ids::DEPRECATED_TX_INFO];
+        let mut ids_data = HashMap::new();
+        ids_data.insert(vars::ids::DEPRECATED_TX_INFO.to_owned(), HintReference::new(0, 0, false, false));
+
         let ap_tracking = ApTracking::default();
 
         let mut exec_scopes = ExecutionScopes::new();
@@ -191,7 +193,8 @@ pub mod tests {
         vm.add_memory_segment();
         vm.add_memory_segment();
 
-        let ids_data = ids_data![vars::ids::DEPRECATED_TX_INFO];
+        let mut ids_data = HashMap::new();
+        ids_data.insert(vars::ids::DEPRECATED_TX_INFO.to_owned(), HintReference::new(0, 0, false, false));
         let ap_tracking = ApTracking::default();
 
         let mut exec_scopes = ExecutionScopes::new();
@@ -231,7 +234,9 @@ pub mod tests {
         vm.add_memory_segment();
         vm.add_memory_segment();
 
-        let ids_data = ids_data![vars::ids::DEPRECATED_TX_INFO];
+        let mut ids_data = HashMap::new();
+        ids_data.insert(vars::ids::DEPRECATED_TX_INFO.to_owned(), HintReference::new(0, 0, false, false));
+
         let ap_tracking = ApTracking::default();
 
         let mut exec_scopes = ExecutionScopes::new();

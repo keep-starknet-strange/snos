@@ -538,8 +538,8 @@ pub const BREAKPOINT: &str = "breakpoint()";
 pub fn breakpoint(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
-    _ids_data: &HashMap<String, HintReference>,
-    _ap_tracking: &ApTracking,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let pc = vm.get_pc();
@@ -559,6 +559,13 @@ pub fn breakpoint(
     // println!("\tap_tracking -> {ap_tracking:?}");
     // println!("\texec_scops -> {:?}", exec_scopes.get_local_variables().unwrap().keys());
     // println!("\tids -> {:?}", ids_data);
+
+    log::debug!("\tids_data ({}):", ids_data.len());
+    for (i, (k, _v)) in ids_data.iter().enumerate() {
+        let value = get_maybe_relocatable_from_var_name(k, vm, ids_data, ap_tracking)?;
+        log::debug!("\t\t[{}] \"{}\": \"{:?}\"", i, k, value);
+    }
+
     log::debug!("-----------END BREAKPOINT-----------");
     Ok(())
 }
@@ -619,8 +626,7 @@ pub async fn start_tx_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let deprecated_tx_info_ptr =
-        get_relocatable_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
+    let deprecated_tx_info_ptr = get_ptr_from_var_name(vars::ids::DEPRECATED_TX_INFO, vm, ids_data, ap_tracking)?;
 
     let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.start_tx(Some(deprecated_tx_info_ptr)).await;
