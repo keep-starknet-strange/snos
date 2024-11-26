@@ -1122,23 +1122,10 @@ pub fn check_new_deploy_response(
 ) -> Result<(), HintError> {
     let response_ptr = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
 
-    // Bugfix:
-    // If constructor_retdata_start is a Int(0) instead of a Relocatable, we need to do nothing. This
-    // can happen sometimes when a constructor is called but not defined in the class'es entry
-    // points. Immediately following this, `add_relocation_rule()` will be called with src=0, dest=0
-    // and it will also no-op.
-    //
-    // If "retdata" is an Int instead of a Relocatable, then the vm will error when we try to
-    // request it as such. In this case, there is no retdata anyway, so there is no need to assert
-    // that the contents are equal.
-    let retdata_start_key: Relocatable =
-        (response_ptr + new_syscalls::DeployResponse::constructor_retdata_start_offset())?;
-    let maybe_retdata_start = vm
-        .get_maybe(&retdata_start_key)
-        .ok_or(HintError::VariableNotInScopeError("retdata".to_string().into_boxed_str()))?;
-    let zero = MaybeRelocatable::Int(Felt252::ZERO);
-    if maybe_retdata_start == zero {
-        log::warn!("retdata_start is 0, not a relocatable, ignoring add_relocation_rule()");
+    let retdata_size =
+        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
+    if retdata_size == 0 {
+        log::warn!("Ignoring empty retdata");
         return Ok(());
     }
 
@@ -1149,8 +1136,6 @@ pub fn check_new_deploy_response(
     let response_retdata_size = (constructor_retdata_end - constructor_retdata_start)?;
 
     let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
-    let retdata_size =
-        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
 
     assert_memory_ranges_equal(vm, constructor_retdata_start, response_retdata_size, retdata, retdata_size)?;
 
@@ -1228,8 +1213,8 @@ pub fn check_response_return_value(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
     let retdata_size = get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?;
+    let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
 
     let response = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
     let response_retdata_start =
@@ -1289,19 +1274,6 @@ pub fn add_relocation_rule(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // Bugfix:
-    // add_relocation_rule() can be called sometimes with Int(0) instead of Relocatables. This is
-    // a result of `cast(0, felt*)` being treated as Int(0). We can work around this here by
-    // ensuring that both src and dest end up being Int(0), and in that case we no-op here.
-    let src_ptr_maybe = get_maybe_relocatable_from_var_name(vars::ids::SRC_PTR, vm, ids_data, ap_tracking)?;
-    let dest_ptr_maybe = get_maybe_relocatable_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?;
-
-    let zero = MaybeRelocatable::Int(Felt252::ZERO);
-    if src_ptr_maybe == zero && dest_ptr_maybe == zero {
-        log::warn!("add_relocation_rule with Int(0) => Int(0), doing nothing");
-        return Ok(());
-    }
-
     let src_ptr = get_ptr_from_var_name(vars::ids::SRC_PTR, vm, ids_data, ap_tracking)?;
 
     assert_eq!(src_ptr.offset, 0, "src_ptr offset should be 0");
@@ -1317,12 +1289,12 @@ pub fn add_relocation_rule(
     let dest_ptr = if let Ok(infos) = get_ptr_from_var_name(vars::ids::INFOS, vm, ids_data, ap_tracking) {
         let infos_0_end = vm.get_relocatable((infos + 1)?)?;
         log::warn!("rewriting dest_ptr for segment_arena workaround");
-        (infos_0_end + 1u32)?
+        (infos_0_end + 1u32)?.into()
     } else {
-        get_ptr_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?
+        get_maybe_relocatable_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?
     };
 
-    vm.add_relocation_rule(src_ptr, dest_ptr)?;
+    vm.add_relocation_rule_maybe_relocatable(src_ptr, dest_ptr)?;
 
     Ok(())
 }
