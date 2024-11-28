@@ -118,9 +118,20 @@ pub(crate) async fn get_storage_proofs(
     old_block_number: Felt,
 ) -> Result<HashMap<Felt, PathfinderProof>, ClientError> {
     let accessed_keys_by_address = {
-        let mut keys = get_all_accessed_keys(tx_execution_infos);
+        let (mut keys, storage_reads) = get_all_accessed_keys(tx_execution_infos);
+
         // We need to fetch the storage proof for the block hash contract
         keys.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
+
+        // Within the Starknet architecture, the address 0x1 is a special address that maps block numbers to their corresponding block hashes. As some contracts might access storage reads using `get_block_hash_syscall`, it is necessary to add some extra keys here.
+        // By leveraging the structure of this special contract, we filter out storage_read_values that are greater than old_block_number and add these extra values to the necessary keys from the 0x1 contract address.
+        // It is worth noting that this approach incurs some overhead due to the retrieval of additional data.
+        let additional_storage_reads: Vec<Felt> =
+            storage_reads.values().flat_map(|vec| vec.iter().filter(|&x| x < &old_block_number)).cloned().collect();
+        keys.entry(contract_address!("0x1"))
+            .or_default()
+            .extend(additional_storage_reads.into_iter().map(|key| StorageKey::try_from(key).unwrap()));
+
         keys
     };
 
