@@ -40,7 +40,6 @@ where
     let execution_context_ptr =
         get_relocatable_from_var_name(vars::ids::VALIDATE_DECLARE_EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
     let deprecated_tx_info_ptr = (execution_context_ptr + ExecutionContext::deprecated_tx_info_offset())?;
-
     execution_helper.start_tx(Some(deprecated_tx_info_ptr)).await;
 
     Ok(())

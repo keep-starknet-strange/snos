@@ -10,7 +10,11 @@ from starkware.starknet.common.syscalls import (
 )
 
 @external
-func __validate_declare__(class_hash: felt) {
+func __validate_declare__{syscall_ptr: felt*}(class_hash: felt) {
+    let (tx_info) = get_tx_info();
+    with_attr error_message("assertion failed") {
+        assert tx_info.signature_len = 0;
+    }
     return ();
 }
 

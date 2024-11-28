@@ -86,19 +86,19 @@
         "CONSTRUCTOR": [],
         "EXTERNAL": [
             {
-                "offset": 100,
+                "offset": 108,
                 "selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"
             },
             {
-                "offset": 61,
+                "offset": 69,
                 "selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775"
             },
             {
-                "offset": 20,
+                "offset": 27,
                 "selector": "0x289da278a8dc833409cabfdad1581e8e7d40e42dcaed693fa4008dcdb4963b3"
             },
             {
-                "offset": 43,
+                "offset": 51,
                 "selector": "0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895"
             }
         ],
@@ -110,9 +110,27 @@
                 "accessible_scopes": [
                     "__main__",
                     "__main__",
+                    "__main__.__validate_declare__"
+                ],
+                "end_pc": 25,
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 2,
+                        "offset": 6
+                    },
+                    "reference_ids": {}
+                },
+                "name": "error_message",
+                "start_pc": 22,
+                "value": "assertion failed"
+            },
+            {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__",
                     "__main__.__validate_deploy__"
                 ],
-                "end_pc": 41,
+                "end_pc": 49,
                 "flow_tracking_data": {
                     "ap_tracking": {
                         "group": 4,
@@ -121,7 +139,7 @@
                     "reference_ids": {}
                 },
                 "name": "error_message",
-                "start_pc": 38,
+                "start_pc": 46,
                 "value": "assertion failed"
             }
         ],
@@ -150,16 +168,24 @@
             "0x2",
             "0x480280017ffd8000",
             "0x208b7fff7fff7ffe",
+            "0x480a7ffc7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff9",
+            "0x480680017fff8000",
+            "0x0",
+            "0x400080037ffe7fff",
+            "0x48127ffd7fff8000",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
             "0x1",
             "0x402a7ffd7ffc7fff",
+            "0x480280007ffb8000",
             "0x480280007ffd8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffc",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff4",
             "0x40780017fff7fff",
             "0x1",
-            "0x480280007ffb8000",
+            "0x48127ffe7fff8000",
             "0x480280017ffb8000",
             "0x480280027ffb8000",
             "0x480680017fff8000",
@@ -168,7 +194,7 @@
             "0x208b7fff7fff7ffe",
             "0x480a7ffb7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe9",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe1",
             "0x480680017fff8000",
             "0x0",
             "0x400080037ffe7fff",
@@ -224,7 +250,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffa5",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff9d",
             "0x48127ffd7fff8000",
             "0x480a7ff87fff8000",
             "0x480a7ff97fff8000",
@@ -291,7 +317,7 @@
                     }
                 }
             ],
-            "26": [
+            "34": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -303,13 +329,13 @@
                     "flow_tracking_data": {
                         "ap_tracking": {
                             "group": 3,
-                            "offset": 4
+                            "offset": 13
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "51": [
+            "59": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -327,7 +353,7 @@
                     }
                 }
             ],
-            "76": [
+            "84": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -360,7 +386,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 87,
+                "pc": 95,
                 "type": "function"
             },
             "__main__.__execute__.Args": {
@@ -417,7 +443,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 60,
+                "pc": 68,
                 "type": "function"
             },
             "__main__.__validate__.Args": {
@@ -477,8 +503,13 @@
             },
             "__main__.__validate_declare__.ImplicitArgs": {
                 "full_name": "__main__.__validate_declare__.ImplicitArgs",
-                "members": {},
-                "size": 0,
+                "members": {
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
                 "type": "struct"
             },
             "__main__.__validate_declare__.Return": {
@@ -493,7 +524,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 35,
+                "pc": 43,
                 "type": "function"
             },
             "__main__.__validate_deploy__.Args": {
@@ -543,7 +574,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 100,
+                "pc": 108,
                 "type": "function"
             },
             "__wrappers__.__execute__.Args": {
@@ -578,7 +609,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 61,
+                "pc": 69,
                 "type": "function"
             },
             "__wrappers__.__validate__.Args": {
@@ -613,7 +644,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 20,
+                "pc": 27,
                 "type": "function"
             },
             "__wrappers__.__validate_declare__.Args": {
@@ -629,7 +660,7 @@
                 "type": "struct"
             },
             "__wrappers__.__validate_declare__.Return": {
-                "cairo_type": "(syscall_ptr: felt, pedersen_ptr: felt, range_check_ptr: felt, size: felt, retdata: felt*)",
+                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: felt, range_check_ptr: felt, size: felt, retdata: felt*)",
                 "type": "type_definition"
             },
             "__wrappers__.__validate_declare__.SIZEOF_LOCALS": {
@@ -648,7 +679,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 43,
+                "pc": 51,
                 "type": "function"
             },
             "__wrappers__.__validate_deploy__.Args": {
