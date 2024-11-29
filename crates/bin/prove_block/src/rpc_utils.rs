@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
@@ -12,7 +12,7 @@ use starknet::core::types::BlockWithTxs;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::state::StorageKey;
 use starknet_api::{contract_address, felt, patricia_key};
-use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
+use starknet_os::config::{DEFAULT_STORAGE_TREE_HEIGHT, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::starkware_utils::commitment_tree::base_types::Height;
 use starknet_types_core::felt::Felt;
 
@@ -121,16 +121,36 @@ pub(crate) async fn get_storage_proofs(
         let (mut keys, storage_reads) = get_all_accessed_keys(tx_execution_infos);
 
         // We need to fetch the storage proof for the block hash contract
-        keys.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
+        // Include not only old_block_hash but also retrieve the previous 10 values
+        let block_hash_contract_address = contract_address!("0x1");
+        keys.entry(block_hash_contract_address)
+            .or_default()
+            .insert((old_block_number).try_into().expect("Felt to StorageKey conversion failed"));
+
+        if old_block_number >= Felt252::from(STORED_BLOCK_HASH_BUFFER) {
+            for i in 1..=STORED_BLOCK_HASH_BUFFER {
+                keys.entry(contract_address!("0x1"))
+                    .or_default()
+                    .insert((old_block_number - i).try_into().expect("Felt to StorageKey conversion failed"));
+            }
+        }
 
         // Within the Starknet architecture, the address 0x1 is a special address that maps block numbers to their corresponding block hashes. As some contracts might access storage reads using `get_block_hash_syscall`, it is necessary to add some extra keys here.
         // By leveraging the structure of this special contract, we filter out storage_read_values that are greater than old_block_number and add these extra values to the necessary keys from the 0x1 contract address.
         // It is worth noting that this approach incurs some overhead due to the retrieval of additional data.
-        let additional_storage_reads: Vec<Felt> =
-            storage_reads.values().flat_map(|vec| vec.iter().filter(|&x| x < &old_block_number)).cloned().collect();
-        keys.entry(contract_address!("0x1"))
-            .or_default()
-            .extend(additional_storage_reads.into_iter().map(|key| StorageKey::try_from(key).unwrap()));
+        // let additional_storage_reads: Vec<Felt> = storage_reads.values().flat_map(|vec| vec.iter()).cloned().collect();
+        let additional_storage_reads: Vec<Felt> = storage_reads
+            .values()
+            .flat_map(|vec| vec.iter().cloned().filter(|x| x <= &Felt252::from(block_number)))
+            .collect::<HashSet<Felt>>()
+            .into_iter()
+            .collect();
+
+        keys.entry(block_hash_contract_address).or_default().extend(
+            additional_storage_reads
+                .into_iter()
+                .map(|key| StorageKey::try_from(key).expect("Felt to StorageKey conversion failed")),
+        );
 
         keys
     };
@@ -143,6 +163,7 @@ pub(crate) async fn get_storage_proofs(
         let contract_address_felt = *contract_address.key();
         let storage_proof =
             get_storage_proof_for_contract(client, contract_address, storage_keys.into_iter(), block_number).await?;
+
         storage_proofs.insert(contract_address_felt, storage_proof);
     }
 
