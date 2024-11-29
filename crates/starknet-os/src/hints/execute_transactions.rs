@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
 use cairo_vm::hint_processor::builtin_hint_processor::sha256_utils::sha256_finalize;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
@@ -38,8 +38,10 @@ where
 {
     let execution_helper: ExecutionHelperWrapper<PCS> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
     let execution_context_ptr =
-        get_relocatable_from_var_name(vars::ids::VALIDATE_DECLARE_EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
-    let deprecated_tx_info_ptr = (execution_context_ptr + ExecutionContext::deprecated_tx_info_offset())?;
+        get_ptr_from_var_name(vars::ids::VALIDATE_DECLARE_EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
+    let deprecated_tx_info_ptr =
+        vm.get_relocatable((execution_context_ptr + ExecutionContext::deprecated_tx_info_offset())?)?;
+
     execution_helper.start_tx(Some(deprecated_tx_info_ptr)).await;
 
     Ok(())
