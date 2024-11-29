@@ -363,7 +363,7 @@ async fn deploy_via_invoke_no_calldata_cairo1_account(
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn deploy_cairo0_check_get_info_call(block_context: BlockContext, max_fee: Fee) {
     let account_with_tx_info_check = load_cairo0_feature_contract("account_with_tx_info_check");
-    let class_hash = class_hash!("0x6c8903651a5f89ffc304621a7d8106a0324cc28aca04934fcbbb4398d5c8bc8");
+    let class_hash = class_hash!("0x479f265ce303d47bbfb7b17995017e1e77bd2c131a6651ed484f19e0dede22d");
 
     let ctor_calldata = Calldata::default();
     let deployed_contract_address = calculate_contract_address(
