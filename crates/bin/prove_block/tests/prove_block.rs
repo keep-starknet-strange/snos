@@ -79,6 +79,10 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::key_not_found_in_preimage_7(237086)]
 #[case::key_not_found_in_preimage_8(235385)]
 #[case::key_not_found_in_preimage_9(235620)]
+#[case::memory_addresses_must_be_relocatable(202083)]
+#[case::memory_invalid_signature(216914)]
+#[case::diff_assert_values(218624)]
+#[case::could_nt_compute_operand_op1(204337)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
