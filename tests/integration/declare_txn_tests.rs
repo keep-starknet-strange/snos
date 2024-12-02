@@ -168,11 +168,11 @@ async fn initial_state_declare_cairo0(
     #[from(init_logging)] _logging: (),
 ) -> StarknetTestState {
     let account_with_dummy_validate = load_cairo0_feature_contract("account_with_dummy_validate");
-    let account_with_tx_info_check = load_cairo0_feature_contract("account_with_tx_info_check");
+    let account_with_syscall_checks = load_cairo0_feature_contract("account_with_syscall_checks");
 
     StarknetStateBuilder::new(&block_context)
         .deploy_cairo0_contract(account_with_dummy_validate.0, account_with_dummy_validate.1)
-        .deploy_cairo0_contract(account_with_tx_info_check.0, account_with_tx_info_check.1)
+        .deploy_cairo0_contract(account_with_syscall_checks.0, account_with_syscall_checks.1)
         .set_default_balance(BALANCE, BALANCE)
         .build()
         .await
@@ -236,7 +236,7 @@ async fn declare_cairo0_with_tx_info(
     let mut nonce_manager = NonceManager::default();
 
     let initial_state = initial_state_declare_cairo0.await;
-    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_tx_info_check").unwrap().address;
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_syscall_checks").unwrap().address;
 
     // We want to declare a fresh (never-before-declared) contract, so we don't want to reuse
     // anything from the test fixtures, and we need to do it "by hand". The transaction will
