@@ -111,6 +111,37 @@ fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<Felt
     additional_keys
 }
 
+/// Inserts additional keys for retrieving storage proof from the block hash contract (address 0x1).
+/// Certain contracts necessitate extra nodes from the contract 0x1. However, since Blockifier does not provide this information,
+/// it is necessary to add some extra keys to ensure the inclusion of the required nodes.
+/// This approach serves as a workaround. The ideal solutions would be to either retrieve the full tree or obtain information about the necessary nodes.
+/// The first approach would introduce significant overhead for most blocks, and the second solution is currently not feasible at the moment.
+fn insert_extra_storage_reads_keys(
+    storage_reads: &HashMap<ContractAddress, Vec<Felt252>>,
+    old_block_number: Felt252,
+    keys: &mut HashMap<ContractAddress, HashSet<StorageKey>>,
+) {
+    // A list of the contracts that accessed to the storage from 0x1 using `get_block_hash_syscall`
+    let special_addresses: Vec<ContractAddress> = vec![
+        contract_address!("0x01246c3031c5d0d1cf60a9370aac03a4717538f659e4a2bfb0f692e970e0c4b5"),
+        contract_address!("0x00656ca4889a405ec5222e4b0997e5a043902a98cb1f85a039f76f50c000479d"),
+    ];
+
+    let extra_storage_reads = if special_addresses.iter().any(|address| storage_reads.contains_key(address)) {
+        100 * STORED_BLOCK_HASH_BUFFER
+    } else {
+        STORED_BLOCK_HASH_BUFFER
+    };
+
+    if old_block_number >= Felt252::from(extra_storage_reads) {
+        for i in 1..=extra_storage_reads {
+            keys.entry(contract_address!("0x1"))
+                .or_default()
+                .insert((old_block_number - i).try_into().expect("Felt to StorageKey conversion failed"));
+        }
+    }
+}
+
 pub(crate) async fn get_storage_proofs(
     client: &RpcClient,
     block_number: u64,
@@ -127,13 +158,8 @@ pub(crate) async fn get_storage_proofs(
             .or_default()
             .insert((old_block_number).try_into().expect("Felt to StorageKey conversion failed"));
 
-        if old_block_number >= Felt252::from(STORED_BLOCK_HASH_BUFFER) {
-            for i in 1..=STORED_BLOCK_HASH_BUFFER {
-                keys.entry(contract_address!("0x1"))
-                    .or_default()
-                    .insert((old_block_number - i).try_into().expect("Felt to StorageKey conversion failed"));
-            }
-        }
+        // Include extra keys for contracts that trigger get_block_hash_syscall
+        insert_extra_storage_reads_keys(&storage_reads, old_block_number, &mut keys);
 
         // Within the Starknet architecture, the address 0x1 is a special address that maps block numbers to their corresponding block hashes. As some contracts might access storage reads using `get_block_hash_syscall`, it is necessary to add some extra keys here.
         // By leveraging the structure of this special contract, we filter out storage_read_values that are greater than old_block_number and add these extra values to the necessary keys from the 0x1 contract address.
