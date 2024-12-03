@@ -13,9 +13,11 @@ use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::state::StorageKey;
 use starknet_api::{contract_address, felt, patricia_key};
 use starknet_os::config::{DEFAULT_STORAGE_TREE_HEIGHT, STORED_BLOCK_HASH_BUFFER};
+use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::starkware_utils::commitment_tree::base_types::Height;
 use starknet_types_core::felt::Felt;
 
+use crate::reexecute::format_commitment_facts;
 use crate::utils::get_all_accessed_keys;
 
 /// Fetches the state + storage proof for a single contract for all the specified keys.
@@ -142,7 +144,7 @@ fn insert_extra_storage_reads_keys(
     }
 }
 
-pub(crate) async fn get_storage_proofs(
+pub async fn get_storage_proofs(
     client: &RpcClient,
     block_number: u64,
     tx_execution_infos: &[TransactionExecutionInfo],
@@ -158,8 +160,12 @@ pub(crate) async fn get_storage_proofs(
             .or_default()
             .insert((old_block_number).try_into().expect("Felt to StorageKey conversion failed"));
 
+        println!("KEYS: {:?}", keys);
+
+        println!("BLOCK HASH KEYS: {:?}", keys.get(&contract_address!("0x1")).expect("Expected keys for address 0x1"));
+
         // Include extra keys for contracts that trigger get_block_hash_syscall
-        insert_extra_storage_reads_keys(&storage_reads, old_block_number, &mut keys);
+        // insert_extra_storage_reads_keys(&storage_reads, old_block_number, &mut keys);
 
         // Within the Starknet architecture, the address 0x1 is a special address that maps block numbers to their corresponding block hashes. As some contracts might access storage reads using `get_block_hash_syscall`, it is necessary to add some extra keys here.
         // By leveraging the structure of this special contract, we filter out storage_read_values that are greater than old_block_number and add these extra values to the necessary keys from the 0x1 contract address.
@@ -172,11 +178,13 @@ pub(crate) async fn get_storage_proofs(
             .into_iter()
             .collect();
 
-        keys.entry(block_hash_contract_address).or_default().extend(
-            additional_storage_reads
-                .into_iter()
-                .map(|key| StorageKey::try_from(key).expect("Felt to StorageKey conversion failed")),
-        );
+        println!("ADDITIONAL KEYS: {:?}", additional_storage_reads);
+
+        // keys.entry(block_hash_contract_address).or_default().extend(
+        //     additional_storage_reads
+        //         .into_iter()
+        //         .map(|key| StorageKey::try_from(key).expect("Felt to StorageKey conversion failed")),
+        // );
 
         keys
     };
@@ -189,6 +197,12 @@ pub(crate) async fn get_storage_proofs(
         let contract_address_felt = *contract_address.key();
         let storage_proof =
             get_storage_proof_for_contract(client, contract_address, storage_keys.into_iter(), block_number).await?;
+
+        if contract_address_felt == Felt252::ONE {
+            let formatted_proof = format_commitment_facts::<PedersenHash>(&[storage_proof.contract_proof.clone()]);
+
+            println!("FORMATTED PROOF: {:?}", formatted_proof);
+        }
 
         storage_proofs.insert(contract_address_felt, storage_proof);
     }
@@ -265,7 +279,7 @@ pub(crate) async fn get_class_proofs(
     Ok(proofs)
 }
 
-pub(crate) fn get_starknet_version(block_with_txs: &BlockWithTxs) -> blockifier::versioned_constants::StarknetVersion {
+pub fn get_starknet_version(block_with_txs: &BlockWithTxs) -> blockifier::versioned_constants::StarknetVersion {
     let starknet_version_str = &block_with_txs.starknet_version;
     match starknet_version_str.as_ref() {
         "0.13.0" => blockifier::versioned_constants::StarknetVersion::V0_13_0,
@@ -282,8 +296,10 @@ pub(crate) fn get_starknet_version(block_with_txs: &BlockWithTxs) -> blockifier:
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
+    use starknet_os::crypto::pedersen::PedersenHash;
 
     use super::*;
+    use crate::reexecute::format_commitment_facts;
 
     #[rstest]
     #[case(
@@ -312,5 +328,83 @@ mod tests {
     ) {
         let modified_key = get_key_following_edge(key, height, &edge_path);
         assert_eq!(modified_key, expected_key);
+    }
+
+    #[ignore = "Requires a running Pathfinder node"]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_key_not_found_in_preimage() {
+        println!("RUNNING KEY NOT IN PREIMAGE TEST");
+        let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
+        let rpc_client = RpcClient::new(&endpoint);
+
+        let block_number = 237037;
+        let old_block_number = 237027u64;
+        let block_hash_contract_address = contract_address!("0x1");
+        let mut storage_keys: HashSet<StorageKey> = HashSet::from([old_block_number.into()]);
+
+        let storage_proof = get_storage_proof_for_contract(
+            &rpc_client,
+            block_hash_contract_address,
+            storage_keys.clone().into_iter(),
+            block_number,
+        )
+        .await
+        .unwrap();
+
+        let formatted_proof = format_commitment_facts::<PedersenHash>(&[storage_proof.contract_proof]);
+
+        // On the first try, we won't find this node from the retrieved storage proof
+        let missing_node =
+            Felt252::from_hex_unchecked("0x34f1a3021b450d34bf9ce833b19de68b9f9d565d1951529f1eb4f30dbfc5e1c");
+        assert_eq!(formatted_proof.contains_key(&missing_node), false);
+
+        // Let's repeat the process once again but adding some extra keys/block numbers
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237027)).expect("Felt to StorageKey conversion failed"));
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237026)).expect("Felt to StorageKey conversion failed"));
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237025)).expect("Felt to StorageKey conversion failed"));
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237024)).expect("Felt to StorageKey conversion failed"));
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237023)).expect("Felt to StorageKey conversion failed"));
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237022)).expect("Felt to StorageKey conversion failed"));
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237021)).expect("Felt to StorageKey conversion failed"));
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237020)).expect("Felt to StorageKey conversion failed"));
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237019)).expect("Felt to StorageKey conversion failed"));
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237018)).expect("Felt to StorageKey conversion failed"));
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237017)).expect("Felt to StorageKey conversion failed"));
+        // storage_keys.insert(StorageKey::try_from(Felt::from(237016)).expect("Felt to StorageKey conversion failed"));
+        storage_keys.insert(StorageKey::try_from(Felt::from(236946)).expect("Felt to StorageKey conversion failed"));
+        storage_keys.insert(StorageKey::try_from(Felt::from(236945)).expect("Felt to StorageKey conversion failed"));
+        storage_keys.insert(StorageKey::try_from(Felt::from(237004)).expect("Felt to StorageKey conversion failed"));
+        storage_keys.insert(StorageKey::try_from(Felt::from(0)).expect("Felt to StorageKey conversion failed"));
+        storage_keys.insert(StorageKey::try_from(Felt::from(1)).expect("Felt to StorageKey conversion failed"));
+        storage_keys.insert(StorageKey::try_from(Felt::from(15)).expect("Felt to StorageKey conversion failed"));
+        storage_keys.insert(StorageKey::try_from(Felt::from(3)).expect("Felt to StorageKey conversion failed"));
+        storage_keys.insert(StorageKey::try_from(Felt::from(8)).expect("Felt to StorageKey conversion failed"));
+
+        // for i in 0..100 {
+        //     storage_keys.insert(
+        //         StorageKey::try_from(Felt::from(old_block_number - i)).expect("Felt to StorageKey conversion failed"),
+        //     );
+        // }
+
+        // StorageKey::try_from(Felt::from(block_number)).expect("Felt to StorageKey conversion failed");
+        // StorageKey::try_from(Felt::from(block_number - 1)).expect("Felt to StorageKey conversion failed");
+
+        println!("Storage keys: {:?}", storage_keys);
+        let storage_proof = get_storage_proof_for_contract(
+            &rpc_client,
+            block_hash_contract_address,
+            storage_keys.into_iter(),
+            block_number,
+        )
+        .await
+        .unwrap();
+
+        println!("StorageProof: {:?}", storage_proof);
+
+        let formatted_proof = format_commitment_facts::<PedersenHash>(&[storage_proof.contract_proof]);
+
+        println!("Formatted proof: {:?}", formatted_proof);
+
+        assert_eq!(formatted_proof.contains_key(&missing_node), true);
     }
 }

@@ -121,9 +121,7 @@ impl ProverPerContractStorage {
     }
 }
 
-pub(crate) fn format_commitment_facts<H: HashFunctionType>(
-    trie_nodes: &[Vec<TrieNode>],
-) -> HashMap<Felt252, Vec<Felt252>> {
+pub fn format_commitment_facts<H: HashFunctionType>(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt252, Vec<Felt252>> {
     let mut facts = HashMap::new();
 
     for nodes in trie_nodes {
@@ -138,6 +136,7 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
                     let node_hash = Felt252::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact));
                     let fact_as_tuple = <BinaryNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
 
+                    // println!("Node hash: {:x}", node_hash);
                     (node_hash, fact_as_tuple)
                 }
                 TrieNode::Edge { child, path } => {
@@ -153,6 +152,8 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
             };
 
             let fact_as_tuple_of_felts: Vec<_> = fact_as_tuple.into_iter().map(Felt252::from).collect();
+
+            // println!("Node hash: {:x}", key);
             facts.insert(key, fact_as_tuple_of_felts);
         }
     }

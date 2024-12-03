@@ -42,9 +42,9 @@ use crate::reexecute::format_commitment_facts;
 use crate::rpc_utils::get_starknet_version;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
-mod reexecute;
-mod rpc_utils;
-mod state_utils;
+pub mod reexecute;
+pub mod rpc_utils;
+pub mod state_utils;
 mod types;
 mod utils;
 

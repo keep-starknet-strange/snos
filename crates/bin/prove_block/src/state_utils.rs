@@ -28,7 +28,7 @@ pub struct FormattedStateUpdate {
 /// - Fetches block transaction traces to obtain all accessed contract addresses in that block.
 /// - Formats the RPC state updates to be "SharedState compatible."
 /// - Consolidates that information into a `FormattedStateUpdate`.
-pub(crate) async fn get_formatted_state_update(
+pub async fn get_formatted_state_update(
     rpc_client: &RpcClient,
     previous_block_id: BlockId,
     block_id: BlockId,
