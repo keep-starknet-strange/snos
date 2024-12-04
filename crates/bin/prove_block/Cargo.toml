@@ -1,6 +1,6 @@
 [package]
 name = "prove_block"
-version = "1.0.0-dev"
+version.workspace = true
 edition.workspace = true
 repository.workspace = true
 license-file.workspace = true
