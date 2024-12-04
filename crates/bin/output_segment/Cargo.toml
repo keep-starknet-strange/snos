@@ -1,6 +1,6 @@
 [package]
 name = "output_segment"
-version.workspace = true
+version = "1.0.0-dev"
 edition.workspace = true
 repository.workspace = true
 license-file.workspace = true
