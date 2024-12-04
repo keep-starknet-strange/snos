@@ -158,6 +158,10 @@ pub mod ids {
     pub const SHA256_INPUT_CHUNK_SIZE_FELTS: &str =
         "starkware.cairo.common.cairo_sha256.sha256_utils.SHA256_INPUT_CHUNK_SIZE_FELTS";
     pub const COMPRESS_STATE_UPDATES: &str = "compress_state_updates";
+    pub const IS_N_UPDATES_SMALL: &str = "is_n_updates_small";
+    pub const N_ACTUAL_UPDATES: &str = "n_actual_updates";
+    pub const N_UPDATES_SMALL_PACKING_BOUND: &str =
+        "starkware.starknet.core.os.state.output.N_UPDATES_SMALL_PACKING_BOUND";
 }
 
 pub mod constants {

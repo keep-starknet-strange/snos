@@ -14,7 +14,7 @@ use indoc::indoc;
 use num_integer::div_ceil;
 
 use crate::hints::vars;
-use crate::utils::get_variable_from_root_exec_scope;
+use crate::utils::{get_constant, get_variable_from_root_exec_scope};
 
 const MAX_PAGE_SIZE: usize = 3800;
 
@@ -181,6 +181,25 @@ pub fn set_compressed_start(
     }
 
     Ok(())
+}
+
+pub const SET_N_UPDATES_SMALL: &str =
+    indoc! {r#"ids.is_n_updates_small = ids.n_actual_updates < ids.N_UPDATES_SMALL_PACKING_BOUND"#};
+
+pub fn set_n_updates_small(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let n_actual_updates = get_integer_from_var_name(vars::ids::N_ACTUAL_UPDATES, vm, ids_data, ap_tracking)?;
+    let n_updates_small_packing_bound = get_constant(&vars::ids::N_UPDATES_SMALL_PACKING_BOUND, constants)?;
+
+    let is_n_updates_small =
+        if n_actual_updates < *n_updates_small_packing_bound { Felt252::ONE } else { Felt252::ZERO };
+
+    insert_value_from_var_name(vars::ids::IS_N_UPDATES_SMALL, is_n_updates_small, vm, ids_data, ap_tracking)
 }
 
 #[cfg(test)]
