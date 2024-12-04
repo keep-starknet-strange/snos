@@ -1,6 +1,5 @@
 [package]
 name = "tests"
-version.workspace = true
 edition.workspace = true
 repository.workspace = true
 license-file.workspace = true
