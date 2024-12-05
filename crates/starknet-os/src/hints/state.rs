@@ -532,6 +532,48 @@ mod tests {
         // * hash_ptr.result
     }
 
+    #[rstest]
+    fn test_prepare_load_bottom(_os_input: StarknetOsInput) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(2);
+
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+
+        let ids_data = HashMap::from([
+            (vars::ids::EDGE.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::HASH_PTR.to_string(), HintReference::new_simple(-2)),
+        ]);
+
+        vm.insert_value((Relocatable::from((1, 0)) + NodeEdge::bottom_offset()).unwrap(), 1_usize).unwrap();
+
+        let hash_ptr = Relocatable::from((2, 0));
+        insert_value_from_var_name(vars::ids::HASH_PTR, hash_ptr, &mut vm, &ids_data, &ap_tracking).unwrap();
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+
+        let mut preimage: HashMap<Felt252, Vec<Felt252>> = Default::default();
+        preimage.insert(1_usize.into(), vec![2_usize.into(), 3_usize.into()]);
+        exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
+        exec_scopes.insert_value(vars::scopes::PATRICIA_TREE_MODE, PatriciaTreeMode::State);
+        exec_scopes
+            .insert_value::<Option<PatriciaSkipValidationRunner>>(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, None);
+
+        load_bottom(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+
+        let x = vm.get_integer((hash_ptr + 0_usize).unwrap()).unwrap();
+        let y = vm.get_integer((hash_ptr + 1_usize).unwrap()).unwrap();
+
+        let expected_x: Felt252 = 2_usize.into();
+        let expected_y: Felt252 = 3_usize.into();
+
+        assert_eq!(x.to_raw(), expected_x.to_raw());
+        assert_eq!(y.to_raw(), expected_y.to_raw());
+    }
+
     #[test]
     pub fn test_write_split_result() {
         let mut vm = VirtualMachine::new(false);
