@@ -21,6 +21,8 @@ from starkware.starknet.common.syscalls import (
     storage_write,
 )
  
+// This attempts to check all relevant syscalls in account contracts 
+// which have been buggy esp on `get_tx_info` 
 func check_all{syscall_ptr: felt*}() {
     let (tx_info) = get_tx_info();
     with_attr error_message("tx_info.signature_len failed") {
