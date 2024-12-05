@@ -68,6 +68,10 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::peekable_peek_is_none(174156)]
 #[case::no_more_storage_reads_available(161884)]
 #[case::no_more_storage_reads_available(174027)]
+#[case::memory_addresses_must_be_relocatable(202083)]
+#[case::memory_invalid_signature(216914)]
+#[case::diff_assert_values(218624)]
+#[case::could_nt_compute_operand_op1(204337)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
