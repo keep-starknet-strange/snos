@@ -11,51 +11,6 @@ use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage, HASH_BY
 
 const PATRICIA_NODE_PREFIX: &[u8] = "patricia_node".as_bytes();
 
-/// Represents the root of an empty (all leaves are 0) full binary tree.
-pub struct EmptyNodeFact;
-
-impl EmptyNodeFact {
-    const PREIMAGE_LENGTH: usize = 0;
-}
-
-impl<S, H> InnerNodeFact<S, H> for EmptyNodeFact
-where
-    H: HashFunctionType,
-    S: Storage,
-{
-    fn to_tuple(&self) -> Vec<BigUint> {
-        vec![]
-    }
-}
-
-impl<S, H> Fact<S, H> for EmptyNodeFact
-where
-    H: HashFunctionType,
-    S: Storage,
-{
-    fn hash(&self) -> Hash {
-        Hash::empty()
-    }
-}
-
-impl DbObject for EmptyNodeFact {}
-
-impl SerializationPrefix for EmptyNodeFact {
-    fn prefix() -> Vec<u8> {
-        PATRICIA_NODE_PREFIX.to_vec()
-    }
-}
-
-impl Serializable for EmptyNodeFact {
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Ok("".as_bytes().to_vec())
-    }
-
-    fn deserialize(_data: &[u8]) -> Result<Self, DeserializeError> {
-        Ok(Self {})
-    }
-}
-
 #[derive(thiserror::Error, Debug)]
 pub enum BinaryNodeError {
     #[allow(unused)]
@@ -240,7 +195,6 @@ fn hash_edge<H: HashFunctionType>(bottom: &[u8], path: NodePath, length: Length)
 }
 
 pub enum PatriciaNodeFact {
-    Empty(EmptyNodeFact),
     Binary(BinaryNodeFact),
     Edge(EdgeNodeFact),
 }
@@ -254,7 +208,6 @@ impl SerializationPrefix for PatriciaNodeFact {
 impl Serializable for PatriciaNodeFact {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         match self {
-            Self::Empty(empty) => empty.serialize(),
             Self::Binary(binary) => binary.serialize(),
             Self::Edge(edge) => edge.serialize(),
         }
@@ -262,7 +215,6 @@ impl Serializable for PatriciaNodeFact {
 
     fn deserialize(data: &[u8]) -> Result<Self, DeserializeError> {
         let node = match data.len() {
-            EmptyNodeFact::PREIMAGE_LENGTH => Self::Empty(EmptyNodeFact::deserialize(data)?),
             BinaryNodeFact::PREIMAGE_LENGTH => Self::Binary(BinaryNodeFact::deserialize(data)?),
             EdgeNodeFact::PREIMAGE_LENGTH => Self::Edge(EdgeNodeFact::deserialize(data)?),
             other => {
@@ -280,7 +232,6 @@ where
 {
     fn hash(&self) -> Hash {
         match self {
-            Self::Empty(empty) => <EmptyNodeFact as Fact<S, H>>::hash(empty),
             Self::Binary(binary) => <BinaryNodeFact as Fact<S, H>>::hash(binary),
             Self::Edge(edge) => <EdgeNodeFact as Fact<S, H>>::hash(edge),
         }
@@ -296,7 +247,6 @@ where
 {
     fn to_tuple(&self) -> Vec<BigUint> {
         match self {
-            Self::Empty(empty) => <EmptyNodeFact as InnerNodeFact<S, H>>::to_tuple(empty),
             Self::Binary(binary) => <BinaryNodeFact as InnerNodeFact<S, H>>::to_tuple(binary),
             Self::Edge(edge) => <EdgeNodeFact as InnerNodeFact<S, H>>::to_tuple(edge),
         }

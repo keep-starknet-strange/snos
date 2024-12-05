@@ -50,15 +50,6 @@ pub trait Calculation<T, LF> {
     /// (using their hash as the key).
     fn calculate(&self, dependency_results: Vec<Box<dyn Any>>, fact_nodes: &mut NodeFactDict<LF>) -> T;
 
-    /// Same as calculate(), but return the facts.
-
-    fn calculate_new_fact_nodes(&self, dependency_results: Vec<Box<dyn Any>>) -> (T, NodeFactDict<LF>) {
-        let mut fact_nodes = NodeFactDict::default();
-        let result = self.calculate(dependency_results, &mut fact_nodes);
-
-        (result, fact_nodes)
-    }
-
     /// Produces the result of this calculation.
     ///
     /// Recursively calculates the result of the dependency calculations.
@@ -73,17 +64,6 @@ pub trait Calculation<T, LF> {
             .collect();
 
         self.calculate(dependency_results, fact_nodes)
-    }
-
-    /// Produces the result of this calculation. Returns the result and a dict containing generated
-    /// facts.
-    ///
-    /// Recursively calculates the result of the dependency calculations.
-    fn full_calculate_new_fact_nodes(&self) -> (T, NodeFactDict<LF>) {
-        let mut fact_nodes = NodeFactDict::default();
-        let result = self.full_calculate(&mut fact_nodes);
-
-        (result, fact_nodes)
     }
 }
 
