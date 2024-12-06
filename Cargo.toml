@@ -5,6 +5,7 @@ members = [
     "crates/bin/hint_tool",
     "crates/bin/output_segment",
     "crates/bin/prove_block",
+    "crates/bin/cairo0_run",
     "crates/cairo-type-derive",
     "crates/rpc-client",
     "crates/rpc-replay",
@@ -36,7 +37,7 @@ cairo-lang-starknet-classes = { version = "=2.8.2" }
 cairo-lang-utils = { version = "=2.8.2" }
 cairo-lang-casm = { version = "=2.8.2" }
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
-cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", branch = "herman/fix-pie-serialization", features = ["cairo-1-hints", "extensive_hints", "mod_builtin"] }
+cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", branch = "notlesh/snos-2024-11-04", features = ["cairo-1-hints", "extensive_hints", "mod_builtin"] }
 clap = { version = "4.5.4", features = ["derive"] }
 c-kzg = { version = "1.0.3" }
 env_logger = "0.11.3"

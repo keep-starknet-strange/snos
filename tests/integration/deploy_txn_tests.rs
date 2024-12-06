@@ -358,3 +358,61 @@ async fn deploy_via_invoke_no_calldata_cairo1_account(
     .await
     .expect("OS run failed");
 }
+
+#[rstest]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn deploy_cairo0_check_get_info_call(block_context: BlockContext, max_fee: Fee) {
+    let account_with_tx_info_check = load_cairo0_feature_contract("account_with_tx_info_check");
+    let class_hash = class_hash!("0x6c8903651a5f89ffc304621a7d8106a0324cc28aca04934fcbbb4398d5c8bc8");
+
+    let ctor_calldata = Calldata::default();
+    let deployed_contract_address = calculate_contract_address(
+        ContractAddressSalt::default(),
+        class_hash,
+        &ctor_calldata,
+        contract_address!("0x0"),
+    )
+    .expect("Failed to calculate the contract address");
+
+    let initial_state = StarknetStateBuilder::new(&block_context)
+        .deploy_cairo0_contract(account_with_tx_info_check.0, account_with_tx_info_check.1)
+        .fund_account(deployed_contract_address, BALANCE, BALANCE)
+        .set_default_balance(BALANCE, BALANCE)
+        .build()
+        .await;
+
+    let tx_version = TransactionVersion::ONE;
+    let mut nonce_manager = NonceManager::default();
+
+    let account_with_tx_info_check = initial_state.deployed_cairo0_contracts.get("account_with_tx_info_check").unwrap();
+
+    let deployed_account_class_hash = account_with_tx_info_check.declaration.class_hash;
+    // Sanity check, as we hardcode the class hash in the fixture we verify that we have
+    // the right one.
+    assert_eq!(class_hash, deployed_account_class_hash);
+
+    let deploy_account_tx = AccountTransaction::DeployAccount(deploy_account_tx(
+        deploy_account_tx_args! {
+            class_hash: deployed_account_class_hash,
+            max_fee,
+            contract_address_salt: ContractAddressSalt::default(),
+            version: tx_version,
+            constructor_calldata: ctor_calldata,
+            ..Default::default()
+        },
+        &mut nonce_manager,
+    ));
+
+    let txs = vec![deploy_account_tx].into_iter().map(Into::into).collect();
+    let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
+        initial_state.cached_state,
+        block_context,
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+        HashMap::default(),
+    )
+    .await
+    .expect("OS run failed");
+}

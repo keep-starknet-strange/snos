@@ -15,7 +15,7 @@ use crate::starknet::business_logic::fact_state::contract_state_objects::Contrac
 use crate::starknet::starknet_storage::CommitmentInfo;
 use crate::utils::Felt252HexNoPrefix;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct StarknetOsInput {
     pub contract_state_commitment_info: CommitmentInfo,
     pub contract_class_commitment_info: CommitmentInfo,

@@ -6,8 +6,6 @@ use cairo_vm::{any_box, Felt252};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Number;
 use serde_with::{DeserializeAs, SerializeAs};
-use starknet_api::core::ChainId;
-use starknet_os_types::chain_id::chain_id_to_felt;
 use tokio::task;
 
 pub(crate) struct Felt252Str;
@@ -80,30 +78,6 @@ impl SerializeAs<Felt252> for Felt252HexNoPrefix {
     }
 }
 
-pub(crate) struct ChainIdNum;
-
-impl<'de> DeserializeAs<'de, ChainId> for ChainIdNum {
-    fn deserialize_as<D>(deserializer: D) -> Result<ChainId, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let bytes = u128::deserialize(deserializer)?.to_be_bytes();
-        let chain_id_str = String::from_utf8_lossy(&bytes);
-
-        Ok(ChainId::from(chain_id_str.into_owned()))
-    }
-}
-
-impl SerializeAs<ChainId> for ChainIdNum {
-    fn serialize_as<S>(value: &ChainId, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let chain_id_felt = chain_id_to_felt(value);
-        chain_id_felt.serialize(serializer)
-    }
-}
-
 /// Retrieves a constant from the `constants` hashmap or returns an error.
 ///
 /// We should not use `get_constant_from_var_name` if possible as it performs an O(N)
@@ -170,15 +144,71 @@ mod tests {
     use super::*;
 
     #[serde_as]
-    #[derive(Serialize)]
-    struct ChainIdOnly {
-        #[serde_as(as = "ChainIdNum")]
-        chain_id: ChainId,
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct FeltStrOnly {
+        #[serde_as(as = "Felt252Str")]
+        felt: Felt252,
+    }
+
+    #[serde_as]
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct FeltNumOnly {
+        #[serde_as(as = "Felt252Num")]
+        felt: Felt252,
+    }
+
+    #[serde_as]
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct FeltHexOnly {
+        #[serde_as(as = "Felt252HexNoPrefix")]
+        felt: Felt252,
     }
 
     #[test]
-    fn chain_id_num_ok() {
-        let c = ChainIdOnly { chain_id: ChainId::Sepolia };
-        serde_json::to_string(&c).unwrap();
+    fn test_utils_felt_252_str_ok() {
+        let expected = "{\"felt\":\"0x0\"}".to_owned();
+        let f = FeltStrOnly { felt: Felt252::ZERO };
+        let result = serde_json::to_string(&f).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_felt_252_str_deser_ok() {
+        let expected = FeltStrOnly { felt: Felt252::ONE };
+        let json = r#"{ "felt": "0x1" }"#;
+        let result: FeltStrOnly = serde_json::from_str(json).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_felt_252_num_ok() {
+        let expected = "{\"felt\":0}".to_owned();
+        let f = FeltNumOnly { felt: Felt252::ZERO };
+        let result = serde_json::to_string(&f).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_felt_252_num_deser_ok() {
+        let expected = FeltNumOnly { felt: Felt252::ONE };
+        let json = r#"{ "felt": 1 }"#;
+        let result: FeltNumOnly = serde_json::from_str(json).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_felt_252_hex_ok() {
+        let expected = "{\"felt\":\"00\"}".to_owned();
+        let f = FeltHexOnly { felt: Felt252::ZERO };
+        let result = serde_json::to_string(&f).unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_utils_felt_252_hex_deser_ok() {
+        let expected = FeltHexOnly { felt: Felt252::ONE };
+        let json = r#"{ "felt": "1" }"#;
+        let result: FeltHexOnly = serde_json::from_str(json).unwrap();
+        assert_eq!(expected, result);
     }
 }
