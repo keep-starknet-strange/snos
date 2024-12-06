@@ -10,7 +10,7 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
-use rpc_client::pathfinder::proofs::{PathfinderProof, TrieNode};
+use rpc_client::pathfinder::proofs::{ContractData, PathfinderProof, TrieNode};
 use rpc_client::RpcClient;
 use starknet::core::types::{BlockId, StarknetError};
 use starknet::providers::{Provider as _, ProviderError};
@@ -163,8 +163,11 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
 impl PerContractStorage for ProverPerContractStorage {
     async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
         // TODO: error code
-        let contract_data =
-            self.storage_proof.contract_data.as_ref().expect("storage proof should have a contract_data field");
+        let contract_data = match self.storage_proof.contract_data.as_ref() {
+            None => &ContractData::default(),
+            Some(data) => data,
+        };
+
         let updated_root = contract_data.root;
 
         let commitment_facts = format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);
