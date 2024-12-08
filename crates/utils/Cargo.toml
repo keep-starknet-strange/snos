@@ -1,0 +1,9 @@
+[package]
+name = "utils"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+license-file.workspace = true
+
+[dependencies]

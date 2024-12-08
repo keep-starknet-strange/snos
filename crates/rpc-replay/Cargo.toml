@@ -14,6 +14,7 @@ serde_json = { workspace = true }
 starknet = { workspace = true }
 starknet_api = { workspace = true }
 starknet-os-types = { workspace = true }
+utils = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 
