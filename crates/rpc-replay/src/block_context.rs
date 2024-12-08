@@ -52,14 +52,12 @@ pub fn build_block_context(
 
     let strk_fee_token_address = get_env_var_or_default(
         "SNOS_STRK_FEE_TOKEN_ADDRESS",
-        "0x0782f0ddca11d9950bc3220e35ac82cf868778edb67a5e58b39838544bc4cd0f",
+        "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
     );
     let eth_fee_token_address = get_env_var_or_default(
         "SNOS_ETH_FEE_TOKEN_ADDRESS",
-        "0x0782f0ddca11d9950bc3220e35ac82cf868778edb67a5e58b39838544bc4cd0f",
+        "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
     );
-
-    println!("strk: {}, eth: {}", strk_fee_token_address, eth_fee_token_address);
 
     let chain_info = ChainInfo {
         chain_id,
