@@ -5,6 +5,7 @@ members = [
     "crates/bin/hint_tool",
     "crates/bin/output_segment",
     "crates/bin/prove_block",
+    "crates/bin/cairo0_run",
     "crates/cairo-type-derive",
     "crates/rpc-client",
     "crates/rpc-replay",

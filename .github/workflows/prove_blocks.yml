@@ -44,7 +44,7 @@ jobs:
         run: |
           source venv/bin/activate
           pip install cairo-lang==0.13.2 "sympy<1.13.0"
-          bash scripts/setup-tests.sh
+          bash setup-scripts/setup-tests.sh
 
       - name: Prove Blocks
         env:
