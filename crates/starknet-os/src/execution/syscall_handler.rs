@@ -247,7 +247,6 @@ pub struct DeployHandler;
 pub struct DeployResponse {
     pub contract_address: Felt252,
     pub constructor_retdata: ReadOnlySegment,
-    pub need_retdata_hack: bool,
 }
 
 impl<PCS> SyscallHandler<PCS> for DeployHandler
@@ -292,59 +291,13 @@ where
             "No more deployed contracts available to replay".to_string().into_boxed_str(),
         ))?;
 
-        let need_retdata_hack = if let Some(os_input) = execution_helper.os_input.as_ref() {
-            let class_hash = os_input
-                .contract_address_to_class_hash
-                .get(&contract_address)
-                .expect("No class_hash for contract_address");
-            let num_constructors =
-                if let Some(compiled_class_hash) = os_input.class_hash_to_compiled_class_hash.get(class_hash) {
-                    let casm = os_input.compiled_classes.get(compiled_class_hash).expect("No CASM");
-                    let num_constructors = casm
-                        .get_cairo_lang_contract_class()
-                        .expect("couldn't get cairo lang class")
-                        .entry_points_by_type
-                        .constructor
-                        .len();
-                    num_constructors
-                } else {
-                    let deprecated_cc = os_input.deprecated_compiled_classes.get(class_hash).expect("no deprecated CC");
-                    let num_constructors = deprecated_cc
-                        .get_starknet_api_contract_class()
-                        .expect("couldn't get starknet api class")
-                        .entry_points_by_type
-                        .get(&starknet_api::deprecated_contract_class::EntryPointType::Constructor)
-                        .expect("should have constructor list")
-                        .len();
-                    num_constructors
-                };
-
-            // we need the hack if there are no constructor entry points
-            num_constructors == 0
-        } else {
-            false
-        };
-
-        Ok(DeployResponse { contract_address, constructor_retdata, need_retdata_hack })
+        Ok(DeployResponse { contract_address, constructor_retdata })
     }
 
     fn write_response(response: Self::Response, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
         write_felt(vm, ptr, response.contract_address)?;
+        write_segment(vm, ptr, response.constructor_retdata)?;
 
-        // Bugfix:
-        // When retdata size is 0, the OS will return retdata as a Int(0) instead of a relocatable
-        // as a result of `cast(0, felt*)`. To work around this, we can write the same here so that
-        // later the OS will assert this value is the same as retdata; that is, both need to be the
-        // same value which is Int(0).
-        //
-        // retdata is cast here: https://github.com/starkware-libs/cairo-lang/blob/a86e92bfde9c171c0856d7b46580c66e004922f3/src/starkware/starknet/core/os/execution/execute_entry_point.cairo#L170
-        if response.need_retdata_hack {
-            log::warn!("Writing Felt::ZERO instead of pointer since retdata size is 0");
-            write_felt(vm, ptr, Felt252::ZERO)?; // casted pointer
-            write_felt(vm, ptr, Felt252::ZERO)?; // size
-        } else {
-            write_segment(vm, ptr, response.constructor_retdata)?;
-        }
         Ok(())
     }
 }
