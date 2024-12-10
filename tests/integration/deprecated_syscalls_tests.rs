@@ -226,9 +226,12 @@ async fn test_syscall_get_tx_info_cairo0(
     .await
     .expect("OS run failed");
 
+    assert!(os_output.state_diff.is_some());
+    let state_diff = os_output.state_diff.unwrap();
+
     // This test causes storage changes in the test contract. Check them.
     let contract_changes_by_address: HashMap<_, _> =
-        os_output.contracts.iter().map(|change| (change.addr, change)).collect();
+        state_diff.contract_changes.iter().map(|change| (change.addr, change)).collect();
     let test_contract_changes = contract_changes_by_address
         .get(contract_address.0.key())
         .expect("The test contract should appear as modified in the OS output");
@@ -391,14 +394,17 @@ async fn test_syscall_deploy_cairo0(
     .await
     .expect("OS run failed");
 
+    assert!(os_output.state_diff.is_some());
+    let state_diff = os_output.state_diff.unwrap();
+
     // Check that the new contract address appears in the OS output
     let contract_changes_by_address: HashMap<_, _> =
-        os_output.contracts.iter().map(|change| (change.addr, change)).collect();
+        state_diff.contract_changes.iter().map(|change| (change.addr, change)).collect();
     assert!(contract_changes_by_address.contains_key(expected_contract_address.key()));
 
     // Check other output fields
     assert_eq!(os_output.new_block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
-    assert!(os_output.classes.is_empty());
+    assert!(state_diff.classes.is_empty());
     assert!(os_output.messages_to_l1.is_empty());
     assert!(os_output.messages_to_l2.is_empty());
     let use_kzg_da = os_output.use_kzg_da != Felt252::ZERO;

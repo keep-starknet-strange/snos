@@ -14,7 +14,7 @@ use indoc::indoc;
 use num_integer::div_ceil;
 
 use crate::hints::vars;
-use crate::utils::get_variable_from_root_exec_scope;
+use crate::utils::{get_constant, get_variable_from_root_exec_scope};
 
 const MAX_PAGE_SIZE: usize = 3800;
 
@@ -105,13 +105,59 @@ pub fn set_tree_structure(
     Ok(())
 }
 
-pub const SET_STATE_UPDATES_START: &str = indoc! {r#"if ids.use_kzg_da:
+pub const SET_STATE_UPDATES_START: &str = indoc! {r#"# `use_kzg_da` is used in a hint in `process_data_availability`.
+    use_kzg_da = ids.use_kzg_da
+    if use_kzg_da or ids.compress_state_updates:
+        ids.state_updates_start = segments.add()
+    else:
+        # Assign a temporary segment, to be relocated into the output segment.
+        ids.state_updates_start = segments.add_temp_segment()"#};
+
+pub fn set_state_updates_start(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let use_kzg_da_felt = get_integer_from_var_name(vars::ids::USE_KZG_DA, vm, ids_data, ap_tracking)?;
+    let compress_state_updates =
+        get_integer_from_var_name(vars::ids::COMPRESS_STATE_UPDATES, vm, ids_data, ap_tracking)?;
+
+    let use_kzg_da = if use_kzg_da_felt == Felt252::ONE {
+        Ok(true)
+    } else if use_kzg_da_felt == Felt252::ZERO {
+        Ok(false)
+    } else {
+        Err(HintError::CustomHint("ids.use_kzg_da is not a boolean".to_string().into_boxed_str()))
+    }?;
+
+    // TODO: check why compress_state_updates = 2 :/
+    let use_compress_state_updates = compress_state_updates == Felt252::ONE;
+
+    if use_kzg_da || use_compress_state_updates {
+        insert_value_from_var_name(vars::ids::STATE_UPDATES_START, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
+    } else {
+        // Assign a temporary segment, to be relocated into the output segment.
+        insert_value_from_var_name(
+            vars::ids::STATE_UPDATES_START,
+            vm.add_temporary_segment(),
+            vm,
+            ids_data,
+            ap_tracking,
+        )?;
+    }
+
+    Ok(())
+}
+
+pub const SET_COMPRESSED_START: &str = indoc! {r#"if ids.use_kzg_da:
     ids.state_updates_start = segments.add()
 else:
     # Assign a temporary segment, to be relocated into the output segment.
     ids.state_updates_start = segments.add_temp_segment()"#};
 
-pub fn set_state_updates_start(
+pub fn set_compressed_start(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
@@ -129,19 +175,32 @@ pub fn set_state_updates_start(
     }?;
 
     if use_kzg_da {
-        insert_value_from_var_name(vars::ids::STATE_UPDATES_START, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
+        insert_value_from_var_name(vars::ids::COMPRESSED_START, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
     } else {
         // Assign a temporary segment, to be relocated into the output segment.
-        insert_value_from_var_name(
-            vars::ids::STATE_UPDATES_START,
-            vm.add_temporary_segment(),
-            vm,
-            ids_data,
-            ap_tracking,
-        )?;
+        insert_value_from_var_name(vars::ids::COMPRESSED_START, vm.add_temporary_segment(), vm, ids_data, ap_tracking)?;
     }
 
     Ok(())
+}
+
+pub const SET_N_UPDATES_SMALL: &str =
+    indoc! {r#"ids.is_n_updates_small = ids.n_actual_updates < ids.N_UPDATES_SMALL_PACKING_BOUND"#};
+
+pub fn set_n_updates_small(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let n_actual_updates = get_integer_from_var_name(vars::ids::N_ACTUAL_UPDATES, vm, ids_data, ap_tracking)?;
+    let n_updates_small_packing_bound = get_constant(vars::ids::N_UPDATES_SMALL_PACKING_BOUND, constants)?;
+
+    let is_n_updates_small =
+        if n_actual_updates < *n_updates_small_packing_bound { Felt252::ONE } else { Felt252::ZERO };
+
+    insert_value_from_var_name(vars::ids::IS_N_UPDATES_SMALL, is_n_updates_small, vm, ids_data, ap_tracking)
 }
 
 #[cfg(test)]

@@ -43,7 +43,7 @@ jobs:
       - name: Setup the tests
         run: |
           source venv/bin/activate
-          pip install cairo-lang==0.13.2 "sympy<1.13.0"
+          pip install cairo-lang==0.13.3 "sympy<1.13.0"
           bash setup-scripts/setup-tests.sh
 
       - name: Prove Blocks

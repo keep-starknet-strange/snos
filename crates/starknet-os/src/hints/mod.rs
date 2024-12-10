@@ -174,7 +174,9 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(os::SET_AP_TO_PREV_BLOCK_HASH.into(), os::set_ap_to_prev_block_hash);
     hints.insert(kzg::STORE_DA_SEGMENT.into(), kzg::store_da_segment::<PCS>);
     hints.insert(output::SET_STATE_UPDATES_START.into(), output::set_state_updates_start);
+    hints.insert(output::SET_COMPRESSED_START.into(), output::set_compressed_start);
     hints.insert(output::SET_TREE_STRUCTURE.into(), output::set_tree_structure);
+    hints.insert(output::SET_N_UPDATES_SMALL.into(), output::set_n_updates_small);
     hints.insert(patricia::ASSERT_CASE_IS_RIGHT.into(), patricia::assert_case_is_right);
     hints.insert(patricia::BUILD_DESCENT_MAP.into(), patricia::build_descent_map);
     hints.insert(patricia::HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO.into(), patricia::height_is_zero_or_len_node_preimage_is_two);
