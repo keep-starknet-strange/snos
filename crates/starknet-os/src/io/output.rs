@@ -35,6 +35,14 @@ pub struct ContractChanges {
     pub storage_changes: HashMap<Felt252, Felt252>,
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default)]
+pub struct OsStateDiff {
+    /// The list of contracts that were changed.
+    pub contract_changes: Vec<ContractChanges>,
+    /// The list of classes that were declared. A map from class hash to compiled class hash.
+    pub classes: HashMap<Felt252, Felt252>,
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct StarknetOsOutput {
     /// The root before.
@@ -61,10 +69,8 @@ pub struct StarknetOsOutput {
     pub messages_to_l1: Vec<Felt252>,
     /// Messages from L1 to L2.
     pub messages_to_l2: Vec<Felt252>,
-    /// The list of contracts that were changed.
-    pub contracts: Vec<ContractChanges>,
-    /// The list of classes that were declared. A map from class hash to compiled class hash.
-    pub classes: HashMap<Felt252, Felt252>,
+    /// The state diff.
+    pub state_diff: Option<OsStateDiff>,
 }
 
 impl StarknetOsOutput {
@@ -141,12 +147,33 @@ fn deserialize_contract_state_inner<I: Iterator<Item = Felt252>>(
 ) -> Result<ContractChanges, SnOsError> {
     let bound =
         Felt252::from(1u128 << 64).try_into().expect("2**64 should be considered non-zero. Did you change the value?");
+    let n_updates_small_packing_bound =
+        Felt252::from(1u128 << 8).try_into().expect("2**8 should be considered non-zero. Did you change the value?");
+    let flag_bound =
+        Felt252::from(1u128 << 1).try_into().expect("2**1 should be considered non-zero. Did you change the value?");
 
     let addr = next_or_fail(output_iter, "contract change addr")?;
+    let nonce_n_changes_two_flags = next_or_fail(output_iter, "contract nonce_n_changes_two_flags")?;
 
-    let value = next_or_fail(output_iter, "contract change value")?;
-    let (value, n_actual_updates) = value.div_rem(&bound);
-    let (was_class_updated, new_state_nonce) = value.div_rem(&bound);
+    // Parse flags
+    let (nonce_n_changes_one_flag, was_class_updated) = nonce_n_changes_two_flags.div_rem(&flag_bound);
+    let (nonce_n_changes, _is_n_updates_small) = nonce_n_changes_one_flag.div_rem(&flag_bound);
+
+    // Parse n_changes
+    // TODO: Check why we need to ignore `n_updates_flag` and use always `n_updates_small_packing_bound`
+    // n_updates = 8 bits
+    // let _n_updates_bound = if is_n_updates_small == Felt252::ZERO { n_updates_small_packing_bound } else { bound };
+    let (nonce, n_changes) = nonce_n_changes.div_rem(&n_updates_small_packing_bound);
+
+    // Parse nonces
+    let new_state_nonce = if !full_output.is_zero() {
+        // | old_nonce | new_nonce |
+        let (_old_nonce, new_nonce) = nonce.div_rem(&bound);
+        new_nonce
+    } else {
+        // | new_nonce | or Zero
+        nonce
+    };
 
     #[allow(clippy::collapsible_else_if)] // Mirror the Cairo code as much as possible
     let new_state_class_hash = if !full_output.is_zero() {
@@ -160,10 +187,9 @@ fn deserialize_contract_state_inner<I: Iterator<Item = Felt252>>(
         }
     };
 
-    let n_actual_updates = n_actual_updates
-        .to_usize()
-        .expect("n_updates should be 64-bit by definition. Did you modify the parsing above?");
-    let storage_changes = deserialize_da_changes(output_iter, n_actual_updates, full_output)?;
+    let n_changes =
+        n_changes.to_usize().expect("n_updates should be 8 or 64-bit by definition. Did you modify the parsing above?");
+    let storage_changes = deserialize_da_changes(output_iter, n_changes, full_output)?;
 
     Ok(ContractChanges { addr, nonce: new_state_nonce, class_hash: new_state_class_hash, storage_changes })
 }
@@ -261,6 +287,25 @@ fn read_segment<I: Iterator<Item = Felt252>>(
     Ok(segment)
 }
 
+fn deserialize_os_state_diff<I: Iterator<Item = Felt252>>(
+    output_iter: &mut I,
+    full_output: Felt252,
+) -> Result<Option<OsStateDiff>, SnOsError> {
+    // If not full_output
+    if full_output == Felt252::ZERO {
+        // state_diff = decompress(compressed=output_iter)
+        // output_iter = itertools.chain(iter(state_diff), output_iter)
+        return Ok(None);
+    }
+
+    // Contract changes
+    let contract_changes = deserialize_contract_state(output_iter, full_output)?;
+    // Class changes
+    let classes = deserialize_contract_class_da_changes(output_iter, full_output)?;
+
+    Ok(Some(OsStateDiff { contract_changes, classes }))
+}
+
 // Reverse of serialize_os_output in os/output.cairo
 pub fn deserialize_os_output<I>(output_iter: &mut I) -> Result<StarknetOsOutput, SnOsError>
 where
@@ -285,14 +330,7 @@ where
 
     let (messages_to_l1, messages_to_l2) = deserialize_messages(output_iter)?;
 
-    let (contract_changes, classes) = if use_kzg_da.is_zero() {
-        (
-            deserialize_contract_state(output_iter, full_output)?,
-            deserialize_contract_class_da_changes(output_iter, full_output)?,
-        )
-    } else {
-        (vec![], HashMap::default())
-    };
+    let state_diff = deserialize_os_state_diff(output_iter, full_output)?;
 
     Ok(StarknetOsOutput {
         initial_root: header[PREVIOUS_MERKLE_UPDATE_OFFSET],
@@ -307,8 +345,7 @@ where
         full_output,
         messages_to_l1,
         messages_to_l2,
-        contracts: contract_changes,
-        classes,
+        state_diff,
     })
 }
 

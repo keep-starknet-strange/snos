@@ -132,7 +132,8 @@ pub fn set_state_updates_start(
         Err(HintError::CustomHint("ids.use_kzg_da is not a boolean".to_string().into_boxed_str()))
     }?;
 
-    let use_compress_state_updates = if compress_state_updates != Felt252::ZERO { false } else { true };
+    // TODO: check why compress_state_updates = 2 :/
+    let use_compress_state_updates = if compress_state_updates == Felt252::ONE { true } else { false };
 
     if use_kzg_da || use_compress_state_updates {
         insert_value_from_var_name(vars::ids::STATE_UPDATES_START, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
