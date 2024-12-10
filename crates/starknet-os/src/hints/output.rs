@@ -133,7 +133,7 @@ pub fn set_state_updates_start(
     }?;
 
     // TODO: check why compress_state_updates = 2 :/
-    let use_compress_state_updates = if compress_state_updates == Felt252::ONE { true } else { false };
+    let use_compress_state_updates = compress_state_updates == Felt252::ONE;
 
     if use_kzg_da || use_compress_state_updates {
         insert_value_from_var_name(vars::ids::STATE_UPDATES_START, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
@@ -195,7 +195,7 @@ pub fn set_n_updates_small(
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let n_actual_updates = get_integer_from_var_name(vars::ids::N_ACTUAL_UPDATES, vm, ids_data, ap_tracking)?;
-    let n_updates_small_packing_bound = get_constant(&vars::ids::N_UPDATES_SMALL_PACKING_BOUND, constants)?;
+    let n_updates_small_packing_bound = get_constant(vars::ids::N_UPDATES_SMALL_PACKING_BOUND, constants)?;
 
     let is_n_updates_small =
         if n_actual_updates < *n_updates_small_packing_bound { Felt252::ONE } else { Felt252::ZERO };
