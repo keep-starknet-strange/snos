@@ -214,6 +214,7 @@ pub(crate) fn get_starknet_version(block_with_txs: &BlockWithTxs) -> blockifier:
         "0.13.1" => blockifier::versioned_constants::StarknetVersion::V0_13_1,
         "0.13.1.1" => blockifier::versioned_constants::StarknetVersion::V0_13_1_1,
         "0.13.2" => blockifier::versioned_constants::StarknetVersion::V0_13_2,
+        "0.13.2.1" => blockifier::versioned_constants::StarknetVersion::Latest,
         "0.13.3" => blockifier::versioned_constants::StarknetVersion::Latest,
         other => {
             unimplemented!("Unsupported Starknet version: {}", other)
