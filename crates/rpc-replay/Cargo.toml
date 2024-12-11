@@ -17,6 +17,7 @@ starknet-os-types = { workspace = true }
 utils = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+serial_test = "3.2.0"
 
 [dev-dependencies]
 rstest = { workspace = true }
