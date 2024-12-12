@@ -125,6 +125,8 @@ fn insert_extra_storage_reads_keys(
     let special_addresses: Vec<ContractAddress> = vec![
         contract_address!("0x01246c3031c5d0d1cf60a9370aac03a4717538f659e4a2bfb0f692e970e0c4b5"),
         contract_address!("0x00656ca4889a405ec5222e4b0997e5a043902a98cb1f85a039f76f50c000479d"),
+        // Ekubo:core contract address. Source code is not available but `key_not_in_preimage` error is triggered every time it's called
+        contract_address!("0x5dd3d2f4429af886cd1a3b08289dbcea99a294197e9eb43b0e0325b4b"),
     ];
 
     let extra_storage_reads = if special_addresses.iter().any(|address| storage_reads.contains_key(address)) {
