@@ -68,6 +68,10 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::peekable_peek_is_none(174156)]
 #[case::no_more_storage_reads_available(161884)]
 #[case::no_more_storage_reads_available(174027)]
+#[case::memory_addresses_must_be_relocatable(202083)]
+#[case::memory_invalid_signature(216914)]
+#[case::diff_assert_values(218624)]
+#[case::could_nt_compute_operand_op1(204337)]
 // The following ten tests were added due key not found in preimage (verify_game contract function related)
 #[case::key_not_found_in_preimage_0(237025)]
 #[case::key_not_found_in_preimage_1(237030)]

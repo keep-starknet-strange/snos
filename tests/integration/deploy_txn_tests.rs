@@ -362,8 +362,8 @@ async fn deploy_via_invoke_no_calldata_cairo1_account(
 #[rstest]
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn deploy_cairo0_check_get_info_call(block_context: BlockContext, max_fee: Fee) {
-    let account_with_tx_info_check = load_cairo0_feature_contract("account_with_tx_info_check");
-    let class_hash = class_hash!("0x6c8903651a5f89ffc304621a7d8106a0324cc28aca04934fcbbb4398d5c8bc8");
+    let account_with_syscall_checks = load_cairo0_feature_contract("account_with_syscall_checks");
+    let class_hash = class_hash!("0xc70ea92037ef300241a3ffac81d36324200ed3350bf51a2a4bc0149e8fb6a1");
 
     let ctor_calldata = Calldata::default();
     let deployed_contract_address = calculate_contract_address(
@@ -375,7 +375,7 @@ async fn deploy_cairo0_check_get_info_call(block_context: BlockContext, max_fee:
     .expect("Failed to calculate the contract address");
 
     let initial_state = StarknetStateBuilder::new(&block_context)
-        .deploy_cairo0_contract(account_with_tx_info_check.0, account_with_tx_info_check.1)
+        .deploy_cairo0_contract(account_with_syscall_checks.0, account_with_syscall_checks.1)
         .fund_account(deployed_contract_address, BALANCE, BALANCE)
         .set_default_balance(BALANCE, BALANCE)
         .build()
@@ -384,9 +384,10 @@ async fn deploy_cairo0_check_get_info_call(block_context: BlockContext, max_fee:
     let tx_version = TransactionVersion::ONE;
     let mut nonce_manager = NonceManager::default();
 
-    let account_with_tx_info_check = initial_state.deployed_cairo0_contracts.get("account_with_tx_info_check").unwrap();
+    let account_with_syscall_checks =
+        initial_state.deployed_cairo0_contracts.get("account_with_syscall_checks").unwrap();
 
-    let deployed_account_class_hash = account_with_tx_info_check.declaration.class_hash;
+    let deployed_account_class_hash = account_with_syscall_checks.declaration.class_hash;
     // Sanity check, as we hardcode the class hash in the fixture we verify that we have
     // the right one.
     assert_eq!(class_hash, deployed_account_class_hash);
