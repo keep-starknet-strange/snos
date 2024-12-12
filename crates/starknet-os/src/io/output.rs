@@ -157,13 +157,11 @@ fn deserialize_contract_state_inner<I: Iterator<Item = Felt252>>(
 
     // Parse flags
     let (nonce_n_changes_one_flag, was_class_updated) = nonce_n_changes_two_flags.div_rem(&flag_bound);
-    let (nonce_n_changes, _is_n_updates_small) = nonce_n_changes_one_flag.div_rem(&flag_bound);
+    let (nonce_n_changes, is_n_updates_small) = nonce_n_changes_one_flag.div_rem(&flag_bound);
 
     // Parse n_changes
-    // TODO: Check why we need to ignore `n_updates_flag` and use always `n_updates_small_packing_bound`
-    // n_updates = 8 bits
-    // let _n_updates_bound = if is_n_updates_small == Felt252::ZERO { n_updates_small_packing_bound } else { bound };
-    let (nonce, n_changes) = nonce_n_changes.div_rem(&n_updates_small_packing_bound);
+    let n_updates_bound = if is_n_updates_small == Felt252::ZERO { n_updates_small_packing_bound } else { bound };
+    let (nonce, n_changes) = nonce_n_changes.div_rem(&n_updates_bound);
 
     // Parse nonces
     let new_state_nonce = if !full_output.is_zero() {
