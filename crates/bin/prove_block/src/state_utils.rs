@@ -32,6 +32,7 @@ pub(crate) async fn get_formatted_state_update(
     rpc_client: &RpcClient,
     previous_block_id: BlockId,
     block_id: BlockId,
+    block_number: u64,
 ) -> Result<(FormattedStateUpdate, Vec<TransactionTraceWithHash>), ProveBlockError> {
     let state_update =
         match rpc_client.starknet_rpc().get_state_update(block_id).await.expect("Failed to get state update") {
@@ -45,7 +46,7 @@ pub(crate) async fn get_formatted_state_update(
     // Extract other contracts used in our block from the block trace
     // We need this to get all the class hashes used and correctly feed address_to_class_hash
     let traces =
-        rpc_client.starknet_rpc().trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
+        rpc_client.pathfinder_rpc().get_block_traces(block_number).await.expect("Failed to get block tx traces");
     let (accessed_addresses, accessed_classes) = get_subcalled_contracts_from_tx_traces(&traces);
 
     let declared_classes: HashSet<_> =
