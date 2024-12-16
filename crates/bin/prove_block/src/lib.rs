@@ -166,7 +166,8 @@ pub async fn prove_block(
     let transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    let (processed_state_update, traces) = get_formatted_state_update(&rpc_client, previous_block_id, block_id).await?;
+    let (processed_state_update, traces) =
+        get_formatted_state_update(&rpc_client, previous_block_id, block_id, block_number).await?;
 
     let class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash;
 
