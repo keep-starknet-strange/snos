@@ -163,11 +163,12 @@ pub fn set_state_updates_start(
     Ok(())
 }
 
-pub const SET_COMPRESSED_START: &str = indoc! {r#"if ids.use_kzg_da:
-    ids.state_updates_start = segments.add()
+pub const SET_COMPRESSED_START: &str = indoc! {r#"use_kzg_da = ids.use_kzg_da
+if use_kzg_da:
+    ids.compressed_start = segments.add()
 else:
     # Assign a temporary segment, to be relocated into the output segment.
-    ids.state_updates_start = segments.add_temp_segment()"#};
+    ids.compressed_start = segments.add_temp_segment()"#};
 
 pub fn set_compressed_start(
     vm: &mut VirtualMachine,
@@ -176,6 +177,7 @@ pub fn set_compressed_start(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
+    println!(" SET COMPRESSED START!");
     let use_kzg_da_felt = get_integer_from_var_name(vars::ids::USE_KZG_DA, vm, ids_data, ap_tracking)?;
 
     let use_kzg_da = if use_kzg_da_felt == Felt252::ONE {
