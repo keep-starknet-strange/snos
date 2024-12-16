@@ -69,16 +69,6 @@ mod tests {
 
     impl SerializationPrefix for MySerializable {}
 
-    impl Serializable for MySerializable {
-        fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-            panic!("Not implemented, on purpose");
-        }
-
-        fn deserialize(_data: &[u8]) -> Result<Self, DeserializeError> {
-            panic!("Not implemented, on purpose");
-        }
-    }
-
     #[test]
     fn test_class_name_prefix() {
         assert_eq!(MySerializable::class_name_prefix(), "my_serializable".as_bytes());
