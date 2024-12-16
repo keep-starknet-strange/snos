@@ -5,7 +5,7 @@ use serde_json::json;
 use starknet::core::types::TransactionTraceWithHash;
 use starknet_types_core::felt::Felt;
 
-use crate::pathfinder::proofs::{PathfinderClassProof, PathfinderProof};
+use crate::pathfinder::proofs::{PathfinderClassProof, PathfinderProof, StorageProof};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError {
@@ -51,6 +51,25 @@ async fn post_jsonrpc_07_request<T: DeserializeOwned>(
 ) -> Result<T, ClientError> {
     let request = jsonrpc_request(method, params);
     let response = client.post(format!("{}/rpc/v0_7", rpc_provider)).json(&request).send().await?;
+
+    #[derive(Deserialize)]
+    struct TransactionReceiptResponse<T> {
+        result: T,
+    }
+
+    let response: TransactionReceiptResponse<T> = handle_error(response).await?;
+
+    Ok(response.result)
+}
+
+async fn post_jsonrpc_08_request<T: DeserializeOwned>(
+    client: &reqwest::Client,
+    rpc_provider: &str,
+    method: &str,
+    params: serde_json::Value,
+) -> Result<T, ClientError> {
+    let request = jsonrpc_request(method, params);
+    let response = client.post(format!("{}/rpc/v0_8", rpc_provider)).json(&request).send().await?;
 
     #[derive(Deserialize)]
     struct TransactionReceiptResponse<T> {
@@ -113,6 +132,20 @@ impl PathfinderRpcClient {
             &self.rpc_base_url,
             "pathfinder_getClassProof",
             json!({ "block_id": { "block_number": block_number }, "class_hash": class_hash }),
+        )
+        .await
+    }
+
+    pub async fn get_storage_class_proof(
+        &self,
+        block_number: u64,
+        class_hashes: &[&Felt],
+    ) -> Result<StorageProof, ClientError> {
+        post_jsonrpc_08_request(
+            &self.http_client,
+            &self.rpc_base_url,
+            "starknet_getStorageProof",
+            json!({ "block_id": { "block_number": block_number }, "class_hashes": class_hashes }),
         )
         .await
     }
