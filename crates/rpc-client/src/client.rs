@@ -15,7 +15,7 @@ struct RpcClientInner {
 
 impl RpcClientInner {
     fn new(base_url: &str) -> Self {
-        let starknet_rpc_url = format!("{}/rpc/v0_7", base_url);
+        let starknet_rpc_url = format!("{}/rpc/v0_8", base_url);
         log::info!("Starknet RPC URL: {}", starknet_rpc_url);
         let provider = JsonRpcClient::new(HttpTransport::new(
             Url::parse(starknet_rpc_url.as_str())

@@ -2,6 +2,7 @@ use reqwest::{Response, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
+use starknet::core::types::TransactionTraceWithHash;
 use starknet_types_core::felt::Felt;
 
 use crate::pathfinder::proofs::{PathfinderClassProof, PathfinderProof};
@@ -42,6 +43,25 @@ async fn post_jsonrpc_request<T: DeserializeOwned>(
     Ok(response.result)
 }
 
+async fn post_jsonrpc_07_request<T: DeserializeOwned>(
+    client: &reqwest::Client,
+    rpc_provider: &str,
+    method: &str,
+    params: serde_json::Value,
+) -> Result<T, ClientError> {
+    let request = jsonrpc_request(method, params);
+    let response = client.post(format!("{}/rpc/v0_7", rpc_provider)).json(&request).send().await?;
+
+    #[derive(Deserialize)]
+    struct TransactionReceiptResponse<T> {
+        result: T,
+    }
+
+    let response: TransactionReceiptResponse<T> = handle_error(response).await?;
+
+    Ok(response.result)
+}
+
 async fn handle_error<T: DeserializeOwned>(response: Response) -> Result<T, ClientError> {
     match response.status() {
         StatusCode::OK => Ok(response.json().await?),
@@ -61,8 +81,6 @@ pub struct PathfinderRpcClient {
 
 impl PathfinderRpcClient {
     pub fn new(base_url: &str) -> Self {
-        let starknet_rpc_url = format!("{}/rpc/v0_7", base_url);
-        log::info!("Starknet RPC URL: {}", starknet_rpc_url);
         let http_client =
             reqwest::ClientBuilder::new().build().unwrap_or_else(|e| panic!("Could not build reqwest client: {e}"));
 
@@ -95,6 +113,16 @@ impl PathfinderRpcClient {
             &self.rpc_base_url,
             "pathfinder_getClassProof",
             json!({ "block_id": { "block_number": block_number }, "class_hash": class_hash }),
+        )
+        .await
+    }
+
+    pub async fn get_block_traces(&self, block_number: u64) -> Result<Vec<TransactionTraceWithHash>, ClientError> {
+        post_jsonrpc_07_request(
+            &self.http_client,
+            &self.rpc_base_url,
+            "starknet_traceBlockTransactions",
+            json!({ "block_id": { "block_number": block_number }}),
         )
         .await
     }
