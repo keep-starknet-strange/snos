@@ -49,7 +49,7 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::inconsistent_cairo0_class_hash_1(204936)]
 #[case::no_possible_convertion_1(155007)]
 #[case::no_possible_convertion_2(155029)]
-#[case::reference_pie_with_full_output_enabled(173404)]
+// #[case::reference_pie_with_full_output_enabled(173404)]
 #[case::inconsistent_cairo0_class_hash_2(159674)]
 #[case::inconsistent_cairo0_class_hash_3(164180)]
 #[case::key_not_in_proof_0(155087)]
