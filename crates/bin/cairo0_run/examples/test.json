@@ -1,0 +1,480 @@
+{
+    "attributes": [],
+    "builtins": [
+        "output"
+    ],
+    "compiler_version": "0.13.2",
+    "data": [
+        "0x40780017fff7fff",
+        "0x4",
+        "0x400780017fff8000",
+        "0x1",
+        "0x400780017fff8001",
+        "0x1",
+        "0x480680017fff8000",
+        "0x1",
+        "0x402a800180027fff",
+        "0x480a7ffd7fff8000",
+        "0x208b7fff7fff7ffe"
+    ],
+    "debug_info": {
+        "file_contents": {},
+        "instruction_locations": {
+            "0": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 0
+                    },
+                    "reference_ids": {
+                        "__main__.main.output_ptr": 0
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 18,
+                    "end_line": 6,
+                    "input_file": {
+                        "filename": "test_pass.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 6
+                }
+            },
+            "2": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 4
+                    },
+                    "reference_ids": {
+                        "__main__.main.output_ptr": 0
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 26,
+                    "end_line": 7,
+                    "input_file": {
+                        "filename": "test_pass.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 7
+                }
+            },
+            "4": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 4
+                    },
+                    "reference_ids": {
+                        "__main__.main.output_ptr": 0,
+                        "__main__.main.use_kzg_da": 1
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 27,
+                    "end_line": 8,
+                    "input_file": {
+                        "filename": "test_pass.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 8
+                }
+            },
+            "6": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 4
+                    },
+                    "reference_ids": {
+                        "__main__.main.full_output": 2,
+                        "__main__.main.output_ptr": 0,
+                        "__main__.main.use_kzg_da": 1
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 37,
+                    "end_line": 9,
+                    "input_file": {
+                        "filename": "test_pass.cairo"
+                    },
+                    "start_col": 36,
+                    "start_line": 9
+                }
+            },
+            "8": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 5
+                    },
+                    "reference_ids": {
+                        "__main__.main.__temp0": 3,
+                        "__main__.main.full_output": 2,
+                        "__main__.main.output_ptr": 0,
+                        "__main__.main.use_kzg_da": 1
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 52,
+                    "end_line": 9,
+                    "input_file": {
+                        "filename": "test_pass.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 9
+                }
+            },
+            "9": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 5
+                    },
+                    "reference_ids": {
+                        "__main__.main.__temp0": 3,
+                        "__main__.main.compress_state_updates": 4,
+                        "__main__.main.full_output": 2,
+                        "__main__.main.output_ptr": 0,
+                        "__main__.main.state_updates_ptr": 6,
+                        "__main__.main.state_updates_start": 5,
+                        "__main__.main.use_kzg_da": 1
+                    }
+                },
+                "hints": [
+                    {
+                        "location": {
+                            "end_col": 7,
+                            "end_line": 21,
+                            "input_file": {
+                                "filename": "test_pass.cairo"
+                            },
+                            "start_col": 5,
+                            "start_line": 13
+                        },
+                        "n_prefix_newlines": 1
+                    }
+                ],
+                "inst": {
+                    "end_col": 28,
+                    "end_line": 4,
+                    "input_file": {
+                        "filename": "test_pass.cairo"
+                    },
+                    "parent_location": [
+                        {
+                            "end_col": 28,
+                            "end_line": 4,
+                            "input_file": {
+                                "filename": "test_pass.cairo"
+                            },
+                            "parent_location": [
+                                {
+                                    "end_col": 14,
+                                    "end_line": 23,
+                                    "input_file": {
+                                        "filename": "test_pass.cairo"
+                                    },
+                                    "start_col": 5,
+                                    "start_line": 23
+                                },
+                                "While trying to retrieve the implicit argument 'output_ptr' in:"
+                            ],
+                            "start_col": 11,
+                            "start_line": 4
+                        },
+                        "While expanding the reference 'output_ptr' in:"
+                    ],
+                    "start_col": 11,
+                    "start_line": 4
+                }
+            },
+            "10": {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 6
+                    },
+                    "reference_ids": {
+                        "__main__.main.__temp0": 3,
+                        "__main__.main.compress_state_updates": 4,
+                        "__main__.main.full_output": 2,
+                        "__main__.main.output_ptr": 0,
+                        "__main__.main.state_updates_ptr": 6,
+                        "__main__.main.state_updates_start": 5,
+                        "__main__.main.use_kzg_da": 1
+                    }
+                },
+                "hints": [],
+                "inst": {
+                    "end_col": 14,
+                    "end_line": 23,
+                    "input_file": {
+                        "filename": "test_pass.cairo"
+                    },
+                    "start_col": 5,
+                    "start_line": 23
+                }
+            }
+        }
+    },
+    "hints": {
+        "9": [
+            {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__.main"
+                ],
+                "code": "# `use_kzg_da` is used in a hint in `process_data_availability`.\nuse_kzg_da = ids.use_kzg_da\nif use_kzg_da or ids.compress_state_updates:\n    ids.state_updates_start = segments.add()\nelse:\n    # Assign a temporary segment, to be relocated into the output segment.\n    ids.state_updates_start = segments.add_temp_segment()",
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 0,
+                        "offset": 5
+                    },
+                    "reference_ids": {
+                        "__main__.main.__temp0": 3,
+                        "__main__.main.compress_state_updates": 4,
+                        "__main__.main.full_output": 2,
+                        "__main__.main.output_ptr": 0,
+                        "__main__.main.state_updates_ptr": 6,
+                        "__main__.main.state_updates_start": 5,
+                        "__main__.main.use_kzg_da": 1
+                    }
+                }
+            }
+        ]
+    },
+    "identifiers": {
+        "__main__.main": {
+            "decorators": [],
+            "pc": 0,
+            "type": "function"
+        },
+        "__main__.main.Args": {
+            "full_name": "__main__.main.Args",
+            "members": {},
+            "size": 0,
+            "type": "struct"
+        },
+        "__main__.main.ImplicitArgs": {
+            "full_name": "__main__.main.ImplicitArgs",
+            "members": {
+                "output_ptr": {
+                    "cairo_type": "felt*",
+                    "offset": 0
+                }
+            },
+            "size": 1,
+            "type": "struct"
+        },
+        "__main__.main.Return": {
+            "cairo_type": "()",
+            "type": "type_definition"
+        },
+        "__main__.main.SIZEOF_LOCALS": {
+            "type": "const",
+            "value": 4
+        },
+        "__main__.main.__temp0": {
+            "cairo_type": "felt",
+            "full_name": "__main__.main.__temp0",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 0,
+                        "offset": 5
+                    },
+                    "pc": 8,
+                    "value": "[cast(ap + (-1), felt*)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.main.compress_state_updates": {
+            "cairo_type": "felt",
+            "full_name": "__main__.main.compress_state_updates",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 0,
+                        "offset": 5
+                    },
+                    "pc": 9,
+                    "value": "[cast(fp + 2, felt*)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.main.full_output": {
+            "cairo_type": "felt",
+            "full_name": "__main__.main.full_output",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 0,
+                        "offset": 4
+                    },
+                    "pc": 6,
+                    "value": "[cast(fp + 1, felt*)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.main.output_ptr": {
+            "cairo_type": "felt*",
+            "full_name": "__main__.main.output_ptr",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 0,
+                        "offset": 0
+                    },
+                    "pc": 0,
+                    "value": "[cast(fp + (-3), felt**)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.main.state_updates_ptr": {
+            "cairo_type": "felt*",
+            "full_name": "__main__.main.state_updates_ptr",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 0,
+                        "offset": 5
+                    },
+                    "pc": 9,
+                    "value": "[cast(fp + 3, felt**)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.main.state_updates_start": {
+            "cairo_type": "felt*",
+            "full_name": "__main__.main.state_updates_start",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 0,
+                        "offset": 5
+                    },
+                    "pc": 9,
+                    "value": "[cast(fp + 3, felt**)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.main.use_kzg_da": {
+            "cairo_type": "felt",
+            "full_name": "__main__.main.use_kzg_da",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 0,
+                        "offset": 4
+                    },
+                    "pc": 4,
+                    "value": "[cast(fp, felt*)]"
+                }
+            ],
+            "type": "reference"
+        }
+    },
+    "main_scope": "__main__",
+    "prime": "0x800000000000011000000000000000000000000000000000000000000000001",
+    "reference_manager": {
+        "references": [
+            {
+                "ap_tracking_data": {
+                    "group": 0,
+                    "offset": 0
+                },
+                "pc": 0,
+                "value": "[cast(fp + (-3), felt**)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 0,
+                    "offset": 4
+                },
+                "pc": 4,
+                "value": "[cast(fp, felt*)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 0,
+                    "offset": 4
+                },
+                "pc": 6,
+                "value": "[cast(fp + 1, felt*)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 0,
+                    "offset": 5
+                },
+                "pc": 8,
+                "value": "[cast(ap + (-1), felt*)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 0,
+                    "offset": 5
+                },
+                "pc": 9,
+                "value": "[cast(fp + 2, felt*)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 0,
+                    "offset": 5
+                },
+                "pc": 9,
+                "value": "[cast(fp + 3, felt**)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 0,
+                    "offset": 5
+                },
+                "pc": 9,
+                "value": "[cast(fp + 3, felt**)]"
+            }
+        ]
+    }
+}

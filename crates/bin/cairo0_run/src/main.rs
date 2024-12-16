@@ -12,7 +12,7 @@ use starknet_os::starkware_utils::commitment_tree::base_types::TreeIndex;
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[arg(long)]
+    #[arg(long, default_value = "crates/bin/cairo0_run/examples/test.json")]
     input: String,
 }
 
