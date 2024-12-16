@@ -156,3 +156,49 @@ pub fn verify_proof<H: HashFunctionType>(
 
     Ok(())
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct ContractStorageKeysItem {
+    pub contract_address: Felt,
+    pub storage_keys: Vec<Felt>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
+pub enum MerkleNode {
+    Binary { left: Felt, right: Felt },
+    Edge { child: Felt, path: Felt, length: usize },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct NodeHashToNodeMappingItem {
+    pub node_hash: Felt,
+    pub node: MerkleNode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct ContractLeavesDataItem {
+    pub nonce: Felt,
+    pub class_hash: Felt,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct ContractsProof {
+    pub nodes: Vec<NodeHashToNodeMappingItem>,
+    pub contract_leaves_data: Vec<ContractLeavesDataItem>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct GlobalRoots {
+    pub contracts_tree_root: Felt,
+    pub classes_tree_root: Felt,
+    pub block_hash: Felt,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct StorageProof {
+    pub classes_proof: Vec<NodeHashToNodeMappingItem>,
+    pub contracts_proof: ContractsProof,
+    pub contracts_storage_proofs: Vec<Vec<NodeHashToNodeMappingItem>>,
+    pub global_roots: GlobalRoots,
+}
