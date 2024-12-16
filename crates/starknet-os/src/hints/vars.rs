@@ -162,6 +162,7 @@ pub mod ids {
     pub const N_ACTUAL_UPDATES: &str = "n_actual_updates";
     pub const N_UPDATES_SMALL_PACKING_BOUND: &str =
         "starkware.starknet.core.os.state.output.N_UPDATES_SMALL_PACKING_BOUND";
+    pub const FULL_OUTPUT: &str = "full_output";
 }
 
 pub mod constants {

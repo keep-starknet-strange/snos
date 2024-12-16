@@ -121,8 +121,15 @@ pub fn set_state_updates_start(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let use_kzg_da_felt = get_integer_from_var_name(vars::ids::USE_KZG_DA, vm, ids_data, ap_tracking)?;
-    let compress_state_updates =
-        get_integer_from_var_name(vars::ids::COMPRESS_STATE_UPDATES, vm, ids_data, ap_tracking)?;
+
+    // The evaluator handles "complex" expressions and simplifies them.
+    // Given an expression returns a type-simplified expression and its Cairo type.
+    // This includes checking types in operations, removing casts, and expanding dot and subscript operators.
+    // https://github.com/starkware-libs/cairo-lang/blob/8e11b8cc65ae1d0959328b1b4a40b92df8b58595/src/starkware/cairo/lang/vm/vm_consts.py#L224
+    // https://github.com/starkware-libs/cairo-lang/blob/8e11b8cc65ae1d0959328b1b4a40b92df8b58595/src/starkware/cairo/lang/compiler/type_system_visitor.py#L395-L415
+    // To improve code readability and maintenance, let's define `compress_state_updates` as it's defined in cairo code instead of reading it.
+    let full_output = get_integer_from_var_name(vars::ids::FULL_OUTPUT, vm, ids_data, ap_tracking)?;
+    let compress_state_updates = Felt252::ONE - full_output;
 
     let use_kzg_da = if use_kzg_da_felt == Felt252::ONE {
         Ok(true)
@@ -132,8 +139,13 @@ pub fn set_state_updates_start(
         Err(HintError::CustomHint("ids.use_kzg_da is not a boolean".to_string().into_boxed_str()))
     }?;
 
-    // TODO: check why compress_state_updates = 2 :/
-    let use_compress_state_updates = compress_state_updates == Felt252::ONE;
+    let use_compress_state_updates = if compress_state_updates == Felt252::ONE {
+        Ok(true)
+    } else if compress_state_updates == Felt252::ZERO {
+        Ok(false)
+    } else {
+        Err(HintError::CustomHint("ids.compress_state_updates is not a boolean".to_string().into_boxed_str()))
+    }?;
 
     if use_kzg_da || use_compress_state_updates {
         insert_value_from_var_name(vars::ids::STATE_UPDATES_START, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
