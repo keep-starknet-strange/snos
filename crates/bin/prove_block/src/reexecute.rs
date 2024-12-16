@@ -10,7 +10,7 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
-use rpc_client::pathfinder::proofs::{ContractData, PathfinderProof, TrieNode};
+use rpc_client::pathfinder::proofs::{ContractData, MerkleNode, PathfinderProof, PathfinderProof, TrieNode, TrieNode};
 use rpc_client::RpcClient;
 use starknet::core::types::{BlockId, StarknetError};
 use starknet::providers::{Provider as _, ProviderError};
@@ -155,6 +155,45 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
             let fact_as_tuple_of_felts: Vec<_> = fact_as_tuple.into_iter().map(Felt252::from).collect();
             facts.insert(key, fact_as_tuple_of_felts);
         }
+    }
+
+    facts
+}
+
+pub(crate) fn format_08_commitment_facts<H: HashFunctionType>(
+    trie_nodes: &Vec<MerkleNode>,
+) -> HashMap<Felt252, Vec<Felt252>> {
+    let mut facts = HashMap::new();
+
+    for node in trie_nodes {
+        let (key, fact_as_tuple) = match node {
+            MerkleNode::Binary { left, right } => {
+                let fact = BinaryNodeFact::new((*left).into(), (*right).into())
+                    .expect("storage proof endpoint gave us an invalid binary node");
+
+                // TODO: the hash function should probably be split from the Fact trait.
+                //       we use a placeholder for the Storage trait in the meantime.
+                let node_hash = Felt252::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact));
+                let fact_as_tuple = <BinaryNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
+
+                (node_hash, fact_as_tuple)
+            }
+            MerkleNode::Edge { child, path, length } => {
+                let len = *length;
+                let fact =
+                    EdgeNodeFact::new((*child).into(), NodePath(path.to_biguint()), Length(len.try_into().unwrap()))
+                        .expect("storage proof endpoint gave us an invalid edge node");
+                // TODO: the hash function should probably be split from the Fact trait.
+                //       we use a placeholder for the Storage trait in the meantime.
+                let node_hash = Felt252::from(<EdgeNodeFact as Fact<DictStorage, H>>::hash(&fact));
+                let fact_as_tuple = <EdgeNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
+
+                (node_hash, fact_as_tuple)
+            }
+        };
+
+        let fact_as_tuple_of_felts: Vec<_> = fact_as_tuple.into_iter().map(Felt252::from).collect();
+        facts.insert(key, fact_as_tuple_of_felts);
     }
 
     facts

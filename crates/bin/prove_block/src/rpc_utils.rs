@@ -5,7 +5,7 @@ use cairo_vm::Felt252;
 use num_bigint::BigInt;
 use rpc_client::pathfinder::client::ClientError;
 use rpc_client::pathfinder::proofs::{
-    ContractData, EdgePath, PathfinderClassProof, PathfinderProof, ProofVerificationError, TrieNode,
+    ContractData, EdgePath, PathfinderClassProof, PathfinderProof, ProofVerificationError, StorageProof, TrieNode,
 };
 use rpc_client::RpcClient;
 use starknet::core::types::BlockWithTxs;
@@ -238,6 +238,14 @@ pub(crate) async fn get_class_proofs(
     }
 
     Ok(proofs)
+}
+
+pub(crate) async fn get_08_class_proofs(
+    rpc_client: &RpcClient,
+    block_number: u64,
+    class_hashes: &[&Felt],
+) -> Result<StorageProof, ClientError> {
+    rpc_client.pathfinder_rpc().get_storage_class_proof(block_number, class_hashes).await
 }
 
 pub(crate) fn get_starknet_version(block_with_txs: &BlockWithTxs) -> blockifier::versioned_constants::StarknetVersion {

@@ -8,13 +8,13 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage};
-use rpc_client::pathfinder::proofs::{PathfinderClassProof, ProofVerificationError};
+use rpc_client::pathfinder::proofs::{PathfinderClassProof, ProofVerificationError, StorageProof};
 use rpc_client::RpcClient;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::{starknet_rs_to_blockifier, ToBlockifierError};
 use rpc_replay::utils::FeltConversionError;
-use rpc_utils::{get_class_proofs, get_storage_proofs};
+use rpc_utils::{get_08_class_proofs, get_class_proofs, get_storage_proofs};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, StarknetError};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::StarknetApiError;
@@ -38,7 +38,7 @@ use starknet_types_core::felt::Felt;
 use state_utils::get_formatted_state_update;
 use thiserror::Error;
 
-use crate::reexecute::format_commitment_facts;
+use crate::reexecute::{format_08_commitment_facts, format_commitment_facts};
 use crate::rpc_utils::get_starknet_version;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
@@ -102,6 +102,28 @@ fn compute_class_commitment(
 
     let previous_class_commitment_facts = format_commitment_facts::<PoseidonHash>(&previous_class_proofs);
     let current_class_commitment_facts = format_commitment_facts::<PoseidonHash>(&class_proofs);
+
+    let class_commitment_facts: HashMap<_, _> =
+        previous_class_commitment_facts.into_iter().chain(current_class_commitment_facts).collect();
+
+    log::debug!("previous class trie root: {}", previous_root.to_hex_string());
+    log::debug!("current class trie root: {}", updated_root.to_hex_string());
+
+    CommitmentInfo { previous_root, updated_root, tree_height: 251, commitment_facts: class_commitment_facts }
+}
+
+fn compute_08_class_commitment(
+    previous_class_proofs: &StorageProof,
+    class_proofs: &StorageProof,
+    previous_root: Felt,
+    updated_root: Felt,
+) -> CommitmentInfo {
+    let previous_class_proofs: Vec<_> =
+        previous_class_proofs.classes_proof.clone().into_iter().map(|proof| proof.node).collect();
+    let class_proofs: Vec<_> = class_proofs.classes_proof.clone().into_iter().map(|proof| proof.node).collect();
+
+    let previous_class_commitment_facts = format_08_commitment_facts::<PoseidonHash>(&previous_class_proofs);
+    let current_class_commitment_facts = format_08_commitment_facts::<PoseidonHash>(&class_proofs);
 
     let class_commitment_facts: HashMap<_, _> =
         previous_class_commitment_facts.into_iter().chain(current_class_commitment_facts).collect();
@@ -282,6 +304,12 @@ pub async fn prove_block(
     let class_hashes: Vec<&Felt252> = class_hash_to_compiled_class_hash.keys().collect();
     // TODO: we fetch proofs here for block-1, but we probably also need to fetch at the current
     //       block, likely for contracts that are deployed in this block
+    let class_proofs_08 =
+        get_08_class_proofs(&rpc_client, block_number, &class_hashes[..]).await.expect("Failed to fetch class proofs");
+    let previous_class_proofs_08 = get_08_class_proofs(&rpc_client, block_number - 1, &class_hashes[..])
+        .await
+        .expect("Failed to fetch previous class proofs");
+
     let class_proofs =
         get_class_proofs(&rpc_client, block_number, &class_hashes[..]).await.expect("Failed to fetch class proofs");
     let previous_class_proofs = get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..])
@@ -339,9 +367,12 @@ pub async fn prove_block(
     let contract_class_commitment_info =
         compute_class_commitment(&previous_class_proofs, &class_proofs, previous_root, updated_root);
 
+    let contract_class_commitment_info_08 =
+        compute_08_class_commitment(&previous_class_proofs_08, &class_proofs_08, previous_root, updated_root);
+
     let os_input = Rc::new(StarknetOsInput {
         contract_state_commitment_info,
-        contract_class_commitment_info,
+        contract_class_commitment_info: contract_class_commitment_info_08,
         deprecated_compiled_classes,
         compiled_classes,
         compiled_class_visited_pcs: visited_pcs,
