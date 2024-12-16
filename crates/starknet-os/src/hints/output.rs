@@ -128,8 +128,13 @@ pub fn set_state_updates_start(
     // https://github.com/starkware-libs/cairo-lang/blob/8e11b8cc65ae1d0959328b1b4a40b92df8b58595/src/starkware/cairo/lang/vm/vm_consts.py#L224
     // https://github.com/starkware-libs/cairo-lang/blob/8e11b8cc65ae1d0959328b1b4a40b92df8b58595/src/starkware/cairo/lang/compiler/type_system_visitor.py#L395-L415
     // To improve code readability and maintenance, let's define `compress_state_updates` as it's defined in cairo code instead of reading it.
-    let full_output = get_integer_from_var_name(vars::ids::FULL_OUTPUT, vm, ids_data, ap_tracking)?;
-    let compress_state_updates = Felt252::ONE - full_output;
+    // let full_output = get_integer_from_var_name(vars::ids::FULL_OUTPUT, vm, ids_data, ap_tracking)?;
+    // let compress_state_updates = Felt252::ONE - full_output;
+
+    let compress_state_updates =
+        get_integer_from_var_name(vars::ids::COMPRESS_STATE_UPDATES, vm, ids_data, ap_tracking)?;
+
+    println!("COMPRESS_STATE_UPDATES: {:x}", compress_state_updates);
 
     let use_kzg_da = if use_kzg_da_felt == Felt252::ONE {
         Ok(true)
