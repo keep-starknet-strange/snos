@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
@@ -12,7 +12,7 @@ use starknet::core::types::BlockWithTxs;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::state::StorageKey;
 use starknet_api::{contract_address, felt, patricia_key};
-use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
+use starknet_os::config::{DEFAULT_STORAGE_TREE_HEIGHT, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::starkware_utils::commitment_tree::base_types::Height;
 use starknet_types_core::felt::Felt;
 
@@ -111,6 +111,36 @@ fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<Felt
     additional_keys
 }
 
+/// Inserts additional keys for retrieving storage proof from the block hash contract (address 0x1).
+/// Certain contracts necessitate extra nodes from the contract 0x1. However, since Blockifier does not provide this information,
+/// it is necessary to add some extra keys to ensure the inclusion of the required nodes.
+/// This approach serves as a workaround. The ideal solutions would be to either retrieve the full tree or obtain information about the necessary nodes.
+/// The first approach would introduce significant overhead for most blocks, and the second solution is currently not feasible at the moment.
+fn insert_extra_storage_reads_keys(
+    old_block_number: Felt252,
+    keys: &mut HashMap<ContractAddress, HashSet<StorageKey>>,
+) {
+    // A list of the contracts that accessed to the storage from 0x1 using `get_block_hash_syscall`
+    let special_addresses: Vec<ContractAddress> = vec![
+        contract_address!("0x01246c3031c5d0d1cf60a9370aac03a4717538f659e4a2bfb0f692e970e0c4b5"),
+        contract_address!("0x00656ca4889a405ec5222e4b0997e5a043902a98cb1f85a039f76f50c000479d"),
+        contract_address!("0x022207b425a6c0239bbf5d58fbf0272fbb059ee4bb89f48255321d6e7c1606ef"),
+        // Ekubo:core contract address. Source code is not available but `key_not_in_preimage` error is triggered every time it's called
+        contract_address!("0x5dd3d2f4429af886cd1a3b08289dbcea99a294197e9eb43b0e0325b4b"),
+    ];
+
+    if special_addresses.iter().any(|address| keys.contains_key(address)) {
+        let extra_storage_reads = 200 * STORED_BLOCK_HASH_BUFFER;
+        if old_block_number >= Felt252::from(extra_storage_reads) {
+            for i in 1..=extra_storage_reads {
+                keys.entry(contract_address!("0x1"))
+                    .or_default()
+                    .insert((old_block_number - i).try_into().expect("Felt to StorageKey conversion failed"));
+            }
+        }
+    }
+}
+
 pub(crate) async fn get_storage_proofs(
     client: &RpcClient,
     block_number: u64,
@@ -121,6 +151,8 @@ pub(crate) async fn get_storage_proofs(
         let mut keys = get_all_accessed_keys(tx_execution_infos);
         // We need to fetch the storage proof for the block hash contract
         keys.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
+        // Include extra keys for contracts that trigger get_block_hash_syscall
+        insert_extra_storage_reads_keys(old_block_number, &mut keys);
         keys
     };
 
@@ -132,6 +164,7 @@ pub(crate) async fn get_storage_proofs(
         let contract_address_felt = *contract_address.key();
         let storage_proof =
             get_storage_proof_for_contract(client, contract_address, storage_keys.into_iter(), block_number).await?;
+
         storage_proofs.insert(contract_address_felt, storage_proof);
     }
 
