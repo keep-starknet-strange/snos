@@ -117,7 +117,6 @@ fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<Felt
 /// This approach serves as a workaround. The ideal solutions would be to either retrieve the full tree or obtain information about the necessary nodes.
 /// The first approach would introduce significant overhead for most blocks, and the second solution is currently not feasible at the moment.
 fn insert_extra_storage_reads_keys(
-    storage_reads: &HashMap<ContractAddress, Vec<Felt252>>,
     old_block_number: Felt252,
     keys: &mut HashMap<ContractAddress, HashSet<StorageKey>>,
 ) {
@@ -125,21 +124,19 @@ fn insert_extra_storage_reads_keys(
     let special_addresses: Vec<ContractAddress> = vec![
         contract_address!("0x01246c3031c5d0d1cf60a9370aac03a4717538f659e4a2bfb0f692e970e0c4b5"),
         contract_address!("0x00656ca4889a405ec5222e4b0997e5a043902a98cb1f85a039f76f50c000479d"),
+        contract_address!("0x022207b425a6c0239bbf5d58fbf0272fbb059ee4bb89f48255321d6e7c1606ef"),
         // Ekubo:core contract address. Source code is not available but `key_not_in_preimage` error is triggered every time it's called
         contract_address!("0x5dd3d2f4429af886cd1a3b08289dbcea99a294197e9eb43b0e0325b4b"),
     ];
 
-    let extra_storage_reads = if special_addresses.iter().any(|address| storage_reads.contains_key(address)) {
-        100 * STORED_BLOCK_HASH_BUFFER
-    } else {
-        STORED_BLOCK_HASH_BUFFER
-    };
-
-    if old_block_number >= Felt252::from(extra_storage_reads) {
-        for i in 1..=extra_storage_reads {
-            keys.entry(contract_address!("0x1"))
-                .or_default()
-                .insert((old_block_number - i).try_into().expect("Felt to StorageKey conversion failed"));
+    if special_addresses.iter().any(|address| keys.contains_key(address)) {
+        let extra_storage_reads = 200 * STORED_BLOCK_HASH_BUFFER;
+        if old_block_number >= Felt252::from(extra_storage_reads) {
+            for i in 1..=extra_storage_reads {
+                keys.entry(contract_address!("0x1"))
+                    .or_default()
+                    .insert((old_block_number - i).try_into().expect("Felt to StorageKey conversion failed"));
+            }
         }
     }
 }
@@ -151,35 +148,11 @@ pub(crate) async fn get_storage_proofs(
     old_block_number: Felt,
 ) -> Result<HashMap<Felt, PathfinderProof>, ClientError> {
     let accessed_keys_by_address = {
-        let (mut keys, storage_reads) = get_all_accessed_keys(tx_execution_infos);
-
+        let mut keys = get_all_accessed_keys(tx_execution_infos);
         // We need to fetch the storage proof for the block hash contract
-        // Include not only old_block_hash but also retrieve the previous 10 values
-        let block_hash_contract_address = contract_address!("0x1");
-        keys.entry(block_hash_contract_address)
-            .or_default()
-            .insert((old_block_number).try_into().expect("Felt to StorageKey conversion failed"));
-
+        keys.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
         // Include extra keys for contracts that trigger get_block_hash_syscall
-        insert_extra_storage_reads_keys(&storage_reads, old_block_number, &mut keys);
-
-        // Within the Starknet architecture, the address 0x1 is a special address that maps block numbers to their corresponding block hashes. As some contracts might access storage reads using `get_block_hash_syscall`, it is necessary to add some extra keys here.
-        // By leveraging the structure of this special contract, we filter out storage_read_values that are greater than old_block_number and add these extra values to the necessary keys from the 0x1 contract address.
-        // It is worth noting that this approach incurs some overhead due to the retrieval of additional data.
-        // let additional_storage_reads: Vec<Felt> = storage_reads.values().flat_map(|vec| vec.iter()).cloned().collect();
-        let additional_storage_reads: Vec<Felt> = storage_reads
-            .values()
-            .flat_map(|vec| vec.iter().cloned().filter(|x| x <= &Felt252::from(block_number)))
-            .collect::<HashSet<Felt>>()
-            .into_iter()
-            .collect();
-
-        keys.entry(block_hash_contract_address).or_default().extend(
-            additional_storage_reads
-                .into_iter()
-                .map(|key| StorageKey::try_from(key).expect("Felt to StorageKey conversion failed")),
-        );
-
+        insert_extra_storage_reads_keys(old_block_number, &mut keys);
         keys
     };
 

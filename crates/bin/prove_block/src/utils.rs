@@ -84,26 +84,23 @@ fn process_function_invocations(
 /// We need this as the OS require proofs for all the accessed values
 pub(crate) fn get_all_accessed_keys(
     tx_execution_infos: &[TransactionExecutionInfo],
-) -> (HashMap<ContractAddress, HashSet<StorageKey>>, HashMap<ContractAddress, Vec<Felt252>>) {
+) -> HashMap<ContractAddress, HashSet<StorageKey>> {
     let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
-    let mut call_storage_reads: HashMap<ContractAddress, Vec<Felt252>> = HashMap::new();
 
     for tx_execution_info in tx_execution_infos {
-        let (accessed_keys_in_tx, accessed_storage_reads_in_tx) = get_accessed_keys_in_tx(tx_execution_info);
+        let accessed_keys_in_tx = get_accessed_keys_in_tx(tx_execution_info);
         for (contract_address, storage_keys) in accessed_keys_in_tx {
             accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
         }
-        call_storage_reads.extend(accessed_storage_reads_in_tx);
     }
 
-    (accessed_keys_by_address, call_storage_reads)
+    accessed_keys_by_address
 }
 
 fn get_accessed_keys_in_tx(
     tx_execution_info: &TransactionExecutionInfo,
-) -> (HashMap<ContractAddress, HashSet<StorageKey>>, HashMap<ContractAddress, Vec<Felt252>>) {
+) -> HashMap<ContractAddress, HashSet<StorageKey>> {
     let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
-    let mut accessed_storage_reads: HashMap<ContractAddress, Vec<Felt252>> = HashMap::new();
 
     for call_info in [
         &tx_execution_info.validate_call_info,
@@ -113,21 +110,17 @@ fn get_accessed_keys_in_tx(
     .into_iter()
     .flatten()
     {
-        let (call_storage_keys, call_storage_reads) = get_accessed_storage_keys(call_info);
+        let call_storage_keys = get_accessed_storage_keys(call_info);
         for (contract_address, storage_keys) in call_storage_keys {
             accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
         }
-        accessed_storage_reads.extend(call_storage_reads);
     }
 
-    (accessed_keys_by_address, accessed_storage_reads)
+    accessed_keys_by_address
 }
 
-fn get_accessed_storage_keys(
-    call_info: &CallInfo,
-) -> (HashMap<ContractAddress, HashSet<StorageKey>>, HashMap<ContractAddress, Vec<Felt252>>) {
+fn get_accessed_storage_keys(call_info: &CallInfo) -> HashMap<ContractAddress, HashSet<StorageKey>> {
     let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
-    let mut accessed_storage_read_values: HashMap<ContractAddress, Vec<Felt252>> = HashMap::new();
 
     let contract_address = &call_info.call.storage_address;
     accessed_keys_by_address
@@ -135,20 +128,12 @@ fn get_accessed_storage_keys(
         .or_default()
         .extend(call_info.accessed_storage_keys.iter().copied());
 
-    accessed_storage_read_values
-        .entry(*contract_address)
-        .or_default()
-        .extend(call_info.storage_read_values.iter().copied());
-
     for inner_call in &call_info.inner_calls {
-        let (inner_call_storage_keys, inner_call_storage_read_values) = get_accessed_storage_keys(inner_call);
+        let inner_call_storage_keys = get_accessed_storage_keys(inner_call);
         for (contract_address, storage_keys) in inner_call_storage_keys {
             accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
         }
-        for (contract_address, storage_read_values) in inner_call_storage_read_values {
-            accessed_storage_read_values.entry(contract_address).or_default().extend(storage_read_values);
-        }
     }
 
-    (accessed_keys_by_address, accessed_storage_read_values)
+    accessed_keys_by_address
 }
