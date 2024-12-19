@@ -5,7 +5,8 @@ use cairo_vm::Felt252;
 use num_bigint::BigInt;
 use rpc_client::pathfinder::client::ClientError;
 use rpc_client::pathfinder::proofs::{
-    ContractData, EdgePath, PathfinderClassProof, PathfinderProof, ProofVerificationError, StorageProof, TrieNode,
+    ContractData, ContractStorageKeysItem, EdgePath, MerkleNode, PathfinderClassProof, PathfinderProof,
+    ProofVerificationError, StorageProof, TrieNode,
 };
 use rpc_client::RpcClient;
 use starknet::core::types::BlockWithTxs;
@@ -43,6 +44,22 @@ async fn fetch_storage_proof_for_contract(
     Ok(storage_proof)
 }
 
+/// Fetches the state + storage proof for a single contract for all the specified keys.
+/// This function handles the chunking of requests imposed by the RPC API and merges
+/// the proofs returned from multiple calls into one.
+async fn fetch_storage_proof_for_contract_08(
+    rpc_client: &RpcClient,
+    block_number: u64,
+    contract_address: Felt,
+    keys: &[Felt],
+) -> Result<StorageProof, ClientError> {
+    let request_storage_keys = ContractStorageKeysItem { contract_address, storage_keys: keys.to_vec() };
+    rpc_client
+        .pathfinder_rpc()
+        .get_contract_storage_proof(block_number, &[contract_address], &[request_storage_keys])
+        .await
+}
+
 /// Fetches the storage proof for the specified contract and storage keys.
 /// This function can fetch additional keys if required to fill gaps in the storage trie
 /// that must be filled to get the OS to function. See `get_key_following_edge` for more details.
@@ -64,6 +81,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         }
         Some(contract_data) => contract_data,
     };
+
     let additional_keys = verify_storage_proof(contract_data, &keys);
 
     // Fetch additional proofs required to fill gaps in the storage trie that could make
@@ -201,6 +219,17 @@ fn get_key_following_edge(key: Felt, height: Height, edge_path: &EdgePath) -> Fe
     Felt::from(new_key)
 }
 
+fn get_key_following_edge_08(key: Felt, height: Height, length: usize, path: Felt) -> Felt {
+    assert!(height.0 < DEFAULT_STORAGE_TREE_HEIGHT);
+
+    let shift = height.0;
+    let clear_mask = ((BigInt::from(1) << length) - BigInt::from(1)) << shift;
+    let mask = path.to_bigint() << shift;
+    let new_key = (key.to_bigint() & !clear_mask) | mask;
+
+    Felt::from(new_key)
+}
+
 fn merge_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof {
     let class_commitment = proofs[0].class_commitment;
     let state_commitment = proofs[0].state_commitment;
@@ -246,6 +275,47 @@ pub(crate) async fn get_08_class_proofs(
     class_hashes: &[&Felt],
 ) -> Result<StorageProof, ClientError> {
     rpc_client.pathfinder_rpc().get_storage_class_proof(block_number, class_hashes).await
+}
+
+pub(crate) async fn get_08_contracts_proofs(
+    rpc_client: &RpcClient,
+    block_number: u64,
+    tx_execution_infos: &[TransactionExecutionInfo],
+    old_block_number: Felt,
+) -> Result<HashMap<Felt, StorageProof>, ClientError> {
+    let accessed_keys_by_address = {
+        let mut keys = get_all_accessed_keys(tx_execution_infos);
+        // We need to fetch the storage proof for the block hash contract
+        keys.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
+        keys
+    };
+
+    let mut storage_proofs = HashMap::new();
+
+    for (contract_address, storage_keys) in accessed_keys_by_address {
+        log::info!("    Fetching proof for {}", contract_address.to_string());
+        let contract_address_felt = *contract_address.key();
+        let keys: Vec<_> = storage_keys.into_iter().map(|storage_key| *storage_key.key()).collect();
+
+        let mut storage_proof =
+            fetch_storage_proof_for_contract_08(rpc_client, block_number, contract_address_felt, &keys).await?;
+
+        let additional_keys = verify_storage_proof_08(&storage_proof, &keys);
+
+        // Fetch additional proofs required to fill gaps in the storage trie that could make
+        // the OS crash otherwise.
+        if !additional_keys.is_empty() {
+            let additional_proof =
+                fetch_storage_proof_for_contract_08(rpc_client, block_number, contract_address_felt, &additional_keys)
+                    .await?;
+
+            storage_proof.contracts_storage_proofs.extend(additional_proof.contracts_storage_proofs);
+        }
+
+        storage_proofs.insert(contract_address_felt, storage_proof);
+    }
+
+    Ok(storage_proofs)
 }
 
 pub(crate) fn get_starknet_version(block_with_txs: &BlockWithTxs) -> blockifier::versioned_constants::StarknetVersion {

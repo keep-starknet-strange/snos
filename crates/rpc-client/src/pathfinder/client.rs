@@ -5,7 +5,7 @@ use serde_json::json;
 use starknet::core::types::TransactionTraceWithHash;
 use starknet_types_core::felt::Felt;
 
-use crate::pathfinder::proofs::{PathfinderClassProof, PathfinderProof, StorageProof};
+use crate::pathfinder::proofs::{ContractStorageKeysItem, PathfinderClassProof, PathfinderProof, StorageProof};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError {
@@ -146,6 +146,49 @@ impl PathfinderRpcClient {
             &self.rpc_base_url,
             "starknet_getStorageProof",
             json!({ "block_id": { "block_number": block_number }, "class_hashes": class_hashes }),
+        )
+        .await
+    }
+
+    pub async fn get_storage_contracts_addresses(
+        &self,
+        block_number: u64,
+        contract_addresses: &[Felt],
+    ) -> Result<StorageProof, ClientError> {
+        post_jsonrpc_08_request(
+            &self.http_client,
+            &self.rpc_base_url,
+            "starknet_getStorageProof",
+            json!({ "block_id": { "block_number": block_number }, "contract_addresses": contract_addresses }),
+        )
+        .await
+    }
+
+    pub async fn get_storage_contracts_keys(
+        &self,
+        block_number: u64,
+        contracts_storage_keys: &[ContractStorageKeysItem],
+    ) -> Result<StorageProof, ClientError> {
+        post_jsonrpc_08_request(
+            &self.http_client,
+            &self.rpc_base_url,
+            "starknet_getStorageProof",
+            json!({ "block_id": { "block_number": block_number }, "contracts_storage_keys": contracts_storage_keys  }),
+        )
+        .await
+    }
+
+    pub async fn get_contract_storage_proof(
+        &self,
+        block_number: u64,
+        contract_addresses: &[Felt],
+        contracts_storage_keys: &[ContractStorageKeysItem],
+    ) -> Result<StorageProof, ClientError> {
+        post_jsonrpc_08_request(
+            &self.http_client,
+            &self.rpc_base_url,
+            "starknet_getStorageProof",
+            json!({ "block_id": { "block_number": block_number }, "contract_addresses": contract_addresses, "contracts_storage_keys": contracts_storage_keys  }),
         )
         .await
     }

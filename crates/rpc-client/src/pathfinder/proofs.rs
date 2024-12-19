@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::PoseidonHash;
@@ -50,6 +50,9 @@ pub struct ContractData {
 pub enum ProofVerificationError<'a> {
     #[error("Non-inclusion proof for key {}. Height {}.", key.to_hex_string(), height.0)]
     NonExistenceProof { key: Felt, height: Height, proof: &'a [TrieNode] },
+
+    #[error("Non-inclusion proof for key {}. Height {}.", key.to_hex_string(), height.0)]
+    NonExistenceProof08 { key: Felt, height: Height, proof: &'a [NodeHashToNodeMappingItem] },
 
     #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
     InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
@@ -157,7 +160,7 @@ pub fn verify_proof<H: HashFunctionType>(
     Ok(())
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ContractStorageKeysItem {
     pub contract_address: Felt,
     pub storage_keys: Vec<Felt>,
@@ -168,6 +171,30 @@ pub struct ContractStorageKeysItem {
 pub enum MerkleNode {
     Binary { left: Felt, right: Felt },
     Edge { child: Felt, path: Felt, length: usize },
+}
+
+impl MerkleNode {
+    pub fn hash<H: HashFunctionType>(&self) -> Felt {
+        match self {
+            MerkleNode::Binary { left, right } => {
+                let fact = BinaryNodeFact::new((*left).into(), (*right).into())
+                    .expect("storage proof endpoint gave us an invalid binary node");
+
+                // TODO: the hash function should probably be split from the Fact trait.
+                //       we use a placeholder for the Storage trait in the meantime.
+                Felt::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact))
+            }
+            MerkleNode::Edge { child, path, length } => {
+                let len = *length;
+                let fact =
+                    EdgeNodeFact::new((*child).into(), NodePath(path.to_biguint()), Length(len.try_into().unwrap()))
+                        .expect("storage proof endpoint gave us an invalid edge node");
+                // TODO: the hash function should probably be split from the Fact trait.
+                //       we use a placeholder for the Storage trait in the meantime.
+                Felt::from(<EdgeNodeFact as Fact<DictStorage, H>>::hash(&fact))
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -201,4 +228,78 @@ pub struct StorageProof {
     pub contracts_proof: ContractsProof,
     pub contracts_storage_proofs: Vec<Vec<NodeHashToNodeMappingItem>>,
     pub global_roots: GlobalRoots,
+}
+
+impl StorageProof {
+    /// Verifies that each contract state proof is valid.
+    pub fn verify(&self, storage_keys: &[Felt]) -> Result<(), Vec<ProofVerificationError>> {
+        let mut errors = vec![];
+
+        for (index, storage_key) in storage_keys.iter().enumerate() {
+            if let Err(e) = verify_proof_08::<PedersenHash>(
+                *storage_key,
+                self.contracts_storage_proofs[index][0].node_hash,
+                &self.contracts_storage_proofs[index],
+            ) {
+                errors.push(e);
+            }
+        }
+
+        if errors.is_empty() { Ok(()) } else { Err(errors) }
+    }
+}
+
+/// This function goes through the tree from top to bottom and verifies that
+/// the hash of each node is equal to the corresponding hash in the parent node.
+pub fn verify_proof_08<H: HashFunctionType>(
+    key: Felt,
+    commitment: Felt,
+    proof: &[NodeHashToNodeMappingItem],
+) -> Result<(), ProofVerificationError> {
+    let bits = key.to_bits_be();
+
+    let mut parent_hash = commitment;
+
+    // The tree height is 251, so the first 5 bits are ignored.
+    let start = 5;
+    let mut index = start;
+
+    for node in proof.iter() {
+        let node_hash = node.node.hash::<H>();
+        if node_hash != parent_hash {
+            return Err(ProofVerificationError::InvalidChildNodeHash { node_hash, parent_hash });
+        }
+
+        match node.node {
+            MerkleNode::Binary { left, right } => {
+                parent_hash = if bits[index as usize] { right } else { left };
+                index += 1;
+            }
+            MerkleNode::Edge { child, path, length } => {
+                let index_usize: usize = index.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
+
+                let path_bits = path.to_bits_be();
+                let relevant_path_bits = &path_bits[path_bits.len() - length..];
+                let key_bits_slice = &bits[index_usize..(index_usize + length)];
+
+                parent_hash = child;
+                index += length;
+                let height: u64 = (index - start).try_into().unwrap();
+
+                if relevant_path_bits != key_bits_slice {
+                    // If paths don't match, we've found a proof of non-membership because:
+                    // 1. We correctly moved towards the target as far as possible, and
+                    // 2. Hashing all the nodes along the path results in the root hash, which means
+                    // 3. The target definitely does not exist in this tree
+                    return Err(ProofVerificationError::NonExistenceProof08 {
+                        key,
+                        height: Height(DEFAULT_STORAGE_TREE_HEIGHT - height),
+                        proof,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
