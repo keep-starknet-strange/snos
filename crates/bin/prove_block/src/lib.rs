@@ -14,7 +14,7 @@ use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::{starknet_rs_to_blockifier, ToBlockifierError};
 use rpc_replay::utils::FeltConversionError;
-use rpc_utils::{get_08_class_proofs, get_class_proofs, get_storage_proofs};
+use rpc_utils::{get_08_class_proofs, get_08_contracts_proofs, get_class_proofs, get_storage_proofs};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, StarknetError};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::StarknetApiError;
@@ -212,10 +212,20 @@ pub async fn prove_block(
         .await
         .expect("Failed to fetch storage proofs");
 
+    // println!("STORAGE PROOFS FROM JSON RPC 07");
+    // println!("{:#?}", storage_proofs);
+
     let previous_storage_proofs =
         get_storage_proofs(&rpc_client, block_number - 1, &tx_execution_infos, old_block_number)
             .await
             .expect("Failed to fetch storage proofs");
+
+    let storage_proofs_08 = get_08_contracts_proofs(&rpc_client, block_number, &tx_execution_infos, old_block_number)
+        .await
+        .expect("Failed to fetch storage proofs");
+
+    // println!("STORAGE PROOFS FROM JSON RPC 08");
+    // println!("{:#?}", storage_proofs_08);
 
     let default_general_config = StarknetGeneralConfig::default();
 

@@ -5,7 +5,8 @@ use cairo_vm::Felt252;
 use num_bigint::BigInt;
 use rpc_client::pathfinder::client::ClientError;
 use rpc_client::pathfinder::proofs::{
-    ContractData, EdgePath, PathfinderClassProof, PathfinderProof, ProofVerificationError, StorageProof, TrieNode,
+    ContractData, ContractStorageKeysItem, EdgePath, MerkleNode, PathfinderClassProof, PathfinderProof,
+    ProofVerificationError, StorageProof, TrieNode,
 };
 use rpc_client::RpcClient;
 use starknet::core::types::BlockWithTxs;
@@ -43,6 +44,25 @@ async fn fetch_storage_proof_for_contract(
     Ok(storage_proof)
 }
 
+/// Fetches the state + storage proof for a single contract for all the specified keys.
+/// This function handles the chunking of requests imposed by the RPC API and merges
+/// the proofs returned from multiple calls into one.
+async fn fetch_storage_proof_for_contract_08(
+    rpc_client: &RpcClient,
+    block_number: u64,
+    contract_address: ContractAddress,
+    keys: &[Felt],
+) -> Result<StorageProof, ClientError> {
+    let contract_address_felt = *contract_address.key();
+
+    let request_storage_keys =
+        ContractStorageKeysItem { contract_address: contract_address_felt, storage_keys: keys.to_vec() };
+    rpc_client
+        .pathfinder_rpc()
+        .get_contract_storage_proof(block_number, &[contract_address_felt], &[request_storage_keys])
+        .await
+}
+
 /// Fetches the storage proof for the specified contract and storage keys.
 /// This function can fetch additional keys if required to fill gaps in the storage trie
 /// that must be filled to get the OS to function. See `get_key_following_edge` for more details.
@@ -64,6 +84,11 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         }
         Some(contract_data) => contract_data,
     };
+
+    println!("CONTRACT ADDRESS RPC V0_7 {:#?}", contract_address);
+    println!("STORAGE KEYS {:#?}", keys);
+    println!("{:#?}", contract_data);
+
     let additional_keys = verify_storage_proof(contract_data, &keys);
 
     // Fetch additional proofs required to fill gaps in the storage trie that could make
@@ -92,6 +117,39 @@ fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<Felt
                     if let Some(TrieNode::Edge { child: _, path }) = proof.last() {
                         if height.0 < DEFAULT_STORAGE_TREE_HEIGHT {
                             let modified_key = get_key_following_edge(key, height, path);
+                            log::trace!(
+                                "Fetching modified key {} for key {}",
+                                modified_key.to_hex_string(),
+                                key.to_hex_string()
+                            );
+                            additional_keys.push(modified_key);
+                        }
+                    }
+                }
+                _ => {
+                    panic!("Proof verification failed: {}", error);
+                }
+            }
+        }
+    }
+
+    additional_keys
+}
+
+/// Verify the storage proofs and handle errors.
+/// Returns a list of additional keys to fetch to fill gaps in the tree that will make the OS
+/// crash otherwise.
+/// This function will panic if the proof contains an invalid node hash (i.e. the hash of a child
+/// node does not match the one specified in the parent).
+fn verify_storage_proof_08(storage_proof: &StorageProof, keys: &[Felt]) -> Vec<Felt> {
+    let mut additional_keys = vec![];
+    if let Err(errors) = storage_proof.verify(keys) {
+        for error in errors {
+            match error {
+                ProofVerificationError::NonExistenceProof08 { key, height, proof } => {
+                    if let MerkleNode::Edge { child: _, path, length } = proof.last().unwrap().node {
+                        if height.0 < DEFAULT_STORAGE_TREE_HEIGHT {
+                            let modified_key = get_key_following_edge_08(key, height, length, path);
                             log::trace!(
                                 "Fetching modified key {} for key {}",
                                 modified_key.to_hex_string(),
@@ -168,6 +226,17 @@ fn get_key_following_edge(key: Felt, height: Height, edge_path: &EdgePath) -> Fe
     Felt::from(new_key)
 }
 
+fn get_key_following_edge_08(key: Felt, height: Height, length: usize, path: Felt) -> Felt {
+    assert!(height.0 < DEFAULT_STORAGE_TREE_HEIGHT);
+
+    let shift = height.0;
+    let clear_mask = ((BigInt::from(1) << length) - BigInt::from(1)) << shift;
+    let mask = path.to_bigint() << shift;
+    let new_key = (key.to_bigint() & !clear_mask) | mask;
+
+    Felt::from(new_key)
+}
+
 fn merge_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof {
     let class_commitment = proofs[0].class_commitment;
     let state_commitment = proofs[0].state_commitment;
@@ -213,6 +282,39 @@ pub(crate) async fn get_08_class_proofs(
     class_hashes: &[&Felt],
 ) -> Result<StorageProof, ClientError> {
     rpc_client.pathfinder_rpc().get_storage_class_proof(block_number, class_hashes).await
+}
+
+pub(crate) async fn get_08_contracts_proofs(
+    rpc_client: &RpcClient,
+    block_number: u64,
+    tx_execution_infos: &[TransactionExecutionInfo],
+    old_block_number: Felt,
+) -> Result<HashMap<Felt, Vec<StorageProof>>, ClientError> {
+    let accessed_keys_by_address = {
+        let mut keys = get_all_accessed_keys(tx_execution_infos);
+        // We need to fetch the storage proof for the block hash contract
+        keys.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
+        keys
+    };
+
+    for (contract_address, storage_keys) in accessed_keys_by_address {
+        log::info!("    Fetching proof for {}", contract_address.to_string());
+
+        let keys: Vec<_> = storage_keys.into_iter().map(|storage_key| *storage_key.key()).collect();
+
+        for key in keys {
+            let mut storage_proof =
+                fetch_storage_proof_for_contract_08(rpc_client, block_number, contract_address, &[key]).await?;
+
+            println!("CONTRACT ADDRESS RPC V0_8 {:#?}", contract_address);
+            println!("STORAGE KEYS {:#?}", key);
+            println!("{:#?}", storage_proof);
+
+            let additional_keys = verify_storage_proof_08(&storage_proof, &[key]);
+        }
+    }
+
+    Ok(HashMap::new())
 }
 
 pub(crate) fn get_starknet_version(block_with_txs: &BlockWithTxs) -> blockifier::versioned_constants::StarknetVersion {
