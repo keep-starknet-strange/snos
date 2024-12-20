@@ -168,6 +168,9 @@ pub mod ids {
     pub const PREV_OFFSET: &str = "prev_offset";
     pub const BUCKET_INDEX: &str = "bucket_index";
     pub const DICT_PTR: &str = "dict_ptr";
+    pub const COMPRESSED_DST: &str = "compressed_dst";
+    pub const DATA_START: &str = "data_start";
+    pub const DATA_END: &str = "data_end";
 }
 
 pub mod constants {
@@ -176,4 +179,5 @@ pub mod constants {
     pub const MERKLE_HEIGHT: &str = "starkware.starknet.core.os.state.commitment.MERKLE_HEIGHT";
     pub const STORED_BLOCK_HASH_BUFFER: &str = "starkware.starknet.core.os.constants.STORED_BLOCK_HASH_BUFFER";
     pub const VALIDATED: &str = "starkware.starknet.core.os.constants.VALIDATED";
+    pub const HEADER_ELM_N_BITS: &str = "starkware.starknet.core.os.data_availability.compression.HEADER_ELM_N_BITS";
 }
