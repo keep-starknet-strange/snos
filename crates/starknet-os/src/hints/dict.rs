@@ -18,17 +18,18 @@ use crate::hints::vars;
 pub const DICTIONARY_FROM_BUCKET: &str =
     indoc! {r#"initial_dict = {bucket_index: 0 for bucket_index in range(ids.TOTAL_N_BUCKETS)}"#};
 pub fn dictionary_from_bucket(
-    vm: &mut VirtualMachine,
+    _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     // TODO: This might be a const
     // The number of buckets, which includes the unique value buckets and the repeating value bucket.
     // const TOTAL_N_BUCKETS = UniqueValueBucketLengths.SIZE + 1;
-    let total_n_buckets: u64 =
-        get_integer_from_var_name(vars::ids::TOTAL_N_BUCKETS, vm, ids_data, ap_tracking)?.try_into().unwrap();
+    // let total_n_buckets: u64 =
+    // get_integer_from_var_name(vars::ids::TOTAL_N_BUCKETS, vm, ids_data, ap_tracking)?.try_into().unwrap();
+    let total_n_buckets: u64 = 7;
 
     let initial_dict: HashMap<MaybeRelocatable, MaybeRelocatable> =
         (0..total_n_buckets).map(|bucket_index| (Felt252::from(bucket_index).into(), Felt252::ZERO.into())).collect();
@@ -36,8 +37,7 @@ pub fn dictionary_from_bucket(
     Ok(())
 }
 
-pub const GET_PREV_OFFSET: &str = indoc! {r#"
-	dict_tracker = __dict_manager.get_tracker(ids.dict_ptr)
+pub const GET_PREV_OFFSET: &str = indoc! {r#"dict_tracker = __dict_manager.get_tracker(ids.dict_ptr)
     ids.prev_offset = dict_tracker.data[ids.bucket_index]"#
 };
 
@@ -71,7 +71,6 @@ mod tests {
 
     use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::DictManager;
     use cairo_vm::types::relocatable::Relocatable;
-    use pathfinder_crypto::Felt;
     use rstest::rstest;
 
     use super::*;
