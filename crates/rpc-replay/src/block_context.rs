@@ -1,3 +1,4 @@
+use std::env;
 use std::num::NonZeroU128;
 
 use blockifier::blockifier::block::{BlockInfo, GasPrices};
@@ -8,9 +9,14 @@ use starknet::core::types::{BlockWithTxs, Felt, L1DataAvailabilityMode};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::{contract_address, felt, patricia_key};
-use utils::env_utils::get_env_var_or_default;
 
 use crate::utils::{felt_to_u128, FeltConversionError};
+
+/// Fetches environment variable based on provided key.
+/// If key is not found in env, it returns default value provided
+pub fn get_env_var_or_default(key: &str, default: &str) -> String {
+    env::var(key).unwrap_or(default.to_string())
+}
 
 fn felt_to_gas_price(price: &Felt) -> Result<NonZeroU128, FeltConversionError> {
     // Inspiration taken from Papyrus:
@@ -76,11 +82,33 @@ pub fn build_block_context(
 
 #[cfg(test)]
 mod tests {
-
     use starknet::core::types::{Felt, ResourcePrice};
     use starknet_api::core::ChainId;
 
     use super::*;
+
+    #[test]
+    fn test_get_env_var_or_default_existing() {
+        let test_key = "TEST_ENV_VAR_DEFAULT";
+        let test_value = "actual_value";
+        let default_value = "default_value";
+        env::set_var(test_key, test_value);
+
+        let result = get_env_var_or_default(test_key, default_value);
+        assert_eq!(result, test_value);
+
+        env::remove_var(test_key);
+    }
+
+    #[test]
+    fn test_get_env_var_or_default_non_existing() {
+        let test_key = "NON_EXISTING_VAR_DEFAULT";
+        let default_value = "default_value";
+        env::remove_var(test_key); // Ensure it doesn't exist
+
+        let result = get_env_var_or_default(test_key, default_value);
+        assert_eq!(result, default_value);
+    }
 
     #[test]
     fn test_build_block_context_with_zero_gas_prices() {
