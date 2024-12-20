@@ -139,9 +139,14 @@ impl CompressionSet {
 
 fn pack_in_felt(elms: Vec<usize>, elm_bound: usize) -> Felt252 {
     let mut res = Felt252::ZERO;
+    let elm_bound_felt = Felt252::from(elm_bound);
+
     for (i, &elm) in elms.iter().enumerate() {
-        res += Felt252::from(elm * elm_bound.pow(i as u32));
+        let power = elm_bound_felt.pow(i as u128);
+        let term = Felt252::from(elm) * power;
+        res += term;
     }
+
     assert!(res.to_biguint() < Felt252::prime(), "Out of bound packing.");
     res
 }
@@ -171,11 +176,17 @@ fn get_n_elms_per_felt(elm_bound: usize) -> usize {
     if elm_bound <= 1 {
         return MAX_N_BITS;
     }
-    if elm_bound > 2_usize.pow(MAX_N_BITS as u32) {
+
+    // 2 ** 251
+    let max_value = Felt252::ELEMENT_UPPER_BOUND;
+    if Felt252::from(elm_bound) > max_value {
         return 1;
     }
 
-    MAX_N_BITS / log2_ceil(elm_bound)
+    let log2_result = log2_ceil(elm_bound);
+    assert!(log2_result > 0, "log2_ceil(elm_bound) returned 0, which would cause division by zero.");
+
+    MAX_N_BITS / log2_result
 }
 
 fn compression(
@@ -270,5 +281,6 @@ pub fn set_decompressed_dst(
     let elm_bound = get_integer_from_var_name(vars::ids::ELM_BOUND, vm, ids_data, ap_tracking)?.to_biguint();
 
     vm.insert_value(decompressed_dst, Felt252::from(packed_felt % elm_bound))?;
+
     Ok(())
 }
