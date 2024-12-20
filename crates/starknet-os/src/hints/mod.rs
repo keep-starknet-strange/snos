@@ -260,6 +260,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(compression::DICTIONARY_FROM_BUCKET.into(), compression::dictionary_from_bucket);
     hints.insert(compression::GET_PREV_OFFSET.into(), compression::get_prev_offset);
     hints.insert(compression::COMPRESS.into(), compression::compress);
+    hints.insert(compression::SET_DECOMPRESSED_DST.into(), compression::set_decompressed_dst);
     hints
 }
 
