@@ -15,8 +15,7 @@ use num_traits::{One, Zero};
 
 use crate::hints::vars;
 
-pub const LOG2_CEIL: &str = indoc! {r#"
-	from starkware.python.math_utils import log2_ceil
+pub const LOG2_CEIL: &str = indoc! {r#"from starkware.python.math_utils import log2_ceil
     ids.res = log2_ceil(ids.value)"#
 };
 pub fn log2_ceil(
