@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -251,5 +251,24 @@ pub fn compress(
 
     vm.write_arg(compressed_dst, &compress_result)?;
 
+    Ok(())
+}
+
+pub const SET_DECOMPRESSED_DST: &str = indoc! {r#"memory[ids.decompressed_dst] = ids.packed_felt % ids.elm_bound"#
+};
+
+pub fn set_decompressed_dst(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let decompressed_dst = get_ptr_from_var_name(vars::ids::DECOMPRESSED_DST, vm, ids_data, ap_tracking)?;
+
+    let packed_felt = get_integer_from_var_name(vars::ids::PACKED_FELT, vm, ids_data, ap_tracking)?.to_biguint();
+    let elm_bound = get_integer_from_var_name(vars::ids::ELM_BOUND, vm, ids_data, ap_tracking)?.to_biguint();
+
+    vm.insert_value(decompressed_dst, Felt252::from(packed_felt % elm_bound))?;
     Ok(())
 }

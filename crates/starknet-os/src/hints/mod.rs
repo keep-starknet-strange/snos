@@ -256,6 +256,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(secp::READ_EC_POINT_ADDRESS.into(), secp::read_ec_point_from_address);
     hints.insert(execute_transactions::SHA2_FINALIZE.into(), execute_transactions::sha2_finalize);
     hints.insert(compression::COMPRESS.into(), compression::compress);
+    hints.insert(compression::SET_DECOMPRESSED_DST.into(), compression::set_decompressed_dst);
     hints
 }
 

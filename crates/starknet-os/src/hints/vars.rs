@@ -166,6 +166,9 @@ pub mod ids {
     pub const COMPRESSED_DST: &str = "compressed_dst";
     pub const DATA_START: &str = "data_start";
     pub const DATA_END: &str = "data_end";
+    pub const DECOMPRESSED_DST: &str = "decompressed_dst";
+    pub const PACKED_FELT: &str = "packed_felt";
+    pub const ELM_BOUND: &str = "elm_bound";
 }
 
 pub mod constants {
