@@ -258,6 +258,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(execute_transactions::SHA2_FINALIZE.into(), execute_transactions::sha2_finalize);
     hints.insert(math::LOG2_CEIL.into(), math::log2_ceil_hint);
     hints.insert(compression::COMPRESS.into(), compression::compress);
+    hints.insert(compression::SET_DECOMPRESSED_DST.into(), compression::set_decompressed_dst);
     hints
 }
 
