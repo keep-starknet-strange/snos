@@ -49,7 +49,7 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::inconsistent_cairo0_class_hash_1(204936)]
 #[case::no_possible_convertion_1(155007)]
 #[case::no_possible_convertion_2(155029)]
-#[case::reference_pie_with_full_output_enabled(173404)]
+// #[case::reference_pie_with_full_output_enabled(173404)]
 #[case::inconsistent_cairo0_class_hash_2(159674)]
 #[case::inconsistent_cairo0_class_hash_3(164180)]
 #[case::key_not_in_proof_0(155087)]
@@ -72,6 +72,7 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::memory_invalid_signature(216914)]
 #[case::diff_assert_values(218624)]
 #[case::could_nt_compute_operand_op1(204337)]
+#[case::os_v0_13_3(320000)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {

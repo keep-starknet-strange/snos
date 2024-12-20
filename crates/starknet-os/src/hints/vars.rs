@@ -141,6 +141,7 @@ pub mod ids {
     pub const STATE_ENTRY: &str = "state_entry";
     pub const STATE_UPDATES_START: &str = "state_updates_start";
     pub const STATE_UPDATES_END: &str = "state_updates_end";
+    pub const COMPRESSED_START: &str = "compressed_start";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
     pub const TRANSACTION_HASH: &str = "transaction_hash";
     pub const TX_EXECUTION_CONTEXT: &str = "tx_execution_context";
@@ -156,6 +157,18 @@ pub mod ids {
     pub const BATCH_SIZE: &str = "starkware.cairo.common.cairo_sha256.sha256_utils.BATCH_SIZE";
     pub const SHA256_INPUT_CHUNK_SIZE_FELTS: &str =
         "starkware.cairo.common.cairo_sha256.sha256_utils.SHA256_INPUT_CHUNK_SIZE_FELTS";
+    pub const COMPRESS_STATE_UPDATES: &str = "compress_state_updates";
+    pub const IS_N_UPDATES_SMALL: &str = "is_n_updates_small";
+    pub const N_ACTUAL_UPDATES: &str = "n_actual_updates";
+    pub const N_UPDATES_SMALL_PACKING_BOUND: &str =
+        "starkware.starknet.core.os.state.output.N_UPDATES_SMALL_PACKING_BOUND";
+    pub const FULL_OUTPUT: &str = "full_output";
+    pub const COMPRESSED_DST: &str = "compressed_dst";
+    pub const DATA_START: &str = "data_start";
+    pub const DATA_END: &str = "data_end";
+    pub const DECOMPRESSED_DST: &str = "decompressed_dst";
+    pub const PACKED_FELT: &str = "packed_felt";
+    pub const ELM_BOUND: &str = "elm_bound";
 }
 
 pub mod constants {
@@ -164,4 +177,5 @@ pub mod constants {
     pub const MERKLE_HEIGHT: &str = "starkware.starknet.core.os.state.commitment.MERKLE_HEIGHT";
     pub const STORED_BLOCK_HASH_BUFFER: &str = "starkware.starknet.core.os.constants.STORED_BLOCK_HASH_BUFFER";
     pub const VALIDATED: &str = "starkware.starknet.core.os.constants.VALIDATED";
+    pub const HEADER_ELM_N_BITS: &str = "starkware.starknet.core.os.data_availability.compression.HEADER_ELM_N_BITS";
 }
