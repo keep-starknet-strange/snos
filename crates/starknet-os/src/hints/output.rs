@@ -163,8 +163,7 @@ pub fn set_state_updates_start(
     Ok(())
 }
 
-pub const SET_COMPRESSED_START: &str = indoc! {r#"use_kzg_da = ids.use_kzg_da
-if use_kzg_da:
+pub const SET_COMPRESSED_START: &str = indoc! {r#"if use_kzg_da:
     ids.compressed_start = segments.add()
 else:
     # Assign a temporary segment, to be relocated into the output segment.

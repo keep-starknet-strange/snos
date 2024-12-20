@@ -163,6 +163,9 @@ pub mod ids {
     pub const N_UPDATES_SMALL_PACKING_BOUND: &str =
         "starkware.starknet.core.os.state.output.N_UPDATES_SMALL_PACKING_BOUND";
     pub const FULL_OUTPUT: &str = "full_output";
+    pub const COMPRESSED_DST: &str = "compressed_dst";
+    pub const DATA_START: &str = "data_start";
+    pub const DATA_END: &str = "data_end";
 }
 
 pub mod constants {
@@ -171,4 +174,5 @@ pub mod constants {
     pub const MERKLE_HEIGHT: &str = "starkware.starknet.core.os.state.commitment.MERKLE_HEIGHT";
     pub const STORED_BLOCK_HASH_BUFFER: &str = "starkware.starknet.core.os.constants.STORED_BLOCK_HASH_BUFFER";
     pub const VALIDATED: &str = "starkware.starknet.core.os.constants.VALIDATED";
+    pub const HEADER_ELM_N_BITS: &str = "starkware.starknet.core.os.data_availability.compression.HEADER_ELM_N_BITS";
 }

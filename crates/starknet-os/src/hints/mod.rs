@@ -35,6 +35,7 @@ mod bls_field;
 mod bls_utils;
 pub mod builtins;
 mod compiled_class;
+mod compression;
 mod deprecated_compiled_class;
 mod execute_transactions;
 pub mod execution;
@@ -254,6 +255,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(compiled_class::SET_AP_TO_SEGMENT_HASH.into(), compiled_class::set_ap_to_segment_hash);
     hints.insert(secp::READ_EC_POINT_ADDRESS.into(), secp::read_ec_point_from_address);
     hints.insert(execute_transactions::SHA2_FINALIZE.into(), execute_transactions::sha2_finalize);
+    hints.insert(compression::COMPRESS.into(), compression::compress);
     hints
 }
 
