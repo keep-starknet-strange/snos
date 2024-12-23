@@ -213,7 +213,7 @@ where
         declared_class_hash_to_component_hashes,
         new_block_hash: Default::default(),
         prev_block_hash: Default::default(),
-        full_output: false,
+        full_output: true,
     });
 
     let execution_helper = ExecutionHelperWrapper::new(
