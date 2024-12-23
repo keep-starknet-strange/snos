@@ -379,26 +379,28 @@ mod tests {
                 Felt252::from(27),
             ],
             messages_to_l2: vec![],
-            contracts: vec![ContractChanges {
-                addr: Felt252::ONE,
-                nonce: Felt252::from(100),
-                class_hash: None,
-                storage_changes: HashMap::from([
-                    (
-                        Felt252::from_hex_unchecked(
-                            "0x723973208639b7839ce298f7ffea61e3f9533872defd7abdb91023db4658812",
+            state_diff: Some(OsStateDiff {
+                contract_changes: vec![ContractChanges {
+                    addr: Felt252::ONE,
+                    nonce: Felt252::from(100),
+                    class_hash: None,
+                    storage_changes: HashMap::from([
+                        (
+                            Felt252::from_hex_unchecked(
+                                "0x723973208639b7839ce298f7ffea61e3f9533872defd7abdb91023db4658812",
+                            ),
+                            Felt252::from_hex_unchecked("0x1f67eee3d0800"),
                         ),
-                        Felt252::from_hex_unchecked("0x1f67eee3d0800"),
-                    ),
-                    (
-                        Felt252::from_hex_unchecked(
-                            "0x27e66af6f5df3e043d32367d68ece7e13645cca1ca9f80dfdaff9013fddf0c5",
+                        (
+                            Felt252::from_hex_unchecked(
+                                "0x27e66af6f5df3e043d32367d68ece7e13645cca1ca9f80dfdaff9013fddf0c5",
+                            ),
+                            Felt252::from_hex_unchecked("0xddec034b926f800"),
                         ),
-                        Felt252::from_hex_unchecked("0xddec034b926f800"),
-                    ),
-                ]),
-            }],
-            classes: Default::default(),
+                    ]),
+                }],
+                classes: Default::default(),
+            }),
         };
 
         let os_output_str = serde_json::to_string(&os_output).expect("OS output serialization failed");
