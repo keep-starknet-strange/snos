@@ -1,3 +1,4 @@
+use std::env;
 use std::num::NonZeroU128;
 
 use blockifier::blockifier::block::{BlockInfo, GasPrices};
@@ -10,6 +11,16 @@ use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::{contract_address, felt, patricia_key};
 
 use crate::utils::{felt_to_u128, FeltConversionError};
+
+const DEFAULT_STRK_FEE_TOKEN_ADDRESS: &str = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
+const DEFAULT_ETH_FEE_TOKEN_ADDRESS: &str = "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7";
+
+/// Fetches environment variable based on provided key.
+/// If key is not found in env, it returns default value provided
+#[inline]
+fn get_env_var_or_default(key: &str, default: &str) -> String {
+    env::var(key).unwrap_or(default.to_string())
+}
 
 fn felt_to_gas_price(price: &Felt) -> Result<NonZeroU128, FeltConversionError> {
     // Inspiration taken from Papyrus:
@@ -49,16 +60,15 @@ pub fn build_block_context(
         use_kzg_da,
     };
 
+    let strk_fee_token_address = get_env_var_or_default("SNOS_STRK_FEE_TOKEN_ADDRESS", DEFAULT_STRK_FEE_TOKEN_ADDRESS);
+    let eth_fee_token_address = get_env_var_or_default("SNOS_ETH_FEE_TOKEN_ADDRESS", DEFAULT_ETH_FEE_TOKEN_ADDRESS);
+
     let chain_info = ChainInfo {
         chain_id,
         // cf. https://docs.starknet.io/tools/important-addresses/
         fee_token_addresses: FeeTokenAddresses {
-            strk_fee_token_address: contract_address!(
-                "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
-            ),
-            eth_fee_token_address: contract_address!(
-                "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
-            ),
+            strk_fee_token_address: contract_address!(strk_fee_token_address.as_str()),
+            eth_fee_token_address: contract_address!(eth_fee_token_address.as_str()),
         },
     };
 
@@ -70,11 +80,33 @@ pub fn build_block_context(
 
 #[cfg(test)]
 mod tests {
-
     use starknet::core::types::{Felt, ResourcePrice};
     use starknet_api::core::ChainId;
 
     use super::*;
+
+    #[test]
+    fn test_get_env_var_or_default_existing() {
+        let test_key = "TEST_ENV_VAR_DEFAULT";
+        let test_value = "actual_value";
+        let default_value = "default_value";
+        env::set_var(test_key, test_value);
+
+        let result = get_env_var_or_default(test_key, default_value);
+        assert_eq!(result, test_value);
+
+        env::remove_var(test_key);
+    }
+
+    #[test]
+    fn test_get_env_var_or_default_non_existing() {
+        let test_key = "NON_EXISTING_VAR_DEFAULT";
+        let default_value = "default_value";
+        env::remove_var(test_key); // Ensure it doesn't exist
+
+        let result = get_env_var_or_default(test_key, default_value);
+        assert_eq!(result, default_value);
+    }
 
     #[test]
     fn test_build_block_context_with_zero_gas_prices() {
