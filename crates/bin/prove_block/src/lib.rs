@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::str::FromStr;
 
 use blockifier::state::cached_state::CachedState;
 use cairo_vm::types::layout_name::LayoutName;
@@ -8,13 +9,14 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage};
-use rpc_client::pathfinder::proofs::{PathfinderClassProof, ProofVerificationError, StorageProof};
+use rpc_client::client::{ClientError, ClientVersion};
+use rpc_client::pathfinder::proofs::{PathfinderClassProof, ProofVerificationError};
 use rpc_client::RpcClient;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
 use rpc_replay::transactions::{starknet_rs_to_blockifier, ToBlockifierError};
 use rpc_replay::utils::FeltConversionError;
-use rpc_utils::{get_08_class_proofs, get_08_contracts_proofs, get_class_proofs, get_storage_proofs};
+use rpc_utils::{get_class_proofs, get_storage_proofs};
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, StarknetError};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::StarknetApiError;
@@ -38,7 +40,7 @@ use starknet_types_core::felt::Felt;
 use state_utils::get_formatted_state_update;
 use thiserror::Error;
 
-use crate::reexecute::{format_08_commitment_facts, format_commitment_facts};
+use crate::reexecute::format_commitment_facts;
 use crate::rpc_utils::get_starknet_version;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
@@ -68,6 +70,8 @@ pub enum ProveBlockError {
     ToBlockifierError(#[from] ToBlockifierError),
     #[error("Felt Conversion Error: {0}")]
     FeltConversionError(#[from] FeltConversionError),
+    #[error("Client Error: {0}")]
+    ClientError(#[from] ClientError),
 }
 
 fn compute_class_commitment(
@@ -112,39 +116,19 @@ fn compute_class_commitment(
     CommitmentInfo { previous_root, updated_root, tree_height: 251, commitment_facts: class_commitment_facts }
 }
 
-fn compute_08_class_commitment(
-    previous_class_proofs: &StorageProof,
-    class_proofs: &StorageProof,
-    previous_root: Felt,
-    updated_root: Felt,
-) -> CommitmentInfo {
-    let previous_class_proofs: Vec<_> =
-        previous_class_proofs.classes_proof.clone().into_iter().map(|proof| proof).collect();
-    let class_proofs: Vec<_> = class_proofs.classes_proof.clone().into_iter().map(|proof| proof).collect();
-
-    let previous_class_commitment_facts = format_08_commitment_facts::<PoseidonHash>(&[previous_class_proofs]);
-    let current_class_commitment_facts = format_08_commitment_facts::<PoseidonHash>(&[class_proofs]);
-
-    let class_commitment_facts: HashMap<_, _> =
-        previous_class_commitment_facts.into_iter().chain(current_class_commitment_facts).collect();
-
-    log::debug!("previous class trie root: {}", previous_root.to_hex_string());
-    log::debug!("current class trie root: {}", updated_root.to_hex_string());
-
-    CommitmentInfo { previous_root, updated_root, tree_height: 251, commitment_facts: class_commitment_facts }
-}
-
 pub async fn prove_block(
     compiled_os: &[u8],
     block_number: u64,
     rpc_provider: &str,
+    rpc_version: &str,
     layout: LayoutName,
     full_output: bool,
 ) -> Result<(CairoPie, StarknetOsOutput), ProveBlockError> {
     let block_id = BlockId::Number(block_number);
     let previous_block_id = BlockId::Number(block_number - 1);
 
-    let rpc_client = RpcClient::new(rpc_provider);
+    let client_version = ClientVersion::from_str(rpc_version)?;
+    let rpc_client = RpcClient::new(rpc_provider, client_version);
 
     // Step 1: build the block context
     let chain_id = chain_id_from_felt(rpc_client.starknet_rpc().chain_id().await?);
@@ -217,15 +201,6 @@ pub async fn prove_block(
             .await
             .expect("Failed to fetch storage proofs");
 
-    let storage_proofs_08 = get_08_contracts_proofs(&rpc_client, block_number, &tx_execution_infos, old_block_number)
-        .await
-        .expect("Failed to fetch storage proofs");
-
-    let previous_storage_proofs_08 =
-        get_08_contracts_proofs(&rpc_client, block_number - 1, &tx_execution_infos, old_block_number)
-            .await
-            .expect("Failed to fetch storage proofs");
-
     let default_general_config = StarknetGeneralConfig::default();
 
     let general_config = StarknetGeneralConfig {
@@ -241,11 +216,15 @@ pub async fn prove_block(
     let mut contract_storages = ContractStorageMap::new();
     let mut contract_address_to_class_hash = HashMap::new();
 
-    // TODO: remove this clone()
-    for (contract_address, storage_proof) in storage_proofs_08.clone() {
+    for (contract_address, storage_proof) in storage_proofs.clone() {
         let previous_storage_proof =
-            previous_storage_proofs_08.get(&contract_address).expect("failed to find previous storage proof");
-        let contract_storage_root = previous_storage_proof.contracts_storage_proofs[0][0].node_hash.into();
+            previous_storage_proofs.get(&contract_address).expect("failed to find previous storage proof");
+        let contract_storage_root = previous_storage_proof
+            .contract_data
+            .as_ref()
+            .map(|contract_data| contract_data.root)
+            .unwrap_or(Felt::ZERO)
+            .into();
 
         log::debug!(
             "Storage root 0x{:x} for contract 0x{:x}",
@@ -308,12 +287,6 @@ pub async fn prove_block(
     let class_hashes: Vec<&Felt252> = class_hash_to_compiled_class_hash.keys().collect();
     // TODO: we fetch proofs here for block-1, but we probably also need to fetch at the current
     //       block, likely for contracts that are deployed in this block
-    let class_proofs_08 =
-        get_08_class_proofs(&rpc_client, block_number, &class_hashes[..]).await.expect("Failed to fetch class proofs");
-    let previous_class_proofs_08 = get_08_class_proofs(&rpc_client, block_number - 1, &class_hashes[..])
-        .await
-        .expect("Failed to fetch previous class proofs");
-
     let class_proofs =
         get_class_proofs(&rpc_client, block_number, &class_hashes[..]).await.expect("Failed to fetch class proofs");
     let previous_class_proofs = get_class_proofs(&rpc_client, block_number - 1, &class_hashes[..])
@@ -327,13 +300,6 @@ pub async fn prove_block(
             (class_hash.0, visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
         })
         .collect();
-
-    // We can extract data from any storage proof, use the one of the block hash contract
-    let block_hash_storage_proof_08 =
-        storage_proofs_08.get(&Felt::ONE).expect("there should be a storage proof for the block hash contract");
-    let previous_block_hash_storage_proof_08 = previous_storage_proofs_08
-        .get(&Felt::ONE)
-        .expect("there should be a storage proof for the block hash contract");
 
     // We can extract data from any storage proof, use the one of the block hash contract
     let block_hash_storage_proof =
@@ -359,11 +325,6 @@ pub async fn prove_block(
         None => Felt252::ZERO,
     };
 
-    let current_contract_trie_root_08 =
-        block_hash_storage_proof_08.contracts_proof.nodes[0].node.hash::<PedersenHash>();
-    let previous_contract_trie_root_08 =
-        previous_block_hash_storage_proof_08.contracts_proof.nodes[0].node.hash::<PedersenHash>();
-
     let previous_contract_proofs: Vec<_> =
         previous_storage_proofs.values().map(|proof| proof.contract_proof.clone()).collect();
     let previous_state_commitment_facts = format_commitment_facts::<PedersenHash>(&previous_contract_proofs);
@@ -374,8 +335,8 @@ pub async fn prove_block(
         previous_state_commitment_facts.into_iter().chain(current_state_commitment_facts).collect();
 
     let contract_state_commitment_info = CommitmentInfo {
-        previous_root: previous_contract_trie_root_08,
-        updated_root: current_contract_trie_root_08,
+        previous_root: previous_contract_trie_root,
+        updated_root: current_contract_trie_root,
         tree_height: 251,
         commitment_facts: global_state_commitment_facts,
     };
@@ -383,12 +344,9 @@ pub async fn prove_block(
     let contract_class_commitment_info =
         compute_class_commitment(&previous_class_proofs, &class_proofs, previous_root, updated_root);
 
-    let contract_class_commitment_info_08 =
-        compute_08_class_commitment(&previous_class_proofs_08, &class_proofs_08, previous_root_08, updated_root_08);
-
     let os_input = Rc::new(StarknetOsInput {
         contract_state_commitment_info,
-        contract_class_commitment_info: contract_class_commitment_info_08,
+        contract_class_commitment_info,
         deprecated_compiled_classes,
         compiled_classes,
         compiled_class_visited_pcs: visited_pcs,

@@ -1,3 +1,6 @@
+use std::str::FromStr;
+
+use rpc_client::client::ClientVersion;
 use rpc_client::pathfinder::proofs::ProofVerificationError;
 use rpc_client::RpcClient;
 use rstest::rstest;
@@ -19,7 +22,8 @@ async fn test_recompute_class_hash(#[case] class_hash_str: String, #[case] block
     let class_hash = Felt::from_hex(&class_hash_str).unwrap();
     let block_id = BlockId::Number(block_number);
 
-    let rpc_client = RpcClient::new(&endpoint);
+    let rpc_version = ClientVersion::from_str("v0_7").unwrap();
+    let rpc_client = RpcClient::new(&endpoint, rpc_version);
     let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash).await.unwrap();
 
     let compiled_class = if let starknet::core::types::ContractClass::Legacy(legacy_cc) = contract_class {
@@ -48,7 +52,8 @@ async fn test_recompute_class_hash(#[case] class_hash_str: String, #[case] block
 async fn test_class_proof_verification_non_inclusion(#[case] class_hash_str: String, #[case] block_number: u64) {
     let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
     let class_hash = Felt::from_hex(&class_hash_str).unwrap();
-    let rpc_client = RpcClient::new(&endpoint);
+    let rpc_version = ClientVersion::from_str("v0_7").unwrap();
+    let rpc_client = RpcClient::new(&endpoint, rpc_version);
 
     let class_proof = rpc_client.pathfinder_rpc().get_class_proof(block_number, &class_hash).await.unwrap();
     let result = class_proof.verify(class_hash);
@@ -72,7 +77,8 @@ async fn test_class_proof_verification_non_inclusion(#[case] class_hash_str: Str
 async fn test_class_proof_verification_ok(#[case] class_hash_str: String, #[case] block_number: u64) {
     let endpoint = std::env::var("PATHFINDER_RPC_URL").expect("Missing PATHFINDER_RPC_URL in env");
     let class_hash = Felt::from_hex(&class_hash_str).unwrap();
-    let rpc_client = RpcClient::new(&endpoint);
+    let rpc_version = ClientVersion::from_str("v0_7").unwrap();
+    let rpc_client = RpcClient::new(&endpoint, rpc_version);
 
     let class_proof = rpc_client.pathfinder_rpc().get_class_proof(block_number, &class_hash).await.unwrap();
     assert!(class_proof.verify(class_hash).is_ok());

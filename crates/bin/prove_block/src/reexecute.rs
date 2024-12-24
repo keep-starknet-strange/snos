@@ -10,7 +10,7 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
-use rpc_client::pathfinder::proofs::{MerkleNode, NodeHashToNodeMappingItem, StorageProof, TrieNode};
+use rpc_client::pathfinder::proofs::{ContractData, PathfinderProof, TrieNode};
 use rpc_client::RpcClient;
 use starknet::core::types::{BlockId, StarknetError};
 use starknet::providers::{Provider as _, ProviderError};
@@ -95,8 +95,8 @@ pub(crate) struct ProverPerContractStorage {
     block_id: BlockId,
     contract_address: Felt252,
     previous_tree_root: Felt252,
-    storage_proof: StorageProof,
-    previous_storage_proof: StorageProof,
+    storage_proof: PathfinderProof,
+    previous_storage_proof: PathfinderProof,
     ongoing_storage_changes: HashMap<TreeIndex, Felt252>,
 }
 
@@ -106,8 +106,8 @@ impl ProverPerContractStorage {
         block_id: BlockId,
         contract_address: Felt252,
         previous_tree_root: Felt252,
-        storage_proof: StorageProof,
-        previous_storage_proof: StorageProof,
+        storage_proof: PathfinderProof,
+        previous_storage_proof: PathfinderProof,
     ) -> Result<Self, TreeError> {
         Ok(Self {
             rpc_client,
@@ -160,61 +160,22 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
     facts
 }
 
-pub(crate) fn format_08_commitment_facts<H: HashFunctionType>(
-    trie_nodes: &[Vec<NodeHashToNodeMappingItem>],
-) -> HashMap<Felt252, Vec<Felt252>> {
-    let mut facts = HashMap::new();
-
-    for nodes in trie_nodes {
-        for node in nodes {
-            let (key, fact_as_tuple) = match node.node {
-                MerkleNode::Binary { left, right } => {
-                    let fact = BinaryNodeFact::new((left).into(), (right).into())
-                        .expect("storage proof endpoint gave us an invalid binary node");
-
-                    // TODO: the hash function should probably be split from the Fact trait.
-                    //       we use a placeholder for the Storage trait in the meantime.
-                    let node_hash = Felt252::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact));
-                    let fact_as_tuple = <BinaryNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
-
-                    (node_hash, fact_as_tuple)
-                }
-                MerkleNode::Edge { child, path, length } => {
-                    let fact = EdgeNodeFact::new(
-                        (child).into(),
-                        NodePath(path.to_biguint()),
-                        Length(length.try_into().unwrap()),
-                    )
-                    .expect("storage proof endpoint gave us an invalid edge node");
-                    // TODO: the hash function should probably be split from the Fact trait.
-                    //       we use a placeholder for the Storage trait in the meantime.
-                    let node_hash = Felt252::from(<EdgeNodeFact as Fact<DictStorage, H>>::hash(&fact));
-                    let fact_as_tuple = <EdgeNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
-
-                    (node_hash, fact_as_tuple)
-                }
-            };
-
-            let fact_as_tuple_of_felts: Vec<_> = fact_as_tuple.into_iter().map(Felt252::from).collect();
-            facts.insert(key, fact_as_tuple_of_felts);
-        }
-    }
-
-    facts
-}
-
 impl PerContractStorage for ProverPerContractStorage {
     async fn compute_commitment(&mut self) -> Result<CommitmentInfo, CommitmentInfoError> {
         // TODO: error code
-        let contract_data: &[Vec<NodeHashToNodeMappingItem>] = self.storage_proof.contracts_storage_proofs.as_ref();
-        let updated_root = contract_data[0][0].node_hash;
+        let contract_data = match self.storage_proof.contract_data.as_ref() {
+            None => &ContractData::default(),
+            Some(data) => data,
+        };
+        let updated_root = contract_data.root;
 
-        let commitment_facts = format_08_commitment_facts::<PedersenHash>(&contract_data);
+        let commitment_facts = format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);
 
-        let previous_commitment_facts = if self.previous_storage_proof.contracts_storage_proofs.is_empty() {
-            HashMap::default()
-        } else {
-            format_08_commitment_facts::<PedersenHash>(&self.previous_storage_proof.contracts_storage_proofs)
+        let previous_commitment_facts = match &self.previous_storage_proof.contract_data {
+            None => HashMap::default(),
+            Some(previous_contract_data) => {
+                format_commitment_facts::<PedersenHash>(&previous_contract_data.storage_proofs)
+            }
         };
 
         let commitment_facts = commitment_facts.into_iter().chain(previous_commitment_facts.into_iter()).collect();
