@@ -8,6 +8,18 @@ use starknet_os::storage::dict_storage::DictStorage;
 use starknet_os::storage::storage::{Fact, HashFunctionType};
 use starknet_types_core::felt::Felt;
 
+#[derive(thiserror::Error, Debug)]
+pub enum ProofVerificationError<'a> {
+    #[error("Non-inclusion proof for key {}. Height {}.", key.to_hex_string(), height.0)]
+    NonExistenceProof { key: Felt, height: Height, proof: &'a [TrieNode] },
+
+    #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
+    InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
+
+    #[error("Conversion error")]
+    ConversionError,
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub enum TrieNode {
     #[serde(rename = "binary")]
@@ -38,27 +50,19 @@ impl TrieNode {
     }
 }
 
+// Types defined for Deserialize functionality
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct EdgePath {
+    pub len: u64,
+    pub value: Felt,
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ContractData {
     /// Root of the Contract state tree
     pub root: Felt,
     /// The proofs associated with the queried storage values
     pub storage_proofs: Vec<Vec<TrieNode>>,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum ProofVerificationError<'a> {
-    #[error("Non-inclusion proof for key {}. Height {}.", key.to_hex_string(), height.0)]
-    NonExistenceProof { key: Felt, height: Height, proof: &'a [TrieNode] },
-
-    #[error("Non-inclusion proof for key {}. Height {}.", key.to_hex_string(), height.0)]
-    NonExistenceProof08 { key: Felt, height: Height, proof: &'a [NodeHashToNodeMappingItem] },
-
-    #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
-    InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
-
-    #[error("Conversion error")]
-    ConversionError,
 }
 
 impl ContractData {
@@ -85,7 +89,7 @@ pub struct PathfinderProof {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct PathfinderClassProof {
     pub class_commitment: Felt,
     pub class_proof: Vec<TrieNode>,
@@ -96,13 +100,6 @@ impl PathfinderClassProof {
     pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
         verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof)
     }
-}
-
-// Types defined for Deserialize functionality
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct EdgePath {
-    pub len: u64,
-    pub value: Felt,
 }
 
 /// This function goes through the tree from top to bottom and verifies that
@@ -173,30 +170,6 @@ pub enum MerkleNode {
     Edge { child: Felt, path: Felt, length: usize },
 }
 
-impl MerkleNode {
-    pub fn hash<H: HashFunctionType>(&self) -> Felt {
-        match self {
-            MerkleNode::Binary { left, right } => {
-                let fact = BinaryNodeFact::new((*left).into(), (*right).into())
-                    .expect("storage proof endpoint gave us an invalid binary node");
-
-                // TODO: the hash function should probably be split from the Fact trait.
-                //       we use a placeholder for the Storage trait in the meantime.
-                Felt::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact))
-            }
-            MerkleNode::Edge { child, path, length } => {
-                let len = *length;
-                let fact =
-                    EdgeNodeFact::new((*child).into(), NodePath(path.to_biguint()), Length(len.try_into().unwrap()))
-                        .expect("storage proof endpoint gave us an invalid edge node");
-                // TODO: the hash function should probably be split from the Fact trait.
-                //       we use a placeholder for the Storage trait in the meantime.
-                Felt::from(<EdgeNodeFact as Fact<DictStorage, H>>::hash(&fact))
-            }
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct NodeHashToNodeMappingItem {
     pub node_hash: Felt,
@@ -230,76 +203,65 @@ pub struct StorageProof {
     pub global_roots: GlobalRoots,
 }
 
-impl StorageProof {
-    /// Verifies that each contract state proof is valid.
-    pub fn verify(&self, storage_keys: &[Felt]) -> Result<(), Vec<ProofVerificationError>> {
-        let mut errors = vec![];
+pub fn convert_storage_to_pathfinder_proof(storage_proof: StorageProof) -> PathfinderProof {
+    let mut contract_proof: Vec<TrieNode> = Vec::new();
+    for node in storage_proof.contracts_proof.nodes {
+        contract_proof.push(convert_to_trie_node(&node));
+    }
 
-        for (index, storage_key) in storage_keys.iter().enumerate() {
-            if let Err(e) = verify_proof_08::<PedersenHash>(
-                *storage_key,
-                self.contracts_storage_proofs[index][0].node_hash,
-                &self.contracts_storage_proofs[index],
-            ) {
-                errors.push(e);
-            }
+    let mut storage_proofs: Vec<Vec<TrieNode>> = Vec::new();
+    for nodes in &storage_proof.contracts_storage_proofs {
+        let mut trie_nodes: Vec<TrieNode> = Vec::new();
+        for node in nodes {
+            trie_nodes.push(convert_to_trie_node(node));
         }
+        storage_proofs.push(trie_nodes);
+    }
 
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+    let contract_data: Option<ContractData>;
+    if storage_proof.contracts_storage_proofs[0].is_empty() {
+        contract_data = None;
+    } else {
+        match storage_proof.contracts_storage_proofs[0][0].node {
+            MerkleNode::Binary { left, right: _ } => {
+                contract_data = if left.to_hex_string() == "0x0" {
+                    Some(ContractData {
+                        root: storage_proof.contracts_storage_proofs[0][0].node_hash,
+                        storage_proofs: vec![],
+                    })
+                } else {
+                    Some(ContractData { root: storage_proof.contracts_storage_proofs[0][0].node_hash, storage_proofs })
+                }
+            }
+            MerkleNode::Edge { child: _, path: _, length: _ } => {
+                contract_data =
+                    Some(ContractData { root: storage_proof.contracts_storage_proofs[0][0].node_hash, storage_proofs })
+            }
+        };
+    }
+
+    PathfinderProof {
+        state_commitment: Some(storage_proof.global_roots.block_hash),
+        class_commitment: Some(storage_proof.global_roots.classes_tree_root),
+        contract_proof,
+        contract_data,
     }
 }
 
-/// This function goes through the tree from top to bottom and verifies that
-/// the hash of each node is equal to the corresponding hash in the parent node.
-pub fn verify_proof_08<H: HashFunctionType>(
-    key: Felt,
-    commitment: Felt,
-    proof: &[NodeHashToNodeMappingItem],
-) -> Result<(), ProofVerificationError> {
-    let bits = key.to_bits_be();
-
-    let mut parent_hash = commitment;
-
-    // The tree height is 251, so the first 5 bits are ignored.
-    let start = 5;
-    let mut index = start;
-
-    for node in proof.iter() {
-        let node_hash = node.node.hash::<H>();
-        if node_hash != parent_hash {
-            return Err(ProofVerificationError::InvalidChildNodeHash { node_hash, parent_hash });
-        }
-
-        match node.node {
-            MerkleNode::Binary { left, right } => {
-                parent_hash = if bits[index as usize] { right } else { left };
-                index += 1;
-            }
-            MerkleNode::Edge { child, path, length } => {
-                let index_usize: usize = index.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
-
-                let path_bits = path.to_bits_be();
-                let relevant_path_bits = &path_bits[path_bits.len() - length..];
-                let key_bits_slice = &bits[index_usize..(index_usize + length)];
-
-                parent_hash = child;
-                index += length;
-                let height: u64 = (index - start).try_into().unwrap();
-
-                if relevant_path_bits != key_bits_slice {
-                    // If paths don't match, we've found a proof of non-membership because:
-                    // 1. We correctly moved towards the target as far as possible, and
-                    // 2. Hashing all the nodes along the path results in the root hash, which means
-                    // 3. The target definitely does not exist in this tree
-                    return Err(ProofVerificationError::NonExistenceProof08 {
-                        key,
-                        height: Height(DEFAULT_STORAGE_TREE_HEIGHT - height),
-                        proof,
-                    });
-                }
-            }
-        }
+pub fn convert_storage_to_pathfinder_class_proof(storage_proof: StorageProof) -> PathfinderClassProof {
+    let mut class_proof: Vec<TrieNode> = Vec::new();
+    for node in &storage_proof.classes_proof {
+        class_proof.push(convert_to_trie_node(node));
     }
 
-    Ok(())
+    PathfinderClassProof { class_commitment: storage_proof.classes_proof[0].node_hash, class_proof }
+}
+
+pub fn convert_to_trie_node(node: &NodeHashToNodeMappingItem) -> TrieNode {
+    match node.node {
+        MerkleNode::Binary { left, right } => TrieNode::Binary { left, right },
+        MerkleNode::Edge { child, path, length } => {
+            TrieNode::Edge { child, path: EdgePath { len: length.try_into().unwrap(), value: path } }
+        }
+    }
 }
