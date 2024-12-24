@@ -12,9 +12,13 @@ use starknet_api::{contract_address, felt, patricia_key};
 
 use crate::utils::{felt_to_u128, FeltConversionError};
 
+const DEFAULT_STRK_FEE_TOKEN_ADDRESS: &str = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
+const DEFAULT_ETH_FEE_TOKEN_ADDRESS: &str = "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7";
+
 /// Fetches environment variable based on provided key.
 /// If key is not found in env, it returns default value provided
-pub fn get_env_var_or_default(key: &str, default: &str) -> String {
+#[inline]
+fn get_env_var_or_default(key: &str, default: &str) -> String {
     env::var(key).unwrap_or(default.to_string())
 }
 
@@ -56,14 +60,8 @@ pub fn build_block_context(
         use_kzg_da,
     };
 
-    let strk_fee_token_address = get_env_var_or_default(
-        "SNOS_STRK_FEE_TOKEN_ADDRESS",
-        "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
-    );
-    let eth_fee_token_address = get_env_var_or_default(
-        "SNOS_ETH_FEE_TOKEN_ADDRESS",
-        "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-    );
+    let strk_fee_token_address = get_env_var_or_default("SNOS_STRK_FEE_TOKEN_ADDRESS", DEFAULT_STRK_FEE_TOKEN_ADDRESS);
+    let eth_fee_token_address = get_env_var_or_default("SNOS_ETH_FEE_TOKEN_ADDRESS", DEFAULT_ETH_FEE_TOKEN_ADDRESS);
 
     let chain_info = ChainInfo {
         chain_id,

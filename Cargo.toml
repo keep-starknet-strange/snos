@@ -31,19 +31,13 @@ assert_matches = "1.5.0"
 base64 = "0.21.3"
 bitvec = { version = "1.0.1", features = ["serde"] }
 # Point to the latest commit of branch msl/backport-secp-patches-0.8.0-rc.3
-blockifier = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = [
-    "testing",
-] }
+blockifier = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = ["testing"] }
 cairo-lang-starknet = { version = "=2.8.2" }
 cairo-lang-starknet-classes = { version = "=2.8.2" }
 cairo-lang-utils = { version = "=2.8.2" }
 cairo-lang-casm = { version = "=2.8.2" }
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
-cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", branch = "notlesh/snos-2024-11-04", features = [
-    "cairo-1-hints",
-    "extensive_hints",
-    "mod_builtin",
-] }
+cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", branch = "notlesh/snos-2024-11-04", features = ["cairo-1-hints", "extensive_hints", "mod_builtin"] }
 clap = { version = "4.5.4", features = ["derive"] }
 c-kzg = { version = "1.0.3" }
 env_logger = "0.11.3"
@@ -74,9 +68,7 @@ serde_with = "3.3.0"
 serde_yaml = "0.9.25"
 sha2 = "0.10.8"
 starknet = "0.11.0"
-starknet_api = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = [
-    "testing",
-] }
+starknet_api = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = ["testing"] }
 starknet-core = "0.11.1"
 starknet-crypto = "0.6.2"
 starknet-os = { path = "crates/starknet-os" }
