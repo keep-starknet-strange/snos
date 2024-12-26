@@ -203,7 +203,7 @@ pub fn set_n_updates_small(
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let n_actual_updates = get_integer_from_var_name(vars::ids::N_ACTUAL_UPDATES, vm, ids_data, ap_tracking)?;
-    let n_updates_small_packing_bound = get_constant(&vars::ids::N_UPDATES_SMALL_PACKING_BOUND, constants)?;
+    let n_updates_small_packing_bound = get_constant(vars::ids::N_UPDATES_SMALL_PACKING_BOUND, constants)?;
 
     let is_n_updates_small =
         if n_actual_updates < *n_updates_small_packing_bound { Felt252::ZERO } else { Felt252::ONE };
