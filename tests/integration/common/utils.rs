@@ -61,7 +61,7 @@ pub fn check_os_output_read_only_syscall(os_output: StarknetOsOutput, block_cont
     // related to the fees.
     assert!(os_output.state_diff.is_some());
     let state_diff = os_output.state_diff.unwrap();
-    assert_eq!(state_diff.contract_changes.len(), 2);
+    assert_eq!(state_diff.contract_changes.len(), 4);
 
     assert_eq!(os_output.new_block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
     assert!(state_diff.classes.is_empty());
