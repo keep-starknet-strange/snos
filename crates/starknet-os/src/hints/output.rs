@@ -115,12 +115,15 @@ pub const SET_STATE_UPDATES_START: &str = indoc! {r#"# `use_kzg_da` is used in a
 
 pub fn set_state_updates_start(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let use_kzg_da_felt = get_integer_from_var_name(vars::ids::USE_KZG_DA, vm, ids_data, ap_tracking)?;
+
+    // Set `use_kzg_da` in globals since it will be used in `process_data_availability`
+    exec_scopes.insert_value(vars::scopes::USE_KZG_DA, use_kzg_da_felt);
 
     // Recompute `compress_state_updates` until this issue is fixed
     // https://github.com/lambdaclass/cairo-vm/issues/1897
@@ -159,7 +162,7 @@ pub fn set_state_updates_start(
     Ok(())
 }
 
-pub const SET_COMPRESSED_START: &str = indoc! {r#"if ids.use_kzg_da:
+pub const SET_COMPRESSED_START: &str = indoc! {r#"if use_kzg_da:
     ids.compressed_start = segments.add()
 else:
     # Assign a temporary segment, to be relocated into the output segment.
@@ -167,12 +170,12 @@ else:
 
 pub fn set_compressed_start(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let use_kzg_da_felt = get_integer_from_var_name(vars::ids::USE_KZG_DA, vm, ids_data, ap_tracking)?;
+    let use_kzg_da_felt = exec_scopes.get::<Felt252>(vars::scopes::USE_KZG_DA)?;
 
     let use_kzg_da = if use_kzg_da_felt == Felt252::ONE {
         Ok(true)

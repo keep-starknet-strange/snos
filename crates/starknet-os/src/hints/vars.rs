@@ -32,6 +32,7 @@ pub mod scopes {
     pub const TRANSACTIONS: &str = "transactions";
     pub const TX: &str = "tx";
     pub const VALUE: &str = "value";
+    pub const USE_KZG_DA: &str = "use_kzg_da";
 }
 
 pub mod ids {
