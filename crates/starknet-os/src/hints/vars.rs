@@ -157,7 +157,6 @@ pub mod ids {
     pub const BATCH_SIZE: &str = "starkware.cairo.common.cairo_sha256.sha256_utils.BATCH_SIZE";
     pub const SHA256_INPUT_CHUNK_SIZE_FELTS: &str =
         "starkware.cairo.common.cairo_sha256.sha256_utils.SHA256_INPUT_CHUNK_SIZE_FELTS";
-    pub const TOTAL_N_BUCKETS: &str = "TOTAL_N_BUCKETS";
     pub const PREV_OFFSET: &str = "prev_offset";
     pub const BUCKET_INDEX: &str = "bucket_index";
     pub const DICT_PTR: &str = "dict_ptr";

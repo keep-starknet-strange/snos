@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
-    get_integer_from_var_name, get_maybe_relocatable_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
+    get_maybe_relocatable_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -13,25 +13,20 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 
+use super::constants::TOTAL_N_BUCKETS;
 use crate::hints::vars;
 
 pub const DICTIONARY_FROM_BUCKET: &str =
     indoc! {r#"initial_dict = {bucket_index: 0 for bucket_index in range(ids.TOTAL_N_BUCKETS)}"#};
 pub fn dictionary_from_bucket(
-    vm: &mut VirtualMachine,
+    _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
+    _ids_data: &HashMap<String, HintReference>,
+    _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    // TODO: This might be a const
-    // The number of buckets, which includes the unique value buckets and the repeating value bucket.
-    // const TOTAL_N_BUCKETS = UniqueValueBucketLengths.SIZE + 1;
-    let total_n_buckets: u64 =
-        get_integer_from_var_name(vars::ids::TOTAL_N_BUCKETS, vm, ids_data, ap_tracking)?.try_into().unwrap();
-
     let initial_dict: HashMap<MaybeRelocatable, MaybeRelocatable> =
-        (0..total_n_buckets).map(|bucket_index| (Felt252::from(bucket_index).into(), Felt252::ZERO.into())).collect();
+        (0..TOTAL_N_BUCKETS).map(|bucket_index| (Felt252::from(bucket_index).into(), Felt252::ZERO.into())).collect();
     exec_scopes.insert_box(vars::scopes::INITIAL_DICT, Box::new(initial_dict));
     Ok(())
 }
@@ -70,8 +65,8 @@ mod tests {
     use std::rc::Rc;
 
     use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::DictManager;
+    use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_integer_from_var_name;
     use cairo_vm::types::relocatable::Relocatable;
-    use pathfinder_crypto::Felt;
     use rstest::rstest;
 
     use super::*;
@@ -85,7 +80,7 @@ mod tests {
 
         let ap_tracking = ApTracking::new();
         let constants = HashMap::new();
-        let ids_data = HashMap::from([(vars::ids::TOTAL_N_BUCKETS.to_string(), HintReference::new_simple(-2))]);
+        let ids_data = HashMap::new();
 
         vm.insert_value(Relocatable::from((1, 0)), Felt252::from(2)).unwrap();
 
@@ -98,7 +93,10 @@ mod tests {
 
         assert_eq!(
             initial_dict,
-            HashMap::from_iter([(0, 0), (1, 0)].map(|v| (Felt252::from(v.0).into(), Felt252::from(v.1).into())))
+            HashMap::from_iter(
+                [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0)]
+                    .map(|v| (Felt252::from(v.0).into(), Felt252::from(v.1).into()))
+            )
         );
     }
 

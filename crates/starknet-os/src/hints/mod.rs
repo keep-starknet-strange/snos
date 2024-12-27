@@ -35,6 +35,7 @@ mod bls_field;
 mod bls_utils;
 pub mod builtins;
 mod compiled_class;
+mod constants;
 mod deprecated_compiled_class;
 mod dict;
 mod execute_transactions;
