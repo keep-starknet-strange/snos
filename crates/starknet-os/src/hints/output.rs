@@ -316,4 +316,72 @@ mod tests {
             get_integer_from_var_name(vars::ids::IS_N_UPDATES_SMALL, &vm, &ids_data, &ap_tracking).unwrap();
         assert_eq!(Felt252::from(expected_is_n_updates_small), is_n_updates_small);
     }
+
+    #[rstest]
+    #[case(0, 0)]
+    #[case(0, 1)]
+    #[case(1, 0)]
+    #[case(0, 1)]
+    fn test_set_state_updates_start(#[case] use_kzg_da: u64, #[case] full_output: u64) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(3);
+        let ap_tracking = ApTracking::new();
+        let constants =
+            HashMap::from([(vars::ids::N_UPDATES_SMALL_PACKING_BOUND.to_string(), Felt252::from(1u128 << 8))]);
+
+        let ids_data = HashMap::from([
+            (vars::ids::USE_KZG_DA.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::FULL_OUTPUT.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::STATE_UPDATES_START.to_string(), HintReference::new_simple(-1)),
+        ]);
+
+        insert_value_from_var_name(vars::ids::USE_KZG_DA, Felt252::from(use_kzg_da), &mut vm, &ids_data, &ap_tracking)
+            .unwrap();
+
+        insert_value_from_var_name(
+            vars::ids::FULL_OUTPUT,
+            Felt252::from(full_output),
+            &mut vm,
+            &ids_data,
+            &ap_tracking,
+        )
+        .unwrap();
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+
+        set_state_updates_start(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+
+        // Temp segment will be used only when full_output = 1 and use_kzg_da = 0
+        if (use_kzg_da, full_output) == (0, 1) {
+            assert_eq!(vm.segments.num_temp_segments(), 1);
+        } else {
+            assert_eq!(vm.segments.num_temp_segments(), 0);
+        }
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    fn test_set_compressed_start(#[case] use_kzg_da: u64) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(1);
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+        let mut exec_scopes: ExecutionScopes = Default::default();
+        let ids_data = HashMap::from([(vars::ids::COMPRESSED_START.to_string(), HintReference::new_simple(-1))]);
+
+        exec_scopes.insert_value(vars::scopes::USE_KZG_DA, Felt252::from(use_kzg_da));
+
+        set_compressed_start(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+
+        if use_kzg_da == 0 {
+            assert_eq!(vm.segments.num_temp_segments(), 1);
+        } else {
+            assert_eq!(vm.segments.num_temp_segments(), 0);
+        }
+    }
 }
