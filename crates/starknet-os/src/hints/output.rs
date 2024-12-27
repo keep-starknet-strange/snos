@@ -209,7 +209,7 @@ pub fn set_n_updates_small(
     let n_updates_small_packing_bound = get_constant(vars::ids::N_UPDATES_SMALL_PACKING_BOUND, constants)?;
 
     let is_n_updates_small =
-        if n_actual_updates < *n_updates_small_packing_bound { Felt252::ZERO } else { Felt252::ONE };
+        if n_actual_updates < *n_updates_small_packing_bound { Felt252::ONE } else { Felt252::ZERO };
 
     insert_value_from_var_name(vars::ids::IS_N_UPDATES_SMALL, is_n_updates_small, vm, ids_data, ap_tracking)
 }
@@ -290,11 +290,11 @@ mod tests {
 
     #[rstest]
     // small updates
-    #[case(10, 0)]
-    #[case(255, 0)]
+    #[case(10, 1)]
+    #[case(255, 1)]
     // big updates
-    #[case(256, 1)]
-    #[case(1024, 1)]
+    #[case(256, 0)]
+    #[case(1024, 0)]
 
     fn test_set_n_updates_small_parameterized(#[case] actual_updates: u64, #[case] expected_is_n_updates_small: u64) {
         let mut vm = VirtualMachine::new(false);
