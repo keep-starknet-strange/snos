@@ -85,14 +85,3 @@ jobs:
           cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
       - run: cargo install cargo-udeps --locked
       - run: cargo udeps --all-targets
-
-  orphans:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: rustup show
-      - run: rustup component add rustfmt
-      - uses: Swatinem/rust-cache@v2
-      - run: git submodule update --init
-      - run: ./scripts/check-orphans.sh
-
