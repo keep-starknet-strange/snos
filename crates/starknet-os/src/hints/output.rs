@@ -285,4 +285,35 @@ mod tests {
         let gps_fact_topology = attributes.get("gps_fact_topology").unwrap();
         assert_eq!(gps_fact_topology, &vec![1 + n_expected_pages, n_expected_pages, 0, 2]);
     }
+
+    use rstest::rstest;
+
+    #[rstest]
+    // small updates
+    #[case(10, 0)]
+    #[case(255, 0)]
+    // big updates
+    #[case(256, 1)]
+    #[case(1024, 1)]
+
+    fn test_set_n_updates_small_parameterized(#[case] actual_updates: u64, #[case] expected_is_n_updates_small: u64) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(2);
+        let ap_tracking = ApTracking::new();
+        let constants =
+            HashMap::from([(vars::ids::N_UPDATES_SMALL_PACKING_BOUND.to_string(), Felt252::from(1u128 << 8))]);
+        let ids_data = HashMap::from([
+            (vars::ids::N_ACTUAL_UPDATES.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::IS_N_UPDATES_SMALL.to_string(), HintReference::new_simple(-1)),
+        ]);
+        vm.insert_value(Relocatable::from((1, 0)), Felt252::from(actual_updates)).unwrap();
+        let mut exec_scopes: ExecutionScopes = Default::default();
+
+        set_n_updates_small(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+        let is_n_updates_small =
+            get_integer_from_var_name(vars::ids::IS_N_UPDATES_SMALL, &vm, &ids_data, &ap_tracking).unwrap();
+        assert_eq!(Felt252::from(expected_is_n_updates_small), is_n_updates_small);
+    }
 }
