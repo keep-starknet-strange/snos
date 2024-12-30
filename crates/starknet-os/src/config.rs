@@ -19,8 +19,8 @@ pub const fn default_layout() -> LayoutName {
     LayoutName::all_cairo
 }
 
-// https://github.com/starkware-libs/blockifier/blob/8da582b285bfbc7d4c21178609bbd43f80a69240/crates/native_blockifier/src/py_block_executor.rs#L44
-const MAX_STEPS_PER_TX: u32 = 4_000_000;
+// The following values were taken from general_config.yml from cairo-lang
+const VALIDATE_MAX_N_STEPS_OVERRIDE: u32 = 1000000;
 
 const DEFAULT_CONFIG_PATH: &str = "../../cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 pub const STORED_BLOCK_HASH_BUFFER: u64 = 10;
@@ -34,7 +34,7 @@ pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
 // TODO: update with relevant address
 pub const DEFAULT_FEE_TOKEN_ADDR: &str = "7ce4aa542d72a82662cda96b147da9b041ecf8c61f67ef657f3bbb852fc698f";
 pub const DEFAULT_DEPRECATED_FEE_TOKEN_ADDR: &str = "5195ba458d98a8d5a390afa87e199566e473d1124c07a3c57bf19813255ac41";
-pub const SEQUENCER_ADDR_0_13_2: &str = "0x31c641e041f8d25997985b0efe68d0c5ce89d418ca9a127ae043aebed6851c5";
+pub const SEQUENCER_ADDR_0_13_3: &str = "0x31c641e041f8d25997985b0efe68d0c5ce89d418ca9a127ae043aebed6851c5";
 pub const CONTRACT_ADDRESS_BITS: usize = 251;
 pub const CONTRACT_CLASS_LEAF_VERSION: &[u8] = "CONTRACT_CLASS_LEAF_V0".as_bytes();
 
@@ -91,9 +91,9 @@ impl Default for StarknetGeneralConfig {
                 min_wei_l1_data_gas_price: 100000,
                 min_wei_l1_gas_price: 10000000000,
             },
-            validate_max_n_steps_override: MAX_STEPS_PER_TX,
+            validate_max_n_steps_override: VALIDATE_MAX_N_STEPS_OVERRIDE,
             default_eth_price_in_fri: 1_000_000_000_000_000_000_000,
-            sequencer_address: contract_address!(SEQUENCER_ADDR_0_13_2),
+            sequencer_address: contract_address!(SEQUENCER_ADDR_0_13_3),
             enforce_l1_handler_fee: true,
             use_kzg_da: false,
         }
@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn parse_starknet_config() {
-        let expected_seq_addr = contract_address!(SEQUENCER_ADDR_0_13_2);
+        let expected_seq_addr = contract_address!(SEQUENCER_ADDR_0_13_3);
 
         let conf = StarknetGeneralConfig::from_default_file().expect("Failed to load default config file");
 
