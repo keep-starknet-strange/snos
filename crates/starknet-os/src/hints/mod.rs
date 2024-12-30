@@ -36,7 +36,9 @@ mod bls_utils;
 pub mod builtins;
 mod compiled_class;
 mod compression;
+mod constants;
 mod deprecated_compiled_class;
+mod dict;
 mod execute_transactions;
 pub mod execution;
 mod find_element;
@@ -259,6 +261,8 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(math::LOG2_CEIL.into(), math::log2_ceil_hint);
     hints.insert(compression::COMPRESS.into(), compression::compress);
     hints.insert(compression::SET_DECOMPRESSED_DST.into(), compression::set_decompressed_dst);
+    hints.insert(dict::DICTIONARY_FROM_BUCKET.into(), dict::dictionary_from_bucket);
+    hints.insert(dict::GET_PREV_OFFSET.into(), dict::get_prev_offset);
     hints
 }
 

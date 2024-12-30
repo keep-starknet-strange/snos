@@ -15,6 +15,7 @@ pub mod scopes {
     pub const DESCEND: &str = "descend";
     pub const DESCENT_MAP: &str = "descent_map";
     pub const DICT_MANAGER: &str = "dict_manager";
+    pub const DICT_TRACKER: &str = "dict_tracker";
     pub const EXECUTION_HELPER: &str = "execution_helper";
     pub const FIND_ELEMENT_MAX_SIZE: &str = "__find_element_max_size";
     pub const INITIAL_DICT: &str = "initial_dict";
@@ -170,6 +171,9 @@ pub mod ids {
     pub const DECOMPRESSED_DST: &str = "decompressed_dst";
     pub const PACKED_FELT: &str = "packed_felt";
     pub const ELM_BOUND: &str = "elm_bound";
+    pub const PREV_OFFSET: &str = "prev_offset";
+    pub const BUCKET_INDEX: &str = "bucket_index";
+    pub const DICT_PTR: &str = "dict_ptr";
 }
 
 pub mod constants {
