@@ -8,6 +8,7 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use reexecute::{reexecute_transactions_with_blockifier, ProverPerContractStorage};
+use rpc_client::client::ClientVersion;
 use rpc_client::pathfinder::proofs::{PathfinderClassProof, ProofVerificationError};
 use rpc_client::RpcClient;
 use rpc_replay::block_context::build_block_context;
@@ -116,13 +117,15 @@ pub async fn prove_block(
     compiled_os: &[u8],
     block_number: u64,
     rpc_provider: &str,
+    rpc_version: &str,
     layout: LayoutName,
     full_output: bool,
 ) -> Result<(CairoPie, StarknetOsOutput), ProveBlockError> {
     let block_id = BlockId::Number(block_number);
     let previous_block_id = BlockId::Number(block_number - 1);
 
-    let rpc_client = RpcClient::new(rpc_provider);
+    let client_version: ClientVersion = rpc_version.try_into().unwrap();
+    let rpc_client = RpcClient::new(rpc_provider, client_version);
 
     // Step 1: build the block context
     let chain_id = chain_id_from_felt(rpc_client.starknet_rpc().chain_id().await?);
@@ -166,7 +169,8 @@ pub async fn prove_block(
     let transactions: Vec<_> =
         block_with_txs.transactions.clone().into_iter().map(starknet_rs_tx_to_internal_tx).collect();
 
-    let (processed_state_update, traces) = get_formatted_state_update(&rpc_client, previous_block_id, block_id).await?;
+    let (processed_state_update, traces) =
+        get_formatted_state_update(&rpc_client, previous_block_id, block_id, block_number).await?;
 
     let class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash;
 
@@ -209,7 +213,6 @@ pub async fn prove_block(
     let mut contract_storages = ContractStorageMap::new();
     let mut contract_address_to_class_hash = HashMap::new();
 
-    // TODO: remove this clone()
     for (contract_address, storage_proof) in storage_proofs.clone() {
         let previous_storage_proof =
             previous_storage_proofs.get(&contract_address).expect("failed to find previous storage proof");
