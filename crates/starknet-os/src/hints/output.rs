@@ -14,7 +14,7 @@ use indoc::indoc;
 use num_integer::div_ceil;
 
 use crate::hints::vars;
-use crate::utils::get_variable_from_root_exec_scope;
+use crate::utils::{get_constant, get_variable_from_root_exec_scope};
 
 const MAX_PAGE_SIZE: usize = 3800;
 
@@ -105,20 +105,30 @@ pub fn set_tree_structure(
     Ok(())
 }
 
-pub const SET_STATE_UPDATES_START: &str = indoc! {r#"if ids.use_kzg_da:
-    ids.state_updates_start = segments.add()
-else:
-    # Assign a temporary segment, to be relocated into the output segment.
-    ids.state_updates_start = segments.add_temp_segment()"#};
+pub const SET_STATE_UPDATES_START: &str = indoc! {r#"# `use_kzg_da` is used in a hint in `process_data_availability`.
+    use_kzg_da = ids.use_kzg_da
+    if use_kzg_da or ids.compress_state_updates:
+        ids.state_updates_start = segments.add()
+    else:
+        # Assign a temporary segment, to be relocated into the output segment.
+        ids.state_updates_start = segments.add_temp_segment()"#};
 
 pub fn set_state_updates_start(
     vm: &mut VirtualMachine,
-    _exec_scopes: &mut ExecutionScopes,
+    exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let use_kzg_da_felt = get_integer_from_var_name(vars::ids::USE_KZG_DA, vm, ids_data, ap_tracking)?;
+
+    // Set `use_kzg_da` in globals since it will be used in `process_data_availability`
+    exec_scopes.insert_value(vars::scopes::USE_KZG_DA, use_kzg_da_felt);
+
+    // Recompute `compress_state_updates` until this issue is fixed
+    // https://github.com/lambdaclass/cairo-vm/issues/1897
+    let full_output = get_integer_from_var_name(vars::ids::FULL_OUTPUT, vm, ids_data, ap_tracking)?;
+    let compress_state_updates = Felt252::ONE - full_output;
 
     let use_kzg_da = if use_kzg_da_felt == Felt252::ONE {
         Ok(true)
@@ -128,7 +138,15 @@ pub fn set_state_updates_start(
         Err(HintError::CustomHint("ids.use_kzg_da is not a boolean".to_string().into_boxed_str()))
     }?;
 
-    if use_kzg_da {
+    let use_compress_state_updates = if compress_state_updates == Felt252::ONE {
+        Ok(true)
+    } else if compress_state_updates == Felt252::ZERO {
+        Ok(false)
+    } else {
+        Err(HintError::CustomHint("ids.compress_state_updates is not a boolean".to_string().into_boxed_str()))
+    }?;
+
+    if use_kzg_da || use_compress_state_updates {
         insert_value_from_var_name(vars::ids::STATE_UPDATES_START, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
     } else {
         // Assign a temporary segment, to be relocated into the output segment.
@@ -142,6 +160,58 @@ pub fn set_state_updates_start(
     }
 
     Ok(())
+}
+
+pub const SET_COMPRESSED_START: &str = indoc! {r#"if use_kzg_da:
+    ids.compressed_start = segments.add()
+else:
+    # Assign a temporary segment, to be relocated into the output segment.
+    ids.compressed_start = segments.add_temp_segment()"#};
+
+pub fn set_compressed_start(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let use_kzg_da_felt = exec_scopes.get::<Felt252>(vars::scopes::USE_KZG_DA)?;
+
+    let use_kzg_da = if use_kzg_da_felt == Felt252::ONE {
+        Ok(true)
+    } else if use_kzg_da_felt == Felt252::ZERO {
+        Ok(false)
+    } else {
+        Err(HintError::CustomHint("ids.use_kzg_da is not a boolean".to_string().into_boxed_str()))
+    }?;
+
+    if use_kzg_da {
+        insert_value_from_var_name(vars::ids::COMPRESSED_START, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
+    } else {
+        // Assign a temporary segment, to be relocated into the output segment.
+        insert_value_from_var_name(vars::ids::COMPRESSED_START, vm.add_temporary_segment(), vm, ids_data, ap_tracking)?;
+    }
+
+    Ok(())
+}
+
+pub const SET_N_UPDATES_SMALL: &str =
+    indoc! {r#"ids.is_n_updates_small = ids.n_actual_updates < ids.N_UPDATES_SMALL_PACKING_BOUND"#};
+
+pub fn set_n_updates_small(
+    vm: &mut VirtualMachine,
+    _exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let n_actual_updates = get_integer_from_var_name(vars::ids::N_ACTUAL_UPDATES, vm, ids_data, ap_tracking)?;
+    let n_updates_small_packing_bound = get_constant(vars::ids::N_UPDATES_SMALL_PACKING_BOUND, constants)?;
+
+    let is_n_updates_small =
+        if n_actual_updates < *n_updates_small_packing_bound { Felt252::ONE } else { Felt252::ZERO };
+
+    insert_value_from_var_name(vars::ids::IS_N_UPDATES_SMALL, is_n_updates_small, vm, ids_data, ap_tracking)
 }
 
 #[cfg(test)]
@@ -214,5 +284,104 @@ mod tests {
         let attributes = builtin_state.attributes;
         let gps_fact_topology = attributes.get("gps_fact_topology").unwrap();
         assert_eq!(gps_fact_topology, &vec![1 + n_expected_pages, n_expected_pages, 0, 2]);
+    }
+
+    use rstest::rstest;
+
+    #[rstest]
+    // small updates
+    #[case(10, 1)]
+    #[case(255, 1)]
+    // big updates
+    #[case(256, 0)]
+    #[case(1024, 0)]
+
+    fn test_set_n_updates_small_parameterized(#[case] actual_updates: u64, #[case] expected_is_n_updates_small: u64) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(2);
+        let ap_tracking = ApTracking::new();
+        let constants =
+            HashMap::from([(vars::ids::N_UPDATES_SMALL_PACKING_BOUND.to_string(), Felt252::from(1u128 << 8))]);
+        let ids_data = HashMap::from([
+            (vars::ids::N_ACTUAL_UPDATES.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::IS_N_UPDATES_SMALL.to_string(), HintReference::new_simple(-1)),
+        ]);
+        vm.insert_value(Relocatable::from((1, 0)), Felt252::from(actual_updates)).unwrap();
+        let mut exec_scopes: ExecutionScopes = Default::default();
+
+        set_n_updates_small(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+        let is_n_updates_small =
+            get_integer_from_var_name(vars::ids::IS_N_UPDATES_SMALL, &vm, &ids_data, &ap_tracking).unwrap();
+        assert_eq!(Felt252::from(expected_is_n_updates_small), is_n_updates_small);
+    }
+
+    #[rstest]
+    #[case(0, 0)]
+    #[case(0, 1)]
+    #[case(1, 0)]
+    #[case(0, 1)]
+    fn test_set_state_updates_start(#[case] use_kzg_da: u64, #[case] full_output: u64) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(3);
+        let ap_tracking = ApTracking::new();
+        let constants =
+            HashMap::from([(vars::ids::N_UPDATES_SMALL_PACKING_BOUND.to_string(), Felt252::from(1u128 << 8))]);
+
+        let ids_data = HashMap::from([
+            (vars::ids::USE_KZG_DA.to_string(), HintReference::new_simple(-3)),
+            (vars::ids::FULL_OUTPUT.to_string(), HintReference::new_simple(-2)),
+            (vars::ids::STATE_UPDATES_START.to_string(), HintReference::new_simple(-1)),
+        ]);
+
+        insert_value_from_var_name(vars::ids::USE_KZG_DA, Felt252::from(use_kzg_da), &mut vm, &ids_data, &ap_tracking)
+            .unwrap();
+
+        insert_value_from_var_name(
+            vars::ids::FULL_OUTPUT,
+            Felt252::from(full_output),
+            &mut vm,
+            &ids_data,
+            &ap_tracking,
+        )
+        .unwrap();
+
+        let mut exec_scopes: ExecutionScopes = Default::default();
+
+        set_state_updates_start(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+
+        // Temp segment will be used only when full_output = 1 and use_kzg_da = 0
+        if (use_kzg_da, full_output) == (0, 1) {
+            assert_eq!(vm.segments.num_temp_segments(), 1);
+        } else {
+            assert_eq!(vm.segments.num_temp_segments(), 0);
+        }
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    fn test_set_compressed_start(#[case] use_kzg_da: u64) {
+        let mut vm = VirtualMachine::new(false);
+        vm.add_memory_segment();
+        vm.add_memory_segment();
+        vm.set_fp(1);
+        let ap_tracking = ApTracking::new();
+        let constants = HashMap::new();
+        let mut exec_scopes: ExecutionScopes = Default::default();
+        let ids_data = HashMap::from([(vars::ids::COMPRESSED_START.to_string(), HintReference::new_simple(-1))]);
+
+        exec_scopes.insert_value(vars::scopes::USE_KZG_DA, Felt252::from(use_kzg_da));
+
+        set_compressed_start(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
+
+        if use_kzg_da == 0 {
+            assert_eq!(vm.segments.num_temp_segments(), 1);
+        } else {
+            assert_eq!(vm.segments.num_temp_segments(), 0);
+        }
     }
 }

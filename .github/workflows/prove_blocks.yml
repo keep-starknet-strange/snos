@@ -43,7 +43,7 @@ jobs:
       - name: Setup the tests
         run: |
           source venv/bin/activate
-          pip install cairo-lang==0.13.2 "sympy<1.13.0"
+          pip install cairo-lang==0.13.3 "sympy<1.13.0"
           bash setup-scripts/setup-tests.sh
 
       - name: Prove Blocks
@@ -57,3 +57,13 @@ jobs:
           PATHFINDER_RPC_URL: ${{ secrets.PATHFINDER_RPC_URL }}
         run: |
           cargo test --release --package prove_block --test hash_tests -- test_recompute_class_hash test_class_proof_verification_ok test_class_proof_verification_non_inclusion --show-output --ignored
+
+      - name: Hint tool Orphans
+        env:
+          PATHFINDER_RPC_URL: ${{ secrets.PATHFINDER_RPC_URL }}
+        run: |
+          RESULT=$(cargo run --release -p hint_tool -- --subset orphaned --in-file build/os_latest.json | grep -oP '\d+$')
+          if [ "$RESULT" -gt 1 ]; then
+            echo "Error: Only breakpoint hint is allowed to be orphaned."
+            exit 1
+          fi

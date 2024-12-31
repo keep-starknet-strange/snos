@@ -149,7 +149,7 @@ pub async fn prove_block(
     // This is a workaorund to catch the case where the block number is less than the buffer and still preserve the check
     // The OS will also handle the case where the block number is less than the buffer.
     let older_block_number =
-        if block_number <= STORED_BLOCK_HASH_BUFFER { 1 } else { block_number - STORED_BLOCK_HASH_BUFFER };
+        if block_number <= STORED_BLOCK_HASH_BUFFER { 0 } else { block_number - STORED_BLOCK_HASH_BUFFER };
 
     let older_block =
         match rpc_client.starknet_rpc().get_block_with_tx_hashes(BlockId::Number(older_block_number)).await? {
@@ -309,8 +309,15 @@ pub async fn prove_block(
     let updated_root = block_hash_storage_proof.class_commitment.unwrap_or(Felt::ZERO);
     let previous_root = previous_block_hash_storage_proof.class_commitment.unwrap_or(Felt::ZERO);
 
-    let previous_contract_trie_root = previous_block_hash_storage_proof.contract_proof[0].hash::<PedersenHash>();
-    let current_contract_trie_root = block_hash_storage_proof.contract_proof[0].hash::<PedersenHash>();
+    // On devnet and until block 10, the storage_root_idx might be None and that means that contract_proof is empty
+    let previous_contract_trie_root = match previous_block_hash_storage_proof.contract_proof.first() {
+        Some(proof) => proof.hash::<PedersenHash>(),
+        None => Felt252::ZERO,
+    };
+    let current_contract_trie_root = match block_hash_storage_proof.contract_proof.first() {
+        Some(proof) => proof.hash::<PedersenHash>(),
+        None => Felt252::ZERO,
+    };
 
     let previous_contract_proofs: Vec<_> =
         previous_storage_proofs.values().map(|proof| proof.contract_proof.clone()).collect();
