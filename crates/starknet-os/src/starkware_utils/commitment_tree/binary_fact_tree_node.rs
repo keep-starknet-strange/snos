@@ -174,20 +174,7 @@ where
         ffc: &'a mut FactFetchingContext<S, H>,
         indices: &'a [TreeIndex],
         facts: &'a mut Option<BinaryFactDict>,
-    ) -> impl std::future::Future<Output = Result<HashMap<TreeIndex, LF>, TreeError>> + Send {
-        async move {
-            if indices.is_empty() {
-                return Ok(HashMap::default());
-            }
-
-            if self.is_leaf() {
-                return self._get_leaf(ffc, indices).await;
-            }
-
-            self._get_binary_node_leaves(ffc, indices, facts).await
-        }
-        .boxed()
-    }
+    ) -> impl std::future::Future<Output = Result<HashMap<TreeIndex, LF>, TreeError>> + Send;
 
     /// Returns the values of the leaves whose indices are given.
     fn _get_binary_node_leaves<'a>(

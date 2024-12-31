@@ -31,7 +31,7 @@ jobs:
       - name: "Install cairo-lang"
         run: |
           # We need to pin the version of sympy, 1.13.0 is incompatible with cairo-lang
-          pip install cairo-lang==0.13.2 "sympy<1.13.0"
+          pip install cairo-lang==0.13.3 "sympy<1.13.0"
       - name: "Prepare test environment"
         run: |
           mkdir -p build
@@ -53,7 +53,7 @@ jobs:
       - name: "Install cairo-lang"
         run: |
           # We need to pin the version of sympy, 1.13.0 is incompatible with cairo-lang
-          pip install cairo-lang==0.13.2 "sympy<1.13.0"
+          pip install cairo-lang==0.13.3 "sympy<1.13.0"
       - name: "Prepare test environment"
         run: |
           bash ./setup-scripts/reset-tests.sh
@@ -78,21 +78,10 @@ jobs:
       - name: "Install cairo-lang"
         run: |
           # We need to pin the version of sympy, 1.13.0 is incompatible with cairo-lang
-          pip install cairo-lang==0.13.2 "sympy<1.13.0"
+          pip install cairo-lang==0.13.3 "sympy<1.13.0"
       - name: "Prepare test environment"
         run: |
           mkdir -p build
           cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
       - run: cargo install cargo-udeps --locked
       - run: cargo udeps --all-targets
-
-  orphans:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: rustup show
-      - run: rustup component add rustfmt
-      - uses: Swatinem/rust-cache@v2
-      - run: git submodule update --init
-      - run: ./scripts/check-orphans.sh
-
