@@ -13,7 +13,9 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
+use num_bigint::BigUint;
 
+use crate::hints::math::log2_ceil;
 use crate::hints::vars;
 use crate::utils::custom_hint_error;
 
@@ -147,8 +149,8 @@ use crate::utils::get_constant;
 
 const COMPRESSION_VERSION: u8 = 0;
 const MAX_N_BITS: usize = 251;
-const N_UNIQUE_VALUE_BUCKETS: usize = 6;
-const TOTAL_N_BUCKETS: usize = N_UNIQUE_VALUE_BUCKETS + 1;
+
+use super::constants::TOTAL_N_BUCKETS;
 
 #[derive(Debug, Clone)]
 struct UniqueValueBucket {
@@ -293,11 +295,6 @@ fn get_bucket_offsets(bucket_lengths: Vec<usize>) -> Vec<usize> {
     offsets
 }
 
-fn log2_ceil(x: usize) -> usize {
-    assert!(x > 0);
-    (x - 1).count_ones() as usize
-}
-
 fn get_n_elms_per_felt(elm_bound: usize) -> usize {
     if elm_bound <= 1 {
         return MAX_N_BITS;
@@ -306,7 +303,10 @@ fn get_n_elms_per_felt(elm_bound: usize) -> usize {
         return 1;
     }
 
-    MAX_N_BITS / log2_ceil(elm_bound)
+    let log2_result = log2_ceil(&BigUint::from(elm_bound)) as usize;
+    assert!(log2_result > 0, "log2_ceil(elm_bound) returned 0, which would cause division by zero.");
+
+    MAX_N_BITS / log2_result
 }
 
 fn compression(
@@ -345,7 +345,7 @@ fn compression(
     let packed_repeating_value_pointers =
         pack_in_felts(compression_set.get_repeating_value_pointers(), n_unique_values);
 
-    let packed_bucket_index_per_elm = pack_in_felts(bucket_index_per_elm, TOTAL_N_BUCKETS);
+    let packed_bucket_index_per_elm = pack_in_felts(bucket_index_per_elm, TOTAL_N_BUCKETS as usize);
 
     let compressed_data = packed_header
         .into_iter()
