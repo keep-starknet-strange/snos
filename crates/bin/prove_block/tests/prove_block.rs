@@ -71,6 +71,17 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::memory_invalid_signature(216914)]
 #[case::diff_assert_values(218624)]
 #[case::could_nt_compute_operand_op1(204337)]
+// The following ten tests were added due key not found in preimage (verify_game contract function related)
+#[case::key_not_found_in_preimage_0(237025)]
+#[case::key_not_found_in_preimage_1(237030)]
+#[case::key_not_found_in_preimage_2(237037)]
+#[case::key_not_found_in_preimage_3(237042)]
+#[case::key_not_found_in_preimage_4(237044)]
+#[case::key_not_found_in_preimage_5(237053)]
+#[case::key_not_found_in_preimage_6(237083)]
+#[case::key_not_found_in_preimage_7(237086)]
+#[case::key_not_found_in_preimage_8(235385)]
+#[case::key_not_found_in_preimage_9(235620)]
 // Reference pies for v0.13.3
 #[case::reference_pie_with_full_output_enabled_00(341097)]
 #[case::reference_pie_with_full_output_enabled_01(341101)]
