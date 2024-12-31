@@ -281,3 +281,23 @@ pub fn set_decompressed_dst(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case(0, MAX_N_BITS)]
+    #[case(1, MAX_N_BITS)]
+    #[case(16, 62)]
+    #[case(10, 62)]
+    #[case(100, 35)]
+    #[case(500, 27)]
+    #[case(10000, 17)]
+    #[case(125789, 14)]
+    fn test_get_n_elms_per_felt(#[case] input: usize, #[case] expected: usize) {
+        assert_eq!(get_n_elms_per_felt(input), expected);
+    }
+}
