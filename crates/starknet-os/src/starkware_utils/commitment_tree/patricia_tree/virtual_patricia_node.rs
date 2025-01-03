@@ -248,7 +248,6 @@ where
                     Self::from_hash(binary_node_fact.left_node, children_height),
                     Self::from_hash(binary_node_fact.right_node, children_height),
                 )),
-                PatriciaNodeFact::Empty(_) => Err(TreeError::IsEmpty),
             }
         }
         .boxed()

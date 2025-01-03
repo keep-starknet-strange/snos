@@ -14,7 +14,6 @@ use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::{contract_address, felt, patricia_key};
 
 use crate::error::SnOsError;
-use crate::utils::ChainIdNum;
 
 pub const fn default_layout() -> LayoutName {
     LayoutName::all_cairo
@@ -45,7 +44,6 @@ pub const GLOBAL_STATE_VERSION: &[u8] = "STARKNET_STATE_V0".as_bytes();
 #[serde_as]
 #[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]
 pub struct StarknetOsConfig {
-    #[serde_as(as = "ChainIdNum")]
     pub chain_id: ChainId,
     pub fee_token_address: ContractAddress,
     pub deprecated_fee_token_address: ContractAddress,
