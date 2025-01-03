@@ -19,3 +19,4 @@ tokio = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }
+serial_test = "3.2.0"
