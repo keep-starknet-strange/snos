@@ -13,9 +13,11 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::Felt252;
 use indoc::indoc;
 
-use super::constants::TOTAL_N_BUCKETS;
 use crate::hints::vars;
 use crate::utils::custom_hint_error;
+
+pub const N_UNIQUE_VALUE_BUCKETS: u64 = 6;
+pub const TOTAL_N_BUCKETS: u64 = N_UNIQUE_VALUE_BUCKETS + 1;
 
 pub const DICTIONARY_FROM_BUCKET: &str =
     indoc! {r#"initial_dict = {bucket_index: 0 for bucket_index in range(ids.TOTAL_N_BUCKETS)}"#};
