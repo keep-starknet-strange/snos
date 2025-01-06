@@ -20,7 +20,7 @@ fi
 YEAR="2024"
 NAMESPACE="sharp6-sepolia"
 
-for DAY in {11..30}; do
+for DAY in {14..30}; do
     NAMESPACE="$NAMESPACE" \
     YEAR="$YEAR" \
     MONTH="11" \
