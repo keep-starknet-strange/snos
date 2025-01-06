@@ -35,9 +35,9 @@ mod bls_field;
 mod bls_utils;
 pub mod builtins;
 mod compiled_class;
+mod compression;
 mod constants;
 mod deprecated_compiled_class;
-mod dict;
 mod execute_transactions;
 pub mod execution;
 mod find_element;
@@ -258,8 +258,8 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(secp::READ_EC_POINT_ADDRESS.into(), secp::read_ec_point_from_address);
     hints.insert(execute_transactions::SHA2_FINALIZE.into(), execute_transactions::sha2_finalize);
     hints.insert(math::LOG2_CEIL.into(), math::log2_ceil_hint);
-    hints.insert(dict::DICTIONARY_FROM_BUCKET.into(), dict::dictionary_from_bucket);
-    hints.insert(dict::GET_PREV_OFFSET.into(), dict::get_prev_offset);
+    hints.insert(compression::DICTIONARY_FROM_BUCKET.into(), compression::dictionary_from_bucket);
+    hints.insert(compression::GET_PREV_OFFSET.into(), compression::get_prev_offset);
     hints
 }
 
