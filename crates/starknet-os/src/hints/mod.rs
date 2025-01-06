@@ -42,6 +42,7 @@ mod execute_transactions;
 pub mod execution;
 mod find_element;
 mod kzg;
+mod math;
 mod os;
 mod output;
 mod patricia;
@@ -256,6 +257,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(compiled_class::SET_AP_TO_SEGMENT_HASH.into(), compiled_class::set_ap_to_segment_hash);
     hints.insert(secp::READ_EC_POINT_ADDRESS.into(), secp::read_ec_point_from_address);
     hints.insert(execute_transactions::SHA2_FINALIZE.into(), execute_transactions::sha2_finalize);
+    hints.insert(math::LOG2_CEIL.into(), math::log2_ceil_hint);
     hints.insert(dict::DICTIONARY_FROM_BUCKET.into(), dict::dictionary_from_bucket);
     hints.insert(dict::GET_PREV_OFFSET.into(), dict::get_prev_offset);
     hints
