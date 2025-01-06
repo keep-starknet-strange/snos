@@ -36,7 +36,6 @@ mod bls_utils;
 pub mod builtins;
 mod compiled_class;
 mod compression;
-mod constants;
 mod deprecated_compiled_class;
 mod execute_transactions;
 pub mod execution;
