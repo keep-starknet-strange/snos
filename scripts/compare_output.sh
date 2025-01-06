@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage: SFTP_USER="" SFTP_SERVER="" NAMESPACE="" YEAR="" MONTH="" DAY="" RPC_PROVIDER="" ./compare_output.sh
 

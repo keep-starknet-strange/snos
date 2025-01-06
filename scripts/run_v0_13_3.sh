@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage: SFTP_USER="" SFTP_SERVER="" RPC_PROVIDER="" ./run_v0_13_3.sh
 
@@ -20,10 +20,10 @@ fi
 YEAR="2024"
 NAMESPACE="sharp6-sepolia"
 
-for DAY in {11..30}; do # We start from the 11th of Nov
+for DAY in {11..30}; do
     NAMESPACE="$NAMESPACE" \
     YEAR="$YEAR" \
-    MONTH="11" \ # November
+    MONTH="11" \
     DAY="$DAY" \
     SFTP_USER="$SFTP_USER" \
     SFTP_SERVER="$SFTP_SERVER" \
@@ -31,10 +31,10 @@ for DAY in {11..30}; do # We start from the 11th of Nov
     ./compare_output.sh
 done
 
-for DAY in {1..31}; do
+for DAY in {01..31}; do
     NAMESPACE="$NAMESPACE" \
     YEAR="$YEAR" \
-    MONTH="12" \ # December
+    MONTH="12" \
     DAY="$DAY" \
     SFTP_USER="$SFTP_USER" \
     SFTP_SERVER="$SFTP_SERVER" \
