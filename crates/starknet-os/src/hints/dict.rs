@@ -15,6 +15,7 @@ use indoc::indoc;
 
 use super::constants::TOTAL_N_BUCKETS;
 use crate::hints::vars;
+use crate::utils::custom_hint_error;
 
 pub const DICTIONARY_FROM_BUCKET: &str =
     indoc! {r#"initial_dict = {bucket_index: 0 for bucket_index in range(ids.TOTAL_N_BUCKETS)}"#};
@@ -52,7 +53,10 @@ pub fn get_prev_offset(
 
     let bucket_index = get_maybe_relocatable_from_var_name(vars::ids::BUCKET_INDEX, vm, ids_data, ap_tracking)?;
 
-    let prev_offset = dict_tracker.get(&bucket_index).unwrap().clone();
+    let prev_offset = match dict_tracker.get(&bucket_index) {
+        Some(offset) => offset.clone(),
+        None => return Err(custom_hint_error("No prev_offset found for the given bucket_index")),
+    };
 
     exec_scopes.insert_box(vars::scopes::DICT_TRACKER, Box::new(dict_tracker));
     insert_value_from_var_name(vars::ids::PREV_OFFSET, prev_offset, vm, ids_data, ap_tracking)?;
