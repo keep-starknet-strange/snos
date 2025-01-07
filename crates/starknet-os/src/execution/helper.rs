@@ -15,7 +15,6 @@ use tokio::sync::RwLock;
 
 use super::secp_handler::SecpSyscallProcessor;
 use crate::config::STORED_BLOCK_HASH_BUFFER;
-use crate::io::input::StarknetOsInput;
 use crate::starknet::core::os::kzg_manager::KzgManager;
 use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
 use crate::storage::storage::StorageError;
@@ -29,7 +28,6 @@ where
     PCS: PerContractStorage,
 {
     pub _prev_block_context: Option<BlockContext>,
-    pub os_input: Option<Rc<StarknetOsInput>>,
     pub kzg_manager: KzgManager,
     // Pointer tx execution info
     pub tx_execution_info_iter: IntoIter<TransactionExecutionInfo>,
@@ -114,7 +112,6 @@ where
         contract_storage_map: ContractStorageMap<PCS>,
         tx_execution_infos: Vec<TransactionExecutionInfo>,
         block_context: &BlockContext,
-        os_input: Option<Rc<StarknetOsInput>>,
         old_block_number_and_hash: (Felt252, Felt252),
     ) -> Self {
         // Block number and block hash (current_block_number - buffer) block buffer=STORED_BLOCK_HASH_BUFFER
@@ -129,7 +126,6 @@ where
         Self {
             execution_helper: Rc::new(RwLock::new(ExecutionHelper {
                 _prev_block_context: prev_block_context,
-                os_input,
                 kzg_manager: Default::default(),
                 tx_execution_info_iter: tx_execution_infos.into_iter(),
                 tx_execution_info: None,

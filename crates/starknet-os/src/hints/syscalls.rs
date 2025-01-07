@@ -862,7 +862,7 @@ mod tests {
     fn exec_scopes(block_context: BlockContext, old_block_number_and_hash: (Felt252, Felt252)) -> ExecutionScopes {
         let execution_infos = vec![];
         let exec_helper =
-            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, None, old_block_number_and_hash);
+            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, old_block_number_and_hash);
         let syscall_handler = OsSyscallHandlerWrapper::new(exec_helper);
 
         let mut exec_scopes = ExecutionScopes::new();
