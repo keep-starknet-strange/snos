@@ -68,8 +68,7 @@ while IFS= read -r file; do
 
     COUNTER=$((COUNTER + 1))
 
-    # Skip every 19th file
-    if (( COUNTER % 19 == 0 )); then
+    if (( COUNTER % 20 != 0 )); then
         echo "Skipping file: $file (Counter: $COUNTER)" | tee -a "$LOG_FILE"
         continue
     fi
