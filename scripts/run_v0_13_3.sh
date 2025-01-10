@@ -32,15 +32,13 @@ done
 
 export SFTP_USER SFTP_SERVER RPC_PROVIDER
 
+
 # Run tasks in parallel with a limit of 4 concurrent jobs
-printf "%s\n" "${TASKS[@]}" | xargs -n1 -P4 bash -c '
-    IFS=" " read -r NAMESPACE YEAR MONTH DAY <<< "$0"
-    NAMESPACE="$NAMESPACE" \
-    YEAR="$YEAR" \
-    MONTH="$MONTH" \
-    DAY="$DAY" \
-    SFTP_USER="$SFTP_USER" \
-    SFTP_SERVER="$SFTP_SERVER" \
-    RPC_PROVIDER="$RPC_PROVIDER" \
+printf "%s\n" "${TASKS[@]}" | xargs -P4 -n4 bash -c '
+    NAMESPACE="$1"
+    YEAR="$2"
+    MONTH="$3"
+    DAY="$4"
+    export NAMESPACE YEAR MONTH DAY SFTP_USER SFTP_SERVER RPC_PROVIDER
     ./compare_output.sh
-'
+' _
