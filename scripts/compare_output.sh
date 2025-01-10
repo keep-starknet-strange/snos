@@ -60,8 +60,19 @@ EOF
 
 CLEANED_FILES=$(echo "$FILES" | grep -v '^sftp>' | grep -v '^Changing' | grep -v '^\s*$')
 
+# Initialize the file counter
+COUNTER=0
+
 while IFS= read -r file; do
     [[ -z "$file" ]] && continue
+
+    COUNTER=$((COUNTER + 1))
+
+    # Skip every 19th file
+    if (( COUNTER % 19 == 0 )); then
+        echo "Skipping file: $file (Counter: $COUNTER)" | tee -a "$LOG_FILE"
+        continue
+    fi
 
     echo "Processing $file..."
 
@@ -75,38 +86,29 @@ EOF
     if [ $? -eq 0 ]; then
         echo "Successfully downloaded $file"
 
-        # 1) Capture the command output (including both stdout & stderr).
-        #    This allows us to extract the line with the blocknumber and the error
         OUTPUT=$(RUST_LOG="debug,minilp::solver=info" \
             cargo run -p output_segment --release -- \
             --rpc-provider "$RPC_PROVIDER" \
             --pie-path "$LOCAL_DIR/$file" \
             2>&1
         )
-        # Store the exit status for the run
         RUN_EXIT_CODE=$?
 
-        # 2) Parse out the BLOCKNUMBER from the logs (if it exists).
-        # After (looking for "Runnin SNOS for block number: 12345")
         BLOCK_NUMBER=$(echo "$OUTPUT" | grep -Po "Runnin SNOS for block number: \K\d+")
 
-        # 3) Check exit code to determine success/failure.
         if [[ $RUN_EXIT_CODE -eq 0 ]]; then
             echo "Successfully processed $file" | tee -a "$LOG_FILE"
-            # Append success to CSV including the block_number
             echo "$file,$BLOCK_NUMBER,$YEAR,$MONTH,$DAY,success," >> "$CSV_FILE"
         else
             echo "Failed to process $YEAR/$MONTH/$DAY/$file" | tee -a "$LOG_FILE"
             echo "$file,$BLOCK_NUMBER,$YEAR,$MONTH,$DAY,failure,Failed to process file" >> "$CSV_FILE"
         fi
 
-        # Remove the file to avoid clutter
         rm "$LOCAL_DIR/$file"
         echo "Deleted $file after processing."
 
     else
         echo "Failed to download $file" | tee -a "$LOG_FILE"
-        # Append failure to CSV with a message; no block number in this case
         echo "$file,,$YEAR,$MONTH,$DAY,failure,Failed to download file" >> "$CSV_FILE"
     fi
 done <<< "$CLEANED_FILES"

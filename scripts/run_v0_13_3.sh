@@ -17,27 +17,30 @@ if [[ -z "$RPC_PROVIDER" ]]; then
     exit 1
 fi
 
+# Generate the list of tasks
 YEAR="2024"
 NAMESPACE="sharp6-sepolia"
+TASKS=()
 
-for DAY in {14..30}; do
-    NAMESPACE="$NAMESPACE" \
-    YEAR="$YEAR" \
-    MONTH="11" \
-    DAY="$DAY" \
-    SFTP_USER="$SFTP_USER" \
-    SFTP_SERVER="$SFTP_SERVER" \
-    RPC_PROVIDER="$RPC_PROVIDER" \
-    ./compare_output.sh
+for DAY in {17..30}; do
+    TASKS+=("$NAMESPACE $YEAR 11 $DAY")
 done
 
 for DAY in {01..31}; do
+    TASKS+=("$NAMESPACE $YEAR 12 $DAY")
+done
+
+export SFTP_USER SFTP_SERVER RPC_PROVIDER
+
+# Run tasks in parallel with a limit of 4 concurrent jobs
+printf "%s\n" "${TASKS[@]}" | xargs -n1 -P4 bash -c '
+    IFS=" " read -r NAMESPACE YEAR MONTH DAY <<< "$0"
     NAMESPACE="$NAMESPACE" \
     YEAR="$YEAR" \
-    MONTH="12" \
+    MONTH="$MONTH" \
     DAY="$DAY" \
     SFTP_USER="$SFTP_USER" \
     SFTP_SERVER="$SFTP_SERVER" \
     RPC_PROVIDER="$RPC_PROVIDER" \
     ./compare_output.sh
-done
+'
