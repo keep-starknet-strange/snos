@@ -53,7 +53,7 @@ impl UniqueValueBucket {
     }
 
     fn get_index(&self, value: &BigUint) -> usize {
-        *self.value_to_index.get(value).unwrap()
+        *self.value_to_index.get(value).expect("The value provided is not in the index")
     }
 
     fn pack_in_felts(&self) -> Vec<BigUint> {
