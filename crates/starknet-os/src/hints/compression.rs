@@ -76,8 +76,7 @@ impl CompressionSet {
         let buckets: Vec<UniqueValueBucket> =
             n_bits_per_bucket.iter().map(|&n_bits| UniqueValueBucket::new(n_bits)).collect();
 
-        let mut sorted_buckets: Vec<(usize, UniqueValueBucket)> =
-            buckets.clone().into_iter().enumerate().map(|(i, bucket)| (i, bucket)).collect();
+        let mut sorted_buckets: Vec<(usize, UniqueValueBucket)> = buckets.clone().into_iter().enumerate().collect();
 
         sorted_buckets.sort_by_key(|(_, bucket)| bucket.n_bits);
         Self {
