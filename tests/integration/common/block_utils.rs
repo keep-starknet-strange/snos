@@ -220,7 +220,6 @@ where
         contract_storage_map,
         tx_execution_infos,
         block_context,
-        Some(os_input.clone()),
         (Felt252::from(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64)),
     );
 
