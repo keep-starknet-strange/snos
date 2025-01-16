@@ -1,3 +1,5 @@
+/// This file represents a re-implementation of the python compression module
+/// https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/core/os/data_availability/compression.py
 use std::collections::HashMap;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name};
@@ -19,6 +21,9 @@ const COMPRESSION_VERSION: u8 = 0;
 const MAX_N_BITS: usize = 251;
 const HEADER_ELM_N_BITS: usize = 20;
 
+/// Array that specifies the number of bits allocated to each bucket.
+/// Values requiring fewer bits will be placed in smaller-bit buckets,
+/// and values requiring more bits will be placed in larger-bit buckets.
 const N_BITS_PER_BUCKET: [usize; 6] = [252, 125, 83, 62, 31, 15];
 const TOTAL_N_BUCKETS: usize = N_BITS_PER_BUCKET.len() + 1;
 
@@ -26,6 +31,8 @@ lazy_static! {
     static ref HEADER_ELM_BOUND: BigUint = BigUint::one() << HEADER_ELM_N_BITS;
 }
 
+/// A set-like data structure that preserves the insertion order.
+/// Holds values of `n_bits` bit length or less.
 #[derive(Default, Clone, Debug)]
 struct UniqueValueBucket {
     n_bits: usize,
@@ -33,6 +40,9 @@ struct UniqueValueBucket {
 }
 
 impl UniqueValueBucket {
+    /// `n_bits` is an individual value associated with a specific bucket,
+    /// that specifies the maximum number of bits that values in that bucket can have.
+    /// It ensures that only values whose bit width is less than or equal are added to the corresponding bucket.
     fn new(n_bits: usize) -> Self {
         Self { n_bits, value_to_index: Default::default() }
     }
@@ -62,6 +72,8 @@ impl UniqueValueBucket {
     }
 }
 
+/// A utility class for compression.
+/// Used to manage and store the unique values in seperate buckets according to their bit length.
 #[derive(Default, Clone, Debug)]
 struct CompressionSet {
     buckets: Vec<UniqueValueBucket>,
@@ -72,6 +84,7 @@ struct CompressionSet {
 }
 
 impl CompressionSet {
+    /// Creates a new Compression set given an array of the n_bits per each bucket in the set
     fn new(n_bits_per_bucket: &[usize]) -> Self {
         let buckets: Vec<UniqueValueBucket> =
             n_bits_per_bucket.iter().map(|&n_bits| UniqueValueBucket::new(n_bits)).collect();
@@ -88,6 +101,7 @@ impl CompressionSet {
         }
     }
 
+    /// Returns the bucket indices of the added values.
     fn get_bucket_index_per_elm(&self) -> Vec<usize> {
         assert!(self.finalized, "Cannot get bucket_index_per_elm before finalizing.");
         self.bucket_index_per_elm.clone()
@@ -97,6 +111,9 @@ impl CompressionSet {
         self.buckets.len()
     }
 
+    /// This method iterates over the provided values and assigns each value to the appropriate bucket
+    /// based on the number of bits required to represent it. If a value is already in a bucket, it is
+    /// recorded as a repeating value. Otherwise, it is added to the appropriate bucket.
     fn update(&mut self, values: &[BigUint]) {
         assert!(!self.finalized, "Cannot add values after finalizing.");
 
@@ -125,6 +142,8 @@ impl CompressionSet {
         self.repeating_value_locations.len()
     }
 
+    /// Returns a list of BigUint corresponding to the repeating values.
+    /// The BigUint point to the chained unique value buckets.
     fn get_repeating_value_pointers(&self) -> Vec<BigUint> {
         assert!(self.finalized, "Cannot get pointers before finalizing.");
 
@@ -147,7 +166,8 @@ impl CompressionSet {
     }
 }
 
-pub fn compress(data: &[BigUint]) -> Vec<BigUint> {
+/// Compresses the data provided to output a Vec of compressed Felts
+fn compress(data: &[BigUint]) -> Vec<BigUint> {
     assert!(data.len() < HEADER_ELM_BOUND.to_usize().unwrap(), "Data is too long.");
 
     let mut compression_set = CompressionSet::new(&N_BITS_PER_BUCKET);
@@ -179,14 +199,17 @@ pub fn compress(data: &[BigUint]) -> Vec<BigUint> {
     result
 }
 
+/// Packs a list of elements into multiple felts, ensuring that each felt contains as many elements as can fit
 fn pack_in_felts(elms: &[BigUint], elm_bound: &BigUint) -> Vec<BigUint> {
     elms.chunks(get_n_elms_per_felt(elm_bound)).map(|chunk| pack_in_felt(chunk, elm_bound)).collect()
 }
 
+/// Packs a chunk of elements into a single felt.
 fn pack_in_felt(elms: &[BigUint], elm_bound: &BigUint) -> BigUint {
     elms.iter().enumerate().fold(BigUint::zero(), |acc, (i, elm)| acc + elm * elm_bound.pow(i as u32))
 }
 
+/// Computes the starting offsets for each bucket in a list of buckets, based on their lengths.
 fn get_bucket_offsets(bucket_lengths: &[usize]) -> Vec<BigUint> {
     let mut offsets = Vec::with_capacity(bucket_lengths.len());
     let mut current = BigUint::zero();
@@ -199,6 +222,7 @@ fn get_bucket_offsets(bucket_lengths: &[usize]) -> Vec<BigUint> {
     offsets
 }
 
+/// Calculates the number of elements that can fit in a single felt value, given the element bound.
 fn get_n_elms_per_felt(elm_bound: &BigUint) -> usize {
     if elm_bound <= &BigUint::one() {
         return MAX_N_BITS;
@@ -258,6 +282,7 @@ pub fn set_decompressed_dst(
 mod tests {
     use std::str::FromStr;
 
+    use num_traits::FromPrimitive;
     use rstest::rstest;
 
     use super::*;
@@ -275,6 +300,13 @@ mod tests {
         assert_eq!(get_n_elms_per_felt(&BigUint::from(input)), expected);
     }
 
+    // These values are calculated by importing the module and running the compression method
+    // ```py
+    // # import compress from compression
+    // def main() -> int:
+    //     print(compress([2,3,1]))
+    //     return 0
+    // ```
     #[rstest]
     #[case::single_value_1(vec![1u32], vec!["1393796574908163946345982392040522595172352", "1", "5"])]
     #[case::single_value_2(vec![2u32], vec!["1393796574908163946345982392040522595172352", "2", "5"])]
@@ -292,5 +324,67 @@ mod tests {
         let expected: Vec<_> = expected.iter().map(|s| BigUint::from_str(s).unwrap()).collect();
 
         assert_eq!(compressed, expected);
+    }
+
+    #[test]
+    fn test_get_bucket_offsets() {
+        let lengths = vec![2, 3, 5];
+        let offsets = get_bucket_offsets(&lengths);
+        assert_eq!(offsets.len(), lengths.len());
+        assert_eq!(offsets[0], BigUint::from(0u32));
+        assert_eq!(offsets[1], BigUint::from(2u32));
+        assert_eq!(offsets[2], BigUint::from(5u32));
+    }
+
+    #[test]
+    fn test_update_with_unique_values() {
+        let mut compression_set = CompressionSet::new(&[8, 16, 32]);
+        let values = vec![
+            BigUint::from_u32(42).unwrap(),
+            BigUint::from_u64(12833943439439439).unwrap(),
+            BigUint::from_u32(1283394343).unwrap(),
+        ];
+
+        compression_set.update(&values);
+
+        let unique_lengths = compression_set.get_unique_value_bucket_lengths();
+        assert_eq!(unique_lengths, vec![1, 0, 1]);
+    }
+
+    #[test]
+    fn test_update_with_repeated_values() {
+        let mut compression_set = CompressionSet::new(&[8, 16, 32]);
+        let values = vec![BigUint::from_u32(42).unwrap(), BigUint::from_u32(42).unwrap()];
+
+        compression_set.update(&values);
+
+        let unique_lengths = compression_set.get_unique_value_bucket_lengths();
+        assert_eq!(unique_lengths, vec![1, 0, 0]);
+        assert_eq!(compression_set.get_repeating_value_bucket_length(), 1);
+    }
+
+    #[test]
+    fn test_get_repeating_value_pointers_with_repeated_values() {
+        let mut compression_set = CompressionSet::new(&[8, 16, 32]);
+        let values = vec![BigUint::from_u32(42).unwrap(), BigUint::from_u32(42).unwrap()];
+
+        compression_set.update(&values);
+        compression_set.finalize();
+
+        let pointers = compression_set.get_repeating_value_pointers();
+        assert_eq!(pointers.len(), 1);
+        assert_eq!(pointers[0], BigUint::from(0u32));
+    }
+
+    #[test]
+    fn test_get_repeating_value_pointers_with_no_repeated_values() {
+        let mut compression_set = CompressionSet::new(&[8, 16, 32]);
+        let values = vec![BigUint::from_u32(42).unwrap(), BigUint::from_u32(128).unwrap()];
+
+        compression_set.update(&values);
+        compression_set.finalize();
+
+        let pointers = compression_set.get_repeating_value_pointers();
+        assert!(pointers.is_empty());
     }
 }
