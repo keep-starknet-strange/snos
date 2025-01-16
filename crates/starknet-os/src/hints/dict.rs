@@ -31,8 +31,7 @@ pub fn dictionary_from_bucket(
     Ok(())
 }
 
-pub const GET_PREV_OFFSET: &str = indoc! {r#"
-	dict_tracker = __dict_manager.get_tracker(ids.dict_ptr)
+pub const GET_PREV_OFFSET: &str = indoc! {r#"dict_tracker = __dict_manager.get_tracker(ids.dict_ptr)
     ids.prev_offset = dict_tracker.data[ids.bucket_index]"#
 };
 
