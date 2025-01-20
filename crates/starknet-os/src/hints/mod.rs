@@ -35,7 +35,7 @@ mod bls_field;
 mod bls_utils;
 pub mod builtins;
 mod compiled_class;
-mod compression;
+pub mod compression;
 mod deprecated_compiled_class;
 mod execute_transactions;
 pub mod execution;
