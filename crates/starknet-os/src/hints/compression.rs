@@ -274,10 +274,10 @@ pub fn decompress(compressed: &mut impl Iterator<Item = BigUint>) -> Vec<BigUint
     let version = &header[0];
     assert!(version == &BigUint::from(COMPRESSION_VERSION), "Unsupported compression version.");
 
-    let data_len = header[1].to_usize().unwrap();
+    let data_len = header[1].to_usize().expect("Must have a data length");
     let unique_value_bucket_lengths: Vec<usize> =
-        header[2..2 + N_BITS_PER_BUCKET.len()].iter().map(|x| x.to_usize().unwrap()).collect();
-    let n_repeating_values = header[2 + N_BITS_PER_BUCKET.len()].to_usize().unwrap();
+        header[2..2 + N_BITS_PER_BUCKET.len()].iter().map(|x| x.to_usize().expect("Should fit in usize")).collect();
+    let n_repeating_values = header[2 + N_BITS_PER_BUCKET.len()].to_usize().expect("Should fit in usize");
 
     let mut unique_values = Vec::new();
     for (&length, &n_bits) in unique_value_bucket_lengths.iter().zip(&N_BITS_PER_BUCKET) {
@@ -286,15 +286,17 @@ pub fn decompress(compressed: &mut impl Iterator<Item = BigUint>) -> Vec<BigUint
 
     let repeating_value_pointers = unpack_chunk(compressed, n_repeating_values, &BigUint::from(unique_values.len()));
 
-    let repeating_values: Vec<BigUint> =
-        repeating_value_pointers.iter().map(|ptr| unique_values[ptr.to_usize().unwrap()].clone()).collect();
+    let repeating_values: Vec<BigUint> = repeating_value_pointers
+        .iter()
+        .map(|ptr| unique_values[ptr.to_usize().expect("Should fit in usize")].clone())
+        .collect();
 
     let mut all_values = unique_values;
     all_values.extend(repeating_values);
 
     let bucket_index_per_elm: Vec<usize> = unpack_chunk(compressed, data_len, &BigUint::from(TOTAL_N_BUCKETS))
         .iter()
-        .map(|x| x.to_usize().unwrap())
+        .map(|x| x.to_usize().expect("Should fit in usize"))
         .collect();
 
     let all_bucket_lengths: Vec<usize> =
