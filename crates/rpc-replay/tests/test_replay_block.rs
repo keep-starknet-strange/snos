@@ -1,7 +1,10 @@
+use std::str::FromStr;
+
 use blockifier::blockifier::block::GasPrices;
 use blockifier::state::cached_state::CachedState;
 use blockifier::transaction::transactions::ExecutableTransaction as _;
 use blockifier::versioned_constants::StarknetVersion;
+use rpc_client::client::ClientVersion;
 use rpc_client::RpcClient;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
@@ -22,7 +25,8 @@ async fn test_replay_block() {
     println!("block: {block_with_txs:?}");
 
     let rpc_provider = "http://localhost:9545";
-    let rpc_client = RpcClient::new(rpc_provider);
+    let rpc_version = ClientVersion::from_str("v0_7").unwrap();
+    let rpc_client = RpcClient::new(rpc_provider, rpc_version);
     let previous_block_number = block_with_txs.block_number - 1;
     let previous_block_id = BlockId::Number(previous_block_number);
     let state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);

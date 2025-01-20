@@ -167,7 +167,6 @@ impl PerContractStorage for ProverPerContractStorage {
             None => &ContractData::default(),
             Some(data) => data,
         };
-
         let updated_root = contract_data.root;
 
         let commitment_facts = format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);

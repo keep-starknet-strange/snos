@@ -13,6 +13,10 @@ struct Args {
     /// RPC endpoint to use for fact fetching
     #[arg(long = "rpc-provider", default_value = "http://localhost:9545")]
     rpc_provider: String,
+
+    /// RPC version to use for fact fetching
+    #[arg(long = "rpc-version", default_value = "v0_7")]
+    rpc_version: String,
 }
 
 fn init_logging() {
@@ -32,7 +36,15 @@ async fn main() {
     let block_number = args.block_number;
     let layout = LayoutName::all_cairo;
 
-    let result = prove_block::prove_block(DEFAULT_COMPILED_OS, block_number, &args.rpc_provider, layout, true).await;
+    let result = prove_block::prove_block(
+        DEFAULT_COMPILED_OS,
+        block_number,
+        &args.rpc_provider,
+        &args.rpc_version,
+        layout,
+        true,
+    )
+    .await;
     let (pie, _snos_output) = result.map_err(debug_prove_error).expect("Block proven");
     pie.run_validity_checks().expect("Valid PIE");
 }

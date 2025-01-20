@@ -19,6 +19,10 @@ struct Args {
     /// RPC endpoint to use for fact fetching
     #[arg(long = "rpc-provider", default_value = "http://localhost:9545")]
     rpc_provider: String,
+
+    /// RPC version to use for fact fetching
+    #[arg(long = "rpc-version", default_value = "v0_7")]
+    rpc_version: String,
 }
 
 fn init_logging() {
@@ -48,7 +52,7 @@ async fn main() {
     log::info!("Runnin SNOS for block number: {}", block_number);
 
     let (snos_pie, _snos_output) =
-        prove_block(DEFAULT_COMPILED_OS, block_number, &endpoint, LayoutName::all_cairo, true)
+        prove_block(DEFAULT_COMPILED_OS, block_number, &endpoint, &args.rpc_version, LayoutName::all_cairo, true)
             .await
             .map_err(debug_prove_error)
             .expect("OS generate Cairo PIE");
