@@ -130,20 +130,16 @@ pub fn set_state_updates_start(
     let full_output = get_integer_from_var_name(vars::ids::FULL_OUTPUT, vm, ids_data, ap_tracking)?;
     let compress_state_updates = Felt252::ONE - full_output;
 
-    let use_kzg_da = if use_kzg_da_felt == Felt252::ONE {
-        Ok(true)
-    } else if use_kzg_da_felt == Felt252::ZERO {
-        Ok(false)
-    } else {
-        Err(HintError::CustomHint("ids.use_kzg_da is not a boolean".to_string().into_boxed_str()))
+    let use_kzg_da = match use_kzg_da_felt {
+        x if x == Felt252::ONE => Ok(true),
+        x if x == Felt252::ZERO => Ok(false),
+        _ => Err(HintError::CustomHint("ids.use_kzg_da is not a boolean".to_string().into_boxed_str())),
     }?;
 
-    let use_compress_state_updates = if compress_state_updates == Felt252::ONE {
-        Ok(true)
-    } else if compress_state_updates == Felt252::ZERO {
-        Ok(false)
-    } else {
-        Err(HintError::CustomHint("ids.compress_state_updates is not a boolean".to_string().into_boxed_str()))
+    let use_compress_state_updates = match compress_state_updates {
+        x if x == Felt252::ONE => Ok(true),
+        x if x == Felt252::ZERO => Ok(false),
+        _ => Err(HintError::CustomHint("ids.compress_state_updates is not a boolean".to_string().into_boxed_str())),
     }?;
 
     if use_kzg_da || use_compress_state_updates {
@@ -177,12 +173,10 @@ pub fn set_compressed_start(
 ) -> Result<(), HintError> {
     let use_kzg_da_felt = exec_scopes.get::<Felt252>(vars::scopes::USE_KZG_DA)?;
 
-    let use_kzg_da = if use_kzg_da_felt == Felt252::ONE {
-        Ok(true)
-    } else if use_kzg_da_felt == Felt252::ZERO {
-        Ok(false)
-    } else {
-        Err(HintError::CustomHint("ids.use_kzg_da is not a boolean".to_string().into_boxed_str()))
+    let use_kzg_da = match use_kzg_da_felt {
+        x if x == Felt252::ONE => Ok(true),
+        x if x == Felt252::ZERO => Ok(false),
+        _ => Err(HintError::CustomHint("ids.use_kzg_da is not a boolean".to_string().into_boxed_str())),
     }?;
 
     if use_kzg_da {
