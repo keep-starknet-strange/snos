@@ -358,7 +358,6 @@ pub async fn prove_block(
         contract_storages,
         tx_execution_infos,
         &block_context,
-        Some(os_input.clone()),
         (old_block_number, old_block_hash),
     );
 
