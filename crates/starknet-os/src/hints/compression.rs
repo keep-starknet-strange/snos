@@ -1,6 +1,7 @@
 /// This file represents a re-implementation of the python compression module
 /// https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/core/os/data_availability/compression.py
 use std::collections::HashMap;
+use std::iter::once;
 
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
@@ -16,6 +17,7 @@ use cairo_vm::Felt252;
 use indoc::indoc;
 use lazy_static::lazy_static;
 use num_bigint::BigUint;
+use num_integer::Integer;
 use num_traits::{One, ToPrimitive, Zero};
 
 use crate::hints::vars;
@@ -30,6 +32,7 @@ const HEADER_ELM_N_BITS: usize = 20;
 /// and values requiring more bits will be placed in larger-bit buckets.
 const N_BITS_PER_BUCKET: [usize; 6] = [252, 125, 83, 62, 31, 15];
 const TOTAL_N_BUCKETS: usize = N_BITS_PER_BUCKET.len() + 1;
+const HEADER_LEN: usize = 1 + 1 + TOTAL_N_BUCKETS;
 
 lazy_static! {
     static ref HEADER_ELM_BOUND: BigUint = BigUint::one() << HEADER_ELM_N_BITS;
@@ -248,6 +251,96 @@ fn compress(data: &[BigUint]) -> Vec<BigUint> {
     result
 }
 
+/// Decompresses the given compressed data.
+pub fn decompress(compressed: &mut impl Iterator<Item = BigUint>) -> Vec<BigUint> {
+    fn unpack_chunk(
+        compressed: &mut impl Iterator<Item = BigUint>,
+        n_elms: usize,
+        elm_bound: &BigUint,
+    ) -> Vec<BigUint> {
+        let n_packed_felts = (n_elms + get_n_elms_per_felt(elm_bound) - 1) / get_n_elms_per_felt(elm_bound);
+
+        let mut compressed_chunk = Vec::new();
+        for _ in 0..n_packed_felts {
+            if let Some(felt) = compressed.next() {
+                dbg!(&felt);
+                compressed_chunk.push(felt);
+            }
+        }
+        unpack_felts(&compressed_chunk, elm_bound, n_elms)
+    }
+
+    let header = unpack_chunk(compressed, HEADER_LEN, &HEADER_ELM_BOUND);
+    let version = &header[0];
+    assert!(version == &BigUint::from(COMPRESSION_VERSION), "Unsupported compression version.");
+
+    let data_len = header[1].to_usize().expect("Must have a data length");
+    let unique_value_bucket_lengths: Vec<usize> =
+        header[2..2 + N_BITS_PER_BUCKET.len()].iter().map(|x| x.to_usize().expect("Should fit in usize")).collect();
+    let n_repeating_values = header[2 + N_BITS_PER_BUCKET.len()].to_usize().expect("Should fit in usize");
+
+    let mut unique_values = Vec::new();
+    for (&length, &n_bits) in unique_value_bucket_lengths.iter().zip(&N_BITS_PER_BUCKET) {
+        unique_values.extend(unpack_chunk(compressed, length, &(&BigUint::one() << n_bits)));
+    }
+
+    let repeating_value_pointers = unpack_chunk(compressed, n_repeating_values, &BigUint::from(unique_values.len()));
+
+    let repeating_values: Vec<BigUint> = repeating_value_pointers
+        .iter()
+        .map(|ptr| unique_values[ptr.to_usize().expect("Should fit in usize")].clone())
+        .collect();
+
+    let mut all_values = unique_values;
+    all_values.extend(repeating_values);
+
+    let bucket_index_per_elm: Vec<usize> = unpack_chunk(compressed, data_len, &BigUint::from(TOTAL_N_BUCKETS))
+        .iter()
+        .map(|x| x.to_usize().expect("Should fit in usize"))
+        .collect();
+
+    let all_bucket_lengths: Vec<usize> =
+        unique_value_bucket_lengths.iter().cloned().chain(once(n_repeating_values)).collect();
+
+    let bucket_offsets = get_bucket_offsets(&all_bucket_lengths);
+
+    let mut bucket_offset_iterators: Vec<BigUint> = bucket_offsets;
+
+    bucket_index_per_elm
+        .iter()
+        .map(|&bucket_index| {
+            let offset = &mut bucket_offset_iterators[bucket_index];
+            let value = all_values[offset.to_usize().unwrap()].clone();
+            *offset += BigUint::one();
+            value
+        })
+        .collect()
+}
+
+fn unpack_felts(compressed: &[BigUint], elm_bound: &BigUint, n_elms: usize) -> Vec<BigUint> {
+    let n_elms_per_felt = get_n_elms_per_felt(elm_bound);
+    let mut result = Vec::with_capacity(n_elms);
+
+    for felt in compressed {
+        let mut remaining = felt.clone();
+        for _ in 0..n_elms_per_felt {
+            let (new_remaining, value) = remaining.div_rem(elm_bound);
+            result.push(value);
+            remaining = new_remaining;
+
+            if result.len() == n_elms {
+                break;
+            }
+        }
+
+        if result.len() == n_elms {
+            break;
+        }
+    }
+
+    result
+}
+
 /// Packs a list of elements into multiple felts, ensuring that each felt contains as many elements as can fit
 fn pack_in_felts(elms: &[BigUint], elm_bound: &BigUint) -> Vec<BigUint> {
     elms.chunks(get_n_elms_per_felt(elm_bound)).map(|chunk| pack_in_felt(chunk, elm_bound)).collect()
@@ -370,7 +463,7 @@ mod tests {
     #[case::four_values(vec![1u32, 2, 3, 4], vec!["5575186299632655785383929568162090380689408", "140740709646337", "2000"])]
     #[case::extracted_kzg_example(vec![1u32, 1, 6, 1991, 66, 0], vec!["1461508606313777459023416562628243222268909453312", "2324306378031105", "0", "98047"])]
 
-    fn test_compress(#[case] input: Vec<u32>, #[case] expected: Vec<&str>) {
+    fn test_compress_decompress(#[case] input: Vec<u32>, #[case] expected: Vec<&str>) {
         let data: Vec<BigUint> = input.into_iter().map(BigUint::from).collect();
 
         let compressed = compress(&data);
@@ -378,6 +471,10 @@ mod tests {
         let expected: Vec<_> = expected.iter().map(|s| BigUint::from_str(s).unwrap()).collect();
 
         assert_eq!(compressed, expected);
+
+        let decompressed = decompress(&mut compressed.into_iter());
+
+        assert_eq!(decompressed, data);
     }
 
     #[test]

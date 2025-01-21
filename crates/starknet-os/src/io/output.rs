@@ -8,6 +8,7 @@ use num_traits::{ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
 
 use crate::error::SnOsError;
+use crate::hints::compression::decompress;
 
 const PREVIOUS_MERKLE_UPDATE_OFFSET: usize = 0;
 const NEW_MERKLE_UPDATE_OFFSET: usize = 1;
@@ -290,16 +291,17 @@ fn deserialize_os_state_diff<I: Iterator<Item = Felt252>>(
     full_output: Felt252,
 ) -> Result<Option<OsStateDiff>, SnOsError> {
     // If not full_output
-    if full_output == Felt252::ZERO {
-        // state_diff = decompress(compressed=output_iter)
-        // output_iter = itertools.chain(iter(state_diff), output_iter)
-        return Ok(None);
-    }
+    let mut output_iter = if full_output == Felt252::ZERO {
+        let state_diff = decompress(&mut output_iter.map(|s| s.to_biguint())).into_iter().map(Felt252::from);
+        Box::new(state_diff.chain(output_iter)) as Box<dyn Iterator<Item = Felt252>>
+    } else {
+        Box::new(output_iter) as Box<dyn Iterator<Item = Felt252>>
+    };
 
     // Contract changes
-    let contract_changes = deserialize_contract_state(output_iter, full_output)?;
+    let contract_changes = deserialize_contract_state(&mut output_iter, full_output)?;
     // Class changes
-    let classes = deserialize_contract_class_da_changes(output_iter, full_output)?;
+    let classes = deserialize_contract_class_da_changes(&mut output_iter, full_output)?;
 
     Ok(Some(OsStateDiff { contract_changes, classes }))
 }
@@ -328,7 +330,13 @@ where
 
     let (messages_to_l1, messages_to_l2) = deserialize_messages(output_iter)?;
 
-    let state_diff = deserialize_os_state_diff(output_iter, full_output)?;
+    // state_diff = (
+    //     parse_os_state_diff(output_iter=output_iter, full_output=full_output)
+    //     if use_kzg_da == 0
+    //     else None
+    // )
+    let state_diff =
+        if use_kzg_da == Felt252::ZERO { deserialize_os_state_diff(output_iter, full_output)? } else { None };
 
     Ok(StarknetOsOutput {
         initial_root: header[PREVIOUS_MERKLE_UPDATE_OFFSET],
