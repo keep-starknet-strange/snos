@@ -35,11 +35,13 @@ mod bls_field;
 mod bls_utils;
 pub mod builtins;
 mod compiled_class;
+pub mod compression;
 mod deprecated_compiled_class;
 mod execute_transactions;
 pub mod execution;
 mod find_element;
 mod kzg;
+mod math;
 mod os;
 mod output;
 mod patricia;
@@ -174,7 +176,9 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(os::SET_AP_TO_PREV_BLOCK_HASH.into(), os::set_ap_to_prev_block_hash);
     hints.insert(kzg::STORE_DA_SEGMENT.into(), kzg::store_da_segment::<PCS>);
     hints.insert(output::SET_STATE_UPDATES_START.into(), output::set_state_updates_start);
+    hints.insert(output::SET_COMPRESSED_START.into(), output::set_compressed_start);
     hints.insert(output::SET_TREE_STRUCTURE.into(), output::set_tree_structure);
+    hints.insert(output::SET_N_UPDATES_SMALL.into(), output::set_n_updates_small);
     hints.insert(patricia::ASSERT_CASE_IS_RIGHT.into(), patricia::assert_case_is_right);
     hints.insert(patricia::BUILD_DESCENT_MAP.into(), patricia::build_descent_map);
     hints.insert(patricia::HEIGHT_IS_ZERO_OR_LEN_NODE_PREIMAGE_IS_TWO.into(), patricia::height_is_zero_or_len_node_preimage_is_two);
@@ -252,6 +256,11 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(compiled_class::SET_AP_TO_SEGMENT_HASH.into(), compiled_class::set_ap_to_segment_hash);
     hints.insert(secp::READ_EC_POINT_ADDRESS.into(), secp::read_ec_point_from_address);
     hints.insert(execute_transactions::SHA2_FINALIZE.into(), execute_transactions::sha2_finalize);
+    hints.insert(math::LOG2_CEIL.into(), math::log2_ceil_hint);
+    hints.insert(compression::DICTIONARY_FROM_BUCKET.into(), compression::dictionary_from_bucket);
+    hints.insert(compression::GET_PREV_OFFSET.into(), compression::get_prev_offset);
+    hints.insert(compression::COMPRESSION_HINT.into(), compression::compression_hint);
+    hints.insert(compression::SET_DECOMPRESSED_DST.into(), compression::set_decompressed_dst);
     hints
 }
 

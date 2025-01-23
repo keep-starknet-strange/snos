@@ -59,10 +59,12 @@ pub fn check_os_output_read_only_syscall(os_output: StarknetOsOutput, block_cont
     // TODO: finer-grained contract changes checks
     // Just check that the two contracts have been modified, these should be storage changes
     // related to the fees.
-    assert_eq!(os_output.contracts.len(), 2);
+    assert!(os_output.state_diff.is_some());
+    let state_diff = os_output.state_diff.unwrap();
+    assert_eq!(state_diff.contract_changes.len(), 4);
 
     assert_eq!(os_output.new_block_number.to_u64().unwrap(), block_context.block_info().block_number.0);
-    assert!(os_output.classes.is_empty());
+    assert!(state_diff.classes.is_empty());
     assert!(os_output.messages_to_l1.is_empty());
     assert!(os_output.messages_to_l2.is_empty());
     let use_kzg_da = os_output.use_kzg_da != Felt252::ZERO;

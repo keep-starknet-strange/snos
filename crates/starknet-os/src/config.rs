@@ -19,8 +19,8 @@ pub const fn default_layout() -> LayoutName {
     LayoutName::all_cairo
 }
 
-// https://github.com/starkware-libs/blockifier/blob/8da582b285bfbc7d4c21178609bbd43f80a69240/crates/native_blockifier/src/py_block_executor.rs#L44
-const MAX_STEPS_PER_TX: u32 = 4_000_000;
+// The following values were taken from general_config.yml from cairo-lang
+const VALIDATE_MAX_N_STEPS_OVERRIDE: u32 = 1000000;
 
 const DEFAULT_CONFIG_PATH: &str = "../../cairo-lang/src/starkware/starknet/definitions/general_config.yml";
 pub const STORED_BLOCK_HASH_BUFFER: u64 = 10;
@@ -32,9 +32,9 @@ pub const COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT: usize = 251;
 pub const CONTRACT_STATES_COMMITMENT_TREE_HEIGHT: usize = 251;
 pub const DEFAULT_INNER_TREE_HEIGHT: u64 = 64;
 // TODO: update with relevant address
-pub const DEFAULT_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
-pub const DEFAULT_DEPRECATED_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
-pub const SEQUENCER_ADDR_0_13_2: &str = "0x795488c127693ffb36733cc054f9e2be39241a794a4877dc8fc1dbe52750488";
+pub const DEFAULT_FEE_TOKEN_ADDR: &str = "7ce4aa542d72a82662cda96b147da9b041ecf8c61f67ef657f3bbb852fc698f";
+pub const DEFAULT_DEPRECATED_FEE_TOKEN_ADDR: &str = "5195ba458d98a8d5a390afa87e199566e473d1124c07a3c57bf19813255ac41";
+pub const SEQUENCER_ADDR_0_13_3: &str = "0x31c641e041f8d25997985b0efe68d0c5ce89d418ca9a127ae043aebed6851c5";
 pub const CONTRACT_ADDRESS_BITS: usize = 251;
 pub const CONTRACT_CLASS_LEAF_VERSION: &[u8] = "CONTRACT_CLASS_LEAF_V0".as_bytes();
 
@@ -67,8 +67,7 @@ const fn default_use_kzg_da() -> bool {
 pub struct StarknetGeneralConfig {
     pub starknet_os_config: StarknetOsConfig,
     pub gas_price_bounds: GasPriceBounds,
-    pub invoke_tx_max_n_steps: u32,
-    pub validate_max_n_steps: u32,
+    pub validate_max_n_steps_override: u32,
     pub default_eth_price_in_fri: u128,
     pub sequencer_address: ContractAddress,
     pub enforce_l1_handler_fee: bool,
@@ -92,10 +91,9 @@ impl Default for StarknetGeneralConfig {
                 min_wei_l1_data_gas_price: 100000,
                 min_wei_l1_gas_price: 10000000000,
             },
-            invoke_tx_max_n_steps: MAX_STEPS_PER_TX,
-            validate_max_n_steps: MAX_STEPS_PER_TX,
+            validate_max_n_steps_override: VALIDATE_MAX_N_STEPS_OVERRIDE,
             default_eth_price_in_fri: 1_000_000_000_000_000_000_000,
-            sequencer_address: contract_address!(SEQUENCER_ADDR_0_13_2),
+            sequencer_address: contract_address!(SEQUENCER_ADDR_0_13_3),
             enforce_l1_handler_fee: true,
             use_kzg_da: false,
         }
@@ -114,8 +112,7 @@ impl StarknetGeneralConfig {
 
     pub fn empty_block_context(&self) -> BlockContext {
         let mut versioned_constants = VersionedConstants::default();
-        versioned_constants.invoke_tx_max_n_steps = self.invoke_tx_max_n_steps;
-        versioned_constants.validate_max_n_steps = self.validate_max_n_steps;
+
         versioned_constants.max_recursion_depth = 50;
 
         let block_info = BlockInfo {
@@ -171,15 +168,14 @@ mod tests {
 
     #[test]
     fn parse_starknet_config() {
-        let expected_seq_addr = contract_address!(SEQUENCER_ADDR_0_13_2);
+        let expected_seq_addr = contract_address!(SEQUENCER_ADDR_0_13_3);
 
         let conf = StarknetGeneralConfig::from_default_file().expect("Failed to load default config file");
 
         assert!(conf.enforce_l1_handler_fee);
 
-        assert_eq!(1000000, conf.invoke_tx_max_n_steps);
         assert_eq!(1000000000000000000000, conf.default_eth_price_in_fri);
-        assert_eq!(1000000, conf.validate_max_n_steps);
+        assert_eq!(1000000, conf.validate_max_n_steps_override);
 
         assert_eq!(expected_seq_addr, conf.sequencer_address);
     }
