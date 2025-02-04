@@ -371,7 +371,11 @@ mod tests {
 
         println!("{}", root_hash.to_biguint());
 
-        if root_hash_bytes == expected_root_hash { Ok(()) } else { Err(()) }
+        if root_hash_bytes == expected_root_hash {
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 
     async fn build_empty_patricia_virtual_node(ffc: &mut FFC, height: Height) -> VPN {

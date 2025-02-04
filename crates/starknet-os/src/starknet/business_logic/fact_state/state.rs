@@ -484,12 +484,13 @@ where
             let compiled_class_hash = self.get_compiled_class_hash_async(class_hash).await?;
             self.get_compiled_contract_class_async(compiled_class_hash).await
         })
-        .unwrap() // TODO: unwrap
+        .unwrap()
     }
 
     /// Returns the compiled class hash of the given class hash.
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         log::debug!("SharedState as StateReader: get_compiled_class_hash {:?}", class_hash);
-        execute_coroutine(self.get_compiled_class_hash_async(class_hash)).unwrap() // TODO: unwrap
+        execute_coroutine(self.get_compiled_class_hash_async(class_hash)).unwrap()
+        // TODO: unwrap
     }
 }

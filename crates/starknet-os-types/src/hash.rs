@@ -124,7 +124,7 @@ impl From<GenericClassHash> for CompiledClassHash {
 
 impl From<GenericClassHash> for Felt {
     fn from(class_hash: GenericClassHash) -> Self {
-        Felt::from_bytes_be(&class_hash.0.0)
+        Felt::from_bytes_be(&class_hash.0 .0)
     }
 }
 
