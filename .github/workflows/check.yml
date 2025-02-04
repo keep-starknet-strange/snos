@@ -84,4 +84,4 @@ jobs:
           mkdir -p build
           cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
       - run: cargo install cargo-udeps --locked
-      - run: cargo udeps --all-targets
+      - run: cargo +nightly udeps --all-targets
