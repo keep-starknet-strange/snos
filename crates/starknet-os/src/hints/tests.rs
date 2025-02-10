@@ -209,17 +209,29 @@ pub mod tests {
 
         // before skipping a tx, tx_execution_info should be none and iter should have a next()
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
-        assert!(
-            exec_helper_box.execution_helper.read().await.tx_execution_info_iter.clone().peekable().peek().is_some()
-        );
+        assert!(exec_helper_box
+            .execution_helper
+            .read()
+            .await
+            .tx_execution_info_iter
+            .clone()
+            .peekable()
+            .peek()
+            .is_some());
 
         skip_tx::<PCS>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_tx");
 
         // after skipping a tx, tx_execution_info should be some and iter should not have a next()
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
-        assert!(
-            exec_helper_box.execution_helper.read().await.tx_execution_info_iter.clone().peekable().peek().is_none()
-        );
+        assert!(exec_helper_box
+            .execution_helper
+            .read()
+            .await
+            .tx_execution_info_iter
+            .clone()
+            .peekable()
+            .peek()
+            .is_none());
     }
 
     #[rstest]

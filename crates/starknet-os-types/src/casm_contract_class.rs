@@ -1,4 +1,4 @@
-use std::cell::OnceCell;
+use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

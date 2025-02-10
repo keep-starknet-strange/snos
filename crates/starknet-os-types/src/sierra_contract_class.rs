@@ -1,4 +1,4 @@
-use std::cell::OnceCell;
+use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
 use cairo_vm::Felt252;

@@ -55,6 +55,7 @@ log = "0.4.19"
 num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2.16"
+once_cell = "1.20.0"
 pathfinder-common = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "pathfinder-common" }
 pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "pathfinder-crypto" }
 pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "starknet-gateway-types" }
