@@ -59,6 +59,7 @@ async fn main() {
     snos_pie.run_validity_checks().expect("Valid SNOS PIE");
 
     let snos_output = get_program_output(&snos_pie);
+    println!("{:#?}", snos_output);
 
     assert_eq!(snos_output, reference_output);
     println!("SNOS output = reference output");
