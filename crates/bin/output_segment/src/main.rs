@@ -1,7 +1,8 @@
 use std::fs;
 use std::path::PathBuf;
 
-use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
+use cairo_vm::types::relocatable::MaybeRelocatable;
+use cairo_vm::{hint_processor::hint_processor_utils::felt_to_usize, types::builtin_name::BuiltinName};
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
@@ -42,6 +43,8 @@ async fn main() {
     let reference_pie = CairoPie::from_bytes(&reference_pie_bytes).expect("reference PIE");
     reference_pie.run_validity_checks().expect("Valid reference PIE");
 
+    let reference_output = get_program_output(&reference_pie);
+
     let block_number: u64 =
         felt_to_usize(&get_pie_block_number(&reference_pie)).unwrap().try_into().expect("Block number is too big");
 
@@ -54,6 +57,11 @@ async fn main() {
             .expect("OS generate Cairo PIE");
 
     snos_pie.run_validity_checks().expect("Valid SNOS PIE");
+
+    let snos_output = get_program_output(&snos_pie);
+
+    assert_eq!(snos_output, reference_output);
+    println!("SNOS output = reference output");
 
     // While initializing cairo-vm, the first segment is the the one containing the program instructions. The second one is the execution segment.
     // After that, the builtins are loaded in order. The first one is always the output builtin
@@ -88,4 +96,33 @@ fn get_pie_block_number(cairo_pie: &CairoPie) -> Felt252 {
         .expect("Block number not found in CairoPie memory.");
 
     block_number.get_int().expect("Block number is a Int")
+}
+
+pub fn get_program_output(cairo_pie: &CairoPie) -> Vec<Felt252> {
+    let segment_info =
+        cairo_pie.metadata.builtin_segments.get(&BuiltinName::output).unwrap();
+
+    let mut output = vec![Felt252::from(0); segment_info.size];
+    let mut insertion_count = 0;
+    let cairo_program_memory = &cairo_pie.memory.0;
+
+    for ((index, offset), value) in cairo_program_memory.iter() {
+        if *index == segment_info.index as usize {
+            match value {
+                MaybeRelocatable::Int(felt) => {
+                    output[*offset] = *felt;
+                    insertion_count += 1;
+                }
+                MaybeRelocatable::RelocatableValue(_) => {
+                    assert!(false);
+                }
+            }
+        }
+    }
+
+    if insertion_count != segment_info.size {
+        assert!(false);
+    }
+
+    output
 }
