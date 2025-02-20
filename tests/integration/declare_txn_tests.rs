@@ -5,17 +5,15 @@ use blockifier::declare_tx_args;
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::test_utils::{NonceManager, BALANCE};
 use blockifier::transaction::test_utils::{calculate_class_info_for_testing, max_fee};
-use cairo_vm::Felt252;
 use rstest::{fixture, rstest};
 use starknet_api::contract_address;
-use starknet_api::core::{ClassHash, CompiledClassHash};
+use starknet_api::core::CompiledClassHash;
 use starknet_api::transaction::{
-    Fee, Resource, ResourceBounds, ResourceBoundsMapping, TransactionSignature, TransactionVersion,
+    Fee, Resource, ResourceBounds, ResourceBoundsMapping, TransactionVersion,
 };
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
 use starknet_os_types::class_hash_utils::ContractClassComponentHashes;
-use starknet_os_types::deprecated_compiled_class::{BlockifierDeprecatedClass, GenericDeprecatedCompiledClass};
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
 use crate::common::block_context;
