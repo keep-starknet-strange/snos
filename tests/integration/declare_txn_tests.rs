@@ -294,7 +294,7 @@ async fn declare_cairo0_with_tx_info(
     .expect("OS run failed");
 }
 
-#[rstest] 
+#[rstest]
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn declare_v0_cairo0_account(block_context: BlockContext) {
     use starknet_api::core::{ContractAddress, PatriciaKey};
