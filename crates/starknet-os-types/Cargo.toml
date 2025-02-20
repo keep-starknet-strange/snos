@@ -11,6 +11,7 @@ cairo-lang-starknet-classes = { workspace = true }
 cairo-vm = { workspace = true }
 num-bigint = { workspace = true }
 flate2 = { workspace = true }
+once_cell = { workspace = true }
 pathfinder-gateway-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

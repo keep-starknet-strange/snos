@@ -4508,6 +4508,7 @@ dependencies = [
  "flate2",
  "indoc",
  "num-bigint",
+ "once_cell",
  "rstest 0.18.2",
  "serde",
  "serde_json",
