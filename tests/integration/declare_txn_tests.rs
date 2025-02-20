@@ -8,9 +8,7 @@ use blockifier::transaction::test_utils::{calculate_class_info_for_testing, max_
 use rstest::{fixture, rstest};
 use starknet_api::contract_address;
 use starknet_api::core::CompiledClassHash;
-use starknet_api::transaction::{
-    Fee, Resource, ResourceBounds, ResourceBoundsMapping, TransactionVersion,
-};
+use starknet_api::transaction::{Fee, Resource, ResourceBounds, ResourceBoundsMapping, TransactionVersion};
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
 use starknet_os_types::class_hash_utils::ContractClassComponentHashes;
