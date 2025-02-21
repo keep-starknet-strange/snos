@@ -157,6 +157,8 @@ async fn declare_v0_to_blockifier(
     let api_tx = starknet_api::transaction::DeclareTransaction::V0(starknet_api::transaction::DeclareTransactionV0V1 {
         max_fee: starknet_api::transaction::Fee(felt_to_u128(&tx.max_fee)?),
         signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+        // Declare v0 does not have a nonce 
+        // So we default to 0
         nonce: starknet_api::core::Nonce(Default::default()),
         class_hash: starknet_api::core::ClassHash(tx.class_hash),
         sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
