@@ -213,14 +213,13 @@ where
         declared_class_hash_to_component_hashes,
         new_block_hash: Default::default(),
         prev_block_hash: Default::default(),
-        full_output: false,
+        full_output: !block_context.block_info().use_kzg_da,
     });
 
     let execution_helper = ExecutionHelperWrapper::new(
         contract_storage_map,
         tx_execution_infos,
         block_context,
-        Some(os_input.clone()),
         (Felt252::from(block_context.block_info().block_number.0 - STORED_BLOCK_HASH_BUFFER), Felt252::from(66_u64)),
     );
 

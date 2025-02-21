@@ -98,7 +98,6 @@ pub mod tests {
             ContractStorageMap::default(),
             execution_infos,
             &block_context,
-            None,
             old_block_number_and_hash,
         );
         exec_helper.start_tx(None).await;
@@ -168,7 +167,7 @@ pub mod tests {
         // we need an execution info in order to start a tx
         let execution_infos = vec![transaction_execution_info];
         let exec_helper =
-            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, None, old_block_number_and_hash);
+            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, old_block_number_and_hash);
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
@@ -203,23 +202,35 @@ pub mod tests {
         // execution info to chew through
         let execution_infos = vec![transaction_execution_info];
         let exec_helper =
-            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, None, old_block_number_and_hash);
+            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, old_block_number_and_hash);
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 
         // before skipping a tx, tx_execution_info should be none and iter should have a next()
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
-        assert!(
-            exec_helper_box.execution_helper.read().await.tx_execution_info_iter.clone().peekable().peek().is_some()
-        );
+        assert!(exec_helper_box
+            .execution_helper
+            .read()
+            .await
+            .tx_execution_info_iter
+            .clone()
+            .peekable()
+            .peek()
+            .is_some());
 
         skip_tx::<PCS>(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &Default::default()).expect("skip_tx");
 
         // after skipping a tx, tx_execution_info should be some and iter should not have a next()
         assert!(exec_helper_box.execution_helper.read().await.tx_execution_info.is_none());
-        assert!(
-            exec_helper_box.execution_helper.read().await.tx_execution_info_iter.clone().peekable().peek().is_none()
-        );
+        assert!(exec_helper_box
+            .execution_helper
+            .read()
+            .await
+            .tx_execution_info_iter
+            .clone()
+            .peekable()
+            .peek()
+            .is_none());
     }
 
     #[rstest]
@@ -247,7 +258,7 @@ pub mod tests {
 
         let execution_infos = vec![transaction_execution_info];
         let exec_helper =
-            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, None, old_block_number_and_hash);
+            EHW::new(ContractStorageMap::default(), execution_infos, &block_context, old_block_number_and_hash);
         let exec_helper_box = Box::new(exec_helper);
         exec_scopes.insert_box(vars::scopes::EXECUTION_HELPER, exec_helper_box.clone());
 

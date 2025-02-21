@@ -1,4 +1,4 @@
-use std::cell::OnceCell;
+use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
 use pathfinder_gateway_types::class_hash::compute_class_hash;

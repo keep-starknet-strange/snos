@@ -49,7 +49,6 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::inconsistent_cairo0_class_hash_1(204936)]
 #[case::no_possible_convertion_1(155007)]
 #[case::no_possible_convertion_2(155029)]
-#[case::reference_pie_with_full_output_enabled(173404)]
 #[case::inconsistent_cairo0_class_hash_2(159674)]
 #[case::inconsistent_cairo0_class_hash_3(164180)]
 #[case::key_not_in_proof_0(155087)]
@@ -83,6 +82,12 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::key_not_found_in_preimage_7(237086)]
 #[case::key_not_found_in_preimage_8(235385)]
 #[case::key_not_found_in_preimage_9(235620)]
+// Reference pies for v0.13.3
+#[case::reference_pie_with_full_output_enabled_00(341097)]
+#[case::reference_pie_with_full_output_enabled_01(341101)]
+#[case::reference_pie_with_full_output_enabled_02(355710)]
+#[case::reference_pie_with_full_output_enabled_03(355783)]
+#[case::reference_pie_with_full_output_enabled_04(355802)]
 #[ignore = "Requires a running Pathfinder node"]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_prove_selected_blocks(#[case] block_number: u64) {
@@ -109,7 +114,11 @@ async fn test_prove_selected_blocks(#[case] block_number: u64) {
 
 fn get_reference_pie_bytes(block_number: u64) -> Option<Vec<u8>> {
     match block_number {
-        173404 => Some(include_bytes!("../reference-pies/173404.zip").to_vec()),
+        341097 => Some(include_bytes!("../reference-pies/341097.zip").to_vec()),
+        341101 => Some(include_bytes!("../reference-pies/341101.zip").to_vec()),
+        355710 => Some(include_bytes!("../reference-pies/355710.zip").to_vec()),
+        355783 => Some(include_bytes!("../reference-pies/355783.zip").to_vec()),
+        355802 => Some(include_bytes!("../reference-pies/355802.zip").to_vec()),
         _ => None,
     }
 }

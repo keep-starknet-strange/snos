@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use prove_block::debug_prove_error;
@@ -13,6 +15,10 @@ struct Args {
     /// RPC endpoint to use for fact fetching
     #[arg(long = "rpc-provider", default_value = "http://localhost:9545")]
     rpc_provider: String,
+
+    /// Optional path to store the pie
+    #[arg(short, long)]
+    output: Option<PathBuf>,
 }
 
 fn init_logging() {
@@ -35,4 +41,8 @@ async fn main() {
     let result = prove_block::prove_block(DEFAULT_COMPILED_OS, block_number, &args.rpc_provider, layout, true).await;
     let (pie, _snos_output) = result.map_err(debug_prove_error).expect("Block proven");
     pie.run_validity_checks().expect("Valid PIE");
+
+    if let Some(output_path) = args.output {
+        pie.write_zip_file(&output_path).expect("Should write file to output path");
+    }
 }

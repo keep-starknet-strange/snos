@@ -15,6 +15,7 @@ pub mod scopes {
     pub const DESCEND: &str = "descend";
     pub const DESCENT_MAP: &str = "descent_map";
     pub const DICT_MANAGER: &str = "dict_manager";
+    pub const DICT_TRACKER: &str = "dict_tracker";
     pub const EXECUTION_HELPER: &str = "execution_helper";
     pub const FIND_ELEMENT_MAX_SIZE: &str = "__find_element_max_size";
     pub const INITIAL_DICT: &str = "initial_dict";
@@ -32,6 +33,7 @@ pub mod scopes {
     pub const TRANSACTIONS: &str = "transactions";
     pub const TX: &str = "tx";
     pub const VALUE: &str = "value";
+    pub const USE_KZG_DA: &str = "use_kzg_da";
 }
 
 pub mod ids {
@@ -141,6 +143,7 @@ pub mod ids {
     pub const STATE_ENTRY: &str = "state_entry";
     pub const STATE_UPDATES_START: &str = "state_updates_start";
     pub const STATE_UPDATES_END: &str = "state_updates_end";
+    pub const COMPRESSED_START: &str = "compressed_start";
     pub const SYSCALL_PTR: &str = "syscall_ptr";
     pub const TRANSACTION_HASH: &str = "transaction_hash";
     pub const TX_EXECUTION_CONTEXT: &str = "tx_execution_context";
@@ -156,6 +159,21 @@ pub mod ids {
     pub const BATCH_SIZE: &str = "starkware.cairo.common.cairo_sha256.sha256_utils.BATCH_SIZE";
     pub const SHA256_INPUT_CHUNK_SIZE_FELTS: &str =
         "starkware.cairo.common.cairo_sha256.sha256_utils.SHA256_INPUT_CHUNK_SIZE_FELTS";
+    pub const COMPRESS_STATE_UPDATES: &str = "compress_state_updates";
+    pub const IS_N_UPDATES_SMALL: &str = "is_n_updates_small";
+    pub const N_ACTUAL_UPDATES: &str = "n_actual_updates";
+    pub const N_UPDATES_SMALL_PACKING_BOUND: &str =
+        "starkware.starknet.core.os.state.output.N_UPDATES_SMALL_PACKING_BOUND";
+    pub const FULL_OUTPUT: &str = "full_output";
+    pub const PREV_OFFSET: &str = "prev_offset";
+    pub const BUCKET_INDEX: &str = "bucket_index";
+    pub const DICT_PTR: &str = "dict_ptr";
+    pub const COMPRESSED_DST: &str = "compressed_dst";
+    pub const DATA_START: &str = "data_start";
+    pub const DATA_END: &str = "data_end";
+    pub const DECOMPRESSED_DST: &str = "decompressed_dst";
+    pub const PACKED_FELT: &str = "packed_felt";
+    pub const ELM_BOUND: &str = "elm_bound";
 }
 
 pub mod constants {
