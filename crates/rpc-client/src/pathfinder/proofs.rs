@@ -95,7 +95,6 @@ pub struct PathfinderClassProof {
 }
 
 impl PathfinderClassProof {
-
     pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
         verify_proof::<PoseidonHash>(class_hash, self.class_commitment()?, &self.class_proof)
     }
