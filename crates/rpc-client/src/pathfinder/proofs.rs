@@ -108,11 +108,11 @@ impl PathfinderClassProof {
     /// However, the proof should always start with the root node, which means all we have
     /// to do is hash the first node in the proof to get the same thing.
     pub fn class_commitment(&self) -> Result<Felt, ProofVerificationError> {
-        return if self.class_proof.len() > 0 {
+        if !self.class_proof.is_empty() {
             Ok(self.class_proof[0].hash::<PoseidonHash>())
         } else {
             Err(ProofVerificationError::EmptyProof) // TODO: give an error type or change fn return type
-        };
+        }
     }
 }
 
