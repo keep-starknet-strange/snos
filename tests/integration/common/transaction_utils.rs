@@ -446,7 +446,7 @@ fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction, chain_id: &ChainId) -
     }
 }
 
-/// Convert a DeclareTransactionV1 to a SNOS InternalTransaction
+/// Convert a DeclareTransactionV0V1 to a SNOS InternalTransaction
 pub fn to_internal_declare_v0_v1_tx(
     account_tx: &AccountTransaction,
     tx: &DeclareTransactionV0V1,
