@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use blockifier::context::BlockContext;
 use blockifier::declare_tx_args;
@@ -6,15 +7,19 @@ use blockifier::execution::contract_class::ClassInfo;
 use blockifier::test_utils::{NonceManager, BALANCE};
 use blockifier::transaction::test_utils::{calculate_class_info_for_testing, max_fee};
 use rstest::{fixture, rstest};
-use starknet_api::core::CompiledClassHash;
+use starknet_api::core::{ClassHash, CompiledClassHash};
 use starknet_api::transaction::{Fee, Resource, ResourceBounds, ResourceBoundsMapping, TransactionVersion};
 use starknet_os::crypto::poseidon::PoseidonHash;
 use starknet_os::starknet::business_logic::utils::write_class_facts;
 use starknet_os_types::class_hash_utils::ContractClassComponentHashes;
+use starknet_os_types::deprecated_compiled_class::BlockifierDeprecatedClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+use starknet_os_types::starknet_core_addons::LegacyContractClass;
 
 use crate::common::block_context;
-use crate::common::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_feature_contract};
+use crate::common::blockifier_contracts::{
+    get_deprecated_feature_contract_path, load_cairo0_feature_contract, load_cairo1_feature_contract,
+};
 use crate::common::state::{init_logging, initial_state_cairo1, StarknetStateBuilder, StarknetTestState};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
@@ -284,6 +289,126 @@ async fn declare_cairo0_with_tx_info(
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
         class_hash_component_hashes,
+    )
+    .await
+    .expect("OS run failed");
+}
+
+fn read_contract(contract_rel_path: &Path) -> Vec<u8> {
+    // Keep using Blockifier fixtures for now.
+    let contracts_dir = get_contracts_dir();
+    let contract_path = contracts_dir.join(contract_rel_path);
+
+    std::fs::read(&contract_path).unwrap_or_else(|e| {
+        panic!("Failed to read fixture {}: {e}", contract_path.to_string_lossy().as_ref());
+    })
+}
+
+fn get_contracts_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("integration").join("contracts")
+}
+
+#[rstest]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn declare_tx_hash_with_pathfinder_check(
+    #[future] initial_state_declare_cairo0: StarknetTestState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let initial_state = initial_state_declare_cairo0.await;
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+
+    let (_, test_contract) = load_cairo0_feature_contract("test_contract");
+    let class_hash = test_contract.class_hash().unwrap();
+
+    let mut nonce_manager = NonceManager::default();
+    let tx_version = TransactionVersion::ONE;
+
+    let blockifier_class = test_contract.to_blockifier_contract_class().unwrap();
+    let class_info = calculate_class_info_for_testing(blockifier_class.into());
+
+    let declare_tx_1 = blockifier::test_utils::declare::declare_tx(
+        declare_tx_args! {
+            max_fee,
+            sender_address,
+            version: tx_version,
+            nonce: nonce_manager.next(sender_address),
+            class_hash: class_hash.into(),
+        },
+        class_info,
+    );
+
+    let contract_path = get_deprecated_feature_contract_path("test_contract");
+    let content = read_contract(&contract_path);
+    let legacy_contract: LegacyContractClass =
+        serde_json::from_slice(&content).unwrap_or_else(|e| panic!("Failed to load deprecated compiled class: {e}"));
+    let blockifier_class: BlockifierDeprecatedClass = serde_json::from_slice(&content).unwrap();
+    let class_info = calculate_class_info_for_testing(blockifier_class.into());
+
+    let declare_tx_2 = blockifier::test_utils::declare::declare_tx(
+        declare_tx_args! {
+            max_fee,
+            sender_address,
+            version: tx_version,
+            nonce: nonce_manager.next(sender_address),
+            class_hash: ClassHash(legacy_contract.class_hash().unwrap()),
+        },
+        class_info,
+    );
+
+    let txs = vec![declare_tx_1, declare_tx_2].into_iter().map(Into::into).collect();
+    let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
+        initial_state.cached_state,
+        block_context,
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+        HashMap::default(),
+    )
+    .await
+    .expect("OS run failed");
+}
+
+#[rstest]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn declare_tx_hash_with_starknet_core_check(
+    #[future] initial_state_declare_cairo0: StarknetTestState,
+    block_context: BlockContext,
+    max_fee: Fee,
+) {
+    let initial_state = initial_state_declare_cairo0.await;
+    let sender_address = initial_state.deployed_cairo0_contracts.get("account_with_dummy_validate").unwrap().address;
+    let mut nonce_manager = NonceManager::default();
+    let tx_version = TransactionVersion::ONE;
+
+    let contract_path = get_deprecated_feature_contract_path("test_contract");
+    let content = read_contract(&contract_path);
+    let legacy_contract: LegacyContractClass =
+        serde_json::from_slice(&content).unwrap_or_else(|e| panic!("Failed to load deprecated compiled class: {e}"));
+    let blockifier_class: BlockifierDeprecatedClass = serde_json::from_slice(&content).unwrap();
+    let class_info = calculate_class_info_for_testing(blockifier_class.into());
+
+    let declare_tx_2 = blockifier::test_utils::declare::declare_tx(
+        declare_tx_args! {
+            max_fee,
+            sender_address,
+            version: tx_version,
+            nonce: nonce_manager.next(sender_address),
+            class_hash: ClassHash(legacy_contract.class_hash().unwrap()),
+        },
+        class_info,
+    );
+
+    let txs = vec![declare_tx_2].into_iter().map(Into::into).collect();
+    let _result = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
+        initial_state.cached_state,
+        block_context,
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");

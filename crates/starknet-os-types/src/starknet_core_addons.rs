@@ -3,8 +3,8 @@ use std::io::Read;
 
 use flate2::read::GzDecoder;
 use starknet_core::types::contract::legacy::{
-    LegacyContractClass, LegacyEntrypointOffset, RawLegacyAbiEntry, RawLegacyConstructor, RawLegacyEntryPoint,
-    RawLegacyEntryPoints, RawLegacyEvent, RawLegacyFunction, RawLegacyL1Handler, RawLegacyMember, RawLegacyStruct,
+    LegacyEntrypointOffset, RawLegacyAbiEntry, RawLegacyConstructor, RawLegacyEntryPoint, RawLegacyEntryPoints,
+    RawLegacyEvent, RawLegacyFunction, RawLegacyL1Handler, RawLegacyMember, RawLegacyStruct,
 };
 use starknet_core::types::{
     CompressedLegacyContractClass, LegacyContractAbiEntry, LegacyContractEntryPoint, LegacyEntryPointsByType,
@@ -93,6 +93,8 @@ pub enum LegacyContractDecompressionError {
     #[error("Failed to decompress the program: {0}")]
     Decompression(#[from] std::io::Error),
 }
+
+pub use starknet_core::types::contract::legacy::LegacyContractClass;
 
 /// Decompresses a compressed legacy contract class.
 /// Compressed classes store the `program` field as a gzipped vector. This function
