@@ -45,7 +45,8 @@ const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../../../../build/os_latest.j
 #[case::declare_and_deploy_in_same_block(169206)]
 #[case::dest_ptr_not_a_relocatable(155140)]
 #[case::dest_ptr_not_a_relocatable_2(155830)]
-#[case::inconsistent_cairo0_class_hash_0(30000)]
+// TODO: reenable when possible:
+// #[case::inconsistent_cairo0_class_hash_0(30000)] this triggers a bug in pathfinder currently
 #[case::inconsistent_cairo0_class_hash_1(204936)]
 #[case::no_possible_convertion_1(155007)]
 #[case::no_possible_convertion_2(155029)]
