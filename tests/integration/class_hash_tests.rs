@@ -138,6 +138,8 @@ async fn run_pathfinder_class_hash_version_test(#[future] initial_state_class_ha
     let dummy_token = initial_state.declared_cairo0_contracts.get("token_for_testing").unwrap();
     let dummy_account = initial_state.declared_cairo0_contracts.get("account_with_dummy_validate").unwrap();
 
+    // This sets up the state from scratch
+    // It deploys a token and funds the dummy account
     let initial_txs = create_initial_transactions(&mut nonce_manager, dummy_token, dummy_account).await;
 
     let block_context = build_block_context(chain_id, initial_txs.fee_token_address);
@@ -146,8 +148,7 @@ async fn run_pathfinder_class_hash_version_test(#[future] initial_state_class_ha
     let init_txs = initial_txs.to_vec();
     let mut cached_state = initial_state.cached_state;
 
-    // Execute the init transactions. This prepares the state for the rest of the integration
-    // tests.
+    // Execute the init transactions. This prepares the state for testing deploying the contract
     let execution_infos: Vec<_> =
         init_txs.into_iter().map(|tx| execute_transaction(tx, &mut cached_state, &block_context)).collect();
     validate_execution_infos(&execution_infos);
@@ -326,6 +327,8 @@ fn build_block_context(chain_id: ChainId, fee_token_address: ContractAddress) ->
     BlockContext::new(block_info, chain_info, versioned_constants, bouncer_config)
 }
 
+/// This declares and deploys the pre 0.9 contract
+/// We provide different class hashes to verify what is working correctly.
 #[allow(clippy::too_many_arguments)]
 fn add_declare_and_deploy_contract_txs(
     account_address: &ContractAddress,
