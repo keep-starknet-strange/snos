@@ -6,7 +6,7 @@ use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass
 
 use crate::common::contract_fixtures::{get_deprecated_compiled_class, load_cairo1_contract};
 
-pub (crate)fn get_deprecated_feature_contract_path(contract_name: &str) -> PathBuf {
+pub(crate) fn get_deprecated_feature_contract_path(contract_name: &str) -> PathBuf {
     let filename = format!("{contract_name}_compiled.json");
     Path::new("blockifier_contracts").join("feature_contracts").join("cairo0").join("compiled").join(filename)
 }

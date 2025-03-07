@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use blockifier::{
@@ -9,7 +8,7 @@ use blockifier::{
     bouncer::BouncerConfig,
     context::{BlockContext, ChainInfo, FeeTokenAddresses},
     declare_tx_args, deploy_account_tx_args,
-    execution::contract_class::{ClassInfo, ContractClassV0},
+    execution::contract_class::ClassInfo,
     invoke_tx_args,
     state::cached_state::CachedState,
     test_utils::{
@@ -51,7 +50,6 @@ use crate::{
     declare_txn_tests::default_testing_resource_bounds,
 };
 use blockifier::transaction::test_utils::block_context;
-type ContractMap = HashMap<String, DeclaredDeprecatedContract>;
 struct InitialTxs {
     deploy_token_tx: blockifier::transaction::transactions::DeployAccountTransaction,
     deploy_account_tx: blockifier::transaction::transactions::DeployAccountTransaction,
@@ -160,7 +158,6 @@ async fn run_pathfinder_class_hash_version_test(#[future] initial_state_class_ha
 
     let (_, pre_0_10_0_contract) = load_cairo0_feature_contract("pre_0_10_0_contract");
     let pathfinder_class_hash = pre_0_10_0_contract.class_hash().unwrap();
-
 
     let class = pre_0_10_0_contract.get_blockifier_contract_class().map_err(|_| "Failed to get VM class").unwrap();
     let class_info = calculate_class_info_for_testing(class.clone().into());
@@ -276,7 +273,7 @@ async fn run_starknet_class_hash_version_test(#[future] initial_state_class_hash
 
     let hashes: Vec<_> = os_output.state_diff.unwrap().contract_changes.iter().map(|s| s.class_hash.unwrap()).collect();
     // We never get here coz it should panic
-    assert!(!hashes.contains(&starknet_class_hash.into()))
+    assert!(!hashes.contains(&starknet_class_hash))
 }
 
 fn execute_transaction(

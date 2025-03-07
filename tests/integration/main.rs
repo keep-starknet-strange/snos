@@ -10,5 +10,5 @@ mod run_os;
 mod sharp;
 mod syscalls_tests;
 
-mod segments_tests;
 mod class_hash_tests;
+mod segments_tests;
