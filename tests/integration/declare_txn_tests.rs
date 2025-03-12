@@ -6,6 +6,7 @@ use blockifier::execution::contract_class::ClassInfo;
 use blockifier::test_utils::{NonceManager, BALANCE};
 use blockifier::transaction::test_utils::{calculate_class_info_for_testing, max_fee};
 use rstest::{fixture, rstest};
+use starknet_api::contract_address;
 use starknet_api::core::CompiledClassHash;
 use starknet_api::transaction::{Fee, Resource, ResourceBounds, ResourceBoundsMapping, TransactionVersion};
 use starknet_os::crypto::poseidon::PoseidonHash;
@@ -284,6 +285,47 @@ async fn declare_cairo0_with_tx_info(
         initial_state.cairo0_compiled_classes,
         initial_state.cairo1_compiled_classes,
         class_hash_component_hashes,
+    )
+    .await
+    .expect("OS run failed");
+}
+
+#[rstest]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn declare_v0_cairo0_account(block_context: BlockContext) {
+    use starknet_api::core::{ContractAddress, PatriciaKey};
+    use starknet_api::{felt, patricia_key};
+
+    let initial_state = StarknetStateBuilder::new(&block_context).build().await;
+
+    let tx_version = TransactionVersion::ZERO;
+
+    let (_, account_with_dummy_validate) = load_cairo0_feature_contract("account_with_dummy_validate");
+    let class_hash = account_with_dummy_validate.class_hash().unwrap();
+
+    let blockifier_class = account_with_dummy_validate.to_blockifier_contract_class().unwrap();
+    let class_info = calculate_class_info_for_testing(blockifier_class.into());
+
+    let sender_address = contract_address!("0x1");
+    let declare_tx = blockifier::test_utils::declare::declare_tx(
+        declare_tx_args! {
+            max_fee: Fee(0),
+            sender_address,
+            version: tx_version,
+            class_hash: class_hash.into(),
+        },
+        class_info,
+    );
+
+    let txs = vec![declare_tx].into_iter().map(Into::into).collect();
+    let _ = execute_txs_and_run_os(
+        crate::common::DEFAULT_COMPILED_OS,
+        initial_state.cached_state,
+        block_context,
+        txs,
+        initial_state.cairo0_compiled_classes,
+        initial_state.cairo1_compiled_classes,
+        HashMap::default(),
     )
     .await
     .expect("OS run failed");

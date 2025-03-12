@@ -389,21 +389,18 @@ pub fn to_internal_tx(tx: &Transaction, chain_id: &ChainId) -> InternalTransacti
 }
 fn account_tx_to_internal_tx(account_tx: &AccountTransaction, chain_id: &ChainId) -> InternalTransaction {
     match account_tx {
-        Declare(declare_tx) => {
-            match &declare_tx.tx() {
-                starknet_api::transaction::DeclareTransaction::V0(_) => {
-                    // explicitly not supported
-                    panic!("Declare V0 is not supported");
-                }
-                starknet_api::transaction::DeclareTransaction::V1(tx) => {
-                    to_internal_declare_v1_tx(account_tx, tx, chain_id)
-                }
-                starknet_api::transaction::DeclareTransaction::V2(tx) => {
-                    to_internal_declare_v2_tx(account_tx, tx, chain_id)
-                }
-                starknet_api::transaction::DeclareTransaction::V3(tx) => to_internal_declare_v3_tx(tx, chain_id),
+        Declare(declare_tx) => match &declare_tx.tx() {
+            starknet_api::transaction::DeclareTransaction::V0(tx) => {
+                to_internal_declare_v0_v1_tx(account_tx, tx, chain_id, Felt252::ZERO)
             }
-        }
+            starknet_api::transaction::DeclareTransaction::V1(tx) => {
+                to_internal_declare_v0_v1_tx(account_tx, tx, chain_id, Felt252::ONE)
+            }
+            starknet_api::transaction::DeclareTransaction::V2(tx) => {
+                to_internal_declare_v2_tx(account_tx, tx, chain_id)
+            }
+            starknet_api::transaction::DeclareTransaction::V3(tx) => to_internal_declare_v3_tx(tx, chain_id),
+        },
         DeployAccount(deploy_tx) => match deploy_tx.tx() {
             starknet_api::transaction::DeployAccountTransaction::V1(tx) => {
                 to_internal_deploy_v1_tx(account_tx, tx, chain_id)
@@ -449,11 +446,12 @@ fn to_internal_l1_handler_tx(l1_tx: &L1HandlerTransaction, chain_id: &ChainId) -
     }
 }
 
-/// Convert a DeclareTransactionV1 to a SNOS InternalTransaction
-pub fn to_internal_declare_v1_tx(
+/// Convert a DeclareTransactionV0V1 to a SNOS InternalTransaction
+pub fn to_internal_declare_v0_v1_tx(
     account_tx: &AccountTransaction,
     tx: &DeclareTransactionV0V1,
     chain_id: &ChainId,
+    version: Felt252,
 ) -> InternalTransaction {
     let hash_value;
     let sender_address;
@@ -475,7 +473,7 @@ pub fn to_internal_declare_v1_tx(
 
     InternalTransaction {
         hash_value,
-        version: Some(Felt252::ONE),
+        version: Some(version),
         nonce: Some(nonce),
         sender_address: Some(sender_address),
         entry_point_type: Some("EXTERNAL".to_string()),
