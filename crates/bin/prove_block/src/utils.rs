@@ -94,6 +94,12 @@ pub(crate) fn get_all_accessed_keys(
         }
     }
 
+    let code_addresses = extract_code_addresses(tx_execution_infos);
+
+    for address in code_addresses {
+        accessed_keys_by_address.entry(address).or_default();
+    }
+
     accessed_keys_by_address
 }
 
@@ -136,4 +142,32 @@ fn get_accessed_storage_keys(call_info: &CallInfo) -> HashMap<ContractAddress, H
     }
 
     accessed_keys_by_address
+}
+
+fn extract_code_addresses(transaction_info: &[TransactionExecutionInfo]) -> HashSet<ContractAddress> {
+    let mut addresses = HashSet::new();
+
+    for info in transaction_info {
+        if let Some(call_info) = &info.validate_call_info {
+            extract_inner_addresses(call_info, &mut addresses);
+        }
+        if let Some(call_info) = &info.execute_call_info {
+            extract_inner_addresses(call_info, &mut addresses);
+        }
+        if let Some(call_info) = &info.fee_transfer_call_info {
+            extract_inner_addresses(call_info, &mut addresses);
+        }
+    }
+
+    addresses
+}
+
+fn extract_inner_addresses(call_info: &CallInfo, addresses: &mut HashSet<ContractAddress>) {
+    if let Some(code_address) = &call_info.call.code_address {
+        addresses.insert(*code_address);
+    }
+
+    for inner_call in &call_info.inner_calls {
+        extract_inner_addresses(inner_call, addresses);
+    }
 }
