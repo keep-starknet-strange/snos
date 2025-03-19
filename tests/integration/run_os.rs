@@ -407,6 +407,15 @@ async fn prepare_extensive_os_test_params(
         [test_contract2.class_hash.0],
     ));
 
+    txs.push(build_invoke_tx!(
+        deploy_account_address,
+        nonce_manager,
+        test_contract2_address,
+        "test_delegate_call",
+        // Delegates the test_tx_version to test_contract_run_os, passing on variable and asserting the tx type is 3
+        [**test_contract3_address, selector_from_name("test_tx_version").0, Felt252::ONE, 3.into()],
+    ));
+
     txs
 }
 

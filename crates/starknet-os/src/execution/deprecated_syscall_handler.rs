@@ -91,7 +91,7 @@ where
     pub async fn call_contract(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         self.call_contract_and_write_response(syscall_ptr, CallContract::response_offset(), vm).await
     }
-    #[allow(unused)]
+
     pub async fn delegate_call(&self, syscall_ptr: Relocatable, vm: &mut VirtualMachine) -> Result<(), HintError> {
         self.call_contract_and_write_response(syscall_ptr, CallContract::response_offset(), vm).await
     }
