@@ -79,7 +79,7 @@ fn compute_class_commitment(
     for (class_hash, previous_class_proof) in previous_class_proofs {
         if let Err(e) = previous_class_proof.verify(*class_hash) {
             match e {
-                ProofVerificationError::NonExistenceProof { .. } => {}
+                ProofVerificationError::NonExistenceProof { .. } | ProofVerificationError::EmptyProof => {}
                 _ => panic!("Previous class proof verification failed"),
             }
         }
