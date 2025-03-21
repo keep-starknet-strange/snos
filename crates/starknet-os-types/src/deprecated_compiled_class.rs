@@ -1,7 +1,7 @@
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
-use pathfinder_gateway_types::class_hash::compute_class_hash;
+use pathfinder_class_hash::compute_class_hash;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{ContractClassError, ConversionError};

@@ -3037,33 +3037,51 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17359afc20d7ab31fdb42bb844c8b3bb1dabd7dcf7e68428492da7f16966fcef"
 
 [[package]]
+name = "pathfinder-class-hash"
+version = "0.16.2"
+source = "git+https://github.com/eqlabs/pathfinder#49a30e9dc782ad8b499e69bdcbb983176664be37"
+dependencies = [
+ "anyhow",
+ "pathfinder-common",
+ "pathfinder-crypto",
+ "primitive-types",
+ "serde",
+ "serde_json",
+ "serde_with 3.11.0",
+ "sha3",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "pathfinder-common"
-version = "0.14.3"
-source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
+version = "0.16.2"
+source = "git+https://github.com/eqlabs/pathfinder#49a30e9dc782ad8b499e69bdcbb983176664be37"
 dependencies = [
  "anyhow",
  "bitvec",
  "fake",
  "metrics",
  "num-bigint",
+ "num-traits 0.2.19",
  "paste",
  "pathfinder-crypto",
+ "pathfinder-tagged",
+ "pathfinder-tagged-debug-derive",
  "primitive-types",
  "rand",
  "serde",
  "serde_json",
  "serde_with 3.11.0",
  "sha3",
- "tagged",
- "tagged-debug-derive",
  "thiserror",
  "vergen",
 ]
 
 [[package]]
 name = "pathfinder-crypto"
-version = "0.14.3"
-source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
+version = "0.16.2"
+source = "git+https://github.com/eqlabs/pathfinder#49a30e9dc782ad8b499e69bdcbb983176664be37"
 dependencies = [
  "bitvec",
  "fake",
@@ -3073,8 +3091,8 @@ dependencies = [
 
 [[package]]
 name = "pathfinder-serde"
-version = "0.14.3"
-source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
+version = "0.16.2"
+source = "git+https://github.com/eqlabs/pathfinder#49a30e9dc782ad8b499e69bdcbb983176664be37"
 dependencies = [
  "anyhow",
  "num-bigint",
@@ -3084,6 +3102,24 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.11.0",
+]
+
+[[package]]
+name = "pathfinder-tagged"
+version = "0.1.0"
+source = "git+https://github.com/eqlabs/pathfinder#49a30e9dc782ad8b499e69bdcbb983176664be37"
+dependencies = [
+ "fake",
+]
+
+[[package]]
+name = "pathfinder-tagged-debug-derive"
+version = "0.1.0"
+source = "git+https://github.com/eqlabs/pathfinder#49a30e9dc782ad8b499e69bdcbb983176664be37"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -3345,7 +3381,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4417,8 +4453,8 @@ dependencies = [
 
 [[package]]
 name = "starknet-gateway-types"
-version = "0.14.3"
-source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
+version = "0.16.2"
+source = "git+https://github.com/eqlabs/pathfinder#49a30e9dc782ad8b499e69bdcbb983176664be37"
 dependencies = [
  "anyhow",
  "fake",
@@ -4428,7 +4464,6 @@ dependencies = [
  "primitive-types",
  "rand",
  "reqwest 0.12.9",
- "rstest 0.18.2",
  "serde",
  "serde_json",
  "serde_with 3.11.0",
@@ -4478,6 +4513,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits 0.2.19",
+ "pathfinder-class-hash",
  "pathfinder-common",
  "pathfinder-crypto",
  "rand",
@@ -4509,6 +4545,7 @@ dependencies = [
  "indoc",
  "num-bigint",
  "once_cell",
+ "pathfinder-class-hash",
  "rstest 0.18.2",
  "serde",
  "serde_json",
@@ -4729,24 +4766,6 @@ checksum = "a75fb188eb626b924683e3b95e3a48e63551fcfb51949de2f06a9d91dbee93c9"
 dependencies = [
  "core-foundation-sys",
  "libc",
-]
-
-[[package]]
-name = "tagged"
-version = "0.14.3"
-source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
-dependencies = [
- "fake",
-]
-
-[[package]]
-name = "tagged-debug-derive"
-version = "0.14.3"
-source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -5330,7 +5349,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

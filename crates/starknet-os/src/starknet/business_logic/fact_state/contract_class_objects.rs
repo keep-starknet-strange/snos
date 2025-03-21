@@ -1,5 +1,5 @@
 use cairo_vm::Felt252;
-use pathfinder_gateway_types::class_hash::compute_class_hash;
+use pathfinder_class_hash::compute_class_hash;
 use serde::{Deserialize, Serialize};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
