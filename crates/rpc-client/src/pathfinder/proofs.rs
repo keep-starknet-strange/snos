@@ -106,6 +106,9 @@ impl PathfinderClassProof {
     ///
     /// However, the proof should always start with the root node, which means all we have
     /// to do is hash the first node in the proof to get the same thing.
+    ///
+    /// NOTE: the v0.8 RPC spec does NOT require the proof to be in order, in which case it is
+    ///       much trickier to guess what the root node is.
     pub fn class_commitment(&self) -> Result<Felt, ProofVerificationError> {
         if !self.class_proof.is_empty() {
             Ok(self.class_proof[0].hash::<PoseidonHash>())
