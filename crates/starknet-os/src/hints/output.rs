@@ -1,6 +1,7 @@
 use std::cmp::min;
 use std::collections::HashMap;
 
+use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
@@ -9,7 +10,6 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use indoc::indoc;
 use num_integer::div_ceil;
 

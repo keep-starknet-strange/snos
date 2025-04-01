@@ -11,7 +11,7 @@ use crate::starkware_utils::commitment_tree::calculation::{Calculation, Calculat
 use crate::starkware_utils::commitment_tree::errors::{TreeError, UpdateTreeError};
 use crate::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
-use crate::starkware_utils::commitment_tree::merkle_tree::traverse_tree::{traverse_tree, TreeTraverser};
+use crate::starkware_utils::commitment_tree::merkle_tree::traverse_tree::{TreeTraverser, traverse_tree};
 use crate::starkware_utils::commitment_tree::patricia_tree::nodes::PatriciaNodeFact;
 use crate::storage::storage::{DbObject, FactFetchingContext, HashFunctionType, Storage, StorageError};
 

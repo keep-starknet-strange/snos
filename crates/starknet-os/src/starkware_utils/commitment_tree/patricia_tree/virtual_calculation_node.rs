@@ -14,7 +14,7 @@ use crate::starkware_utils::commitment_tree::calculation::{
 use crate::starkware_utils::commitment_tree::errors::{CombineError, TreeError};
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::nodes::{
-    verify_path_value, BinaryNodeFact, EdgeNodeFact, PatriciaNodeFact,
+    BinaryNodeFact, EdgeNodeFact, PatriciaNodeFact, verify_path_value,
 };
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::starkware_utils::commitment_tree::patricia_tree::virtual_patricia_node::VirtualPatriciaNode;

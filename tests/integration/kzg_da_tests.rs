@@ -9,7 +9,7 @@ use rstest::rstest;
 use starknet_api::core::EntryPointSelector;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
-use crate::common::state::{initial_state_cairo0, initial_state_cairo1, StarknetTestState};
+use crate::common::state::{StarknetTestState, initial_state_cairo0, initial_state_cairo1};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest]

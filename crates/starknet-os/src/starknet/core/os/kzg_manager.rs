@@ -1,5 +1,5 @@
-use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
+use cairo_vm::vm::errors::hint_errors::HintError;
 
 #[derive(Debug, Default)]
 pub struct KzgManager {

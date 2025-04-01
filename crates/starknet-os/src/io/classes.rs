@@ -1,12 +1,14 @@
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractEntryPoint;
 use cairo_lang_starknet_classes::NestedIntList;
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractEntryPoint;
+use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
-use pathfinder_class_hash::{compute_cairo_hinted_class_hash, json, prepare_json_contract_definition, RawCairoContractDefinition};
+use pathfinder_class_hash::{
+    RawCairoContractDefinition, compute_cairo_hinted_class_hash, json, prepare_json_contract_definition,
+};
 use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedContractClass, EntryPointType};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 
@@ -67,7 +69,7 @@ pub fn get_deprecated_contract_class_struct(
     vm.insert_value((class_base + 8)?, builtins_base)?;
 
     let contract_definition_dump = serde_json::to_vec(&deprecated_class).expect("Serialization should not fail");
-    let cairo_contract_class_json : RawCairoContractDefinition<'_> =
+    let cairo_contract_class_json: RawCairoContractDefinition<'_> =
         serde_json::from_slice::<json::CairoContractDefinition<'_>>(&contract_definition_dump)
             .expect("Deserialization should not fail")
             .into();

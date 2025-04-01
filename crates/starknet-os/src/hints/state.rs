@@ -11,18 +11,18 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::{any_box, Felt252};
+use cairo_vm::{Felt252, any_box};
 use indoc::indoc;
 
 use super::bls_utils::split;
 use crate::cairo_types::traits::CairoType;
 use crate::cairo_types::trie::NodeEdge;
 use crate::execution::helper::ExecutionHelperWrapper;
-use crate::hints::types::{get_hash_builtin_fields, skip_verification_if_configured, PatriciaTreeMode, Preimage};
+use crate::hints::types::{PatriciaTreeMode, Preimage, get_hash_builtin_fields, skip_verification_if_configured};
 use crate::hints::vars;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::starknet_storage::{CommitmentInfo, PerContractStorage, StorageLeaf};
-use crate::starkware_utils::commitment_tree::update_tree::{decode_node, DecodeNodeCase, DecodedNode, UpdateTree};
+use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, DecodedNode, UpdateTree, decode_node};
 use crate::utils::{execute_coroutine, get_constant};
 
 fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {

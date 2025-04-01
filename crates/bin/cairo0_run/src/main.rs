@@ -1,9 +1,9 @@
+use cairo_vm::Felt252;
 use cairo_vm::cairo_run::CairoRunConfig;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::types::program::Program;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
-use cairo_vm::Felt252;
 use clap::Parser;
 use starknet_os::error::SnOsError;
 use starknet_os::hints;

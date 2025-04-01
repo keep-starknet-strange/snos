@@ -1,6 +1,6 @@
 use starknet_core::types::SierraEntryPoint;
 use starknet_core::utils::starknet_keccak;
-use starknet_crypto::{poseidon_hash_many, FieldElement};
+use starknet_crypto::{FieldElement, poseidon_hash_many};
 use starknet_types_core::felt::Felt;
 
 const CLASS_VERSION_PREFIX: &str = "CONTRACT_CLASS_V";

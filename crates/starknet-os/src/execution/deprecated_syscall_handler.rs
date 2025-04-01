@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
 use blockifier::blockifier::block::BlockInfo;
+use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use tokio::sync::RwLock;
 
 use super::helper::ExecutionHelperWrapper;
@@ -305,10 +305,10 @@ mod test {
     use blockifier::execution::call_info::Retdata;
     use blockifier::execution::entry_point_execution::CallResult;
     use blockifier::versioned_constants::VersionedConstants;
+    use cairo_vm::Felt252;
     use cairo_vm::types::exec_scope::ExecutionScopes;
     use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
     use cairo_vm::vm::vm_core::VirtualMachine;
-    use cairo_vm::Felt252;
     use rstest::{fixture, rstest};
     use starknet_api::block::{BlockNumber, BlockTimestamp};
     use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};

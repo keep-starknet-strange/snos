@@ -2,8 +2,8 @@ use std::fs::File;
 use std::io::{Cursor, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
-use base64::engine::general_purpose;
 use base64::Engine as _;
+use base64::engine::general_purpose;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use zip::write::FileOptions;
 use zip::{ZipArchive, ZipWriter};

@@ -11,8 +11,8 @@ use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_types_core::felt::Felt;
 
-use crate::utils::get_subcalled_contracts_from_tx_traces;
 use crate::ProveBlockError;
+use crate::utils::get_subcalled_contracts_from_tx_traces;
 
 #[derive(Clone)]
 pub struct FormattedStateUpdate {

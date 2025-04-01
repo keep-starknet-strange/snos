@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::error::Error;
 
-use blockifier::blockifier::block::{pre_process_block, BlockNumberHashPair};
+use blockifier::blockifier::block::{BlockNumberHashPair, pre_process_block};
 use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::StateReader;
@@ -10,8 +10,8 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
-use rpc_client::pathfinder::proofs::{ContractData, PathfinderProof, TrieNode};
 use rpc_client::RpcClient;
+use rpc_client::pathfinder::proofs::{ContractData, PathfinderProof, TrieNode};
 use starknet::core::types::{BlockId, StarknetError};
 use starknet::providers::{Provider as _, ProviderError};
 use starknet_api::transaction::TransactionHash;

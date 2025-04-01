@@ -6,7 +6,7 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::{any_box, Felt252};
+use cairo_vm::{Felt252, any_box};
 use indoc::indoc;
 
 use crate::hints::vars;

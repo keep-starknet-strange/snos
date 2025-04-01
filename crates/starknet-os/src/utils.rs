@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::{any_box, Felt252};
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use cairo_vm::{Felt252, any_box};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use serde_json::Number;
 use serde_with::{DeserializeAs, SerializeAs};
 use tokio::task;

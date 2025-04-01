@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, insert_value_into_ap,
 };
@@ -8,7 +9,6 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 
 use crate::cairo_types::syscalls::SecpNewResponse;
 use crate::hints::vars;

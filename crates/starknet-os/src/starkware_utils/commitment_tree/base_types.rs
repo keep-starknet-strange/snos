@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::ops::Sub;
 
-use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
+use cairo_vm::types::errors::math_errors::MathError;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};

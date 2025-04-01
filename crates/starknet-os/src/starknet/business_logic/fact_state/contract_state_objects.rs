@@ -11,7 +11,7 @@ use crate::starkware_utils::commitment_tree::base_types::Height;
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
-use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::{PatriciaTree, EMPTY_NODE_HASH};
+use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::{EMPTY_NODE_HASH, PatriciaTree};
 use crate::starkware_utils::serializable::SerializationPrefix;
 use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
 

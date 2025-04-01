@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::BuiltinRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use num_traits::{ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
 

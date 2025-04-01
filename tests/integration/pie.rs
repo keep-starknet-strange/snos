@@ -8,7 +8,7 @@ use cairo_vm::vm::runners::cairo_pie::{
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use rstest::rstest;
 use serde_json::json;
-use starknet_os::sharp::pie::{decode_base64_to_unzipped, PIE_FILES};
+use starknet_os::sharp::pie::{PIE_FILES, decode_base64_to_unzipped};
 
 use crate::common::{os_pie_string, setup_pie};
 

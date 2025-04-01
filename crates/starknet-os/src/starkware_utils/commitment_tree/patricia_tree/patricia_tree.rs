@@ -72,8 +72,8 @@ mod tests {
     use cairo_vm::Felt252;
     use num_bigint::BigUint;
     use num_traits::ToPrimitive;
-    use rand::seq::IteratorRandom;
     use rand::Rng;
+    use rand::seq::IteratorRandom;
     use rstest::{fixture, rstest};
 
     use super::*;

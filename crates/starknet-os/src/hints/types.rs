@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
+use cairo_vm::Felt252;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::Felt252;
 
 use crate::cairo_types::builtins::{HashBuiltin, SpongeHashBuiltin};
 use crate::hints::vars;

@@ -4,19 +4,19 @@ use std::marker::PhantomData;
 use ark_ec::short_weierstrass::SWCurveConfig;
 use ark_ff::PrimeField;
 use blockifier::execution::syscalls::secp::{EcPointCoordinates, SecpGetPointFromXRequest, SecpHintProcessor};
+use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use num_bigint::BigUint;
 
 use super::helper::ExecutionHelperWrapper;
 use super::syscall_handler_utils::{
-    felt_from_ptr, write_maybe_relocatable, SyscallHandler, SyscallResult, WriteResponseResult,
+    SyscallHandler, SyscallResult, WriteResponseResult, felt_from_ptr, write_maybe_relocatable,
 };
 use crate::cairo_types::syscalls::EcCoordinate;
 use crate::execution::helper::ExecutionHelper;
-use crate::execution::syscall_handler_utils::{write_felt, SyscallExecutionError};
+use crate::execution::syscall_handler_utils::{SyscallExecutionError, write_felt};
 use crate::starknet::starknet_storage::PerContractStorage;
 
 #[derive(Debug, Default)]
@@ -363,11 +363,11 @@ where
 mod tests {
 
     use ark_ff::One;
+    use blockifier::execution::syscalls::SyscallResult;
     use blockifier::execution::syscalls::secp::{
         EcPointCoordinates, SecpAddRequest, SecpGetPointFromXRequest, SecpGetXyRequest, SecpHintProcessor,
         SecpMulRequest, SecpOpRespone, SecpOptionalEcPointResponse,
     };
-    use blockifier::execution::syscalls::SyscallResult;
     use num_bigint::BigUint;
     use num_traits::{FromPrimitive, Num};
     use rstest::rstest;

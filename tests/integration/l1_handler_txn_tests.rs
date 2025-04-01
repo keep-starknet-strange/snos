@@ -11,7 +11,7 @@ use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::felt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
-use crate::common::state::{init_logging, initial_state_cairo0, initial_state_syscalls, StarknetTestState};
+use crate::common::state::{StarknetTestState, init_logging, initial_state_cairo0, initial_state_syscalls};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[fixture]

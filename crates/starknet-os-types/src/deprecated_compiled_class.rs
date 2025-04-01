@@ -1,12 +1,12 @@
-use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
+use once_cell::sync::OnceCell;
 use pathfinder_class_hash::compute_class_hash;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{ContractClassError, ConversionError};
 use crate::hash::GenericClassHash;
-use crate::starknet_core_addons::{decompress_starknet_core_contract_class, LegacyContractDecompressionError};
+use crate::starknet_core_addons::{LegacyContractDecompressionError, decompress_starknet_core_contract_class};
 
 pub type StarknetApiDeprecatedClass = starknet_api::deprecated_contract_class::ContractClass;
 pub type StarknetCoreDeprecatedClass = starknet_core::types::contract::legacy::LegacyContractClass;

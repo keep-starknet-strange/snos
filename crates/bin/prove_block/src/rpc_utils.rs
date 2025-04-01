@@ -3,11 +3,11 @@ use std::collections::{HashMap, HashSet};
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use num_bigint::BigInt;
+use rpc_client::RpcClient;
 use rpc_client::pathfinder::client::ClientError;
 use rpc_client::pathfinder::proofs::{
     ContractData, EdgePath, PathfinderClassProof, PathfinderProof, ProofVerificationError, TrieNode,
 };
-use rpc_client::RpcClient;
 use starknet::core::types::BlockWithTxs;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::state::StorageKey;

@@ -13,15 +13,15 @@ use starknet::core::types::{
     Transaction, TransactionTrace, TransactionTraceWithHash,
 };
 use starknet::providers::{Provider, ProviderError};
-use starknet_api::core::{calculate_contract_address, ContractAddress, PatriciaKey};
-use starknet_api::transaction::{Fee, TransactionHash};
 use starknet_api::StarknetApiError;
+use starknet_api::core::{ContractAddress, PatriciaKey, calculate_contract_address};
+use starknet_api::transaction::{Fee, TransactionHash};
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
 use thiserror::Error;
 
-use crate::utils::{felt_to_u128, FeltConversionError};
+use crate::utils::{FeltConversionError, felt_to_u128};
 
 #[derive(Error, Debug)]
 pub enum ToBlockifierError {

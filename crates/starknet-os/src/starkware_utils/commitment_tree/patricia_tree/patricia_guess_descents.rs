@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::ops::{Add, Mul};
 
+use cairo_vm::Felt252;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 

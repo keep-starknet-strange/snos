@@ -1,5 +1,5 @@
-use rpc_client::pathfinder::proofs::ProofVerificationError;
 use rpc_client::RpcClient;
+use rpc_client::pathfinder::proofs::ProofVerificationError;
 use rstest::rstest;
 use starknet::core::types::BlockId;
 use starknet::providers::Provider;

@@ -1,7 +1,7 @@
 use std::fs;
 
 use blockifier::context::BlockContext;
-use cairo_vm::cairo_run::{cairo_run, CairoRunConfig};
+use cairo_vm::cairo_run::{CairoRunConfig, cairo_run};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;

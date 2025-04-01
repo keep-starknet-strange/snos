@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
 use blockifier::execution::execution_utils::ReadOnlySegments;
+use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use tokio::sync::RwLock;
@@ -24,8 +24,9 @@ use crate::execution::secp_handler::{
     SecpAddHandler, SecpGetPointFromXHandler, SecpGetXyHandler, SecpMulHandler, SecpNewHandler,
 };
 use crate::execution::syscall_handler_utils::{
-    felt_from_ptr, run_handler, write_felt, write_maybe_relocatable, write_segment, EmptyRequest, EmptyResponse,
-    ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult, SyscallSelector, WriteResponseResult,
+    EmptyRequest, EmptyResponse, ReadOnlySegment, SyscallExecutionError, SyscallHandler, SyscallResult,
+    SyscallSelector, WriteResponseResult, felt_from_ptr, run_handler, write_felt, write_maybe_relocatable,
+    write_segment,
 };
 use crate::starknet::starknet_storage::PerContractStorage;
 

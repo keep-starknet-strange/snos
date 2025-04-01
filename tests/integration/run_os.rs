@@ -9,7 +9,7 @@ use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::declare::declare_tx;
 use blockifier::test_utils::deploy_account::deploy_account_tx;
 use blockifier::test_utils::invoke::invoke_tx;
-use blockifier::test_utils::{create_calldata, NonceManager};
+use blockifier::test_utils::{NonceManager, create_calldata};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::test_utils::{account_invoke_tx, calculate_class_info_for_testing, max_fee};
@@ -19,7 +19,7 @@ use blockifier::versioned_constants::VersionedConstants;
 use blockifier::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 use cairo_vm::Felt252;
 use rstest::{fixture, rstest};
-use starknet_api::core::{calculate_contract_address, ChainId, ContractAddress, EntryPointSelector};
+use starknet_api::core::{ChainId, ContractAddress, EntryPointSelector, calculate_contract_address};
 use starknet_api::felt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature, TransactionVersion,
@@ -34,7 +34,7 @@ use starknet_os::storage::storage_utils::unpack_blockifier_state_async;
 use crate::common::block_context;
 use crate::common::blockifier_contracts::load_cairo0_feature_contract;
 use crate::common::os_itest_contracts::load_os_itest_contract;
-use crate::common::state::{init_logging, DeclaredDeprecatedContract, StarknetStateBuilder, StarknetTestState};
+use crate::common::state::{DeclaredDeprecatedContract, StarknetStateBuilder, StarknetTestState, init_logging};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 use crate::declare_txn_tests::default_testing_resource_bounds;
 

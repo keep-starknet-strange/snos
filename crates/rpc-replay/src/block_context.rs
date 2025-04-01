@@ -9,7 +9,7 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::{contract_address, felt, patricia_key};
 
-use crate::utils::{felt_to_u128, FeltConversionError};
+use crate::utils::{FeltConversionError, felt_to_u128};
 
 fn felt_to_gas_price(price: &Felt) -> Result<NonZeroU128, FeltConversionError> {
     // Inspiration taken from Papyrus:

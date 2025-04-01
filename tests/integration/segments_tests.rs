@@ -1,6 +1,6 @@
 use blockifier::context::BlockContext;
 use blockifier::invoke_tx_args;
-use blockifier::test_utils::{create_calldata, NonceManager};
+use blockifier::test_utils::{NonceManager, create_calldata};
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
 use blockifier::transaction::transaction_execution::Transaction;
@@ -8,7 +8,7 @@ use rstest::rstest;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::common::block_context;
-use crate::common::state::{initial_state_syscalls, StarknetTestState};
+use crate::common::state::{StarknetTestState, initial_state_syscalls};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 #[rstest(

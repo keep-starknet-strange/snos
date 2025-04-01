@@ -1,5 +1,5 @@
 use cairo_vm::types::errors::math_errors::MathError;
-use starknet_crypto::{poseidon_hash, poseidon_hash_many, FieldElement};
+use starknet_crypto::{FieldElement, poseidon_hash, poseidon_hash_many};
 use starknet_os_types::hash::Hash;
 
 use crate::storage::storage::HashFunctionType;

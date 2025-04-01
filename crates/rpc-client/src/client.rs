@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use reqwest::Url;
-use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
+use starknet::providers::jsonrpc::HttpTransport;
 
 use crate::pathfinder::client::PathfinderRpcClient;
 

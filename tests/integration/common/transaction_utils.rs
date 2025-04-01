@@ -10,12 +10,12 @@ use blockifier::transaction::account_transaction::AccountTransaction::{Declare, 
 use blockifier::transaction::objects::{TransactionInfo, TransactionInfoCreator};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
+use cairo_vm::Felt252;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
-use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use rstest::rstest;
-use starknet_api::core::{calculate_contract_address, ChainId, ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress, PatriciaKey, calculate_contract_address};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     DeclareTransactionV0V1, DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransactionV1,
@@ -23,16 +23,16 @@ use starknet_api::transaction::{
     ResourceBoundsMapping, TransactionHash,
 };
 use starknet_api::{contract_address, felt, patricia_key};
-use starknet_crypto::{pedersen_hash, FieldElement};
+use starknet_crypto::{FieldElement, pedersen_hash};
 use starknet_os::config::{BLOCK_HASH_CONTRACT_ADDRESS, STORED_BLOCK_HASH_BUFFER};
 use starknet_os::crypto::pedersen::PedersenHash;
 use starknet_os::crypto::poseidon::poseidon_hash_many_bytes;
 use starknet_os::error::SnOsError;
 use starknet_os::error::SnOsError::Runner;
 use starknet_os::execution::helper::ExecutionHelperWrapper;
+use starknet_os::io::InternalTransaction;
 use starknet_os::io::input::StarknetOsInput;
 use starknet_os::io::output::StarknetOsOutput;
-use starknet_os::io::InternalTransaction;
 use starknet_os::starknet::business_logic::fact_state::state::SharedState;
 use starknet_os::starknet::core::os::transaction_hash::{L1_GAS, L2_GAS};
 use starknet_os::starknet::starknet_storage::OsSingleStarknetStorage;
