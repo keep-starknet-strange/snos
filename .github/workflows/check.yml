@@ -67,6 +67,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: "true"
+      - run: rustup update
       - run: rustup install nightly-2024-09-05
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
