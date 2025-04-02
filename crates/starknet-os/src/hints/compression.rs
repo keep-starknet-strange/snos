@@ -258,7 +258,7 @@ pub fn decompress(compressed: &mut impl Iterator<Item = BigUint>) -> Vec<BigUint
         n_elms: usize,
         elm_bound: &BigUint,
     ) -> Vec<BigUint> {
-        let n_packed_felts = (n_elms + get_n_elms_per_felt(elm_bound) - 1) / get_n_elms_per_felt(elm_bound);
+        let n_packed_felts = n_elms.div_ceil(get_n_elms_per_felt(elm_bound));
 
         let mut compressed_chunk = Vec::new();
         for _ in 0..n_packed_felts {

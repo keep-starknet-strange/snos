@@ -16,7 +16,6 @@ use crate::hints::vars;
 use crate::utils::get_variable_from_root_exec_scope;
 
 #[rustfmt::skip]
-
 pub const SEARCH_SORTED_OPTIMISTIC: &str = indoc! {r#"array_ptr = ids.array_ptr
 elm_size = ids.elm_size
 assert isinstance(elm_size, int) and elm_size > 0, \

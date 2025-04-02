@@ -50,7 +50,6 @@ impl ContractState {
 
     /// Returns a new ContractState object with the same contract object and a newly calculated
     /// storage root, according to the given updates of its leaves.
-
     pub async fn update<S, H>(
         self,
         ffc: &mut FactFetchingContext<S, H>,
