@@ -162,6 +162,9 @@ fn extract_code_addresses(transaction_info: &[TransactionExecutionInfo]) -> Hash
     addresses
 }
 
+/// Extracts inner code addresses recursively
+///  
+/// *Note* This is an unbounded recursive call
 fn extract_inner_addresses(call_info: &CallInfo, addresses: &mut HashSet<ContractAddress>) {
     if let Some(code_address) = &call_info.call.code_address {
         addresses.insert(*code_address);
