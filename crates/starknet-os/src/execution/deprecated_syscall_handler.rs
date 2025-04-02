@@ -393,28 +393,22 @@ mod test {
         // syscall_ptr should have been filled out syscall_ptr segment with a CallContractResponse
         let syscall_data_raw = vm.get_range(syscall_ptr, 7); // TODO: derive from struct size?
         let expected_temp_segment = Relocatable { segment_index: -1, offset: 0 };
-        assert_eq!(
-            syscall_data_raw,
-            vec![
-                None,
-                None,
-                None,
-                None,
-                None,
-                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::THREE))),
-                Some(Cow::Borrowed(&MaybeRelocatable::RelocatableValue(expected_temp_segment))),
-            ]
-        );
+        assert_eq!(syscall_data_raw, vec![
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::THREE))),
+            Some(Cow::Borrowed(&MaybeRelocatable::RelocatableValue(expected_temp_segment))),
+        ]);
 
         // the retdata should have been copied into the temp segment
         let retdata_raw = vm.get_range(expected_temp_segment, 3);
-        assert_eq!(
-            retdata_raw,
-            vec![
-                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::THREE))),
-                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::TWO))),
-                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ONE))),
-            ]
-        );
+        assert_eq!(retdata_raw, vec![
+            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::THREE))),
+            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::TWO))),
+            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ONE))),
+        ]);
     }
 }

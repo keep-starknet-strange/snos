@@ -174,10 +174,11 @@ where
                 TreeUpdate::Tuple(left_update, right_update) => {
                     let (left, right) = binary_fact_tree_node.get_children(self.ffc, self.facts).await?;
 
-                    vec![
-                        NodeType { index: 2u64 * &node_index, tree: left, update: *left_update.clone() },
-                        NodeType { index: 2u64 * &node_index + 1u64, tree: right, update: *right_update.clone() },
-                    ]
+                    vec![NodeType { index: 2u64 * &node_index, tree: left, update: *left_update.clone() }, NodeType {
+                        index: 2u64 * &node_index + 1u64,
+                        tree: right,
+                        update: *right_update.clone(),
+                    }]
                 }
             },
         };

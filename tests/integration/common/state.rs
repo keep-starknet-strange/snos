@@ -304,13 +304,10 @@ impl<'a> StarknetStateBuilder<'a> {
             log::debug!("Inserting deprecated class_hash_to_class: {:?} -> {:?}", contract.address, class_hash);
             dict_state_reader.address_to_class_hash.insert(contract.address, class_hash);
 
-            deployed_contracts.insert(
-                name.clone(),
-                DeployedDeprecatedContract {
-                    address: contract.address,
-                    declaration: DeclaredDeprecatedContract { class_hash, class: deprecated_compiled_class.clone() },
-                },
-            );
+            deployed_contracts.insert(name.clone(), DeployedDeprecatedContract {
+                address: contract.address,
+                declaration: DeclaredDeprecatedContract { class_hash, class: deprecated_compiled_class.clone() },
+            });
             compiled_contract_classes.insert(class_hash, deprecated_compiled_class.clone());
         }
 
@@ -353,14 +350,11 @@ impl<'a> StarknetStateBuilder<'a> {
                 dict_state_reader,
             );
 
-            compiled_classes.insert(
-                name,
-                DeclaredContract {
-                    class_hash,
-                    casm_class: compiled_contract_class.clone(),
-                    sierra_class: contract_class,
-                },
-            );
+            compiled_classes.insert(name, DeclaredContract {
+                class_hash,
+                casm_class: compiled_contract_class.clone(),
+                sierra_class: contract_class,
+            });
         }
 
         Ok(compiled_classes)
@@ -396,17 +390,14 @@ impl<'a> StarknetStateBuilder<'a> {
             log::debug!("Inserting class_hash_to_class: {:?} -> {:?}", contract_to_deploy.address, class_hash);
             dict_state_reader.address_to_class_hash.insert(contract_to_deploy.address, class_hash);
 
-            deployed_contracts.insert(
-                name.clone(),
-                DeployedContract {
-                    address: contract_to_deploy.address,
-                    declaration: DeclaredContract {
-                        class_hash,
-                        casm_class: compiled_contract_class.clone(),
-                        sierra_class: contract_class.clone(),
-                    },
+            deployed_contracts.insert(name.clone(), DeployedContract {
+                address: contract_to_deploy.address,
+                declaration: DeclaredContract {
+                    class_hash,
+                    casm_class: compiled_contract_class.clone(),
+                    sierra_class: contract_class.clone(),
                 },
-            );
+            });
             compiled_contract_classes.insert(class_hash, compiled_contract_class.clone());
         }
 

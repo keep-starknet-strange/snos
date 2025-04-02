@@ -595,13 +595,10 @@ mod tests {
         write_split_result(&mut vm, &mut exec_scopes, &ids_data, &ap_tracking, &constants).unwrap();
         let res_ptr = get_relocatable_from_var_name(vars::ids::RES, &vm, &ids_data, &ap_tracking).unwrap();
         let splits = vm.get_range(res_ptr, 3);
-        assert_eq!(
-            splits,
-            vec![
-                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ONE))),
-                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ZERO))),
-                Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ZERO))),
-            ]
-        );
+        assert_eq!(splits, vec![
+            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ONE))),
+            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ZERO))),
+            Some(Cow::Borrowed(&MaybeRelocatable::Int(Felt252::ZERO))),
+        ]);
     }
 }

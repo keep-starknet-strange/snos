@@ -45,20 +45,14 @@ pub fn resource_bounds_core_to_api(
     resource_bounds: &ResourceBoundsMapping,
 ) -> starknet_api::transaction::ResourceBoundsMapping {
     starknet_api::transaction::ResourceBoundsMapping(BTreeMap::from([
-        (
-            starknet_api::transaction::Resource::L1Gas,
-            starknet_api::transaction::ResourceBounds {
-                max_amount: resource_bounds.l1_gas.max_amount,
-                max_price_per_unit: resource_bounds.l1_gas.max_price_per_unit,
-            },
-        ),
-        (
-            starknet_api::transaction::Resource::L2Gas,
-            starknet_api::transaction::ResourceBounds {
-                max_amount: resource_bounds.l2_gas.max_amount,
-                max_price_per_unit: resource_bounds.l2_gas.max_price_per_unit,
-            },
-        ),
+        (starknet_api::transaction::Resource::L1Gas, starknet_api::transaction::ResourceBounds {
+            max_amount: resource_bounds.l1_gas.max_amount,
+            max_price_per_unit: resource_bounds.l1_gas.max_price_per_unit,
+        }),
+        (starknet_api::transaction::Resource::L2Gas, starknet_api::transaction::ResourceBounds {
+            max_amount: resource_bounds.l2_gas.max_amount,
+            max_price_per_unit: resource_bounds.l2_gas.max_price_per_unit,
+        }),
     ]))
 }
 

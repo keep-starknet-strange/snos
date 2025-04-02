@@ -335,14 +335,13 @@ mod test {
 
         // Trivial cases
         assert_eq!(actual_eval[0], coeffs.iter().sum::<BigInt>() % &prime);
-        assert_eq!(
-            fft(&vec![BigInt::zero(); ORDER], &generator, &prime, bit_reversed).unwrap(),
-            vec![BigInt::zero(); ORDER]
-        );
-        assert_eq!(
-            fft(&[BigInt::from(121212u64)], &BigInt::one(), &prime, bit_reversed).unwrap(),
-            vec![BigInt::from(121212u64)]
-        );
+        assert_eq!(fft(&vec![BigInt::zero(); ORDER], &generator, &prime, bit_reversed).unwrap(), vec![
+            BigInt::zero();
+            ORDER
+        ]);
+        assert_eq!(fft(&[BigInt::from(121212u64)], &BigInt::one(), &prime, bit_reversed).unwrap(), vec![BigInt::from(
+            121212u64
+        )]);
     }
 
     /// All the expected values are checked using the contract logic given here in

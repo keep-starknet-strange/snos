@@ -87,20 +87,17 @@ pub fn set_tree_structure(
     // * An inner node for the onchain data part (which contains n_pages children).
     //
     // This is encoded using the following sequence:
-    output_builtin.add_attribute(
-        "gps_fact_topology".to_string(),
-        vec![
-            // Push 1 + n_pages pages (all of the pages).
-            1 + n_pages,
-            // Create a parent node for the last n_pages.
-            n_pages,
-            // Don't push additional pages.
-            0,
-            // Take the first page (the main part) and the node that was created (onchain data)
-            // and use them to construct the root of the fact tree.
-            2,
-        ],
-    );
+    output_builtin.add_attribute("gps_fact_topology".to_string(), vec![
+        // Push 1 + n_pages pages (all of the pages).
+        1 + n_pages,
+        // Create a parent node for the last n_pages.
+        n_pages,
+        // Don't push additional pages.
+        0,
+        // Take the first page (the main part) and the node that was created (onchain data)
+        // and use them to construct the root of the fact tree.
+        2,
+    ]);
 
     Ok(())
 }
