@@ -1,3 +1,23 @@
+/// Tests to ensure that class hashes are done correctly on snos
+/// 
+/// By default we write simple tests where in this case we could just declare a contract and see which class hash is accepted
+/// But in this case it is not possible to do that, since our test setup can accept a state with an invalid class hash.
+/// The solution applied here involves creating the state from scratch by two steps:
+/// #### Initial setup via [`create_initial_transactions`]
+/// The goal here is to create the state similar to [`StarknetStateBuilder`]:
+/// 
+/// - deploy a token
+/// - fund an account
+/// - deploy the account
+/// 
+/// #### Deploy our pre 0.9.0 contract
+/// We will reuse the state for these txns. 
+/// We will also attempt to use both hashing mechanisms to assert which snos supports:
+/// 
+/// - declare the old contract
+/// - deploy the old contract
+/// 
+/// These tests check which is supported and show that the pathfinder method is the correct one.
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
