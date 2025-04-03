@@ -1,5 +1,5 @@
 /// Tests to ensure that class hashes are done correctly on snos
-/// 
+///
 /// ### Problem
 /// Different crates used on snos provide dfferent approches for calculating classhashes.
 /// These include:
@@ -9,7 +9,7 @@
 /// The goal of these tests is to attempt to declare and deploy a contract using both available mechanisms and verify the correct approach based on the os.
 ///
 /// #### Why are the tests more complex than usual?
-/// 
+///
 /// By default we write simple tests where in this case we could just declare a contract and see which class hash is accepted
 /// But in this case it is not possible to do that, since our test setup can accept a state with an invalid class hash.
 /// The solution applied here involves creating the state from scratch, then deploying a contract with both hashing approach then finding which is correct:
@@ -28,7 +28,7 @@
 /// - deploy the old contract
 ///
 /// These tests check which is supported and show that the pathfinder method is the correct one.
-/// 
+///
 ///  #### Related PRs
 /// - https://github.com/eqlabs/pathfinder/pull/565
 /// - https://github.com/madara-alliance/starkgate-contracts-legacy/pull/1
