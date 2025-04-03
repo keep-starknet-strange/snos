@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::iter::once;
 
+use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_maybe_relocatable_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
@@ -13,7 +14,6 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use indoc::indoc;
 use lazy_static::lazy_static;
 use num_bigint::BigUint;
@@ -258,7 +258,7 @@ pub fn decompress(compressed: &mut impl Iterator<Item = BigUint>) -> Vec<BigUint
         n_elms: usize,
         elm_bound: &BigUint,
     ) -> Vec<BigUint> {
-        let n_packed_felts = (n_elms + get_n_elms_per_felt(elm_bound) - 1) / get_n_elms_per_felt(elm_bound);
+        let n_packed_felts = n_elms.div_ceil(get_n_elms_per_felt(elm_bound));
 
         let mut compressed_chunk = Vec::new();
         for _ in 0..n_packed_felts {

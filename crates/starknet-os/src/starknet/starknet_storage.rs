@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
+use cairo_vm::vm::errors::hint_errors::HintError;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -9,7 +9,7 @@ use starknet_os_types::hash::Hash;
 
 use crate::starkware_utils::commitment_tree::base_types::TreeIndex;
 use crate::starkware_utils::commitment_tree::binary_fact_tree::{
-    binary_fact_dict_to_felts, BinaryFactDict, BinaryFactTree,
+    BinaryFactDict, BinaryFactTree, binary_fact_dict_to_felts,
 };
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;

@@ -1,6 +1,7 @@
 use std::cmp::min;
 use std::collections::HashMap;
 
+use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
@@ -9,7 +10,6 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use indoc::indoc;
 use num_integer::div_ceil;
 
@@ -87,20 +87,17 @@ pub fn set_tree_structure(
     // * An inner node for the onchain data part (which contains n_pages children).
     //
     // This is encoded using the following sequence:
-    output_builtin.add_attribute(
-        "gps_fact_topology".to_string(),
-        vec![
-            // Push 1 + n_pages pages (all of the pages).
-            1 + n_pages,
-            // Create a parent node for the last n_pages.
-            n_pages,
-            // Don't push additional pages.
-            0,
-            // Take the first page (the main part) and the node that was created (onchain data)
-            // and use them to construct the root of the fact tree.
-            2,
-        ],
-    );
+    output_builtin.add_attribute("gps_fact_topology".to_string(), vec![
+        // Push 1 + n_pages pages (all of the pages).
+        1 + n_pages,
+        // Create a parent node for the last n_pages.
+        n_pages,
+        // Don't push additional pages.
+        0,
+        // Take the first page (the main part) and the node that was created (onchain data)
+        // and use them to construct the root of the fact tree.
+        2,
+    ]);
 
     Ok(())
 }

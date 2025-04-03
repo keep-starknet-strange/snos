@@ -13,15 +13,15 @@ use starknet::core::types::{
     Transaction, TransactionTrace, TransactionTraceWithHash,
 };
 use starknet::providers::{Provider, ProviderError};
-use starknet_api::core::{calculate_contract_address, ContractAddress, PatriciaKey};
-use starknet_api::transaction::{Fee, TransactionHash};
 use starknet_api::StarknetApiError;
+use starknet_api::core::{ContractAddress, PatriciaKey, calculate_contract_address};
+use starknet_api::transaction::{Fee, TransactionHash};
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
 use thiserror::Error;
 
-use crate::utils::{felt_to_u128, FeltConversionError};
+use crate::utils::{FeltConversionError, felt_to_u128};
 
 #[derive(Error, Debug)]
 pub enum ToBlockifierError {
@@ -45,20 +45,14 @@ pub fn resource_bounds_core_to_api(
     resource_bounds: &ResourceBoundsMapping,
 ) -> starknet_api::transaction::ResourceBoundsMapping {
     starknet_api::transaction::ResourceBoundsMapping(BTreeMap::from([
-        (
-            starknet_api::transaction::Resource::L1Gas,
-            starknet_api::transaction::ResourceBounds {
-                max_amount: resource_bounds.l1_gas.max_amount,
-                max_price_per_unit: resource_bounds.l1_gas.max_price_per_unit,
-            },
-        ),
-        (
-            starknet_api::transaction::Resource::L2Gas,
-            starknet_api::transaction::ResourceBounds {
-                max_amount: resource_bounds.l2_gas.max_amount,
-                max_price_per_unit: resource_bounds.l2_gas.max_price_per_unit,
-            },
-        ),
+        (starknet_api::transaction::Resource::L1Gas, starknet_api::transaction::ResourceBounds {
+            max_amount: resource_bounds.l1_gas.max_amount,
+            max_price_per_unit: resource_bounds.l1_gas.max_price_per_unit,
+        }),
+        (starknet_api::transaction::Resource::L2Gas, starknet_api::transaction::ResourceBounds {
+            max_amount: resource_bounds.l2_gas.max_amount,
+            max_price_per_unit: resource_bounds.l2_gas.max_price_per_unit,
+        }),
     ]))
 }
 

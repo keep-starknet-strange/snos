@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
@@ -9,14 +10,12 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use indoc::indoc;
 
 use crate::hints::vars;
 use crate::utils::get_variable_from_root_exec_scope;
 
 #[rustfmt::skip]
-
 pub const SEARCH_SORTED_OPTIMISTIC: &str = indoc! {r#"array_ptr = ids.array_ptr
 elm_size = ids.elm_size
 assert isinstance(elm_size, int) and elm_size > 0, \

@@ -11,7 +11,7 @@ use crate::starkware_utils::commitment_tree::calculation::{Calculation, Calculat
 use crate::starkware_utils::commitment_tree::errors::{TreeError, UpdateTreeError};
 use crate::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
-use crate::starkware_utils::commitment_tree::merkle_tree::traverse_tree::{traverse_tree, TreeTraverser};
+use crate::starkware_utils::commitment_tree::merkle_tree::traverse_tree::{TreeTraverser, traverse_tree};
 use crate::starkware_utils::commitment_tree::patricia_tree::nodes::PatriciaNodeFact;
 use crate::storage::storage::{DbObject, FactFetchingContext, HashFunctionType, Storage, StorageError};
 
@@ -174,10 +174,11 @@ where
                 TreeUpdate::Tuple(left_update, right_update) => {
                     let (left, right) = binary_fact_tree_node.get_children(self.ffc, self.facts).await?;
 
-                    vec![
-                        NodeType { index: 2u64 * &node_index, tree: left, update: *left_update.clone() },
-                        NodeType { index: 2u64 * &node_index + 1u64, tree: right, update: *right_update.clone() },
-                    ]
+                    vec![NodeType { index: 2u64 * &node_index, tree: left, update: *left_update.clone() }, NodeType {
+                        index: 2u64 * &node_index + 1u64,
+                        tree: right,
+                        update: *right_update.clone(),
+                    }]
                 }
             },
         };

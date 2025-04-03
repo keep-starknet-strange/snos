@@ -1,4 +1,4 @@
-use starknet_crypto::{pedersen_hash, FieldElement};
+use starknet_crypto::{FieldElement, pedersen_hash};
 use starknet_os_types::hash::Hash;
 
 use crate::storage::storage::HashFunctionType;

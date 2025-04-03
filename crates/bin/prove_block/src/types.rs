@@ -8,7 +8,7 @@ use starknet::core::types::{
     InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction,
     Transaction,
 };
-use starknet_api::core::{calculate_contract_address, ClassHash};
+use starknet_api::core::{ClassHash, calculate_contract_address};
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_os::io::InternalTransaction;
 

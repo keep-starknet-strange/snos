@@ -7,9 +7,9 @@ use blockifier::context::BlockContext;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point_execution::CallResult;
 use blockifier::transaction::objects::TransactionExecutionInfo;
+use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::Felt252;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use tokio::sync::RwLock;
 

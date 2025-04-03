@@ -18,7 +18,6 @@ env_logger = { workspace = true }
 futures-core = { workspace = true }
 pathfinder-common = { workspace = true }
 pathfinder-crypto = { workspace = true }
-pathfinder-serde = { workspace = true }
 reqwest = { workspace = true }
 rpc-client = { workspace = true }
 rpc-replay = { workspace = true }

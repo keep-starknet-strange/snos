@@ -1,6 +1,6 @@
-use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{ContractClassError, ConversionError};

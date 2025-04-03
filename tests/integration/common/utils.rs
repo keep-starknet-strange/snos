@@ -1,10 +1,10 @@
 use std::env;
 
 use blockifier::context::BlockContext;
+use cairo_vm::Felt252;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::runners::cairo_runner::CairoRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use num_traits::ToPrimitive;
 use starknet_os::io::output::StarknetOsOutput;
 
@@ -17,7 +17,10 @@ pub fn check_output_vs_python(
     let mut rs_output = String::new();
     match run_output {
         Ok((_, mut vm)) => vm.write_output(&mut rs_output),
-        Err(e) => Ok(rs_output.push_str(&format!("{e:#?}"))),
+        Err(e) => {
+            rs_output.push_str(&format!("{e:#?}"));
+            Ok(())
+        }
     };
 
     println!("\n-------------------------------RUST PROGRAM OUTPUT-------------------------------\n");

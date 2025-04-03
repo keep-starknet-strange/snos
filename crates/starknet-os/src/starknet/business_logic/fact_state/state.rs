@@ -5,8 +5,8 @@ use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::CommitmentStateDiff;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
-use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::Felt252;
+use cairo_vm::types::errors::math_errors::MathError;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
@@ -17,9 +17,9 @@ use crate::config::{
     COMPILED_CLASS_HASH_COMMITMENT_TREE_HEIGHT, CONTRACT_ADDRESS_BITS, CONTRACT_STATES_COMMITMENT_TREE_HEIGHT,
     GLOBAL_STATE_VERSION,
 };
-use crate::crypto::poseidon::{poseidon_hash_many_bytes, PoseidonHash};
+use crate::crypto::poseidon::{PoseidonHash, poseidon_hash_many_bytes};
 use crate::starknet::business_logic::fact_state::contract_class_objects::{
-    get_ffc_for_contract_class_facts, CompiledClassFact, ContractClassLeaf, DeprecatedCompiledClassFact,
+    CompiledClassFact, ContractClassLeaf, DeprecatedCompiledClassFact, get_ffc_for_contract_class_facts,
 };
 use crate::starknet::business_logic::fact_state::contract_state_objects::ContractState;
 use crate::starknet::starknet_storage::StorageLeaf;

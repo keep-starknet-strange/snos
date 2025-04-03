@@ -10,12 +10,12 @@ use starknet_os_types::hash::Hash;
 use crate::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath, TreeIndex};
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactDict;
 use crate::starkware_utils::commitment_tree::binary_fact_tree_node::{
-    read_node_fact, write_node_fact, BinaryFactTreeNode,
+    BinaryFactTreeNode, read_node_fact, write_node_fact,
 };
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::nodes::{
-    verify_path_value, EdgeNodeFact, PatriciaNodeFact,
+    EdgeNodeFact, PatriciaNodeFact, verify_path_value,
 };
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage};
@@ -324,8 +324,8 @@ mod tests {
     use std::collections::HashSet;
 
     use cairo_vm::Felt252;
-    use rand::seq::SliceRandom;
     use rand::Rng;
+    use rand::seq::SliceRandom;
     use rstest::{fixture, rstest};
 
     use super::*;
@@ -371,11 +371,7 @@ mod tests {
 
         println!("{}", root_hash.to_biguint());
 
-        if root_hash_bytes == expected_root_hash {
-            Ok(())
-        } else {
-            Err(())
-        }
+        if root_hash_bytes == expected_root_hash { Ok(()) } else { Err(()) }
     }
 
     async fn build_empty_patricia_virtual_node(ffc: &mut FFC, height: Height) -> VPN {

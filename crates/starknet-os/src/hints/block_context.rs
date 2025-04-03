@@ -1,7 +1,7 @@
 use core::panic;
 use std::any::Any;
-use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
+use std::collections::hash_map::IntoIter;
 use std::rc::Rc;
 
 use blockifier::context::BlockContext;
@@ -15,7 +15,7 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::{any_box, Felt252};
+use cairo_vm::{Felt252, any_box};
 use indoc::indoc;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::chain_id::chain_id_to_felt;

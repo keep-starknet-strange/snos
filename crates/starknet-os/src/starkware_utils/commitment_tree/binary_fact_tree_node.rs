@@ -11,7 +11,7 @@ use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactDict;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
-use crate::starkware_utils::commitment_tree::merkle_tree::traverse_tree::{traverse_tree, TreeTraverser};
+use crate::starkware_utils::commitment_tree::merkle_tree::traverse_tree::{TreeTraverser, traverse_tree};
 use crate::storage::storage::{FactFetchingContext, HashFunctionType, Storage, StorageError};
 
 #[derive(Debug, PartialEq)]

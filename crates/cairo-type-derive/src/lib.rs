@@ -1,7 +1,7 @@
 extern crate proc_macro;
 
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields, Type};
+use syn::{Data, DeriveInput, Fields, Type, parse_macro_input};
 
 #[proc_macro_derive(CairoType)]
 pub fn cairo_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

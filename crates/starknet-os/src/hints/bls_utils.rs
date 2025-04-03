@@ -1,5 +1,5 @@
-use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::Felt252;
+use cairo_vm::vm::errors::hint_errors::HintError;
 use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use num_integer::Integer;

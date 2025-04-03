@@ -9,7 +9,7 @@ use blockifier::state::cached_state::CachedState;
 use blockifier::test_utils::declare::declare_tx;
 use blockifier::test_utils::deploy_account::deploy_account_tx;
 use blockifier::test_utils::invoke::invoke_tx;
-use blockifier::test_utils::{create_calldata, NonceManager};
+use blockifier::test_utils::{NonceManager, create_calldata};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::test_utils::{account_invoke_tx, calculate_class_info_for_testing, max_fee};
@@ -19,7 +19,7 @@ use blockifier::versioned_constants::VersionedConstants;
 use blockifier::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 use cairo_vm::Felt252;
 use rstest::{fixture, rstest};
-use starknet_api::core::{calculate_contract_address, ChainId, ContractAddress, EntryPointSelector};
+use starknet_api::core::{ChainId, ContractAddress, EntryPointSelector, calculate_contract_address};
 use starknet_api::felt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature, TransactionVersion,
@@ -34,7 +34,7 @@ use starknet_os::storage::storage_utils::unpack_blockifier_state_async;
 use crate::common::block_context;
 use crate::common::blockifier_contracts::load_cairo0_feature_contract;
 use crate::common::os_itest_contracts::load_os_itest_contract;
-use crate::common::state::{init_logging, DeclaredDeprecatedContract, StarknetStateBuilder, StarknetTestState};
+use crate::common::state::{DeclaredDeprecatedContract, StarknetStateBuilder, StarknetTestState, init_logging};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 use crate::declare_txn_tests::default_testing_resource_bounds;
 
@@ -159,29 +159,20 @@ async fn prepare_extensive_os_test_params(
     let test_contract2_address = deployed_txs_addresses[1];
     let test_contract3_address = deployed_txs_addresses[2];
 
-    txs.push(build_invoke_tx!(
-        deploy_account_address,
-        nonce_manager,
-        test_contract1_address,
-        "set_value",
-        [85u128.into(), 47u128.into()],
-    ));
+    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract1_address, "set_value", [
+        85u128.into(),
+        47u128.into()
+    ],));
 
-    txs.push(build_invoke_tx!(
-        deploy_account_address,
-        nonce_manager,
-        test_contract1_address,
-        "set_value",
-        [81u128.into(), 0u128.into()],
-    ));
+    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract1_address, "set_value", [
+        81u128.into(),
+        0u128.into()
+    ],));
 
-    txs.push(build_invoke_tx!(
-        deploy_account_address,
-        nonce_manager,
-        test_contract3_address,
-        "set_value",
-        [97u128.into(), 0u128.into()],
-    ));
+    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract3_address, "set_value", [
+        97u128.into(),
+        0u128.into()
+    ],));
 
     txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract2_address, "entry_point", []));
 
@@ -195,13 +186,12 @@ async fn prepare_extensive_os_test_params(
         [1072023u128.into()],
     ));
 
-    txs.push(build_invoke_tx!(
-        deploy_account_address,
-        nonce_manager,
-        test_contract2_address,
-        "test_emit_event",
-        [1u128.into(), 1991u128.into(), 1u128.into(), 2021u128.into()],
-    ));
+    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract2_address, "test_emit_event", [
+        1u128.into(),
+        1991u128.into(),
+        1u128.into(),
+        2021u128.into()
+    ],));
 
     txs.push(build_invoke_tx!(
         deploy_account_address,
@@ -211,26 +201,19 @@ async fn prepare_extensive_os_test_params(
         [block_context.block_info().block_number.0.into()],
     ));
 
-    txs.push(build_invoke_tx!(
-        deploy_account_address,
-        nonce_manager,
-        test_contract1_address,
-        "test_call_contract",
-        [test_contract1_address.into(), selector_from_name("send_message").0, 1u128.into(), 85u128.into(),],
-    ));
+    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract1_address, "test_call_contract", [
+        test_contract1_address.into(),
+        selector_from_name("send_message").0,
+        1u128.into(),
+        85u128.into(),
+    ],));
 
-    txs.push(build_invoke_tx!(
-        deploy_account_address,
-        nonce_manager,
-        test_contract1_address,
-        "test_call_contract",
-        [
-            test_contract2_address.into(),
-            selector_from_name("test_get_caller_address").0,
-            1u128.into(),
-            test_contract1_address.into(), // Expected address.
-        ],
-    ));
+    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract1_address, "test_call_contract", [
+        test_contract2_address.into(),
+        selector_from_name("test_get_caller_address").0,
+        1u128.into(),
+        test_contract1_address.into(), // Expected address.
+    ],));
 
     txs.push(build_invoke_tx!(
         deploy_account_address,
@@ -269,13 +252,10 @@ async fn prepare_extensive_os_test_params(
         [delegate_proxy_address.into()]
     ));
 
-    txs.push(build_invoke_tx!(
-        deploy_account_address,
-        nonce_manager,
-        delegate_proxy_address,
-        "set_value",
-        [123u128.into(), 456u128.into()]
-    ));
+    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, delegate_proxy_address, "set_value", [
+        123u128.into(),
+        456u128.into()
+    ]));
 
     txs.push(build_invoke_tx!(
         deploy_account_address,
@@ -285,18 +265,12 @@ async fn prepare_extensive_os_test_params(
         [deploy_account_address.into()],
     ));
 
-    txs.push(build_invoke_tx!(
-        deploy_account_address,
-        nonce_manager,
-        test_contract1_address,
-        "test_call_contract",
-        [
-            delegate_proxy_address.into(),
-            selector_from_name("test_get_sequencer_address").0,
-            1u128.into(),
-            4096u128.into()
-        ],
-    ));
+    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract1_address, "test_call_contract", [
+        delegate_proxy_address.into(),
+        selector_from_name("test_get_sequencer_address").0,
+        1u128.into(),
+        4096u128.into()
+    ],));
 
     let calldata_args = vec![felt!(85_u16), felt!(2_u16)];
     let l1_tx = L1HandlerTransaction {
@@ -399,13 +373,9 @@ async fn prepare_extensive_os_test_params(
         vec![100u128.into()],
     ));
 
-    txs.push(build_invoke_tx!(
-        deploy_account_address,
-        nonce_manager,
-        test_contract1_address,
-        "test_replace_class",
-        [test_contract2.class_hash.0],
-    ));
+    txs.push(build_invoke_tx!(deploy_account_address, nonce_manager, test_contract1_address, "test_replace_class", [
+        test_contract2.class_hash.0
+    ],));
 
     txs.push(build_invoke_tx!(
         deploy_account_address,

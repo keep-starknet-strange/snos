@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
-use starknet_crypto::{poseidon_hash_many, FieldElement};
+use starknet_crypto::{FieldElement, poseidon_hash_many};
 use starknet_os_types::hash::Hash;
 
 use crate::execution::syscall_handler_utils::SyscallExecutionError;

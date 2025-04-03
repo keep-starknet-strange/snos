@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name,
     insert_value_into_ap,
@@ -11,7 +12,6 @@ use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
@@ -19,14 +19,14 @@ use num_traits::ToPrimitive;
 use crate::cairo_types::dict_access::DictAccess;
 use crate::cairo_types::trie::NodeEdge;
 use crate::hints::types::{
-    get_hash_builtin_fields, skip_verification_if_configured, PatriciaSkipValidationRunner, Preimage,
+    PatriciaSkipValidationRunner, Preimage, get_hash_builtin_fields, skip_verification_if_configured,
 };
 use crate::hints::vars;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentPath, DescentStart, Height, NodePath};
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_guess_descents::patricia_guess_descents;
 use crate::starkware_utils::commitment_tree::update_tree::{
-    build_update_tree, decode_node, DecodeNodeCase, DecodedNode, UpdateTree,
+    DecodeNodeCase, DecodedNode, UpdateTree, build_update_tree, decode_node,
 };
 use crate::utils::get_variable_from_root_exec_scope;
 
@@ -365,13 +365,13 @@ pub fn build_descent_map(
 mod tests {
     use std::collections::HashMap;
 
+    use cairo_vm::Felt252;
     use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::insert_value_from_var_name;
     use cairo_vm::hint_processor::hint_processor_definition::HintReference;
     use cairo_vm::serde::deserialize_program::ApTracking;
     use cairo_vm::types::exec_scope::ExecutionScopes;
     use cairo_vm::types::relocatable::Relocatable;
     use cairo_vm::vm::vm_core::VirtualMachine;
-    use cairo_vm::Felt252;
     use rstest::rstest;
 
     use super::*;

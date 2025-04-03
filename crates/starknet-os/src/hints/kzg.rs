@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::num::ParseIntError;
 use std::path::Path;
 
-use c_kzg::{Blob, KzgCommitment, BYTES_PER_FIELD_ELEMENT};
+use c_kzg::{BYTES_PER_FIELD_ELEMENT, Blob, KzgCommitment};
+use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
 };
@@ -12,7 +13,6 @@ use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::{BigInt, ParseBigIntError};
 use num_traits::{Num, One, Zero};
@@ -335,14 +335,13 @@ mod test {
 
         // Trivial cases
         assert_eq!(actual_eval[0], coeffs.iter().sum::<BigInt>() % &prime);
-        assert_eq!(
-            fft(&vec![BigInt::zero(); ORDER], &generator, &prime, bit_reversed).unwrap(),
-            vec![BigInt::zero(); ORDER]
-        );
-        assert_eq!(
-            fft(&[BigInt::from(121212u64)], &BigInt::one(), &prime, bit_reversed).unwrap(),
-            vec![BigInt::from(121212u64)]
-        );
+        assert_eq!(fft(&vec![BigInt::zero(); ORDER], &generator, &prime, bit_reversed).unwrap(), vec![
+            BigInt::zero();
+            ORDER
+        ]);
+        assert_eq!(fft(&[BigInt::from(121212u64)], &BigInt::one(), &prime, bit_reversed).unwrap(), vec![BigInt::from(
+            121212u64
+        )]);
     }
 
     /// All the expected values are checked using the contract logic given here in

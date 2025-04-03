@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use blockifier::context::BlockContext;
 use blockifier::declare_tx_args;
 use blockifier::execution::contract_class::ClassInfo;
-use blockifier::test_utils::{NonceManager, BALANCE};
+use blockifier::test_utils::{BALANCE, NonceManager};
 use blockifier::transaction::test_utils::{calculate_class_info_for_testing, max_fee};
 use rstest::{fixture, rstest};
 use starknet_api::contract_address;
@@ -16,7 +16,7 @@ use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
 use crate::common::block_context;
 use crate::common::blockifier_contracts::{load_cairo0_feature_contract, load_cairo1_feature_contract};
-use crate::common::state::{init_logging, initial_state_cairo1, StarknetStateBuilder, StarknetTestState};
+use crate::common::state::{StarknetStateBuilder, StarknetTestState, init_logging, initial_state_cairo1};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 
 // Copied from the non-public Blockifier fn

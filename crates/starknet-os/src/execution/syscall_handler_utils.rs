@@ -1,13 +1,13 @@
 use std::num::TryFromIntError;
 
 use blockifier::execution::syscalls::hint_processor::SyscallExecutionError as BlockifierSyscallError;
+use cairo_vm::Felt252;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use num_traits::ToPrimitive;
 use thiserror::Error;
 

@@ -1,7 +1,7 @@
-use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
 use cairo_vm::Felt252;
+use once_cell::sync::OnceCell;
 use serde::ser::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::serde_as;

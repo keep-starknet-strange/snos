@@ -1,10 +1,10 @@
 use std::fs;
 use std::path::PathBuf;
 
+use cairo_vm::Felt252;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
-use cairo_vm::Felt252;
 use clap::Parser;
 use prove_block::{debug_prove_error, get_memory_segment, prove_block};
 

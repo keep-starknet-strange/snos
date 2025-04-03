@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::ops::{Add, Mul};
 
+use cairo_vm::Felt252;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
@@ -419,13 +419,10 @@ mod tests {
         //  1   0   0   0
         // u u 0 0 0 0 0 0
         // Resulting in a descent of length 2.
-        let update_tree = build_update_tree(
-            height,
-            vec![
-                (TreeIndex::from(0u64), LF::new(Felt252::from(127))),
-                (TreeIndex::from(1u64), LF::new(Felt252::from(128))),
-            ],
-        );
+        let update_tree = build_update_tree(height, vec![
+            (TreeIndex::from(0u64), LF::new(Felt252::from(127))),
+            (TreeIndex::from(1u64), LF::new(Felt252::from(128))),
+        ]);
 
         // Start from an empty tree
         let prev_root = BigUint::from(0u64);
@@ -460,13 +457,10 @@ mod tests {
         //  1   0   1   0
         // 0 u 0 0 u 0 0 0
         // Resulting in two descents of length 2.
-        let update_tree = build_update_tree(
-            height,
-            vec![
-                (TreeIndex::from(1u64), LF::new(Felt252::from(128))),
-                (TreeIndex::from(4u64), LF::new(Felt252::from(129))),
-            ],
-        );
+        let update_tree = build_update_tree(height, vec![
+            (TreeIndex::from(1u64), LF::new(Felt252::from(128))),
+            (TreeIndex::from(4u64), LF::new(Felt252::from(129))),
+        ]);
 
         // Start from an empty tree
         let prev_root = BigUint::from(0u64);

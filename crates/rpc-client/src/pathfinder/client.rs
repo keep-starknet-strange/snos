@@ -1,6 +1,6 @@
 use reqwest::{Response, StatusCode};
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use serde_json::json;
 use starknet_types_core::felt::Felt;
 

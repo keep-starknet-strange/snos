@@ -7,7 +7,7 @@ use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::starkware_utils::serializable::{DeserializeError, Serializable, SerializationPrefix, SerializeError};
-use crate::storage::storage::{DbObject, Fact, HashFunctionType, Storage, HASH_BYTES};
+use crate::storage::storage::{DbObject, Fact, HASH_BYTES, HashFunctionType, Storage};
 
 const PATRICIA_NODE_PREFIX: &[u8] = "patricia_node".as_bytes();
 

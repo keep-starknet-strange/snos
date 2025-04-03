@@ -11,7 +11,7 @@ use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::context::BlockContext;
 use blockifier::invoke_tx_args;
 use blockifier::test_utils::invoke::invoke_tx;
-use blockifier::test_utils::{create_calldata, NonceManager};
+use blockifier::test_utils::{NonceManager, create_calldata};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::test_utils;
 use blockifier::transaction::test_utils::max_fee;
@@ -25,7 +25,7 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionH
 use starknet_os_types::chain_id::chain_id_to_felt;
 
 use crate::common::block_context;
-use crate::common::state::{initial_state_cairo0, StarknetTestState};
+use crate::common::state::{StarknetTestState, initial_state_cairo0};
 use crate::common::transaction_utils::execute_txs_and_run_os;
 use crate::common::utils::check_os_output_read_only_syscall;
 

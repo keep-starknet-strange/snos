@@ -11,7 +11,7 @@ use crate::starkware_utils::commitment_tree::base_types::Height;
 use crate::starkware_utils::commitment_tree::binary_fact_tree::BinaryFactTree;
 use crate::starkware_utils::commitment_tree::errors::TreeError;
 use crate::starkware_utils::commitment_tree::leaf_fact::LeafFact;
-use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::{PatriciaTree, EMPTY_NODE_HASH};
+use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::{EMPTY_NODE_HASH, PatriciaTree};
 use crate::starkware_utils::serializable::SerializationPrefix;
 use crate::storage::storage::{DbObject, Fact, FactFetchingContext, HashFunctionType, Storage};
 
@@ -50,7 +50,6 @@ impl ContractState {
 
     /// Returns a new ContractState object with the same contract object and a newly calculated
     /// storage root, according to the given updates of its leaves.
-
     pub async fn update<S, H>(
         self,
         ffc: &mut FactFetchingContext<S, H>,

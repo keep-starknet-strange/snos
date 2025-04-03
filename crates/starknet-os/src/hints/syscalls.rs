@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
+use cairo_vm::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_ptr_from_var_name, insert_value_from_var_name};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use cairo_vm::Felt252;
 use indoc::indoc;
 
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
@@ -846,12 +846,12 @@ mod tests {
     use rstest::{fixture, rstest};
 
     use super::*;
+    use crate::ExecutionHelperWrapper;
     use crate::crypto::pedersen::PedersenHash;
     use crate::execution::helper::ContractStorageMap;
     use crate::hints::tests::tests::{block_context, old_block_number_and_hash};
     use crate::starknet::starknet_storage::OsSingleStarknetStorage;
     use crate::storage::dict_storage::DictStorage;
-    use crate::ExecutionHelperWrapper;
 
     #[allow(clippy::upper_case_acronyms)]
     type PCS = OsSingleStarknetStorage<DictStorage, PedersenHash>;
