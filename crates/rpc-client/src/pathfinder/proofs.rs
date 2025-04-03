@@ -54,6 +54,9 @@ pub enum ProofVerificationError<'a> {
     #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
     InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
 
+    #[error("Proof is empty")]
+    EmptyProof,
+
     #[error("Conversion error")]
     ConversionError,
 }
@@ -88,14 +91,30 @@ pub struct PathfinderProof {
 #[allow(dead_code)]
 #[derive(Clone, Deserialize)]
 pub struct PathfinderClassProof {
-    pub class_commitment: Felt,
     pub class_proof: Vec<TrieNode>,
 }
 
 impl PathfinderClassProof {
-    /// Verifies that the class proof is valid.
     pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
-        verify_proof::<PoseidonHash>(class_hash, self.class_commitment, &self.class_proof)
+        verify_proof::<PoseidonHash>(class_hash, self.class_commitment()?, &self.class_proof)
+    }
+
+    /// Gets the "class_commitment" which is aka the root node of the class Merkle tree.
+    /// Pathfinder used to provide this explicitly, but stopped doing so in #2452:
+    ///
+    /// https://github.com/eqlabs/pathfinder/pull/2452
+    ///
+    /// However, the proof should always start with the root node, which means all we have
+    /// to do is hash the first node in the proof to get the same thing.
+    ///
+    /// NOTE: the v0.8 RPC spec does NOT require the proof to be in order, in which case it is
+    ///       much trickier to guess what the root node is.
+    pub fn class_commitment(&self) -> Result<Felt, ProofVerificationError> {
+        if !self.class_proof.is_empty() {
+            Ok(self.class_proof[0].hash::<PoseidonHash>())
+        } else {
+            Err(ProofVerificationError::EmptyProof) // TODO: give an error type or change fn return type
+        }
     }
 }
 
