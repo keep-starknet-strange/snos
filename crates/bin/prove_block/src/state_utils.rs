@@ -2,7 +2,10 @@ use std::collections::{HashMap, HashSet};
 
 use cairo_vm::Felt252;
 use rpc_client::RpcClient;
-use starknet::core::types::{BlockId, MaybePendingStateUpdate, StarknetError, StateDiff, TransactionTraceWithHash};
+use starknet::core::types::{
+    BlockId, ComputationResources, DataAvailabilityResources, DataResources, DeclareTransactionTrace,
+    ExecutionResources, MaybePendingStateUpdate, StarknetError, StateDiff, TransactionTraceWithHash,
+};
 use starknet::providers::{Provider, ProviderError};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::class_hash_utils::ContractClassComponentHashes;
@@ -12,7 +15,7 @@ use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_types_core::felt::Felt;
 
 use crate::utils::get_subcalled_contracts_from_tx_traces;
-use crate::ProveBlockError;
+use crate::{PreviousBlockId, ProveBlockError};
 
 #[derive(Clone)]
 pub struct FormattedStateUpdate {
@@ -30,53 +33,89 @@ pub struct FormattedStateUpdate {
 /// - Consolidates that information into a `FormattedStateUpdate`.
 pub(crate) async fn get_formatted_state_update(
     rpc_client: &RpcClient,
-    previous_block_id: BlockId,
+    previous_block_id: PreviousBlockId,
     block_id: BlockId,
 ) -> Result<(FormattedStateUpdate, Vec<TransactionTraceWithHash>), ProveBlockError> {
-    let state_update =
-        match rpc_client.starknet_rpc().get_state_update(block_id).await.expect("Failed to get state update") {
-            MaybePendingStateUpdate::Update(update) => update,
-            MaybePendingStateUpdate::PendingUpdate(_) => {
-                panic!("Block is still pending!")
-            }
-        };
-    let state_diff = state_update.state_diff;
+    if let Some(previous_block_id) = previous_block_id {
+        let state_update =
+            match rpc_client.starknet_rpc().get_state_update(block_id).await.expect("Failed to get state update") {
+                MaybePendingStateUpdate::Update(update) => update,
+                MaybePendingStateUpdate::PendingUpdate(_) => {
+                    panic!("Block is still pending!")
+                }
+            };
+        let state_diff = state_update.state_diff;
 
-    // Extract other contracts used in our block from the block trace
-    // We need this to get all the class hashes used and correctly feed address_to_class_hash
-    let traces =
-        rpc_client.starknet_rpc().trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
-    let (accessed_addresses, accessed_classes) = get_subcalled_contracts_from_tx_traces(&traces);
+        // Extract other contracts used in our block from the block trace
+        // We need this to get all the class hashes used and correctly feed address_to_class_hash
+        let traces =
+            rpc_client.starknet_rpc().trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
+        let (accessed_addresses, accessed_classes) = get_subcalled_contracts_from_tx_traces(&traces);
 
-    let declared_classes: HashSet<_> =
-        state_diff.declared_classes.iter().map(|declared_item| declared_item.class_hash).collect();
+        let declared_classes: HashSet<_> =
+            state_diff.declared_classes.iter().map(|declared_item| declared_item.class_hash).collect();
 
-    // TODO: Handle deprecated classes
-    let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = HashMap::new();
-    let (compiled_contract_classes, deprecated_compiled_contract_classes, declared_class_hash_component_hashes) =
-        build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
-            rpc_client,
-            previous_block_id,
-            block_id,
-            &accessed_addresses,
-            &declared_classes,
-            &accessed_classes,
-            &mut class_hash_to_compiled_class_hash,
-        )
-        .await?;
+        // TODO: Handle deprecated classes
+        let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = HashMap::new();
+        let (compiled_contract_classes, deprecated_compiled_contract_classes, declared_class_hash_component_hashes) =
+            build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
+                rpc_client,
+                previous_block_id,
+                block_id,
+                &accessed_addresses,
+                &declared_classes,
+                &accessed_classes,
+                &mut class_hash_to_compiled_class_hash,
+            )
+            .await?;
 
-    // OS will expect a Zero in compiled_class_hash for new classes. Overwrite the needed entries.
-    format_declared_classes(&state_diff, &mut class_hash_to_compiled_class_hash);
+        // OS will expect a Zero in compiled_class_hash for new classes. Overwrite the needed entries.
+        format_declared_classes(&state_diff, &mut class_hash_to_compiled_class_hash);
 
-    Ok((
-        FormattedStateUpdate {
-            class_hash_to_compiled_class_hash,
-            compiled_classes: compiled_contract_classes,
-            deprecated_compiled_classes: deprecated_compiled_contract_classes,
-            declared_class_hash_component_hashes,
-        },
-        traces,
-    ))
+        Ok((
+            FormattedStateUpdate {
+                class_hash_to_compiled_class_hash,
+                compiled_classes: compiled_contract_classes,
+                deprecated_compiled_classes: deprecated_compiled_contract_classes,
+                declared_class_hash_component_hashes,
+            },
+            traces,
+        ))
+    } else {
+        Ok((
+            FormattedStateUpdate {
+                class_hash_to_compiled_class_hash: Default::default(),
+                compiled_classes: Default::default(),
+                deprecated_compiled_classes: Default::default(),
+                declared_class_hash_component_hashes: Default::default(),
+            },
+            vec![TransactionTraceWithHash {
+                transaction_hash: Felt::ZERO,
+                trace_root: starknet::core::types::TransactionTrace::Declare(DeclareTransactionTrace {
+                    validate_invocation: None,
+                    fee_transfer_invocation: None,
+                    state_diff: None,
+                    execution_resources: ExecutionResources {
+                        computation_resources: ComputationResources {
+                            steps: 0,
+                            memory_holes: None,
+                            range_check_builtin_applications: None,
+                            pedersen_builtin_applications: None,
+                            poseidon_builtin_applications: None,
+                            ec_op_builtin_applications: None,
+                            ecdsa_builtin_applications: None,
+                            bitwise_builtin_applications: None,
+                            keccak_builtin_applications: None,
+                            segment_arena_builtin: None,
+                        },
+                        data_resources: DataResources {
+                            data_availability: DataAvailabilityResources { l1_data_gas: 0, l1_gas: 0 },
+                        },
+                    },
+                }),
+            }],
+        ))
+    }
 }
 
 /// Retrieves the compiled class for the given class hash at a specific block
