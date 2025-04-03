@@ -17,7 +17,10 @@ pub fn check_output_vs_python(
     let mut rs_output = String::new();
     match run_output {
         Ok((_, mut vm)) => vm.write_output(&mut rs_output),
-        Err(e) => Ok(rs_output.push_str(&format!("{e:#?}"))),
+        Err(e) => {
+            rs_output.push_str(&format!("{e:#?}"));
+            Ok(())
+        }
     };
 
     println!("\n-------------------------------RUST PROGRAM OUTPUT-------------------------------\n");
