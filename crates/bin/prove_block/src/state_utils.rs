@@ -2,10 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use cairo_vm::Felt252;
 use rpc_client::RpcClient;
-use starknet::core::types::{
-    BlockId, ComputationResources, DataAvailabilityResources, DataResources, DeclareTransactionTrace,
-    ExecutionResources, MaybePendingStateUpdate, StarknetError, StateDiff, TransactionTraceWithHash,
-};
+use starknet::core::types::{BlockId, MaybePendingStateUpdate, StarknetError, StateDiff, TransactionTraceWithHash};
 use starknet::providers::{Provider, ProviderError};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::class_hash_utils::ContractClassComponentHashes;
@@ -36,6 +33,8 @@ pub(crate) async fn get_formatted_state_update(
     previous_block_id: PreviousBlockId,
     block_id: BlockId,
 ) -> Result<(FormattedStateUpdate, Vec<TransactionTraceWithHash>), ProveBlockError> {
+    let traces =
+        rpc_client.starknet_rpc().trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
     if let Some(previous_block_id) = previous_block_id {
         let state_update =
             match rpc_client.starknet_rpc().get_state_update(block_id).await.expect("Failed to get state update") {
@@ -48,8 +47,6 @@ pub(crate) async fn get_formatted_state_update(
 
         // Extract other contracts used in our block from the block trace
         // We need this to get all the class hashes used and correctly feed address_to_class_hash
-        let traces =
-            rpc_client.starknet_rpc().trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
         let (accessed_addresses, accessed_classes) = get_subcalled_contracts_from_tx_traces(&traces);
 
         let declared_classes: HashSet<_> =
@@ -89,31 +86,7 @@ pub(crate) async fn get_formatted_state_update(
                 deprecated_compiled_classes: Default::default(),
                 declared_class_hash_component_hashes: Default::default(),
             },
-            vec![TransactionTraceWithHash {
-                transaction_hash: Felt::ZERO,
-                trace_root: starknet::core::types::TransactionTrace::Declare(DeclareTransactionTrace {
-                    validate_invocation: None,
-                    fee_transfer_invocation: None,
-                    state_diff: None,
-                    execution_resources: ExecutionResources {
-                        computation_resources: ComputationResources {
-                            steps: 0,
-                            memory_holes: None,
-                            range_check_builtin_applications: None,
-                            pedersen_builtin_applications: None,
-                            poseidon_builtin_applications: None,
-                            ec_op_builtin_applications: None,
-                            ecdsa_builtin_applications: None,
-                            bitwise_builtin_applications: None,
-                            keccak_builtin_applications: None,
-                            segment_arena_builtin: None,
-                        },
-                        data_resources: DataResources {
-                            data_availability: DataAvailabilityResources { l1_data_gas: 0, l1_gas: 0 },
-                        },
-                    },
-                }),
-            }],
+            traces,
         ))
     }
 }
