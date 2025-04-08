@@ -196,7 +196,9 @@ pub async fn prove_block(
         .map(|blockifier_state| {
             reexecute_transactions_with_blockifier(blockifier_state, &block_context, old_block_hash, txs).unwrap()
         })
-        .unwrap_or(vec![Default::default()]);
+        // We are dealing with block -1, lets add default infos with the same length as traces
+        // This would ideally be one but there can be more than one txn in block 0
+        .unwrap_or(vec![Default::default(); traces.len()]);
 
     let storage_proofs = get_storage_proofs(&rpc_client, block_number, &tx_execution_infos, old_block_number)
         .await
@@ -210,6 +212,7 @@ pub async fn prove_block(
         }
         _ => {
             let mut map = HashMap::new();
+            // We add a default proof for the block hash contract
             map.insert(
                 Felt::ONE,
                 PathfinderProof {
