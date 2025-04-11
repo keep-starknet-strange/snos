@@ -1,34 +1,6 @@
 #![allow(unused)]
 use indoc::indoc;
 
-// this was reduced into "HINT_10"
-pub const HINT_0: &str = indoc! {r#"return_values = ids.entry_point_return_values
-if return_values.failure_flag != 0:
-    # Fetch the error, up to 100 elements.
-    retdata_size = return_values.retdata_end - return_values.retdata_start
-    error = memory.get_range(return_values.retdata_start, max(0, min(100, retdata_size)))
-
-    print("Invalid return value in execute_entry_point:")
-    print(f"  Class hash: {hex(ids.execution_context.class_hash)}")
-    print(f"  Selector: {hex(ids.execution_context.execution_info.selector)}")
-    print(f"  Size: {retdata_size}")
-    print(f"  Error (at most 100 elements): {error}")
-
-if execution_helper.debug_mode:
-    # Validate the predicted gas cost.
-    actual = ids.remaining_gas - ids.entry_point_return_values.gas_builtin
-    predicted = execution_helper.call_info.gas_consumed
-    assert actual == predicted, (
-        "Predicted gas costs are inconsistent with the actual execution; "
-        f"{predicted=}, {actual=}."
-    )
-
-# Exit call.
-syscall_handler.validate_and_discard_syscall_ptr(
-    syscall_ptr_end=ids.entry_point_return_values.syscall_ptr
-)
-execution_helper.exit_call()"#};
-
 // same as "HINT_30" in unimplemented
 pub const HINT_1: &str = indoc! {r#"memory[fp + 18] = to_felt_or_relocatable(syscall_handler.block_info.use_kzg_da and (
     not os_input.full_output
