@@ -40,26 +40,37 @@ use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, TreeU
 use crate::utils::{custom_hint_error, execute_coroutine, get_constant};
 
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
-        tx = next(transactions)
-        assert tx.tx_type.name in ('INVOKE_FUNCTION', 'L1_HANDLER', 'DEPLOY_ACCOUNT', 'DECLARE'), (
-            f"Unexpected transaction type: {tx.type.name}."
-        )
+    from src.starkware.starknet.core.os.transaction_hash.transaction_hash import (
+        create_resource_bounds_list,
+    )
+    tx = next(transactions)
+    assert tx.tx_type.name in ('INVOKE_FUNCTION', 'L1_HANDLER', 'DEPLOY_ACCOUNT', 'DECLARE'), (
+        f"Unexpected transaction type: {tx.type.name}."
+    )
 
-        tx_type_bytes = tx.tx_type.name.encode("ascii")
-        ids.tx_type = int.from_bytes(tx_type_bytes, "big")
-        execution_helper.os_logger.enter_tx(
-            tx=tx,
-            n_steps=current_step,
-            builtin_ptrs=ids.builtin_ptrs,
-            range_check_ptr=ids.range_check_ptr,
-        )
+    tx_type_bytes = tx.tx_type.name.encode("ascii")
+    ids.tx_type = int.from_bytes(tx_type_bytes, "big")
+    execution_helper.os_logger.enter_tx(
+        tx=tx,
+        n_steps=current_step,
+        builtin_ptrs=ids.builtin_ptrs,
+        range_check_ptr=ids.range_check_ptr,
+    )
 
-        # Prepare a short callable to save code duplication.
-        exit_tx = lambda: execution_helper.os_logger.exit_tx(
-            n_steps=current_step,
-            builtin_ptrs=ids.builtin_ptrs,
-            range_check_ptr=ids.range_check_ptr,
-        )"#
+    # Prepare a short callable to save code duplication.
+    exit_tx = lambda: execution_helper.os_logger.exit_tx(
+        n_steps=current_step,
+        builtin_ptrs=ids.builtin_ptrs,
+        range_check_ptr=ids.range_check_ptr,
+    )
+
+    # Guess the resource bounds.
+    if tx.tx_type.name == 'L1_HANDLER' or tx.version < 3:
+        ids.resource_bounds = 0
+        ids.n_resource_bounds = 0
+    else:
+        ids.resource_bounds = segments.gen_arg(create_resource_bounds_list(tx.resource_bounds))
+        ids.n_resource_bounds = len(tx.resource_bounds)"#
 };
 pub fn load_next_tx(
     vm: &mut VirtualMachine,
@@ -82,8 +93,31 @@ pub fn load_next_tx(
         vm,
         ids_data,
         ap_tracking,
-    )
+    )?;
+
     // TODO: add logger
+
+    // Guess the resource bounds
+    if tx.r#type == "L1_HANDLER" {
+        insert_value_from_var_name(vars::ids::RESOURCE_BOUNDS, 0, vm, ids_data, ap_tracking)?;
+        insert_value_from_var_name(vars::ids::N_RESOURCE_BOUNDS, 0, vm, ids_data, ap_tracking)?;
+    } else {
+        let resource_bounds_base = vm.add_memory_segment();
+        let resource_bounds = tx.resource_bounds.ok_or_else(|| {
+            HintError::CustomHint("Transaction should have resource bounds".to_owned().into_boxed_str())
+        })?;
+        let resource_bounds_list = create_resource_bounds_list(&resource_bounds);
+        let resource_bounds_list_data = resource_bounds_list.iter().map(|felt| {
+            MaybeRelocatable::Int(*felt)
+        })
+        .collect::<Vec<_>>();
+        vm.load_data(resource_bounds_base, &resource_bounds_list_data[..])?;
+
+        insert_value_from_var_name(vars::ids::RESOURCE_BOUNDS, resource_bounds_base, vm, ids_data, ap_tracking)?;
+        insert_value_from_var_name(vars::ids::N_RESOURCE_BOUNDS, resource_bounds_list_data.len(), vm, ids_data, ap_tracking)?;
+    }
+
+    Ok(())
 }
 
 pub const EXIT_TX: &str = "exit_tx()";

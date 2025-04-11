@@ -38,28 +38,6 @@ pub const HINT_7: &str = indoc! {r#"memory[ap] = to_felt_or_relocatable(0 if tx.
 // ?
 pub const HINT_8: &str = indoc! {r#"memory[fp + 19] = to_felt_or_relocatable(os_input.full_output)"#};
 
-// this hint grew into "HINT_19"
-pub const HINT_9: &str = indoc! {r#"tx = next(transactions)
-assert tx.tx_type.name in ('INVOKE_FUNCTION', 'L1_HANDLER', 'DEPLOY_ACCOUNT', 'DECLARE'), (
-    f"Unexpected transaction type: {tx.type.name}."
-)
-
-tx_type_bytes = tx.tx_type.name.encode("ascii")
-ids.tx_type = int.from_bytes(tx_type_bytes, "big")
-execution_helper.os_logger.enter_tx(
-    tx=tx,
-    n_steps=current_step,
-    builtin_ptrs=ids.builtin_ptrs,
-    range_check_ptr=ids.range_check_ptr,
-)
-
-# Prepare a short callable to save code duplication.
-exit_tx = lambda: execution_helper.os_logger.exit_tx(
-    n_steps=current_step,
-    builtin_ptrs=ids.builtin_ptrs,
-    range_check_ptr=ids.range_check_ptr,
-)"#};
-
 // this hint looks like it grew into "HINT_22", but it also moved to a different fn (?) or at least
 // different part of the same fn
 pub const HINT_10: &str = indoc! {r#"from starkware.starknet.core.os.contract_class.compiled_class_hash import (

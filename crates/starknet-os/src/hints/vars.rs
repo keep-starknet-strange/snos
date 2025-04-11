@@ -102,6 +102,7 @@ pub mod ids {
     pub const N_BUILTINS: &str = "n_builtins";
     pub const N_ELMS: &str = "n_elms";
     pub const N_COMPILED_CLASS_FACTS: &str = "n_compiled_class_facts";
+    pub const N_RESOURCE_BOUNDS: &str = "n_resource_bounds";
     pub const N_SELECTED_BUILTINS: &str = "n_selected_builtins";
     pub const N_TXS: &str = "n_txs";
     pub const N_UPDATES: &str = "n_updates";
