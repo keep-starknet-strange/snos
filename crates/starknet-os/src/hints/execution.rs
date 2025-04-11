@@ -926,26 +926,19 @@ where
 }
 
 pub const CHECK_EXECUTION: &str = indoc! {r#"
-    return_values = ids.entry_point_return_values
-    if return_values.failure_flag != 0:
-        # Fetch the error, up to 100 elements.
-        retdata_size = return_values.retdata_end - return_values.retdata_start
-        error = memory.get_range(return_values.retdata_start, max(0, min(100, retdata_size)))
-
-        print("Invalid return value in execute_entry_point:")
-        print(f"  Class hash: {hex(ids.execution_context.class_hash)}")
-        print(f"  Selector: {hex(ids.execution_context.execution_info.selector)}")
-        print(f"  Size: {retdata_size}")
-        print(f"  Error (at most 100 elements): {error}")
-
     if execution_helper.debug_mode:
         # Validate the predicted gas cost.
         actual = ids.remaining_gas - ids.entry_point_return_values.gas_builtin
         predicted = execution_helper.call_info.gas_consumed
-        assert actual == predicted, (
-            "Predicted gas costs are inconsistent with the actual execution; "
-            f"{predicted=}, {actual=}."
-        )
+        if execution_helper.call_info.tracked_resource.is_sierra_gas():
+            predicted = predicted - ids.ENTRY_POINT_INITIAL_BUDGET
+            assert actual == predicted, (
+                "Predicted gas costs are inconsistent with the actual execution; "
+                f"{predicted=}, {actual=}."
+            )
+        else:
+            assert predicted == 0, "Predicted gas cost must be zero in CairoSteps mode."
+
 
     # Exit call.
     syscall_handler.validate_and_discard_syscall_ptr(
@@ -967,36 +960,19 @@ where
 {
     let return_values_ptr = get_ptr_from_var_name(vars::ids::ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
 
-    let failure_flag = vm.get_integer((return_values_ptr + EntryPointReturnValues::failure_flag_offset())?)?;
-    if failure_flag.into_owned() != Felt252::ZERO {
-        let retdata_end = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_end_offset())?)?;
-        let retdata_start =
-            vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_start_offset())?)?;
-        let retdata_size = (retdata_end - retdata_start)?;
-        let error = vm.get_range(retdata_start, std::cmp::min(100, retdata_size as usize));
-        let execution_context = get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
-        let class_hash = vm.get_integer((execution_context + ExecutionContext::class_hash_offset())?)?;
-        let selector = vm.get_relocatable((execution_context + ExecutionContext::execution_info_offset())?)?;
-        log::debug!("Invalid return value in execute_entry_point:");
-        log::debug!("  Class hash: {}", class_hash.to_hex_string());
-        log::debug!("  Selector: {}", selector);
-        log::debug!("  Size: {}", retdata_size);
-        log::debug!("  Error (at most 100 elements): {:?}", error);
-    }
-
     let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
-    // TODO: make sure it is necessary to check the gas costs
-    // if execution_helper.debug_mode {
-    //     let actual = get_integer_from_var_name("remaining_gas", vm, ids_data, ap_tracking)?;
-    //     let predicted = get_integer_from_var_name("gas_consumed", vm, ids_data, ap_tracking)?;
-    //     assert_eq!(
-    //         actual,
-    //         predicted,
-    //         "Predicted gas costs are inconsistent with the actual execution; predicted={},
-    // actual={}.",         predicted,
-    //         actual
-    //     );
-    // }
+
+    // TODO: make sure it is necessary to check the gas costs (we're ignoring the 'if debug' part)
+    /*
+    if execution_helper.debug_mode:
+        # Validate the predicted gas cost.
+        actual = ids.remaining_gas - ids.entry_point_return_values.gas_builtin
+        predicted = execution_helper.call_info.gas_consumed
+        assert actual == predicted, (
+            "Predicted gas costs are inconsistent with the actual execution; "
+            f"{predicted=}, {actual=}."
+        )
+    */
 
     let syscall_ptr_end = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::syscall_ptr_offset())?)?;
     let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;

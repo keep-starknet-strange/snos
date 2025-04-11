@@ -37,25 +37,6 @@ pub const HINT_8: &str = indoc! {r#"ids.aliases_entry = __dict_manager.get_dict(
 
 pub const HINT_9: &str = indoc! {r#"memory[ap] = to_felt_or_relocatable(ids.contract_address <= ids.MAX_NON_COMPRESSED_CONTRACT_ADDRESS)"#};
 
-pub const HINT_10: &str = indoc! {r#"if execution_helper.debug_mode:
-    # Validate the predicted gas cost.
-    actual = ids.remaining_gas - ids.entry_point_return_values.gas_builtin
-    predicted = execution_helper.call_info.gas_consumed
-    if execution_helper.call_info.tracked_resource.is_sierra_gas():
-        predicted = predicted - ids.ENTRY_POINT_INITIAL_BUDGET
-        assert actual == predicted, (
-            "Predicted gas costs are inconsistent with the actual execution; "
-            f"{predicted=}, {actual=}."
-        )
-    else:
-        assert predicted == 0, "Predicted gas cost must be zero in CairoSteps mode."
-
-
-# Exit call.
-syscall_handler.validate_and_discard_syscall_ptr(
-    syscall_ptr_end=ids.entry_point_return_values.syscall_ptr
-)
-execution_helper.exit_call()"#};
 
 pub const HINT_11: &str = indoc! {r#"vm_enter_scope({
     "bytecode_segment_structure": bytecode_segment_structures[ids.compiled_class_fact.hash]
