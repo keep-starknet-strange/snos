@@ -210,6 +210,9 @@ pub async fn prove_block(
                 .await
                 .expect("Failed to fetch storage proofs")
         }
+        None => get_storage_proofs(&rpc_client, 0, &tx_execution_infos, old_block_number)
+            .await
+            .expect("Failed to fetch storage proofs"),
         _ => {
             let mut map = HashMap::new();
             // We add a default proof for the block hash contract
