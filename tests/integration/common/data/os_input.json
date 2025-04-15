@@ -6,7 +6,6 @@
     "0x053bf4bfb891d31572a90f56ce8014c02d19546f3d79ac466a86299228531990": "build/contracts/test_contract.json",
     "0x045c99626348755dbbec83b8f61f8a83e96844f983aea00da4893ebac6322768": "build/contracts/dummy_token.json"
   },
-  "compiled_class_visited_pcs": {},
   "compiled_classes": {},
   "contracts": {
     "0": {

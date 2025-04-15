@@ -21,14 +21,6 @@ vm_enter_scope(dict(
     os_input=os_input,
 ))"#};
 
-// the vm_enter_scope() part was removed, and this is now a much larger hint ("HINT_26", I think)
-pub const HINT_5: &str = indoc! {r#"ids.compiled_class_facts = segments.add()
-ids.n_compiled_class_facts = len(os_input.compiled_classes)
-vm_enter_scope({
-    'compiled_class_facts': iter(os_input.compiled_classes.items()),
-    'compiled_class_visited_pcs': os_input.compiled_class_visited_pcs,
-})"#};
-
 // from cairo-lang 'git diff' it looks like this has been removed
 pub const HINT_6: &str = indoc! {r#"execution_helper.skip_call()"#};
 
