@@ -38,28 +38,6 @@ pub const HINT_7: &str = indoc! {r#"memory[ap] = to_felt_or_relocatable(0 if tx.
 // ?
 pub const HINT_8: &str = indoc! {r#"memory[fp + 19] = to_felt_or_relocatable(os_input.full_output)"#};
 
-// this hint looks like it grew into "HINT_22", but it also moved to a different fn (?) or at least
-// different part of the same fn
-pub const HINT_10: &str = indoc! {r#"from starkware.starknet.core.os.contract_class.compiled_class_hash import (
-    create_bytecode_segment_structure,
-    get_compiled_class_struct,
-)
-
-compiled_class_hash, compiled_class = next(compiled_class_facts)
-
-bytecode_segment_structure = create_bytecode_segment_structure(
-    bytecode=compiled_class.bytecode,
-    bytecode_segment_lengths=compiled_class.bytecode_segment_lengths,
-    visited_pcs=compiled_class_visited_pcs[compiled_class_hash],
-)
-
-cairo_contract = get_compiled_class_struct(
-    identifiers=ids._context.identifiers,
-    compiled_class=compiled_class,
-    bytecode=bytecode_segment_structure.bytecode_with_skipped_segments()
-)
-ids.compiled_class = segments.gen_arg(cairo_contract)"#};
-
 // this turned into two different hints: "HINT_11" and "HINT_4"
 pub const HINT_11: &str = indoc! {r#"computed_hash = ids.compiled_class_fact.hash
 expected_hash = compiled_class_hash

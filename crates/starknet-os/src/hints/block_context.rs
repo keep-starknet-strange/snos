@@ -63,56 +63,6 @@ pub fn load_class_facts(
     Ok(())
 }
 
-//
-pub const LOAD_CLASS_INNER: &str = indoc! {r#"
-    from starkware.starknet.core.os.contract_class.compiled_class_hash import (
-        create_bytecode_segment_structure,
-        get_compiled_class_struct,
-    )
-
-    compiled_class_hash, compiled_class = next(compiled_class_facts)
-
-    bytecode_segment_structure = create_bytecode_segment_structure(
-        bytecode=compiled_class.bytecode,
-        bytecode_segment_lengths=compiled_class.bytecode_segment_lengths,
-        visited_pcs=compiled_class_visited_pcs[compiled_class_hash],
-    )
-
-    cairo_contract = get_compiled_class_struct(
-        identifiers=ids._context.identifiers,
-        compiled_class=compiled_class,
-        bytecode=bytecode_segment_structure.bytecode_with_skipped_segments()
-    )
-    ids.compiled_class = segments.gen_arg(cairo_contract)"#
-};
-pub fn load_class_inner(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    let class_iter =
-        exec_scopes.get_mut_ref::<IntoIter<Felt252, GenericCasmContractClass>>(vars::ids::COMPILED_CLASS_FACTS)?;
-
-    let (compiled_class_hash, class) = class_iter
-        .next()
-        .ok_or(HintError::CustomHint("Compiled class iterator exhausted".to_string().into_boxed_str()))?;
-
-    exec_scopes.insert_value(vars::scopes::COMPILED_CLASS_HASH, compiled_class_hash);
-    exec_scopes.insert_value(vars::scopes::COMPILED_CLASS, class.clone());
-
-    let class_base = vm.add_memory_segment();
-    let compiled_class_visited_pcs: &HashMap<Felt252, Vec<Felt252>> =
-        exec_scopes.get_ref(vars::scopes::COMPILED_CLASS_VISITED_PCS)?;
-    let visited_pcs = compiled_class_visited_pcs.get(&compiled_class_hash).cloned();
-
-    let bytecode_segment_structure = write_class(vm, class_base, class, visited_pcs)?;
-    exec_scopes.insert_value(vars::scopes::BYTECODE_SEGMENT_STRUCTURE, bytecode_segment_structure);
-
-    insert_value_from_var_name(vars::ids::COMPILED_CLASS, class_base, vm, ids_data, ap_tracking)
-}
-
 pub const BYTECODE_SEGMENT_STRUCTURE: &str = indoc! {r#"
     vm_enter_scope({
         "bytecode_segment_structure": bytecode_segment_structure
