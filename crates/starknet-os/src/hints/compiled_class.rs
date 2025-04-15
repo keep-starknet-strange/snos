@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::hash_map::IntoIter;
+use std::rc::Rc;
 
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
@@ -14,6 +15,7 @@ use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use crate::cairo_types::structs::{CompiledClass, CompiledClassFact};
 use crate::hints::vars;
 use crate::io::classes::write_class;
+use crate::io::input::StarknetOsInput;
 use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
     BytecodeSegment, BytecodeSegmentStructureImpl,
 };
@@ -62,6 +64,73 @@ pub fn assert_end_of_bytecode_segments(
         return Err(HintError::AssertionFailed("bytecode_segments is not exhausted".to_string().into_boxed_str()));
     }
 
+    Ok(())
+}
+
+pub const LOAD_CLASS_FACTS: &str = indoc! {r#"
+    from starkware.starknet.core.os.contract_class.compiled_class_hash import (
+        create_bytecode_segment_structure,
+        get_compiled_class_struct,
+    )
+
+    ids.n_compiled_class_facts = len(os_input.compiled_classes)
+    ids.compiled_class_facts = (compiled_class_facts_end := segments.add())
+    for i, (compiled_class_hash, compiled_class) in enumerate(
+        os_input.compiled_classes.items()
+    ):
+        # Load the compiled class.
+        cairo_contract = get_compiled_class_struct(
+            identifiers=ids._context.identifiers,
+            compiled_class=compiled_class,
+            # Load the entire bytecode - the unaccessed segments will be overriden and skipped
+            # after the execution, in `validate_compiled_class_facts_post_execution`.
+            bytecode=compiled_class.bytecode,
+        )
+        segments.load_data(
+            ptr=ids.compiled_class_facts[i].address_,
+            data=(compiled_class_hash, segments.gen_arg(cairo_contract))
+        )
+
+        bytecode_ptr = ids.compiled_class_facts[i].compiled_class.bytecode_ptr
+        # Compiled classes are expected to end with a `ret` opcode followed by a pointer to
+        # the builtin costs.
+        segments.load_data(
+            ptr=bytecode_ptr + cairo_contract.bytecode_length,
+            data=[0x208b7fff7fff7ffe, ids.builtin_costs]
+        )
+
+        # Load hints and debug info.
+        vm_load_program(
+            compiled_class.get_runnable_program(entrypoint_builtins=[]), bytecode_ptr)"#
+};
+pub fn load_class_facts(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let os_input: Rc<StarknetOsInput> = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?.clone();
+    let compiled_class_facts_ptr = vm.add_memory_segment();
+    insert_value_from_var_name(vars::ids::COMPILED_CLASS_FACTS, compiled_class_facts_ptr, vm, ids_data, ap_tracking)?;
+
+    insert_value_from_var_name(
+        vars::ids::N_COMPILED_CLASS_FACTS,
+        os_input.compiled_classes.len(),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
+
+    todo!("compiled_Class_visited_pcs was removed, and this hint changed");
+    /*
+    let compiled_class_facts: Box<dyn Any> = Box::new(os_input.compiled_classes.clone().into_iter());
+    let compiled_class_visited_pcs: Box<dyn Any> = Box::new(os_input.compiled_class_visited_pcs.clone());
+    exec_scopes.enter_scope(HashMap::from([
+        (String::from(vars::scopes::COMPILED_CLASS_FACTS), compiled_class_facts),
+        (String::from(vars::scopes::COMPILED_CLASS_VISITED_PCS), compiled_class_visited_pcs),
+    ]));
+    */
     Ok(())
 }
 
