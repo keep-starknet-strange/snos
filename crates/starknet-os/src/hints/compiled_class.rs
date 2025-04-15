@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+use std::collections::hash_map::IntoIter;
 
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{insert_value_from_var_name, insert_value_into_ap};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -8,8 +9,11 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
+use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 
+use crate::cairo_types::structs::{CompiledClass, CompiledClassFact};
 use crate::hints::vars;
+use crate::io::classes::write_class;
 use crate::starknet::core::os::contract_class::compiled_class_hash_objects::{
     BytecodeSegment, BytecodeSegmentStructureImpl,
 };
@@ -127,6 +131,155 @@ pub fn set_ap_to_segment_hash(
 
     // Insert to ap
     insert_value_into_ap(vm, Felt252::from(hash))?;
+
+    Ok(())
+}
+
+pub const PREPARE_CLASS_FACT_VALIDATION: &str = indoc! {r#"
+    from starkware.cairo.lang.vm.relocatable import RelocatableValue
+
+    bytecode_segment_to_length = {}
+    compiled_hash_to_bytecode_segment = {}
+    for i in range(ids.n_compiled_class_facts):
+        fact = ids.compiled_class_facts[i]
+        bytecode_segment = fact.compiled_class.bytecode_ptr.segment_index
+        bytecode_segment_to_length[bytecode_segment] = fact.compiled_class.bytecode_length
+        compiled_hash_to_bytecode_segment[fact.hash] = bytecode_segment
+
+    bytecode_segment_to_visited_pcs = {
+        bytecode_segment: [] for bytecode_segment in bytecode_segment_to_length
+    }
+    for addr in iter_accessed_addresses():
+        if (
+            isinstance(addr, RelocatableValue)
+            and addr.segment_index in bytecode_segment_to_visited_pcs
+        ):
+            bytecode_segment_to_visited_pcs[addr.segment_index].append(addr.offset)
+
+    # Sort and remove the program extra data, which is not part of the hash.
+    for bytecode_segment, visited_pcs in bytecode_segment_to_visited_pcs.items():
+        visited_pcs.sort()
+        while (
+            len(visited_pcs) > 0
+            and visited_pcs[-1] >= bytecode_segment_to_length[bytecode_segment]
+        ):
+            visited_pcs.pop()
+
+    # Build the bytecode segment structures based on the execution info.
+    bytecode_segment_structures = {
+        compiled_hash: create_bytecode_segment_structure(
+            bytecode=compiled_class.bytecode,
+            bytecode_segment_lengths=compiled_class.bytecode_segment_lengths,
+            visited_pcs=bytecode_segment_to_visited_pcs[
+                compiled_hash_to_bytecode_segment[compiled_hash]
+            ],
+        ) for compiled_hash, compiled_class in os_input.compiled_classes.items()
+    }"#
+};
+pub fn prepare_class_fact_validation(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, Felt252>,
+) -> Result<(), HintError> {
+    let compiled_class_facts = get_ptr_from_var_name(vars::ids::COMPILED_CLASS_FACTS, vm, ids_data, ap_tracking)?;
+
+    let n_compiled_class_facts: u32 = get_integer_from_var_name(vars::ids::N_COMPILED_CLASS_FACTS, vm, ids_data, ap_tracking)?
+        .try_into()
+        .map_err(|_| HintError::BigIntToBigUintFail)?;
+
+    let mut bytecode_segment_to_length: HashMap<usize, usize> = HashMap::new();
+    let mut compiled_hash_to_bytecode_segment: HashMap<Felt252, usize> = HashMap::new();
+    for i in 0..n_compiled_class_facts {
+        let offset_len = i * CompiledClassFact::cairo_size() as u32;
+        let fact_ptr = (compiled_class_facts + offset_len)?;
+
+        // fact (CompiledClassFact *)
+        //     -> compiled_class (CompiledClass *)
+        //         -> bytecode_ptr (felt *)
+        //             -> segment_index (e.g. Relocatable::segment_index)
+        //   
+        // bytecode_segment = fact.compiled_class.bytecode_ptr.segment_index
+        let compiled_class_ptr = (fact_ptr + CompiledClassFact::compiled_class_offset())?;
+        let compiled_class = vm.get_relocatable(compiled_class_ptr)?;
+
+        let class_hash_ptr = (fact_ptr + CompiledClassFact::hash_offset())?;
+        let class_hash = vm.get_integer(class_hash_ptr)?.into_owned();
+
+        let bytecode_len_ptr = (compiled_class + CompiledClass::bytecode_length_offset())?;
+        let bytecode_len = vm.get_integer(bytecode_len_ptr)?
+            .into_owned()
+            .try_into()
+            .map_err(|_| HintError::BigIntToBigUintFail)?;
+        let bytecode_ptr = (compiled_class + CompiledClass::bytecode_ptr_offset())?;
+        let segment_index = bytecode_ptr.segment_index as usize; // TODO: is this a safe assumption?
+
+        /*
+        for i in range(ids.n_compiled_class_facts):
+            fact = ids.compiled_class_facts[i]
+            bytecode_segment = fact.compiled_class.bytecode_ptr.segment_index
+            bytecode_segment_to_length[bytecode_segment] = fact.compiled_class.bytecode_length
+            compiled_hash_to_bytecode_segment[fact.hash] = bytecode_segment
+        */
+
+        // TODO: I'm not sure if these asserts are appropriate. I would think so, but the python hint makes so such check.
+        assert!(!bytecode_segment_to_length.contains_key(&segment_index));
+        assert!(!compiled_hash_to_bytecode_segment.contains_key(&class_hash));
+
+        bytecode_segment_to_length.insert(segment_index, bytecode_len);
+        compiled_hash_to_bytecode_segment.insert(class_hash, segment_index);
+
+        // NOTE: this seems to just be priming an empty array for each bytecode segment
+        //       probably nothing to do here
+        /*
+        bytecode_segment_to_visited_pcs = {
+            bytecode_segment: [] for bytecode_segment in bytecode_segment_to_length
+        }
+        */
+
+        /*
+        for addr in iter_accessed_addresses():
+        if (
+            isinstance(addr, RelocatableValue)
+            and addr.segment_index in bytecode_segment_to_visited_pcs
+        ):
+            bytecode_segment_to_visited_pcs[addr.segment_index].append(addr.offset)
+        */
+
+        let mut bytecode_segment_to_visited_pcs = HashMap::new();
+        for segment_index in bytecode_segment_to_length.keys() {
+            let mut accessed_addresses = vm.segments.accessed_addresses(*segment_index).unwrap(); // TODO: unwrap
+            // Sort and remove the program extra data, which is not part of the hash.
+            accessed_addresses.sort();
+            accessed_addresses.truncate(*bytecode_segment_to_length.get(segment_index).unwrap()); // TODO: unwrap -- should probably throw a HintError instead
+
+            bytecode_segment_to_visited_pcs.insert(segment_index, accessed_addresses);
+        }
+
+        let class_iter =
+            exec_scopes.get_mut_ref::<IntoIter<Felt252, GenericCasmContractClass>>(vars::ids::COMPILED_CLASS_FACTS)?;
+
+        // Build the bytecode segment structures based on the execution info.
+        let mut bytecode_segment_structures = HashMap::new();
+        for (compiled_class_hash, class) in class_iter {
+            let bytecode_segment = compiled_hash_to_bytecode_segment
+                .get(&compiled_class_hash)
+                .unwrap(); // TODO: unwrap
+            let visited_pcs = bytecode_segment_to_visited_pcs
+                .get(&bytecode_segment)
+                .unwrap() // TODO: unwrap
+                .into_iter()
+                .map(|x| Felt252::from(*x))
+                .collect();
+
+            let class_base = vm.add_memory_segment();
+            let bytecode_segment_structure = write_class(vm, class_base, class, Some(visited_pcs))?;
+            bytecode_segment_structures.insert(compiled_class_hash, bytecode_segment_structure);
+        }
+
+        exec_scopes.insert_value(vars::scopes::BYTECODE_SEGMENT_STRUCTURES, bytecode_segment_structures);
+    }
 
     Ok(())
 }

@@ -1,4 +1,5 @@
 pub mod scopes {
+    pub const BYTECODE_SEGMENT_STRUCTURES: &str = "bytecode_segment_structures";
     pub const BLOCK_CONTEXT: &str = "block_context";
     pub const BYTECODE_SEGMENT_STRUCTURE: &str = "bytecode_segment_structure";
     pub const BYTECODE_SEGMENTS: &str = "bytecode_segments";

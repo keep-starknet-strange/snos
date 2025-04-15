@@ -100,6 +100,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(compiled_class::ASSIGN_BYTECODE_SEGMENTS.into(), compiled_class::assign_bytecode_segments);
     hints.insert(compiled_class::ASSERT_END_OF_BYTECODE_SEGMENTS.into(), compiled_class::assert_end_of_bytecode_segments);
     hints.insert(compiled_class::ITER_CURRENT_SEGMENT_INFO.into(), compiled_class::iter_current_segment_info);
+    hints.insert(compiled_class::PREPARE_CLASS_FACT_VALIDATION.into(), compiled_class::prepare_class_fact_validation);
     hints.insert(deprecated_compiled_class::LOAD_DEPRECATED_CLASS_FACTS.into(), deprecated_compiled_class::load_deprecated_class_facts);
     hints.insert(deprecated_compiled_class::LOAD_DEPRECATED_CLASS_INNER.into(), deprecated_compiled_class::load_deprecated_class_inner);
     hints.insert(execute_syscalls::IS_BLOCK_NUMBER_IN_BLOCK_HASH_BUFFER.into(), execute_syscalls::is_block_number_in_block_hash_buffer);
