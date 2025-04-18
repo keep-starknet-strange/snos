@@ -6,6 +6,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_f
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
@@ -111,9 +112,8 @@ pub fn load_class_facts(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let os_input: Rc<StarknetOsInput> = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?.clone();
-    let compiled_class_facts_ptr = vm.add_memory_segment();
-    insert_value_from_var_name(vars::ids::COMPILED_CLASS_FACTS, compiled_class_facts_ptr, vm, ids_data, ap_tracking)?;
 
+    // ids.n_compiled_class_facts = len(os_input.compiled_classes)
     insert_value_from_var_name(
         vars::ids::N_COMPILED_CLASS_FACTS,
         os_input.compiled_classes.len(),
@@ -122,15 +122,73 @@ pub fn load_class_facts(
         ap_tracking,
     )?;
 
-    todo!("compiled_Class_visited_pcs was removed, and this hint changed");
+    // ids.compiled_class_facts = (compiled_class_facts_end := segments.add())
+    let compiled_class_facts_ptr = vm.add_memory_segment();
+    insert_value_from_var_name(vars::ids::COMPILED_CLASS_FACTS, compiled_class_facts_ptr, vm, ids_data, ap_tracking)?;
+
+    for (i, (compiled_class_hash, class)) in os_input.compiled_classes.iter().enumerate() {
+
+        // Load the compiled class.
+        // cairo_contract = get_compiled_class_struct(
+        //
+        // it isn't clear what get_compiled_class_struct() does, it takes a CompiledClass and returns a CompiledClass...
+        // it wasn't changed in 0.13.4.
+        // but it was called in the previous load_class_facts hint.
+        //
+        // For now I'm going to skip this.
+        let cairo_contract = class;
+
+
+        // add a memory segment corresponding to the gen_arg(cairo_contract) call
+        let class_base = vm.add_memory_segment();
+
+        // TODO: we need to pass the full class bytecode into write_class
+        //       `cairo-lang-starknet-classes` crate's `CasmContractClass` has `pub bytecode: Vec<BigUintAsHex>`
+        //       blockifier has `self.program` which has `Arc<SharedProgramData` which has `data: Vec<MaybeRelocatable>`
+        //       ...cairo-lang seems like the win here
+        //
+        // TODO: write_class used to return a single BytecodeSegmentStructureImpl, but these are now handled in a different hint
+        //       as "bytecode_segment_structures"
+        let bytecode_segment_structure = write_class(vm, class_base, class.clone(), class.bytecode())?; // TODO: can we avoid this clone here?
+
+        let offset = CompiledClassFact::cairo_size() * i;
+        let data = [
+            MaybeRelocatable::Int(*compiled_class_hash), 
+            MaybeRelocatable::RelocatableValue(class_base)
+        ];
+        vm.load_data((compiled_class_facts_ptr + offset)?, &data)?;
+    }
+
     /*
-    let compiled_class_facts: Box<dyn Any> = Box::new(os_input.compiled_classes.clone().into_iter());
-    let compiled_class_visited_pcs: Box<dyn Any> = Box::new(os_input.compiled_class_visited_pcs.clone());
-    exec_scopes.enter_scope(HashMap::from([
-        (String::from(vars::scopes::COMPILED_CLASS_FACTS), compiled_class_facts),
-        (String::from(vars::scopes::COMPILED_CLASS_VISITED_PCS), compiled_class_visited_pcs),
-    ]));
+    for i, (compiled_class_hash, compiled_class) in enumerate(
+        os_input.compiled_classes.items()
+    ):
+        # Load the compiled class.
+        cairo_contract = get_compiled_class_struct(
+            identifiers=ids._context.identifiers,
+            compiled_class=compiled_class,
+            # Load the entire bytecode - the unaccessed segments will be overriden and skipped
+            # after the execution, in `validate_compiled_class_facts_post_execution`.
+            bytecode=compiled_class.bytecode,
+        )
+        segments.load_data(
+            ptr=ids.compiled_class_facts[i].address_,
+            data=(compiled_class_hash, segments.gen_arg(cairo_contract))
+        )
+
+        bytecode_ptr = ids.compiled_class_facts[i].compiled_class.bytecode_ptr
+        # Compiled classes are expected to end with a `ret` opcode followed by a pointer to
+        # the builtin costs.
+        segments.load_data(
+            ptr=bytecode_ptr + cairo_contract.bytecode_length,
+            data=[0x208b7fff7fff7ffe, ids.builtin_costs]
+        )
+
+        # Load hints and debug info.
+        vm_load_program(
+            compiled_class.get_runnable_program(entrypoint_builtins=[]), bytecode_ptr)"#
     */
+
     Ok(())
 }
 

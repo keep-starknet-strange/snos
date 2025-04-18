@@ -8,7 +8,6 @@ pub mod scopes {
     pub const COMMITMENT_INFO_BY_ADDRESS: &str = "commitment_info_by_address";
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACTS: &str = "compiled_class_facts";
-    pub const COMPILED_CLASS_VISITED_PCS: &str = "compiled_class_visited_pcs";
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
     pub const COMPONENT_HASHES: &str = "component_hashes";
     pub const DEPRECATED_CLASS_HASHES: &str = "__deprecated_class_hashes";
