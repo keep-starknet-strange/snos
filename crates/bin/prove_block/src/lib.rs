@@ -343,7 +343,6 @@ pub async fn prove_block(
         contract_class_commitment_info,
         deprecated_compiled_classes,
         compiled_classes,
-        compiled_class_visited_pcs: visited_pcs,
         contracts: contract_states,
         contract_address_to_class_hash,
         class_hash_to_compiled_class_hash,
