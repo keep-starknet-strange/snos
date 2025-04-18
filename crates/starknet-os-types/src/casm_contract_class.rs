@@ -1,3 +1,4 @@
+use cairo_vm::types::relocatable::MaybeRelocatable;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
@@ -102,6 +103,11 @@ impl GenericCasmContractClass {
 
     pub fn class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
         self.class_hash.get_or_try_init(|| self.compute_class_hash()).copied()
+    }
+
+    pub fn bytecode_len(&self) -> Result<usize, ContractClassError> {
+        let cairo_lang_class = self.get_cairo_lang_contract_class()?;
+        Ok(cairo_lang_class.bytecode.len())
     }
 }
 

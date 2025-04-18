@@ -2,15 +2,16 @@ use std::collections::HashMap;
 use std::collections::hash_map::IntoIter;
 use std::rc::Rc;
 
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap};
-use cairo_vm::hint_processor::hint_processor_definition::HintReference;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name, insert_value_into_ap};
+use cairo_vm::hint_processor::hint_processor_definition::{HintExtension, HintProcessor, HintReference};
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::MaybeRelocatable;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use cairo_vm::{any_box, Felt252};
 use indoc::indoc;
+use pathfinder_crypto::Felt;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 
 use crate::cairo_types::structs::{CompiledClass, CompiledClassFact};
@@ -105,12 +106,12 @@ pub const LOAD_CLASS_FACTS: &str = indoc! {r#"
             compiled_class.get_runnable_program(entrypoint_builtins=[]), bytecode_ptr)"#
 };
 pub fn load_class_facts(
+    _hint_processor: &dyn HintProcessor,
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
-    _constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
+) -> Result<HintExtension, HintError> {
     let os_input: Rc<StarknetOsInput> = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?.clone();
 
     // ids.n_compiled_class_facts = len(os_input.compiled_classes)
@@ -125,6 +126,9 @@ pub fn load_class_facts(
     // ids.compiled_class_facts = (compiled_class_facts_end := segments.add())
     let compiled_class_facts_ptr = vm.add_memory_segment();
     insert_value_from_var_name(vars::ids::COMPILED_CLASS_FACTS, compiled_class_facts_ptr, vm, ids_data, ap_tracking)?;
+
+    let builtin_costs = get_ptr_from_var_name(vars::ids::BUILTIN_COSTS, vm, ids_data, ap_tracking)?;
+    let mut hint_extension = HintExtension::new();
 
     for (i, (compiled_class_hash, class)) in os_input.compiled_classes.iter().enumerate() {
 
@@ -142,54 +146,51 @@ pub fn load_class_facts(
         // add a memory segment corresponding to the gen_arg(cairo_contract) call
         let class_base = vm.add_memory_segment();
 
-        // TODO: we need to pass the full class bytecode into write_class
-        //       `cairo-lang-starknet-classes` crate's `CasmContractClass` has `pub bytecode: Vec<BigUintAsHex>`
-        //       blockifier has `self.program` which has `Arc<SharedProgramData` which has `data: Vec<MaybeRelocatable>`
-        //       ...cairo-lang seems like the win here
-        //
         // TODO: write_class used to return a single BytecodeSegmentStructureImpl, but these are now handled in a different hint
         //       as "bytecode_segment_structures"
-        let bytecode_segment_structure = write_class(vm, class_base, class.clone(), class.bytecode())?; // TODO: can we avoid this clone here?
+        let bytecode_segment_structure = write_class(vm, class_base, cairo_contract.clone(), None)?; // TODO: can we avoid this clone here?
 
         let offset = CompiledClassFact::cairo_size() * i;
         let data = [
             MaybeRelocatable::Int(*compiled_class_hash), 
             MaybeRelocatable::RelocatableValue(class_base)
         ];
-        vm.load_data((compiled_class_facts_ptr + offset)?, &data)?;
+        let compiled_class_fact_ptr = (compiled_class_facts_ptr + offset)?;
+        vm.load_data(compiled_class_facts_ptr, &data)?;
+
+        // bytecode_ptr = ids.compiled_class_facts[i].compiled_class.bytecode_ptr
+        let offset = CompiledClassFact::compiled_class_offset() + CompiledClass::bytecode_ptr_offset();
+        let bytecode_ptr = (compiled_class_fact_ptr + offset)?;
+
+        // Compiled classes are expected to end with a `ret` opcode followed by a pointer to
+        // the builtin costs.
+        let ret_opcode= Felt252::from_hex("0x208b7fff7fff7ffe").unwrap();
+        let data = [
+            MaybeRelocatable::Int(ret_opcode), 
+            MaybeRelocatable::RelocatableValue(builtin_costs)
+        ];
+        let bytecode_len = cairo_contract.bytecode_len().unwrap(); // TODO: unwrap
+        vm.load_data((bytecode_ptr + bytecode_len)?, &data)?;
+
+        // Load hints and debug info.
+        /*
+         * TODO:
+         * 
+        vm_load_program(
+            compiled_class.get_runnable_program(entrypoint_builtins=[]), bytecode_ptr)
+        */
+
+        // TODO: avoid clone
+        let cairo_lang_class = cairo_contract.clone().to_cairo_lang_contract_class().map_err(|e| custom_hint_error(e.to_string()))?;
+  
+        for (rel_pc, hints) in cairo_lang_class.hints.into_iter() {
+            let abs_pc = Relocatable::from((bytecode_ptr.segment_index, rel_pc));
+            hint_extension.insert(abs_pc, hints.iter().map(|h| any_box!(h.clone())).collect());
+        }
+  
     }
 
-    /*
-    for i, (compiled_class_hash, compiled_class) in enumerate(
-        os_input.compiled_classes.items()
-    ):
-        # Load the compiled class.
-        cairo_contract = get_compiled_class_struct(
-            identifiers=ids._context.identifiers,
-            compiled_class=compiled_class,
-            # Load the entire bytecode - the unaccessed segments will be overriden and skipped
-            # after the execution, in `validate_compiled_class_facts_post_execution`.
-            bytecode=compiled_class.bytecode,
-        )
-        segments.load_data(
-            ptr=ids.compiled_class_facts[i].address_,
-            data=(compiled_class_hash, segments.gen_arg(cairo_contract))
-        )
-
-        bytecode_ptr = ids.compiled_class_facts[i].compiled_class.bytecode_ptr
-        # Compiled classes are expected to end with a `ret` opcode followed by a pointer to
-        # the builtin costs.
-        segments.load_data(
-            ptr=bytecode_ptr + cairo_contract.bytecode_length,
-            data=[0x208b7fff7fff7ffe, ids.builtin_costs]
-        )
-
-        # Load hints and debug info.
-        vm_load_program(
-            compiled_class.get_runnable_program(entrypoint_builtins=[]), bytecode_ptr)"#
-    */
-
-    Ok(())
+    Ok(hint_extension)
 }
 
 pub const ITER_CURRENT_SEGMENT_INFO: &str = indoc! {r#"

@@ -97,7 +97,6 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(builtins::UPDATE_BUILTIN_PTRS.into(), builtins::update_builtin_ptrs);
     hints.insert(compiled_class::ASSIGN_BYTECODE_SEGMENTS.into(), compiled_class::assign_bytecode_segments);
     hints.insert(compiled_class::ASSERT_END_OF_BYTECODE_SEGMENTS.into(), compiled_class::assert_end_of_bytecode_segments);
-    hints.insert(compiled_class::LOAD_CLASS_FACTS.into(), compiled_class::load_class_facts);
     hints.insert(compiled_class::ITER_CURRENT_SEGMENT_INFO.into(), compiled_class::iter_current_segment_info);
     hints.insert(compiled_class::PREPARE_CLASS_FACT_VALIDATION.into(), compiled_class::prepare_class_fact_validation);
     hints.insert(deprecated_compiled_class::LOAD_DEPRECATED_CLASS_FACTS.into(), deprecated_compiled_class::load_deprecated_class_facts);
@@ -275,9 +274,10 @@ type ExtensiveHintImpl = fn(
     &ApTracking,
 ) -> Result<HintExtension, HintError>;
 
-static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 2] = [
+static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 3] = [
     (block_context::LOAD_CLASS, block_context::load_class),
     (deprecated_compiled_class::LOAD_DEPRECATED_CLASS, deprecated_compiled_class::load_deprecated_class),
+    (compiled_class::LOAD_CLASS_FACTS, compiled_class::load_class_facts),
 ];
 
 pub struct SnosHintProcessor<PCS>

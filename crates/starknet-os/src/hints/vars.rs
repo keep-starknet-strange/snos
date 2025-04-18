@@ -44,6 +44,7 @@ pub mod ids {
     pub const BLOB_LENGTH: &str = "starkware.starknet.core.os.data_availability.commitment.BLOB_LENGTH";
     pub const BUILTIN_PARAMS: &str = "builtin_params";
     pub const BUILTIN_PTRS: &str = "builtin_ptrs";
+    pub const BUILTIN_COSTS: &str = "builtin_costs";
     pub const CALL_RESPONSE: &str = "call_response";
     pub const CALLDATA: &str = "calldata";
     pub const CHILD_BIT: &str = "child_bit";
