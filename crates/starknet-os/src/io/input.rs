@@ -21,7 +21,6 @@ pub struct StarknetOsInput {
     pub contract_class_commitment_info: CommitmentInfo,
     pub deprecated_compiled_classes: HashMap<Felt252, GenericDeprecatedCompiledClass>,
     pub compiled_classes: HashMap<Felt252, GenericCasmContractClass>,
-    pub compiled_class_visited_pcs: HashMap<Felt252, Vec<Felt252>>,
     pub contracts: HashMap<Felt252, ContractState>,
     pub contract_address_to_class_hash: HashMap<Felt252, Felt252>,
     pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,

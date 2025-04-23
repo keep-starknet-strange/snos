@@ -22,7 +22,7 @@ pub struct ExecutionContext {
 #[derive(FieldOffsetGetters)]
 pub struct CompiledClassFact {
     pub hash: Felt252,
-    pub compiled_class: Felt252,
+    pub compiled_class: Relocatable,
 }
 
 #[allow(unused)]

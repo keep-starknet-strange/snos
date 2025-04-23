@@ -90,8 +90,6 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(block_context::FEE_TOKEN_ADDRESS.into(), block_context::fee_token_address);
     hints.insert(block_context::GET_BLOCK_MAPPING.into(), block_context::get_block_mapping);
     hints.insert(block_context::IS_LEAF.into(), is_leaf);
-    hints.insert(block_context::LOAD_CLASS_FACTS.into(), block_context::load_class_facts);
-    hints.insert(block_context::LOAD_CLASS_INNER.into(), block_context::load_class_inner);
     hints.insert(block_context::SEQUENCER_ADDRESS.into(), block_context::sequencer_address);
     hints.insert(bls_field::COMPUTE_IDS_LOW.into(), bls_field::compute_ids_low);
     hints.insert(builtins::SELECTED_BUILTINS.into(), builtins::selected_builtins);
@@ -100,6 +98,7 @@ fn hints<PCS>() -> HashMap<String, HintImpl> where
     hints.insert(compiled_class::ASSIGN_BYTECODE_SEGMENTS.into(), compiled_class::assign_bytecode_segments);
     hints.insert(compiled_class::ASSERT_END_OF_BYTECODE_SEGMENTS.into(), compiled_class::assert_end_of_bytecode_segments);
     hints.insert(compiled_class::ITER_CURRENT_SEGMENT_INFO.into(), compiled_class::iter_current_segment_info);
+    hints.insert(compiled_class::PREPARE_CLASS_FACT_VALIDATION.into(), compiled_class::prepare_class_fact_validation);
     hints.insert(deprecated_compiled_class::LOAD_DEPRECATED_CLASS_FACTS.into(), deprecated_compiled_class::load_deprecated_class_facts);
     hints.insert(deprecated_compiled_class::LOAD_DEPRECATED_CLASS_INNER.into(), deprecated_compiled_class::load_deprecated_class_inner);
     hints.insert(execute_syscalls::IS_BLOCK_NUMBER_IN_BLOCK_HASH_BUFFER.into(), execute_syscalls::is_block_number_in_block_hash_buffer);
@@ -275,9 +274,10 @@ type ExtensiveHintImpl = fn(
     &ApTracking,
 ) -> Result<HintExtension, HintError>;
 
-static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 2] = [
+static EXTENSIVE_HINTS: [(&str, ExtensiveHintImpl); 3] = [
     (block_context::LOAD_CLASS, block_context::load_class),
     (deprecated_compiled_class::LOAD_DEPRECATED_CLASS, deprecated_compiled_class::load_deprecated_class),
+    (compiled_class::LOAD_CLASS_FACTS, compiled_class::load_class_facts),
 ];
 
 pub struct SnosHintProcessor<PCS>

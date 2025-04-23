@@ -1,4 +1,5 @@
 pub mod scopes {
+    pub const BYTECODE_SEGMENT_STRUCTURES: &str = "bytecode_segment_structures";
     pub const BLOCK_CONTEXT: &str = "block_context";
     pub const BYTECODE_SEGMENT_STRUCTURE: &str = "bytecode_segment_structure";
     pub const BYTECODE_SEGMENTS: &str = "bytecode_segments";
@@ -7,7 +8,6 @@ pub mod scopes {
     pub const COMMITMENT_INFO_BY_ADDRESS: &str = "commitment_info_by_address";
     pub const COMPILED_CLASS: &str = "compiled_class";
     pub const COMPILED_CLASS_FACTS: &str = "compiled_class_facts";
-    pub const COMPILED_CLASS_VISITED_PCS: &str = "compiled_class_visited_pcs";
     pub const COMPILED_CLASS_HASH: &str = "compiled_class_hash";
     pub const COMPONENT_HASHES: &str = "component_hashes";
     pub const DEPRECATED_CLASS_HASHES: &str = "__deprecated_class_hashes";
@@ -44,6 +44,7 @@ pub mod ids {
     pub const BLOB_LENGTH: &str = "starkware.starknet.core.os.data_availability.commitment.BLOB_LENGTH";
     pub const BUILTIN_PARAMS: &str = "builtin_params";
     pub const BUILTIN_PTRS: &str = "builtin_ptrs";
+    pub const BUILTIN_COSTS: &str = "builtin_costs";
     pub const CALL_RESPONSE: &str = "call_response";
     pub const CALLDATA: &str = "calldata";
     pub const CHILD_BIT: &str = "child_bit";
@@ -102,6 +103,7 @@ pub mod ids {
     pub const N_BUILTINS: &str = "n_builtins";
     pub const N_ELMS: &str = "n_elms";
     pub const N_COMPILED_CLASS_FACTS: &str = "n_compiled_class_facts";
+    pub const N_RESOURCE_BOUNDS: &str = "n_resource_bounds";
     pub const N_SELECTED_BUILTINS: &str = "n_selected_builtins";
     pub const N_TXS: &str = "n_txs";
     pub const N_UPDATES: &str = "n_updates";
