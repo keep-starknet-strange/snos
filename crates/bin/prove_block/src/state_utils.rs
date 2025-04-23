@@ -12,7 +12,7 @@ use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_types_core::felt::Felt;
 
 use crate::utils::get_subcalled_contracts_from_tx_traces;
-use crate::ProveBlockError;
+use crate::{PreviousBlockId, ProveBlockError};
 
 #[derive(Clone)]
 pub struct FormattedStateUpdate {
@@ -30,53 +30,65 @@ pub struct FormattedStateUpdate {
 /// - Consolidates that information into a `FormattedStateUpdate`.
 pub(crate) async fn get_formatted_state_update(
     rpc_client: &RpcClient,
-    previous_block_id: BlockId,
+    previous_block_id: PreviousBlockId,
     block_id: BlockId,
 ) -> Result<(FormattedStateUpdate, Vec<TransactionTraceWithHash>), ProveBlockError> {
-    let state_update =
-        match rpc_client.starknet_rpc().get_state_update(block_id).await.expect("Failed to get state update") {
-            MaybePendingStateUpdate::Update(update) => update,
-            MaybePendingStateUpdate::PendingUpdate(_) => {
-                panic!("Block is still pending!")
-            }
-        };
-    let state_diff = state_update.state_diff;
-
-    // Extract other contracts used in our block from the block trace
-    // We need this to get all the class hashes used and correctly feed address_to_class_hash
     let traces =
         rpc_client.starknet_rpc().trace_block_transactions(block_id).await.expect("Failed to get block tx traces");
-    let (accessed_addresses, accessed_classes) = get_subcalled_contracts_from_tx_traces(&traces);
+    if let Some(previous_block_id) = previous_block_id {
+        let state_update =
+            match rpc_client.starknet_rpc().get_state_update(block_id).await.expect("Failed to get state update") {
+                MaybePendingStateUpdate::Update(update) => update,
+                MaybePendingStateUpdate::PendingUpdate(_) => {
+                    panic!("Block is still pending!")
+                }
+            };
+        let state_diff = state_update.state_diff;
 
-    let declared_classes: HashSet<_> =
-        state_diff.declared_classes.iter().map(|declared_item| declared_item.class_hash).collect();
+        // Extract other contracts used in our block from the block trace
+        // We need this to get all the class hashes used and correctly feed address_to_class_hash
+        let (accessed_addresses, accessed_classes) = get_subcalled_contracts_from_tx_traces(&traces);
 
-    // TODO: Handle deprecated classes
-    let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = HashMap::new();
-    let (compiled_contract_classes, deprecated_compiled_contract_classes, declared_class_hash_component_hashes) =
-        build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
-            rpc_client,
-            previous_block_id,
-            block_id,
-            &accessed_addresses,
-            &declared_classes,
-            &accessed_classes,
-            &mut class_hash_to_compiled_class_hash,
-        )
-        .await?;
+        let declared_classes: HashSet<_> =
+            state_diff.declared_classes.iter().map(|declared_item| declared_item.class_hash).collect();
 
-    // OS will expect a Zero in compiled_class_hash for new classes. Overwrite the needed entries.
-    format_declared_classes(&state_diff, &mut class_hash_to_compiled_class_hash);
+        // TODO: Handle deprecated classes
+        let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = HashMap::new();
+        let (compiled_contract_classes, deprecated_compiled_contract_classes, declared_class_hash_component_hashes) =
+            build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
+                rpc_client,
+                previous_block_id,
+                block_id,
+                &accessed_addresses,
+                &declared_classes,
+                &accessed_classes,
+                &mut class_hash_to_compiled_class_hash,
+            )
+            .await?;
 
-    Ok((
-        FormattedStateUpdate {
-            class_hash_to_compiled_class_hash,
-            compiled_classes: compiled_contract_classes,
-            deprecated_compiled_classes: deprecated_compiled_contract_classes,
-            declared_class_hash_component_hashes,
-        },
-        traces,
-    ))
+        // OS will expect a Zero in compiled_class_hash for new classes. Overwrite the needed entries.
+        format_declared_classes(&state_diff, &mut class_hash_to_compiled_class_hash);
+
+        Ok((
+            FormattedStateUpdate {
+                class_hash_to_compiled_class_hash,
+                compiled_classes: compiled_contract_classes,
+                deprecated_compiled_classes: deprecated_compiled_contract_classes,
+                declared_class_hash_component_hashes,
+            },
+            traces,
+        ))
+    } else {
+        Ok((
+            FormattedStateUpdate {
+                class_hash_to_compiled_class_hash: Default::default(),
+                compiled_classes: Default::default(),
+                deprecated_compiled_classes: Default::default(),
+                declared_class_hash_component_hashes: Default::default(),
+            },
+            traces,
+        ))
+    }
 }
 
 /// Retrieves the compiled class for the given class hash at a specific block
