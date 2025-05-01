@@ -41,7 +41,7 @@ pub async fn initial_state_for_deploy_v1(
     // This is the hardcoded class hash of `account_with_long_validate` (Cairo 0).
     // Recomputing it automatically requires a significant amount of code reorganization so
     // we hardcode it for simplicity.
-    let class_hash = class_hash!("0x067605bc345e925118dd60e09888a600e338047aa61e66361d48604ea670b709");
+    let class_hash = account_with_long_validate.1.class_hash().unwrap().into();
 
     let deploy_args = DeployArgs {
         contract_address_salt: ContractAddressSalt::default(),
@@ -363,7 +363,7 @@ async fn deploy_via_invoke_no_calldata_cairo1_account(
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn deploy_cairo0_check_get_info_call(block_context: BlockContext, max_fee: Fee) {
     let account_with_syscall_checks = load_cairo0_feature_contract("account_with_syscall_checks");
-    let class_hash = class_hash!("0xc70ea92037ef300241a3ffac81d36324200ed3350bf51a2a4bc0149e8fb6a1");
+    let class_hash = account_with_syscall_checks.1.class_hash().unwrap().into();
 
     let ctor_calldata = Calldata::default();
     let deployed_contract_address = calculate_contract_address(
