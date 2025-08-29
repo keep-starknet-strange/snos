@@ -1,21 +1,57 @@
 [workspace]
 resolver = "2"
 
-members = [
-    "crates/core/generate_pie",
-]
+members = ["crates/core/generate_pie", "crates/rpc-client"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.87.0"
 repository = "https://github.com/keep-starknet-strange/snos/"
-license = "MIT"
 license-file = "LICENSE"
-authors = ["Prakhar Pandey (prkpandey942@gmail.com)"]
 
 [workspace.dependencies]
-starknet_api = { git = "https://github.com/Mohiiit/sequencer", rev = "5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966", features = ["testing"] }
-starknet_os = { git = "https://github.com/Mohiiit/sequencer", rev = "5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966", features = ["testing"] }
+starknet_api = { git = "https://github.com/Mohiiit/sequencer", rev = "5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966", features = [
+  "testing",
+] }
+starknet_os = { git = "https://github.com/Mohiiit/sequencer", rev = "5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966", features = [
+  "testing",
+] }
+blockifier = { git = "https://github.com/Mohiiit/sequencer", rev = "5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966", features = [
+  "testing",
+] }
+starknet_patricia = { git = "https://github.com/Mohiiit/sequencer", rev = "5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966", features = [
+  "testing",
+] }
+shared_execution_objects = { git = "https://github.com/Mohiiit/sequencer", rev = "5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966" }
+
+cairo-lang-starknet = "=2.12.0-dev.1"
+cairo-lang-starknet-classes = "=2.12.0-dev.1"
+cairo-lang-utils = "=2.12.0-dev.1"
+cairo-lang-casm = "=2.12.0-dev.1"
 cairo-vm = "=2.2.0"
+
 starknet = "0.16.0"
+starknet-types-core = "0.1.5"
+
+pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "starknet-gateway-types" }
+pathfinder-common = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260" }
+pathfinder-serde = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260" }
+
+log = "0.4.19"
+reqwest = { version = "0.11.18", features = ["blocking", "json"] }
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
+tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
+thiserror = "1.0.48"
+flate2 = "1.0.32"
+num-bigint = "0.4"
+once_cell = "1.20.0"
+serde_with = "3.3.0"
+starknet-core = "0.15.0"
+starknet-crypto = "0.7.0"
+
+indoc = "2"
+rstest = "0.18.2"
+
+starknet-os-types = { path = "crates/starknet-os-types" }
