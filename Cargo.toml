@@ -8,14 +8,14 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.86.0"
+rust-version = "1.87.0"
 repository = "https://github.com/keep-starknet-strange/snos/"
 license = "MIT"
 license-file = "LICENSE"
 authors = ["Prakhar Pandey (prkpandey942@gmail.com)"]
 
 [workspace.dependencies]
-starknet_api = { git = "https://github.com/Mohiiit/sequencer", rev = "8ef16b458293f6ce40d325789d8f41df8bcbb45b", features = ["testing"] }
-starknet_os = { git = "https://github.com/Mohiiit/sequencer", rev = "8ef16b458293f6ce40d325789d8f41df8bcbb45b", features = ["testing"] }
-cairo-vm = "2.2.0"
-starknet = "0.11.0"
+starknet_api = { git = "https://github.com/Mohiiit/sequencer", rev = "5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966", features = ["testing"] }
+starknet_os = { git = "https://github.com/Mohiiit/sequencer", rev = "5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966", features = ["testing"] }
+cairo-vm = "=2.2.0"
+starknet = "0.16.0"

@@ -3,14 +3,10 @@ use starknet::core::types::Felt;
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_os::io::os_input::CachedStateInput;
-use starknet_os::{
-    hint_processor::panicking_state_reader::PanickingStateReader,
-    io::os_input::{OsBlockInput, OsChainInfo, OsHints, OsHintsConfig, StarknetOsInput},
-    runner::run_os,
-};
+use starknet_os::io::os_input::{OsBlockInput, OsChainInfo, OsHints, OsHintsConfig, StarknetOsInput};
+use starknet_os::runner::run_os_stateless;
 use std::collections::{BTreeMap, HashMap};
 
-const DEFAULT_COMPILED_OS: &[u8] = include_bytes!("../build/os_0_14_0.json");
 fn main() {
     let deprecated_compiled_classes = BTreeMap::new();
     let compiled_classes = BTreeMap::new();
@@ -52,6 +48,5 @@ fn main() {
         },
     };
 
-    run_os(DEFAULT_COMPILED_OS, LayoutName::all_cairo, os_hints, vec![PanickingStateReader; 1])
-        .expect("Failed to run OS");
+    run_os_stateless(LayoutName::all_cairo, os_hints).expect("Failed to run OS");
 }
