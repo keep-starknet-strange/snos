@@ -1,14 +1,13 @@
 [package]
-name = "generate_pie"
+name = "generate-pie"
 version.workspace = true
 rust-version.workspace = true
 edition.workspace = true
 repository.workspace = true
-license.workspace = true
 license-file.workspace = true
 
 [dependencies]
-cairo-vm = {workspace = true}
-starknet_api = {workspace = true}
-starknet = {workspace = true}
-starknet_os = {workspace = true}
+cairo-vm = { workspace = true }
+starknet = { workspace = true }
+starknet_api = { workspace = true }
+starknet_os = { workspace = true }
