@@ -2,85 +2,20 @@
 resolver = "2"
 
 members = [
-    "crates/bin/hint_tool",
-    "crates/bin/output_segment",
-    "crates/bin/prove_block",
-    "crates/bin/cairo0_run",
-    "crates/cairo-type-derive",
-    "crates/rpc-client",
-    "crates/rpc-replay",
-    "crates/starknet-os",
-    "crates/starknet-os-types",
-    "tests",
+    "crates/core/generate_pie",
 ]
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.86.0"
 repository = "https://github.com/keep-starknet-strange/snos/"
 license = "MIT"
 license-file = "LICENSE"
+authors = ["Prakhar Pandey (prkpandey942@gmail.com)"]
 
 [workspace.dependencies]
-anyhow = "1.0.75"
-ark-ec = "0.4.2"
-ark-ff = "0.4.2"
-ark-secp256k1 = "0.4"
-ark-secp256r1 = "0.4"
-assert_matches = "1.5.0"
-base64 = "0.21.3"
-bitvec = { version = "1.0.1", features = ["serde"] }
-# Point to the latest commit of branch msl/backport-secp-patches-0.8.0-rc.3
-blockifier = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = ["testing"] }
-cairo-lang-starknet = { version = "=2.8.4" }
-cairo-lang-starknet-classes = { version = "=2.8.4" }
-cairo-lang-utils = { version = "=2.8.4" }
-cairo-lang-casm = { version = "=2.8.4" }
-cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
-cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", branch = "madara-monorepo", features = ["cairo-1-hints", "extensive_hints", "mod_builtin"] }
-clap = { version = "4.5.4", features = ["derive"] }
-c-kzg = { version = "1.0.3" }
-env_logger = "0.11.3"
-flate2 = "1.0.32"
-futures = "0.3.30"
-futures-core = "0.3.30"
-futures-util = "0.3.30"
-heck = "0.4.1"
-hex = "0.4.3"
-indexmap = "2.2.6"
-indoc = "2"
-keccak = "0.1.3"
-lazy_static = "1.4.0"
-log = "0.4.19"
-num-bigint = "0.4"
-num-integer = "0.1.45"
-num-traits = "0.2.16"
-once_cell = "1.20.0"
-pathfinder-common = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "pathfinder-common" }
-pathfinder-crypto = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "pathfinder-crypto" }
-pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "starknet-gateway-types" }
-pathfinder-serde = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "pathfinder-serde" }
-reqwest = { version = "0.11.18", features = ["blocking", "json"] }
-rpc-client = { path = "crates/rpc-client" }
-rpc-replay = { path = "crates/rpc-replay" }
-serde = { version = "1.0.188", features = ["derive"] }
-serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
-serde_with = "3.3.0"
-serde_yaml = "0.9.25"
-sha2 = "0.10.8"
+starknet_api = { git = "https://github.com/Mohiiit/sequencer", rev = "8ef16b458293f6ce40d325789d8f41df8bcbb45b", features = ["testing"] }
+starknet_os = { git = "https://github.com/Mohiiit/sequencer", rev = "8ef16b458293f6ce40d325789d8f41df8bcbb45b", features = ["testing"] }
+cairo-vm = "2.2.0"
 starknet = "0.11.0"
-starknet_api = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = ["testing"] }
-starknet-core = "0.11.1"
-starknet-crypto = "0.6.2"
-starknet-os = { path = "crates/starknet-os" }
-starknet-os-types = { path = "crates/starknet-os-types" }
-starknet-types-core = "0.1.5"
-thiserror = "1.0.48"
-tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
-uuid = { version = "1.4.0", features = ["v4", "serde"] }
-zip = { version = "0.6.6", features = ["deflate-zlib"] }
-
-# Dev dependencies
-pretty_assertions = "1.4.0"
-rand = "0.8.5"
-rstest = "0.18.2"
