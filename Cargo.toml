@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = ["crates/core/generate_pie", "crates/rpc-client"]
+members = ["crates/core/generate-pie", "crates/rpc-client"]
 
 [workspace.package]
 version = "0.1.0"
