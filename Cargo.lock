@@ -140,7 +140,7 @@ checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
 [[package]]
 name = "apollo_compile_to_native"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "apollo_config",
  "serde",
@@ -150,7 +150,7 @@ dependencies = [
 [[package]]
 name = "apollo_config"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "apollo_infra_utils",
  "clap",
@@ -168,7 +168,7 @@ dependencies = [
 [[package]]
 name = "apollo_infra_utils"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "assert-json-diff",
  "colored",
@@ -185,7 +185,7 @@ dependencies = [
 [[package]]
 name = "apollo_metrics"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "indexmap 2.11.0",
  "metrics 0.24.2",
@@ -197,7 +197,7 @@ dependencies = [
 [[package]]
 name = "apollo_starknet_os_program"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "apollo_infra_utils",
  "cairo-vm",
@@ -693,7 +693,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "anyhow",
  "apollo_compile_to_native",
@@ -740,7 +740,7 @@ dependencies = [
 [[package]]
 name = "blockifier_test_utils"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "apollo_infra_utils",
  "cairo-lang-starknet-classes",
@@ -3419,7 +3419,7 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 [[package]]
 name = "papyrus_common"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "cairo-lang-starknet-classes",
  "indexmap 2.11.0",
@@ -4692,7 +4692,7 @@ dependencies = [
 [[package]]
 name = "shared_execution_objects"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "blockifier",
  "serde",
@@ -5096,7 +5096,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "apollo_infra_utils",
  "base64 0.13.1",
@@ -5130,7 +5130,7 @@ dependencies = [
 [[package]]
 name = "starknet_os"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "apollo_starknet_os_program",
  "ark-bls12-381",
@@ -5169,7 +5169,7 @@ dependencies = [
 [[package]]
 name = "starknet_patricia"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "async-recursion",
  "derive_more",
@@ -5190,7 +5190,7 @@ dependencies = [
 [[package]]
 name = "starknet_patricia_storage"
 version = "0.15.0-rc.2"
-source = "git+https://github.com/Mohiiit/sequencer?rev=5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966#5cf26872cb1d7a0f7a1c01a25f3e8bbac325f966"
+source = "git+https://github.com/karnotxyz/sequencer?rev=3c206344dc64b5a0f150ea94cd2623b2a9a7da63#3c206344dc64b5a0f150ea94cd2623b2a9a7da63"
 dependencies = [
  "hex",
  "serde",
