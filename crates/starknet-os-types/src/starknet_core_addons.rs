@@ -1,4 +1,5 @@
-//! Utility functions missing from starknet-rs.
+//! Additional utilities for starknet-core types that are missing from the main library.
+
 use std::io::Read;
 
 use flate2::read::GzDecoder;
@@ -11,6 +12,15 @@ use starknet_core::types::{
     LegacyFunctionAbiEntry, LegacyFunctionAbiType, LegacyStructMember,
 };
 
+/// Converts a legacy function ABI entry to a raw legacy ABI entry.
+///
+/// # Arguments
+///
+/// * `entry` - The legacy function ABI entry to convert
+///
+/// # Returns
+///
+/// The corresponding raw legacy ABI entry.
 fn raw_abi_entry_from_legacy_function_abi_entry(entry: LegacyFunctionAbiEntry) -> RawLegacyAbiEntry {
     match entry.r#type {
         LegacyFunctionAbiType::Function => RawLegacyAbiEntry::Function(RawLegacyFunction {
@@ -32,6 +42,15 @@ fn raw_abi_entry_from_legacy_function_abi_entry(entry: LegacyFunctionAbiEntry) -
     }
 }
 
+/// Converts a legacy struct member to a raw legacy member.
+///
+/// # Arguments
+///
+/// * `member` - The legacy struct member to convert
+///
+/// # Returns
+///
+/// The corresponding raw legacy member.
 fn raw_legacy_member_from_legacy_struct_member(member: LegacyStructMember) -> RawLegacyMember {
     RawLegacyMember { name: member.name, offset: member.offset, r#type: member.r#type }
 }
@@ -54,6 +73,15 @@ fn raw_legacy_abi_entry_from_legacy_contract_abi_entry(
     }
 }
 
+/// Converts a legacy entry point to a raw legacy entry point.
+///
+/// # Arguments
+///
+/// * `legacy_entry_point` - The legacy entry point to convert
+///
+/// # Returns
+///
+/// The corresponding raw legacy entry point.
 fn raw_legacy_entrypoint_from_legacy_entrypoint(legacy_entry_point: LegacyContractEntryPoint) -> RawLegacyEntryPoint {
     RawLegacyEntryPoint {
         offset: LegacyEntrypointOffset::U64AsInt(legacy_entry_point.offset),
@@ -85,11 +113,14 @@ fn raw_legacy_entrypoints_from_legacy_entrypoints(
     }
 }
 
+/// Errors that can occur during legacy contract decompression.
 #[derive(thiserror::Error, Debug)]
 pub enum LegacyContractDecompressionError {
+    /// Failed to deserialize the program as JSON.
     #[error("Failed to deserialize the program as JSON: {0}")]
     Serde(#[from] serde_json::Error),
 
+    /// Failed to decompress the program.
     #[error("Failed to decompress the program: {0}")]
     Decompression(#[from] std::io::Error),
 }

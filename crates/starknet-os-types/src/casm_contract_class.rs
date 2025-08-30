@@ -1,3 +1,5 @@
+//! Cairo 1 compiled contract class (CASM) types and utilities.
+
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
@@ -6,37 +8,108 @@ use crate::hash::GenericClassHash;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use starknet_api::contract_class::SierraVersion;
 
+/// Type alias for CairoLang CASM contract class.
 pub type CairoLangCasmClass = cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
+
+/// Type alias for Blockifier CASM contract class.
 pub type BlockifierCasmClass = starknet_api::contract_class::VersionedCasm;
 
-/// A generic contract class that supports conversion to/from the most commonly used
-/// contract class types in Starknet and provides utility methods.
+/// A generic CASM contract class that supports conversion between different formats.
 ///
-/// Operations are implemented as lazily as possible, i.e., we only convert
-/// between different types if strictly necessary.
-/// Fields are boxed in an RC for inexpensive cloning.
+/// This struct provides a unified interface for working with Cairo 1 compiled contract classes
+/// (CASM format) across different Starknet implementations. It supports lazy conversion between
+/// CairoLang and Blockifier formats, only performing conversions when necessary.
+///
+/// The struct uses `OnceCell` for lazy initialization of different representations and `Arc` for
+/// inexpensive cloning of the underlying data.
+///
+/// # Examples
+///
+/// ```rust
+/// use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+/// use starknet_api::contract_class::SierraVersion;
+///
+/// // Create from serialized bytes
+/// let casm_bytes = include_bytes!("path/to/contract.casm.json");
+/// let casm_class = GenericCasmContractClass::from_bytes(casm_bytes.to_vec());
+///
+/// // Get the class hash
+/// let class_hash = casm_class.class_hash()?;
+///
+/// // Convert to Blockifier format
+/// let blockifier_class = casm_class.get_blockifier_contract_class(SierraVersion::LATEST)?;
+/// ```
 #[derive(Debug, Clone)]
 pub struct GenericCasmContractClass {
+    /// Lazy-initialized Blockifier contract class.
     blockifier_contract_class: OnceCell<Arc<BlockifierCasmClass>>,
+    /// Lazy-initialized CairoLang contract class.
     cairo_lang_contract_class: OnceCell<Arc<CairoLangCasmClass>>,
+    /// Lazy-initialized serialized contract class bytes.
     serialized_class: OnceCell<Arc<Vec<u8>>>,
+    /// Lazy-initialized computed class hash.
     class_hash: OnceCell<GenericClassHash>,
 }
 
+/// Converts a CairoLang CASM class to a Blockifier CASM class.
+///
+/// # Arguments
+///
+/// * `cairo_lang_class` - The CairoLang contract class to convert
+/// * `sierra_version` - The Sierra version to use for the conversion
+///
+/// # Returns
+///
+/// The converted Blockifier contract class, or an error if conversion fails.
+///
+/// # Errors
+///
+/// Returns a `ContractClassError` if the conversion fails.
 fn blockifier_contract_class_from_cairo_lang_class(
     cairo_lang_class: CairoLangCasmClass,
     sierra_version: SierraVersion,
 ) -> Result<BlockifierCasmClass, ContractClassError> {
-    let blockifier_class = BlockifierCasmClass::try_from((cairo_lang_class, sierra_version)).unwrap();
-    Ok(blockifier_class)
+    BlockifierCasmClass::try_from((cairo_lang_class, sierra_version))
+        .map_err(|e| ContractClassError::ConversionError(ConversionError::BlockifierError(Box::new(e))))
 }
 
+/// Deserializes a CairoLang CASM class from bytes.
+///
+/// # Arguments
+///
+/// * `bytes` - The serialized contract class bytes
+///
+/// # Returns
+///
+/// The deserialized CairoLang contract class, or an error if deserialization fails.
+///
+/// # Errors
+///
+/// Returns a `ContractClassError` if deserialization fails.
 fn cairo_lang_contract_class_from_bytes(bytes: &[u8]) -> Result<CairoLangCasmClass, ContractClassError> {
-    let contract_class = serde_json::from_slice(bytes)?;
-    Ok(contract_class)
+    serde_json::from_slice(bytes).map_err(ContractClassError::SerdeError)
 }
 
 impl GenericCasmContractClass {
+    /// Creates a new generic CASM contract class from serialized bytes.
+    ///
+    /// # Arguments
+    ///
+    /// * `serialized_class` - The serialized contract class bytes
+    ///
+    /// # Returns
+    ///
+    /// A new `GenericCasmContractClass` instance.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+    ///
+    /// let casm_bytes = include_bytes!("path/to/contract.casm.json");
+    /// let casm_class = GenericCasmContractClass::from_bytes(casm_bytes.to_vec());
+    /// ```
+    #[must_use]
     pub fn from_bytes(serialized_class: Vec<u8>) -> Self {
         Self {
             blockifier_contract_class: OnceCell::new(),
@@ -46,50 +119,159 @@ impl GenericCasmContractClass {
         }
     }
 
+    /// Builds the CairoLang contract class from available data.
+    ///
+    /// # Returns
+    ///
+    /// The CairoLang contract class, or an error if it cannot be built.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the CairoLang class cannot be built.
     fn build_cairo_lang_class(&self) -> Result<CairoLangCasmClass, ContractClassError> {
         if let Some(serialized_class) = self.serialized_class.get() {
-            let contract_class = serde_json::from_slice(serialized_class)?;
-            return Ok(contract_class);
+            return cairo_lang_contract_class_from_bytes(serialized_class);
         }
 
         Err(ContractClassError::ConversionError(ConversionError::CairoLangClassMissing))
     }
 
+    /// Builds the Blockifier contract class from available data.
+    ///
+    /// # Arguments
+    ///
+    /// * `sierra_version` - The Sierra version to use for the conversion
+    ///
+    /// # Returns
+    ///
+    /// The Blockifier contract class, or an error if it cannot be built.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the Blockifier class cannot be built.
     fn build_blockifier_class(&self, sierra_version: SierraVersion) -> Result<BlockifierCasmClass, ContractClassError> {
+        // Try to get from existing CairoLang class first
         if let Some(cairo_lang_class) = self.cairo_lang_contract_class.get() {
             return blockifier_contract_class_from_cairo_lang_class(cairo_lang_class.as_ref().clone(), sierra_version);
         }
 
-        if let Some(serialized_class) = &self.serialized_class.get() {
+        // Try to build from serialized data
+        if let Some(serialized_class) = self.serialized_class.get() {
             let cairo_lang_class = cairo_lang_contract_class_from_bytes(serialized_class)?;
+
+            // Cache the CairoLang class for future use
             self.cairo_lang_contract_class
                 .set(Arc::new(cairo_lang_class.clone()))
-                .expect("cairo-lang class is already set");
+                .expect("cairo-lang class should not be set yet");
+
             return blockifier_contract_class_from_cairo_lang_class(cairo_lang_class, sierra_version);
         }
 
         Err(ContractClassError::ConversionError(ConversionError::BlockifierClassMissing))
     }
+
+    /// Gets a reference to the CairoLang contract class, building it if necessary.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the CairoLang contract class, or an error if it cannot be built.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the CairoLang class cannot be built.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+    ///
+    /// let casm_class = GenericCasmContractClass::from_bytes(vec![]);
+    /// let cairo_lang_class = casm_class.get_cairo_lang_contract_class()?;
+    /// ```
     pub fn get_cairo_lang_contract_class(&self) -> Result<&CairoLangCasmClass, ContractClassError> {
         self.cairo_lang_contract_class
             .get_or_try_init(|| self.build_cairo_lang_class().map(Arc::new))
-            .map(|boxed| boxed.as_ref())
+            .map(|arc| arc.as_ref())
     }
 
+    /// Gets a reference to the Blockifier contract class, building it if necessary.
+    ///
+    /// # Arguments
+    ///
+    /// * `sierra_version` - The Sierra version to use for the conversion
+    ///
+    /// # Returns
+    ///
+    /// A reference to the Blockifier contract class, or an error if it cannot be built.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the Blockifier class cannot be built.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+    /// use starknet_api::contract_class::SierraVersion;
+    ///
+    /// let casm_class = GenericCasmContractClass::from_bytes(vec![]);
+    /// let blockifier_class = casm_class.get_blockifier_contract_class(SierraVersion::LATEST)?;
+    /// ```
     pub fn get_blockifier_contract_class(
         &self,
         sierra_version: SierraVersion,
     ) -> Result<&BlockifierCasmClass, ContractClassError> {
         self.blockifier_contract_class
             .get_or_try_init(|| self.build_blockifier_class(sierra_version).map(Arc::new))
-            .map(|boxed| boxed.as_ref())
+            .map(|arc| arc.as_ref())
     }
 
+    /// Converts this generic class to a CairoLang contract class.
+    ///
+    /// # Returns
+    ///
+    /// The CairoLang contract class, or an error if conversion fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the conversion fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+    ///
+    /// let casm_class = GenericCasmContractClass::from_bytes(vec![]);
+    /// let cairo_lang_class = casm_class.to_cairo_lang_contract_class()?;
+    /// ```
     pub fn to_cairo_lang_contract_class(self) -> Result<CairoLangCasmClass, ContractClassError> {
         let cairo_lang_class = self.get_cairo_lang_contract_class()?;
         Ok(cairo_lang_class.clone())
     }
 
+    /// Converts this generic class to a Blockifier contract class.
+    ///
+    /// # Arguments
+    ///
+    /// * `sierra_version` - The Sierra version to use for the conversion
+    ///
+    /// # Returns
+    ///
+    /// The Blockifier contract class, or an error if conversion fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the conversion fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+    /// use starknet_api::contract_class::SierraVersion;
+    ///
+    /// let casm_class = GenericCasmContractClass::from_bytes(vec![]);
+    /// let blockifier_class = casm_class.to_blockifier_contract_class(SierraVersion::LATEST)?;
+    /// ```
     pub fn to_blockifier_contract_class(
         self,
         sierra_version: SierraVersion,
@@ -98,6 +280,15 @@ impl GenericCasmContractClass {
         Ok(blockifier_class.clone())
     }
 
+    /// Computes the class hash for this contract class.
+    ///
+    /// # Returns
+    ///
+    /// The computed class hash, or an error if computation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the class hash computation fails.
     fn compute_class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
         let compiled_class = self.get_cairo_lang_contract_class()?;
         let class_hash_felt = compiled_class.compiled_class_hash();
@@ -105,6 +296,24 @@ impl GenericCasmContractClass {
         Ok(GenericClassHash::from_bytes_be(class_hash_felt.to_bytes_be()))
     }
 
+    /// Gets the class hash for this contract class, computing it if necessary.
+    ///
+    /// # Returns
+    ///
+    /// The class hash, or an error if computation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the class hash computation fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+    ///
+    /// let casm_class = GenericCasmContractClass::from_bytes(vec![]);
+    /// let class_hash = casm_class.class_hash()?;
+    /// ```
     pub fn class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
         self.class_hash.get_or_try_init(|| self.compute_class_hash()).copied()
     }
@@ -115,8 +324,7 @@ impl Serialize for GenericCasmContractClass {
     where
         S: Serializer,
     {
-        // It seems like there is no way to just pass the `serialized_class` field as the output
-        // of `serialize()`, so we are forced to serialize an actual class instance.
+        // Serialize the CairoLang class as it's the most standard format
         let cairo_lang_class =
             self.get_cairo_lang_contract_class().map_err(|e| serde::ser::Error::custom(e.to_string()))?;
         cairo_lang_class.serialize(serializer)
@@ -154,14 +362,6 @@ impl From<BlockifierCasmClass> for GenericCasmContractClass {
         }
     }
 }
-
-// impl TryFrom<GenericCasmContractClass> for BlockifierCasmClass {
-//     type Error = ContractClassError;
-//
-//     fn try_from(input: (GenericCasmContractClass,SierraVersion)) -> Result<Self, Self::Error> {
-//         input.0.to_blockifier_contract_class(input.1)
-//     }
-// }
 
 #[cfg(test)]
 mod tests {

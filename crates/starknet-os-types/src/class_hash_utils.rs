@@ -1,21 +1,52 @@
+//! Utilities for computing class hashes and related operations.
+
 use starknet_core::types::SierraEntryPoint;
 use starknet_core::utils::starknet_keccak;
 use starknet_crypto::poseidon_hash_many;
 use starknet_types_core::felt::Felt;
 
+/// The prefix used for contract class version strings.
 const CLASS_VERSION_PREFIX: &str = "CONTRACT_CLASS_V";
 
-// /// A convenience function that computes a Poseidon hash over Felts rather than starknet-crypto
-// /// FieldElement types. There is no `From` implementation between these types so this function
-// /// masks some ugly byte mashing.
-// fn poseidon_hash_many_felts<FeltIter: Iterator<Item = Felt>>(felts: FeltIter) -> Felt {
-//     let field_elements: Vec<_> = felts.map(|x| FieldElement::from_bytes_be(&x.to_bytes_be()).unwrap()).collect();
-//     let hash = poseidon_hash_many(&field_elements);
-//
-//     Felt::from_bytes_be(&hash.to_bytes_be())
-// }
-
-/// Computes hash on a list of given entry points (starknet-core types).
+/// Computes a hash over a list of Sierra entry points.
+///
+/// This function flattens the entry points into a sequence of selectors and function indices,
+/// then computes a Poseidon hash over the resulting felts.
+///
+/// # Arguments
+///
+/// * `entry_points` - An iterator over Sierra entry points
+///
+/// # Returns
+///
+/// A `Felt` representing the hash of the entry points.
+///
+/// # Example
+///
+/// ```rust
+/// use starknet_core::types::SierraEntryPoint;
+/// use starknet_types_core::felt::Felt;
+///
+/// # // Redefining, for example
+/// # fn compute_hash_on_sierra_entry_points<'a, EntryPoints: Iterator<Item = &'a SierraEntryPoint>>(
+/// #     entry_points: EntryPoints,
+/// # ) -> Felt {
+/// #     Felt::from(0)
+/// # }
+///
+/// let entry_points = vec![
+///     SierraEntryPoint {
+///         selector: Felt::from(1u64),
+///         function_idx: 0,
+///     },
+///     SierraEntryPoint {
+///         selector: Felt::from(2u64),
+///         function_idx: 1,
+///     },
+/// ];
+///
+/// let hash = compute_hash_on_sierra_entry_points(entry_points.iter());
+/// ```
 fn compute_hash_on_sierra_entry_points<'a, EntryPoints: Iterator<Item = &'a SierraEntryPoint>>(
     entry_points: EntryPoints,
 ) -> Felt {
@@ -25,23 +56,50 @@ fn compute_hash_on_sierra_entry_points<'a, EntryPoints: Iterator<Item = &'a Sier
     poseidon_hash_many(flat_entry_points.iter())
 }
 
+/// Computes a Keccak hash of the ABI string.
+///
+/// # Arguments
+///
+/// * `abi` - The ABI string to hash
+///
+/// # Returns
+///
+/// A `Felt` representing the hash of the ABI.
 fn hash_abi(abi: &str) -> Felt {
     starknet_keccak(abi.as_bytes())
 }
 
-/// Holds the hashes of the contract class components, to be used for calculating the final hash.
-/// Note: the order of the struct member must not be changed since it determines the hash order.
+/// Holds the component hashes of a contract class for final hash calculation.
+///
+/// This struct contains the individual hashes of each component of a Sierra contract class.
+/// The order of the struct members is critical as it determines the hash computation order.
+///
+/// # Note
+///
+/// The order of struct members must not be changed as it affects the final hash computation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ContractClassComponentHashes {
+    /// Hash of the contract class version string.
     contract_class_version: Felt,
+    /// Hash of external function entry points.
     external_functions_hash: Felt,
+    /// Hash of L1 handler entry points.
     l1_handlers_hash: Felt,
+    /// Hash of constructor entry points.
     constructors_hash: Felt,
+    /// Hash of the ABI.
     abi_hash: Felt,
+    /// Hash of the Sierra program.
     sierra_program_hash: Felt,
 }
 
 impl ContractClassComponentHashes {
+    /// Converts the component hashes to a vector in the correct order.
+    ///
+    /// # Returns
+    ///
+    /// A vector containing all component hashes in the order required for final hash computation.
+    #[must_use]
     pub fn to_vec(self) -> Vec<Felt> {
         vec![
             self.contract_class_version,
@@ -52,13 +110,51 @@ impl ContractClassComponentHashes {
             self.sierra_program_hash,
         ]
     }
+
+    /// Returns a reference to the contract class version hash.
+    #[must_use]
+    pub fn contract_class_version(&self) -> &Felt {
+        &self.contract_class_version
+    }
+
+    /// Returns a reference to the external functions hash.
+    #[must_use]
+    pub fn external_functions_hash(&self) -> &Felt {
+        &self.external_functions_hash
+    }
+
+    /// Returns a reference to the L1 handlers hash.
+    #[must_use]
+    pub fn l1_handlers_hash(&self) -> &Felt {
+        &self.l1_handlers_hash
+    }
+
+    /// Returns a reference to the constructor's hash.
+    #[must_use]
+    pub fn constructors_hash(&self) -> &Felt {
+        &self.constructors_hash
+    }
+
+    /// Returns a reference to the ABI hash.
+    #[must_use]
+    pub fn abi_hash(&self) -> &Felt {
+        &self.abi_hash
+    }
+
+    /// Returns a reference to the Sierra program hash.
+    #[must_use]
+    pub fn sierra_program_hash(&self) -> &Felt {
+        &self.sierra_program_hash
+    }
 }
 
 impl From<starknet_core::types::FlattenedSierraClass> for ContractClassComponentHashes {
     fn from(sierra_class: starknet_core::types::FlattenedSierraClass) -> Self {
+        // Create the version string and hash it
         let version_str = format!("{CLASS_VERSION_PREFIX}{}", sierra_class.contract_class_version);
         let contract_class_version = Felt::from_bytes_be_slice(version_str.as_bytes());
 
+        // Hash the Sierra program
         let sierra_program_hash = poseidon_hash_many(sierra_class.sierra_program.iter());
 
         Self {
@@ -84,10 +180,10 @@ mod tests {
     use super::*;
 
     const TEST_CONTRACT_SIERRA_CLASS: &[u8] = include_bytes!("../../../resources/test_contract.sierra");
-
     const EMPTY_CONTRACT_SIERRA_CLASS: &[u8] = include_bytes!("../../../resources/empty_contract.sierra");
 
-    /// Tests that component hashing works.
+    /// Tests that component hashing works correctly.
+    ///
     /// The following hashes were generated manually by using the following Python snippet:
     /// ```python
     /// sierra_path = <path to test_contract.sierra>
@@ -125,6 +221,46 @@ mod tests {
         let flattened_sierra_class = sierra_class.flatten().unwrap();
 
         let component_hashes = ContractClassComponentHashes::from(flattened_sierra_class);
-        assert_eq!(component_hashes, expected_component_hashes)
+        assert_eq!(component_hashes, expected_component_hashes);
+    }
+
+    #[test]
+    fn test_component_hashes_getters() {
+        let component_hashes = ContractClassComponentHashes {
+            contract_class_version: Felt::from(1u64),
+            external_functions_hash: Felt::from(2u64),
+            l1_handlers_hash: Felt::from(3u64),
+            constructors_hash: Felt::from(4u64),
+            abi_hash: Felt::from(5u64),
+            sierra_program_hash: Felt::from(6u64),
+        };
+
+        assert_eq!(*component_hashes.contract_class_version(), Felt::from(1u64));
+        assert_eq!(*component_hashes.external_functions_hash(), Felt::from(2u64));
+        assert_eq!(*component_hashes.l1_handlers_hash(), Felt::from(3u64));
+        assert_eq!(*component_hashes.constructors_hash(), Felt::from(4u64));
+        assert_eq!(*component_hashes.abi_hash(), Felt::from(5u64));
+        assert_eq!(*component_hashes.sierra_program_hash(), Felt::from(6u64));
+    }
+
+    #[test]
+    fn test_component_hashes_to_vec() {
+        let component_hashes = ContractClassComponentHashes {
+            contract_class_version: Felt::from(1u64),
+            external_functions_hash: Felt::from(2u64),
+            l1_handlers_hash: Felt::from(3u64),
+            constructors_hash: Felt::from(4u64),
+            abi_hash: Felt::from(5u64),
+            sierra_program_hash: Felt::from(6u64),
+        };
+
+        let vec = component_hashes.to_vec();
+        assert_eq!(vec.len(), 6);
+        assert_eq!(vec[0], Felt::from(1u64));
+        assert_eq!(vec[1], Felt::from(2u64));
+        assert_eq!(vec[2], Felt::from(3u64));
+        assert_eq!(vec[3], Felt::from(4u64));
+        assert_eq!(vec[4], Felt::from(5u64));
+        assert_eq!(vec[5], Felt::from(6u64));
     }
 }
