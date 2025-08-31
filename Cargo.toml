@@ -1,7 +1,11 @@
 [workspace]
 resolver = "2"
 
-members = ["crates/core/generate-pie", "crates/starknet-os-types"]
+members = [
+  "crates/core/generate-pie",
+  "crates/rpc-client",
+  "crates/starknet-os-types",
+]
 
 [workspace.package]
 version = "0.1.0"
