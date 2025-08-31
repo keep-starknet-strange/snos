@@ -6,6 +6,9 @@ edition.workspace = true
 repository.workspace = true
 license-file.workspace = true
 
+[lib]
+doctest = false
+
 [dependencies]
 cairo-lang-starknet-classes = { workspace = true }
 cairo-vm = { workspace = true }
