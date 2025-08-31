@@ -20,8 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: "true"
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v4
@@ -37,8 +35,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: "true"
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v4
@@ -57,8 +53,6 @@ jobs:
     if: false # Skipping the unused dependency test for now
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: "true"
       - run: rustup update
       - run: rustup install nightly-2024-09-05
       - run: rustup show
