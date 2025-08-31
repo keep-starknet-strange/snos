@@ -1,7 +1,6 @@
 pub mod client;
 pub mod pathfinder;
 pub mod state_reader;
-mod types;
 mod utils;
 
 pub use client::RpcClient;

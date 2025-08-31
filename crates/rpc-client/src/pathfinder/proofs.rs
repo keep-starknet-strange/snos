@@ -1,157 +1,17 @@
-use serde::{Deserialize, Serialize};
-// use starknet_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
-// use starknet_os::crypto::pedersen::PedersenHash;
-// use starknet_os::crypto::poseidon::PoseidonHash;
-// use starknet_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
-// use starknet_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
-// use starknet_os::storage::dict_storage::DictStorage;
-// use starknet_os::storage::storage::{Fact, HashFunctionType};
 use bitvec::{order::Msb0, slice::BitSlice, vec::BitVec};
 use num_bigint::BigInt;
 use starknet_types_core::felt::Felt;
-use starknet_types_core::hash::{Pedersen, Poseidon, StarkHash};
 use std::collections::HashMap;
 
+use crate::pathfinder::constants::DEFAULT_STORAGE_TREE_HEIGHT;
+use crate::pathfinder::error::ProofVerificationError;
+use crate::pathfinder::types::proofs::{ContractData, EdgePath, Height, TrieNode};
 use crate::SimpleHashFunction;
-pub const DEFAULT_STORAGE_TREE_HEIGHT: u64 = 251;
-
-#[derive(Debug, Copy, Clone, PartialEq, Default, Eq, Hash, Serialize, Deserialize)]
-pub struct Height(pub u64);
-use cairo_vm::Felt252;
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct EdgePath {
-    pub len: u64,
-    pub value: Felt,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub enum TrieNode {
-    #[serde(rename = "binary")]
-    Binary {
-        left: Felt,
-        right: Felt,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        node_hash: Option<Felt>,
-    },
-    #[serde(rename = "edge")]
-    Edge {
-        child: Felt,
-        path: EdgePath,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        node_hash: Option<Felt>,
-    },
-}
-
-// TODO: the hashing is not right here, solve this before proceeding
-impl TrieNode {
-    pub fn hash<H: SimpleHashFunction>(&self) -> Felt {
-        match self {
-            TrieNode::Binary { left, right, node_hash: _ } => H::hash(left, right),
-            TrieNode::Edge { child, path, node_hash: _ } => {
-                // For edge nodes, we hash the child with the path value
-                // This is a simplified implementation
-                let bottom_path_hash = H::hash(child, &path.value);
-                let hash_value = bottom_path_hash + Felt252::from(path.len);
-                hash_value
-            }
-        }
-    }
-
-    pub fn node_hash(&self) -> Option<Felt> {
-        match self {
-            TrieNode::Binary { node_hash, .. } => *node_hash,
-            TrieNode::Edge { node_hash, .. } => *node_hash,
-        }
-    }
-}
-
-// impl TrieNode {
-//     pub fn hash<H: HashFunctionType>(&self) -> Felt {
-//         match self {
-//             TrieNode::Binary { left, right } => {
-//                 let fact = BinaryNodeFact::new((*left).into(), (*right).into())
-//                     .expect("storage proof endpoint gave us an invalid binary node");
-//
-//                 // TODO: the hash function should probably be split from the Fact trait.
-//                 //       we use a placeholder for the Storage trait in the meantime.
-//                 Felt::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact))
-//             }
-//             TrieNode::Edge { child, path } => {
-//                 let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))
-//                     .expect("storage proof endpoint gave us an invalid edge node");
-//                 // TODO: the hash function should probably be split from the Fact trait.
-//                 //       we use a placeholder for the Storage trait in the meantime.
-//                 Felt::from(<EdgeNodeFact as Fact<DictStorage, H>>::hash(&fact))
-//             }
-//         }
-//     }
-// }
-
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct ContractData {
-    /// Root of the Contract state tree
-    pub root: Felt,
-    /// The proofs associated with the queried storage values
-    pub storage_proofs: Vec<Vec<TrieNode>>,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum ProofVerificationError {
-    #[error("Non-inclusion proof for key {}. Height {}.", key.to_hex_string(), height.0)]
-    NonExistenceProof { key: Felt, height: Height, node: TrieNode },
-
-    #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
-    InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
-
-    #[error("Proof is empty")]
-    EmptyProof,
-
-    #[error("Conversion error")]
-    ConversionError,
-
-    #[error("Proof error: {0}")]
-    ProofError(String),
-}
-
-pub struct PedersenHash;
-impl SimpleHashFunction for PedersenHash {
-    fn hash(left: &Felt, right: &Felt) -> Felt {
-        Pedersen::hash(left, right)
-    }
-}
-
-/// Implementation for Poseidon hash
-pub struct PoseidonHash;
-impl SimpleHashFunction for PoseidonHash {
-    fn hash(left: &Felt, right: &Felt) -> Felt {
-        Poseidon::hash(left, right)
-    }
-}
-
-impl ContractData {
-    /// Verifies that each contract state proof is valid.
-    pub fn verify(&self, storage_keys: &[Felt]) -> Result<(), Vec<ProofVerificationError>> {
-        let mut errors = vec![];
-
-        for (index, storage_key) in storage_keys.iter().enumerate() {
-            // log::debug!("proofs that we are passing to the verify function is: {:?}", self.storage_proofs[index]);
-            if let Err(e) = verify_proof::<PedersenHash>(*storage_key, self.root, &self.storage_proofs[index]) {
-                errors.push(e);
-            }
-        }
-
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
-        }
-    }
-}
 
 /// Verify the storage proofs and handle errors.
 /// Returns a list of additional keys to fetch to fill gaps in the tree that will make the OS
 /// crash otherwise.
-/// This function will panic if the proof contains an invalid node hash (i.e. the hash of a child
+/// This function will panic if the proof contains an invalid node hash (i.e., the hash of a child
 /// node does not match the one specified in the parent).
 pub fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<Felt> {
     let mut additional_keys = vec![];
@@ -162,11 +22,6 @@ pub fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<
                     if let TrieNode::Edge { child: _, path, .. } = &node {
                         if height.0 < DEFAULT_STORAGE_TREE_HEIGHT {
                             let modified_key = get_key_following_edge(key, height, &path);
-                            println!(
-                                "Fetching modified key {} for key {}",
-                                modified_key.to_hex_string(),
-                                key.to_hex_string()
-                            );
                             additional_keys.push(modified_key);
                         }
                     }
@@ -183,16 +38,16 @@ pub fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<
 
 /// Returns a modified key that follows the specified edge path.
 /// This function is used to work around an issue where the OS fails if it encounters a
-/// write to 0 and the last node in the storage proof is an edge node of length 1.
+/// writing to 0, and the last node in the storage proof is an edge node of length 1.
 /// In this situation the OS will still look up the node in the preimage and will fail
-/// on a "Edge bottom not found in preimage" error.
-/// To resolve this, we fetch the storage proof for a node that follows this edge in order
+/// on an "Edge bottom not found in preimage" error.
+/// To resolve this, we fetch the storage proof for a node that follows this edge
 /// to get the bottom node in the preimage and resolve the issue.
 ///
 /// For example, if following a key 0x00A0 we encounter an edge 0xB0 starting from height 8
-/// to height 4 (i.e. the length of the edge is 4), then the bottom node of the edge will
+/// to height 4 (i.e., the length of the edge is 4), then the bottom node of the edge will
 /// not be included in the proof as the key does not follow the edge. We need to compute a key
-/// that will follow the edge in order to get that bottom node. For example, the key 0x00B0 will
+/// that will follow the edge to get that bottom node. For example, the key 0x00B0 will
 /// follow that edge.
 ///
 /// An important note is that heigh = 0 at the level of leaf nodes (as opposed to the rest of the OS)
@@ -211,22 +66,6 @@ fn get_key_following_edge(key: Felt, height: Height, edge_path: &EdgePath) -> Fe
     Felt::from(new_key)
 }
 
-#[derive(Debug, Default, Clone, Deserialize, Serialize)]
-pub struct PathfinderProof {
-    pub state_commitment: Option<Felt>,
-    pub contract_commitment: Felt,
-    pub class_commitment: Option<Felt>,
-    pub contract_proof: Vec<TrieNode>,
-    pub contract_data: Option<ContractData>,
-}
-
-#[allow(dead_code)]
-#[derive(Clone, Deserialize, Serialize)]
-pub struct PathfinderClassProof {
-    pub class_commitment: Felt,
-    pub class_proof: Vec<TrieNode>,
-}
-
 pub fn proof_to_hashmap(proof: &[TrieNode]) -> HashMap<Felt, TrieNode> {
     proof.iter().map(|node| (node.node_hash().unwrap(), node.clone())).collect()
 }
@@ -236,7 +75,7 @@ pub fn hash_binary_node<H: SimpleHashFunction>(left_hash: Felt, right_hash: Felt
 }
 pub fn hash_edge_node<H: SimpleHashFunction>(path: &Felt, path_length: usize, child_hash: Felt) -> Felt {
     let path_bitslice: &BitSlice<_, Msb0> = &BitVec::from_slice(&path.to_bytes_be());
-    assert!(path_bitslice.len() == 256, "Felt::to_bytes_be() expected to always be 256 bits");
+    assert_eq!(path_bitslice.len(), 256, "Felt::to_bytes_be() expected to always be 256 bits");
 
     let felt_path = path;
     let mut length = [0; 32];
@@ -264,10 +103,7 @@ pub fn verify_proof<H: SimpleHashFunction>(
 
     let bits: BitVec<_, Msb0> = BitVec::from_slice(&key.to_bytes_be());
     let mut next_node_hash = commitment;
-    // let mut ordered_proof = Vec::new();
     let proof_nodes = proof_to_hashmap(proof);
-    // println!("mapping here is: {:?}", proof_nodes);
-    // println!("/n");
     loop {
         let node = proof_nodes.get(&next_node_hash).ok_or_else(|| {
             ProofVerificationError::ProofError(format!(
@@ -275,10 +111,8 @@ pub fn verify_proof<H: SimpleHashFunction>(
                 next_node_hash, index
             ))
         })?;
-        // println!("for the node_hash: {:?}, we got the node: {:?}", next_node_hash, node);
         match node {
             TrieNode::Binary { left, right, .. } => {
-                // println!("that node is binary");
                 let actual_node_hash = hash_binary_node::<H>(*left, *right);
                 if actual_node_hash != next_node_hash {
                     return Err(ProofVerificationError::InvalidChildNodeHash {
@@ -288,31 +122,25 @@ pub fn verify_proof<H: SimpleHashFunction>(
                 }
                 next_node_hash = if bits[index] { right.clone() } else { left.clone() }; // TODO: remove the clones
                 index += 1;
-                // println!("hash calculation passed for the node!!");
             }
             TrieNode::Edge { child, path, .. } => {
-                // println!("that node is edge node");
                 let length = path.len as usize;
                 let relevant_path = &bits[index..index + length];
 
                 let path_bits: BitVec<_, Msb0> = BitVec::from_slice(&path.value.to_bytes_be());
-                // println!("the size of the path_bits here is: {:?}", path_bits.len());
                 let relevant_node_path = &path_bits[256 - length..]; // TODO: is this always 256 i.e. size of the path_bits array?
 
                 let actual_node_hash = hash_edge_node::<H>(&path.value, length, *child);
-                // println!("node hash calculated is: {:?}", actual_node_hash);
                 if actual_node_hash != next_node_hash {
                     return Err(ProofVerificationError::InvalidChildNodeHash {
                         node_hash: actual_node_hash,
                         parent_hash: next_node_hash,
                     });
                 }
-                // println!("hash calculation passed for the node!!");
                 next_node_hash = child.clone();
                 index += length;
 
                 if relevant_path != relevant_node_path {
-                    // return Err(ProofVerificationError::ProofError(format!("incorrect edge path (expected {:?}, but got {:?})", relevant_path, relevant_node_path)));
                     // If paths don't match, we've found a proof of non-membership because:
                     // 1. We correctly moved towards the target as far as possible, and
                     // 2. Hashing all the nodes along the path results in the root hash, which means
@@ -326,57 +154,24 @@ pub fn verify_proof<H: SimpleHashFunction>(
             }
         }
 
-        // ordered_proof.push(node.clone());
-
         if index > 256 {
             return Err(ProofVerificationError::ProofError(format!(
                 "invalid proof, path too long ({})",
-                (index - start)
+                index - start
             )));
         }
         if index == 256 {
             break;
         }
     }
-    // assert!(ordered_proof.len() >= 2);
     Ok(())
-}
-
-impl PathfinderClassProof {
-    pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
-        verify_proof::<PoseidonHash>(class_hash, self.class_commitment()?, &self.class_proof)
-    }
-
-    /// Gets the "class_commitment" which is aka the root node of the class Merkle tree.
-    /// Pathfinder used to provide this explicitly, but stopped doing so in #2452:
-    ///
-    /// https://github.com/eqlabs/pathfinder/pull/2452
-    ///
-    /// However, the proof should always start with the root node, which means all we have
-    /// to do is hash the first node in the proof to get the same thing.
-    ///
-    /// NOTE: the v0.8 RPC spec does NOT require the proof to be in order, in which case it is
-    ///       much trickier to guess what the root node is.
-    pub fn class_commitment(&self) -> Result<Felt, ProofVerificationError> {
-        if !self.class_proof.is_empty() {
-            let hash = self.class_proof[0].hash::<PoseidonHash>();
-            Ok(hash.into())
-        } else {
-            Err(ProofVerificationError::EmptyProof) // TODO: give an error type or change fn return type
-        }
-    }
-}
-
-/// Reads a PathfinderProof from a JSON file
-pub fn read_pathfinder_proof_from_json(file_path: &str) -> Result<PathfinderProof, Box<dyn std::error::Error>> {
-    let file_content = std::fs::read_to_string(file_path)?;
-    let proof: PathfinderProof = serde_json::from_str(&file_content)?;
-    Ok(proof)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pathfinder::types::hash::{PedersenHash, PoseidonHash};
+    use crate::pathfinder::types::PathfinderProof;
     use rstest::rstest;
     use starknet_types_core::felt::Felt;
 
@@ -456,33 +251,31 @@ mod tests {
         assert_eq!(result, expected);
     }
 
-    // #[rstest]
-    // #[case(
-    //     "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-    //     "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-    //     "0x0000000000000000000000000000000000000000000000000000000000000000" // placeholder expected result
-    // )]
-    // #[case(
-    //     "0x0000000000000000000000000000000000000000000000000000000000000001",
-    //     "0x0000000000000000000000000000000000000000000000000000000000000002",
-    //     "0x0000000000000000000000000000000000000000000000000000000000000000" // placeholder expected result
-    // )]
-    // fn test_hash_binary_node_poseidon(
-    //     #[case] left_hex: &str,
-    //     #[case] right_hex: &str,
-    //     #[case] expected_hex: &str,
-    // ) {
-    //     let left = Felt::from_hex(left_hex).unwrap();
-    //     let right = Felt::from_hex(right_hex).unwrap();
-    //     let expected = Felt::from_hex(expected_hex).unwrap();
+    // TODO: Fix this test or remove it
+    #[ignore]
+    #[rstest]
+    #[case(
+        "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+        "0x0000000000000000000000000000000000000000000000000000000000000000" // placeholder expected result
+    )]
+    #[case(
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000000000000000000000000000000" // placeholder expected result
+    )]
+    fn test_hash_binary_node_poseidon(#[case] left_hex: &str, #[case] right_hex: &str, #[case] expected_hex: &str) {
+        let left = Felt::from_hex(left_hex).unwrap();
+        let right = Felt::from_hex(right_hex).unwrap();
+        let expected = Felt::from_hex(expected_hex).unwrap();
 
-    //     let result = hash_binary_node::<PoseidonHash>(left, right);
+        let result = hash_binary_node::<PoseidonHash>(left, right);
 
-    //     // TODO: Replace with actual expected values
-    //     // For now, just verify the function runs without panicking
-    //     println!("Binary node hash result: {:#x}", result);
-    //     // assert_eq!(result, expected);
-    // }
+        // TODO: Replace with actual expected values
+        // For now, just verify the function runs without panicking
+        println!("Binary node hash result: {:#x}", result);
+        // assert_eq!(result, expected);
+    }
 
     #[rstest]
     #[case(
@@ -509,34 +302,36 @@ mod tests {
         assert_eq!(result, expected);
     }
 
-    // #[rstest]
-    // #[case(
-    //     "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-    //     4,
-    //     "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-    //     "0x0000000000000000000000000000000000000000000000000000000000000000" // placeholder expected result
-    // )]
-    // #[case(
-    //     "0x0000000000000000000000000000000000000000000000000000000000000001",
-    //     8,
-    //     "0x0000000000000000000000000000000000000000000000000000000000000002",
-    //     "0x0000000000000000000000000000000000000000000000000000000000000000" // placeholder expected result
-    // )]
-    // fn test_hash_edge_node_poseidon(
-    //     #[case] path_hex: &str,
-    //     #[case] path_length: usize,
-    //     #[case] child_hash_hex: &str,
-    //     #[case] expected_hex: &str,
-    // ) {
-    //     let path = Felt::from_hex(path_hex).unwrap();
-    //     let child_hash = Felt::from_hex(child_hash_hex).unwrap();
-    //     let expected = Felt::from_hex(expected_hex).unwrap();
+    // TODO: Fix this test or remove it
+    #[ignore]
+    #[rstest]
+    #[case(
+        "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        4,
+        "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+        "0x0000000000000000000000000000000000000000000000000000000000000000" // placeholder expected result
+    )]
+    #[case(
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        8,
+        "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000000000000000000000000000000" // placeholder expected result
+    )]
+    fn test_hash_edge_node_poseidon(
+        #[case] path_hex: &str,
+        #[case] path_length: usize,
+        #[case] child_hash_hex: &str,
+        #[case] expected_hex: &str,
+    ) {
+        let path = Felt::from_hex(path_hex).unwrap();
+        let child_hash = Felt::from_hex(child_hash_hex).unwrap();
+        let expected = Felt::from_hex(expected_hex).unwrap();
 
-    //     let result = hash_edge_node::<PoseidonHash>(&path, path_length, child_hash);
+        let result = hash_edge_node::<PoseidonHash>(&path, path_length, child_hash);
 
-    //     // TODO: Replace with actual expected values
-    //     // For now, just verify the function runs without panicking
-    //     println!("Edge node hash result: {:#x}", result);
-    //     // assert_eq!(result, expected);
-    // }
+        // TODO: Replace with actual expected values
+        // For now, just verify the function runs without panicking
+        println!("Edge node hash result: {:#x}", result);
+        // assert_eq!(result, expected);
+    }
 }

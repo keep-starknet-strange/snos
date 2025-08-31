@@ -1,4 +1,4 @@
-pub(crate) fn execute_coroutine<F, T>(coroutine: F) -> Result<T, tokio::runtime::TryCurrentError>
+pub fn execute_coroutine<F, T>(coroutine: F) -> Result<T, tokio::runtime::TryCurrentError>
 where
     F: std::future::Future<Output = T>,
 {

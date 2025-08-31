@@ -39,6 +39,8 @@
 //! let sierra_class = GenericSierraContractClass::from_bytes(sierra_bytes.to_vec());
 //! let compiled = sierra_class.compile()?;
 //! ```
+//!
+//! TODO: Add more tests in this crate
 
 pub mod casm_contract_class;
 pub mod chain_id;
