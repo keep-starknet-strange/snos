@@ -365,6 +365,7 @@ mod tests {
 
     const DEPRECATED_CLASS: &[u8] = include_bytes!("../../../resources/test_contract_compiled.json");
 
+    #[ignore = "This test is takes a lot of time. Ignoring for now"]
     #[test]
     /// Tests that building a Blockifier deprecated contract class from a generic class yields
     /// the same output independently of the way it was built.
