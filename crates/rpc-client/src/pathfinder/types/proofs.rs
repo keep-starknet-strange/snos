@@ -23,6 +23,7 @@ pub struct PathfinderClassProof {
 }
 
 impl PathfinderClassProof {
+    #[allow(clippy::result_large_err)]
     pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
         verify_proof::<PoseidonHash>(class_hash, self.class_commitment()?, &self.class_proof)
     }
@@ -37,10 +38,11 @@ impl PathfinderClassProof {
     ///
     /// NOTE: the v0.8 RPC spec does NOT require the proof to be in order, in which case it is
     ///       much trickier to guess what the root node is.
+    #[allow(clippy::result_large_err)]
     pub fn class_commitment(&self) -> Result<Felt, ProofVerificationError> {
         if !self.class_proof.is_empty() {
             let hash = self.class_proof[0].hash::<PoseidonHash>();
-            Ok(hash.into())
+            Ok(hash)
         } else {
             Err(ProofVerificationError::EmptyProof) // TODO: give an error type or change fn return type
         }
@@ -107,8 +109,7 @@ impl TrieNode {
                 // For edge nodes, we hash the child with the path value
                 // This is a simplified implementation
                 let bottom_path_hash = H::hash(child, &path.value);
-                let hash_value = bottom_path_hash + Felt252::from(path.len);
-                hash_value
+                bottom_path_hash + Felt252::from(path.len)
             }
         }
     }

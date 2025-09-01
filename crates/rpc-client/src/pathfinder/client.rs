@@ -291,7 +291,7 @@ impl PathfinderRpcClient {
         );
 
         let response = self.send_request::<GetStorageProofResponse>("starknet_getStorageProof", json).await?;
-        Ok(PathfinderProof::try_from(response)?)
+        PathfinderProof::try_from(response)
     }
 
     /// Sends a JSON-RPC request to the Pathfinder server.

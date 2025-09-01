@@ -22,7 +22,7 @@ pub fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Resu
                 ProofVerificationError::NonExistenceProof { key, height, node } => {
                     if let TrieNode::Edge { child: _, path, .. } = &node {
                         if height.0 < DEFAULT_STORAGE_TREE_HEIGHT {
-                            let modified_key = get_key_following_edge(key, height, &path);
+                            let modified_key = get_key_following_edge(key, height, path);
                             additional_keys.push(modified_key);
                         }
                     }
@@ -72,7 +72,7 @@ pub fn proof_to_hashmap(proof: &[TrieNode]) -> HashMap<Felt, TrieNode> {
 }
 
 pub fn hash_binary_node<H: SimpleHashFunction>(left_hash: Felt, right_hash: Felt) -> Felt {
-    H::hash(&left_hash, &right_hash).into()
+    H::hash(&left_hash, &right_hash)
 }
 pub fn hash_edge_node<H: SimpleHashFunction>(path: &Felt, path_length: usize, child_hash: Felt) -> Felt {
     let path_bitslice: &BitSlice<_, Msb0> = &BitVec::from_slice(&path.to_bytes_be());
@@ -84,13 +84,13 @@ pub fn hash_edge_node<H: SimpleHashFunction>(path: &Felt, path_length: usize, ch
     length[31] = path_length as u8;
 
     let length = Felt::from_bytes_be(&length);
-    let hash_result = H::hash(&child_hash, felt_path);
-    let hash_felt: Felt = hash_result.into();
+    let hash_felt: Felt = H::hash(&child_hash, felt_path);
     hash_felt + length
 }
 
 /// This function goes through the tree from top to bottom and verifies that
 /// the hash of each node is equal to the corresponding hash in the parent node.
+#[allow(clippy::result_large_err)]
 pub fn verify_proof<H: SimpleHashFunction>(
     key: Felt,
     commitment: Felt,
@@ -121,7 +121,7 @@ pub fn verify_proof<H: SimpleHashFunction>(
                         parent_hash: next_node_hash,
                     });
                 }
-                next_node_hash = if bits[index] { right.clone() } else { left.clone() }; // TODO: remove the clones
+                next_node_hash = if bits[index] { *right } else { *left };
                 index += 1;
             }
             TrieNode::Edge { child, path, .. } => {
@@ -138,7 +138,7 @@ pub fn verify_proof<H: SimpleHashFunction>(
                         parent_hash: next_node_hash,
                     });
                 }
-                next_node_hash = child.clone();
+                next_node_hash = *child;
                 index += length;
 
                 if relevant_path != relevant_node_path {
