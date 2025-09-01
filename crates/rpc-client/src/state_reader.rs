@@ -36,10 +36,6 @@ fn to_state_err<E: ToString>(e: E) -> StateError {
 
 impl AsyncRpcStateReader {
     pub async fn get_storage_at_async(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt> {
-        println!(
-            "got a request of get_storage_at with parameters the contract address: {:?} and the key: {:?}",
-            contract_address, key
-        );
         let storage_value = match self
             .rpc_client
             .starknet_rpc()
@@ -83,7 +79,7 @@ impl AsyncRpcStateReader {
             Ok(contract_class) => Ok(contract_class),
             // If the ContractClass is declared in the current block,
             // might trigger this error when trying to get it on the previous block.
-            // Returning a `UndeclaredClassHash` allows blockifier to continue execution
+            // Returning an `UndeclaredClassHash` allows blockifier to continue execution
             // Reference: https://github.com/starkware-libs/sequencer/blob/1ade15c645882e3a0bd70ef8f79b23fc66a517e0/crates/blockifier/src/state/cached_state.rs#L178-L200
             Err(ProviderError::StarknetError(StarknetError::ClassHashNotFound)) => {
                 Err(StateError::UndeclaredClassHash(ClassHash(class_hash.0)))
@@ -102,7 +98,7 @@ impl AsyncRpcStateReader {
                 // Parse the JSON to fix the ABI field
                 let mut sierra_value: serde_json::Value = serde_json::from_str(&sierra_json).map_err(to_state_err)?;
 
-                // The ABI field is a JSON string, but GenericSierraContractClass expects it to be parseable
+                // The ABI field is a JSON string, but GenericSierraContractClass expects it to be parseable.
                 // Let's check if the ABI field needs to be converted from string to JSON
                 if let Some(abi_field) = sierra_value.get_mut("abi") {
                     if let Some(abi_str) = abi_field.as_str() {
@@ -503,7 +499,7 @@ mod tests {
         println!("✅ BlockId: {:?}", block_id);
         let actual_type = std::any::type_name_of_val(&block_id);
         println!("   Actual type: {}", actual_type);
-        // The type can be either depending on which crate is being used
+        // The type can be either, depending on which crate is being used
         assert!(actual_type == "starknet::core::types::BlockId" || actual_type == "starknet_core::types::BlockId");
     }
 

@@ -35,7 +35,7 @@ pub struct ClassesProof {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ContractsProof {
-    /// The nodes in the union of the paths from the contracts tree root to the requested leaves.
+    /// The nodes in the union of the paths from the contract tree root to the requested leaves.
     pub nodes: Nodes,
     /// The nonce and class hash for each requested contract address, in the order in which they
     /// appear in the request. These values are needed to construct the associated leaf node.
@@ -51,8 +51,8 @@ pub struct ContractStorageProofs {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContractLeafData {
     // NOTE: This field is not specified in the RPC specs, but the contract storage root is
-    // required to compute the contract state hash (ie the value of the contracts trie). We
-    // include this in the response for now to ease the conversions over on SNOS side.
+    // required to compute the contract state hash (i.e., the value of the contracts trie). We
+    // include this in the response for now to ease the conversions over on the SNOS side.
     pub storage_root: Felt,
     pub nonce: Felt,
     pub class_hash: Felt,
