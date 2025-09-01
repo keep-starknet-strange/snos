@@ -9,6 +9,9 @@ license-file.workspace = true
 [lib]
 doctest = false
 
+[features]
+cairo_native = []
+
 [dependencies]
 anyhow = { workspace = true }
 bitvec = { version = "1.0", default-features = false, features = ["std"] }

@@ -196,15 +196,15 @@ mod tests {
             "0x352057331d5ad77465315d30b98135ddb815b86aa485d659dfeef59a904f88d",
         ];
 
-        for index in 2..keys.len() {
-            let key = Felt::from_hex(keys[index]).unwrap();
+        for (index, item) in keys.iter().enumerate().skip(2) {
+            let key = Felt::from_hex(item).unwrap();
             let commitment =
                 Felt::from_hex("0x113519a4e8c4b74d2295b850122523986c6e60902cfc31a623da2e765c76b3d").unwrap();
             let json_file_content = include_str!("../../../../resources/pathfinder_proof_1309254_2.json");
 
-            // Read proof from JSON file - fail test if file cannot be read
+            // Read proof from JSON file - fail test if the file cannot be read
             let pathfinder_proof: PathfinderProof =
-                serde_json::from_str(&json_file_content).expect("Failed to read PathfinderProof from JSON file");
+                serde_json::from_str(json_file_content).expect("Failed to read PathfinderProof from JSON file");
 
             // Get contract data - fail test if not found
             let contract_data =
@@ -265,10 +265,10 @@ mod tests {
         "0x0000000000000000000000000000000000000000000000000000000000000002",
         "0x0000000000000000000000000000000000000000000000000000000000000000" // placeholder expected result
     )]
-    fn test_hash_binary_node_poseidon(#[case] left_hex: &str, #[case] right_hex: &str, #[case] expected_hex: &str) {
+    fn test_hash_binary_node_poseidon(#[case] left_hex: &str, #[case] right_hex: &str, #[case] _expected_hex: &str) {
         let left = Felt::from_hex(left_hex).unwrap();
         let right = Felt::from_hex(right_hex).unwrap();
-        let expected = Felt::from_hex(expected_hex).unwrap();
+        // let expected = Felt::from_hex(expected_hex).unwrap();
 
         let result = hash_binary_node::<PoseidonHash>(left, right);
 
@@ -322,11 +322,11 @@ mod tests {
         #[case] path_hex: &str,
         #[case] path_length: usize,
         #[case] child_hash_hex: &str,
-        #[case] expected_hex: &str,
+        #[case] _expected_hex: &str,
     ) {
         let path = Felt::from_hex(path_hex).unwrap();
         let child_hash = Felt::from_hex(child_hash_hex).unwrap();
-        let expected = Felt::from_hex(expected_hex).unwrap();
+        // let expected = Felt::from_hex(expected_hex).unwrap();
 
         let result = hash_edge_node::<PoseidonHash>(&path, path_length, child_hash);
 

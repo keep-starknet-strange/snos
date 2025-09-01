@@ -411,7 +411,7 @@ mod tests {
         let block_id = BlockId::Number(1309254);
         let state_reader = AsyncRpcStateReader::new(rpc_client, block_id);
 
-        let (contract_address, storage_key, class_hash, _) = create_test_values();
+        let (contract_address, storage_key, _class_hash, _) = create_test_values();
 
         println!("Testing sync method error handling (should fail gracefully without runtime)...");
 
