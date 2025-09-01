@@ -1,16 +1,16 @@
 //! Pathfinder-specific RPC client implementation.
 
-use std::collections::VecDeque;
-use std::time::Duration;
-
 use crate::pathfinder::constants::{DEFAULT_REQUEST_TIMEOUT_SECONDS, MAX_STORAGE_KEYS_PER_REQUEST};
 use crate::pathfinder::error::ClientError;
 use crate::pathfinder::types::request::{Request, TransactionReceiptResponse};
 use crate::pathfinder::types::{GetStorageProofResponse, PathfinderClassProof, PathfinderProof};
+use anyhow::Result;
 use reqwest::StatusCode;
 use serde::de::DeserializeOwned;
 use serde_json::json;
 use starknet_types_core::felt::Felt;
+use std::collections::VecDeque;
+use std::time::Duration;
 
 /// A specialized RPC client for Pathfinder nodes.
 ///
@@ -65,41 +65,6 @@ pub struct PathfinderRpcClient {
 }
 
 impl PathfinderRpcClient {
-    /// Creates a new Pathfinder RPC client.
-    ///
-    /// # Arguments
-    ///
-    /// * `base_url` - The base URL of the Pathfinder RPC server
-    ///
-    /// # Returns
-    ///
-    /// A new `PathfinderRpcClient` instance.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if the HTTP client cannot be created. For production
-    /// code, consider using `try_new` instead.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use rpc_client::pathfinder::client::PathfinderRpcClient;
-    ///
-    /// let client = PathfinderRpcClient::new("https://your-pathfinder-node.com");
-    /// ```
-    #[must_use]
-    pub fn new(base_url: &str) -> Self {
-        let starknet_rpc_url = base_url.to_string();
-        log::trace!("Initializing Pathfinder RPC client with URL: {}", starknet_rpc_url);
-
-        let http_client = reqwest::ClientBuilder::new()
-            .timeout(Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECONDS))
-            .build()
-            .unwrap_or_else(|e| panic!("Could not build reqwest client: {e}"));
-
-        Self { http_client, rpc_base_url: base_url.to_string() }
-    }
-
     /// Attempts to create a new Pathfinder RPC client with proper error handling.
     ///
     /// # Arguments

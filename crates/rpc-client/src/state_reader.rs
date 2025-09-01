@@ -275,7 +275,7 @@ mod tests {
 
     fn create_test_rpc_client() -> RpcClient {
         // Create a test RPC client with a dummy URL
-        RpcClient::new("https://pathfinder-madara-ci.d.karnot.xyz")
+        RpcClient::try_new("https://pathfinder-madara-ci.d.karnot.xyz").expect("Failed to create test RPC client")
     }
 
     fn create_test_values() -> (ContractAddress, StorageKey, ClassHash, BlockId) {

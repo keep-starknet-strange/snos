@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use anyhow::{anyhow, Result};
 use reqwest::Url;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
@@ -26,10 +27,10 @@ impl RpcClientInner {
     ///
     /// * `base_url` - The base URL of the RPC server
     ///
-    /// # Panics
+    /// # Error
     ///
-    /// This function will panic if the URL cannot be parsed or if the HTTP client
-    /// cannot be created. In production code, consider using `try_new` instead.
+    /// This function will throw an error if the URL cannot be parsed or if the HTTP client
+    /// cannot be created.
     ///
     /// # Example
     ///
@@ -38,18 +39,18 @@ impl RpcClientInner {
     ///
     /// let inner = RpcClientInner::new("https://your-starknet-node.com");
     /// ```
-    fn new(base_url: &str) -> Self {
+    fn try_new(base_url: &str) -> Result<Self> {
         let starknet_rpc_url = format!("{}/rpc/v0_9", base_url);
         log::info!("Initializing Starknet RPC client with URL: {}", starknet_rpc_url);
 
         let provider = JsonRpcClient::new(HttpTransport::new(
             Url::parse(starknet_rpc_url.as_str())
-                .unwrap_or_else(|e| panic!("Could not parse provider URL ({}): {}", starknet_rpc_url, e)),
+                .map_err(|e| anyhow!("Failed to parse URL ({}): {}", starknet_rpc_url, e))?,
         ));
 
-        let pathfinder_client = PathfinderRpcClient::new(base_url);
+        let pathfinder_client = PathfinderRpcClient::try_new(base_url)?;
 
-        Self { starknet_client: provider, pathfinder_client }
+        Ok(Self { starknet_client: provider, pathfinder_client })
     }
 }
 
@@ -120,10 +121,9 @@ impl RpcClient {
     ///
     /// A new `RpcClient` instance.
     ///
-    /// # Panics
+    /// # Error
     ///
-    /// This function will panic if the URL is invalid or if the HTTP client cannot be created.
-    /// For production code, consider using `try_new` instead.
+    /// This function will throw an error if the URL is invalid or if the HTTP client cannot be created.
     ///
     /// # Example
     ///
@@ -132,9 +132,8 @@ impl RpcClient {
     ///
     /// let client = RpcClient::new("https://your-starknet-node.com");
     /// ```
-    #[must_use]
-    pub fn new(base_url: &str) -> Self {
-        Self { inner: Arc::new(RpcClientInner::new(base_url)) }
+    pub fn try_new(base_url: &str) -> Result<Self> {
+        Ok(Self { inner: Arc::new(RpcClientInner::try_new(base_url)?) })
     }
 
     /// Returns a reference to the underlying Starknet RPC client.

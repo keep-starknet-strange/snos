@@ -1,3 +1,4 @@
+use anyhow::{bail, Result};
 use bitvec::{order::Msb0, slice::BitSlice, vec::BitVec};
 use num_bigint::BigInt;
 use starknet_types_core::felt::Felt;
@@ -13,7 +14,7 @@ use crate::SimpleHashFunction;
 /// crash otherwise.
 /// This function will panic if the proof contains an invalid node hash (i.e., the hash of a child
 /// node does not match the one specified in the parent).
-pub fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<Felt> {
+pub fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Result<Vec<Felt>> {
     let mut additional_keys = vec![];
     if let Err(errors) = contract_data.verify(keys) {
         for error in errors {
@@ -27,13 +28,13 @@ pub fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<
                     }
                 }
                 _ => {
-                    panic!("Proof verification failed: {}", error);
+                    bail!("Proof verification failed: {:?}", error);
                 }
             }
         }
     }
 
-    additional_keys
+    Ok(additional_keys)
 }
 
 /// Returns a modified key that follows the specified edge path.
