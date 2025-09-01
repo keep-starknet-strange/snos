@@ -4117,6 +4117,7 @@ dependencies = [
 name = "rpc-client"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bitvec",
  "blockifier",
  "cairo-lang-starknet-classes",
