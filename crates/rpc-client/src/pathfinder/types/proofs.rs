@@ -1,10 +1,10 @@
 use crate::pathfinder::error::ProofVerificationError;
-use crate::pathfinder::proofs::{verify_proof};
+use crate::pathfinder::proofs::verify_proof;
+use crate::pathfinder::types::hash::{PedersenHash, PoseidonHash};
 use crate::SimpleHashFunction;
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use starknet_types_core::felt::Felt;
-use crate::pathfinder::types::hash::{PedersenHash, PoseidonHash};
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct PathfinderProof {

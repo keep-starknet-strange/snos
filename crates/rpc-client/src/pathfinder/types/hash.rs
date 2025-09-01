@@ -1,6 +1,6 @@
+use crate::SimpleHashFunction;
 use starknet_types_core::felt::Felt;
 use starknet_types_core::hash::{Pedersen, Poseidon, StarkHash};
-use crate::SimpleHashFunction;
 
 pub struct PedersenHash;
 impl SimpleHashFunction for PedersenHash {
