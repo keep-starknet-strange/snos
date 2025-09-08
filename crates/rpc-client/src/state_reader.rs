@@ -304,6 +304,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "This test takes a lot of time. Ignoring for now"]
     async fn test_real_rpc_calls() {
         let rpc_client = create_test_rpc_client();
         let (contract_address, storage_key, class_hash, block_id) = create_test_values();
