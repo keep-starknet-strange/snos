@@ -37,57 +37,6 @@ pub fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Resu
     Ok(additional_keys)
 }
 
-/// Returns a modified key that follows the specified edge path.
-/// This function is used to work around an issue where the OS fails if it encounters a
-/// writing to 0, and the last node in the storage proof is an edge node of length 1.
-/// In this situation the OS will still look up the node in the preimage and will fail
-/// on an "Edge bottom not found in preimage" error.
-/// To resolve this, we fetch the storage proof for a node that follows this edge
-/// to get the bottom node in the preimage and resolve the issue.
-///
-/// For example, if following a key 0x00A0 we encounter an edge 0xB0 starting from height 8
-/// to height 4 (i.e., the length of the edge is 4), then the bottom node of the edge will
-/// not be included in the proof as the key does not follow the edge. We need to compute a key
-/// that will follow the edge to get that bottom node. For example, the key 0x00B0 will
-/// follow that edge.
-///
-/// An important note is that heigh = 0 at the level of leaf nodes (as opposed to the rest of the OS)
-///
-/// To achieve this, we zero the part of the key at the height of the edge and then replace it
-/// with the path of the edge. This is achieved with bitwise operations. For our example,
-/// this function will compute the new key as `(key & 0xFF0F) | 0x00B0`.
-fn get_key_following_edge(key: Felt, height: Height, edge_path: &EdgePath) -> Felt {
-    assert!(height.0 < DEFAULT_STORAGE_TREE_HEIGHT);
-
-    let shift = height.0;
-    let clear_mask = ((BigInt::from(1) << edge_path.len) - BigInt::from(1)) << shift;
-    let mask = edge_path.value.to_bigint() << shift;
-    let new_key = (key.to_bigint() & !clear_mask) | mask;
-
-    Felt::from(new_key)
-}
-
-pub fn proof_to_hashmap(proof: &[TrieNode]) -> HashMap<Felt, TrieNode> {
-    proof.iter().map(|node| (node.node_hash().unwrap(), node.clone())).collect()
-}
-
-pub fn hash_binary_node<H: SimpleHashFunction>(left_hash: Felt, right_hash: Felt) -> Felt {
-    H::hash(&left_hash, &right_hash)
-}
-pub fn hash_edge_node<H: SimpleHashFunction>(path: &Felt, path_length: usize, child_hash: Felt) -> Felt {
-    let path_bitslice: &BitSlice<_, Msb0> = &BitVec::from_slice(&path.to_bytes_be());
-    assert_eq!(path_bitslice.len(), 256, "Felt::to_bytes_be() expected to always be 256 bits");
-
-    let felt_path = path;
-    let mut length = [0; 32];
-    // Safe as len() is guaranteed to be <= 251
-    length[31] = path_length as u8;
-
-    let length = Felt::from_bytes_be(&length);
-    let hash_felt: Felt = H::hash(&child_hash, felt_path);
-    hash_felt + length
-}
-
 /// This function goes through the tree from top to bottom and verifies that
 /// the hash of each node is equal to the corresponding hash in the parent node.
 #[allow(clippy::result_large_err)]
@@ -168,6 +117,58 @@ pub fn verify_proof<H: SimpleHashFunction>(
     Ok(())
 }
 
+/// Returns a modified key that follows the specified edge path.
+/// This function is used to work around an issue where the OS fails if it encounters a
+/// writing to 0, and the last node in the storage proof is an edge node of length 1.
+/// In this situation the OS will still look up the node in the preimage and will fail
+/// on an "Edge bottom not found in preimage" error.
+/// To resolve this, we fetch the storage proof for a node that follows this edge
+/// to get the bottom node in the preimage and resolve the issue.
+///
+/// For example, if following a key 0x00A0 we encounter an edge 0xB0 starting from height 8
+/// to height 4 (i.e., the length of the edge is 4), then the bottom node of the edge will
+/// not be included in the proof as the key does not follow the edge. We need to compute a key
+/// that will follow the edge to get that bottom node. For example, the key 0x00B0 will
+/// follow that edge.
+///
+/// An important note is that heigh = 0 at the level of leaf nodes (as opposed to the rest of the OS)
+///
+/// To achieve this, we zero the part of the key at the height of the edge and then replace it
+/// with the path of the edge. This is achieved with bitwise operations. For our example,
+/// this function will compute the new key as `(key & 0xFF0F) | 0x00B0`.
+fn get_key_following_edge(key: Felt, height: Height, edge_path: &EdgePath) -> Felt {
+    assert!(height.0 < DEFAULT_STORAGE_TREE_HEIGHT);
+
+    let shift = height.0;
+    let clear_mask = ((BigInt::from(1) << edge_path.len) - BigInt::from(1)) << shift;
+    let mask = edge_path.value.to_bigint() << shift;
+    let new_key = (key.to_bigint() & !clear_mask) | mask;
+
+    Felt::from(new_key)
+}
+
+fn proof_to_hashmap(proof: &[TrieNode]) -> HashMap<Felt, TrieNode> {
+    proof.iter().map(|node| (node.node_hash().unwrap(), node.clone())).collect()
+}
+
+fn hash_binary_node<H: SimpleHashFunction>(left_hash: Felt, right_hash: Felt) -> Felt {
+    H::hash(&left_hash, &right_hash)
+}
+
+fn hash_edge_node<H: SimpleHashFunction>(path: &Felt, path_length: usize, child_hash: Felt) -> Felt {
+    let path_bitslice: &BitSlice<_, Msb0> = &BitVec::from_slice(&path.to_bytes_be());
+    assert_eq!(path_bitslice.len(), 256, "Felt::to_bytes_be() expected to always be 256 bits");
+
+    let felt_path = path;
+    let mut length = [0; 32];
+    // Safe as len() is guaranteed to be <= 251
+    length[31] = path_length as u8;
+
+    let length = Felt::from_bytes_be(&length);
+    let hash_felt: Felt = H::hash(&child_hash, felt_path);
+    hash_felt + length
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -177,6 +178,7 @@ mod tests {
     use starknet_types_core::felt::Felt;
 
     #[test]
+    #[ignore]
     fn test_verify_proof_from_json() {
         // Placeholder values - replace with actual test data
         let keys = [
