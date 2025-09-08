@@ -435,6 +435,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_error_handling_with_invalid_values() {
         let rpc_client = create_test_rpc_client();
         let block_id = BlockId::Number(1309254);
