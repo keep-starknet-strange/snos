@@ -32,11 +32,7 @@ where
     for nodes in trie_nodes {
         for node in nodes {
             let (key, fact_as_tuple) = match node {
-                TrieNode::Binary {
-                    left,
-                    right,
-                    node_hash,
-                } => {
+                TrieNode::Binary { left, right, node_hash } => {
                     // For binary nodes, compute hash and create tuple
                     // In the original implementation, this used BinaryNodeFact
                     // For now, we'll create a simplified version
@@ -45,11 +41,7 @@ where
 
                     (node_hash, fact_as_tuple)
                 }
-                TrieNode::Edge {
-                    child,
-                    path,
-                    node_hash,
-                } => {
+                TrieNode::Edge { child, path, node_hash } => {
                     // For edge nodes, compute hash with path and length
                     // In the original implementation, this used EdgeNodeFact
                     // For now, we'll create a simplified version
@@ -107,30 +99,18 @@ pub fn compute_class_commitment(
     let previous_class_proofs: Vec<_> = previous_class_proofs.values().cloned().collect();
     let class_proofs: Vec<_> = class_proofs.values().cloned().collect();
 
-    let previous_class_proofs: Vec<_> = previous_class_proofs
-        .into_iter()
-        .map(|proof| proof.class_proof)
-        .collect();
-    let class_proofs: Vec<_> = class_proofs
-        .into_iter()
-        .map(|proof| proof.class_proof)
-        .collect();
+    let previous_class_proofs: Vec<_> = previous_class_proofs.into_iter().map(|proof| proof.class_proof).collect();
+    let class_proofs: Vec<_> = class_proofs.into_iter().map(|proof| proof.class_proof).collect();
 
     // Format commitment facts using Poseidon hash (for class commitments)
-    let previous_class_commitment_facts =
-        format_commitment_facts::<PoseidonHash>(&previous_class_proofs);
+    let previous_class_commitment_facts = format_commitment_facts::<PoseidonHash>(&previous_class_proofs);
     let current_class_commitment_facts = format_commitment_facts::<PoseidonHash>(&class_proofs);
 
     // Combine facts from previous and current
-    let class_commitment_facts: HashMap<_, _> = previous_class_commitment_facts
-        .into_iter()
-        .chain(current_class_commitment_facts)
-        .collect();
+    let class_commitment_facts: HashMap<_, _> =
+        previous_class_commitment_facts.into_iter().chain(current_class_commitment_facts).collect();
 
-    println!(
-        "previous class trie root: {}",
-        previous_root.to_hex_string()
-    );
+    println!("previous class trie root: {}", previous_root.to_hex_string());
     println!("current class trie root: {}", updated_root.to_hex_string());
 
     // Create CommitmentInfo with proper type conversions
@@ -138,10 +118,7 @@ pub fn compute_class_commitment(
         previous_root: HashOutput(previous_root),
         updated_root: HashOutput(updated_root),
         tree_height: SubTreeHeight(251), // Direct construction of SubTreeHeight
-        commitment_facts: class_commitment_facts
-            .into_iter()
-            .map(|(k, v)| (HashOutput(k), v))
-            .collect(),
+        commitment_facts: class_commitment_facts.into_iter().map(|(k, v)| (HashOutput(k), v)).collect(),
     }
 }
 
@@ -158,18 +135,13 @@ pub fn create_contract_state_commitment_info(
         previous_root: HashOutput(previous_contract_trie_root),
         updated_root: HashOutput(current_contract_trie_root),
         tree_height: SubTreeHeight(251), // Direct construction of SubTreeHeight
-        commitment_facts: global_state_commitment_facts
-            .into_iter()
-            .map(|(k, v)| (HashOutput(k), v))
-            .collect(),
+        commitment_facts: global_state_commitment_facts.into_iter().map(|(k, v)| (HashOutput(k), v)).collect(),
     }
 }
 
 /// Helper function to format storage commitment facts using Pedersen hash
 /// This is for contract state commitments which use Pedersen hashing
-pub fn format_storage_commitment_facts(
-    storage_proofs: &[Vec<TrieNode>],
-) -> HashMap<Felt, Vec<Felt>> {
+pub fn format_storage_commitment_facts(storage_proofs: &[Vec<TrieNode>]) -> HashMap<Felt, Vec<Felt>> {
     format_commitment_facts::<PedersenHash>(storage_proofs)
 }
 
@@ -195,8 +167,7 @@ mod tests {
         let empty_proofs = HashMap::new();
         let zero_root = Felt::ZERO;
 
-        let commitment =
-            compute_class_commitment(&empty_proofs, &empty_proofs, zero_root, zero_root);
+        let commitment = compute_class_commitment(&empty_proofs, &empty_proofs, zero_root, zero_root);
         assert_eq!(commitment.previous_root.0, commitment.updated_root.0);
     }
 

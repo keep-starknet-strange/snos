@@ -30,21 +30,13 @@ pub fn merge_cached_state_inputs(inputs: &[CachedStateInput]) -> CachedStateInpu
     for input in inputs {
         // Merge storage
         for (address, storage) in &input.storage {
-            merged
-                .storage
-                .entry(*address)
-                .or_default()
-                .extend(storage.clone());
+            merged.storage.entry(*address).or_default().extend(storage.clone());
         }
 
         // Merge other mappings (later entries overwrite earlier ones)
-        merged
-            .address_to_class_hash
-            .extend(&input.address_to_class_hash);
+        merged.address_to_class_hash.extend(&input.address_to_class_hash);
         merged.address_to_nonce.extend(&input.address_to_nonce);
-        merged
-            .class_hash_to_compiled_class_hash
-            .extend(&input.class_hash_to_compiled_class_hash);
+        merged.class_hash_to_compiled_class_hash.extend(&input.class_hash_to_compiled_class_hash);
     }
 
     merged

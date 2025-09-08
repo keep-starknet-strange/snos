@@ -51,11 +51,7 @@ pub async fn generate_cached_state_input(
 
     // 2. Get nonces for all addresses
     for contract_address in &all_addresses {
-        let nonce = rpc_client
-            .starknet_rpc()
-            .get_nonce(block_id, *contract_address.key())
-            .await
-            .unwrap_or(Felt::ZERO); // Default to zero if not found
+        let nonce = rpc_client.starknet_rpc().get_nonce(block_id, *contract_address.key()).await.unwrap_or(Felt::ZERO); // Default to zero if not found
 
         address_to_nonce.insert(*contract_address, Nonce(nonce));
     }
@@ -82,10 +78,7 @@ pub async fn generate_cached_state_input(
         all_class_hashes.insert(class_hash);
     }
 
-    println!(
-        " Retrieved class hashes for {} addresses",
-        address_to_class_hash.len()
-    );
+    println!(" Retrieved class hashes for {} addresses", address_to_class_hash.len());
 
     // 4. Get compiled class hashes for all class hashes
     for class_hash in &all_class_hashes {
@@ -95,10 +88,7 @@ pub async fn generate_cached_state_input(
         }
 
         let state_reader = AsyncRpcStateReader::new(rpc_client.clone(), block_id);
-        let compiled_class_hash = match state_reader
-            .get_compiled_class_hash_async(*class_hash)
-            .await
-        {
+        let compiled_class_hash = match state_reader.get_compiled_class_hash_async(*class_hash).await {
             Ok(compiled_hash) => compiled_hash,
             Err(_) => {
                 // If we can't get the compiled class hash, skip it
@@ -109,17 +99,10 @@ pub async fn generate_cached_state_input(
         class_hash_to_compiled_class_hash.insert(*class_hash, compiled_class_hash);
     }
 
-    println!(
-        " Retrieved compiled class hashes for {} classes",
-        class_hash_to_compiled_class_hash.len()
-    );
+    println!(" Retrieved compiled class hashes for {} classes", class_hash_to_compiled_class_hash.len());
 
-    let cached_state_input = CachedStateInput {
-        storage,
-        address_to_class_hash,
-        address_to_nonce,
-        class_hash_to_compiled_class_hash,
-    };
+    let cached_state_input =
+        CachedStateInput { storage, address_to_class_hash, address_to_nonce, class_hash_to_compiled_class_hash };
 
     println!(" Generated cached state input successfully!");
     Ok(cached_state_input)
