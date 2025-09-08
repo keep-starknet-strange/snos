@@ -6,8 +6,27 @@ edition.workspace = true
 repository.workspace = true
 license-file.workspace = true
 
+[lib]
+doctest = false
+
 [dependencies]
-cairo-vm = { workspace = true }
-starknet = { workspace = true }
+rpc-client = { path = "../../rpc-client" }
+starknet-os-types = { path = "../../starknet-os-types" }
+
+blockifier = { workspace = true }
+shared_execution_objects = { workspace = true }
 starknet_api = { workspace = true }
 starknet_os = { workspace = true }
+starknet_patricia = { workspace = true }
+
+cairo-lang-starknet-classes = { workspace = true }
+cairo-vm = { workspace = true }
+env_logger = "0.11.6"
+log = { workspace = true }
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
+starknet = { workspace = true }
+starknet-crypto = { workspace = true }
+starknet-types-core = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
