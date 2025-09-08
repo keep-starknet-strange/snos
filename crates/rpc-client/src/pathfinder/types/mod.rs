@@ -24,6 +24,7 @@ pub mod proofs;
 pub mod request;
 pub mod storage_proof;
 
+pub use hash::{PedersenHash, PoseidonHash};
 pub use nodes::{MerkleNode, NodeWithHash, Nodes};
 pub use proofs::{ContractData, PathfinderClassProof, PathfinderProof, TrieNode};
 pub use storage_proof::GetStorageProofResponse;

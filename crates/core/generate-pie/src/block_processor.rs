@@ -10,7 +10,7 @@ use blockifier::test_utils::maybe_dummy_block_hash_and_number;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
-use rpc_client::pathfinder::proofs::{PathfinderProof, PedersenHash};
+use rpc_client::pathfinder::types::{PathfinderProof, PedersenHash};
 use rpc_client::state_reader::AsyncRpcStateReader;
 use rpc_client::RpcClient;
 use serde::Serialize;
@@ -337,7 +337,7 @@ pub async fn collect_single_block_info(
     let blockifier_txns: Vec<_> = txs.iter().map(|txn_result| txn_result.blockifier_tx.clone()).collect();
     let starknet_api_txns: Vec<_> = txs.iter().map(|txn_result| txn_result.starknet_api_tx.clone()).collect();
 
-    let block_number_hash_pair = maybe_dummy_block_hash_and_number(BlockNumber(block_number));
+    let _block_number_hash_pair = maybe_dummy_block_hash_and_number(BlockNumber(block_number));
 
     println!(" Step 9: Creating transaction executor...");
     let config = TransactionExecutorConfig::default();
@@ -597,8 +597,8 @@ pub async fn collect_single_block_info(
     }
 
     let mut deprecated_compiled_classes_btree: BTreeMap<ClassHash, ContractClass> = BTreeMap::new();
-    let mut deprecated_rpc_calls_made = 0;
-    let mut deprecated_mapping_hits = 0;
+    let deprecated_rpc_calls_made = 0;
+    let deprecated_mapping_hits = 0;
 
     for (class_hash_felt, generic_class) in deprecated_compiled_classes {
         let class_hash = ClassHash(class_hash_felt);

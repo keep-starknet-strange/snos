@@ -47,7 +47,7 @@ const CLASS_VERSION_PREFIX: &str = "CONTRACT_CLASS_V";
 ///
 /// let hash = compute_hash_on_sierra_entry_points(entry_points.iter());
 /// ```
-fn compute_hash_on_sierra_entry_points<'a, EntryPoints: Iterator<Item = &'a SierraEntryPoint>>(
+pub fn compute_hash_on_sierra_entry_points<'a, EntryPoints: Iterator<Item = &'a SierraEntryPoint>>(
     entry_points: EntryPoints,
 ) -> Felt {
     let flat_entry_points: Vec<Felt> =

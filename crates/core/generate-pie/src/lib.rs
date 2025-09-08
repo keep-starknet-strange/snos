@@ -106,7 +106,8 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     log::info!("Starting PIE generation for {} blocks: {:?}", input.blocks.len(), input.blocks);
 
     // Initialize RPC client
-    let rpc_client = RpcClient::new(&input.rpc_url);
+    let rpc_client =
+        RpcClient::try_new(&input.rpc_url).map_err(|e| PieGenerationError::RpcClient(format!("{:?}", e)))?;
     log::info!("RPC client initialized for {}", input.rpc_url);
 
     let mut os_block_inputs = Vec::new();

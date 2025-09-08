@@ -1,6 +1,5 @@
 use cairo_vm::Felt252;
 use rpc_client::RpcClient;
-use starknet::core::types::SierraEntryPoint;
 use starknet::core::types::{
     BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingStateUpdate, StarknetError, StateDiff,
     TransactionTrace, TransactionTraceWithHash,
@@ -11,6 +10,7 @@ use starknet::providers::ProviderError;
 use starknet_crypto::poseidon_hash_many;
 use starknet_os::io::os_input::ContractClassComponentHashes as OsContractClassComponentHashes;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+use starknet_os_types::class_hash_utils::compute_hash_on_sierra_entry_points;
 use starknet_os_types::compiled_class::GenericCompiledClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
@@ -397,16 +397,6 @@ impl From<starknet::core::types::FlattenedSierraClass> for ContractClassComponen
             sierra_program_hash,
         }
     }
-}
-
-/// Computes hash on a list of given entry points (starknet-core types).
-fn compute_hash_on_sierra_entry_points<'a, EntryPoints: Iterator<Item = &'a SierraEntryPoint>>(
-    entry_points: EntryPoints,
-) -> Felt {
-    let flat_entry_points: Vec<Felt> =
-        entry_points.flat_map(|entry_point| [entry_point.selector, Felt::from(entry_point.function_idx)]).collect();
-
-    poseidon_hash_many(flat_entry_points.iter())
 }
 
 fn hash_abi(abi: &str) -> Felt {

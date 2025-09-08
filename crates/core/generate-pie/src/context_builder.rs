@@ -21,7 +21,7 @@ pub fn chain_id_from_felt(felt: Felt) -> ChainId {
 pub fn build_block_context(
     chain_id: ChainId,
     block: &BlockWithTxs,
-    starknet_version: StarknetVersion,
+    _starknet_version: StarknetVersion,
 ) -> Result<BlockContext, FeltConversionError> {
     let sequencer_address_hex = block.sequencer_address.to_hex_string();
     let sequencer_address = contract_address!(sequencer_address_hex.as_str());
