@@ -177,6 +177,7 @@ fn populate_alias_contract_keys(
 
 pub async fn collect_single_block_info(
     block_number: u64,
+    is_l3: bool,
     rpc_client: RpcClient,
 ) -> (
     OsBlockInput,
@@ -258,7 +259,7 @@ pub async fn collect_single_block_info(
     println!("Successfully Previous and older blocks fetched");
 
     println!("  Step 4: Building block context...");
-    let block_context = build_block_context(chain_id.clone(), &block_with_txs, starknet_version)
+    let block_context = build_block_context(chain_id.clone(), &block_with_txs, is_l3, starknet_version)
         .expect("issue while building the context");
     println!("Successfully Block context built successfully");
 
@@ -370,7 +371,7 @@ pub async fn collect_single_block_info(
     // write_serializable_to_file(&txn_execution_infos, &format!("debug/txn_execution_info_{}.json", block_number), None).expect("Failed to write traces to file");
 
     // panic!("for now");
-    let mut central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
+    let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
         txn_execution_infos.clone().into_iter().map(|execution_info| execution_info.clone().into()).collect();
 
     // write_serializable_to_file(

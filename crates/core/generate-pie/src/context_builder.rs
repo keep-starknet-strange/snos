@@ -21,6 +21,7 @@ pub fn chain_id_from_felt(felt: Felt) -> ChainId {
 pub fn build_block_context(
     chain_id: ChainId,
     block: &BlockWithTxs,
+    is_l3: bool,
     _starknet_version: StarknetVersion,
 ) -> Result<BlockContext, FeltConversionError> {
     let sequencer_address_hex = block.sequencer_address.to_hex_string();
@@ -80,6 +81,7 @@ pub fn build_block_context(
                 "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
             ),
         },
+        is_l3,
     };
 
     // let versioned_constants = VersionedConstants::get(&starknet_version).expect("issue while getting version constant");

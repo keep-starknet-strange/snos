@@ -29,6 +29,7 @@ use cached_state::generate_cached_state_input;
 pub struct ChainConfig {
     pub chain_id: ChainId,
     pub strk_fee_token_address: ContractAddress,
+    pub is_l3: bool,
 }
 
 impl Default for ChainConfig {
@@ -39,6 +40,7 @@ impl Default for ChainConfig {
                 "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
             ))
             .expect("Valid contract address"),
+            is_l3: false,
         }
     }
 }
@@ -131,7 +133,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
             accessed_classes,
             accessed_keys_by_address,
             _previous_block_id,
-        ) = collect_single_block_info(*block_number, rpc_client.clone()).await;
+        ) = collect_single_block_info(*block_number, input.chain_config.is_l3, rpc_client.clone()).await;
         log::info!("Block info collection completed for block {}", block_number);
 
         // Add block input to our collection
