@@ -51,7 +51,7 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_nonce_at_async(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        println!("got a request of get_nonce_at with parameters the contract address: {:?}", contract_address);
+        log::debug!("Got a request of get_nonce_at with parameters the contract address: {:?}", contract_address);
         let res = self.rpc_client.starknet_rpc().get_nonce(self.block_id, *contract_address.key()).await;
         let nonce = match res {
             Ok(value) => Ok(value),
@@ -62,7 +62,7 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_class_hash_at_async(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
-        println!("got a request of get_class_hash_at with parameters the contract address: {:?}", contract_address);
+        log::debug!("Got a request of get_class_hash_at with parameters the contract address: {:?}", contract_address);
         let class_hash =
             match self.rpc_client.starknet_rpc().get_class_hash_at(self.block_id, *contract_address.key()).await {
                 Ok(class_hash) => Ok(class_hash),
@@ -74,7 +74,7 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_class_async(&self, class_hash: ClassHash) -> StateResult<RunnableCompiledClass> {
-        println!("got a request of get_compiled_class with parameters the class hash: {:?}", class_hash);
+        log::debug!("Got a request of get_compiled_class with parameters the class hash: {:?}", class_hash);
         let contract_class = match self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0).await {
             Ok(contract_class) => Ok(contract_class),
             // If the ContractClass is declared in the current block,
@@ -90,7 +90,7 @@ impl AsyncRpcStateReader {
         let runnable_contract_class: RunnableCompiledClass = match contract_class {
             starknet::core::types::ContractClass::Sierra(sierra_class) => {
                 // The key insight: Fix the ABI field encoding issue
-                println!("Converting Sierra contract class with ABI fix...");
+                log::debug!("Converting Sierra contract class with ABI fix...");
 
                 // First, serialize the sierra class to JSON
                 let sierra_json = serde_json::to_string(&sierra_class).map_err(to_state_err)?;
@@ -105,11 +105,11 @@ impl AsyncRpcStateReader {
                         // Try to parse the ABI string as JSON
                         match serde_json::from_str::<serde_json::Value>(abi_str) {
                             Ok(abi_json) => {
-                                println!("✅ Successfully parsed ABI string as JSON");
+                                log::debug!("✅ Successfully parsed ABI string as JSON");
                                 *abi_field = abi_json;
                             }
                             Err(e) => {
-                                println!("⚠️  ABI is not valid JSON string: {}", e);
+                                log::debug!("⚠️  ABI is not valid JSON string: {}", e);
                                 // Keep the ABI as-is if it's not a JSON string
                             }
                         }
@@ -134,7 +134,7 @@ impl AsyncRpcStateReader {
                 // Try compilation
                 match generic_sierra.compile() {
                     Ok(compiled_class) => {
-                        println!("✅ Sierra compilation succeeded!");
+                        log::debug!("✅ Sierra compilation succeeded!");
                         let versioned_casm =
                             compiled_class.to_blockifier_contract_class(sierra_version).map_err(to_state_err)?;
 
@@ -149,7 +149,7 @@ impl AsyncRpcStateReader {
                         RunnableCompiledClass::V1(compiled_class_v1)
                     }
                     Err(e) => {
-                        println!("⚠️  Sierra compilation failed: {}", e);
+                        log::info!("⚠️  Sierra compilation failed: {}", e);
                         return Err(StateError::StateReadError(format!("Sierra compilation failed: {}", e)));
                     }
                 }
@@ -187,7 +187,7 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        println!("got a request of get_compiled_class_hash with parameters the class hash: {:?}", class_hash);
+        log::debug!("Got a request of get_compiled_class_hash with parameters the class hash: {:?}", class_hash);
         let contract_class = self
             .rpc_client
             .starknet_rpc()
