@@ -95,7 +95,7 @@ mod rpc_utils;
 mod state_processing;
 mod state_update;
 
-use block_processor::{collect_single_block_info, BlockInfoResult, BlockProcessingResult};
+use block_processor::collect_single_block_info;
 use cached_state::generate_cached_state_input;
 
 /// Configuration for chain-specific settings.
@@ -531,10 +531,10 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     if let Some(output_path) = &input.output_path {
         log::info!("Writing PIE to file: {}", output_path);
         output.cairo_pie.write_zip_file(Path::new(output_path), true).map_err(|e| {
-            PieGenerationError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to write PIE to file {}: {:?}", output_path, e),
-            ))
+            PieGenerationError::Io(std::io::Error::other(format!(
+                "Failed to write PIE to file {}: {:?}",
+                output_path, e
+            )))
         })?;
         log::info!("PIE written to file successfully: {}", output_path);
     }

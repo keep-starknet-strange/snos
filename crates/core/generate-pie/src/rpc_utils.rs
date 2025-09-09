@@ -5,7 +5,6 @@ use rpc_client::pathfinder::error::ClientError;
 use rpc_client::pathfinder::proofs::verify_storage_proof;
 use rpc_client::pathfinder::types::{ContractData, PathfinderClassProof, PathfinderProof};
 use rpc_client::RpcClient;
-use serde_json;
 use starknet_api::contract_address;
 use starknet_api::core::ContractAddress;
 use starknet_api::state::StorageKey;
@@ -14,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 
 /// Comprehensive structure that captures all access information from transaction execution
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct BlockAccessInfo {
     /// Storage keys accessed per contract address
@@ -93,6 +93,7 @@ pub(crate) fn get_comprehensive_access_info(
 
 /// Merges multiple BlockAccessInfo structures into one comprehensive structure
 /// This is useful when you have access info from current and previous blocks
+#[allow(dead_code)]
 pub(crate) fn merge_access_info(access_infos: Vec<BlockAccessInfo>) -> BlockAccessInfo {
     let mut merged = BlockAccessInfo {
         accessed_keys_by_address: HashMap::new(),
@@ -126,7 +127,7 @@ pub(crate) fn merge_access_info(access_infos: Vec<BlockAccessInfo>) -> BlockAcce
 fn collect_access_info_from_call(
     call_info: &CallInfo,
     accessed_contract_addresses: &mut HashSet<ContractAddress>,
-    accessed_class_hashes: &mut HashSet<Felt>,
+    _accessed_class_hashes: &mut HashSet<Felt>,
     storage_read_values: &mut HashSet<Felt>,
     read_class_hash_values: &mut HashSet<Felt>,
     read_block_hash_values: &mut HashSet<Felt>,
@@ -139,17 +140,17 @@ fn collect_access_info_from_call(
 
     // Collect storage read values (insert unique values)
     for value in &tracker.storage_read_values {
-        storage_read_values.insert(Felt::from(*value));
+        storage_read_values.insert(*value);
     }
 
     // Collect class hash values (insert unique values) - convert ClassHash to Felt
     for class_hash in &tracker.read_class_hash_values {
-        read_class_hash_values.insert(Felt::from(class_hash.0));
+        read_class_hash_values.insert(class_hash.0);
     }
 
     // Collect block hash values (insert unique values) - convert BlockHash to Felt
     for block_hash in &tracker.read_block_hash_values {
-        read_block_hash_values.insert(Felt::from(block_hash.0));
+        read_block_hash_values.insert(block_hash.0);
     }
 
     // Collect accessed blocks - convert BlockNumber to Felt
@@ -162,7 +163,7 @@ fn collect_access_info_from_call(
         collect_access_info_from_call(
             inner_call,
             accessed_contract_addresses,
-            accessed_class_hashes,
+            _accessed_class_hashes,
             storage_read_values,
             read_class_hash_values,
             read_block_hash_values,
@@ -180,7 +181,6 @@ pub(crate) async fn get_storage_proofs(
 
     println!("Contracts we're fetching proofs for:");
     for (contract_address, storage_keys) in accessed_keys_by_address {
-        println!("    Fetching proof for {}", contract_address.to_string());
         let contract_address_felt = *contract_address.key();
         let storage_proof =
             get_storage_proof_for_contract(client, *contract_address, storage_keys.clone().into_iter(), block_number)
@@ -208,6 +208,7 @@ pub(crate) async fn get_class_proofs(
 }
 
 /// Helper function to write storage proof to a JSON file
+#[allow(dead_code)]
 fn write_storage_proof_to_file(
     storage_proof: &PathfinderProof,
     filename: &str,

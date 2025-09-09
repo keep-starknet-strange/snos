@@ -9,6 +9,9 @@ license-file.workspace = true
 [lib]
 doctest = false
 
+[features]
+yaml = []
+
 [dependencies]
 rpc-client = { path = "../../rpc-client" }
 starknet-os-types = { path = "../../starknet-os-types" }

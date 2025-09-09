@@ -31,6 +31,7 @@ pub struct TransactionConversionResult {
     pub blockifier_tx: blockifier::transaction::transaction_execution::Transaction,
 }
 
+#[allow(dead_code)]
 #[derive(Error, Debug)]
 pub enum FeltConversionError {
     #[error("Overflow Error: Felt exceeds u128 max value")]
@@ -51,13 +52,12 @@ pub fn felt_to_u128(felt: &Felt) -> Result<u128, FeltConversionError> {
     Ok(((digits[2] as u128) << 64) + digits[3] as u128)
 }
 #[derive(Error, Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum ToBlockifierError {
     #[error("RPC Error: {0}")]
     RpcError(#[from] ProviderError),
     #[error("OS Contract Class Error: {0}")]
     StarknetContractClassError(#[from] starknet_os_types::error::ContractClassError),
-    // #[error("Blockifier Contract Class Error: {0}")]
-    // BlockifierContractClassError(#[from] blockifier::execution::errors::ContractClassError),
     #[error("Legacy Contract Decompression Error: {0}")]
     LegacyContractDecompressionError(#[from] LegacyContractDecompressionError),
     #[error("Starknet API Error: {0}")]
@@ -89,7 +89,7 @@ pub fn resource_bounds_core_to_api(
     // ]))
     starknet_api::transaction::fields::ValidResourceBounds::AllResources(AllResourceBounds {
         l1_gas: starknet_api::transaction::fields::ResourceBounds {
-            max_amount: GasAmount(resource_bounds.l1_gas.max_amount.into()),
+            max_amount: GasAmount(resource_bounds.l1_gas.max_amount),
             max_price_per_unit: GasPrice(resource_bounds.l1_gas.max_price_per_unit),
         },
         l1_data_gas: starknet_api::transaction::fields::ResourceBounds {
@@ -112,6 +112,7 @@ fn da_mode_core_to_api(
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn invoke_v1_to_blockifier(
     tx: &InvokeTransactionV1,
     chain_id: ChainId,
@@ -138,6 +139,7 @@ fn invoke_v1_to_blockifier(
     })
 }
 
+#[allow(clippy::result_large_err)]
 fn invoke_v3_to_blockifier(
     tx: &InvokeTransactionV3,
     chain_id: ChainId,
@@ -366,6 +368,7 @@ async fn declare_v3_to_blockifier(
     })
 }
 
+#[allow(clippy::result_large_err)]
 fn l1_handler_to_blockifier(
     tx: &L1HandlerTransaction,
     trace: &TransactionTraceWithHash,
@@ -417,6 +420,7 @@ fn l1_handler_to_blockifier(
     })
 }
 
+#[allow(clippy::result_large_err)]
 fn deploy_account_v1_to_blockifier(
     tx: &DeployAccountTransactionV1,
     chain_id: ChainId,

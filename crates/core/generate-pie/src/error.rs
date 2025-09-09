@@ -47,6 +47,7 @@ impl FeltConversionError {
 /// This enum represents various error conditions that can arise when processing
 /// Starknet blocks, including RPC errors, transaction execution errors, and
 /// data conversion errors.
+#[allow(clippy::large_enum_variant)]
 #[derive(Error, Debug)]
 pub enum BlockProcessingError {
     /// RPC client error.
@@ -76,10 +77,6 @@ pub enum BlockProcessingError {
     /// Contract class conversion error.
     #[error("Contract class conversion error: {0}")]
     ContractClassConversion(String),
-
-    /// Block context error.
-    #[error("Block context error: {0}")]
-    BlockContext(String),
 
     /// Invalid block state error.
     #[error("Invalid block state: {0}")]

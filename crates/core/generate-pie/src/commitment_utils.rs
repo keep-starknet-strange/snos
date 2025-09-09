@@ -16,13 +16,11 @@ use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
 use rpc_client::SimpleHashFunction;
 
 /// Implementation for Pedersen hash
-
 /// Port of the format_commitment_facts function from old snos
 ///
 /// This function processes trie nodes and converts them into commitment facts
 /// suitable for the OS consumption.
-///
-/// Original location: ../snos/crates/bin/prove_block/src/reexecute.rs:125-163
+#[allow(clippy::extra_unused_type_parameters)]
 pub fn format_commitment_facts<H>(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt, Vec<Felt>>
 where
     H: SimpleHashFunction,
@@ -43,7 +41,7 @@ where
                 }
                 TrieNode::Edge { child, path, node_hash } => {
                     // For edge nodes, compute hash with path and length
-                    // In the original implementation, this used EdgeNodeFact
+                    // In the original implementation; this used EdgeNodeFact
                     // For now, we'll create a simplified version
                     let path_felt = path.value;
                     let length_felt = Felt::from(path.len);
@@ -54,7 +52,7 @@ where
                 }
             };
 
-            facts.insert(key.into(), fact_as_tuple);
+            facts.insert(key, fact_as_tuple);
         }
     }
 
@@ -126,6 +124,7 @@ pub fn compute_class_commitment(
 ///
 /// This combines the logic for creating state commitments from storage proofs
 /// Similar to the contract_state_commitment_info creation in the old prove_block function
+#[allow(dead_code)]
 pub fn create_contract_state_commitment_info(
     previous_contract_trie_root: Felt,
     current_contract_trie_root: Felt,
@@ -141,12 +140,14 @@ pub fn create_contract_state_commitment_info(
 
 /// Helper function to format storage commitment facts using Pedersen hash
 /// This is for contract state commitments which use Pedersen hashing
+#[allow(dead_code)]
 pub fn format_storage_commitment_facts(storage_proofs: &[Vec<TrieNode>]) -> HashMap<Felt, Vec<Felt>> {
     format_commitment_facts::<PedersenHash>(storage_proofs)
 }
 
 /// Helper function to format class commitment facts using Poseidon hash
 /// This is for class commitments which use Poseidon hashing
+#[allow(dead_code)]
 pub fn format_class_commitment_facts(class_proofs: &[Vec<TrieNode>]) -> HashMap<Felt, Vec<Felt>> {
     format_commitment_facts::<PoseidonHash>(class_proofs)
 }

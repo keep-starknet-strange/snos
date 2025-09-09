@@ -1,12 +1,8 @@
-use starknet::core::types::BlockId;
 use starknet_os::io::os_input::CachedStateInput;
 use std::collections::HashMap;
 
-/// Represents the previous BlockId for the current scope
-/// Defaults to None when the current BlockId is 0
-pub type PreviousBlockId = Option<BlockId>;
-
 /// Error type for state processing operations
+#[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
 pub enum StateProcessingError {
     #[error("RPC Error: {0}")]

@@ -71,6 +71,7 @@ pub struct BlockInfoResult {
 /// let traces = get_transaction_traces();
 /// write_serializable_to_file(&traces, "debug/traces.json", None)?;
 /// ```
+#[allow(dead_code)]
 pub fn write_serializable_to_file<T>(
     object: &T,
     file_path: &str,
@@ -293,8 +294,7 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
     // We only need to get the older block number and hash. No need to fetch all the txs
     // This is a workaorund to catch the case where the block number is less than the buffer and still preserve the check
     // The OS will also handle the case where the block number is less than the buffer.
-    let older_block_number =
-        if block_number <= STORED_BLOCK_HASH_BUFFER { 0 } else { block_number - STORED_BLOCK_HASH_BUFFER };
+    let older_block_number = block_number.saturating_sub(STORED_BLOCK_HASH_BUFFER);
 
     let older_block = match rpc_client
         .starknet_rpc()
@@ -315,7 +315,7 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
 
     log::info!("Step 4: Building block context...");
     let block_context = build_block_context(chain_id.clone(), &block_with_txs, is_l3, starknet_version)
-        .map_err(|e| BlockProcessingError::ContextBuilding(e))?;
+        .map_err(BlockProcessingError::ContextBuilding)?;
     log::info!("Block context built successfully");
 
     log::info!("Step 5: Getting transaction traces...");
@@ -340,14 +340,9 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
         })
         .collect::<Result<HashSet<_>, _>>()?;
 
-    let accessed_classes: HashSet<ClassHash> =
-        accessed_classes_felt.iter().map(|felt| ClassHash((*felt).into())).collect();
+    let accessed_classes: HashSet<ClassHash> = accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
 
-    log::info!(
-        "Found {} accessed addresses and {} accessed classes",
-        accessed_addresses.len(),
-        accessed_classes.len()
-    );
+    log::info!("Found {} accessed addresses and {} accessed classes", accessed_addresses.len(), accessed_classes.len());
 
     log::debug!("Accessed addresses: {:?}", accessed_addresses);
     log::debug!("Accessed classes: {:?}", accessed_classes);
@@ -409,7 +404,7 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
         .execute_txs(&blockifier_txns, execution_deadline)
         .into_iter()
         .collect::<Result<_, TransactionExecutorError>>()
-        .map_err(|e| BlockProcessingError::TransactionExecution(e))?;
+        .map_err(BlockProcessingError::TransactionExecution)?;
     log::info!("All transactions executed successfully");
 
     let txn_execution_infos: Vec<TransactionExecutionInfo> =
@@ -486,24 +481,17 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
                 .ok_or_else(|| BlockProcessingError::new_custom("Current storage proof missing contract data"))?
                 .storage_proofs,
         );
-        // println!("contract_address: {:?}, previous storage proof is: {:?}", contract_address, previous_contract_commitment_facts);
-        // println!("contract_address: {:?}, current storage proof is: {:?}", contract_address, current_contract_commitment_facts);
         let global_contract_commitment_facts: HashMap<HashOutput, Vec<Felt252>> = previous_contract_commitment_facts
             .into_iter()
             .chain(current_contract_commitment_facts)
-            .map(|(key, value)| (HashOutput(key.into()), value))
+            .map(|(key, value)| (HashOutput(key), value))
             .collect();
 
-        // println!("the global contract commitment facts turns out to be: {:?}", global_contract_commitment_facts);
-        let previous_contract_storage_root: Felt = previous_storage_proof
-            .contract_data
-            .as_ref()
-            .map(|contract_data| contract_data.root)
-            .unwrap_or(Felt::ZERO)
-            .into();
+        let previous_contract_storage_root: Felt =
+            previous_storage_proof.contract_data.as_ref().map(|contract_data| contract_data.root).unwrap_or(Felt::ZERO);
 
         let current_contract_storage_root: Felt =
-            storage_proof.contract_data.as_ref().map(|contract_data| contract_data.root).unwrap_or(Felt::ZERO).into();
+            storage_proof.contract_data.as_ref().map(|contract_data| contract_data.root).unwrap_or(Felt::ZERO);
 
         let contract_state_commitment_info = CommitmentInfo {
             previous_root: HashOutput(previous_contract_storage_root),
@@ -528,7 +516,9 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
 
         // TODO: Check this special case handling once again - why does contract address 0x1 need class hash 0x0?
         let class_hash = if contract_address == Felt::ONE || contract_address == Felt::TWO {
-            log::info!("🔧 Special case: Contract address 0x1/0x2 detected, setting class hash to 0x0 without RPC call");
+            log::info!(
+                "🔧 Special case: Contract address 0x1/0x2 detected, setting class hash to 0x0 without RPC call"
+            );
             Felt::ZERO
         } else {
             rpc_client
@@ -695,7 +685,8 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
 
     log::info!(
         "Deprecated classes stats: {} mapping hits, {} RPC calls made",
-        deprecated_mapping_hits, deprecated_rpc_calls_made
+        deprecated_mapping_hits,
+        deprecated_rpc_calls_made
     );
     log::info!(
         "Converted {} compiled classes and {} deprecated classes",
