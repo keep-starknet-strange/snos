@@ -1,1 +1,3 @@
 pub const STARKNET_RPC_VERSION: &str = "v0_9";
+
+pub const SNOS_PATHFINDER_RPC_URL_ENV: &str = "SNOS_PATHFINDER_RPC_URL";

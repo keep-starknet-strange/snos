@@ -235,6 +235,7 @@ impl AsyncRpcStateReader {
     }
 }
 
+// Implementing StateReader for AsyncRpcStateReader using coroutines
 impl StateReader for AsyncRpcStateReader {
     fn get_storage_at(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt> {
         execute_coroutine(self.get_storage_at_async(contract_address, key))
@@ -265,10 +266,20 @@ impl StateReader for AsyncRpcStateReader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::SNOS_PATHFINDER_RPC_URL_ENV;
     use starknet_types_core::felt::Felt as StarknetTypesFelt;
 
     fn create_test_rpc_client() -> RpcClient {
         // Create a test RPC client with a dummy URL
+        let pathfinder_url = match std::env::var(SNOS_PATHFINDER_RPC_URL_ENV) {
+            Ok(url) => url,
+            Err(_) => {
+                panic!(
+                    "Missing Pathfinder URL from ENV: {} environment variable is not set",
+                    SNOS_PATHFINDER_RPC_URL_ENV
+                );
+            }
+        };
         RpcClient::try_new("https://pathfinder-madara-ci.d.karnot.xyz").expect("Failed to create test RPC client")
     }
 

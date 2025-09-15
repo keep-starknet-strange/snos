@@ -29,15 +29,9 @@ impl PathfinderClassProof {
     }
 
     /// Gets the "class_commitment" which is aka the root node of the class Merkle tree.
-    /// Pathfinder used to provide this explicitly but stopped doing so in #2452:
     ///
-    /// https://github.com/eqlabs/pathfinder/pull/2452
-    ///
-    /// However, the proof should always start with the root node, which means all we have
-    /// to do is hash the first node in the proof to get the same thing.
-    ///
-    /// NOTE: the v0.8 RPC spec does NOT require the proof to be in order, in which case it is
-    ///       much trickier to guess what the root node is.
+    /// Proof always starts with the root node, which means all we have to do is hash the
+    /// first node in the proof to get the same thing.
     #[allow(clippy::result_large_err)]
     pub fn class_commitment(&self) -> Result<Felt, ProofVerificationError> {
         if !self.class_proof.is_empty() {
