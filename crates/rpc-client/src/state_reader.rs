@@ -4,6 +4,7 @@ use blockifier::execution::contract_class::{CompiledClassV0, CompiledClassV1, Ru
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
 use cairo_lang_starknet_classes::contract_class::version_id_from_serialized_sierra_program;
+use log::{debug, error};
 use starknet::core::types::{BlockId, Felt, StarknetError};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::contract_class::SierraVersion;
@@ -51,7 +52,7 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_nonce_at_async(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        println!("got a request of get_nonce_at with parameters the contract address: {:?}", contract_address);
+        debug!("got a request of get_nonce_at with parameters the contract address: {:?}", contract_address);
         let res = self.rpc_client.starknet_rpc().get_nonce(self.block_id, *contract_address.key()).await;
         let nonce = match res {
             Ok(value) => Ok(value),
@@ -62,7 +63,7 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_class_hash_at_async(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
-        println!("got a request of get_class_hash_at with parameters the contract address: {:?}", contract_address);
+        debug!("got a request of get_class_hash_at with parameters the contract address: {:?}", contract_address);
         let class_hash =
             match self.rpc_client.starknet_rpc().get_class_hash_at(self.block_id, *contract_address.key()).await {
                 Ok(class_hash) => Ok(class_hash),
@@ -74,7 +75,7 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_class_async(&self, class_hash: ClassHash) -> StateResult<RunnableCompiledClass> {
-        println!("got a request of get_compiled_class with parameters the class hash: {:?}", class_hash);
+        debug!("got a request of get_compiled_class with parameters the class hash: {:?}", class_hash);
         let contract_class = match self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0).await {
             Ok(contract_class) => Ok(contract_class),
             // If the ContractClass is declared in the current block,
@@ -89,10 +90,7 @@ impl AsyncRpcStateReader {
 
         let runnable_contract_class: RunnableCompiledClass = match contract_class {
             starknet::core::types::ContractClass::Sierra(sierra_class) => {
-                // The key insight: Fix the ABI field encoding issue
-                println!("Converting Sierra contract class with ABI fix...");
-
-                // First, serialize the sierra class to JSON
+                // Serialize the sierra class to JSON
                 let sierra_json = serde_json::to_string(&sierra_class).map_err(to_state_err)?;
 
                 // Parse the JSON to fix the ABI field
@@ -105,11 +103,11 @@ impl AsyncRpcStateReader {
                         // Try to parse the ABI string as JSON
                         match serde_json::from_str::<serde_json::Value>(abi_str) {
                             Ok(abi_json) => {
-                                println!("✅ Successfully parsed ABI string as JSON");
+                                debug!("✅ Successfully parsed ABI string as JSON");
                                 *abi_field = abi_json;
                             }
                             Err(e) => {
-                                println!("⚠️  ABI is not valid JSON string: {}", e);
+                                error!("⚠️  ABI is not valid JSON string: {}", e);
                                 // Keep the ABI as-is if it's not a JSON string
                             }
                         }
@@ -122,19 +120,19 @@ impl AsyncRpcStateReader {
                 // Parse as GenericSierraContractClass
                 let generic_sierra = GenericSierraContractClass::from_bytes(fixed_sierra_json.into_bytes());
 
-                let generic_cairo_lang_class = generic_sierra.get_cairo_lang_contract_class().unwrap();
+                let generic_cairo_lang_class = generic_sierra
+                    .get_cairo_lang_contract_class()
+                    .map_err(|e| StateError::StateReadError(e.to_string()))?;
                 let (version_id, _) =
-                    version_id_from_serialized_sierra_program(&generic_cairo_lang_class.sierra_program).unwrap();
-                let sierra_version = SierraVersion::new(
-                    version_id.major.try_into().unwrap(),
-                    version_id.minor.try_into().unwrap(),
-                    version_id.patch.try_into().unwrap(),
-                );
+                    version_id_from_serialized_sierra_program(&generic_cairo_lang_class.sierra_program)
+                        .map_err(|e| StateError::StateReadError(e.to_string()))?;
+                let sierra_version =
+                    SierraVersion::new(version_id.major as u64, version_id.minor as u64, version_id.patch as u64);
 
                 // Try compilation
                 match generic_sierra.compile() {
                     Ok(compiled_class) => {
-                        println!("✅ Sierra compilation succeeded!");
+                        debug!("✅ Sierra compilation succeeded!");
                         let versioned_casm =
                             compiled_class.to_blockifier_contract_class(sierra_version).map_err(to_state_err)?;
 
@@ -149,7 +147,7 @@ impl AsyncRpcStateReader {
                         RunnableCompiledClass::V1(compiled_class_v1)
                     }
                     Err(e) => {
-                        println!("⚠️  Sierra compilation failed: {}", e);
+                        error!("⚠️  Sierra compilation failed: {}", e);
                         return Err(StateError::StateReadError(format!("Sierra compilation failed: {}", e)));
                     }
                 }
@@ -187,7 +185,7 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        println!("got a request of get_compiled_class_hash with parameters the class hash: {:?}", class_hash);
+        debug!("got a request of get_compiled_class_hash with parameters the class hash: {:?}", class_hash);
         let contract_class = self
             .rpc_client
             .starknet_rpc()

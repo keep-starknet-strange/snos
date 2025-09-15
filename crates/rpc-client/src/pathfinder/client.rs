@@ -1,5 +1,6 @@
 //! Pathfinder-specific RPC client implementation.
 
+use crate::constants::STARKNET_RPC_VERSION;
 use crate::pathfinder::constants::{DEFAULT_REQUEST_TIMEOUT_SECONDS, MAX_STORAGE_KEYS_PER_REQUEST};
 use crate::pathfinder::error::ClientError;
 use crate::pathfinder::types::request::{Request, TransactionReceiptResponse};
@@ -159,11 +160,17 @@ impl PathfinderRpcClient {
         }
 
         // Merge all the proofs into a single proof
-        let mut proof = proofs.pop_front().expect("must have at least one proof");
-        let contract_data = proof.contract_data.as_mut().expect("must have contract data");
+        let mut proof =
+            proofs.pop_front().ok_or(ClientError::CustomError(String::from("Must have at least one proof")))?;
+        let contract_data = proof
+            .contract_data
+            .as_mut()
+            .ok_or(ClientError::CustomError(String::from("Malformed proof: Proof must have contract data")))?;
 
         for additional_proof in proofs {
-            let additional_contract_data = additional_proof.contract_data.expect("must have contract data");
+            let additional_contract_data = additional_proof
+                .contract_data
+                .ok_or(ClientError::CustomError(String::from("Malformed proof: Proof must have contract data")))?;
             contract_data.storage_proofs.extend(additional_contract_data.storage_proofs);
         }
 
@@ -315,7 +322,7 @@ impl PathfinderRpcClient {
         params: serde_json::Value,
     ) -> Result<T, ClientError> {
         let request = Request::new(method, params);
-        let url = format!("{}/rpc/v0_8", self.rpc_base_url);
+        let url = format!("{}/rpc/{}", self.rpc_base_url, STARKNET_RPC_VERSION);
 
         let response = self.http_client.post(&url).json(&request).send().await?;
 

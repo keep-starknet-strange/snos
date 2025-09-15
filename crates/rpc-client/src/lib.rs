@@ -46,6 +46,7 @@
 //! ```
 
 pub mod client;
+pub mod constants;
 pub mod pathfinder;
 pub mod state_reader;
 pub mod utils;

@@ -7,13 +7,14 @@ use reqwest::Url;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 
+use crate::constants::STARKNET_RPC_VERSION;
 use crate::pathfinder::client::PathfinderRpcClient;
-
 /// Internal structure containing the underlying RPC clients.
 ///
 /// This struct encapsulates both the standard Starknet RPC client and the Pathfinder-specific
 /// client, providing a unified interface for accessing different types of RPC endpoints.
 struct RpcClientInner {
+    // TODO: Update this to remove the pathfinder client and merge it into the starknet client.
     /// Starknet-rs client for accessing standard Starknet RPC endpoints.
     starknet_client: JsonRpcClient<HttpTransport>,
     /// Pathfinder-specific client for accessing non-standard endpoints.
@@ -40,7 +41,7 @@ impl RpcClientInner {
     /// let inner = RpcClientInner::new("https://your-starknet-node.com");
     /// ```
     fn try_new(base_url: &str) -> Result<Self> {
-        let starknet_rpc_url = format!("{}/rpc/v0_9", base_url);
+        let starknet_rpc_url = format!("{}/rpc/{}", base_url, STARKNET_RPC_VERSION);
         log::info!("Initializing Starknet RPC client with URL: {}", starknet_rpc_url);
 
         let provider = JsonRpcClient::new(HttpTransport::new(

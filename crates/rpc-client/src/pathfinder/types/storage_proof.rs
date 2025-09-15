@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use starknet::macros::short_string;
 use starknet_types_core::felt::Felt;
 
+// Docs for storage proofs: https://docs.starknet.io/learn/protocol/state#state-commitment
+
 /// The response type for the `starknet_getStorageProof` method.
 ///
 /// The requested storage proofs. Note that if a requested leaf has the default value, the path to

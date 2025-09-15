@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use bitvec::{order::Msb0, slice::BitSlice, vec::BitVec};
 use num_bigint::BigInt;
 use starknet_types_core::felt::Felt;
@@ -45,15 +45,13 @@ pub fn verify_proof<H: SimpleHashFunction>(
     commitment: Felt,
     proof: &[TrieNode],
 ) -> Result<(), ProofVerificationError> {
-    let _bits = key.to_bits_be();
-
     // The tree height is 251, so the first 5 bits are ignored.
     let start = 5;
     let mut index = start;
 
     let bits: BitVec<_, Msb0> = BitVec::from_slice(&key.to_bytes_be());
     let mut next_node_hash = commitment;
-    let proof_nodes = proof_to_hashmap(proof);
+    let proof_nodes = proof_to_hashmap(proof).map_err(|e| ProofVerificationError::ConversionError(e.to_string()))?;
     loop {
         let node = proof_nodes.get(&next_node_hash).ok_or_else(|| {
             ProofVerificationError::ProofError(format!(
@@ -147,8 +145,14 @@ fn get_key_following_edge(key: Felt, height: Height, edge_path: &EdgePath) -> Fe
     Felt::from(new_key)
 }
 
-fn proof_to_hashmap(proof: &[TrieNode]) -> HashMap<Felt, TrieNode> {
-    proof.iter().map(|node| (node.node_hash().unwrap(), node.clone())).collect()
+fn proof_to_hashmap(proof: &[TrieNode]) -> Result<HashMap<Felt, TrieNode>> {
+    proof
+        .iter()
+        .map(|node| {
+            let hash = node.node_hash().ok_or(anyhow!("Failed to get node hash"))?;
+            Ok((hash, node.clone()))
+        })
+        .collect()
 }
 
 fn hash_binary_node<H: SimpleHashFunction>(left_hash: Felt, right_hash: Felt) -> Felt {
