@@ -280,7 +280,7 @@ mod tests {
                 );
             }
         };
-        RpcClient::try_new("https://pathfinder-madara-ci.d.karnot.xyz").expect("Failed to create test RPC client")
+        RpcClient::try_new(&pathfinder_url).expect("Failed to create test RPC client")
     }
 
     fn create_test_values() -> (ContractAddress, StorageKey, ClassHash, BlockId) {

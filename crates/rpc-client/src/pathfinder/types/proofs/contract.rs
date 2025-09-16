@@ -1,6 +1,8 @@
+use crate::pathfinder::constants::DEFAULT_STORAGE_TREE_HEIGHT;
 use crate::pathfinder::error::{ClientError, ProofVerificationError};
-use crate::pathfinder::proofs::verify_proof;
-use crate::pathfinder::types::{GetStorageProofResponse, MerkleNodeWithHash, PedersenHash, PoseidonHash, TrieNode};
+use crate::pathfinder::types::nodes::Proof;
+use crate::pathfinder::types::{GetStorageProofResponse, MerkleNodeWithHash, PedersenHash, TrieNode};
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use starknet::macros::short_string;
 use starknet_types_core::felt::Felt;
@@ -14,16 +16,6 @@ pub struct ContractProof {
     pub contract_data: Option<ContractData>,
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Deserialize, Serialize)]
-pub struct ClassProof {
-    pub class_commitment: Felt,
-    pub class_proof: Vec<TrieNode>,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Default, Eq, Hash, Serialize, Deserialize)]
-pub struct Height(pub u64);
-
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ContractData {
     /// Root of the Contract state tree
@@ -32,36 +24,45 @@ pub struct ContractData {
     pub storage_proofs: Vec<Vec<TrieNode>>,
 }
 
-// Implementations for ClassProof
-impl ClassProof {
-    #[allow(clippy::result_large_err)]
-    pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
-        verify_proof::<PoseidonHash>(class_hash, self.class_commitment()?, &self.class_proof)
-    }
-
-    /// Gets the "class_commitment" which is aka the root node of the class Merkle tree.
-    ///
-    /// Proof always starts with the root node, which means all we have to do is hash the
-    /// first node in the proof to get the same thing.
-    #[allow(clippy::result_large_err)]
-    pub fn class_commitment(&self) -> Result<Felt, ProofVerificationError> {
-        if !self.class_proof.is_empty() {
-            let hash = self.class_proof[0].hash::<PoseidonHash>();
-            Ok(hash)
-        } else {
-            Err(ProofVerificationError::EmptyProof)
-        }
-    }
-}
+#[derive(Debug, Copy, Clone, PartialEq, Default, Eq, Hash, Serialize, Deserialize)]
+pub struct Height(pub u64);
 
 // Implementations for ContractData
 impl ContractData {
+    /// Verify the storage proofs and handle errors.
+    /// Returns a list of additional keys to fetch to fill gaps in the tree that will make the OS
+    /// crash otherwise.
+    /// This function will panic if the proof contains an invalid node hash (i.e., the hash of a child
+    /// node does not match the one specified in the parent).
+    pub fn get_additional_keys(&self, contract_data: &ContractData, keys: &[Felt]) -> anyhow::Result<Vec<Felt>> {
+        let mut additional_keys = vec![];
+        if let Err(errors) = contract_data.verify(keys) {
+            for error in errors {
+                match error {
+                    ProofVerificationError::NonExistenceProof { key, height, node } => {
+                        if let TrieNode::Edge { child: _, path, .. } = &node {
+                            if height.0 < DEFAULT_STORAGE_TREE_HEIGHT {
+                                let modified_key = path.get_key_following_edge(key, height);
+                                additional_keys.push(modified_key);
+                            }
+                        }
+                    }
+                    _ => {
+                        bail!("Proof verification failed: {:?}", error);
+                    }
+                }
+            }
+        }
+
+        Ok(additional_keys)
+    }
+
     /// Verifies that each contract state proof is valid.
     pub fn verify(&self, storage_keys: &[Felt]) -> Result<(), Vec<ProofVerificationError>> {
         let mut errors = vec![];
 
         for (index, storage_key) in storage_keys.iter().enumerate() {
-            if let Err(e) = verify_proof::<PedersenHash>(*storage_key, self.root, &self.storage_proofs[index]) {
+            if let Err(e) = self.storage_proofs[index].verify_proof::<PedersenHash>(*storage_key, self.root) {
                 errors.push(e);
             }
         }
@@ -71,28 +72,6 @@ impl ContractData {
         } else {
             Err(errors)
         }
-    }
-}
-
-impl From<GetStorageProofResponse> for ClassProof {
-    fn from(proof: GetStorageProofResponse) -> Self {
-        let class_proof = proof
-            .classes_proof
-            .nodes
-            .iter()
-            .map(|node_with_hash| {
-                let MerkleNodeWithHash { node, node_hash } = node_with_hash;
-                let mut trie_node: TrieNode = node.clone().into();
-                // Set the node_hash from the NodeWithHash
-                match &mut trie_node {
-                    TrieNode::Binary { node_hash: nh, .. } => *nh = Some(*node_hash),
-                    TrieNode::Edge { node_hash: nh, .. } => *nh = Some(*node_hash),
-                }
-                trie_node
-            })
-            .collect();
-        let class_commitment = proof.global_roots.classes_tree_root;
-        ClassProof { class_commitment, class_proof }
     }
 }
 

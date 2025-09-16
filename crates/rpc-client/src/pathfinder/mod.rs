@@ -8,12 +8,10 @@
 //!
 //! - [`client`] - Pathfinder-specific RPC client implementation
 //! - [`error`] - Error types for Pathfinder operations
-//! - [`proofs`] - Proof verification utilities
 //! - [`types`] - Type definitions for Pathfinder responses
 //! - [`constants`] - Constants used throughout the module
 
 pub mod client;
 mod constants;
 pub mod error;
-pub mod proofs;
 pub mod types;
