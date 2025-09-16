@@ -3,8 +3,9 @@
 use crate::constants::STARKNET_RPC_VERSION;
 use crate::pathfinder::constants::{DEFAULT_REQUEST_TIMEOUT_SECONDS, MAX_STORAGE_KEYS_PER_REQUEST};
 use crate::pathfinder::error::ClientError;
-use crate::pathfinder::types::request::{Request, TransactionReceiptResponse};
-use crate::pathfinder::types::{GetStorageProofResponse, PathfinderClassProof, PathfinderProof};
+use crate::pathfinder::types::{
+    ClassProof, ContractProof, GetStorageProofResponse, Request, TransactionReceiptResponse,
+};
 use anyhow::Result;
 use reqwest::StatusCode;
 use serde::de::DeserializeOwned;
@@ -144,7 +145,7 @@ impl PathfinderRpcClient {
         block_number: u64,
         contract_address: Felt,
         keys: &[Felt],
-    ) -> Result<PathfinderProof, ClientError> {
+    ) -> Result<ContractProof, ClientError> {
         let mut proofs = VecDeque::new();
 
         if keys.is_empty() {
@@ -210,11 +211,7 @@ impl PathfinderRpcClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn get_class_proof(
-        &self,
-        block_number: u64,
-        class_hash: &Felt,
-    ) -> Result<PathfinderClassProof, ClientError> {
+    pub async fn get_class_proof(&self, block_number: u64, class_hash: &Felt) -> Result<ClassProof, ClientError> {
         log::debug!("Querying starknet_getStorageProofs for class {:x} at block {:x}", class_hash, block_number);
 
         let response = self
@@ -224,7 +221,7 @@ impl PathfinderRpcClient {
             )
             .await?;
 
-        Ok(PathfinderClassProof::from(response))
+        Ok(ClassProof::from(response))
     }
 
     /// Gets a proof for a single key for the given contract at the given block number.
@@ -251,7 +248,7 @@ impl PathfinderRpcClient {
         block_number: u64,
         contract_address: Felt,
         key: Option<Felt>,
-    ) -> Result<PathfinderProof, ClientError> {
+    ) -> Result<ContractProof, ClientError> {
         let keys = if let Some(key) = key { vec![key] } else { Vec::new() };
         self.get_proof_multiple_keys(block_number, contract_address, &keys).await
     }
@@ -280,7 +277,7 @@ impl PathfinderRpcClient {
         block_number: u64,
         contract_address: Felt,
         keys: &[Felt],
-    ) -> Result<PathfinderProof, ClientError> {
+    ) -> Result<ContractProof, ClientError> {
         let json = json!({
             "block_id": { "block_number": block_number },
             "contract_addresses": [contract_address],
@@ -297,8 +294,7 @@ impl PathfinderRpcClient {
             block_number
         );
 
-        let response = self.send_request::<GetStorageProofResponse>("starknet_getStorageProof", json).await?;
-        PathfinderProof::try_from(response)
+        self.send_request::<GetStorageProofResponse>("starknet_getStorageProof", json).await?.try_into()
     }
 
     /// Sends a JSON-RPC request to the Pathfinder server.

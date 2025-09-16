@@ -1,9 +1,10 @@
-use crate::SimpleHashFunction;
 use starknet_types_core::felt::Felt;
 use starknet_types_core::hash::{Pedersen, Poseidon, StarkHash};
 
+use crate::Hash;
+
 pub struct PedersenHash;
-impl SimpleHashFunction for PedersenHash {
+impl Hash for PedersenHash {
     fn hash(left: &Felt, right: &Felt) -> Felt {
         Pedersen::hash(left, right)
     }
@@ -11,7 +12,7 @@ impl SimpleHashFunction for PedersenHash {
 
 /// Implementation for Poseidon hash
 pub struct PoseidonHash;
-impl SimpleHashFunction for PoseidonHash {
+impl Hash for PoseidonHash {
     fn hash(left: &Felt, right: &Felt) -> Felt {
         Poseidon::hash(left, right)
     }

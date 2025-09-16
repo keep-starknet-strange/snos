@@ -75,7 +75,7 @@ use starknet_types_core::felt::Felt;
 ///     }
 /// }
 /// ```
-pub trait SimpleHashFunction {
+pub trait Hash {
     /// Computes a hash from two input values.
     ///
     /// # Arguments

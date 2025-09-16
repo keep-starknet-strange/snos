@@ -14,14 +14,3 @@ impl Request {
         Self { jsonrpc: String::from("2.0"), id: String::from("1"), method: String::from(method), params }
     }
 }
-
-#[derive(Deserialize)]
-pub struct TransactionReceiptResponse<T> {
-    result: T,
-}
-
-impl<T> TransactionReceiptResponse<T> {
-    pub fn result(self) -> T {
-        self.result
-    }
-}

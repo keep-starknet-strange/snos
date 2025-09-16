@@ -1,71 +1,63 @@
-use std::ops::{Deref, DerefMut};
-
-use crate::pathfinder::types::TrieNode;
+use crate::pathfinder::types::responses::MerkleNode;
+use crate::Hash;
+use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use starknet_types_core::felt::Felt;
 
-/// Node in the Merkle-Patricia trie.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum MerkleNode {
-    /// Represents a path to the highest non-zero descendant node.
-    Edge {
-        /// An integer whose binary representation represents the path from the current node to its
-        /// highest non-zero descendant (bounded by 2^251)
-        path: Felt,
-        /// The length of the path (bounded by 251).
-        length: u8,
-        /// The hash of the unique non-zero maximal-height descendant node.
-        child: Felt,
-        /// The hash of this node
-        #[serde(skip_serializing_if = "Option::is_none")]
-        node_hash: Option<Felt>,
-    },
-
-    /// An internal node who's both children is non-zero.
+/// A node in the Merkle-Patricia trie
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub enum TrieNode {
+    #[serde(rename = "binary")]
     Binary {
-        /// The hash of the left child.
         left: Felt,
-        /// The hash of the right child.
         right: Felt,
-        /// The hash of this node
+        #[serde(skip_serializing_if = "Option::is_none")]
+        node_hash: Option<Felt>,
+    },
+    #[serde(rename = "edge")]
+    Edge {
+        child: Felt,
+        path: EdgeNodePath,
         #[serde(skip_serializing_if = "Option::is_none")]
         node_hash: Option<Felt>,
     },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct NodeWithHash {
-    pub node_hash: Felt,
-    pub node: MerkleNode,
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub struct EdgeNodePath {
+    pub len: u64,
+    pub value: Felt,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Nodes(pub Vec<NodeWithHash>);
+impl TrieNode {
+    pub fn hash<H: Hash>(&self) -> Felt {
+        match self {
+            TrieNode::Binary { left, right, node_hash: _ } => H::hash(left, right),
+            TrieNode::Edge { child, path, node_hash: _ } => {
+                // For edge nodes, we hash the child with the path value
+                // This is a simplified implementation
+                let bottom_path_hash = H::hash(child, &path.value);
+                bottom_path_hash + Felt252::from(path.len)
+            }
+        }
+    }
 
-impl Deref for Nodes {
-    type Target = Vec<NodeWithHash>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    pub fn node_hash(&self) -> Option<Felt> {
+        match self {
+            TrieNode::Binary { node_hash, .. } => *node_hash,
+            TrieNode::Edge { node_hash, .. } => *node_hash,
+        }
     }
 }
 
-impl DerefMut for Nodes {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
+// Implementing conversion from MerkleNode to TrieNode
 impl From<MerkleNode> for TrieNode {
     fn from(node: MerkleNode) -> Self {
         match node {
-            MerkleNode::Edge { path, length, child, node_hash } => super::proofs::TrieNode::Edge {
-                path: super::proofs::EdgePath { value: path, len: length as u64 },
-                child,
-                node_hash,
-            },
-            MerkleNode::Binary { left, right, node_hash } => super::proofs::TrieNode::Binary { left, right, node_hash },
+            MerkleNode::Edge { path, length, child, node_hash } => {
+                TrieNode::Edge { path: EdgeNodePath { value: path, len: length as u64 }, child, node_hash }
+            }
+            MerkleNode::Binary { left, right, node_hash } => TrieNode::Binary { left, right, node_hash },
         }
     }
 }

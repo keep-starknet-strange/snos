@@ -1,13 +1,12 @@
-use crate::pathfinder::error::ProofVerificationError;
+use crate::pathfinder::error::{ClientError, ProofVerificationError};
 use crate::pathfinder::proofs::verify_proof;
-use crate::pathfinder::types::hash::{PedersenHash, PoseidonHash};
-use crate::SimpleHashFunction;
-use cairo_vm::Felt252;
+use crate::pathfinder::types::{GetStorageProofResponse, MerkleNodeWithHash, PedersenHash, PoseidonHash, TrieNode};
 use serde::{Deserialize, Serialize};
+use starknet::macros::short_string;
 use starknet_types_core::felt::Felt;
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
-pub struct PathfinderProof {
+pub struct ContractProof {
     pub state_commitment: Option<Felt>,
     pub contract_commitment: Felt,
     pub class_commitment: Option<Felt>,
@@ -17,12 +16,24 @@ pub struct PathfinderProof {
 
 #[allow(dead_code)]
 #[derive(Clone, Deserialize, Serialize)]
-pub struct PathfinderClassProof {
+pub struct ClassProof {
     pub class_commitment: Felt,
     pub class_proof: Vec<TrieNode>,
 }
 
-impl PathfinderClassProof {
+#[derive(Debug, Copy, Clone, PartialEq, Default, Eq, Hash, Serialize, Deserialize)]
+pub struct Height(pub u64);
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct ContractData {
+    /// Root of the Contract state tree
+    pub root: Felt,
+    /// The proofs associated with the queried storage values
+    pub storage_proofs: Vec<Vec<TrieNode>>,
+}
+
+// Implementations for ClassProof
+impl ClassProof {
     #[allow(clippy::result_large_err)]
     pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
         verify_proof::<PoseidonHash>(class_hash, self.class_commitment()?, &self.class_proof)
@@ -38,19 +49,12 @@ impl PathfinderClassProof {
             let hash = self.class_proof[0].hash::<PoseidonHash>();
             Ok(hash)
         } else {
-            Err(ProofVerificationError::EmptyProof) // TODO: give an error type or change fn return type
+            Err(ProofVerificationError::EmptyProof)
         }
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct ContractData {
-    /// Root of the Contract state tree
-    pub root: Felt,
-    /// The proofs associated with the queried storage values
-    pub storage_proofs: Vec<Vec<TrieNode>>,
-}
-
+// Implementations for ContractData
 impl ContractData {
     /// Verifies that each contract state proof is valid.
     pub fn verify(&self, storage_keys: &[Felt]) -> Result<(), Vec<ProofVerificationError>> {
@@ -70,51 +74,85 @@ impl ContractData {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct EdgePath {
-    pub len: u64,
-    pub value: Felt,
+impl From<GetStorageProofResponse> for ClassProof {
+    fn from(proof: GetStorageProofResponse) -> Self {
+        let class_proof = proof
+            .classes_proof
+            .nodes
+            .iter()
+            .map(|node_with_hash| {
+                let MerkleNodeWithHash { node, node_hash } = node_with_hash;
+                let mut trie_node: TrieNode = node.clone().into();
+                // Set the node_hash from the NodeWithHash
+                match &mut trie_node {
+                    TrieNode::Binary { node_hash: nh, .. } => *nh = Some(*node_hash),
+                    TrieNode::Edge { node_hash: nh, .. } => *nh = Some(*node_hash),
+                }
+                trie_node
+            })
+            .collect();
+        let class_commitment = proof.global_roots.classes_tree_root;
+        ClassProof { class_commitment, class_proof }
+    }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub enum TrieNode {
-    #[serde(rename = "binary")]
-    Binary {
-        left: Felt,
-        right: Felt,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        node_hash: Option<Felt>,
-    },
-    #[serde(rename = "edge")]
-    Edge {
-        child: Felt,
-        path: EdgePath,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        node_hash: Option<Felt>,
-    },
-}
+impl TryFrom<GetStorageProofResponse> for ContractProof {
+    type Error = ClientError;
 
-// TODO: the hashing is not right here, solve this before proceeding
-impl TrieNode {
-    pub fn hash<H: SimpleHashFunction>(&self) -> Felt {
-        match self {
-            TrieNode::Binary { left, right, node_hash: _ } => H::hash(left, right),
-            TrieNode::Edge { child, path, node_hash: _ } => {
-                // For edge nodes, we hash the child with the path value
-                // This is a simplified implementation
-                let bottom_path_hash = H::hash(child, &path.value);
-                bottom_path_hash + Felt252::from(path.len)
+    fn try_from(proof: GetStorageProofResponse) -> Result<Self, Self::Error> {
+        let contract_proof = proof.contracts_proof;
+        let contract_leaf = contract_proof
+            .contract_leaves_data
+            .first()
+            .ok_or(ClientError::ProofConversionError(String::from("Must have exactly one contract leaf")))?;
+        let storage_proofs = proof
+            .contracts_storage_proofs
+            .nodes
+            .first()
+            .ok_or(ClientError::ProofConversionError(String::from("Must have exactly one storage proof")))?;
+
+        let state_commitment = starknet_crypto::poseidon_hash_many(&[
+            short_string!("STARKNET_STATE_V0"),
+            proof.global_roots.contracts_tree_root,
+            proof.global_roots.classes_tree_root,
+        ]);
+
+        // convert storage proofs from response to SNOS types
+        let mut pf_storage_proofs = Vec::with_capacity(1);
+        let mut pf_storage_proof: Vec<TrieNode> = Vec::with_capacity(pf_storage_proofs.len());
+
+        for n in &storage_proofs.0 {
+            let MerkleNodeWithHash { node, node_hash } = n;
+            let mut trie_node: TrieNode = node.clone().into();
+            // Set the node_hash from the NodeWithHash
+            match &mut trie_node {
+                TrieNode::Binary { node_hash: nh, .. } => *nh = Some(*node_hash),
+                TrieNode::Edge { node_hash: nh, .. } => *nh = Some(*node_hash),
             }
+            pf_storage_proof.push(trie_node);
         }
-    }
 
-    pub fn node_hash(&self) -> Option<Felt> {
-        match self {
-            TrieNode::Binary { node_hash, .. } => *node_hash,
-            TrieNode::Edge { node_hash, .. } => *node_hash,
+        pf_storage_proofs.push(pf_storage_proof);
+
+        // convert contract proofs from response to SNOS types
+        let mut pf_contract_proof: Vec<TrieNode> = Vec::with_capacity(contract_proof.nodes.len());
+        for n in &contract_proof.nodes.0 {
+            let MerkleNodeWithHash { node, node_hash } = n;
+            let mut trie_node: TrieNode = node.clone().into();
+            // Set the node_hash from the NodeWithHash
+            match &mut trie_node {
+                TrieNode::Binary { node_hash: nh, .. } => *nh = Some(*node_hash),
+                TrieNode::Edge { node_hash: nh, .. } => *nh = Some(*node_hash),
+            }
+            pf_contract_proof.push(trie_node);
         }
+
+        Ok(ContractProof {
+            state_commitment: Some(state_commitment),
+            contract_commitment: proof.global_roots.contracts_tree_root,
+            class_commitment: Some(proof.global_roots.classes_tree_root),
+            contract_proof: pf_contract_proof,
+            contract_data: Some(ContractData { root: contract_leaf.storage_root, storage_proofs: pf_storage_proofs }),
+        })
     }
 }
-
-#[derive(Debug, Copy, Clone, PartialEq, Default, Eq, Hash, Serialize, Deserialize)]
-pub struct Height(pub u64);

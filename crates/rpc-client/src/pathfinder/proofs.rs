@@ -6,8 +6,8 @@ use std::collections::HashMap;
 
 use crate::pathfinder::constants::DEFAULT_STORAGE_TREE_HEIGHT;
 use crate::pathfinder::error::ProofVerificationError;
-use crate::pathfinder::types::proofs::{ContractData, EdgePath, Height, TrieNode};
-use crate::SimpleHashFunction;
+use crate::pathfinder::types::{ContractData, EdgeNodePath, Height, TrieNode};
+use crate::Hash;
 
 /// Verify the storage proofs and handle errors.
 /// Returns a list of additional keys to fetch to fill gaps in the tree that will make the OS
@@ -40,11 +40,7 @@ pub fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Resu
 /// This function goes through the tree from top to bottom and verifies that
 /// the hash of each node is equal to the corresponding hash in the parent node.
 #[allow(clippy::result_large_err)]
-pub fn verify_proof<H: SimpleHashFunction>(
-    key: Felt,
-    commitment: Felt,
-    proof: &[TrieNode],
-) -> Result<(), ProofVerificationError> {
+pub fn verify_proof<H: Hash>(key: Felt, commitment: Felt, proof: &[TrieNode]) -> Result<(), ProofVerificationError> {
     // The tree height is 251, so the first 5 bits are ignored.
     let start = 5;
     let mut index = start;
@@ -134,7 +130,7 @@ pub fn verify_proof<H: SimpleHashFunction>(
 /// To achieve this, we zero the part of the key at the height of the edge and then replace it
 /// with the path of the edge. This is achieved with bitwise operations. For our example,
 /// this function will compute the new key as `(key & 0xFF0F) | 0x00B0`.
-fn get_key_following_edge(key: Felt, height: Height, edge_path: &EdgePath) -> Felt {
+fn get_key_following_edge(key: Felt, height: Height, edge_path: &EdgeNodePath) -> Felt {
     assert!(height.0 < DEFAULT_STORAGE_TREE_HEIGHT);
 
     let shift = height.0;
@@ -155,11 +151,11 @@ fn proof_to_hashmap(proof: &[TrieNode]) -> Result<HashMap<Felt, TrieNode>> {
         .collect()
 }
 
-fn hash_binary_node<H: SimpleHashFunction>(left_hash: Felt, right_hash: Felt) -> Felt {
+fn hash_binary_node<H: Hash>(left_hash: Felt, right_hash: Felt) -> Felt {
     H::hash(&left_hash, &right_hash)
 }
 
-fn hash_edge_node<H: SimpleHashFunction>(path: &Felt, path_length: usize, child_hash: Felt) -> Felt {
+fn hash_edge_node<H: Hash>(path: &Felt, path_length: usize, child_hash: Felt) -> Felt {
     let path_bitslice: &BitSlice<_, Msb0> = &BitVec::from_slice(&path.to_bytes_be());
     assert_eq!(path_bitslice.len(), 256, "Felt::to_bytes_be() expected to always be 256 bits");
 
@@ -177,7 +173,7 @@ fn hash_edge_node<H: SimpleHashFunction>(path: &Felt, path_length: usize, child_
 mod tests {
     use super::*;
     use crate::pathfinder::types::hash::{PedersenHash, PoseidonHash};
-    use crate::pathfinder::types::PathfinderProof;
+    use crate::pathfinder::types::ContractProof;
     use rstest::rstest;
     use starknet_types_core::felt::Felt;
 
@@ -209,7 +205,7 @@ mod tests {
             let json_file_content = include_str!("../../../../resources/pathfinder_proof_1309254_2.json");
 
             // Read proof from JSON file - fail test if the file cannot be read
-            let pathfinder_proof: PathfinderProof =
+            let pathfinder_proof: ContractProof =
                 serde_json::from_str(json_file_content).expect("Failed to read PathfinderProof from JSON file");
 
             // Get contract data - fail test if not found
