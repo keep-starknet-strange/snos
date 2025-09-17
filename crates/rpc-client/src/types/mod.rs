@@ -22,6 +22,6 @@ pub mod hash;
 pub mod nodes;
 pub mod proofs;
 
-pub use hash::{PedersenHash, PoseidonHash};
+pub use hash::{Hash, PedersenHash, PoseidonHash};
 pub use nodes::{EdgeNodePath, Proof, TrieNode};
 pub use proofs::{ClassProof, ContractData, ContractProof, Height};

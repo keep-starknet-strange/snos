@@ -10,8 +10,7 @@ use std::collections::HashMap;
 
 use crate::constants::DEFAULT_STORAGE_TREE_HEIGHT;
 use crate::error::ProofVerificationError;
-use crate::types::Height;
-use crate::Hash;
+use crate::types::{Hash, Height};
 
 /// A node in the Merkle-Patricia trie
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

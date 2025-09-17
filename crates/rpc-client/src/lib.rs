@@ -45,8 +45,6 @@
 //! }
 //! ```
 
-use starknet_types_core::felt::Felt;
-
 pub mod client;
 pub mod constants;
 pub mod state_reader;
@@ -55,37 +53,3 @@ pub mod utils;
 pub mod error;
 
 pub use client::RpcClient;
-
-/// A trait for simple hash functions used in proof verification.
-///
-/// This trait provides a unified interface for hash functions that take two `Felt` values
-/// and return a single `Felt` hash. It's used primarily in the proof verification system.
-///
-/// # Example
-///
-/// ```rust
-/// use rpc_client::SimpleHashFunction;
-/// use starknet_types_core::felt::Felt;
-///
-/// struct MyHashFunction;
-///
-/// impl SimpleHashFunction for MyHashFunction {
-///     fn hash(left: &Felt, right: &Felt) -> Felt {
-///         // Implement your hash function here
-///         Felt::from(0)
-///     }
-/// }
-/// ```
-pub trait Hash {
-    /// Computes a hash from two input values.
-    ///
-    /// # Arguments
-    ///
-    /// * `left` - The left input value
-    /// * `right` - The right input value
-    ///
-    /// # Returns
-    ///
-    /// The computed hash value.
-    fn hash(left: &Felt, right: &Felt) -> Felt;
-}
