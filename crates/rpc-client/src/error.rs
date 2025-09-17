@@ -1,8 +1,8 @@
 //! Error types for Pathfinder RPC operations and proof verification.
 
-use crate::pathfinder::types::proofs::Height;
-use crate::pathfinder::types::TrieNode;
 use starknet_types_core::felt::Felt;
+
+use crate::types::{Height, TrieNode};
 
 /// Errors that can occur during Pathfinder RPC client operations.
 ///
@@ -20,7 +20,7 @@ pub enum ClientError {
     CustomError(String),
 
     /// Failed to convert a response to a PathfinderProof.
-    #[error("Failed to convert response to PathfinderProof: {0}")]
+    #[error("Failed to convert RPC response to SNOS Proof: {0}")]
     ProofConversionError(String),
 
     /// Invalid URL or endpoint configuration.

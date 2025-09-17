@@ -9,8 +9,8 @@
 //!
 //! - [`nodes`] - Merkle tree node types and structures
 //! - [`proofs`] - Proof-related types for storage and class proofs
-//! - [`storage_proof`] - Storage proof response types
-//! - [`request`] - JSON-RPC request and response types
+//! - [`requests`] - JSON-RPC request types
+//! - [`responses`] - JSON-RPC response types
 //! - [`hash`] - Hash-related type definitions
 //!
 //! ## Note
@@ -21,10 +21,7 @@
 pub mod hash;
 pub mod nodes;
 pub mod proofs;
-pub mod request;
-pub mod storage_proof;
 
-pub use hash::{PedersenHash, PoseidonHash};
-pub use nodes::{MerkleNode, NodeWithHash, Nodes};
-pub use proofs::{ContractData, PathfinderClassProof, PathfinderProof, TrieNode};
-pub use storage_proof::GetStorageProofResponse;
+pub use hash::{Hash, PedersenHash, PoseidonHash};
+pub use nodes::{EdgeNodePath, Proof, TrieNode};
+pub use proofs::{ClassProof, ContractData, ContractProof, Height};

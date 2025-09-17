@@ -14,7 +14,7 @@ cairo_native = []
 
 [dependencies]
 anyhow = { workspace = true }
-bitvec = { version = "1.0", default-features = false, features = ["std"] }
+bitvec = { workspace = true }
 blockifier = { workspace = true }
 cairo-lang-starknet-classes = { workspace = true }
 cairo-vm = { workspace = true }
@@ -33,4 +33,4 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
-rstest = "0.24.0"
+rstest = { workspace = true }
