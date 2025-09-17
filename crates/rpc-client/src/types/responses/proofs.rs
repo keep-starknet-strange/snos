@@ -1,6 +1,7 @@
-use crate::pathfinder::types::MerkleNodes;
 use serde::{Deserialize, Serialize};
 use starknet_types_core::felt::Felt;
+
+use crate::types::MerkleNodes;
 
 /// The response type for the `starknet_getStorageProof` method.
 ///

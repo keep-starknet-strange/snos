@@ -1,6 +1,6 @@
-use crate::pathfinder::types::hash::PedersenHash;
-use crate::pathfinder::types::nodes::Proof;
-use crate::pathfinder::types::{ContractProof, PoseidonHash, TrieNode};
+use crate::types::hash::PedersenHash;
+use crate::types::nodes::Proof;
+use crate::types::{ContractProof, PoseidonHash, TrieNode};
 use rstest::rstest;
 use starknet_types_core::felt::Felt;
 
@@ -28,18 +28,18 @@ fn test_verify_proof_from_json() {
     for (index, item) in keys.iter().enumerate().skip(2) {
         let key = Felt::from_hex(item).unwrap();
         let commitment = Felt::from_hex("0x113519a4e8c4b74d2295b850122523986c6e60902cfc31a623da2e765c76b3d").unwrap();
-        let json_file_content = include_str!("../../../../../../../resources/pathfinder_proof_1309254_2.json");
+        let json_file_content = include_str!("../../../../../../resources/pathfinder_proof_1309254_2.json");
 
         // Read proof from JSON file - fail test if the file cannot be read
-        let pathfinder_proof: ContractProof =
-            serde_json::from_str(json_file_content).expect("Failed to read PathfinderProof from JSON file");
+        let snos_proof: ContractProof =
+            serde_json::from_str(json_file_content).expect("Failed to read Proof from JSON file");
 
         // Get contract data - fail test if not found
         let contract_data =
-            pathfinder_proof.contract_data.as_ref().expect("No contract data found in the PathfinderProof");
+            snos_proof.contract_data.as_ref().expect("No contract data found in the Proof");
 
         // Get storage proofs - fail test if empty
-        assert!(!contract_data.storage_proofs.is_empty(), "No storage proofs found in the PathfinderProof");
+        assert!(!contract_data.storage_proofs.is_empty(), "No storage proofs found in the Proof");
 
         let proof = &contract_data.storage_proofs[index];
 

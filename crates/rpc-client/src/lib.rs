@@ -45,15 +45,16 @@
 //! }
 //! ```
 
+use starknet_types_core::felt::Felt;
+
 pub mod client;
 pub mod constants;
-pub mod pathfinder;
 pub mod state_reader;
+pub mod types;
 pub mod utils;
+pub mod error;
 
 pub use client::RpcClient;
-
-use starknet_types_core::felt::Felt;
 
 /// A trait for simple hash functions used in proof verification.
 ///

@@ -25,7 +25,7 @@ pub mod requests;
 pub mod responses;
 
 pub use hash::{PedersenHash, PoseidonHash};
-pub use nodes::{EdgeNodePath, TrieNode};
+pub use nodes::{EdgeNodePath, Proof, TrieNode};
 pub use proofs::{ClassProof, ContractData, ContractProof, Height};
 pub use requests::Request;
 pub use responses::{GetStorageProofResponse, MerkleNode, MerkleNodeWithHash, MerkleNodes, TransactionReceiptResponse};

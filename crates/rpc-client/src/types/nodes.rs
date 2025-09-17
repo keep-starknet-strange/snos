@@ -1,16 +1,17 @@
-use crate::pathfinder::constants::DEFAULT_STORAGE_TREE_HEIGHT;
-use crate::pathfinder::error::ProofVerificationError;
-use crate::pathfinder::types::responses::MerkleNode;
-use crate::pathfinder::types::Height;
-use crate::Hash;
 use anyhow::{anyhow, Result};
 use bitvec::order::Msb0;
 use bitvec::prelude::BitVec;
 use cairo_vm::Felt252;
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
+use starknet_core::types::MerkleNode;
 use starknet_types_core::felt::Felt;
 use std::collections::HashMap;
+
+use crate::constants::DEFAULT_STORAGE_TREE_HEIGHT;
+use crate::error::ProofVerificationError;
+use crate::types::Height;
+use crate::Hash;
 
 /// A node in the Merkle-Patricia trie
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -196,12 +197,17 @@ impl Proof for [TrieNode] {
 // Implementing conversion from MerkleNode to TrieNode
 // MerkleNode is returned in the getStorageProof response from the RPC client
 impl From<MerkleNode> for TrieNode {
+    /// Converts `MerkleNode` (coming as a response from the RPC client) into TrieNode
+    /// This is needed because the RPC client returns `MerkleNode`, but we need TrieNode as SNOS input
+    /// NOTE: `node_hash` field in `TrieNode` would be `None` since we don't have that info in `MerkleNode`
     fn from(node: MerkleNode) -> Self {
         match node {
-            MerkleNode::Edge { path, length, child, node_hash } => {
-                TrieNode::Edge { path: EdgeNodePath { value: path, len: length as u64 }, child, node_hash }
-            }
-            MerkleNode::Binary { left, right, node_hash } => TrieNode::Binary { left, right, node_hash },
+            MerkleNode::BinaryNode(node) => TrieNode::Binary { left: node.left, right: node.right, node_hash: None },
+            MerkleNode::EdgeNode(node) => TrieNode::Edge {
+                path: EdgeNodePath { value: node.path, len: node.length },
+                child: node.child,
+                node_hash: None,
+            },
         }
     }
 }

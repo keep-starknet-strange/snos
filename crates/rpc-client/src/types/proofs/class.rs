@@ -1,8 +1,9 @@
-use crate::pathfinder::error::ProofVerificationError;
-use crate::pathfinder::types::nodes::Proof;
-use crate::pathfinder::types::{GetStorageProofResponse, MerkleNodeWithHash, PoseidonHash, TrieNode};
 use serde::{Deserialize, Serialize};
+use starknet_core::types::StorageProof;
 use starknet_types_core::felt::Felt;
+
+use crate::error::ProofVerificationError;
+use crate::types::{PoseidonHash, Proof, TrieNode};
 
 #[allow(dead_code)]
 #[derive(Clone, Deserialize, Serialize)]
@@ -33,14 +34,12 @@ impl ClassProof {
     }
 }
 
-impl From<GetStorageProofResponse> for ClassProof {
-    fn from(proof: GetStorageProofResponse) -> Self {
+impl From<StorageProof> for ClassProof {
+    fn from(proof: StorageProof) -> Self {
         let class_proof = proof
             .classes_proof
-            .nodes
             .iter()
-            .map(|node_with_hash| {
-                let MerkleNodeWithHash { node, node_hash } = node_with_hash;
+            .map(|(node_hash, node)| {
                 let mut trie_node: TrieNode = node.clone().into();
                 // Set the node_hash from the NodeWithHash
                 match &mut trie_node {

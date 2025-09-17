@@ -266,21 +266,21 @@ impl StateReader for AsyncRpcStateReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::SNOS_PATHFINDER_RPC_URL_ENV;
+    use crate::constants::SNOS_RPC_URL_ENV;
     use starknet_types_core::felt::Felt as StarknetTypesFelt;
 
     fn create_test_rpc_client() -> RpcClient {
         // Create a test RPC client with a dummy URL
-        let pathfinder_url = match std::env::var(SNOS_PATHFINDER_RPC_URL_ENV) {
+        let rpc_url = match std::env::var(SNOS_RPC_URL_ENV) {
             Ok(url) => url,
             Err(_) => {
                 panic!(
-                    "Missing Pathfinder URL from ENV: {} environment variable is not set",
-                    SNOS_PATHFINDER_RPC_URL_ENV
+                    "Missing RPC URL from ENV: {} environment variable is not set",
+                    SNOS_RPC_URL_ENV
                 );
             }
         };
-        RpcClient::try_new(&pathfinder_url).expect("Failed to create test RPC client")
+        RpcClient::try_new(&rpc_url).expect("Failed to create test RPC client")
     }
 
     fn create_test_values() -> (ContractAddress, StorageKey, ClassHash, BlockId) {
@@ -320,7 +320,6 @@ mod tests {
         let state_reader = AsyncRpcStateReader::new(rpc_client, block_id);
 
         println!("Testing real RPC calls with:");
-        println!("  RPC URL: https://pathfinder-madara-ci.d.karnot.xyz");
         println!("  Block: {:?}", block_id);
         println!("  Contract: {:?}", contract_address);
         println!("  Storage Key: {:?}", storage_key);
