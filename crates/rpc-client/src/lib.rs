@@ -47,9 +47,9 @@
 
 pub mod client;
 pub mod constants;
+pub mod error;
 pub mod state_reader;
 pub mod types;
 pub mod utils;
-pub mod error;
 
 pub use client::RpcClient;

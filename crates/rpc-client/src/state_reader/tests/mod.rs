@@ -7,10 +7,7 @@ fn create_test_rpc_client() -> RpcClient {
     let rpc_url = match std::env::var(SNOS_RPC_URL_ENV) {
         Ok(url) => url,
         Err(_) => {
-            panic!(
-                "Missing RPC URL from ENV: {} environment variable is not set",
-                SNOS_RPC_URL_ENV
-            );
+            panic!("Missing RPC URL from ENV: {} environment variable is not set", SNOS_RPC_URL_ENV);
         }
     };
     RpcClient::try_new(&rpc_url).expect("Failed to create test RPC client")
@@ -20,11 +17,11 @@ fn create_test_values() -> (ContractAddress, StorageKey, ClassHash, BlockId) {
     let contract_address = ContractAddress::try_from(StarknetTypesFelt::from_hex_unchecked(
         "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
     ))
-        .unwrap();
+    .unwrap();
     let storage_key = StorageKey::try_from(StarknetTypesFelt::from_hex_unchecked(
         "0x3c204dd68b8e800b4f42e438d9ed4ccbba9f8e436518758cd36553715c1d6ab",
     ))
-        .unwrap();
+    .unwrap();
     let class_hash = ClassHash(StarknetTypesFelt::from_hex_unchecked(
         "0x078401746828463e2c3f92ebb261fc82f7d4d4c8d9a80a356c44580dab124cb0",
     ));

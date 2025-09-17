@@ -92,14 +92,8 @@ impl TryFrom<StorageProof> for ContractProof {
         // The `nodes` field in `contracts_proof` contains the union of all the paths from the
         // contracts-tree root to all the leaves
         let contract_proof = proof.contracts_proof;
-        let contract_leaf = contract_proof
-            .contract_leaves_data
-            .first()
-            .ok_or(ProviderError::ArrayLengthMismatch)?;
-        let storage_proofs = proof
-            .contracts_storage_proofs
-            .first()
-            .ok_or(ProviderError::ArrayLengthMismatch)?;
+        let contract_leaf = contract_proof.contract_leaves_data.first().ok_or(ProviderError::ArrayLengthMismatch)?;
+        let storage_proofs = proof.contracts_storage_proofs.first().ok_or(ProviderError::ArrayLengthMismatch)?;
 
         // Compute the state commitment
         let state_commitment = starknet_crypto::poseidon_hash_many(&[

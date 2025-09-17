@@ -35,8 +35,7 @@ fn test_verify_proof_from_json() {
             serde_json::from_str(json_file_content).expect("Failed to read Proof from JSON file");
 
         // Get contract data - fail test if not found
-        let contract_data =
-            snos_proof.contract_data.as_ref().expect("No contract data found in the Proof");
+        let contract_data = snos_proof.contract_data.as_ref().expect("No contract data found in the Proof");
 
         // Get storage proofs - fail test if empty
         assert!(!contract_data.storage_proofs.is_empty(), "No storage proofs found in the Proof");
