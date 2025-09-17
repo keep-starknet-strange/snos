@@ -2,7 +2,7 @@ use starknet_types_core::felt::Felt;
 use std::collections::HashMap;
 
 // Import proper types from the dependencies
-use rpc_client::pathfinder::types::{PathfinderClassProof, PedersenHash, PoseidonHash, TrieNode};
+use rpc_client::types::{ClassProof, PedersenHash, PoseidonHash, TrieNode, Hash};
 
 // Import CommitmentInfo from starknet_os
 use starknet_os::io::os_input::CommitmentInfo;
@@ -12,9 +12,6 @@ use starknet_patricia::hash::hash_trait::HashOutput;
 use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
 // use starknet_types_core::hash::{Pedersen, Poseidon, StarkHash};
 
-// Import the trait from rpc-client
-use rpc_client::SimpleHashFunction;
-
 /// Implementation for Pedersen hash
 /// Port of the format_commitment_facts function from old snos
 ///
@@ -23,7 +20,7 @@ use rpc_client::SimpleHashFunction;
 #[allow(clippy::extra_unused_type_parameters)]
 pub fn format_commitment_facts<H>(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt, Vec<Felt>>
 where
-    H: SimpleHashFunction,
+    H: Hash,
 {
     let mut facts = HashMap::new();
 
@@ -65,8 +62,8 @@ where
 ///
 /// Original location: ../snos/crates/bin/prove_block/src/lib.rs:78-118
 pub fn compute_class_commitment(
-    previous_class_proofs: &HashMap<Felt, PathfinderClassProof>,
-    class_proofs: &HashMap<Felt, PathfinderClassProof>,
+    previous_class_proofs: &HashMap<Felt, ClassProof>,
+    class_proofs: &HashMap<Felt, ClassProof>,
     previous_root: Felt,
     updated_root: Felt,
 ) -> CommitmentInfo {

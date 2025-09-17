@@ -11,7 +11,7 @@ use blockifier::test_utils::maybe_dummy_block_hash_and_number;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use cairo_vm::Felt252;
-use rpc_client::pathfinder::types::{PathfinderProof, PedersenHash};
+use rpc_client::types::{ContractProof, PedersenHash};
 use rpc_client::state_reader::AsyncRpcStateReader;
 use rpc_client::RpcClient;
 use serde::Serialize;
@@ -442,7 +442,7 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
             // We add a default proof for the block hash contract
             map.insert(
                 Felt::ONE,
-                PathfinderProof {
+                ContractProof {
                     state_commitment: Default::default(),
                     class_commitment: None,
                     contract_commitment: Default::default(),

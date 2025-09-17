@@ -182,7 +182,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///
     /// # Returns
     ///
-    /// Returns a `PathfinderProof` containing the storage proofs or an error if the
+    /// Returns a `ContractProof` containing the storage proofs or an error if the
     /// request fails.
     ///
     /// # Errors
@@ -251,7 +251,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///
     /// # Returns
     ///
-    /// Returns a `PathfinderClassProof` containing the class proof or an error if the
+    /// Returns a `ClassProof` containing the class proof or an error if the
     /// request fails.
     ///
     /// # Errors
@@ -294,7 +294,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///
     /// # Returns
     ///
-    /// Returns a `PathfinderProof` containing the storage proof or an error if the
+    /// Returns a `ContractProof` containing the storage proof or an error if the
     /// request fails.
     ///
     /// # Errors
@@ -323,7 +323,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///
     /// # Returns
     ///
-    /// Returns a `PathfinderProof` containing the storage proofs or an error if the
+    /// Returns a `ContractProof` containing the storage proofs or an error if the
     /// request fails.
     ///
     /// # Errors

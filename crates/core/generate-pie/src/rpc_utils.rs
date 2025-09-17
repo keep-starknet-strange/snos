@@ -1,9 +1,9 @@
 use blockifier::execution::call_info::CallInfo;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
-use rpc_client::pathfinder::error::ClientError;
-use rpc_client::pathfinder::proofs::verify_storage_proof;
-use rpc_client::pathfinder::types::{ContractData, PathfinderClassProof, PathfinderProof};
+use rpc_client::client::ProofClient;
+use rpc_client::error::ClientError;
+use rpc_client::types::{ClassProof, ContractData, ContractProof};
 use rpc_client::RpcClient;
 use starknet_api::contract_address;
 use starknet_api::core::ContractAddress;
@@ -176,7 +176,7 @@ pub(crate) async fn get_storage_proofs(
     client: &RpcClient,
     block_number: u64,
     accessed_keys_by_address: &HashMap<ContractAddress, HashSet<StorageKey>>,
-) -> Result<HashMap<Felt, PathfinderProof>, ClientError> {
+) -> Result<HashMap<Felt, ContractProof>, ClientError> {
     let mut storage_proofs = HashMap::new();
 
     println!("Contracts we're fetching proofs for:");
@@ -196,10 +196,14 @@ pub(crate) async fn get_class_proofs(
     rpc_client: &RpcClient,
     block_number: u64,
     class_hashes: &[&Felt],
-) -> Result<HashMap<Felt252, PathfinderClassProof>, ClientError> {
-    let mut proofs: HashMap<Felt252, PathfinderClassProof> = HashMap::with_capacity(class_hashes.len());
+) -> Result<HashMap<Felt252, ClassProof>, ClientError> {
+    let mut proofs: HashMap<Felt252, ClassProof> = HashMap::with_capacity(class_hashes.len());
     for class_hash in class_hashes {
-        let proof = rpc_client.pathfinder_rpc().get_class_proof(block_number, class_hash).await?;
+        let proof = rpc_client
+            .starknet_rpc()
+            .get_class_proof(block_number, class_hash)
+            .await
+            .map_err(|e| ClientError::CustomError(format!("{}", e)))?;
         // TODO: need to combine these, similar to merge_chunked_storage_proofs above?
         proofs.insert(**class_hash, proof);
     }
@@ -210,7 +214,7 @@ pub(crate) async fn get_class_proofs(
 /// Helper function to write storage proof to a JSON file
 #[allow(dead_code)]
 fn write_storage_proof_to_file(
-    storage_proof: &PathfinderProof,
+    storage_proof: &ContractProof,
     filename: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let json_content = serde_json::to_string_pretty(storage_proof)?;
@@ -226,7 +230,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     contract_address: ContractAddress,
     storage_keys: KeyIter,
     block_number: u64,
-) -> Result<PathfinderProof, ClientError> {
+) -> Result<ContractProof, ClientError> {
     let contract_address_felt = *contract_address.key();
     let keys: Vec<_> = storage_keys.map(|storage_key| *storage_key.key()).collect();
 
@@ -243,7 +247,9 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     };
 
     let additional_keys = if contract_data.root != Felt::ZERO {
-        verify_storage_proof(contract_data, &keys).map_err(|e| ClientError::CustomError(format!("{}", e)))?
+        contract_data
+            .get_additional_keys(&keys)
+            .map_err(|e| ClientError::CustomError(format!("{}", e)))?
     } else {
         vec![]
     };
@@ -269,16 +275,25 @@ async fn fetch_storage_proof_for_contract(
     contract_address: Felt,
     keys: &[Felt],
     block_number: u64,
-) -> Result<PathfinderProof, ClientError> {
+) -> Result<ContractProof, ClientError> {
     let storage_proof = if keys.is_empty() {
-        rpc_client.pathfinder_rpc().get_proof(block_number, contract_address, &[]).await?
+        rpc_client
+            .starknet_rpc()
+            .get_proof(block_number, contract_address, &[])
+            .await
+            .map_err(|e| ClientError::CustomError(format!("{}", e)))?
     } else {
         // The endpoint is limited to 100 keys at most per call
         const MAX_KEYS: usize = 100;
         let mut chunked_storage_proofs = Vec::new();
         for keys_chunk in keys.chunks(MAX_KEYS) {
-            chunked_storage_proofs
-                .push(rpc_client.pathfinder_rpc().get_proof(block_number, contract_address, keys_chunk).await?);
+            chunked_storage_proofs.push(
+                rpc_client
+                    .starknet_rpc()
+                    .get_proof(block_number, contract_address, keys_chunk)
+                    .await
+                    .map_err(|e| ClientError::CustomError(format!("{}", e)))?,
+            );
         }
         merge_storage_proofs(chunked_storage_proofs)
     };
@@ -286,7 +301,7 @@ async fn fetch_storage_proof_for_contract(
     Ok(storage_proof)
 }
 
-fn merge_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof {
+fn merge_storage_proofs(proofs: Vec<ContractProof>) -> ContractProof {
     let class_commitment = proofs[0].class_commitment;
     let contract_commitment = proofs[0].contract_commitment;
     let state_commitment = proofs[0].state_commitment;
@@ -308,7 +323,7 @@ fn merge_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof {
         contract_data
     };
 
-    PathfinderProof { contract_commitment, class_commitment, state_commitment, contract_proof, contract_data }
+    ContractProof { contract_commitment, class_commitment, state_commitment, contract_proof, contract_data }
 }
 
 /// Inserts additional keys for retrieving storage proof from the block hash contract (address 0x1).
