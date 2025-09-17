@@ -33,6 +33,8 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
+    env:
+      SNOS_RPC_URL: ${{ secrets.SNOS_RPC_URL }}
     steps:
       - uses: actions/checkout@v3
       - run: rustup show
