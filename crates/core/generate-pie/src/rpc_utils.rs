@@ -247,9 +247,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     };
 
     let additional_keys = if contract_data.root != Felt::ZERO {
-        contract_data
-            .get_additional_keys(&keys)
-            .map_err(|e| ClientError::CustomError(format!("{}", e)))?
+        contract_data.get_additional_keys(&keys).map_err(|e| ClientError::CustomError(format!("{}", e)))?
     } else {
         vec![]
     };
