@@ -17,9 +17,9 @@ pub struct ContractProof {
     pub contract_commitment: Felt,
     /// Classes tree root
     pub class_commitment: Option<Felt>,
-    // Contract proof
+    /// Contract proof
     pub contract_proof: Vec<TrieNode>,
-    // Contract storage data
+    /// Contract storage data
     pub contract_data: Option<ContractData>,
 }
 
@@ -41,9 +41,9 @@ impl ContractData {
     /// crash otherwise.
     /// This function will panic if the proof contains an invalid node hash (i.e., the hash of a child
     /// node does not match the one specified in the parent).
-    pub fn get_additional_keys(&self, contract_data: &ContractData, keys: &[Felt]) -> anyhow::Result<Vec<Felt>> {
+    pub fn get_additional_keys(&self, keys: &[Felt]) -> anyhow::Result<Vec<Felt>> {
         let mut additional_keys = vec![];
-        if let Err(errors) = contract_data.verify(keys) {
+        if let Err(errors) = self.verify(keys) {
             for error in errors {
                 match error {
                     ProofVerificationError::NonExistenceProof { key, height, node } => {
