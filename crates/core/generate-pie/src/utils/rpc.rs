@@ -1,6 +1,7 @@
 use blockifier::execution::call_info::CallInfo;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
+use log::info;
 use rpc_client::client::ProofClient;
 use rpc_client::error::ClientError;
 use rpc_client::types::{ClassProof, ContractData, ContractProof};
@@ -10,7 +11,6 @@ use starknet_api::core::ContractAddress;
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
-use std::fs;
 
 /// Comprehensive structure that captures all access information from transaction execution
 #[allow(dead_code)]
@@ -24,7 +24,7 @@ pub struct BlockAccessInfo {
     pub accessed_class_hashes: HashSet<Felt>,
     /// All unique storage read values across all transactions
     pub storage_read_values: HashSet<Felt>,
-    /// All unique class hash values read across all transactions  
+    /// All unique class hash values read across all transactions
     pub read_class_hash_values: HashSet<Felt>,
     /// All unique block hash values read across all transactions
     pub read_block_hash_values: HashSet<Felt>,
@@ -32,8 +32,8 @@ pub struct BlockAccessInfo {
     pub accessed_blocks: HashSet<Felt>,
 }
 
-/// Collects comprehensive access information from transaction execution infos along with block hash contract key
-/// and any extra keys needed for contracts that trigger get_block_hash_syscall.
+/// Collects comprehensive access information from transaction execution infos along with the block
+/// hash contract key and any extra keys needed for contracts that trigger `get_block_hash_syscall`
 pub(crate) fn get_comprehensive_access_info(
     tx_execution_infos: &[TransactionExecutionInfo],
     old_block_number: Felt,
@@ -59,8 +59,8 @@ pub(crate) fn get_comprehensive_access_info(
             &tx_execution_info.execute_call_info,
             &tx_execution_info.fee_transfer_call_info,
         ]
-        .into_iter()
-        .flatten()
+            .into_iter()
+            .flatten()
         {
             collect_access_info_from_call(
                 call_info,
@@ -179,13 +179,13 @@ pub(crate) async fn get_storage_proofs(
 ) -> Result<HashMap<Felt, ContractProof>, ClientError> {
     let mut storage_proofs = HashMap::new();
 
-    println!("Contracts we're fetching proofs for:");
+    info!("Fetching storage proofs for {} contracts", accessed_keys_by_address.len());
+
     for (contract_address, storage_keys) in accessed_keys_by_address {
         let contract_address_felt = *contract_address.key();
         let storage_proof =
             get_storage_proof_for_contract(client, *contract_address, storage_keys.clone().into_iter(), block_number)
                 .await?;
-        // println!("storage proof for the address: {:?} is: {:?}", contract_address, storage_proof);
         storage_proofs.insert(contract_address_felt, storage_proof);
     }
 
@@ -198,6 +198,9 @@ pub(crate) async fn get_class_proofs(
     class_hashes: &[&Felt],
 ) -> Result<HashMap<Felt252, ClassProof>, ClientError> {
     let mut proofs: HashMap<Felt252, ClassProof> = HashMap::with_capacity(class_hashes.len());
+
+    info!("Fetching class proofs for {} classes", class_hashes.len());
+
     for class_hash in class_hashes {
         let proof = rpc_client
             .starknet_rpc()
@@ -209,17 +212,6 @@ pub(crate) async fn get_class_proofs(
     }
 
     Ok(proofs)
-}
-
-/// Helper function to write storage proof to a JSON file
-#[allow(dead_code)]
-fn write_storage_proof_to_file(
-    storage_proof: &ContractProof,
-    filename: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let json_content = serde_json::to_string_pretty(storage_proof)?;
-    fs::write(filename, json_content)?;
-    Ok(())
 }
 
 /// Fetches the storage proof for the specified contract and storage keys.
@@ -325,17 +317,18 @@ fn merge_storage_proofs(proofs: Vec<ContractProof>) -> ContractProof {
 }
 
 /// Inserts additional keys for retrieving storage proof from the block hash contract (address 0x1).
-/// Certain contracts necessitate extra nodes from the contract 0x1. However, since Blockifier does not provide this information,
+/// Certain contracts require extra nodes from the contract 0x1. However, since Blockifier does not provide this information,
 /// it is necessary to add some extra keys to ensure the inclusion of the required nodes.
-/// This approach serves as a workaround. The ideal solutions would be to either retrieve the full tree or obtain information about the necessary nodes.
-/// The first approach would introduce significant overhead for most blocks, and the second solution is currently not feasible at the moment.
+/// This approach serves as a workaround. The ideal solutions would be to either retrieve the full tree or collect information about the necessary nodes.
+/// The first approach would introduce significant overhead for most blocks, and the second solution is currently not possible at the moment.
 fn insert_extra_storage_reads_keys(old_block_number: Felt, keys: &mut HashMap<ContractAddress, HashSet<StorageKey>>) {
     // A list of the contracts that accessed to the storage from 0x1 using `get_block_hash_syscall`
     let special_addresses: Vec<ContractAddress> = vec![
         contract_address!("0x01246c3031c5d0d1cf60a9370aac03a4717538f659e4a2bfb0f692e970e0c4b5"),
         contract_address!("0x00656ca4889a405ec5222e4b0997e5a043902a98cb1f85a039f76f50c000479d"),
         contract_address!("0x022207b425a6c0239bbf5d58fbf0272fbb059ee4bb89f48255321d6e7c1606ef"),
-        // Ekubo:core contract address. Source code is not available but `key_not_in_preimage` error is triggered every time it's called
+        // Ekubo:core contract address.
+        // Source code is not available, but the ` key_not_in_preimage ` error is triggered every time it's called
         contract_address!("0x5dd3d2f4429af886cd1a3b08289dbcea99a294197e9eb43b0e0325b4b"),
     ];
     if special_addresses.iter().any(|address| keys.contains_key(address)) {
@@ -350,8 +343,8 @@ fn insert_extra_storage_reads_keys(old_block_number: Felt, keys: &mut HashMap<Co
     }
 }
 
-/// Utility to get all the accesed keys from TxexecutionInfo resulted from
-/// Reexecuting all block tx using blockifier
+/// Utility to get all the accessed keys from [TransactionExecutionInfo] resulted from
+/// Reexecuting all block txs using blockifier
 /// We need this as the OS require proofs for all the accessed values
 pub(crate) fn get_all_accessed_keys(
     tx_execution_infos: &[TransactionExecutionInfo],
@@ -384,8 +377,8 @@ fn get_accessed_keys_in_tx(
         &tx_execution_info.execute_call_info,
         &tx_execution_info.fee_transfer_call_info,
     ]
-    .into_iter()
-    .flatten()
+        .into_iter()
+        .flatten()
     {
         let call_storage_keys = get_accessed_storage_keys(call_info);
         for (contract_address, storage_keys) in call_storage_keys {

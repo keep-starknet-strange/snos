@@ -1,10 +1,10 @@
+use log::info;
+use rpc_client::types::{ClassProof, Hash, PoseidonHash, TrieNode};
 use starknet_os::io::os_input::CommitmentInfo;
 use starknet_patricia::hash::hash_trait::HashOutput;
 use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
 use starknet_types_core::felt::Felt;
 use std::collections::HashMap;
-
-use rpc_client::types::{ClassProof, Hash, PedersenHash, PoseidonHash, TrieNode};
 
 /// Implementation for Pedersen hash
 /// Port of the format_commitment_facts function from old snos
@@ -99,23 +99,17 @@ pub fn compute_class_commitment(
     let class_commitment_facts: HashMap<_, _> =
         previous_class_commitment_facts.into_iter().chain(current_class_commitment_facts).collect();
 
-    println!("previous class trie root: {}", previous_root.to_hex_string());
-    println!("current class trie root: {}", updated_root.to_hex_string());
+    info!("previous class trie root: {}", previous_root.to_hex_string());
+    info!("current class trie root: {}", updated_root.to_hex_string());
 
     // Create CommitmentInfo with proper type conversions
-    CommitmentInfo {
-        previous_root: HashOutput(previous_root),
-        updated_root: HashOutput(updated_root),
-        tree_height: SubTreeHeight(251), // Direct construction of SubTreeHeight
-        commitment_facts: class_commitment_facts.into_iter().map(|(k, v)| (HashOutput(k), v)).collect(),
-    }
+    create_contract_state_commitment_info(previous_root, updated_root, class_commitment_facts)
 }
 
 /// Helper function to create contract state commitment info from storage proofs
 ///
 /// This combines the logic for creating state commitments from storage proofs
 /// Similar to the contract_state_commitment_info creation in the old prove_block function
-#[allow(dead_code)]
 pub fn create_contract_state_commitment_info(
     previous_contract_trie_root: Felt,
     current_contract_trie_root: Felt,
@@ -127,20 +121,6 @@ pub fn create_contract_state_commitment_info(
         tree_height: SubTreeHeight(251), // Direct construction of SubTreeHeight
         commitment_facts: global_state_commitment_facts.into_iter().map(|(k, v)| (HashOutput(k), v)).collect(),
     }
-}
-
-/// Helper function to format storage commitment facts using Pedersen hash
-/// This is for contract state commitments which use Pedersen hashing
-#[allow(dead_code)]
-pub fn format_storage_commitment_facts(storage_proofs: &[Vec<TrieNode>]) -> HashMap<Felt, Vec<Felt>> {
-    format_commitment_facts::<PedersenHash>(storage_proofs)
-}
-
-/// Helper function to format class commitment facts using Poseidon hash
-/// This is for class commitments which use Poseidon hashing
-#[allow(dead_code)]
-pub fn format_class_commitment_facts(class_proofs: &[Vec<TrieNode>]) -> HashMap<Felt, Vec<Felt>> {
-    format_commitment_facts::<PoseidonHash>(class_proofs)
 }
 
 #[cfg(test)]

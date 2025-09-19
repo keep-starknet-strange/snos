@@ -3,6 +3,8 @@
 //! This binary demonstrates how to use the generate-pie library to generate
 //! Cairo PIE files from Starknet blocks.
 
+use log::{error, info};
+
 use generate_pie::generate_pie;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
 /// Main entry point for the generate-pie application.
@@ -30,9 +32,10 @@ use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput}
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize logging
     env_logger::init();
-    log::info!("Starting SNOS PIE generation application");
+    info!("Starting SNOS PIE generation application");
 
     // Build the input configuration
+    // TODO: take the RPC from env or command line
     let input = PieGenerationInput {
         rpc_url: "https://pathfinder-snos.d.karnot.xyz".to_string(),
         blocks: vec![924072],
@@ -42,32 +45,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     };
 
     // Display configuration information
-    log::info!("Configuration:");
-    log::info!("  RPC URL: {}", input.rpc_url);
-    log::info!("  Blocks: {:?}", input.blocks);
-    log::info!("  Chain ID: {:?}", input.chain_config.chain_id);
-    log::info!("  Is L3: {}", input.chain_config.is_l3);
-    log::info!("  Debug mode: {}", input.os_hints_config.debug_mode);
-    log::info!("  Use KZG DA: {}", input.os_hints_config.use_kzg_da);
-    log::info!("  Output path: {:?}", input.output_path);
+    info!("Configuration:");
+    info!("  RPC URL: {}", input.rpc_url);
+    info!("  Blocks: {:?}", input.blocks);
+    info!("  Chain ID: {:?}", input.chain_config.chain_id);
+    info!("  Is L3: {}", input.chain_config.is_l3);
+    info!("  Debug mode: {}", input.os_hints_config.debug_mode);
+    info!("  Use KZG DA: {}", input.os_hints_config.use_kzg_da);
+    info!("  Output path: {:?}", input.output_path);
 
     // Call the core PIE generation function
     match generate_pie(input).await {
         Ok(result) => {
-            log::info!("PIE generation completed successfully!");
-            log::info!("  Blocks processed: {:?}", result.blocks_processed);
+            info!("PIE generation completed successfully!");
+            info!("  Blocks processed: {:?}", result.blocks_processed);
             if let Some(output_path) = result.output_path {
-                log::info!("  Output written to: {}", output_path);
+                info!("  Output written to: {}", output_path);
             }
         }
         Err(e) => {
-            log::error!("PIE generation failed: {}", e);
-            eprintln!("\n❌ PIE generation failed: {}", e);
+            error!("PIE generation failed: {}", e);
+            error!("\n❌ PIE generation failed: {}", e);
             return Err(e.into());
         }
     }
 
-    log::info!("SNOS execution completed successfully!");
-    println!("\n✅ SNOS execution completed successfully!");
+    info!("SNOS execution completed successfully!");
+    info!("\n✅ SNOS execution completed successfully!");
     Ok(())
 }

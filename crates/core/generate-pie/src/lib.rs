@@ -61,6 +61,7 @@
 //! - **Output Options**: Configure output file paths and formats
 
 use cairo_vm::types::layout_name::LayoutName;
+use log::{debug, info};
 use rpc_client::RpcClient;
 use starknet::core::types::BlockId;
 use starknet_os::{
@@ -77,11 +78,9 @@ use types::{PieGenerationInput, PieGenerationResult};
 mod api_to_blockifier_conversion;
 mod block_processor;
 mod cached_state;
-mod commitment_utils;
 mod constants;
 mod context_builder;
 mod error;
-mod rpc_utils;
 mod state_processing;
 mod state_update;
 pub mod types;
@@ -132,16 +131,16 @@ mod utils;
 /// }
 /// ```
 pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResult, PieGenerationError> {
-    log::info!("Starting PIE generation for {} blocks: {:?}", input.blocks.len(), input.blocks);
+    info!("Starting PIE generation for {} blocks: {:?}", input.blocks.len(), input.blocks);
 
     // Validate input configuration
     input.validate()?;
-    log::debug!("Input configuration validated successfully");
+    debug!("Input configuration validated successfully");
 
     // Initialize RPC client
     let rpc_client = RpcClient::try_new(&input.rpc_url)
         .map_err(|e| PieGenerationError::RpcClient(format!("Failed to initialize RPC client: {:?}", e)))?;
-    log::info!("RPC client initialized for {}", input.rpc_url);
+    info!("RPC client initialized for {}", input.rpc_url);
 
     let mut os_block_inputs = Vec::new();
     let mut cached_state_inputs = Vec::new();
@@ -150,10 +149,10 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
     // Process each block
     for (index, block_number) in input.blocks.iter().enumerate() {
-        log::info!("=== Processing block {} ({}/{}) ===", block_number, index + 1, input.blocks.len());
+        info!("=== Processing block {} ({}/{}) ===", block_number, index + 1, input.blocks.len());
 
         // Collect block information
-        log::info!("Starting to collect block info for block {}", block_number);
+        info!("Starting to collect block info for block {}", block_number);
         let block_info_result = collect_single_block_info(*block_number, input.chain_config.is_l3, rpc_client.clone())
             .await
             .map_err(|e| PieGenerationError::BlockProcessing { block_number: *block_number, source: Box::new(e) })?;
@@ -175,7 +174,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
             block_info_result.accessed_keys_by_address,
             block_info_result.previous_block_id,
         );
-        log::info!("Block info collection completed for block {}", block_number);
+        info!("Block info collection completed for block {}", block_number);
 
         // Add block input to our collection
         os_block_inputs.push(block_input);
@@ -185,7 +184,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         all_deprecated_compiled_classes.extend(deprecated_compiled_classes);
 
         // Generate cached state input
-        log::info!("Generating cached state input for block {}", block_number);
+        info!("Generating cached state input for block {}", block_number);
         let cached_state_input = generate_cached_state_input(
             &rpc_client,
             BlockId::Number(block_number - 1),
@@ -202,18 +201,18 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         })?;
 
         cached_state_inputs.push(cached_state_input);
-        log::info!("Block {} processed successfully", block_number);
+        info!("Block {} processed successfully", block_number);
     }
 
-    log::info!("=== Finalizing multi-block processing ===");
-    log::info!(
+    info!("=== Finalizing multi-block processing ===");
+    info!(
         "OS inputs prepared with {} block inputs and {} cached state inputs",
         os_block_inputs.len(),
         cached_state_inputs.len()
     );
 
     // Build OS hints configuration
-    log::info!("Building OS hints configuration for multi-block processing");
+    info!("Building OS hints configuration for multi-block processing");
     let os_hints = OsHints {
         os_hints_config: OsHintsConfig {
             debug_mode: input.os_hints_config.debug_mode,
@@ -231,36 +230,36 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
             compiled_classes: all_compiled_classes,
         },
     };
-    log::info!("OS hints configuration built successfully for {} blocks", input.blocks.len());
+    info!("OS hints configuration built successfully for {} blocks", input.blocks.len());
 
     // Execute the Starknet OS
-    log::info!("Starting OS execution for multi-block processing");
-    log::info!("Using layout: {:?}", LayoutName::all_cairo);
+    info!("Starting OS execution for multi-block processing");
+    info!("Using layout: {:?}", LayoutName::all_cairo);
     let output = run_os_stateless(LayoutName::all_cairo, os_hints)
         .map_err(|e| PieGenerationError::OsExecution(format!("OS execution failed: {:?}", e)))?;
-    log::info!("Multi-block output generated successfully!");
+    info!("Multi-block output generated successfully!");
 
     // Validate the generated PIE
-    log::info!("Validating generated Cairo PIE");
+    info!("Validating generated Cairo PIE");
     output
         .cairo_pie
         .run_validity_checks()
         .map_err(|e| PieGenerationError::OsExecution(format!("PIE validation failed: {:?}", e)))?;
-    log::info!("Cairo PIE validation completed successfully");
+    info!("Cairo PIE validation completed successfully");
 
     // Save to file if a path is specified
     if let Some(output_path) = &input.output_path {
-        log::info!("Writing PIE to file: {}", output_path);
+        info!("Writing PIE to file: {}", output_path);
         output.cairo_pie.write_zip_file(Path::new(output_path), true).map_err(|e| {
             PieGenerationError::Io(std::io::Error::other(format!(
                 "Failed to write PIE to file {}: {:?}",
                 output_path, e
             )))
         })?;
-        log::info!("PIE written to file successfully: {}", output_path);
+        info!("PIE written to file successfully: {}", output_path);
     }
 
-    log::info!("PIE generation completed successfully for blocks {:?}", input.blocks);
+    info!("PIE generation completed successfully for blocks {:?}", input.blocks);
 
     Ok(PieGenerationResult { output, blocks_processed: input.blocks.clone(), output_path: input.output_path.clone() })
 }

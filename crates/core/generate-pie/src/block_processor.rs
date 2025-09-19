@@ -22,11 +22,13 @@ use std::io::Write;
 use std::path::Path;
 
 use crate::api_to_blockifier_conversion::starknet_rs_to_blockifier;
-use crate::commitment_utils::{compute_class_commitment, format_commitment_facts};
 use crate::context_builder::build_block_context;
 use crate::error::BlockProcessingError;
-use crate::rpc_utils::{get_accessed_keys_with_block_hash, get_class_proofs, get_storage_proofs};
 use crate::state_update::{get_formatted_state_update, get_subcalled_contracts_from_tx_traces};
+use crate::utils::{
+    compute_class_commitment, format_commitment_facts, get_accessed_keys_with_block_hash, get_class_proofs,
+    get_storage_proofs,
+};
 use rpc_client::state_reader::AsyncRpcStateReader;
 use rpc_client::types::{ContractProof, PedersenHash};
 use rpc_client::RpcClient;
