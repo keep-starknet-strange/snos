@@ -1,6 +1,48 @@
-//! Error types for Felt conversion operations and block processing.
+//! Error types for pie generation, felt conversion operations, and block processing.
 
 use thiserror::Error;
+
+/// Main error type for PIE generation.
+///
+/// This enum represents all possible errors that can occur during the PIE generation
+/// process, including block processing errors, RPC client errors, OS execution errors,
+/// and configuration errors.
+#[derive(thiserror::Error, Debug)]
+pub enum PieGenerationError {
+    /// Block processing failed for a specific block.
+    #[error("Block processing failed for block {block_number}: {source}")]
+    BlockProcessing {
+        /// The block number that failed to process.
+        block_number: u64,
+        /// The underlying error that caused the failure.
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+
+    /// RPC client-related error.
+    #[error("RPC client error: {0}")]
+    RpcClient(String),
+
+    /// OS execution related error.
+    #[error("OS execution error: {0}")]
+    OsExecution(String),
+
+    /// I/O error during file operations.
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    /// Invalid configuration error.
+    #[error("Invalid configuration: {0}")]
+    InvalidConfig(String),
+
+    /// State processing error.
+    #[error("State processing error: {0}")]
+    StateProcessing(String),
+
+    /// Contract class processing error.
+    #[error("Contract class processing error: {0}")]
+    ContractClassProcessing(String),
+}
 
 /// Errors that can occur during Felt conversion operations.
 ///
@@ -81,6 +123,10 @@ pub enum BlockProcessingError {
     /// Invalid block state error.
     #[error("Invalid block state: {0}")]
     InvalidBlockState(String),
+
+    /// Starknet version error.
+    #[error("Starknet version error: {0}")]
+    StarknetVersion(String),
 
     /// File I/O error.
     #[error("File I/O error: {0}")]

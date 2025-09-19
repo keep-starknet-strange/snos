@@ -3,9 +3,6 @@
 //! This module provides utilities for building block contexts and converting
 //! between different types used in the Starknet execution environment.
 
-use crate::api_to_blockifier_conversion::felt_to_u128;
-use crate::error::FeltConversionError;
-use crate::DEFAULT_SEPOLIA_STRK_FEE_TOKEN;
 use blockifier::blockifier_versioned_constants::VersionedConstants;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
@@ -17,14 +14,11 @@ use starknet_api::contract_address;
 use starknet_api::core::ChainId;
 use starknet_types_core::felt::Felt;
 
-/// Default L2 gas price for ETH (in wei).
-const DEFAULT_ETH_L2_GAS_PRICE: &str = "0x199fe";
-
-/// Default L2 gas price for STRK (in wei).
-const DEFAULT_STRK_L2_GAS_PRICE: &str = "0xb2d05e00";
-
-/// Default Sepolia ETH fee token address.
-const DEFAULT_SEPOLIA_ETH_FEE_TOKEN: &str = "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7";
+use crate::api_to_blockifier_conversion::felt_to_u128;
+use crate::constants::{
+    DEFAULT_ETH_L2_GAS_PRICE, DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN, DEFAULT_STRK_L2_GAS_PRICE,
+};
+use crate::error::FeltConversionError;
 
 /// Converts a Felt value to a ChainId.
 ///

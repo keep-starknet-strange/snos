@@ -28,18 +28,18 @@ where
         for node in nodes {
             let (key, fact_as_tuple) = match node {
                 TrieNode::Binary { left, right, node_hash } => {
-                    // For binary nodes, compute hash and create tuple
-                    // In the original implementation, this used BinaryNodeFact
-                    // For now, we'll create a simplified version
+                    // For binary nodes, compute hash and create tuple.
+                    // In the original implementation, it used BinaryNodeFact.
+                    // For now, we'll create a simplified version.
                     let node_hash = node_hash.expect("hash expected in the binary");
                     let fact_as_tuple = vec![*left, *right];
 
                     (node_hash, fact_as_tuple)
                 }
                 TrieNode::Edge { child, path, node_hash } => {
-                    // For edge nodes, compute hash with path and length
-                    // In the original implementation; this used EdgeNodeFact
-                    // For now, we'll create a simplified version
+                    // For edge nodes, compute hash with path and length.
+                    // In the original implementation, this used EdgeNodeFact.
+                    // For now, we'll create a simplified version.
                     let path_felt = path.value;
                     let length_felt = Felt::from(path.len);
                     let node_hash = node_hash.expect("hash expected in the edge");

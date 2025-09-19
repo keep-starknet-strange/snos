@@ -3,8 +3,8 @@
 //! This binary demonstrates how to use the generate-pie library to generate
 //! Cairo PIE files from Starknet blocks.
 
-use generate_pie::{generate_pie, ChainConfig, OsHintsConfiguration, PieGenerationInput};
-
+use generate_pie::generate_pie;
+use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
 /// Main entry point for the generate-pie application.
 ///
 /// This function demonstrates the usage of the generate-pie library by:
