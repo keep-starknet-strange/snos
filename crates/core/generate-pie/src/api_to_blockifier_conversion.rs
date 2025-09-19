@@ -1,8 +1,16 @@
+use blockifier::transaction::account_transaction::AccountTransaction;
+use cairo_lang_starknet_classes::contract_class::version_id_from_serialized_sierra_program;
+use starknet::providers::Provider;
+use starknet_api::block::{GasPrice, GasPrices};
+use starknet_api::contract_class::{ClassInfo, SierraVersion};
+pub(crate) use starknet_api::core::{felt_to_u128, ChainId, PatriciaKey};
+use starknet_api::execution_resources::GasAmount;
+use starknet_api::transaction::fields::{AllResourceBounds, Fee};
+use starknet_api::transaction::TransactionHash;
+use starknet_api::StarknetApiError;
 use std::sync::Arc;
 
-use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::errors::TransactionExecutionError;
-use cairo_lang_starknet_classes::contract_class::version_id_from_serialized_sierra_program;
+use crate::error::ToBlockifierError;
 use rpc_client::RpcClient;
 use starknet::core::types::{
     BlockId, DeclareTransaction, DeclareTransactionV0, DeclareTransactionV1, DeclareTransactionV2,
@@ -10,19 +18,8 @@ use starknet::core::types::{
     InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction, ResourceBoundsMapping,
     Transaction, TransactionTrace, TransactionTraceWithHash,
 };
-use starknet::providers::{Provider, ProviderError};
-use starknet_api::block::{GasPrice, GasPrices};
-use starknet_api::contract_class::{ClassInfo, SierraVersion};
-use starknet_api::core::{ChainId, PatriciaKey};
-use starknet_api::execution_resources::GasAmount;
-use starknet_api::transaction::fields::{AllResourceBounds, Fee};
-use starknet_api::transaction::TransactionHash;
-use starknet_api::StarknetApiError;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
-use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
-use thiserror::Error;
-// use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress, Nonce};
 
 /// Struct to hold both starknet-api and blockifier transaction representations
 #[derive(Debug)]
@@ -31,62 +28,9 @@ pub struct TransactionConversionResult {
     pub blockifier_tx: blockifier::transaction::transaction_execution::Transaction,
 }
 
-#[allow(dead_code)]
-#[derive(Error, Debug)]
-pub enum FeltConversionError {
-    #[error("Overflow Error: Felt exceeds u128 max value")]
-    OverflowError,
-    #[error("{0}")]
-    CustomError(String),
-}
-
-pub fn felt_to_u128(felt: &Felt) -> Result<u128, FeltConversionError> {
-    let digits = felt.to_be_digits();
-
-    // Check if there are any significant bits in the higher 128 bits
-    if digits[0] != 0 || digits[1] != 0 {
-        return Err(FeltConversionError::OverflowError);
-    }
-
-    // Safe conversion since we've checked for overflow
-    Ok(((digits[2] as u128) << 64) + digits[3] as u128)
-}
-#[derive(Error, Debug)]
-#[allow(clippy::enum_variant_names)]
-pub enum ToBlockifierError {
-    #[error("RPC Error: {0}")]
-    RpcError(#[from] ProviderError),
-    #[error("OS Contract Class Error: {0}")]
-    StarknetContractClassError(#[from] starknet_os_types::error::ContractClassError),
-    #[error("Legacy Contract Decompression Error: {0}")]
-    LegacyContractDecompressionError(#[from] LegacyContractDecompressionError),
-    #[error("Starknet API Error: {0}")]
-    StarknetApiError(#[from] StarknetApiError),
-    #[error("Transaction Execution Error: {0}")]
-    TransactionExecutionError(#[from] TransactionExecutionError),
-    #[error("Felt Conversion Error: {0}")]
-    FeltConversionError(#[from] FeltConversionError),
-}
-
 pub fn resource_bounds_core_to_api(
     resource_bounds: &ResourceBoundsMapping,
 ) -> starknet_api::transaction::fields::ValidResourceBounds {
-    // starknet_api::transaction::ResourceBoundsMapping(BTreeMap::from([
-    //     (
-    //         starknet_api::transaction::fields::Resource::L1Gas,
-    //         starknet_api::transaction::fields::ResourceBounds {
-    //             max_amount: GasAmount(resource_bounds.l1_gas.max_amount),
-    //             max_price_per_unit: GasPrice(resource_bounds.l1_gas.max_price_per_unit),
-    //         },
-    //     ),
-    //     (
-    //         starknet_api::transaction::fields::Resource::L2Gas,
-    //         starknet_api::transaction::fields::ResourceBounds {
-    //             max_amount: GasAmount(resource_bounds.l2_gas.max_amount),
-    //             max_price_per_unit: GasPrice::from(resource_bounds.l2_gas.max_price_per_unit),
-    //         },
-    //     ),
-    // ]))
     starknet_api::transaction::fields::ValidResourceBounds::AllResources(AllResourceBounds {
         l1_gas: starknet_api::transaction::fields::ResourceBounds {
             max_amount: GasAmount(resource_bounds.l1_gas.max_amount),

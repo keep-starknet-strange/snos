@@ -1,16 +1,10 @@
+use starknet_os::io::os_input::CommitmentInfo;
+use starknet_patricia::hash::hash_trait::HashOutput;
+use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
 use starknet_types_core::felt::Felt;
 use std::collections::HashMap;
 
-// Import proper types from the dependencies
 use rpc_client::types::{ClassProof, Hash, PedersenHash, PoseidonHash, TrieNode};
-
-// Import CommitmentInfo from starknet_os
-use starknet_os::io::os_input::CommitmentInfo;
-
-// Import hash types from starknet_patricia and starknet_types_core
-use starknet_patricia::hash::hash_trait::HashOutput;
-use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
-// use starknet_types_core::hash::{Pedersen, Poseidon, StarkHash};
 
 /// Implementation for Pedersen hash
 /// Port of the format_commitment_facts function from old snos

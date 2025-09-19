@@ -1,4 +1,5 @@
 use starknet_os::io::os_output::StarknetOsRunnerOutput;
+
 use crate::constants::MAX_BLOCKS_PER_PIE;
 use crate::error::PieGenerationError;
 use crate::types::{ChainConfig, OsHintsConfiguration};

@@ -2195,6 +2195,7 @@ dependencies = [
  "cairo-vm",
  "env_logger",
  "log",
+ "num-traits",
  "rpc-client",
  "serde",
  "serde_json",

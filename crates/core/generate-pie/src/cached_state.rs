@@ -1,5 +1,4 @@
-use rpc_client::state_reader::AsyncRpcStateReader;
-use rpc_client::RpcClient;
+use log::info;
 use starknet::core::types::BlockId;
 use starknet::providers::Provider;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
@@ -8,6 +7,9 @@ use starknet_os::io::os_input::CachedStateInput;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 
+use rpc_client::state_reader::AsyncRpcStateReader;
+use rpc_client::RpcClient;
+
 pub async fn generate_cached_state_input(
     rpc_client: &RpcClient,
     block_id: BlockId,
@@ -15,7 +17,7 @@ pub async fn generate_cached_state_input(
     accessed_classes: &HashSet<ClassHash>,
     accessed_keys_by_address: &HashMap<ContractAddress, HashSet<StorageKey>>,
 ) -> Result<CachedStateInput, Box<dyn std::error::Error + Send + Sync>> {
-    println!(" Generating cached state input...");
+    info!("Generating cached state input for block {:?}", block_id);
 
     let mut storage = HashMap::new();
     let mut address_to_class_hash = HashMap::new();
@@ -26,7 +28,7 @@ pub async fn generate_cached_state_input(
     let mut all_addresses: HashSet<ContractAddress> = accessed_addresses.clone();
     all_addresses.extend(accessed_keys_by_address.keys());
 
-    println!(" Processing {} total addresses...", all_addresses.len());
+    info!("Processing {} total addresses...", all_addresses.len());
 
     // 1. Fill storage using accessed keys
     for (contract_address, storage_keys) in accessed_keys_by_address {
@@ -47,7 +49,7 @@ pub async fn generate_cached_state_input(
         }
     }
 
-    println!(" Filled storage for {} contracts", storage.len());
+    info!("Filled storage for {} contracts", storage.len());
 
     // 2. Get nonces for all addresses
     for contract_address in &all_addresses {
@@ -56,7 +58,7 @@ pub async fn generate_cached_state_input(
         address_to_nonce.insert(*contract_address, Nonce(nonce));
     }
 
-    println!(" Retrieved nonces for {} addresses", address_to_nonce.len());
+    info!("Retrieved nonces for {} addresses", address_to_nonce.len());
 
     // 3. Get class hashes for all addresses
     let mut all_class_hashes: HashSet<ClassHash> = accessed_classes.clone();
@@ -78,7 +80,7 @@ pub async fn generate_cached_state_input(
         all_class_hashes.insert(class_hash);
     }
 
-    println!(" Retrieved class hashes for {} addresses", address_to_class_hash.len());
+    info!("Retrieved class hashes for {} addresses", address_to_class_hash.len());
 
     // 4. Get compiled class hashes for all class hashes
     for class_hash in &all_class_hashes {
@@ -99,11 +101,11 @@ pub async fn generate_cached_state_input(
         class_hash_to_compiled_class_hash.insert(*class_hash, compiled_class_hash);
     }
 
-    println!(" Retrieved compiled class hashes for {} classes", class_hash_to_compiled_class_hash.len());
+    info!("Retrieved compiled class hashes for {} classes", class_hash_to_compiled_class_hash.len());
 
     let cached_state_input =
         CachedStateInput { storage, address_to_class_hash, address_to_nonce, class_hash_to_compiled_class_hash };
 
-    println!(" Generated cached state input successfully!");
+    info!("Generated cached state input successfully!");
     Ok(cached_state_input)
 }

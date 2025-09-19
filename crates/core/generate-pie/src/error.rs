@@ -1,6 +1,11 @@
 //! Error types for pie generation, felt conversion operations, and block processing.
 
+use blockifier::transaction::errors::TransactionExecutionError;
+use starknet::providers::ProviderError;
+use starknet_api::StarknetApiError;
 use thiserror::Error;
+
+use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
 
 /// Main error type for PIE generation.
 ///
@@ -154,4 +159,22 @@ impl BlockProcessingError {
     pub fn new_custom(message: impl Into<String>) -> Self {
         Self::Custom(message.into())
     }
+}
+
+/// Errors encountered during conversion to blockifier types.
+#[derive(Error, Debug)]
+#[allow(clippy::enum_variant_names)]
+pub enum ToBlockifierError {
+    #[error("RPC Error: {0}")]
+    RpcError(#[from] ProviderError),
+    #[error("OS Contract Class Error: {0}")]
+    StarknetContractClassError(#[from] starknet_os_types::error::ContractClassError),
+    #[error("Legacy Contract Decompression Error: {0}")]
+    LegacyContractDecompressionError(#[from] LegacyContractDecompressionError),
+    #[error("Starknet API Error: {0}")]
+    StarknetApiError(#[from] StarknetApiError),
+    #[error("Transaction Execution Error: {0}")]
+    TransactionExecutionError(#[from] TransactionExecutionError),
+    #[error("Felt Conversion Error: {0}")]
+    FeltConversionError(#[from] FeltConversionError),
 }

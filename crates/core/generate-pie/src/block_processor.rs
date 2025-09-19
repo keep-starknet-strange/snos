@@ -21,16 +21,16 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use rpc_client::state_reader::AsyncRpcStateReader;
-use rpc_client::types::{ContractProof, PedersenHash};
-use rpc_client::RpcClient;
-
 use crate::api_to_blockifier_conversion::starknet_rs_to_blockifier;
 use crate::commitment_utils::{compute_class_commitment, format_commitment_facts};
-use crate::context_builder::{build_block_context, chain_id_from_felt};
+use crate::context_builder::build_block_context;
 use crate::error::BlockProcessingError;
 use crate::rpc_utils::{get_accessed_keys_with_block_hash, get_class_proofs, get_storage_proofs};
 use crate::state_update::{get_formatted_state_update, get_subcalled_contracts_from_tx_traces};
+use rpc_client::state_reader::AsyncRpcStateReader;
+use rpc_client::types::{ContractProof, PedersenHash};
+use rpc_client::RpcClient;
+use starknet_os_types::chain_id::chain_id_from_felt;
 
 /// Result type for block processing operations.
 pub type BlockProcessingResult = Result<BlockInfoResult, BlockProcessingError>;
@@ -308,7 +308,7 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
     log::info!("Successfully fetched previous and older blocks");
 
     // Build block context
-    let block_context = build_block_context(chain_id.clone(), &block_with_txs, is_l3, starknet_version)
+    let block_context = build_block_context(chain_id.clone(), &block_with_txs, is_l3, &starknet_version)
         .map_err(BlockProcessingError::ContextBuilding)?;
     log::info!("Block context built successfully");
 

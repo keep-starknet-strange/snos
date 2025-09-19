@@ -1,7 +1,7 @@
-use starknet_api::core::{ChainId, ContractAddress};
-use starknet_types_core::felt::Felt;
 use crate::constants::DEFAULT_SEPOLIA_STRK_FEE_TOKEN;
 use crate::error::PieGenerationError;
+use starknet_api::core::{ChainId, ContractAddress};
+use starknet_types_core::felt::Felt;
 
 /// Configuration for chain-specific settings.
 ///

@@ -85,6 +85,7 @@ mod rpc_utils;
 mod state_processing;
 mod state_update;
 pub mod types;
+mod utils;
 
 /// Core function to generate PIE from blocks.
 ///
