@@ -57,6 +57,7 @@ bitvec = { version = "1.0", default-features = false, features = ["std"] }
 num-traits = "0.2.19"
 async-trait = "0.1.89"
 chrono = "0.4.41"
+clap = { version = "4.5.46", features = ["derive"] }
 
 indoc = "2"
 rstest = "0.18.2"
