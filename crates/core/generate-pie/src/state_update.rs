@@ -1,17 +1,27 @@
+//! State Update Processing Module
+//!
+//! This module handles the processing of Starknet state updates, including:
+//! - Fetching and formatting state updates from RPC
+//! - Processing transaction traces to extract accessed contracts
+//! - Compiling contract classes to CASM format
+//! - Managing class hash mappings and component hashes
+//!
+//! The main entry point is [`get_formatted_state_update`] which orchestrates the entire
+//! state update processing pipeline.
+
 use cairo_vm::Felt252;
-use log::{debug, error};
+use log::{debug, info, warn};
 use rpc_client::RpcClient;
 use starknet::core::types::{
-    BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingStateUpdate, StarknetError, StateDiff,
-    TransactionTrace, TransactionTraceWithHash,
+    BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingStateUpdate, StarknetError,
+    StateDiff, TransactionTrace, TransactionTraceWithHash,
 };
 use starknet::core::utils::starknet_keccak;
 use starknet::providers::Provider;
 use starknet::providers::ProviderError;
-use starknet_crypto::poseidon_hash_many;
 use starknet_os::io::os_input::ContractClassComponentHashes as OsContractClassComponentHashes;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
-use starknet_os_types::class_hash_utils::compute_hash_on_sierra_entry_points;
+use starknet_os_types::class_hash_utils::{compute_hash_on_sierra_entry_points, ContractClassComponentHashes};
 use starknet_os_types::compiled_class::GenericCompiledClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
@@ -20,32 +30,63 @@ use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
-/// Holds the hashes of the contract class components, to be used for calculating the final hash.
-/// Note: the order of the struct member must not be changed since it determines the hash order.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ContractClassComponentHashes {
-    contract_class_version: Felt,
-    external_functions_hash: Felt,
-    l1_handlers_hash: Felt,
-    constructors_hash: Felt,
-    abi_hash: Felt,
-    sierra_program_hash: Felt,
+// ================================================================================================
+// Constants
+// ================================================================================================
+
+const CLASS_VERSION_PREFIX: &str = "CONTRACT_CLASS_V";
+
+// ================================================================================================
+// Type Definitions
+// ================================================================================================
+
+pub type PreviousBlockId = Option<BlockId>;
+
+/// Formatted state update containing all necessary information for PIE generation.
+#[derive(Clone, Debug)]
+pub struct FormattedStateUpdate {
+    /// Mapping from class hash to compiled class hash
+    pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
+    /// Compiled CASM contract classes
+    pub compiled_classes: HashMap<Felt252, GenericCasmContractClass>,
+    /// Deprecated (Cairo 0) compiled classes
+    pub deprecated_compiled_classes: HashMap<Felt252, GenericDeprecatedCompiledClass>,
+    /// Component hashes for declared classes
+    pub declared_class_hash_component_hashes: HashMap<Felt252, ContractClassComponentHashes>,
 }
 
-impl ContractClassComponentHashes {
-    /// Converts this `ContractClassComponentHashes` to the OS version `OsContractClassComponentHashes`
-    pub fn to_os_format(&self) -> OsContractClassComponentHashes {
-        OsContractClassComponentHashes {
-            contract_class_version: self.contract_class_version,
-            external_functions_hash: HashOutput(self.external_functions_hash),
-            l1_handlers_hash: HashOutput(self.l1_handlers_hash),
-            constructors_hash: HashOutput(self.constructors_hash),
-            abi_hash: HashOutput(self.abi_hash),
-            sierra_program_hash: HashOutput(self.sierra_program_hash),
-        }
-    }
+/// Result containing processed transaction trace data.
+struct TraceProcessingResult {
+    accessed_addresses: HashSet<Felt252>,
+    accessed_classes: HashSet<Felt252>,
 }
 
+/// Result containing compiled class data.
+struct CompiledClassResult {
+    compiled_classes: HashMap<Felt252, GenericCasmContractClass>,
+    deprecated_compiled_classes: HashMap<Felt252, GenericDeprecatedCompiledClass>,
+    declared_component_hashes: HashMap<Felt252, ContractClassComponentHashes>,
+}
+
+// ================================================================================================
+// Error Types
+// ================================================================================================
+
+#[derive(Debug, Error)]
+pub enum StateUpdateError {
+    #[error("RPC Error: {0}")]
+    RpcError(#[from] ProviderError),
+    #[error("Conversion failed: {0}")]
+    ConversionFailed(String),
+    #[error("Block is still pending")]
+    PendingBlock,
+    #[error("Class compilation failed: {0}")]
+    CompilationFailed(String),
+    #[error("Invalid state update format: {0}")]
+    InvalidFormat(String),
+}
+
+// Legacy error type for backward compatibility
 #[derive(Debug, Error)]
 pub enum ProveBlockError {
     #[error("RPC Error: {0}")]
@@ -54,22 +95,48 @@ pub enum ProveBlockError {
     ConversionFailed(String),
 }
 
-pub type PreviousBlockId = Option<BlockId>;
-
-#[derive(Clone, Debug)]
-pub struct FormattedStateUpdate {
-    // TODO: Use more descriptive types
-    pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
-    pub compiled_classes: HashMap<Felt252, GenericCasmContractClass>,
-    pub deprecated_compiled_classes: HashMap<Felt252, GenericDeprecatedCompiledClass>,
-    pub declared_class_hash_component_hashes: HashMap<Felt252, ContractClassComponentHashes>,
+impl From<StateUpdateError> for ProveBlockError {
+    fn from(err: StateUpdateError) -> Self {
+        match err {
+            StateUpdateError::RpcError(e) => ProveBlockError::RpcError(e),
+            StateUpdateError::ConversionFailed(e) => ProveBlockError::ConversionFailed(e),
+            _ => ProveBlockError::ConversionFailed(err.to_string()),
+        }
+    }
 }
 
-/// Given the `block_id` of the target block to prove, it:
-/// - Fetches the state update using the `starknet_getStateUpdate` RPC call.
-/// - Fetches block transaction traces to obtain all accessed contract addresses in that block.
-/// - Formats the RPC state updates to be "SharedState compatible."
-/// - Consolidates that information into a `FormattedStateUpdate`.
+// ================================================================================================
+// Public API
+// ================================================================================================
+
+/// Fetches and formats a state update for PIE generation.
+///
+/// This function orchestrates the entire state update processing pipeline:
+/// 1. Fetches the state update from RPC
+/// 2. Processes transaction traces to extract accessed contracts
+/// 3. Compiles contract classes to CASM format
+/// 4. Formats the data for OS consumption
+///
+/// # Arguments
+///
+/// * `rpc_client` - RPC client for fetching blockchain data
+/// * `previous_block_id` - Previous block ID for context (None for genesis)
+/// * `block_id` - Target block ID to process
+/// * `accessed_addresses` - Set of contract addresses accessed in the block
+/// * `accessed_classes` - Set of class hashes accessed in the block
+///
+/// # Returns
+///
+/// Returns a `FormattedStateUpdate` containing all processed state data
+/// or an error if any step fails.
+///
+/// # Errors
+///
+/// This function can return various errors including
+/// - `StateUpdateError::RpcError` for RPC communication failures
+/// - `StateUpdateError::PendingBlock` if the block is still pending
+/// - `StateUpdateError::CompilationFailed` for class compilation errors
+/// - `StateUpdateError::ConversionFailed` for data conversion errors
 pub(crate) async fn get_formatted_state_update(
     rpc_client: &RpcClient,
     previous_block_id: PreviousBlockId,
@@ -77,284 +144,371 @@ pub(crate) async fn get_formatted_state_update(
     accessed_addresses: HashSet<Felt>,
     accessed_classes: HashSet<Felt>,
 ) -> Result<FormattedStateUpdate, Box<dyn std::error::Error>> {
-    if let Some(previous_block_id) = previous_block_id {
-        let state_update =
-            match rpc_client.starknet_rpc().get_state_update(block_id).await.expect("Failed to get state update") {
-                MaybePendingStateUpdate::Update(update) => update,
-                MaybePendingStateUpdate::PendingUpdate(_) => {
-                    panic!("Block is still pending!")
-                }
-            };
-        let state_diff = state_update.state_diff;
+    info!("Starting state update processing for block {:?}", block_id);
 
-        let declared_classes: HashSet<_> =
-            state_diff.declared_classes.iter().map(|declared_item| declared_item.class_hash).collect();
+    // Handle genesis block case
+    let Some(previous_block_id) = previous_block_id else {
+        info!("Processing genesis block - returning empty state update");
+        return Ok(FormattedStateUpdate::default());
+    };
 
-        // TODO: Handle deprecated classes
-        let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = HashMap::new();
-        let (compiled_contract_classes, deprecated_compiled_contract_classes, declared_class_hash_component_hashes) =
-            build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
-                rpc_client,
-                previous_block_id,
-                block_id,
-                &accessed_addresses,
-                &declared_classes,
-                &accessed_classes,
-                &mut class_hash_to_compiled_class_hash,
-            )
-            .await
-            .expect("issue while building the compiled class");
+    // Fetch and validate state update
+    let state_update = fetch_state_update(rpc_client, block_id).await?;
+    let state_diff = &state_update.state_diff;
 
-        // OS will expect a Zero in compiled_class_hash for new classes. Overwrite the needed entries.
-        format_declared_classes(&state_diff, &mut class_hash_to_compiled_class_hash);
+    // Extract declared classes
+    let declared_classes = extract_declared_classes(state_diff);
+    info!("Found {} declared classes", declared_classes.len());
 
-        Ok(FormattedStateUpdate {
-            class_hash_to_compiled_class_hash,
-            compiled_classes: compiled_contract_classes,
-            deprecated_compiled_classes: deprecated_compiled_contract_classes,
-            declared_class_hash_component_hashes,
-        })
-    } else {
-        Ok(FormattedStateUpdate {
-            class_hash_to_compiled_class_hash: Default::default(),
-            compiled_classes: Default::default(),
-            deprecated_compiled_classes: Default::default(),
-            declared_class_hash_component_hashes: Default::default(),
-        })
-    }
+    // Build compiled classes and mappings
+    let mut class_hash_to_compiled_class_hash = HashMap::new();
+    let compiled_result = build_compiled_classes(
+        rpc_client,
+        previous_block_id,
+        block_id,
+        &accessed_addresses,
+        &declared_classes,
+        &accessed_classes,
+        &mut class_hash_to_compiled_class_hash,
+    )
+    .await?;
+
+    // Format declared classes for OS consumption
+    format_declared_classes(state_diff, &mut class_hash_to_compiled_class_hash);
+
+    info!("State update processing completed successfully");
+
+    Ok(FormattedStateUpdate {
+        class_hash_to_compiled_class_hash,
+        compiled_classes: compiled_result.compiled_classes,
+        deprecated_compiled_classes: compiled_result.deprecated_compiled_classes,
+        declared_class_hash_component_hashes: compiled_result.declared_component_hashes,
+    })
 }
 
+/// Extracts accessed contract addresses and class hashes from transaction traces.
+///
+/// This function processes transaction traces to identify all contracts and classes
+/// that were accessed during block execution, including nested function calls.
+///
+/// # Arguments
+///
+/// * `traces` - Array of transaction traces with hashes
+///
+/// # Returns
+///
+/// Returns a tuple containing:
+/// - Set of accessed contract addresses
+/// - Set of accessed class hashes
+///
+/// # Example
+///
+/// ```rust
+/// let traces = get_block_traces(block_id).await?;
+/// let (addresses, classes) = get_subcalled_contracts_from_tx_traces(&traces);
+/// println!("Found {} addresses and {} classes", addresses.len(), classes.len());
+/// ```
 pub(crate) fn get_subcalled_contracts_from_tx_traces(
     traces: &[TransactionTraceWithHash],
 ) -> (HashSet<Felt252>, HashSet<Felt252>) {
-    let mut contracts_subcalled: HashSet<Felt252> = HashSet::new();
-    let mut classes_subcalled: HashSet<Felt252> = HashSet::new();
-    for trace in traces {
-        match &trace.trace_root {
-            TransactionTrace::Invoke(invoke_trace) => {
-                if let Some(inv) = &invoke_trace.validate_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
-                }
-                if let ExecuteInvocation::Success(inv) = &invoke_trace.execute_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
-                }
-                if let Some(inv) = &invoke_trace.fee_transfer_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
-                }
-            }
-            TransactionTrace::Declare(declare_trace) => {
-                if let Some(inv) = &declare_trace.validate_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
-                }
-                if let Some(inv) = &declare_trace.fee_transfer_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
-                }
-            }
-            TransactionTrace::L1Handler(l1handler_trace) => {
-                process_function_invocations(
-                    &l1handler_trace.function_invocation,
-                    &mut contracts_subcalled,
-                    &mut classes_subcalled,
-                );
-            }
+    info!("Processing {} transaction traces", traces.len());
 
-            TransactionTrace::DeployAccount(deploy_trace) => {
-                if let Some(inv) = &deploy_trace.validate_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
-                }
-                if let Some(inv) = &deploy_trace.fee_transfer_invocation {
-                    process_function_invocations(inv, &mut contracts_subcalled, &mut classes_subcalled);
-                }
-                process_function_invocations(
-                    &deploy_trace.constructor_invocation,
-                    &mut contracts_subcalled,
-                    &mut classes_subcalled,
-                );
-            }
+    let mut result = TraceProcessingResult { accessed_addresses: HashSet::new(), accessed_classes: HashSet::new() };
+
+    for (index, trace) in traces.iter().enumerate() {
+        debug!("Processing trace {}/{}", index + 1, traces.len());
+        process_transaction_trace(&trace.trace_root, &mut result);
+    }
+
+    info!(
+        "Extracted {} accessed addresses and {} accessed classes",
+        result.accessed_addresses.len(),
+        result.accessed_classes.len()
+    );
+
+    (result.accessed_addresses, result.accessed_classes)
+}
+
+// ================================================================================================
+// Private Helper Functions
+// ================================================================================================
+
+/// Fetches state update from RPC and validates it's not pending.
+async fn fetch_state_update(
+    rpc_client: &RpcClient,
+    block_id: BlockId,
+) -> Result<starknet::core::types::StateUpdate, StateUpdateError> {
+    debug!("Fetching state update for block {:?}", block_id);
+
+    let state_update =
+        rpc_client.starknet_rpc().get_state_update(block_id).await.map_err(StateUpdateError::RpcError)?;
+
+    match state_update {
+        MaybePendingStateUpdate::Update(update) => {
+            debug!("Successfully fetched state update");
+            Ok(update)
+        }
+        MaybePendingStateUpdate::PendingUpdate(_) => {
+            warn!("Block {:?} is still pending", block_id);
+            Err(StateUpdateError::PendingBlock)
         }
     }
-    (contracts_subcalled, classes_subcalled)
 }
 
-/// Utility to extract all contract address in a nested call structure. Any given call can have
-/// nested calls, creating a tree structure of calls, so this fn traverses this structure and
-/// returns a set of all contracts encountered along the way.
-fn process_function_invocations(
-    inv: &FunctionInvocation,
-    contracts: &mut HashSet<Felt252>,
-    classes: &mut HashSet<Felt252>,
-) {
-    contracts.insert(inv.contract_address);
-    classes.insert(inv.class_hash);
-    for call in &inv.calls {
-        process_function_invocations(call, contracts, classes);
-    }
+/// Extracts declared class hashes from state diff.
+fn extract_declared_classes(state_diff: &StateDiff) -> HashSet<Felt252> {
+    state_diff.declared_classes.iter().map(|declared_item| declared_item.class_hash).collect()
 }
 
-/// This function processes a set of accessed contract addresses to retrieve their
-/// corresponding class hashes and compile them into `GenericCasmContractClass`.
-/// If the class is already present in `address_to_class_hash`, it is used directly;
-/// otherwise, it is fetched from the provided `JsonRpcClient`.
-///
-/// The resulting compiled classes and any associated mappings are returned, while
-/// the `class_hash_to_compiled_class_hash` map is updated with new entries.
-async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
-    provider: &RpcClient,
+/// Builds compiled classes from accessed addresses and classes.
+async fn build_compiled_classes(
+    rpc_client: &RpcClient,
     previous_block_id: BlockId,
     block_id: BlockId,
     accessed_addresses: &HashSet<Felt252>,
     declared_classes: &HashSet<Felt252>,
     accessed_classes: &HashSet<Felt252>,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
-) -> Result<
-    (
-        HashMap<Felt252, GenericCasmContractClass>,
-        HashMap<Felt252, GenericDeprecatedCompiledClass>,
-        HashMap<Felt252, ContractClassComponentHashes>,
-    ),
-    ProveBlockError,
-> {
-    let mut compiled_contract_classes: HashMap<Felt252, GenericCasmContractClass> = HashMap::new();
-    let mut deprecated_compiled_contract_classes: HashMap<Felt252, GenericDeprecatedCompiledClass> = HashMap::new();
+) -> Result<CompiledClassResult, StateUpdateError> {
+    info!(
+        "Building compiled classes from {} addresses and {} classes",
+        accessed_addresses.len(),
+        accessed_classes.len()
+    );
 
+    let mut result = CompiledClassResult {
+        compiled_classes: HashMap::new(),
+        deprecated_compiled_classes: HashMap::new(),
+        declared_component_hashes: HashMap::new(),
+    };
+
+    // Process accessed addresses (both current and previous blocks)
+    process_accessed_addresses(
+        rpc_client,
+        accessed_addresses,
+        previous_block_id,
+        block_id,
+        class_hash_to_compiled_class_hash,
+        &mut result,
+    )
+    .await?;
+
+    // Process accessed classes
+    process_accessed_classes(rpc_client, accessed_classes, block_id, class_hash_to_compiled_class_hash, &mut result)
+        .await?;
+
+    // Process declared classes for component hashes
+    process_declared_classes(rpc_client, declared_classes, block_id, &mut result).await?;
+
+    info!("Compiled classes processing completed successfully");
+    Ok(result)
+}
+
+/// Processes accessed contract addresses to extract their classes.
+async fn process_accessed_addresses(
+    rpc_client: &RpcClient,
+    accessed_addresses: &HashSet<Felt252>,
+    previous_block_id: BlockId,
+    block_id: BlockId,
+    class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
+    result: &mut CompiledClassResult,
+) -> Result<(), StateUpdateError> {
     for contract_address in accessed_addresses {
-        // In case there is a class change, we need to get the compiled class for
-        // the block to prove and for the previous block as they may differ.
-        // Note that we must also consider the case where the contract was deployed in the current
-        // block, so we can ignore "ContractNotFound" failures.
-        if let Err(e) = add_compiled_class_from_contract_to_os_input(
-            provider,
+        debug!("Processing contract address: {:?}", contract_address);
+
+        // Try to get class from previous block (may fail if contract was deployed in current block)
+        if let Err(e) = add_compiled_class_from_contract(
+            rpc_client,
             *contract_address,
             previous_block_id,
             class_hash_to_compiled_class_hash,
-            &mut compiled_contract_classes,
-            &mut deprecated_compiled_contract_classes,
+            result,
         )
         .await
         {
             match e {
-                ProveBlockError::RpcError(ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
-                    // The contract was deployed in the current block, nothing to worry about
-                    error!("rpc error hence ignoring it?");
+                StateUpdateError::RpcError(ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
+                    debug!(
+                        "Contract {:?} not found in previous block (likely deployed in current block)",
+                        contract_address
+                    );
                 }
                 _ => return Err(e),
             }
         }
 
-        add_compiled_class_from_contract_to_os_input(
-            provider,
+        // Get class from current block
+        add_compiled_class_from_contract(
+            rpc_client,
             *contract_address,
             block_id,
             class_hash_to_compiled_class_hash,
-            &mut compiled_contract_classes,
-            &mut deprecated_compiled_contract_classes,
+            result,
         )
         .await?;
     }
 
-    for class_hash in accessed_classes {
-        debug!("Checking class hash: {:?}", class_hash);
-        let contract_class = provider.starknet_rpc().get_class(block_id, class_hash).await?;
-        add_compiled_class_to_os_input(
-            *class_hash,
-            contract_class,
-            class_hash_to_compiled_class_hash,
-            &mut compiled_contract_classes,
-            &mut deprecated_compiled_contract_classes,
-        )?;
-    }
-
-    let mut declared_class_hash_to_component_hashes = HashMap::new();
-    for class_hash in declared_classes {
-        let contract_class = provider.starknet_rpc().get_class(block_id, class_hash).await?;
-        if let starknet::core::types::ContractClass::Sierra(flattened_sierra_class) = &contract_class {
-            let component_hashes = ContractClassComponentHashes::from(flattened_sierra_class.clone());
-            declared_class_hash_to_component_hashes.insert(*class_hash, component_hashes);
-        }
-    }
-
-    Ok((compiled_contract_classes, deprecated_compiled_contract_classes, declared_class_hash_to_component_hashes))
+    Ok(())
 }
 
-/// Fetches (+ compile) the contract class for the specified contract at the specified block
-/// and adds it to the hashmaps that will then be added to the OS input.
-async fn add_compiled_class_from_contract_to_os_input(
+/// Processes accessed class hashes directly.
+async fn process_accessed_classes(
     rpc_client: &RpcClient,
-    contract_address: Felt,
+    accessed_classes: &HashSet<Felt252>,
     block_id: BlockId,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
-    compiled_contract_classes: &mut HashMap<Felt, GenericCasmContractClass>,
-    deprecated_compiled_contract_classes: &mut HashMap<Felt, GenericDeprecatedCompiledClass>,
-) -> Result<(), ProveBlockError> {
-    let class_hash = rpc_client.starknet_rpc().get_class_hash_at(block_id, contract_address).await?;
-    let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash).await?;
+    result: &mut CompiledClassResult,
+) -> Result<(), StateUpdateError> {
+    for class_hash in accessed_classes {
+        debug!("Processing class hash: {:?}", class_hash);
 
-    add_compiled_class_to_os_input(
-        class_hash,
-        contract_class,
-        class_hash_to_compiled_class_hash,
-        compiled_contract_classes,
-        deprecated_compiled_contract_classes,
-    )
+        let contract_class =
+            rpc_client.starknet_rpc().get_class(block_id, class_hash).await.map_err(StateUpdateError::RpcError)?;
+
+        add_compiled_class(*class_hash, contract_class, class_hash_to_compiled_class_hash, result)?;
+    }
+
+    Ok(())
 }
 
-/// Fetches (+ compile) the contract class for the specified class at the specified block
-/// and adds it to the hashmaps that will then be added to the OS input.
-fn add_compiled_class_to_os_input(
-    class_hash: Felt,
-    contract_class: starknet::core::types::ContractClass,
-    class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
-    compiled_contract_classes: &mut HashMap<Felt, GenericCasmContractClass>,
-    deprecated_compiled_contract_classes: &mut HashMap<Felt, GenericDeprecatedCompiledClass>,
-) -> Result<(), ProveBlockError> {
-    // Avoid fetching and compiling contract data if we already have this class.
-    if class_hash_to_compiled_class_hash.contains_key(&class_hash) {
-        return Ok(());
-    }
+/// Processes declared classes to extract component hashes.
+async fn process_declared_classes(
+    rpc_client: &RpcClient,
+    declared_classes: &HashSet<Felt252>,
+    block_id: BlockId,
+    result: &mut CompiledClassResult,
+) -> Result<(), StateUpdateError> {
+    for class_hash in declared_classes {
+        debug!("Processing declared class: {:?}", class_hash);
 
-    let compiled_class = compile_contract_class(contract_class).expect("issue while compiled class");
-    let compiled_class_hash = compiled_class.class_hash().expect("issue while compiled class hash");
+        let contract_class =
+            rpc_client.starknet_rpc().get_class(block_id, class_hash).await.map_err(StateUpdateError::RpcError)?;
 
-    // Remove deprecated classes from HashMap
-    if matches!(&compiled_class, GenericCompiledClass::Cairo0(_)) {
-        debug!("Skipping deprecated class for ch_to_cch: 0x{:x}", class_hash);
-    } else {
-        debug!(
-            "adding the to the mapping of class_hash_to_compiled_class_hash with ch: {:?} and cch {:?}",
-            class_hash, compiled_class_hash
-        );
-        class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash.into());
-    }
-
-    match compiled_class {
-        GenericCompiledClass::Cairo0(deprecated_cc) => {
-            deprecated_compiled_contract_classes.insert(class_hash, deprecated_cc);
-        }
-        GenericCompiledClass::Cairo1(casm_cc) => {
-            compiled_contract_classes.insert(compiled_class_hash.into(), casm_cc);
+        if let starknet::core::types::ContractClass::Sierra(sierra_class) = contract_class {
+            let component_hashes = ContractClassComponentHashes::from(sierra_class);
+            result.declared_component_hashes.insert(*class_hash, component_hashes);
         }
     }
 
     Ok(())
 }
 
-/// Retrieves the compiled class for the given class hash at a specific block
-/// by getting the class from the RPC and compiling it to CASM if necessary (Cairo 1).
+/// Processes a single transaction trace to extract accessed contracts and classes.
+fn process_transaction_trace(trace: &TransactionTrace, result: &mut TraceProcessingResult) {
+    match trace {
+        TransactionTrace::Invoke(invoke_trace) => {
+            if let Some(inv) = &invoke_trace.validate_invocation {
+                process_function_invocations(inv, result);
+            }
+            if let ExecuteInvocation::Success(inv) = &invoke_trace.execute_invocation {
+                process_function_invocations(inv, result);
+            }
+            if let Some(inv) = &invoke_trace.fee_transfer_invocation {
+                process_function_invocations(inv, result);
+            }
+        }
+        TransactionTrace::Declare(declare_trace) => {
+            if let Some(inv) = &declare_trace.validate_invocation {
+                process_function_invocations(inv, result);
+            }
+            if let Some(inv) = &declare_trace.fee_transfer_invocation {
+                process_function_invocations(inv, result);
+            }
+        }
+        TransactionTrace::L1Handler(l1handler_trace) => {
+            process_function_invocations(&l1handler_trace.function_invocation, result);
+        }
+        TransactionTrace::DeployAccount(deploy_trace) => {
+            if let Some(inv) = &deploy_trace.validate_invocation {
+                process_function_invocations(inv, result);
+            }
+            if let Some(inv) = &deploy_trace.fee_transfer_invocation {
+                process_function_invocations(inv, result);
+            }
+            process_function_invocations(&deploy_trace.constructor_invocation, result);
+        }
+    }
+}
+
+/// Recursively processes function invocations to extract contract addresses and class hashes.
+fn process_function_invocations(inv: &FunctionInvocation, result: &mut TraceProcessingResult) {
+    result.accessed_addresses.insert(inv.contract_address);
+    result.accessed_classes.insert(inv.class_hash);
+
+    // Recursively process nested calls
+    for call in &inv.calls {
+        process_function_invocations(call, result);
+    }
+}
+
+/// Fetches and compiles a contract class from a contract address.
+async fn add_compiled_class_from_contract(
+    rpc_client: &RpcClient,
+    contract_address: Felt,
+    block_id: BlockId,
+    class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
+    result: &mut CompiledClassResult,
+) -> Result<(), StateUpdateError> {
+    let class_hash = rpc_client
+        .starknet_rpc()
+        .get_class_hash_at(block_id, contract_address)
+        .await
+        .map_err(StateUpdateError::RpcError)?;
+
+    let contract_class =
+        rpc_client.starknet_rpc().get_class(block_id, class_hash).await.map_err(StateUpdateError::RpcError)?;
+
+    add_compiled_class(class_hash, contract_class, class_hash_to_compiled_class_hash, result)
+}
+
+/// Compiles and adds a contract class to the result.
+fn add_compiled_class(
+    class_hash: Felt,
+    contract_class: starknet::core::types::ContractClass,
+    class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
+    result: &mut CompiledClassResult,
+) -> Result<(), StateUpdateError> {
+    // Skip if we already have this class
+    if class_hash_to_compiled_class_hash.contains_key(&class_hash) {
+        debug!("Class {:?} already processed, skipping", class_hash);
+        return Ok(());
+    }
+
+    let compiled_class = compile_contract_class(contract_class)?;
+    let compiled_class_hash = compiled_class
+        .class_hash()
+        .map_err(|e| StateUpdateError::CompilationFailed(format!("Failed to get class hash: {:?}", e)))?;
+
+    match compiled_class {
+        GenericCompiledClass::Cairo0(deprecated_cc) => {
+            debug!("Adding deprecated class: {:?}", class_hash);
+            result.deprecated_compiled_classes.insert(class_hash, deprecated_cc);
+        }
+        GenericCompiledClass::Cairo1(casm_cc) => {
+            debug!("Adding compiled class: {:?} -> {:?}", class_hash, compiled_class_hash);
+            class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash.into());
+            result.compiled_classes.insert(compiled_class_hash.into(), casm_cc);
+        }
+    }
+
+    Ok(())
+}
+
+/// Compiles a contract class to CASM format.
 fn compile_contract_class(
     contract_class: starknet::core::types::ContractClass,
-) -> Result<GenericCompiledClass, ProveBlockError> {
+) -> Result<GenericCompiledClass, StateUpdateError> {
     let compiled_class = match contract_class {
-        starknet::core::types::ContractClass::Sierra(flattened_sierra_cc) => {
-            let sierra_class = GenericSierraContractClass::from(flattened_sierra_cc);
-            let compiled_class = sierra_class.compile().expect("something broke in the compile_contract_class");
+        starknet::core::types::ContractClass::Sierra(sierra_cc) => {
+            let sierra_class = GenericSierraContractClass::from(sierra_cc);
+            let compiled_class = sierra_class
+                .compile()
+                .map_err(|e| StateUpdateError::CompilationFailed(format!("Sierra compilation failed: {:?}", e)))?;
             GenericCompiledClass::Cairo1(compiled_class)
         }
         starknet::core::types::ContractClass::Legacy(legacy_cc) => {
             let compiled_class = GenericDeprecatedCompiledClass::try_from(legacy_cc).map_err(|e| {
-                ProveBlockError::ConversionFailed(format!(
-                    "Failed to convert Legacy contract class to Custom type: {:?}",
-                    e
-                ))
+                StateUpdateError::ConversionFailed(format!("Failed to convert legacy contract class: {:?}", e))
             })?;
             GenericCompiledClass::Cairo0(compiled_class)
         }
@@ -363,46 +517,30 @@ fn compile_contract_class(
     Ok(compiled_class)
 }
 
+/// Formats declared classes for OS consumption by setting compiled class hashes to zero.
 fn format_declared_classes(state_diff: &StateDiff, class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>) {
-    // The comment below explicits that the value should be 0 for new classes:
-    // From execute_transactions.cairo
-    // Note that prev_value=0 enforces that a class may be declared only once.
-    // dict_update{dict_ptr=contract_class_changes}(
-    //     key=[class_hash_ptr], prev_value=0, new_value=compiled_class_hash
-    // );
+    debug!("Formatting {} declared classes", state_diff.declared_classes.len());
 
-    // class_hash_to_compiled_class_hash is already populated. However, for classes
-    // that are defined in state_diff.declared_classes, we need to set the
-    // compiled_class_hashes to zero as it was explain above
-    for class in state_diff.declared_classes.iter() {
+    for class in &state_diff.declared_classes {
         class_hash_to_compiled_class_hash.insert(class.class_hash, Felt::ZERO);
     }
 }
 
-const CLASS_VERSION_PREFIX: &str = "CONTRACT_CLASS_V";
-
-impl From<starknet::core::types::FlattenedSierraClass> for ContractClassComponentHashes {
-    fn from(sierra_class: starknet::core::types::FlattenedSierraClass) -> Self {
-        let version_str = format!("{CLASS_VERSION_PREFIX}{}", sierra_class.contract_class_version);
-        let contract_class_version = Felt::from_bytes_be_slice(version_str.as_bytes());
-
-        let sierra_program_hash = poseidon_hash_many(sierra_class.sierra_program.iter());
-
-        Self {
-            contract_class_version,
-            external_functions_hash: compute_hash_on_sierra_entry_points(
-                sierra_class.entry_points_by_type.external.iter(),
-            ),
-            l1_handlers_hash: compute_hash_on_sierra_entry_points(sierra_class.entry_points_by_type.l1_handler.iter()),
-            constructors_hash: compute_hash_on_sierra_entry_points(
-                sierra_class.entry_points_by_type.constructor.iter(),
-            ),
-            abi_hash: hash_abi(&sierra_class.abi),
-            sierra_program_hash,
-        }
-    }
-}
-
+/// Computes the hash of a contract ABI using Starknet keccak.
 fn hash_abi(abi: &str) -> Felt {
     starknet_keccak(abi.as_bytes())
+}
+
+// ================================================================================================
+// Trait Implementations
+// ================================================================================================
+impl Default for FormattedStateUpdate {
+    fn default() -> Self {
+        Self {
+            class_hash_to_compiled_class_hash: HashMap::new(),
+            compiled_classes: HashMap::new(),
+            deprecated_compiled_classes: HashMap::new(),
+            declared_class_hash_component_hashes: HashMap::new(),
+        }
+    }
 }

@@ -5023,6 +5023,8 @@ dependencies = [
  "starknet-gateway-types",
  "starknet-types-core 0.1.9",
  "starknet_api",
+ "starknet_os",
+ "starknet_patricia",
  "thiserror 1.0.69",
 ]
 
