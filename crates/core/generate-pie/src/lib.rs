@@ -64,7 +64,7 @@ use block_processor::collect_single_block_info;
 use cached_state::generate_cached_state_input;
 use cairo_vm::types::layout_name::LayoutName;
 use error::PieGenerationError;
-use log::{debug, info};
+use log::{debug, info, warn};
 use rpc_client::RpcClient;
 use starknet::core::types::BlockId;
 use starknet_api::core::CompiledClassHash;
@@ -211,7 +211,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     info!("Sorting ABI entries for deprecated compiled classes");
     for (class_hash, compiled_class) in all_deprecated_compiled_classes.iter_mut() {
         if let Err(e) = sort_abi_entries_for_deprecated_class(compiled_class) {
-            log::warn!("Failed to sort ABI entries for class {:?}: {}", class_hash, e);
+            warn!("Failed to sort ABI entries for class {:?}: {}", class_hash, e);
         }
     }
 
@@ -247,7 +247,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     let os_hints_json_path =
         format!("os_hints_blocks_{}.json", input.blocks.iter().map(|b| b.to_string()).collect::<Vec<_>>().join("_"));
     if let Err(e) = serialize_os_hints_to_json(&os_hints, &os_hints_json_path) {
-        log::warn!("Failed to serialize OS hints to JSON: {}", e);
+        warn!("Failed to serialize OS hints to JSON: {}", e);
     }
 
     // Execute the Starknet OS
@@ -287,7 +287,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Result<(), PieGenerationError> {
     use serde_json::json;
 
-    log::info!("Serializing OS hints to JSON file: {}", output_path);
+    info!("Serializing OS hints to JSON file: {}", output_path);
 
     // Serialize OS hints config
     let os_hints_config_json = json!({
@@ -440,7 +440,7 @@ fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Result<(
         .map_err(|e| PieGenerationError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, e)))?;
 
     std::fs::write(output_path, json_string)?;
-    log::info!("Complete OS hints successfully serialized to: {}", output_path);
+    info!("Complete OS hints successfully serialized to: {}", output_path);
 
     Ok(())
 }
@@ -514,15 +514,15 @@ fn sort_abi_entries_for_deprecated_class(
     // Deserialize the modified JSON back to the program
     *program = serde_json::from_value(program_json)?;
 
-    log::debug!("Completed full program normalization for deprecated contract class");
+    debug!("Completed full program normalization for deprecated contract class");
 
-    log::debug!("Completed ABI sorting and complete program normalization for deprecated contract class");
+    debug!("Completed ABI sorting and complete program normalization for deprecated contract class");
     Ok(())
 }
 
 /// Sort attribute keys for deterministic JSON ordering (from pathfinder)
-fn sort_attributes_keys(attributes: &mut Vec<serde_json::Value>) -> Result<(), Box<dyn std::error::Error>> {
-    log::debug!("Sorting attributes keys for {} attributes", attributes.len());
+fn sort_attributes_keys(attributes: &mut [serde_json::Value]) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("Sorting attributes keys for {} attributes", attributes.len());
 
     for attr in attributes.iter_mut() {
         if let serde_json::Value::Object(obj) = attr {
@@ -543,7 +543,7 @@ fn sort_attributes_keys(attributes: &mut Vec<serde_json::Value>) -> Result<(), B
         }
     }
 
-    log::debug!("Completed sorting attributes keys");
+    debug!("Completed sorting attributes keys");
     Ok(())
 }
 

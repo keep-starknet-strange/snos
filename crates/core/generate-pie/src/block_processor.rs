@@ -420,11 +420,11 @@ async fn process_transactions(
 
     accessed_addresses_felt.extend(accessed_keys_by_address.keys().map(|contract_addr| {
         let felt: Felt = (*contract_addr).into();
-        Felt252::from(felt)
+        felt
     }));
 
     let processed_state_update = get_formatted_state_update(
-        &rpc_client,
+        rpc_client,
         previous_block_id,
         block_id,
         accessed_addresses_felt.clone(),
