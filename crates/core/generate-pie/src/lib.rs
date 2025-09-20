@@ -75,11 +75,11 @@ use cached_state::generate_cached_state_input;
 use error::PieGenerationError;
 use types::{PieGenerationInput, PieGenerationResult};
 
-mod conversions;
 mod block_processor;
 mod cached_state;
 mod constants;
 mod context_builder;
+mod conversions;
 mod error;
 mod state_update;
 pub mod types;

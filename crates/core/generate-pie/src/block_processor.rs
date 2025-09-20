@@ -27,8 +27,8 @@ use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
 use starknet_types_core::felt::Felt;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::conversions::{ConversionContext, TryIntoBlockifierAsync};
 use crate::context_builder::build_block_context;
+use crate::conversions::{ConversionContext, TryIntoBlockifierAsync};
 use crate::error::BlockProcessingError;
 use crate::state_update::{get_formatted_state_update, get_subcalled_contracts_from_tx_traces};
 use crate::utils::{
@@ -88,6 +88,7 @@ struct BlockData {
 #[derive(Debug)]
 struct TransactionProcessingResult {
     starknet_api_txns: Vec<starknet_api::executable_transaction::Transaction>,
+    #[allow(dead_code)]
     txn_execution_infos: Vec<TransactionExecutionInfo>,
     central_txn_execution_infos: Vec<CentralTransactionExecutionInfo>,
     accessed_addresses: HashSet<ContractAddress>,
@@ -178,7 +179,8 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
         &tx_result.accessed_keys_by_address,
         &tx_result.processed_state_update.class_hash_to_compiled_class_hash,
         &rpc_client,
-    ).await?;
+    )
+    .await?;
 
     // Step 4: Calculate commitment information
     let block_id = BlockId::Number(block_number);
@@ -204,13 +206,7 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
     let deprecated_compiled_classes = class_result.deprecated_compiled_classes.clone();
 
     // Step 8: Build final OS block input (consuming the result structs)
-    let os_block_input = build_os_block_input(
-        &block_data,
-        tx_result,
-        commitment_result,
-        class_result,
-        &block_context,
-    );
+    let os_block_input = build_os_block_input(&block_data, tx_result, commitment_result, class_result, &block_context);
 
     info!("Successfully completed construction of OsBlockInput for block {}", block_number);
 
@@ -250,11 +246,8 @@ async fn fetch_block_data(block_number: u64, rpc_client: &RpcClient) -> Result<B
     let previous_block_id = if block_number == 0 { None } else { Some(BlockId::Number(block_number - 1)) };
 
     // Fetch chain ID from RPC
-    let chain_id_result = rpc_client
-        .starknet_rpc()
-        .chain_id()
-        .await
-        .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
+    let chain_id_result =
+        rpc_client.starknet_rpc().chain_id().await.map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
     let chain_id = chain_id_from_felt(chain_id_result);
     info!("Provider's chain_id: {}", chain_id);
 
@@ -311,14 +304,7 @@ async fn fetch_block_data(block_number: u64, rpc_client: &RpcClient) -> Result<B
     let old_block_hash = older_block.block_hash;
     info!("Successfully fetched previous and older blocks");
 
-    Ok(BlockData {
-        chain_id,
-        current_block,
-        previous_block,
-        old_block_number,
-        old_block_hash,
-        starknet_version,
-    })
+    Ok(BlockData { chain_id, current_block, previous_block, old_block_number, old_block_hash, starknet_version })
 }
 
 /// Processes transactions and extracts execution information.
@@ -367,8 +353,7 @@ async fn process_transactions(
     info!("Successfully got {} transaction traces", transaction_traces.len());
 
     // Extract accessed contracts and classes from traces
-    let (accessed_addresses_felt, accessed_classes_felt) =
-        get_subcalled_contracts_from_tx_traces(&transaction_traces);
+    let (accessed_addresses_felt, accessed_classes_felt) = get_subcalled_contracts_from_tx_traces(&transaction_traces);
 
     // Convert Felt to proper types
     let accessed_addresses: HashSet<ContractAddress> = accessed_addresses_felt
@@ -379,16 +364,9 @@ async fn process_transactions(
         })
         .collect::<Result<HashSet<_>, _>>()?;
 
-    let accessed_classes: HashSet<ClassHash> = accessed_classes_felt
-        .iter()
-        .map(|felt| ClassHash(*felt))
-        .collect();
+    let accessed_classes: HashSet<ClassHash> = accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
 
-    info!(
-        "Found {} accessed addresses and {} accessed classes",
-        accessed_addresses.len(),
-        accessed_classes.len()
-    );
+    info!("Found {} accessed addresses and {} accessed classes", accessed_addresses.len(), accessed_classes.len());
 
     // Fetch processed state update
     let processed_state_update = get_formatted_state_update(
@@ -417,13 +395,9 @@ async fn process_transactions(
         );
 
         // Convert transaction using the new async trait
-        let transaction = tx
-            .clone()
-            .try_into_blockifier_async(&conversion_ctx)
-            .await
-            .map_err(|e| {
-                BlockProcessingError::new_custom(format!("Failed to convert transaction to blockifier format: {:?}", e))
-            })?;
+        let transaction = tx.clone().try_into_blockifier_async(&conversion_ctx).await.map_err(|e| {
+            BlockProcessingError::new_custom(format!("Failed to convert transaction to blockifier format: {:?}", e))
+        })?;
         transactions.push(transaction);
 
         if (i + 1) % 10 == 0 || i == block_data.current_block.transactions.len() - 1 {
@@ -444,11 +418,8 @@ async fn process_transactions(
         })?,
     );
 
-    let mut tmp_executor = TransactionExecutor::new(
-        CachedState::new(blockifier_state_reader),
-        block_context.clone(),
-        config,
-    );
+    let mut tmp_executor =
+        TransactionExecutor::new(CachedState::new(blockifier_state_reader), block_context.clone(), config);
     info!("Transaction executor created successfully");
 
     // Execute transactions
@@ -461,19 +432,15 @@ async fn process_transactions(
 
     debug!("{} transactions executed successfully", blockifier_txns.len());
 
-    let txn_execution_infos: Vec<TransactionExecutionInfo> = execution_outputs
-        .into_iter()
-        .map(|(execution_info, _)| execution_info)
-        .collect();
+    let txn_execution_infos: Vec<TransactionExecutionInfo> =
+        execution_outputs.into_iter().map(|(execution_info, _)| execution_info).collect();
 
-    let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> = txn_execution_infos
-        .clone()
-        .into_iter()
-        .map(|execution_info| execution_info.clone().into())
-        .collect();
+    let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
+        txn_execution_infos.clone().into_iter().map(|execution_info| execution_info.clone().into()).collect();
 
     // Get accessed keys and populate alias contract keys
-    let mut accessed_keys_by_address = get_accessed_keys_with_block_hash(&txn_execution_infos, block_data.old_block_number);
+    let mut accessed_keys_by_address =
+        get_accessed_keys_with_block_hash(&txn_execution_infos, block_data.old_block_number);
     info!("Got accessed keys for {} contracts", accessed_keys_by_address.len());
 
     populate_alias_contract_keys(&accessed_addresses, &accessed_classes, &mut accessed_keys_by_address);
@@ -524,17 +491,13 @@ async fn collect_proofs(
     // Fetch previous storage proofs
     let previous_storage_proofs = match previous_block_id {
         Some(BlockId::Number(previous_block_id)) => {
-            get_storage_proofs(rpc_client, previous_block_id, accessed_keys_by_address)
-                .await
-                .map_err(|e| {
-                    BlockProcessingError::StorageProof(format!("Failed to fetch previous storage proofs: {:?}", e))
-                })?
+            get_storage_proofs(rpc_client, previous_block_id, accessed_keys_by_address).await.map_err(|e| {
+                BlockProcessingError::StorageProof(format!("Failed to fetch previous storage proofs: {:?}", e))
+            })?
         }
-        None => get_storage_proofs(rpc_client, 0, accessed_keys_by_address)
-            .await
-            .map_err(|e| {
-                BlockProcessingError::StorageProof(format!("Failed to fetch storage proofs for block 0: {:?}", e))
-            })?,
+        None => get_storage_proofs(rpc_client, 0, accessed_keys_by_address).await.map_err(|e| {
+            BlockProcessingError::StorageProof(format!("Failed to fetch storage proofs for block 0: {:?}", e))
+        })?,
         _ => {
             let mut map = HashMap::new();
             // Add a default proof for the block hash contract
@@ -564,23 +527,14 @@ async fn collect_proofs(
 
     // Fetch previous class proofs
     let previous_class_proofs = match previous_block_id {
-        Some(BlockId::Number(previous_block_id)) => {
-            get_class_proofs(rpc_client, previous_block_id, &class_hashes[..])
-                .await
-                .map_err(|e| {
-                    BlockProcessingError::ClassProof(format!("Failed to fetch previous class proofs: {:?}", e))
-                })?
-        }
+        Some(BlockId::Number(previous_block_id)) => get_class_proofs(rpc_client, previous_block_id, &class_hashes[..])
+            .await
+            .map_err(|e| BlockProcessingError::ClassProof(format!("Failed to fetch previous class proofs: {:?}", e)))?,
         _ => Default::default(),
     };
     info!("Got {} previous class proofs for {} class hashes", previous_class_proofs.len(), class_hashes.len());
 
-    Ok(ProofCollectionResult {
-        storage_proofs,
-        previous_storage_proofs,
-        class_proofs,
-        previous_class_proofs,
-    })
+    Ok(ProofCollectionResult { storage_proofs, previous_storage_proofs, class_proofs, previous_class_proofs })
 }
 
 /// Calculates commitment information for contracts and classes.
@@ -610,15 +564,12 @@ async fn calculate_commitments(
     // Process contract storage commitments
     for (contract_address, storage_proof) in proofs.storage_proofs.clone() {
         let contract_address: Felt = contract_address;
-        let previous_storage_proof = proofs
-            .previous_storage_proofs
-            .get(&contract_address)
-            .ok_or_else(|| {
-                BlockProcessingError::new_custom(format!(
-                    "Failed to find previous storage proof for contract address: {:?}",
-                    contract_address
-                ))
-            })?;
+        let previous_storage_proof = proofs.previous_storage_proofs.get(&contract_address).ok_or_else(|| {
+            BlockProcessingError::new_custom(format!(
+                "Failed to find previous storage proof for contract address: {:?}",
+                contract_address
+            ))
+        })?;
 
         let previous_contract_commitment_facts = format_commitment_facts::<PedersenHash>(
             &previous_storage_proof
@@ -642,17 +593,11 @@ async fn calculate_commitments(
             .map(|(key, value)| (HashOutput(key), value))
             .collect();
 
-        let previous_contract_storage_root: Felt = previous_storage_proof
-            .contract_data
-            .as_ref()
-            .map(|contract_data| contract_data.root)
-            .unwrap_or(Felt::ZERO);
+        let previous_contract_storage_root: Felt =
+            previous_storage_proof.contract_data.as_ref().map(|contract_data| contract_data.root).unwrap_or(Felt::ZERO);
 
-        let current_contract_storage_root: Felt = storage_proof
-            .contract_data
-            .as_ref()
-            .map(|contract_data| contract_data.root)
-            .unwrap_or(Felt::ZERO);
+        let current_contract_storage_root: Felt =
+            storage_proof.contract_data.as_ref().map(|contract_data| contract_data.root).unwrap_or(Felt::ZERO);
 
         let contract_state_commitment_info = CommitmentInfo {
             previous_root: HashOutput(previous_contract_storage_root),
@@ -710,19 +655,13 @@ async fn calculate_commitments(
     let current_contract_trie_root = block_hash_storage_proof.contract_commitment;
 
     // Process contract proofs for state commitment
-    let previous_contract_proofs: Vec<_> = proofs
-        .previous_storage_proofs
-        .values()
-        .map(|proof| proof.contract_proof.clone())
-        .collect();
+    let previous_contract_proofs: Vec<_> =
+        proofs.previous_storage_proofs.values().map(|proof| proof.contract_proof.clone()).collect();
 
     let previous_state_commitment_facts = format_commitment_facts::<PedersenHash>(&previous_contract_proofs);
 
-    let current_contract_proofs: Vec<_> = proofs
-        .storage_proofs
-        .values()
-        .map(|proof| proof.contract_proof.clone())
-        .collect();
+    let current_contract_proofs: Vec<_> =
+        proofs.storage_proofs.values().map(|proof| proof.contract_proof.clone()).collect();
 
     let current_state_commitment_facts = format_commitment_facts::<PedersenHash>(&current_contract_proofs);
 
@@ -740,12 +679,8 @@ async fn calculate_commitments(
     };
 
     // Compute class commitment
-    let contract_class_commitment_info = compute_class_commitment(
-        &proofs.previous_class_proofs,
-        &proofs.class_proofs,
-        previous_root,
-        updated_root,
-    );
+    let contract_class_commitment_info =
+        compute_class_commitment(&proofs.previous_class_proofs, &proofs.class_proofs, previous_root, updated_root);
     info!("Class commitment computed");
 
     Ok(CommitmentCalculationResult {
@@ -768,6 +703,7 @@ async fn calculate_commitments(
 ///
 /// Returns a `ContractClassProcessingResult` containing processed classes
 /// or an error if any conversion fails.
+#[allow(clippy::result_large_err)]
 fn process_contract_classes(
     processed_state_update: &crate::state_update::FormattedStateUpdate,
 ) -> Result<ContractClassProcessingResult, BlockProcessingError> {
@@ -869,7 +805,10 @@ fn build_os_block_input(
         block_info: block_context.block_info().clone(),
         prev_block_hash: BlockHash(block_data.previous_block.as_ref().unwrap().block_hash),
         new_block_hash: BlockHash(block_data.current_block.block_hash),
-        old_block_number_and_hash: Some((BlockNumber(block_data.old_block_number.to_u64().unwrap()), BlockHash(block_data.old_block_hash))),
+        old_block_number_and_hash: Some((
+            BlockNumber(block_data.old_block_number.to_u64().unwrap()),
+            BlockHash(block_data.old_block_hash),
+        )),
     }
 }
 

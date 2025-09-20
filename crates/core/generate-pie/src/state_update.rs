@@ -13,8 +13,8 @@ use cairo_vm::Felt252;
 use log::{debug, info, warn};
 use rpc_client::RpcClient;
 use starknet::core::types::{
-    BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingStateUpdate, StarknetError,
-    StateDiff, TransactionTrace, TransactionTraceWithHash,
+    BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingStateUpdate, StarknetError, StateDiff,
+    TransactionTrace, TransactionTraceWithHash,
 };
 use starknet::providers::Provider;
 use starknet::providers::ProviderError;
@@ -34,7 +34,7 @@ use thiserror::Error;
 pub type PreviousBlockId = Option<BlockId>;
 
 /// Formatted state update containing all necessary information for PIE generation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct FormattedStateUpdate {
     /// Mapping from class hash to compiled class hash
     pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
@@ -512,19 +512,5 @@ fn format_declared_classes(state_diff: &StateDiff, class_hash_to_compiled_class_
 
     for class in &state_diff.declared_classes {
         class_hash_to_compiled_class_hash.insert(class.class_hash, Felt::ZERO);
-    }
-}
-
-// ================================================================================================
-// Trait Implementations
-// ================================================================================================
-impl Default for FormattedStateUpdate {
-    fn default() -> Self {
-        Self {
-            class_hash_to_compiled_class_hash: HashMap::new(),
-            compiled_classes: HashMap::new(),
-            deprecated_compiled_classes: HashMap::new(),
-            declared_class_hash_component_hashes: HashMap::new(),
-        }
     }
 }
