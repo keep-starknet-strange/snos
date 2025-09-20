@@ -50,7 +50,7 @@ impl ContractClassComponentHashes {
 pub enum ProveBlockError {
     #[error("RPC Error: {0}")]
     RpcError(#[from] ProviderError),
-    #[error("Conversion Failed: {}")]
+    #[error("Conversion Failed: {0}")]
     ConversionFailed(String),
 }
 
@@ -350,10 +350,12 @@ fn compile_contract_class(
             GenericCompiledClass::Cairo1(compiled_class)
         }
         starknet::core::types::ContractClass::Legacy(legacy_cc) => {
-            let compiled_class =
-                GenericDeprecatedCompiledClass::try_from(legacy_cc).map_err(ProveBlockError::ConversionFailed(
-                    String::from("Failed to convert Legacy contract class to Custom type"),
-                ))?;
+            let compiled_class = GenericDeprecatedCompiledClass::try_from(legacy_cc).map_err(|e| {
+                ProveBlockError::ConversionFailed(format!(
+                    "Failed to convert Legacy contract class to Custom type: {:?}",
+                    e
+                ))
+            })?;
             GenericCompiledClass::Cairo0(compiled_class)
         }
     };
