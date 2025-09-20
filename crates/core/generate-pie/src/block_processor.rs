@@ -27,7 +27,7 @@ use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
 use starknet_types_core::felt::Felt;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::api_to_blockifier_conversion::{ConversionContext, TryIntoBlockifierAsync};
+use crate::conversions::{ConversionContext, TryIntoBlockifierAsync};
 use crate::context_builder::build_block_context;
 use crate::error::BlockProcessingError;
 use crate::state_update::{get_formatted_state_update, get_subcalled_contracts_from_tx_traces};

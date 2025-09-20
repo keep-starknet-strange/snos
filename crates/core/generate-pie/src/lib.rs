@@ -75,7 +75,7 @@ use cached_state::generate_cached_state_input;
 use error::PieGenerationError;
 use types::{PieGenerationInput, PieGenerationResult};
 
-mod api_to_blockifier_conversion;
+mod conversions;
 mod block_processor;
 mod cached_state;
 mod constants;
