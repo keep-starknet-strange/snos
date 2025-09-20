@@ -16,25 +16,16 @@ use starknet::core::types::{
     BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingStateUpdate, StarknetError,
     StateDiff, TransactionTrace, TransactionTraceWithHash,
 };
-use starknet::core::utils::starknet_keccak;
 use starknet::providers::Provider;
 use starknet::providers::ProviderError;
-use starknet_os::io::os_input::ContractClassComponentHashes as OsContractClassComponentHashes;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
-use starknet_os_types::class_hash_utils::{compute_hash_on_sierra_entry_points, ContractClassComponentHashes};
+use starknet_os_types::class_hash_utils::ContractClassComponentHashes;
 use starknet_os_types::compiled_class::GenericCompiledClass;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
-use starknet_patricia::hash::hash_trait::HashOutput;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
-
-// ================================================================================================
-// Constants
-// ================================================================================================
-
-const CLASS_VERSION_PREFIX: &str = "CONTRACT_CLASS_V";
 
 // ================================================================================================
 // Type Definitions
@@ -524,11 +515,6 @@ fn format_declared_classes(state_diff: &StateDiff, class_hash_to_compiled_class_
     for class in &state_diff.declared_classes {
         class_hash_to_compiled_class_hash.insert(class.class_hash, Felt::ZERO);
     }
-}
-
-/// Computes the hash of a contract ABI using Starknet keccak.
-fn hash_abi(abi: &str) -> Felt {
-    starknet_keccak(abi.as_bytes())
 }
 
 // ================================================================================================
