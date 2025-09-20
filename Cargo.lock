@@ -2190,6 +2190,7 @@ dependencies = [
 name = "generate-pie"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "blockifier",
  "cairo-lang-starknet-classes",
  "cairo-vm",

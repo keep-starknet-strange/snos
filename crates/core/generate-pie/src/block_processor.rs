@@ -21,7 +21,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use crate::api_to_blockifier_conversion::starknet_rs_to_blockifier;
+use crate::api_to_blockifier_conversion::TryIntoBlockifier;
 use crate::context_builder::build_block_context;
 use crate::error::BlockProcessingError;
 use crate::state_update::{get_formatted_state_update, get_subcalled_contracts_from_tx_traces};
@@ -353,18 +353,12 @@ pub async fn collect_single_block_info(block_number: u64, is_l3: bool, rpc_clien
     // Convert transaction traces to blockifier format
     let mut transactions = Vec::new();
     for (i, (tx, trace)) in block_with_txs.transactions.iter().zip(transaction_traces.iter()).enumerate() {
-        let transaction = starknet_rs_to_blockifier(
-            tx,
-            trace,
-            &block_context.block_info().gas_prices,
-            &rpc_client,
-            block_number,
-            chain_id.clone(),
-        )
-        .await
-        .map_err(|e| {
-            BlockProcessingError::new_custom(format!("Failed to convert transaction to blockifier format: {:?}", e))
-        })?;
+        let transaction = tx
+            .try_into_blockifier(&chain_id, block_number, &rpc_client, &block_context.block_info().gas_prices, trace)
+            .await
+            .map_err(|e| {
+                BlockProcessingError::new_custom(format!("Failed to convert transaction to blockifier format: {:?}", e))
+            })?;
         transactions.push(transaction);
         if (i + 1) % 10 == 0 || i == block_with_txs.transactions.len() - 1 {
             log::debug!("📝 Converted {}/{} transactions", i + 1, block_with_txs.transactions.len());
