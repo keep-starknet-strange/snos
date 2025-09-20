@@ -1,6 +1,25 @@
+//! API to Blockifier Type Conversion Module
+//!
+//! This module provides conversion functionality between Starknet RPC API types
+//! and Blockifier/Sequencer types. The conversions are necessary because:
+//! - RPC API types come from the `starknet` crate (starknet-rs)
+//! - Blockifier types come from the `sequencer` crate
+//! - Both represent the same Starknet concepts but with different type structures
+//!
+//! ## Design Principles
+//!
+//! 1. **From/Into Pattern**: Uses Rust's standard conversion traits where possible
+//! 2. **TryFrom/TryInto Pattern**: For fallible conversions
+//! 3. **Async When Needed**: Only for conversions requiring RPC calls
+//! 4. **Error Propagation**: Comprehensive error handling with context
+//! 5. **Zero-Copy**: Avoids unnecessary cloning where possible
+
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use cairo_lang_starknet_classes::contract_class::version_id_from_serialized_sierra_program;
+use log::{debug, warn};
 use starknet::core::types::{
     BlockId, DataAvailabilityMode, DeclareTransaction, DeclareTransactionV0, DeclareTransactionV1,
     DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV1,
@@ -10,108 +29,276 @@ use starknet::core::types::{
 use starknet::providers::Provider;
 use starknet_api::block::{GasPrice, GasPrices};
 use starknet_api::contract_class::{ClassInfo, SierraVersion};
-pub(crate) use starknet_api::core::{felt_to_u128, ChainId, PatriciaKey};
+use starknet_api::core::{felt_to_u128, ChainId, PatriciaKey};
 use starknet_api::execution_resources::GasAmount;
 use starknet_api::transaction::fields::{AllResourceBounds, Fee, ResourceBounds, ValidResourceBounds};
-use starknet_api::transaction::TransactionHash;
-use std::sync::Arc;
+use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
+use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+use thiserror::Error;
 
 use crate::error::ToBlockifierError;
 use rpc_client::RpcClient;
-use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
-use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 
-/// Struct to hold both starknet-api and blockifier transaction representations
-#[derive(Debug)]
+// ================================================================================================
+// Error Types
+// ================================================================================================
+
+#[derive(Debug, Error)]
+pub enum ConversionError {
+    #[error("RPC error: {0}")]
+    RpcError(#[from] starknet::providers::ProviderError),
+    #[error("Blockifier error: {0}")]
+    BlockifierError(#[from] ToBlockifierError),
+    #[error("Starknet API error: {0}")]
+    StarknetApiError(#[from] starknet_api::StarknetApiError),
+    #[error("Unsupported transaction type: {transaction_type}")]
+    UnsupportedTransaction { transaction_type: String },
+    #[error("Class compilation failed: {reason}")]
+    ClassCompilationFailed { reason: String },
+    #[error("Field conversion failed: {field}, reason: {reason}")]
+    FieldConversionFailed { field: String, reason: String },
+}
+
+// ================================================================================================
+// Type Definitions
+// ================================================================================================
+
+/// Result of transaction conversion containing both API representations.
+#[derive(Debug, Clone)]
 pub struct TransactionConversionResult {
+    /// Starknet API executable transaction
     pub starknet_api_tx: starknet_api::executable_transaction::Transaction,
+    /// Blockifier transaction for execution
     pub blockifier_tx: blockifier::transaction::transaction_execution::Transaction,
 }
 
-impl TransactionConversionResult {
-    /// Construct [TransactionConversionResult] from starknet-api's `invoke` and `account` txn
+/// Context required for transaction conversions.
+#[derive(Clone)]
+pub struct ConversionContext<'a> {
+    /// Chain ID for the network
+    pub chain_id: &'a ChainId,
+    /// Block number being processed
+    pub block_number: u64,
+    /// RPC client for fetching additional data
+    pub rpc_client: &'a RpcClient,
+    /// Gas prices for the block
+    pub gas_prices: &'a GasPrices,
+    /// Transaction trace for additional context
+    pub trace: &'a TransactionTraceWithHash,
+}
+
+impl<'a> ConversionContext<'a> {
+    /// Creates a new conversion context with all required parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `chain_id` - The chain ID for the network
+    /// * `block_number` - The block number being processed
+    /// * `rpc_client` - The RPC client for fetching additional data
+    /// * `gas_prices` - The gas prices for the block
+    /// * `trace` - The transaction trace for additional context
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let context = ConversionContext::new(
+    ///     &chain_id,
+    ///     block_number,
+    ///     &rpc_client,
+    ///     &gas_prices,
+    ///     &trace,
+    /// );
+    /// ```
     pub fn new(
-        invoke_txn: starknet_api::executable_transaction::InvokeTransaction,
-        account_txn: starknet_api::executable_transaction::AccountTransaction,
+        chain_id: &'a ChainId,
+        block_number: u64,
+        rpc_client: &'a RpcClient,
+        gas_prices: &'a GasPrices,
+        trace: &'a TransactionTraceWithHash,
     ) -> Self {
         Self {
-            starknet_api_tx: starknet_api::executable_transaction::Transaction::Account(
-                starknet_api::executable_transaction::AccountTransaction::Invoke(invoke_txn),
-            ),
-            blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(
-                AccountTransaction::new_for_sequencing(account_txn),
-            ),
+            chain_id,
+            block_number,
+            rpc_client,
+            gas_prices,
+            trace,
         }
     }
 }
 
+// ================================================================================================
+// Core Conversion Traits
+// ================================================================================================
+
+/// Trait for fallible conversion to Blockifier types.
+///
+/// This trait should be used for simple, synchronous conversions that don't require
+/// external data fetching.
+pub trait TryIntoBlockifierSync<T> {
+    type Error;
+
+    fn try_into_blockifier(self) -> Result<T, Self::Error>;
+}
+
+/// Trait for async conversions that require external context.
+///
+/// This trait should be used for conversions that need to fetch additional data
+/// from RPC or perform complex operations.
 #[async_trait]
-pub trait TryIntoBlockifier<T> {
-    async fn try_into_blockifier(
-        &self,
-        chain_id: &ChainId,
-        block_number: u64,
-        client: &RpcClient,
-        gas_prices: &GasPrices,
-        trace: &TransactionTraceWithHash,
-    ) -> Result<T, ToBlockifierError>;
+pub trait TryIntoBlockifierAsync<T> {
+    type Error;
 
-    /// Creates a ClassInfo instance from the given class hash by retrieving the contract class
-    /// from the Starknet RPC client and converting it to a Blockifier-compatible format.
-    /// Handle both Sierra and Legacy classes
-    async fn get_class_info(
-        class_hash: Felt,
-        client: &RpcClient,
-        block_number: u64,
-    ) -> Result<ClassInfo, ToBlockifierError> {
-        // TODO: improve this to avoid retrieving this twice. Already done in lib.rs from prove_block
-        let starknet_contract_class: starknet::core::types::ContractClass =
-            client.starknet_rpc().get_class(BlockId::Number(block_number), class_hash).await?;
+    async fn try_into_blockifier_async(self, ctx: &ConversionContext<'_>) -> Result<T, Self::Error>;
+}
 
-        let (blockifier_contract_class, program_length, abi_length, version) = match starknet_contract_class {
-            starknet::core::types::ContractClass::Sierra(sierra) => {
-                let generic_sierra = GenericSierraContractClass::from(sierra.clone());
-                let flattened_sierra = generic_sierra.clone().to_starknet_core_contract_class()?;
-                let generic_cairo_lang_class = generic_sierra.get_cairo_lang_contract_class()?;
-                let (version_id, _) =
-                    version_id_from_serialized_sierra_program(&generic_cairo_lang_class.sierra_program).unwrap();
-                let sierra_version =
-                    SierraVersion::new(version_id.major as u64, version_id.minor as u64, version_id.patch as u64);
-                let contract_class = starknet_api::contract_class::ContractClass::V1(
-                    generic_sierra.compile()?.to_blockifier_contract_class(sierra_version)?,
-                );
+// ================================================================================================
+// Helper Functions
+// ================================================================================================
 
-                (
-                    contract_class,
-                    flattened_sierra.sierra_program.len(),
-                    flattened_sierra.abi.len(),
-                    SierraVersion::extract_from_program(&sierra.sierra_program)?,
-                )
-            }
+/// Fetches class information from the RPC client.
+///
+/// This function retrieves contract class data and converts it to the format
+/// expected by Blockifier, handling both Sierra and Legacy classes.
+async fn fetch_class_info(
+    class_hash: Felt,
+    rpc_client: &RpcClient,
+    block_number: u64,
+) -> Result<ClassInfo, ConversionError> {
+    debug!("Fetching class info for hash: {:?} at block: {}", class_hash, block_number);
 
-            starknet::core::types::ContractClass::Legacy(legacy) => {
-                let generic_legacy = GenericDeprecatedCompiledClass::try_from(legacy)?;
-                let contract_class =
-                    starknet_api::contract_class::ContractClass::V0(generic_legacy.to_blockifier_contract_class()?);
+    let contract_class = rpc_client
+        .starknet_rpc()
+        .get_class(BlockId::Number(block_number), class_hash)
+        .await?;
 
-                (contract_class, 0usize, 0usize, SierraVersion::default())
-            }
-        };
+    let (blockifier_contract_class, program_length, abi_length, version) = match contract_class {
+        starknet::core::types::ContractClass::Sierra(sierra) => {
+            debug!("Processing Sierra class");
+            let generic_sierra = GenericSierraContractClass::from(sierra.clone());
+            let flattened_sierra = generic_sierra
+                .clone()
+                .to_starknet_core_contract_class()
+                .map_err(|e| ConversionError::ClassCompilationFailed {
+                    reason: format!("Failed to flatten Sierra class: {:?}", e),
+                })?;
 
-        Ok(ClassInfo::new(&blockifier_contract_class, program_length, abi_length, version)?)
+            let generic_cairo_lang_class = generic_sierra
+                .get_cairo_lang_contract_class()
+                .map_err(|e| ConversionError::ClassCompilationFailed {
+                    reason: format!("Failed to get Cairo lang class: {:?}", e),
+                })?;
+
+            let (version_id, _) = version_id_from_serialized_sierra_program(&generic_cairo_lang_class.sierra_program)
+                .map_err(|e| ConversionError::ClassCompilationFailed {
+                    reason: format!("Failed to extract version from Sierra program: {:?}", e),
+                })?;
+
+            let sierra_version = SierraVersion::new(
+                version_id.major as u64,
+                version_id.minor as u64,
+                version_id.patch as u64,
+            );
+
+            let compiled_class = generic_sierra
+                .compile()
+                .map_err(|e| ConversionError::ClassCompilationFailed {
+                    reason: format!("Sierra compilation failed: {:?}", e),
+                })?;
+
+            let blockifier_class = compiled_class
+                .to_blockifier_contract_class(sierra_version)
+                .map_err(|e| ConversionError::ClassCompilationFailed {
+                    reason: format!("Failed to convert to blockifier class: {:?}", e),
+                })?;
+
+            let contract_class = starknet_api::contract_class::ContractClass::V1(blockifier_class);
+            let extracted_version = SierraVersion::extract_from_program(&sierra.sierra_program)
+                .map_err(|e| ConversionError::ClassCompilationFailed {
+                    reason: format!("Failed to extract Sierra version: {:?}", e),
+                })?;
+
+            (
+                contract_class,
+                flattened_sierra.sierra_program.len(),
+                flattened_sierra.abi.len(),
+                extracted_version,
+            )
+        }
+
+        starknet::core::types::ContractClass::Legacy(legacy) => {
+            debug!("Processing Legacy class");
+            let generic_legacy = GenericDeprecatedCompiledClass::try_from(legacy)
+                .map_err(|e| ConversionError::ClassCompilationFailed {
+                    reason: format!("Failed to convert legacy class: {:?}", e),
+                })?;
+
+            let blockifier_class = generic_legacy
+                .to_blockifier_contract_class()
+                .map_err(|e| ConversionError::ClassCompilationFailed {
+                    reason: format!("Failed to convert legacy to blockifier: {:?}", e),
+                })?;
+
+            let contract_class = starknet_api::contract_class::ContractClass::V0(blockifier_class);
+
+            (contract_class, 0, 0, SierraVersion::default())
+        }
+    };
+
+    ClassInfo::new(&blockifier_contract_class, program_length, abi_length, version)
+        .map_err(|e| ConversionError::ClassCompilationFailed {
+            reason: format!("Failed to create ClassInfo: {:?}", e),
+        })
+}
+
+/// Creates a transaction conversion result for account transactions.
+fn create_account_transaction_result(
+    starknet_api_tx: starknet_api::executable_transaction::Transaction,
+    account_tx: starknet_api::executable_transaction::AccountTransaction,
+) -> TransactionConversionResult {
+    TransactionConversionResult {
+        starknet_api_tx,
+        blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(
+            AccountTransaction::new_for_sequencing(account_tx),
+        ),
     }
 }
 
-#[async_trait]
-impl TryIntoBlockifier<ValidResourceBounds> for ResourceBoundsMapping {
-    async fn try_into_blockifier(
-        &self,
-        _chain_id: &ChainId,
-        _block_number: u64,
-        _client: &RpcClient,
-        _gas_prices: &GasPrices,
-        _trace: &TransactionTraceWithHash,
-    ) -> Result<ValidResourceBounds, ToBlockifierError> {
+/// Creates a transaction conversion result for L1 handler transactions.
+fn create_l1_handler_transaction_result(
+    l1_handler_tx: starknet_api::executable_transaction::L1HandlerTransaction,
+) -> TransactionConversionResult {
+    let starknet_api_tx = starknet_api::executable_transaction::Transaction::L1Handler(l1_handler_tx.clone());
+
+    TransactionConversionResult {
+        starknet_api_tx: starknet_api_tx.clone(),
+        blockifier_tx: blockifier::transaction::transaction_execution::Transaction::new_for_sequencing(starknet_api_tx),
+    }
+}
+
+/// Converts a Felt to u128 with proper error context.
+fn felt_to_u128_safe(felt: &Felt, field_name: &str) -> Result<u128, ConversionError> {
+    felt_to_u128(felt).map_err(|e| ConversionError::FieldConversionFailed {
+        field: field_name.to_string(),
+        reason: format!("Felt to u128 conversion failed: {:?}", e),
+    })
+}
+
+/// Converts a Felt to PatriciaKey with proper error context.
+fn felt_to_patricia_key(felt: Felt, field_name: &str) -> Result<PatriciaKey, ConversionError> {
+    PatriciaKey::try_from(felt).map_err(|e| ConversionError::FieldConversionFailed {
+        field: field_name.to_string(),
+        reason: format!("Patricia key conversion failed: {:?}", e),
+    })
+}
+
+// ================================================================================================
+// Simple Type Conversions
+// ================================================================================================
+
+impl TryIntoBlockifierSync<ValidResourceBounds> for ResourceBoundsMapping {
+    type Error = ConversionError;
+
+    fn try_into_blockifier(self) -> Result<ValidResourceBounds, Self::Error> {
         Ok(ValidResourceBounds::AllResources(AllResourceBounds {
             l1_gas: ResourceBounds {
                 max_amount: GasAmount(self.l1_gas.max_amount),
@@ -129,16 +316,10 @@ impl TryIntoBlockifier<ValidResourceBounds> for ResourceBoundsMapping {
     }
 }
 
-#[async_trait]
-impl TryIntoBlockifier<starknet_api::data_availability::DataAvailabilityMode> for DataAvailabilityMode {
-    async fn try_into_blockifier(
-        &self,
-        _chain_id: &ChainId,
-        _block_number: u64,
-        _client: &RpcClient,
-        _gas_prices: &GasPrices,
-        _trace: &TransactionTraceWithHash,
-    ) -> Result<starknet_api::data_availability::DataAvailabilityMode, ToBlockifierError> {
+impl TryIntoBlockifierSync<starknet_api::data_availability::DataAvailabilityMode> for DataAvailabilityMode {
+    type Error = ConversionError;
+
+    fn try_into_blockifier(self) -> Result<starknet_api::data_availability::DataAvailabilityMode, Self::Error> {
         Ok(match self {
             DataAvailabilityMode::L1 => starknet_api::data_availability::DataAvailabilityMode::L1,
             DataAvailabilityMode::L2 => starknet_api::data_availability::DataAvailabilityMode::L2,
@@ -146,440 +327,382 @@ impl TryIntoBlockifier<starknet_api::data_availability::DataAvailabilityMode> fo
     }
 }
 
-#[async_trait]
-impl TryIntoBlockifier<TransactionConversionResult> for InvokeTransactionV1 {
-    #[allow(clippy::result_large_err)]
-    async fn try_into_blockifier(
-        &self,
-        chain_id: &ChainId,
-        _block_number: u64,
-        _client: &RpcClient,
-        _gas_prices: &GasPrices,
-        _trace: &TransactionTraceWithHash,
-    ) -> Result<TransactionConversionResult, ToBlockifierError> {
-        let _tx_hash = TransactionHash(self.transaction_hash);
-        let api_tx = starknet_api::transaction::InvokeTransaction::V1(starknet_api::transaction::InvokeTransactionV1 {
-            max_fee: Fee(felt_to_u128(&self.max_fee)?),
-            signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature.to_vec())),
-            nonce: starknet_api::core::Nonce(self.nonce),
-            sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(self.sender_address)?),
-            calldata: starknet_api::transaction::fields::Calldata(Arc::new(self.calldata.to_vec())),
-        });
-
-        let api_txn_real = starknet_api::executable_transaction::InvokeTransaction::create(api_tx, chain_id)?;
-        let again_once = starknet_api::executable_transaction::AccountTransaction::Invoke(api_txn_real.clone());
-
-        Ok(TransactionConversionResult::new(api_txn_real, again_once))
-    }
-}
+// ================================================================================================
+// Transaction Conversions
+// ================================================================================================
 
 #[async_trait]
-impl TryIntoBlockifier<TransactionConversionResult> for InvokeTransactionV3 {
-    #[allow(clippy::result_large_err)]
-    async fn try_into_blockifier(
-        &self,
-        chain_id: &ChainId,
-        block_number: u64,
-        client: &RpcClient,
-        gas_prices: &GasPrices,
-        trace: &TransactionTraceWithHash,
-    ) -> Result<TransactionConversionResult, ToBlockifierError> {
-        let api_tx = starknet_api::transaction::InvokeTransaction::V3(starknet_api::transaction::InvokeTransactionV3 {
-            resource_bounds: self
-                .resource_bounds
-                .try_into_blockifier(chain_id, block_number, client, gas_prices, trace)
-                .await?,
-            tip: starknet_api::transaction::fields::Tip(self.tip),
-            signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature.to_vec())),
-            nonce: starknet_api::core::Nonce(self.nonce),
-            sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(self.sender_address)?),
-            calldata: starknet_api::transaction::fields::Calldata(Arc::new(self.calldata.to_vec())),
-            nonce_data_availability_mode: self
-                .nonce_data_availability_mode
-                .try_into_blockifier(chain_id, block_number, client, gas_prices, trace)
-                .await?,
-            fee_data_availability_mode: self
-                .fee_data_availability_mode
-                .try_into_blockifier(chain_id, block_number, client, gas_prices, trace)
-                .await?,
-            paymaster_data: starknet_api::transaction::fields::PaymasterData(self.paymaster_data.to_vec()),
-            account_deployment_data: starknet_api::transaction::fields::AccountDeploymentData(
-                self.account_deployment_data.to_vec(),
-            ),
-        });
+impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV1 {
+    type Error = ConversionError;
 
-        let api_txn_real = starknet_api::executable_transaction::InvokeTransaction::create(api_tx, chain_id)?;
-        let again_once = starknet_api::executable_transaction::AccountTransaction::Invoke(api_txn_real.clone());
+    async fn try_into_blockifier_async(
+        self,
+        ctx: &ConversionContext<'_>,
+    ) -> Result<TransactionConversionResult, Self::Error> {
+        debug!("Converting InvokeTransactionV1");
 
-        Ok(TransactionConversionResult::new(api_txn_real, again_once))
-    }
-}
-
-#[async_trait]
-impl TryIntoBlockifier<TransactionConversionResult> for DeclareTransactionV0 {
-    async fn try_into_blockifier(
-        &self,
-        chain_id: &ChainId,
-        block_number: u64,
-        client: &RpcClient,
-        _gas_prices: &GasPrices,
-        _trace: &TransactionTraceWithHash,
-    ) -> Result<TransactionConversionResult, ToBlockifierError> {
-        let _tx_hash = TransactionHash(self.transaction_hash);
-        let api_tx =
-            starknet_api::transaction::DeclareTransaction::V0(starknet_api::transaction::DeclareTransactionV0V1 {
-                max_fee: Fee(felt_to_u128(&self.max_fee)?),
-                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature.clone())),
-                // Declare v0 does not have nonce,
-                // So we default to 0
-                nonce: starknet_api::core::Nonce(Default::default()),
-                class_hash: starknet_api::core::ClassHash(self.class_hash),
-                sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(self.sender_address)?),
-            });
-        let class_info = Self::get_class_info(self.class_hash, client, block_number).await?;
-        let api_txn_real =
-            starknet_api::executable_transaction::DeclareTransaction::create(api_tx, class_info, chain_id)?;
-        let again_once = starknet_api::executable_transaction::AccountTransaction::Declare(api_txn_real.clone());
-
-        Ok(TransactionConversionResult {
-            starknet_api_tx: starknet_api::executable_transaction::Transaction::Account(
-                starknet_api::executable_transaction::AccountTransaction::Declare(api_txn_real),
-            ),
-            blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(
-                AccountTransaction::new_for_sequencing(again_once),
-            ),
-        })
-    }
-}
-
-#[async_trait]
-impl TryIntoBlockifier<TransactionConversionResult> for DeclareTransactionV1 {
-    async fn try_into_blockifier(
-        &self,
-        chain_id: &ChainId,
-        block_number: u64,
-        client: &RpcClient,
-        _gas_prices: &GasPrices,
-        _trace: &TransactionTraceWithHash,
-    ) -> Result<TransactionConversionResult, ToBlockifierError> {
-        let _tx_hash = TransactionHash(self.transaction_hash);
-        let api_tx =
-            starknet_api::transaction::DeclareTransaction::V1(starknet_api::transaction::DeclareTransactionV0V1 {
-                max_fee: Fee(felt_to_u128(&self.max_fee)?),
-                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature.clone())),
+        let api_tx = starknet_api::transaction::InvokeTransaction::V1(
+            starknet_api::transaction::InvokeTransactionV1 {
+                max_fee: Fee(felt_to_u128_safe(&self.max_fee, "max_fee")?),
+                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature)),
                 nonce: starknet_api::core::Nonce(self.nonce),
-                class_hash: starknet_api::core::ClassHash(self.class_hash),
-                sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(self.sender_address)?),
-            });
-        let class_info = Self::get_class_info(self.class_hash, client, block_number).await?;
-
-        let api_txn_real =
-            starknet_api::executable_transaction::DeclareTransaction::create(api_tx, class_info, chain_id)?;
-        let again_once = starknet_api::executable_transaction::AccountTransaction::Declare(api_txn_real.clone());
-
-        Ok(TransactionConversionResult {
-            starknet_api_tx: starknet_api::executable_transaction::Transaction::Account(
-                starknet_api::executable_transaction::AccountTransaction::Declare(api_txn_real),
-            ),
-            blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(
-                AccountTransaction::new_for_sequencing(again_once),
-            ),
-        })
-    }
-}
-
-#[async_trait]
-impl TryIntoBlockifier<TransactionConversionResult> for DeclareTransactionV2 {
-    async fn try_into_blockifier(
-        &self,
-        chain_id: &ChainId,
-        block_number: u64,
-        client: &RpcClient,
-        _gas_prices: &GasPrices,
-        _trace: &TransactionTraceWithHash,
-    ) -> Result<TransactionConversionResult, ToBlockifierError> {
-        let api_tx =
-            starknet_api::transaction::DeclareTransaction::V2(starknet_api::transaction::DeclareTransactionV2 {
-                max_fee: Fee(felt_to_u128(&self.max_fee)?),
-                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature.clone())),
-                nonce: starknet_api::core::Nonce(self.nonce),
-                class_hash: starknet_api::core::ClassHash(self.class_hash),
-                compiled_class_hash: starknet_api::core::CompiledClassHash(self.compiled_class_hash),
-                sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(self.sender_address)?),
-            });
-        let class_info = Self::get_class_info(self.class_hash, client, block_number).await?;
-
-        let api_txn_real =
-            starknet_api::executable_transaction::DeclareTransaction::create(api_tx, class_info, chain_id)?;
-        let again_once = starknet_api::executable_transaction::AccountTransaction::Declare(api_txn_real.clone());
-
-        Ok(TransactionConversionResult {
-            starknet_api_tx: starknet_api::executable_transaction::Transaction::Account(
-                starknet_api::executable_transaction::AccountTransaction::Declare(api_txn_real),
-            ),
-            blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(
-                AccountTransaction::new_for_sequencing(again_once),
-            ),
-        })
-    }
-}
-
-#[async_trait]
-impl TryIntoBlockifier<TransactionConversionResult> for DeclareTransactionV3 {
-    async fn try_into_blockifier(
-        &self,
-        chain_id: &ChainId,
-        block_number: u64,
-        client: &RpcClient,
-        _gas_prices: &GasPrices,
-        _trace: &TransactionTraceWithHash,
-    ) -> Result<TransactionConversionResult, ToBlockifierError> {
-        let api_tx =
-            starknet_api::transaction::DeclareTransaction::V3(starknet_api::transaction::DeclareTransactionV3 {
-                resource_bounds: self
-                    .resource_bounds
-                    .try_into_blockifier(chain_id, block_number, client, _gas_prices, _trace)
-                    .await?,
-                tip: starknet_api::transaction::fields::Tip(self.tip),
-                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature.clone())),
-                nonce: starknet_api::core::Nonce(self.nonce),
-                class_hash: starknet_api::core::ClassHash(self.class_hash),
-                compiled_class_hash: starknet_api::core::CompiledClassHash(self.compiled_class_hash),
-                sender_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(self.sender_address)?),
-                nonce_data_availability_mode: self
-                    .nonce_data_availability_mode
-                    .try_into_blockifier(chain_id, block_number, client, _gas_prices, _trace)
-                    .await?,
-                fee_data_availability_mode: self
-                    .fee_data_availability_mode
-                    .try_into_blockifier(chain_id, block_number, client, _gas_prices, _trace)
-                    .await?,
-                paymaster_data: starknet_api::transaction::fields::PaymasterData(self.paymaster_data.clone()),
-                account_deployment_data: starknet_api::transaction::fields::AccountDeploymentData(
-                    self.account_deployment_data.clone(),
+                sender_address: starknet_api::core::ContractAddress(
+                    felt_to_patricia_key(self.sender_address, "sender_address")?
                 ),
-            });
-        let class_info = Self::get_class_info(self.class_hash, client, block_number).await?;
-
-        let api_txn_real =
-            starknet_api::executable_transaction::DeclareTransaction::create(api_tx, class_info, chain_id)?;
-        let again_once = starknet_api::executable_transaction::AccountTransaction::Declare(api_txn_real.clone());
-
-        Ok(TransactionConversionResult {
-            starknet_api_tx: starknet_api::executable_transaction::Transaction::Account(
-                starknet_api::executable_transaction::AccountTransaction::Declare(api_txn_real),
-            ),
-            blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(
-                AccountTransaction::new_for_sequencing(again_once),
-            ),
-        })
-    }
-}
-
-#[async_trait]
-impl TryIntoBlockifier<TransactionConversionResult> for L1HandlerTransaction {
-    async fn try_into_blockifier(
-        &self,
-        chain_id: &ChainId,
-        _block_number: u64,
-        _client: &RpcClient,
-        gas_prices: &GasPrices,
-        trace: &TransactionTraceWithHash,
-    ) -> Result<TransactionConversionResult, ToBlockifierError> {
-        let api_tx = starknet_api::transaction::L1HandlerTransaction {
-            version: starknet_api::transaction::TransactionVersion(self.version),
-            nonce: starknet_api::core::Nonce(Felt::from(self.nonce)),
-            contract_address: starknet_api::core::ContractAddress(PatriciaKey::try_from(self.contract_address)?),
-            entry_point_selector: starknet_api::core::EntryPointSelector(self.entry_point_selector),
-            calldata: starknet_api::transaction::fields::Calldata(Arc::new(self.calldata.clone())),
-        };
-
-        // TODO: checkout for the l2 gas here
-        let (l1_gas, l1_data_gas) = match &trace.trace_root {
-            TransactionTrace::L1Handler(l1_handler) => {
-                (l1_handler.execution_resources.l1_gas, l1_handler.execution_resources.l1_data_gas)
-            }
-            _ => unreachable!("Expected L1Handler type for TransactionTrace"),
-        };
-
-        let fee = match (l1_gas, l1_data_gas) {
-            // There are cases where both these values are zero, and that means no matter what we
-            // multiply, we will get a value of 0.
-            // Having the fee as 0 for L1 handler will fail on the blockifier execution
-            // Learn more:
-            // https://github.com/starkware-libs/sequencer/blob/b5a877719dc2ce5b1ca833f14d9473c1f1c27059/crates/blockifier/src/transaction/transaction_execution.rs#L166
-            // https://github.com/eqlabs/pathfinder/blob/eb81bf149fe516c3542a90a5c1715c5a3a141d0b/crates/rpc/src/executor.rs#L548
-            // The comment (which is not very helpful) on the line above is:
-            // For now, assert only that any amount of fee was paid.
-            // More investigations are recommended
-            (0, 0) => 1_000_000_000_000u128,
-            (0, l1_data_gas) => gas_prices.eth_gas_prices.l1_data_gas_price.get().0 * l1_data_gas as u128,
-            (l1_gas, 0) => gas_prices.strk_gas_prices.l1_gas_price.get().0 * l1_gas as u128,
-            _ => unreachable!("At least l1_gas or l1_data_gas must be zero"),
-        };
-
-        let paid_fee_on_l1 = Fee(fee);
-        let api_txn_real =
-            starknet_api::executable_transaction::L1HandlerTransaction::create(api_tx, chain_id, paid_fee_on_l1)?;
-        let starknet_api_tx = starknet_api::executable_transaction::Transaction::L1Handler(api_txn_real.clone());
-        let another_one = starknet_api::executable_transaction::Transaction::L1Handler(api_txn_real.clone());
-
-        Ok(TransactionConversionResult {
-            starknet_api_tx,
-            blockifier_tx: blockifier::transaction::transaction_execution::Transaction::new_for_sequencing(another_one),
-        })
-    }
-}
-
-#[async_trait]
-impl TryIntoBlockifier<TransactionConversionResult> for DeployAccountTransactionV1 {
-    #[allow(clippy::result_large_err)]
-    async fn try_into_blockifier(
-        &self,
-        chain_id: &ChainId,
-        _block_number: u64,
-        _client: &RpcClient,
-        _gas_prices: &GasPrices,
-        _trace: &TransactionTraceWithHash,
-    ) -> Result<TransactionConversionResult, ToBlockifierError> {
-        let (max_fee, signature, nonce, class_hash, constructor_calldata, contract_address_salt) = (
-            Fee(felt_to_u128(&self.max_fee)?),
-            starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature.to_vec())),
-            starknet_api::core::Nonce(self.nonce),
-            starknet_api::core::ClassHash(self.class_hash),
-            starknet_api::transaction::fields::Calldata(Arc::new(self.constructor_calldata.to_vec())),
-            starknet_api::transaction::fields::ContractAddressSalt(self.contract_address_salt),
-        );
-
-        let api_tx = starknet_api::transaction::DeployAccountTransaction::V1(
-            starknet_api::transaction::DeployAccountTransactionV1 {
-                max_fee,
-                signature,
-                nonce,
-                class_hash,
-                constructor_calldata,
-                contract_address_salt,
+                calldata: starknet_api::transaction::fields::Calldata(Arc::new(self.calldata)),
             },
         );
 
-        let api_txn_real = starknet_api::executable_transaction::DeployAccountTransaction::create(api_tx, chain_id)?;
-        let again_once = starknet_api::executable_transaction::AccountTransaction::DeployAccount(api_txn_real.clone());
+        let invoke_tx = starknet_api::executable_transaction::InvokeTransaction::create(api_tx, ctx.chain_id)?;
+        let account_tx = starknet_api::executable_transaction::AccountTransaction::Invoke(invoke_tx.clone());
+        let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(TransactionConversionResult {
-            starknet_api_tx: starknet_api::executable_transaction::Transaction::Account(
-                starknet_api::executable_transaction::AccountTransaction::DeployAccount(api_txn_real),
-            ),
-            blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(
-                AccountTransaction::new_for_sequencing(again_once),
-            ),
-        })
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
     }
 }
 
 #[async_trait]
-impl TryIntoBlockifier<TransactionConversionResult> for DeployAccountTransactionV3 {
-    async fn try_into_blockifier(
-        &self,
-        chain_id: &ChainId,
-        block_number: u64,
-        client: &RpcClient,
-        gas_prices: &GasPrices,
-        trace: &TransactionTraceWithHash,
-    ) -> Result<TransactionConversionResult, ToBlockifierError> {
+impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV3 {
+    type Error = ConversionError;
+
+    async fn try_into_blockifier_async(
+        self,
+        ctx: &ConversionContext<'_>,
+    ) -> Result<TransactionConversionResult, Self::Error> {
+        debug!("Converting InvokeTransactionV3");
+
+        let api_tx = starknet_api::transaction::InvokeTransaction::V3(
+            starknet_api::transaction::InvokeTransactionV3 {
+                resource_bounds: self.resource_bounds.try_into_blockifier()?,
+                tip: starknet_api::transaction::fields::Tip(self.tip),
+                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature)),
+                nonce: starknet_api::core::Nonce(self.nonce),
+                sender_address: starknet_api::core::ContractAddress(
+                    felt_to_patricia_key(self.sender_address, "sender_address")?
+                ),
+                calldata: starknet_api::transaction::fields::Calldata(Arc::new(self.calldata)),
+                nonce_data_availability_mode: self.nonce_data_availability_mode.try_into_blockifier()?,
+                fee_data_availability_mode: self.fee_data_availability_mode.try_into_blockifier()?,
+                paymaster_data: starknet_api::transaction::fields::PaymasterData(self.paymaster_data),
+                account_deployment_data: starknet_api::transaction::fields::AccountDeploymentData(
+                    self.account_deployment_data,
+                ),
+            },
+        );
+
+        let invoke_tx = starknet_api::executable_transaction::InvokeTransaction::create(api_tx, ctx.chain_id)?;
+        let account_tx = starknet_api::executable_transaction::AccountTransaction::Invoke(invoke_tx.clone());
+        let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
+
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+    }
+}
+
+#[async_trait]
+impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV0 {
+    type Error = ConversionError;
+
+    async fn try_into_blockifier_async(
+        self,
+        ctx: &ConversionContext<'_>,
+    ) -> Result<TransactionConversionResult, Self::Error> {
+        debug!("Converting DeclareTransactionV0");
+
+        let api_tx = starknet_api::transaction::DeclareTransaction::V0(
+            starknet_api::transaction::DeclareTransactionV0V1 {
+                max_fee: Fee(felt_to_u128_safe(&self.max_fee, "max_fee")?),
+                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature)),
+                nonce: starknet_api::core::Nonce(Felt::ZERO), // V0 doesn't have nonce
+                class_hash: starknet_api::core::ClassHash(self.class_hash),
+                sender_address: starknet_api::core::ContractAddress(
+                    felt_to_patricia_key(self.sender_address, "sender_address")?
+                ),
+            },
+        );
+
+        let class_info = fetch_class_info(self.class_hash, ctx.rpc_client, ctx.block_number).await?;
+        let declare_tx = starknet_api::executable_transaction::DeclareTransaction::create(
+            api_tx, class_info, ctx.chain_id
+        )?;
+        let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
+        let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
+
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+    }
+}
+
+#[async_trait]
+impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV1 {
+    type Error = ConversionError;
+
+    async fn try_into_blockifier_async(
+        self,
+        ctx: &ConversionContext<'_>,
+    ) -> Result<TransactionConversionResult, Self::Error> {
+        debug!("Converting DeclareTransactionV1");
+
+        let api_tx = starknet_api::transaction::DeclareTransaction::V1(
+            starknet_api::transaction::DeclareTransactionV0V1 {
+                max_fee: Fee(felt_to_u128_safe(&self.max_fee, "max_fee")?),
+                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature)),
+                nonce: starknet_api::core::Nonce(self.nonce),
+                class_hash: starknet_api::core::ClassHash(self.class_hash),
+                sender_address: starknet_api::core::ContractAddress(
+                    felt_to_patricia_key(self.sender_address, "sender_address")?
+                ),
+            },
+        );
+
+        let class_info = fetch_class_info(self.class_hash, ctx.rpc_client, ctx.block_number).await?;
+        let declare_tx = starknet_api::executable_transaction::DeclareTransaction::create(
+            api_tx, class_info, ctx.chain_id
+        )?;
+        let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
+        let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
+
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+    }
+}
+
+#[async_trait]
+impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV2 {
+    type Error = ConversionError;
+
+    async fn try_into_blockifier_async(
+        self,
+        ctx: &ConversionContext<'_>,
+    ) -> Result<TransactionConversionResult, Self::Error> {
+        debug!("Converting DeclareTransactionV2");
+
+        let api_tx = starknet_api::transaction::DeclareTransaction::V2(
+            starknet_api::transaction::DeclareTransactionV2 {
+                max_fee: Fee(felt_to_u128_safe(&self.max_fee, "max_fee")?),
+                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature)),
+                nonce: starknet_api::core::Nonce(self.nonce),
+                class_hash: starknet_api::core::ClassHash(self.class_hash),
+                compiled_class_hash: starknet_api::core::CompiledClassHash(self.compiled_class_hash),
+                sender_address: starknet_api::core::ContractAddress(
+                    felt_to_patricia_key(self.sender_address, "sender_address")?
+                ),
+            },
+        );
+
+        let class_info = fetch_class_info(self.class_hash, ctx.rpc_client, ctx.block_number).await?;
+        let declare_tx = starknet_api::executable_transaction::DeclareTransaction::create(
+            api_tx, class_info, ctx.chain_id
+        )?;
+        let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
+        let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
+
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+    }
+}
+
+#[async_trait]
+impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV3 {
+    type Error = ConversionError;
+
+    async fn try_into_blockifier_async(
+        self,
+        ctx: &ConversionContext<'_>,
+    ) -> Result<TransactionConversionResult, Self::Error> {
+        debug!("Converting DeclareTransactionV3");
+
+        let api_tx = starknet_api::transaction::DeclareTransaction::V3(
+            starknet_api::transaction::DeclareTransactionV3 {
+                resource_bounds: self.resource_bounds.try_into_blockifier()?,
+                tip: starknet_api::transaction::fields::Tip(self.tip),
+                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature)),
+                nonce: starknet_api::core::Nonce(self.nonce),
+                class_hash: starknet_api::core::ClassHash(self.class_hash),
+                compiled_class_hash: starknet_api::core::CompiledClassHash(self.compiled_class_hash),
+                sender_address: starknet_api::core::ContractAddress(
+                    felt_to_patricia_key(self.sender_address, "sender_address")?
+                ),
+                nonce_data_availability_mode: self.nonce_data_availability_mode.try_into_blockifier()?,
+                fee_data_availability_mode: self.fee_data_availability_mode.try_into_blockifier()?,
+                paymaster_data: starknet_api::transaction::fields::PaymasterData(self.paymaster_data),
+                account_deployment_data: starknet_api::transaction::fields::AccountDeploymentData(
+                    self.account_deployment_data,
+                ),
+            },
+        );
+
+        let class_info = fetch_class_info(self.class_hash, ctx.rpc_client, ctx.block_number).await?;
+        let declare_tx = starknet_api::executable_transaction::DeclareTransaction::create(
+            api_tx, class_info, ctx.chain_id
+        )?;
+        let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
+        let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
+
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+    }
+}
+
+#[async_trait]
+impl TryIntoBlockifierAsync<TransactionConversionResult> for DeployAccountTransactionV1 {
+    type Error = ConversionError;
+
+    async fn try_into_blockifier_async(
+        self,
+        ctx: &ConversionContext<'_>,
+    ) -> Result<TransactionConversionResult, Self::Error> {
+        debug!("Converting DeployAccountTransactionV1");
+
+        let api_tx = starknet_api::transaction::DeployAccountTransaction::V1(
+            starknet_api::transaction::DeployAccountTransactionV1 {
+                max_fee: Fee(felt_to_u128_safe(&self.max_fee, "max_fee")?),
+                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature)),
+                nonce: starknet_api::core::Nonce(self.nonce),
+                class_hash: starknet_api::core::ClassHash(self.class_hash),
+                constructor_calldata: starknet_api::transaction::fields::Calldata(Arc::new(self.constructor_calldata)),
+                contract_address_salt: starknet_api::transaction::fields::ContractAddressSalt(
+                    self.contract_address_salt,
+                ),
+            },
+        );
+
+        let deploy_account_tx = starknet_api::executable_transaction::DeployAccountTransaction::create(
+            api_tx, ctx.chain_id
+        )?;
+        let account_tx = starknet_api::executable_transaction::AccountTransaction::DeployAccount(deploy_account_tx.clone());
+        let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
+
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+    }
+}
+
+#[async_trait]
+impl TryIntoBlockifierAsync<TransactionConversionResult> for DeployAccountTransactionV3 {
+    type Error = ConversionError;
+
+    async fn try_into_blockifier_async(
+        self,
+        ctx: &ConversionContext<'_>,
+    ) -> Result<TransactionConversionResult, Self::Error> {
+        debug!("Converting DeployAccountTransactionV3");
+
         let api_tx = starknet_api::transaction::DeployAccountTransaction::V3(
             starknet_api::transaction::DeployAccountTransactionV3 {
-                resource_bounds: self
-                    .resource_bounds
-                    .try_into_blockifier(chain_id, block_number, client, gas_prices, trace)
-                    .await?,
+                resource_bounds: self.resource_bounds.try_into_blockifier()?,
                 tip: starknet_api::transaction::fields::Tip(self.tip),
-                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature.to_vec())),
+                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(self.signature)),
                 nonce: starknet_api::core::Nonce(self.nonce),
                 class_hash: starknet_api::core::ClassHash(self.class_hash),
                 contract_address_salt: starknet_api::transaction::fields::ContractAddressSalt(
                     self.contract_address_salt,
                 ),
-                constructor_calldata: starknet_api::transaction::fields::Calldata(Arc::new(
-                    self.constructor_calldata.clone(),
-                )),
-                nonce_data_availability_mode: self
-                    .nonce_data_availability_mode
-                    .try_into_blockifier(chain_id, block_number, client, gas_prices, trace)
-                    .await?,
-                fee_data_availability_mode: self
-                    .fee_data_availability_mode
-                    .try_into_blockifier(chain_id, block_number, client, gas_prices, trace)
-                    .await?,
-                paymaster_data: starknet_api::transaction::fields::PaymasterData(self.paymaster_data.clone()),
+                constructor_calldata: starknet_api::transaction::fields::Calldata(Arc::new(self.constructor_calldata)),
+                nonce_data_availability_mode: self.nonce_data_availability_mode.try_into_blockifier()?,
+                fee_data_availability_mode: self.fee_data_availability_mode.try_into_blockifier()?,
+                paymaster_data: starknet_api::transaction::fields::PaymasterData(self.paymaster_data),
             },
         );
-        let api_txn_real = starknet_api::executable_transaction::DeployAccountTransaction::create(api_tx, chain_id)?;
-        let again_once = starknet_api::executable_transaction::AccountTransaction::DeployAccount(api_txn_real.clone());
 
-        Ok(TransactionConversionResult {
-            starknet_api_tx: starknet_api::executable_transaction::Transaction::Account(
-                starknet_api::executable_transaction::AccountTransaction::DeployAccount(api_txn_real.clone()),
-            ),
-            blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(
-                AccountTransaction::new_for_sequencing(again_once),
-            ),
-        })
+        let deploy_account_tx = starknet_api::executable_transaction::DeployAccountTransaction::create(
+            api_tx, ctx.chain_id
+        )?;
+        let account_tx = starknet_api::executable_transaction::AccountTransaction::DeployAccount(deploy_account_tx.clone());
+        let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
+
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
     }
 }
 
-#[async_trait]
-impl TryIntoBlockifier<TransactionConversionResult> for Transaction {
-    async fn try_into_blockifier(
-        &self,
-        chain_id: &ChainId,
-        block_number: u64,
-        client: &RpcClient,
-        gas_prices: &GasPrices,
-        trace: &TransactionTraceWithHash,
-    ) -> Result<TransactionConversionResult, ToBlockifierError> {
-        let conversion_result = match self {
-            Transaction::Invoke(tx) => match tx {
-                InvokeTransaction::V0(_) => {
-                    unimplemented!("Cannot convert Invoke V0 Transaction to Blockifier type")
-                }
-                InvokeTransaction::V1(tx) => {
-                    tx.try_into_blockifier(chain_id, block_number, client, gas_prices, trace).await?
-                }
-                InvokeTransaction::V3(tx) => {
-                    tx.try_into_blockifier(chain_id, block_number, client, gas_prices, trace).await?
-                }
-            },
-            Transaction::Declare(tx) => match tx {
-                DeclareTransaction::V0(tx) => {
-                    tx.try_into_blockifier(chain_id, block_number, client, gas_prices, trace).await?
-                }
-                DeclareTransaction::V1(tx) => {
-                    tx.try_into_blockifier(chain_id, block_number, client, gas_prices, trace).await?
-                }
-                DeclareTransaction::V2(tx) => {
-                    tx.try_into_blockifier(chain_id, block_number, client, gas_prices, trace).await?
-                }
-                DeclareTransaction::V3(tx) => {
-                    tx.try_into_blockifier(chain_id, block_number, client, gas_prices, trace).await?
-                }
-            },
-            Transaction::L1Handler(tx) => {
-                tx.try_into_blockifier(chain_id, block_number, client, gas_prices, trace).await?
-            }
-            Transaction::DeployAccount(tx) => match tx {
-                DeployAccountTransaction::V1(tx) => {
-                    tx.try_into_blockifier(chain_id, block_number, client, gas_prices, trace).await?
-                }
-                DeployAccountTransaction::V3(tx) => {
-                    tx.try_into_blockifier(chain_id, block_number, client, gas_prices, trace).await?
-                }
-            },
+/// Calculates fee for L1 handler transactions based on execution resources.
+fn calculate_l1_handler_fee(trace: &TransactionTraceWithHash, gas_prices: &GasPrices) -> Fee {
+    let (l1_gas, l1_data_gas) = match &trace.trace_root {
+        TransactionTrace::L1Handler(l1_handler) => {
+            (l1_handler.execution_resources.l1_gas, l1_handler.execution_resources.l1_data_gas)
+        }
+        _ => {
+            warn!("Expected L1Handler trace but got different type");
+            (0, 0)
+        }
+    };
 
-            Transaction::Deploy(_) => {
-                unimplemented!("Cannot convert deprecated Deploy Transaction to Blockifier type")
-            }
+    let fee_amount = match (l1_gas, l1_data_gas) {
+        // When both values are zero, use a default fee to prevent blockifier execution failure
+        // This is a known issue: blockifier requires non-zero fee for L1 handlers
+        // See: https://github.com/starkware-libs/sequencer/blob/main/crates/blockifier/src/transaction/transaction_execution.rs
+        (0, 0) => {
+            debug!("Both L1 gas values are zero, using default fee");
+            1_000_000_000_000u128
+        }
+        (0, l1_data_gas) => gas_prices.eth_gas_prices.l1_data_gas_price.get().0 * l1_data_gas as u128,
+        (l1_gas, 0) => gas_prices.strk_gas_prices.l1_gas_price.get().0 * l1_gas as u128,
+        _ => {
+            warn!("Both L1 gas and L1 data gas are non-zero, this should not happen");
+            gas_prices.strk_gas_prices.l1_gas_price.get().0 * l1_gas as u128
+        }
+    };
+
+    Fee(fee_amount)
+}
+
+#[async_trait]
+impl TryIntoBlockifierAsync<TransactionConversionResult> for L1HandlerTransaction {
+    type Error = ConversionError;
+
+    async fn try_into_blockifier_async(
+        self,
+        ctx: &ConversionContext<'_>,
+    ) -> Result<TransactionConversionResult, Self::Error> {
+        debug!("Converting L1HandlerTransaction");
+
+        let api_tx = starknet_api::transaction::L1HandlerTransaction {
+            version: starknet_api::transaction::TransactionVersion(self.version),
+            nonce: starknet_api::core::Nonce(Felt::from(self.nonce)),
+            contract_address: starknet_api::core::ContractAddress(
+                felt_to_patricia_key(self.contract_address, "contract_address")?
+            ),
+            entry_point_selector: starknet_api::core::EntryPointSelector(self.entry_point_selector),
+            calldata: starknet_api::transaction::fields::Calldata(Arc::new(self.calldata)),
         };
 
-        Ok(conversion_result)
+        let paid_fee_on_l1 = calculate_l1_handler_fee(ctx.trace, ctx.gas_prices);
+        let l1_handler_tx = starknet_api::executable_transaction::L1HandlerTransaction::create(
+            api_tx, ctx.chain_id, paid_fee_on_l1
+        )?;
+
+        Ok(create_l1_handler_transaction_result(l1_handler_tx))
+    }
+}
+
+// ================================================================================================
+// High-Level Transaction Conversion
+// ================================================================================================
+
+#[async_trait]
+impl TryIntoBlockifierAsync<TransactionConversionResult> for Transaction {
+    type Error = ConversionError;
+
+    async fn try_into_blockifier_async(
+        self,
+        ctx: &ConversionContext<'_>,
+    ) -> Result<TransactionConversionResult, Self::Error> {
+        match self {
+            Transaction::Invoke(tx) => match tx {
+                InvokeTransaction::V0(_) => Err(ConversionError::UnsupportedTransaction {
+                    transaction_type: "InvokeV0".to_string(),
+                }),
+                InvokeTransaction::V1(tx) => tx.try_into_blockifier_async(ctx).await,
+                InvokeTransaction::V3(tx) => tx.try_into_blockifier_async(ctx).await,
+            },
+            Transaction::Declare(tx) => match tx {
+                DeclareTransaction::V0(tx) => tx.try_into_blockifier_async(ctx).await,
+                DeclareTransaction::V1(tx) => tx.try_into_blockifier_async(ctx).await,
+                DeclareTransaction::V2(tx) => tx.try_into_blockifier_async(ctx).await,
+                DeclareTransaction::V3(tx) => tx.try_into_blockifier_async(ctx).await,
+            },
+            Transaction::L1Handler(tx) => tx.try_into_blockifier_async(ctx).await,
+            Transaction::DeployAccount(tx) => match tx {
+                DeployAccountTransaction::V1(tx) => tx.try_into_blockifier_async(ctx).await,
+                DeployAccountTransaction::V3(tx) => tx.try_into_blockifier_async(ctx).await,
+            },
+            Transaction::Deploy(_) => Err(ConversionError::UnsupportedTransaction {
+                transaction_type: "Deploy".to_string(),
+            }),
+        }
     }
 }

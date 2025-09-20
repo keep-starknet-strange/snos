@@ -27,7 +27,7 @@ use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
 use starknet_types_core::felt::Felt;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::api_to_blockifier_conversion::TryIntoBlockifier;
+use crate::api_to_blockifier_conversion::{ConversionContext, TryIntoBlockifierAsync};
 use crate::context_builder::build_block_context;
 use crate::error::BlockProcessingError;
 use crate::state_update::{get_formatted_state_update, get_subcalled_contracts_from_tx_traces};
@@ -407,14 +407,19 @@ async fn process_transactions(
     // Convert transactions to blockifier format
     let mut transactions = Vec::new();
     for (i, (tx, trace)) in block_data.current_block.transactions.iter().zip(transaction_traces.iter()).enumerate() {
+        // Create conversion context for this transaction
+        let conversion_ctx = ConversionContext::new(
+            &block_data.chain_id,
+            block_number,
+            rpc_client,
+            &block_context.block_info().gas_prices,
+            trace,
+        );
+
+        // Convert transaction using the new async trait
         let transaction = tx
-            .try_into_blockifier(
-                &block_data.chain_id,
-                block_number,
-                rpc_client,
-                &block_context.block_info().gas_prices,
-                trace,
-            )
+            .clone()
+            .try_into_blockifier_async(&conversion_ctx)
             .await
             .map_err(|e| {
                 BlockProcessingError::new_custom(format!("Failed to convert transaction to blockifier format: {:?}", e))

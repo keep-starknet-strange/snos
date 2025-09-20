@@ -73,8 +73,6 @@ pub enum StateUpdateError {
     PendingBlock,
     #[error("Class compilation failed: {0}")]
     CompilationFailed(String),
-    #[error("Invalid state update format: {0}")]
-    InvalidFormat(String),
 }
 
 // Legacy error type for backward compatibility
