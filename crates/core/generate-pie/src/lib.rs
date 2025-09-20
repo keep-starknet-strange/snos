@@ -81,7 +81,6 @@ mod cached_state;
 mod constants;
 mod context_builder;
 mod error;
-mod state_processing;
 mod state_update;
 pub mod types;
 mod utils;
