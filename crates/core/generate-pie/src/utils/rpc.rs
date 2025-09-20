@@ -59,8 +59,8 @@ pub(crate) fn get_comprehensive_access_info(
             &tx_execution_info.execute_call_info,
             &tx_execution_info.fee_transfer_call_info,
         ]
-            .into_iter()
-            .flatten()
+        .into_iter()
+        .flatten()
         {
             collect_access_info_from_call(
                 call_info,
@@ -377,8 +377,8 @@ fn get_accessed_keys_in_tx(
         &tx_execution_info.execute_call_info,
         &tx_execution_info.fee_transfer_call_info,
     ]
-        .into_iter()
-        .flatten()
+    .into_iter()
+    .flatten()
     {
         let call_storage_keys = get_accessed_storage_keys(call_info);
         for (contract_address, storage_keys) in call_storage_keys {
