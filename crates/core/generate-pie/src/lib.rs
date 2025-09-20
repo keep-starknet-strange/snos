@@ -61,7 +61,7 @@
 //! - **Output Options**: Configure output file paths and formats
 
 use cairo_vm::types::layout_name::LayoutName;
-use log::{debug, info};
+use log::info;
 use rpc_client::RpcClient;
 use starknet::core::types::BlockId;
 use starknet_os::{
@@ -135,7 +135,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
     // Validate input configuration
     input.validate()?;
-    debug!("Input configuration validated successfully");
+    info!("Input configuration validated successfully");
 
     // Initialize RPC client
     let rpc_client = RpcClient::try_new(&input.rpc_url)
