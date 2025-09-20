@@ -125,8 +125,8 @@ pub fn create_contract_state_commitment_info(
 
 #[cfg(test)]
 mod tests {
-    use rpc_client::types::PedersenHash;
     use super::*;
+    use rpc_client::types::PedersenHash;
 
     #[test]
     fn test_format_commitment_facts_empty() {
