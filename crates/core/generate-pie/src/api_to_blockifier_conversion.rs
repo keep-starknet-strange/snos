@@ -75,11 +75,8 @@ pub trait TryIntoBlockifier<T> {
                 let generic_cairo_lang_class = generic_sierra.get_cairo_lang_contract_class()?;
                 let (version_id, _) =
                     version_id_from_serialized_sierra_program(&generic_cairo_lang_class.sierra_program).unwrap();
-                let sierra_version = SierraVersion::new(
-                    version_id.major.try_into().unwrap(),
-                    version_id.minor.try_into().unwrap(),
-                    version_id.patch.try_into().unwrap(),
-                );
+                let sierra_version =
+                    SierraVersion::new(version_id.major as u64, version_id.minor as u64, version_id.patch as u64);
                 let contract_class = starknet_api::contract_class::ContractClass::V1(
                     generic_sierra.compile()?.to_blockifier_contract_class(sierra_version)?,
                 );
