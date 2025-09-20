@@ -24,7 +24,7 @@ use starknet_types_core::felt::Felt;
 ///     is_l3: true,
 /// };
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ChainConfig {
     /// The chain ID for the target Starknet network.
     pub chain_id: ChainId,

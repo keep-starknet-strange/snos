@@ -1,13 +1,13 @@
 //! Cairo 0 legacy (deprecated) contract class types and utilities.
 
 use once_cell::sync::OnceCell;
+use pathfinder_class_hash::compute_class_hash;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::sync::Arc;
 
 use crate::error::{ContractClassError, ConversionError};
 use crate::hash::GenericClassHash;
 use crate::starknet_core_addons::{decompress_starknet_core_contract_class, LegacyContractDecompressionError};
-use pathfinder_gateway_types::class_hash::compute_class_hash;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Type alias for StarknetAPI deprecated contract class.
 pub type StarknetApiDeprecatedClass = starknet_api::deprecated_contract_class::ContractClass;

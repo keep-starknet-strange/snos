@@ -598,9 +598,9 @@ fn calculate_l1_handler_fee(trace: &TransactionTraceWithHash, gas_prices: &GasPr
         }
         (0, l1_data_gas) => gas_prices.eth_gas_prices.l1_data_gas_price.get().0 * l1_data_gas as u128,
         (l1_gas, 0) => gas_prices.strk_gas_prices.l1_gas_price.get().0 * l1_gas as u128,
-        _ => {
-            warn!("Both L1 gas and L1 data gas are non-zero, this should not happen");
+        (l1_gas, l1_data_gas) => {
             gas_prices.strk_gas_prices.l1_gas_price.get().0 * l1_gas as u128
+                + gas_prices.eth_gas_prices.l1_data_gas_price.get().0 * l1_data_gas as u128
         }
     };
 

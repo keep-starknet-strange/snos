@@ -303,6 +303,11 @@ async fn process_accessed_addresses(
     result: &mut CompiledClassResult,
 ) -> Result<(), StateUpdateError> {
     for contract_address in accessed_addresses {
+        // Skip special addresses
+        if *contract_address == Felt::TWO || *contract_address == Felt::ONE {
+            continue;
+        }
+
         debug!("Processing contract address: {:?}", contract_address);
 
         // Try to get class from previous block (may fail if contract was deployed in current block)

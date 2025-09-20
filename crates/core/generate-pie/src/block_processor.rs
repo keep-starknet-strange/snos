@@ -18,10 +18,10 @@ use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs};
 use starknet::providers::Provider;
 use starknet_api::block::{BlockHash, BlockNumber, StarknetVersion};
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass;
-use starknet_api::state::StorageKey;
-use starknet_os::io::os_input::{CommitmentInfo, ContractClassComponentHashes, OsBlockInput};
+use starknet_api::state::{ContractClassComponentHashes, StorageKey};
+use starknet_os::io::os_input::{CommitmentInfo, OsBlockInput};
 use starknet_patricia::hash::hash_trait::HashOutput;
 use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
 use starknet_types_core::felt::Felt;
@@ -36,7 +36,7 @@ use crate::utils::{
     get_storage_proofs,
 };
 use rpc_client::state_reader::AsyncRpcStateReader;
-use rpc_client::types::{ContractProof, PedersenHash};
+use rpc_client::types::ContractProof;
 use rpc_client::RpcClient;
 use starknet_os_types::chain_id::chain_id_from_felt;
 
@@ -60,9 +60,9 @@ pub struct BlockInfoResult {
     /// The OS block input for the block.
     pub os_block_input: OsBlockInput,
     /// Compiled classes used in the block.
-    pub compiled_classes: BTreeMap<ClassHash, CasmContractClass>,
+    pub compiled_classes: BTreeMap<CompiledClassHash, CasmContractClass>,
     /// Deprecated compiled classes used in the block.
-    pub deprecated_compiled_classes: BTreeMap<ClassHash, ContractClass>,
+    pub deprecated_compiled_classes: BTreeMap<CompiledClassHash, ContractClass>,
     /// Addresses accessed during block execution.
     pub accessed_addresses: HashSet<ContractAddress>,
     /// Class hashes accessed during block execution.
@@ -114,8 +114,8 @@ struct CommitmentCalculationResult {
 
 /// Result containing processed contract class data.
 struct ContractClassProcessingResult {
-    compiled_classes: BTreeMap<ClassHash, CasmContractClass>,
-    deprecated_compiled_classes: BTreeMap<ClassHash, ContractClass>,
+    compiled_classes: BTreeMap<CompiledClassHash, CasmContractClass>,
+    deprecated_compiled_classes: BTreeMap<CompiledClassHash, ContractClass>,
     declared_class_hash_component_hashes: HashMap<ClassHash, ContractClassComponentHashes>,
 }
 
@@ -353,34 +353,8 @@ async fn process_transactions(
     info!("Successfully got {} transaction traces", transaction_traces.len());
 
     // Extract accessed contracts and classes from traces
-    let (accessed_addresses_felt, accessed_classes_felt) = get_subcalled_contracts_from_tx_traces(&transaction_traces);
-
-    // Convert Felt to proper types
-    let accessed_addresses: HashSet<ContractAddress> = accessed_addresses_felt
-        .iter()
-        .map(|felt| {
-            ContractAddress::try_from(*felt)
-                .map_err(|e| BlockProcessingError::new_custom(format!("Invalid contract address: {:?}", e)))
-        })
-        .collect::<Result<HashSet<_>, _>>()?;
-
-    let accessed_classes: HashSet<ClassHash> = accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
-
-    info!("Found {} accessed addresses and {} accessed classes", accessed_addresses.len(), accessed_classes.len());
-
-    // Fetch processed state update
-    let processed_state_update = get_formatted_state_update(
-        rpc_client,
-        previous_block_id,
-        block_id,
-        accessed_addresses_felt,
-        accessed_classes_felt,
-    )
-    .await
-    .map_err(|e| {
-        BlockProcessingError::StateUpdateProcessing(format!("Failed to get formatted state update: {:?}", e))
-    })?;
-    info!("Fetched processed state update successfully");
+    let (mut accessed_addresses_felt, accessed_classes_felt) =
+        get_subcalled_contracts_from_tx_traces(&transaction_traces);
 
     // Convert transactions to blockifier format
     let mut transactions = Vec::new();
@@ -441,7 +415,43 @@ async fn process_transactions(
     // Get accessed keys and populate alias contract keys
     let mut accessed_keys_by_address =
         get_accessed_keys_with_block_hash(&txn_execution_infos, block_data.old_block_number);
+
     info!("Got accessed keys for {} contracts", accessed_keys_by_address.len());
+
+    accessed_addresses_felt.extend(accessed_keys_by_address.keys().map(|contract_addr| {
+        let felt: Felt = (*contract_addr).into();
+        Felt252::from(felt)
+    }));
+
+    let processed_state_update = get_formatted_state_update(
+        &rpc_client,
+        previous_block_id,
+        block_id,
+        accessed_addresses_felt.clone(),
+        accessed_classes_felt.clone(),
+    )
+    .await
+    .map_err(|e| {
+        BlockProcessingError::StateUpdateProcessing(format!("Failed to get formatted state update: {:?}", e))
+    })?;
+    info!("Fetched processed state update successfully");
+
+    // Convert Felt252 to proper types
+    let accessed_addresses: HashSet<ContractAddress> = accessed_addresses_felt
+        .iter()
+        .map(|felt| {
+            ContractAddress::try_from(*felt)
+                .map_err(|e| BlockProcessingError::new_custom(format!("Invalid contract address: {:?}", e)))
+        })
+        .collect::<Result<HashSet<_>, _>>()?;
+
+    let accessed_classes: HashSet<ClassHash> = accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
+
+    debug!(
+        "Successfully Found {} accessed addresses and {} accessed classes",
+        accessed_addresses.len(),
+        accessed_classes.len()
+    );
 
     populate_alias_contract_keys(&accessed_addresses, &accessed_classes, &mut accessed_keys_by_address);
 
@@ -571,7 +581,7 @@ async fn calculate_commitments(
             ))
         })?;
 
-        let previous_contract_commitment_facts = format_commitment_facts::<PedersenHash>(
+        let previous_contract_commitment_facts = format_commitment_facts(
             &previous_storage_proof
                 .clone()
                 .contract_data
@@ -579,7 +589,7 @@ async fn calculate_commitments(
                 .storage_proofs,
         );
 
-        let current_contract_commitment_facts = format_commitment_facts::<PedersenHash>(
+        let current_contract_commitment_facts = format_commitment_facts(
             &storage_proof
                 .clone()
                 .contract_data
@@ -658,12 +668,12 @@ async fn calculate_commitments(
     let previous_contract_proofs: Vec<_> =
         proofs.previous_storage_proofs.values().map(|proof| proof.contract_proof.clone()).collect();
 
-    let previous_state_commitment_facts = format_commitment_facts::<PedersenHash>(&previous_contract_proofs);
+    let previous_state_commitment_facts = format_commitment_facts(&previous_contract_proofs);
 
     let current_contract_proofs: Vec<_> =
         proofs.storage_proofs.values().map(|proof| proof.contract_proof.clone()).collect();
 
-    let current_state_commitment_facts = format_commitment_facts::<PedersenHash>(&current_contract_proofs);
+    let current_state_commitment_facts = format_commitment_facts(&current_contract_proofs);
 
     let global_state_commitment_facts: HashMap<_, _> = previous_state_commitment_facts
         .into_iter()
@@ -720,10 +730,10 @@ fn process_contract_classes(
         .collect();
 
     // Convert compiled classes to BTreeMap with ClassHash keys
-    let mut compiled_classes_btree: BTreeMap<ClassHash, CasmContractClass> = BTreeMap::new();
+    let mut compiled_classes_btree: BTreeMap<CompiledClassHash, CasmContractClass> = BTreeMap::new();
     for (class_hash_felt, generic_class) in compiled_classes {
         debug!("Processing class hash: {:?}", class_hash_felt);
-        let class_hash = ClassHash(*class_hash_felt);
+        let class_hash = CompiledClassHash(*class_hash_felt);
         let cairo_lang_class = generic_class
             .get_cairo_lang_contract_class()
             .map_err(|e| {
@@ -738,12 +748,12 @@ fn process_contract_classes(
     }
 
     // Convert deprecated compiled classes to BTreeMap with ClassHash keys
-    let mut deprecated_compiled_classes_btree: BTreeMap<ClassHash, ContractClass> = BTreeMap::new();
+    let mut deprecated_compiled_classes_btree: BTreeMap<CompiledClassHash, ContractClass> = BTreeMap::new();
     let deprecated_rpc_calls_made = 0;
     let deprecated_mapping_hits = 0;
 
     for (class_hash_felt, generic_class) in deprecated_compiled_classes {
-        let class_hash = ClassHash(*class_hash_felt);
+        let class_hash = CompiledClassHash(*class_hash_felt);
         let starknet_api_class = generic_class.clone().to_starknet_api_contract_class().map_err(|e| {
             BlockProcessingError::ContractClassConversion(format!(
                 "Failed to convert to starknet-api contract class: {:?}",

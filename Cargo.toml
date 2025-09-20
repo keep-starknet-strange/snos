@@ -15,32 +15,30 @@ repository = "https://github.com/keep-starknet-strange/snos/"
 license-file = "LICENSE"
 
 [workspace.dependencies]
-starknet_api = { git = "https://github.com/karnotxyz/sequencer", rev = "3c206344dc64b5a0f150ea94cd2623b2a9a7da63", features = [
+starknet_api = { git = "https://github.com/karnotxyz/sequencer", rev = "8a9e6d78e344be3e07577230cebfc99b18c87f9b", features = [
   "testing",
 ] }
-starknet_os = { git = "https://github.com/karnotxyz/sequencer", rev = "3c206344dc64b5a0f150ea94cd2623b2a9a7da63", features = [
+starknet_os = { git = "https://github.com/karnotxyz/sequencer", rev = "8a9e6d78e344be3e07577230cebfc99b18c87f9b", features = [
   "testing",
 ] }
-blockifier = { git = "https://github.com/karnotxyz/sequencer", rev = "3c206344dc64b5a0f150ea94cd2623b2a9a7da63", features = [
+blockifier = { git = "https://github.com/karnotxyz/sequencer", rev = "8a9e6d78e344be3e07577230cebfc99b18c87f9b", features = [
   "testing",
 ] }
-starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", rev = "3c206344dc64b5a0f150ea94cd2623b2a9a7da63", features = [
+starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", rev = "8a9e6d78e344be3e07577230cebfc99b18c87f9b", features = [
   "testing",
 ] }
-shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", rev = "3c206344dc64b5a0f150ea94cd2623b2a9a7da63" }
+shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", rev = "8a9e6d78e344be3e07577230cebfc99b18c87f9b" }
 
 cairo-lang-starknet = "=2.12.0-dev.1"
 cairo-lang-starknet-classes = "=2.12.0-dev.1"
 cairo-lang-utils = "=2.12.0-dev.1"
 cairo-lang-casm = "=2.12.0-dev.1"
-cairo-vm = "=2.2.0"
+cairo-vm = "=2.3.1"
 
 starknet = "0.16.0"
 starknet-types-core = "0.1.5"
 
-pathfinder-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260", package = "starknet-gateway-types" }
-pathfinder-common = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260" }
-pathfinder-serde = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260" }
+pathfinder-class-hash = { git = "https://github.com/eqlabs/pathfinder", rev = "f205768f0ca4b6adcdce338e6f95ee9acb80b734", package = "pathfinder-class-hash" }
 
 log = "0.4.19"
 reqwest = { version = "0.11.18", features = ["blocking", "json"] }
@@ -58,6 +56,7 @@ starknet-crypto = "0.7.0"
 bitvec = { version = "1.0", default-features = false, features = ["std"] }
 num-traits = "0.2.19"
 async-trait = "0.1.89"
+chrono = "0.4.41"
 
 indoc = "2"
 rstest = "0.18.2"

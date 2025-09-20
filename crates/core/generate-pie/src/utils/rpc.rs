@@ -45,11 +45,11 @@ pub(crate) fn get_comprehensive_access_info(
     // Include extra keys for contracts that trigger get_block_hash_syscall
     insert_extra_storage_reads_keys(old_block_number, &mut accessed_keys_by_address);
 
-    let mut accessed_contract_addresses = HashSet::new();
-    let mut accessed_class_hashes = HashSet::new();
-    let mut storage_read_values = HashSet::new();
-    let mut read_class_hash_values = HashSet::new();
-    let mut read_block_hash_values = HashSet::new();
+    let accessed_contract_addresses = HashSet::new();
+    let accessed_class_hashes = HashSet::new();
+    let storage_read_values = HashSet::new();
+    let read_class_hash_values = HashSet::new();
+    let read_block_hash_values = HashSet::new();
     let mut accessed_blocks = HashSet::new();
 
     // Collect all access information from transaction execution infos

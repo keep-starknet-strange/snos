@@ -70,7 +70,7 @@ impl ContractData {
 
         for (index, storage_key) in storage_keys.iter().enumerate() {
             if let Err(e) = self.storage_proofs[index].verify_proof::<PedersenHash>(*storage_key, self.root) {
-                errors.push(*e);
+                errors.push(e);
             }
         }
 

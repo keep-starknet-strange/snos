@@ -11,11 +11,8 @@ use starknet::core::types::{BlockWithTxs, L1DataAvailabilityMode};
 use starknet_api::block::{BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion};
 use starknet_api::contract_address;
 use starknet_api::core::ChainId;
-use starknet_types_core::felt::Felt;
 
-use crate::constants::{
-    DEFAULT_ETH_L2_GAS_PRICE, DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN, DEFAULT_STRK_L2_GAS_PRICE,
-};
+use crate::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use crate::error::FeltConversionError;
 use crate::utils::build_gas_price_vector;
 

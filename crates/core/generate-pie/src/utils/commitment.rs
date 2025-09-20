@@ -1,5 +1,5 @@
 use log::info;
-use rpc_client::types::{ClassProof, Hash, PoseidonHash, TrieNode};
+use rpc_client::types::{ClassProof, TrieNode};
 use starknet_os::io::os_input::CommitmentInfo;
 use starknet_patricia::hash::hash_trait::HashOutput;
 use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
@@ -100,7 +100,7 @@ pub fn create_contract_state_commitment_info(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rpc_client::types::PedersenHash;
+    use rpc_client::types::{Hash, PedersenHash, PoseidonHash};
 
     #[test]
     fn test_format_commitment_facts_empty() {
