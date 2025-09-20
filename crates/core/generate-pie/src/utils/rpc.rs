@@ -62,15 +62,7 @@ pub(crate) fn get_comprehensive_access_info(
         .into_iter()
         .flatten()
         {
-            collect_access_info_from_call(
-                call_info,
-                &mut accessed_contract_addresses,
-                &mut accessed_class_hashes,
-                &mut storage_read_values,
-                &mut read_class_hash_values,
-                &mut read_block_hash_values,
-                &mut accessed_blocks,
-            );
+            collect_access_info_from_call(call_info, &mut accessed_blocks);
         }
     }
 
@@ -91,67 +83,9 @@ pub(crate) fn get_comprehensive_access_info(
     }
 }
 
-/// Merges multiple BlockAccessInfo structures into one comprehensive structure
-/// This is useful when you have access info from current and previous blocks
-#[allow(dead_code)]
-pub(crate) fn merge_access_info(access_infos: Vec<BlockAccessInfo>) -> BlockAccessInfo {
-    let mut merged = BlockAccessInfo {
-        accessed_keys_by_address: HashMap::new(),
-        accessed_contract_addresses: HashSet::new(),
-        accessed_class_hashes: HashSet::new(),
-        storage_read_values: HashSet::new(),
-        read_class_hash_values: HashSet::new(),
-        read_block_hash_values: HashSet::new(),
-        accessed_blocks: HashSet::new(),
-    };
-
-    for access_info in access_infos {
-        // Merge accessed_keys_by_address - combine keys for each contract address
-        for (contract_address, storage_keys) in access_info.accessed_keys_by_address {
-            merged.accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
-        }
-
-        // Merge all global HashSets - union operations
-        merged.accessed_contract_addresses.extend(access_info.accessed_contract_addresses);
-        merged.accessed_class_hashes.extend(access_info.accessed_class_hashes);
-        merged.storage_read_values.extend(access_info.storage_read_values);
-        merged.read_class_hash_values.extend(access_info.read_class_hash_values);
-        merged.read_block_hash_values.extend(access_info.read_block_hash_values);
-        merged.accessed_blocks.extend(access_info.accessed_blocks);
-    }
-
-    merged
-}
-
 /// Recursively collects access information from a call and its inner calls
-fn collect_access_info_from_call(
-    call_info: &CallInfo,
-    accessed_contract_addresses: &mut HashSet<ContractAddress>,
-    _accessed_class_hashes: &mut HashSet<Felt>,
-    storage_read_values: &mut HashSet<Felt>,
-    read_class_hash_values: &mut HashSet<Felt>,
-    read_block_hash_values: &mut HashSet<Felt>,
-    accessed_blocks: &mut HashSet<Felt>,
-) {
+fn collect_access_info_from_call(call_info: &CallInfo, accessed_blocks: &mut HashSet<Felt>) {
     let tracker = &call_info.storage_access_tracker;
-
-    // Collect contract addresses
-    accessed_contract_addresses.extend(&tracker.accessed_contract_addresses);
-
-    // Collect storage read values (insert unique values)
-    for value in &tracker.storage_read_values {
-        storage_read_values.insert(*value);
-    }
-
-    // Collect class hash values (insert unique values) - convert ClassHash to Felt
-    for class_hash in &tracker.read_class_hash_values {
-        read_class_hash_values.insert(class_hash.0);
-    }
-
-    // Collect block hash values (insert unique values) - convert BlockHash to Felt
-    for block_hash in &tracker.read_block_hash_values {
-        read_block_hash_values.insert(block_hash.0);
-    }
 
     // Collect accessed blocks - convert BlockNumber to Felt
     for block_number in &tracker.accessed_blocks {
@@ -160,15 +94,7 @@ fn collect_access_info_from_call(
 
     // Recursively process inner calls
     for inner_call in &call_info.inner_calls {
-        collect_access_info_from_call(
-            inner_call,
-            accessed_contract_addresses,
-            _accessed_class_hashes,
-            storage_read_values,
-            read_class_hash_values,
-            read_block_hash_values,
-            accessed_blocks,
-        );
+        collect_access_info_from_call(inner_call, accessed_blocks);
     }
 }
 

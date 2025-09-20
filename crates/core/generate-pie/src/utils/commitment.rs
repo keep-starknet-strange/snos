@@ -11,11 +11,7 @@ use std::collections::HashMap;
 ///
 /// This function processes trie nodes and converts them into commitment facts
 /// suitable for the OS consumption.
-#[allow(clippy::extra_unused_type_parameters)]
-pub fn format_commitment_facts<H>(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt, Vec<Felt>>
-where
-    H: Hash,
-{
+pub fn format_commitment_facts(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt, Vec<Felt>> {
     let mut facts = HashMap::new();
 
     for nodes in trie_nodes {
@@ -53,8 +49,6 @@ where
 /// Port of the compute_class_commitment function from old snos
 ///
 /// This function processes class proofs and creates a CommitmentInfo for class commitments.
-///
-/// Original location: ../snos/crates/bin/prove_block/src/lib.rs:78-118
 pub fn compute_class_commitment(
     previous_class_proofs: &HashMap<Felt, ClassProof>,
     class_proofs: &HashMap<Felt, ClassProof>,
@@ -63,26 +57,6 @@ pub fn compute_class_commitment(
 ) -> CommitmentInfo {
     // TODO: Verify previous class proofs - need to find the correct verify method
     // For now, we'll skip verification to get the code compiling
-    // Original code used: previous_class_proof.verify(*class_hash)
-
-    // for (class_hash, previous_class_proof) in previous_class_proofs {
-    //     if let Err(e) = previous_class_proof.verify(*class_hash) {
-    //         match e {
-    //             ProofVerificationError::NonExistenceProof { .. } | ProofVerificationError::EmptyProof => {}
-    //             _ => panic!("Previous class proof verification failed"),
-    //         }
-    //     }
-    // }
-    //
-    // // Verify current class proofs
-    // for (class_hash, class_proof) in class_proofs {
-    //     if let Err(e) = class_proof.verify(*class_hash) {
-    //         match e {
-    //             ProofVerificationError::NonExistenceProof { .. } => {}
-    //             _ => panic!("Current class proof verification failed"),
-    //         }
-    //     }
-    // }
 
     // Extract class proof vectors
     let previous_class_proofs: Vec<_> = previous_class_proofs.values().cloned().collect();
@@ -92,8 +66,8 @@ pub fn compute_class_commitment(
     let class_proofs: Vec<_> = class_proofs.into_iter().map(|proof| proof.class_proof).collect();
 
     // Format commitment facts using Poseidon hash (for class commitments)
-    let previous_class_commitment_facts = format_commitment_facts::<PoseidonHash>(&previous_class_proofs);
-    let current_class_commitment_facts = format_commitment_facts::<PoseidonHash>(&class_proofs);
+    let previous_class_commitment_facts = format_commitment_facts(&previous_class_proofs);
+    let current_class_commitment_facts = format_commitment_facts(&class_proofs);
 
     // Combine facts from previous and current
     let class_commitment_facts: HashMap<_, _> =
@@ -131,7 +105,7 @@ mod tests {
     #[test]
     fn test_format_commitment_facts_empty() {
         let empty_nodes: Vec<Vec<TrieNode>> = vec![];
-        let facts = format_commitment_facts::<PedersenHash>(&empty_nodes);
+        let facts = format_commitment_facts(&empty_nodes);
         assert!(facts.is_empty());
     }
 

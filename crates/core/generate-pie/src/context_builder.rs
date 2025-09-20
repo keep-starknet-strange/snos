@@ -71,14 +71,12 @@ pub fn build_block_context(
     let eth_gas_prices = build_gas_price_vector(
         &block.l1_gas_price.price_in_wei,
         &block.l1_data_gas_price.price_in_wei,
-        &Felt::from_hex(DEFAULT_ETH_L2_GAS_PRICE)
-            .map_err(|_| FeltConversionError::new_custom("Invalid default ETH L2 gas price"))?,
+        &block.l2_gas_price.price_in_wei,
     )?;
     let strk_gas_prices = build_gas_price_vector(
         &block.l1_gas_price.price_in_fri,
         &block.l1_data_gas_price.price_in_fri,
-        &Felt::from_hex(DEFAULT_STRK_L2_GAS_PRICE)
-            .map_err(|_| FeltConversionError::new_custom("Invalid default STRK L2 gas price"))?,
+        &block.l2_gas_price.price_in_fri,
     )?;
 
     let block_info = BlockInfo {
@@ -103,7 +101,7 @@ pub fn build_block_context(
         is_l3,
     };
 
-    // Get versioned constants for Starknet v0.14.0
+    // Get versioned constants
     let versioned_constants = VersionedConstants::get(starknet_version).map_err(|_| {
         FeltConversionError::new_custom(format!("Failed to get versioned constants for {}", starknet_version))
     })?;
