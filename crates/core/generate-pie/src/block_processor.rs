@@ -332,7 +332,10 @@ async fn process_transactions(
     info!("Processing transactions for block {}", block_number);
 
     let block_id = BlockId::Number(block_number);
-    let previous_block_id = if block_number == 0 { None } else { Some(BlockId::Number(block_number - 1)) };
+    let previous_block_id = match &block_data.previous_block {
+        Some(previous_block) => Some(BlockId::Number(previous_block.block_number)),
+        None => None,
+    };
 
     // Build block context
     let block_context = build_block_context(
@@ -350,7 +353,7 @@ async fn process_transactions(
         .trace_block_transactions(block_id)
         .await
         .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
-    info!("Successfully got {} transaction traces", transaction_traces.len());
+    info!("Successfully fetched {} transaction traces for block {}", transaction_traces.len(), block_number);
 
     // Extract accessed contracts and classes from traces
     let (mut accessed_addresses_felt, accessed_classes_felt) =
@@ -358,8 +361,12 @@ async fn process_transactions(
 
     // Convert transactions to blockifier format
     let mut transactions = Vec::new();
-    for (i, (tx, trace)) in block_data.current_block.transactions.iter().zip(transaction_traces.iter()).enumerate() {
+    for (i, (transaction, trace)) in
+        block_data.current_block.transactions.iter().zip(transaction_traces.iter()).enumerate()
+    {
         // Create conversion context for this transaction
+        // TODO: Create a single context for all the transactions
+        //  Pass the trace separately to the conversion method
         let conversion_ctx = ConversionContext::new(
             &block_data.chain_id,
             block_number,
@@ -369,13 +376,17 @@ async fn process_transactions(
         );
 
         // Convert transaction using the new async trait
-        let transaction = tx.clone().try_into_blockifier_async(&conversion_ctx).await.map_err(|e| {
+        let transaction = transaction.clone().try_into_blockifier_async(&conversion_ctx).await.map_err(|e| {
             BlockProcessingError::new_custom(format!("Failed to convert transaction to blockifier format: {:?}", e))
         })?;
         transactions.push(transaction);
 
         if (i + 1) % 10 == 0 || i == block_data.current_block.transactions.len() - 1 {
-            debug!("📝 Converted {}/{} transactions", i + 1, block_data.current_block.transactions.len());
+            debug!(
+                "📝 Converted {}/{} transactions to blockifier type",
+                i + 1,
+                block_data.current_block.transactions.len()
+            );
         }
     }
     info!("All transactions converted to blockifier format");
@@ -392,19 +403,19 @@ async fn process_transactions(
         })?,
     );
 
-    let mut tmp_executor =
+    let mut txn_executor =
         TransactionExecutor::new(CachedState::new(blockifier_state_reader), block_context.clone(), config);
     info!("Transaction executor created successfully");
 
     // Execute transactions
     let execution_deadline = None;
-    let execution_outputs: Vec<_> = tmp_executor
+    let execution_outputs: Vec<_> = txn_executor
         .execute_txs(&blockifier_txns, execution_deadline)
         .into_iter()
         .collect::<Result<_, TransactionExecutorError>>()
         .map_err(BlockProcessingError::TransactionExecution)?;
 
-    debug!("{} transactions executed successfully", blockifier_txns.len());
+    info!("{} transactions executed successfully", blockifier_txns.len());
 
     let txn_execution_infos: Vec<TransactionExecutionInfo> =
         execution_outputs.into_iter().map(|(execution_info, _)| execution_info).collect();
@@ -447,7 +458,7 @@ async fn process_transactions(
 
     let accessed_classes: HashSet<ClassHash> = accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
 
-    debug!(
+    info!(
         "Successfully Found {} accessed addresses and {} accessed classes",
         accessed_addresses.len(),
         accessed_classes.len()

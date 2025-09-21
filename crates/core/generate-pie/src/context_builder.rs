@@ -54,6 +54,7 @@ pub fn build_block_context(
     is_l3: bool,
     starknet_version: &StarknetVersion,
 ) -> Result<BlockContext, FeltConversionError> {
+    // TODO: Make this as a method of BlockData
     // Extract sequencer address
     let sequencer_address_hex = block.sequencer_address.to_hex_string();
     let sequencer_address = contract_address!(sequencer_address_hex.as_str());
@@ -91,6 +92,7 @@ pub fn build_block_context(
         chain_id,
         // Fee token addresses for Sepolia testnet
         // Reference: https://docs.starknet.io/tools/important-addresses/
+        // TODO: Take these from the user
         fee_token_addresses: FeeTokenAddresses {
             strk_fee_token_address: contract_address!(DEFAULT_SEPOLIA_STRK_FEE_TOKEN),
             eth_fee_token_address: contract_address!(DEFAULT_SEPOLIA_ETH_FEE_TOKEN),
@@ -99,11 +101,13 @@ pub fn build_block_context(
     };
 
     // Get versioned constants
+    // TODO: Add support for taking custom versioned constants from the user
     let versioned_constants = VersionedConstants::get(starknet_version).map_err(|_| {
         FeltConversionError::new_custom(format!("Failed to get versioned constants for {}", starknet_version))
     })?;
 
     // Use maximum bouncer configuration
+    // TODO: Add support for taking custom bouncer configuration from the user
     let bouncer_config = BouncerConfig::max();
 
     Ok(BlockContext::new(block_info, chain_info, versioned_constants.clone(), bouncer_config))
