@@ -359,24 +359,21 @@ async fn process_transactions(
     let (mut accessed_addresses_felt, accessed_classes_felt) =
         get_subcalled_contracts_from_tx_traces(&transaction_traces);
 
+    // Create a single conversion context for all transactions
+    let conversion_ctx = ConversionContext::new(
+        &block_data.chain_id,
+        block_number,
+        rpc_client,
+        &block_context.block_info().gas_prices,
+    );
+
     // Convert transactions to blockifier format
     let mut transactions = Vec::new();
     for (i, (transaction, trace)) in
         block_data.current_block.transactions.iter().zip(transaction_traces.iter()).enumerate()
     {
-        // Create conversion context for this transaction
-        // TODO: Create a single context for all the transactions
-        //  Pass the trace separately to the conversion method
-        let conversion_ctx = ConversionContext::new(
-            &block_data.chain_id,
-            block_number,
-            rpc_client,
-            &block_context.block_info().gas_prices,
-            trace,
-        );
-
-        // Convert transaction using the new async trait
-        let transaction = transaction.clone().try_into_blockifier_async(&conversion_ctx).await.map_err(|e| {
+        // Convert transaction using the new async trait, passing trace separately
+        let transaction = transaction.clone().try_into_blockifier_async(&conversion_ctx, trace).await.map_err(|e| {
             BlockProcessingError::new_custom(format!("Failed to convert transaction to blockifier format: {:?}", e))
         })?;
         transactions.push(transaction);

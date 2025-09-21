@@ -83,8 +83,6 @@ pub struct ConversionContext<'a> {
     pub rpc_client: &'a RpcClient,
     /// Gas prices for the block
     pub gas_prices: &'a GasPrices,
-    /// Transaction trace for additional context
-    pub trace: &'a TransactionTraceWithHash,
 }
 
 impl<'a> ConversionContext<'a> {
@@ -96,7 +94,6 @@ impl<'a> ConversionContext<'a> {
     /// * `block_number` - The block number being processed
     /// * `rpc_client` - The RPC client for fetching additional data
     /// * `gas_prices` - The gas prices for the block
-    /// * `trace` - The transaction trace for additional context
     ///
     /// # Example
     ///
@@ -106,7 +103,6 @@ impl<'a> ConversionContext<'a> {
     ///     block_number,
     ///     &rpc_client,
     ///     &gas_prices,
-    ///     &trace,
     /// );
     /// ```
     pub fn new(
@@ -114,9 +110,8 @@ impl<'a> ConversionContext<'a> {
         block_number: u64,
         rpc_client: &'a RpcClient,
         gas_prices: &'a GasPrices,
-        trace: &'a TransactionTraceWithHash,
     ) -> Self {
-        Self { chain_id, block_number, rpc_client, gas_prices, trace }
+        Self { chain_id, block_number, rpc_client, gas_prices }
     }
 }
 
@@ -142,7 +137,11 @@ pub trait TryIntoBlockifierSync<T> {
 pub trait TryIntoBlockifierAsync<T> {
     type Error;
 
-    async fn try_into_blockifier_async(self, ctx: &ConversionContext<'_>) -> Result<T, Self::Error>;
+    async fn try_into_blockifier_async(
+        self,
+        ctx: &ConversionContext<'_>,
+        trace: &TransactionTraceWithHash,
+    ) -> Result<T, Self::Error>;
 }
 
 // ================================================================================================
@@ -311,6 +310,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV1
     async fn try_into_blockifier_async(
         self,
         ctx: &ConversionContext<'_>,
+        _trace: &TransactionTraceWithHash,
     ) -> Result<TransactionConversionResult, Self::Error> {
         debug!("Converting InvokeTransactionV1");
 
@@ -340,6 +340,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV3
     async fn try_into_blockifier_async(
         self,
         ctx: &ConversionContext<'_>,
+        _trace: &TransactionTraceWithHash,
     ) -> Result<TransactionConversionResult, Self::Error> {
         debug!("Converting InvokeTransactionV3");
 
@@ -376,6 +377,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
     async fn try_into_blockifier_async(
         self,
         ctx: &ConversionContext<'_>,
+        _trace: &TransactionTraceWithHash,
     ) -> Result<TransactionConversionResult, Self::Error> {
         debug!("Converting DeclareTransactionV0");
 
@@ -408,6 +410,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
     async fn try_into_blockifier_async(
         self,
         ctx: &ConversionContext<'_>,
+        _trace: &TransactionTraceWithHash,
     ) -> Result<TransactionConversionResult, Self::Error> {
         debug!("Converting DeclareTransactionV1");
 
@@ -440,6 +443,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
     async fn try_into_blockifier_async(
         self,
         ctx: &ConversionContext<'_>,
+        _trace: &TransactionTraceWithHash,
     ) -> Result<TransactionConversionResult, Self::Error> {
         debug!("Converting DeclareTransactionV2");
 
@@ -473,6 +477,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
     async fn try_into_blockifier_async(
         self,
         ctx: &ConversionContext<'_>,
+        _trace: &TransactionTraceWithHash,
     ) -> Result<TransactionConversionResult, Self::Error> {
         debug!("Converting DeclareTransactionV3");
 
@@ -513,6 +518,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeployAccountTransa
     async fn try_into_blockifier_async(
         self,
         ctx: &ConversionContext<'_>,
+        _trace: &TransactionTraceWithHash,
     ) -> Result<TransactionConversionResult, Self::Error> {
         debug!("Converting DeployAccountTransactionV1");
 
@@ -546,6 +552,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeployAccountTransa
     async fn try_into_blockifier_async(
         self,
         ctx: &ConversionContext<'_>,
+        _trace: &TransactionTraceWithHash,
     ) -> Result<TransactionConversionResult, Self::Error> {
         debug!("Converting DeployAccountTransactionV3");
 
@@ -614,6 +621,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for L1HandlerTransactio
     async fn try_into_blockifier_async(
         self,
         ctx: &ConversionContext<'_>,
+        trace: &TransactionTraceWithHash,
     ) -> Result<TransactionConversionResult, Self::Error> {
         debug!("Converting L1HandlerTransaction");
 
@@ -628,7 +636,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for L1HandlerTransactio
             calldata: starknet_api::transaction::fields::Calldata(Arc::new(self.calldata)),
         };
 
-        let paid_fee_on_l1 = calculate_l1_handler_fee(ctx.trace, ctx.gas_prices);
+        let paid_fee_on_l1 = calculate_l1_handler_fee(trace, ctx.gas_prices);
         let l1_handler_tx =
             starknet_api::executable_transaction::L1HandlerTransaction::create(api_tx, ctx.chain_id, paid_fee_on_l1)?;
 
@@ -647,25 +655,26 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for Transaction {
     async fn try_into_blockifier_async(
         self,
         ctx: &ConversionContext<'_>,
+        trace: &TransactionTraceWithHash,
     ) -> Result<TransactionConversionResult, Self::Error> {
         match self {
             Transaction::Invoke(tx) => match tx {
                 InvokeTransaction::V0(_) => {
                     Err(ConversionError::UnsupportedTransaction { transaction_type: "InvokeV0".to_string() })
                 }
-                InvokeTransaction::V1(tx) => tx.try_into_blockifier_async(ctx).await,
-                InvokeTransaction::V3(tx) => tx.try_into_blockifier_async(ctx).await,
+                InvokeTransaction::V1(tx) => tx.try_into_blockifier_async(ctx, trace).await,
+                InvokeTransaction::V3(tx) => tx.try_into_blockifier_async(ctx, trace).await,
             },
             Transaction::Declare(tx) => match tx {
-                DeclareTransaction::V0(tx) => tx.try_into_blockifier_async(ctx).await,
-                DeclareTransaction::V1(tx) => tx.try_into_blockifier_async(ctx).await,
-                DeclareTransaction::V2(tx) => tx.try_into_blockifier_async(ctx).await,
-                DeclareTransaction::V3(tx) => tx.try_into_blockifier_async(ctx).await,
+                DeclareTransaction::V0(tx) => tx.try_into_blockifier_async(ctx, trace).await,
+                DeclareTransaction::V1(tx) => tx.try_into_blockifier_async(ctx, trace).await,
+                DeclareTransaction::V2(tx) => tx.try_into_blockifier_async(ctx, trace).await,
+                DeclareTransaction::V3(tx) => tx.try_into_blockifier_async(ctx, trace).await,
             },
-            Transaction::L1Handler(tx) => tx.try_into_blockifier_async(ctx).await,
+            Transaction::L1Handler(tx) => tx.try_into_blockifier_async(ctx, trace).await,
             Transaction::DeployAccount(tx) => match tx {
-                DeployAccountTransaction::V1(tx) => tx.try_into_blockifier_async(ctx).await,
-                DeployAccountTransaction::V3(tx) => tx.try_into_blockifier_async(ctx).await,
+                DeployAccountTransaction::V1(tx) => tx.try_into_blockifier_async(ctx, trace).await,
+                DeployAccountTransaction::V3(tx) => tx.try_into_blockifier_async(ctx, trace).await,
             },
             Transaction::Deploy(_) => {
                 Err(ConversionError::UnsupportedTransaction { transaction_type: "Deploy".to_string() })
