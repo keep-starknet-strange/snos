@@ -15,7 +15,9 @@ use cairo_vm::Felt252;
 use log::{debug, info};
 use num_traits::ToPrimitive;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
-use starknet::core::types::{BlockId, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs};
+use starknet::core::types::{
+    BlockId, ConfirmedBlockId, MaybePreConfirmedBlockWithTxHashes, MaybePreConfirmedBlockWithTxs,
+};
 use starknet::providers::Provider;
 use starknet_api::block::{BlockHash, BlockNumber, StarknetVersion};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
@@ -258,8 +260,8 @@ async fn fetch_block_data(block_number: u64, rpc_client: &RpcClient) -> Result<B
         .await
         .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
     {
-        MaybePendingBlockWithTxs::Block(block_with_txs) => block_with_txs,
-        MaybePendingBlockWithTxs::PendingBlock(_) => {
+        MaybePreConfirmedBlockWithTxs::Block(block_with_txs) => block_with_txs,
+        MaybePreConfirmedBlockWithTxs::PreConfirmedBlock(_) => {
             return Err(BlockProcessingError::InvalidBlockState("Block is still pending".to_string()));
         }
     };
@@ -278,8 +280,8 @@ async fn fetch_block_data(block_number: u64, rpc_client: &RpcClient) -> Result<B
             .await
             .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
         {
-            MaybePendingBlockWithTxHashes::Block(block_with_txs) => Some(block_with_txs),
-            MaybePendingBlockWithTxHashes::PendingBlock(_) => {
+            MaybePreConfirmedBlockWithTxHashes::Block(block_with_txs) => Some(block_with_txs),
+            MaybePreConfirmedBlockWithTxHashes::PreConfirmedBlock(_) => {
                 return Err(BlockProcessingError::InvalidBlockState("Previous block is still pending".to_string()));
             }
         },
@@ -294,8 +296,8 @@ async fn fetch_block_data(block_number: u64, rpc_client: &RpcClient) -> Result<B
         .await
         .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
     {
-        MaybePendingBlockWithTxHashes::Block(block_with_txs_hashes) => block_with_txs_hashes,
-        MaybePendingBlockWithTxHashes::PendingBlock(_) => {
+        MaybePreConfirmedBlockWithTxHashes::Block(block_with_txs_hashes) => block_with_txs_hashes,
+        MaybePreConfirmedBlockWithTxHashes::PreConfirmedBlock(_) => {
             return Err(BlockProcessingError::InvalidBlockState("Older block is still pending".to_string()));
         }
     };
@@ -345,9 +347,10 @@ async fn process_transactions(
     info!("Block context built successfully");
 
     // Fetch transaction traces
+    let confirmed_block_id = ConfirmedBlockId::Number(block_number);
     let transaction_traces = rpc_client
         .starknet_rpc()
-        .trace_block_transactions(block_id)
+        .trace_block_transactions(confirmed_block_id)
         .await
         .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
     info!("Successfully got {} transaction traces", transaction_traces.len());
@@ -819,6 +822,7 @@ fn build_os_block_input(
             BlockNumber(block_data.old_block_number.to_u64().unwrap()),
             BlockHash(block_data.old_block_hash),
         )),
+        class_hashes_to_migrate: HashMap::default(), // we will use the 0.14.0 version constants which makes sure that we don't have any migrated classes
     }
 }
 

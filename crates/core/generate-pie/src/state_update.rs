@@ -13,7 +13,7 @@ use cairo_vm::Felt252;
 use log::{debug, info, warn};
 use rpc_client::RpcClient;
 use starknet::core::types::{
-    BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingStateUpdate, StarknetError, StateDiff,
+    BlockId, ExecuteInvocation, FunctionInvocation, MaybePreConfirmedStateUpdate, StarknetError, StateDiff,
     TransactionTrace, TransactionTraceWithHash,
 };
 use starknet::providers::Provider;
@@ -233,11 +233,11 @@ async fn fetch_state_update(
         rpc_client.starknet_rpc().get_state_update(block_id).await.map_err(StateUpdateError::RpcError)?;
 
     match state_update {
-        MaybePendingStateUpdate::Update(update) => {
+        MaybePreConfirmedStateUpdate::Update(update) => {
             debug!("Successfully fetched state update");
             Ok(update)
         }
-        MaybePendingStateUpdate::PendingUpdate(_) => {
+        MaybePreConfirmedStateUpdate::PreConfirmedUpdate(_) => {
             warn!("Block {:?} is still pending", block_id);
             Err(StateUpdateError::PendingBlock)
         }
@@ -410,7 +410,9 @@ fn process_transaction_trace(trace: &TransactionTrace, result: &mut TraceProcess
             }
         }
         TransactionTrace::L1Handler(l1handler_trace) => {
-            process_function_invocations(&l1handler_trace.function_invocation, result);
+            if let ExecuteInvocation::Success(inv) = &l1handler_trace.function_invocation {
+                process_function_invocations(inv, result);
+            }
         }
         TransactionTrace::DeployAccount(deploy_trace) => {
             if let Some(inv) = &deploy_trace.validate_invocation {
