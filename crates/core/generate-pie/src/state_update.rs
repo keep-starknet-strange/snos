@@ -57,14 +57,16 @@ impl FormattedStateUpdate {
     /// Returns a `ContractClassProcessingResult` containing processed classes
     /// or an error if any conversion fails.
     #[allow(clippy::result_large_err)]
-    pub fn process_contract_classes(&self) -> Result<ContractClassProcessingResult, crate::error::BlockProcessingError> {
-        use log::{debug, info};
-        use std::collections::BTreeMap;
-        use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
-        use starknet_api::deprecated_contract_class::ContractClass;
-        use starknet_api::core::{ClassHash, CompiledClassHash};
-        use starknet_api::state::ContractClassComponentHashes;
+    pub fn process_contract_classes(
+        &self,
+    ) -> Result<ContractClassProcessingResult, crate::error::BlockProcessingError> {
         use crate::error::BlockProcessingError;
+        use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
+        use log::{debug, info};
+        use starknet_api::core::{ClassHash, CompiledClassHash};
+        use starknet_api::deprecated_contract_class::ContractClass;
+        use starknet_api::state::ContractClassComponentHashes;
+        use std::collections::BTreeMap;
 
         info!("Processing contract classes");
 
@@ -145,9 +147,16 @@ struct CompiledClassResult {
 
 /// Result containing processed contract class data.
 pub struct ContractClassProcessingResult {
-    pub compiled_classes: std::collections::BTreeMap<starknet_api::core::CompiledClassHash, cairo_lang_starknet_classes::casm_contract_class::CasmContractClass>,
-    pub deprecated_compiled_classes: std::collections::BTreeMap<starknet_api::core::CompiledClassHash, starknet_api::deprecated_contract_class::ContractClass>,
-    pub declared_class_hash_component_hashes: HashMap<starknet_api::core::ClassHash, starknet_api::state::ContractClassComponentHashes>,
+    pub compiled_classes: std::collections::BTreeMap<
+        starknet_api::core::CompiledClassHash,
+        cairo_lang_starknet_classes::casm_contract_class::CasmContractClass,
+    >,
+    pub deprecated_compiled_classes: std::collections::BTreeMap<
+        starknet_api::core::CompiledClassHash,
+        starknet_api::deprecated_contract_class::ContractClass,
+    >,
+    pub declared_class_hash_component_hashes:
+        HashMap<starknet_api::core::ClassHash, starknet_api::state::ContractClassComponentHashes>,
 }
 
 // ================================================================================================

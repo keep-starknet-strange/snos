@@ -70,7 +70,7 @@ impl ContractData {
     pub fn verify(&self, storage_keys: &[Felt]) -> Result<(), Vec<ProofVerificationError>> {
         let mut errors = vec![];
 
-        for (_, storage_key) in storage_keys.iter().enumerate() {
+        for storage_key in storage_keys.iter() {
             if let Err(e) = self.storage_proofs[0].verify_proof::<PedersenHash>(*storage_key, self.root) {
                 errors.push(e);
             }

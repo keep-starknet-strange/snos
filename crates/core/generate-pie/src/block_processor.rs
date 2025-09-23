@@ -197,10 +197,8 @@ impl BlockData {
         info!("Processing transactions for block {}", block_number);
 
         let block_id = BlockId::Number(block_number);
-        let previous_block_id = match &self.previous_block {
-            Some(previous_block) => Some(BlockId::Number(previous_block.block_number)),
-            None => None,
-        };
+        let previous_block_id =
+            self.previous_block.as_ref().map(|previous_block| BlockId::Number(previous_block.block_number));
 
         // Fetch transaction traces
         let transaction_traces = rpc_client
