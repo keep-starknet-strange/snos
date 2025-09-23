@@ -88,7 +88,6 @@ use utils::{serialize_os_hints_to_json, sort_abi_entries_for_deprecated_class};
 mod block_processor;
 mod cached_state;
 mod constants;
-mod context_builder;
 mod conversions;
 mod error;
 mod state_update;
