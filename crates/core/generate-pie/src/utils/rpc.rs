@@ -98,6 +98,9 @@ fn collect_access_info_from_call(call_info: &CallInfo, accessed_blocks: &mut Has
     }
 }
 
+/// Get the storage proofs for all the specified storage keys for all the given contracts.
+/// We return a hash map of the contract addresses and it's proof ([ContractProof])
+/// TODO: We can optimize this by sending multiple contracts in a single RPC call
 pub(crate) async fn get_storage_proofs(
     client: &RpcClient,
     block_number: u64,
@@ -149,17 +152,29 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     storage_keys: KeyIter,
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
+    info!("Getting storage proof for contract {}", contract_address);
     let contract_address_felt = *contract_address.key();
     let keys: Vec<_> = storage_keys.map(|storage_key| *storage_key.key()).collect();
 
-    let mut storage_proof =
+    let mut contract_proof =
         fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &keys, block_number).await?;
 
-    // Write the storage proof to a file
-
-    let contract_data = match &storage_proof.contract_data {
+    // Combine all storage proofs into a single vector
+    match &contract_proof.contract_data {
         None => {
-            return Ok(storage_proof);
+            return Ok(contract_proof);
+        }
+        Some(contract_data) => {
+            contract_proof.contract_data = Some(ContractData {
+                storage_proofs: vec![contract_data.clone().storage_proofs.into_iter().flatten().collect()],
+                root: contract_proof.contract_data.unwrap().root,
+            });
+        }
+    }
+
+    let contract_data = match &contract_proof.contract_data {
+        None => {
+            return Ok(contract_proof);
         }
         Some(contract_data) => contract_data,
     };
@@ -173,14 +188,14 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     // Fetch additional proofs required to fill gaps in the storage trie that could make
     // the OS crash otherwise.
     if !additional_keys.is_empty() {
-        println!("non empty additional_keys now: {:?}", additional_keys);
+        info!("non empty additional_keys now: {:?}", additional_keys);
         let additional_proof =
             fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &additional_keys, block_number).await?;
 
-        storage_proof = merge_storage_proofs(vec![storage_proof, additional_proof]);
+        contract_proof = merge_storage_proofs(vec![contract_proof, additional_proof]);
     }
 
-    Ok(storage_proof)
+    Ok(contract_proof)
 }
 
 /// Fetches the state + storage proof for a single contract for all the specified keys.
@@ -192,32 +207,19 @@ async fn fetch_storage_proof_for_contract(
     keys: &[Felt],
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
-    let storage_proof = if keys.is_empty() {
-        rpc_client
-            .starknet_rpc()
-            .get_proof(block_number, contract_address, &[])
-            .await
-            .map_err(|e| ClientError::CustomError(format!("{}", e)))?
-    } else {
-        // The endpoint is limited to 100 keys at most per call
-        const MAX_KEYS: usize = 100;
-        let mut chunked_storage_proofs = Vec::new();
-        for keys_chunk in keys.chunks(MAX_KEYS) {
-            chunked_storage_proofs.push(
-                rpc_client
-                    .starknet_rpc()
-                    .get_proof(block_number, contract_address, keys_chunk)
-                    .await
-                    .map_err(|e| ClientError::CustomError(format!("{}", e)))?,
-            );
-        }
-        merge_storage_proofs(chunked_storage_proofs)
-    };
+    info!("Fetching storage proof for contract {} with {} keys", contract_address, keys.len());
 
-    Ok(storage_proof)
+    rpc_client
+        .starknet_rpc()
+        .get_proof(block_number, contract_address, keys)
+        .await
+        .map_err(|e| ClientError::CustomError(format!("{}", e)))
 }
 
+/// Merges the storage proofs of the SAME contract.
+/// It takes a vector of [ContractProof] and returns a single [ContractProof]
 fn merge_storage_proofs(proofs: Vec<ContractProof>) -> ContractProof {
+    info!("Merging {} storage proofs", proofs.len());
     let class_commitment = proofs[0].class_commitment;
     let contract_commitment = proofs[0].contract_commitment;
     let state_commitment = proofs[0].state_commitment;

@@ -81,6 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("  Chain ID: {:?}", input.chain_config.chain_id);
     info!("  Is L3: {}", input.chain_config.is_l3);
     info!("  Debug mode: {}", input.os_hints_config.debug_mode);
+    info!("  Full Output: {}", input.os_hints_config.full_output);
     info!("  Use KZG DA: {}", input.os_hints_config.use_kzg_da);
     info!("  Output path: {:?}", input.output_path);
 

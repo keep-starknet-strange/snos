@@ -105,12 +105,7 @@ impl<'a> ConversionContext<'a> {
     ///     &gas_prices,
     /// );
     /// ```
-    pub fn new(
-        chain_id: &'a ChainId,
-        block_number: u64,
-        rpc_client: &'a RpcClient,
-        gas_prices: &'a GasPrices,
-    ) -> Self {
+    pub fn new(chain_id: &'a ChainId, block_number: u64, rpc_client: &'a RpcClient, gas_prices: &'a GasPrices) -> Self {
         Self { chain_id, block_number, rpc_client, gas_prices }
     }
 }

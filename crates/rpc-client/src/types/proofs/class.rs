@@ -42,10 +42,7 @@ impl From<StorageProof> for ClassProof {
             .map(|(node_hash, node)| {
                 let mut trie_node: TrieNode = node.clone().into();
                 // Set the node_hash from the NodeWithHash
-                match &mut trie_node {
-                    TrieNode::Binary { node_hash: nh, .. } => *nh = Some(*node_hash),
-                    TrieNode::Edge { node_hash: nh, .. } => *nh = Some(*node_hash),
-                }
+                trie_node.set_node_hash(*node_hash);
                 trie_node
             })
             .collect();

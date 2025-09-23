@@ -360,12 +360,8 @@ async fn process_transactions(
         get_subcalled_contracts_from_tx_traces(&transaction_traces);
 
     // Create a single conversion context for all transactions
-    let conversion_ctx = ConversionContext::new(
-        &block_data.chain_id,
-        block_number,
-        rpc_client,
-        &block_context.block_info().gas_prices,
-    );
+    let conversion_ctx =
+        ConversionContext::new(&block_data.chain_id, block_number, rpc_client, &block_context.block_info().gas_prices);
 
     // Convert transactions to blockifier format
     let mut transactions = Vec::new();
@@ -403,6 +399,7 @@ async fn process_transactions(
     let mut txn_executor =
         TransactionExecutor::new(CachedState::new(blockifier_state_reader), block_context.clone(), config);
     info!("Transaction executor created successfully");
+    info!("Executing {} transactions using Blockifier", blockifier_txns.len());
 
     // Execute transactions
     let execution_deadline = None;
