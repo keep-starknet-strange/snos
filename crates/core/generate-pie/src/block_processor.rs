@@ -6,44 +6,20 @@
 //! The main entry point is [`collect_single_block_info`] which orchestrates the entire
 //! block processing pipeline, from fetching block data to constructing the final OS input.
 
-use crate::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
-use crate::conversions::{ConversionContext, TryIntoBlockifierAsync};
-use crate::error::{BlockProcessingError, FeltConversionError};
-use crate::state_update::{
-    get_formatted_state_update, get_subcalled_contracts_from_tx_traces, ContractClassProcessingResult,
-};
+use crate::error::BlockProcessingError;
+use crate::state_update::ContractClassProcessingResult;
 use crate::types::{BlockData, CommitmentCalculationResult, TransactionProcessingResult};
-use crate::utils::{
-    build_gas_price_vector, compute_class_commitment, format_commitment_facts, get_accessed_keys_with_block_hash,
-    get_class_proofs, get_storage_proofs,
-};
-use blockifier::blockifier::config::TransactionExecutorConfig;
-use blockifier::blockifier::transaction_executor::{TransactionExecutor, TransactionExecutorError};
-use blockifier::blockifier_versioned_constants::VersionedConstants;
-use blockifier::bouncer::BouncerConfig;
-use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
-use blockifier::state::cached_state::CachedState;
-use blockifier::transaction::objects::TransactionExecutionInfo;
+use blockifier::context::BlockContext;
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
-use cairo_vm::Felt252;
-use log::{debug, info};
+use log::info;
 use num_traits::ToPrimitive;
-use rpc_client::state_reader::AsyncRpcStateReader;
-use rpc_client::types::ContractProof;
 use rpc_client::RpcClient;
-use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
-use starknet::core::types::{BlockId, L1DataAvailabilityMode, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs};
-use starknet::providers::Provider;
-use starknet_api::block::{BlockHash, BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion};
-use starknet_api::contract_address;
+use starknet::core::types::BlockId;
+use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass;
 use starknet_api::state::StorageKey;
-use starknet_os::io::os_input::{CommitmentInfo, OsBlockInput};
-use starknet_os_types::chain_id::chain_id_from_felt;
-use starknet_patricia::hash::hash_trait::HashOutput;
-use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
-use starknet_types_core::felt::Felt;
+use starknet_os::io::os_input::OsBlockInput;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 // ================================================================================================
