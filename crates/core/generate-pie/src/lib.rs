@@ -157,8 +157,8 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
     let mut os_block_inputs = Vec::new();
     let mut cached_state_inputs = Vec::new();
-    let mut all_compiled_classes = std::collections::BTreeMap::new();
-    let mut all_deprecated_compiled_classes = std::collections::BTreeMap::new();
+    let mut compiled_classes = std::collections::BTreeMap::new();
+    let mut deprecated_compiled_classes = std::collections::BTreeMap::new();
 
     // Process each block
     for (index, block_number) in input.blocks.iter().enumerate() {
@@ -172,12 +172,11 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
         let (
             block_input,
-            compiled_classes,
-            deprecated_compiled_classes,
-            accessed_addresses,
-            accessed_classes,
-            accessed_keys_by_address,
-            _previous_block_id,
+            block_compiled_classes,
+            block_deprecated_compiled_classes,
+            block_accessed_addresses,
+            block_accessed_classes,
+            block_accessed_keys_by_address,
         ) = (
             block_info_result.os_block_input,
             block_info_result.compiled_classes,
@@ -185,25 +184,29 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
             block_info_result.accessed_addresses,
             block_info_result.accessed_classes,
             block_info_result.accessed_keys_by_address,
-            block_info_result.previous_block_id,
         );
+
         info!("Block info collection completed for block {}", block_number);
+        info!(
+            "Block {}, accessed classes={}, accessed addresses={}",
+            block_number,
+            block_accessed_classes.len(),
+            block_accessed_addresses.len()
+        );
 
-        // Add block input to our collection
+        // Add block input to our collection and merge compiled classes (these are shared across blocks)
         os_block_inputs.push(block_input);
-
-        // Merge compiled classes (these are shared across blocks)
-        all_compiled_classes.extend(compiled_classes);
-        all_deprecated_compiled_classes.extend(deprecated_compiled_classes);
+        compiled_classes.extend(block_compiled_classes);
+        deprecated_compiled_classes.extend(block_deprecated_compiled_classes);
 
         // Generate cached state input
         info!("Generating cached state input for block {}", block_number);
         let mut cached_state_input = generate_cached_state_input(
             &rpc_client,
             BlockId::Number(block_number - 1),
-            &accessed_addresses,
-            &accessed_classes,
-            &accessed_keys_by_address,
+            &block_accessed_addresses,
+            &block_accessed_classes,
+            &block_accessed_keys_by_address,
         )
         .await
         .map_err(|e| {
@@ -212,18 +215,20 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
                 block_number, e
             ))
         })?;
+        // Remove deprecated compiled classes from cached state input
         cached_state_input
             .class_hash_to_compiled_class_hash
-            .retain(|class_hash, _| !all_deprecated_compiled_classes.contains_key(&CompiledClassHash(class_hash.0)));
-        debug!("Compiled classes are: {:?}", all_compiled_classes.keys());
-        debug!("Deprecated compiled classes are: {:?}", all_deprecated_compiled_classes.keys());
+            .retain(|class_hash, _| !deprecated_compiled_classes.contains_key(&CompiledClassHash(class_hash.0)));
+
+        info!("Cached state input generated successfully for block {}", block_number);
+
         cached_state_inputs.push(cached_state_input);
         info!("Block {} processed successfully", block_number);
     }
 
     // Sort ABI entries for all deprecated compiled classes
     info!("Sorting ABI entries for deprecated compiled classes");
-    for (class_hash, compiled_class) in all_deprecated_compiled_classes.iter_mut() {
+    for (class_hash, compiled_class) in deprecated_compiled_classes.iter_mut() {
         if let Err(e) = sort_abi_entries_for_deprecated_class(compiled_class) {
             warn!("Failed to sort ABI entries for class {:?}: {}", class_hash, e);
         }
@@ -251,8 +256,8 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         os_input: StarknetOsInput {
             os_block_inputs,
             cached_state_inputs,
-            deprecated_compiled_classes: all_deprecated_compiled_classes,
-            compiled_classes: all_compiled_classes,
+            deprecated_compiled_classes,
+            compiled_classes,
         },
     };
     info!("OS hints configuration built successfully for {} blocks", input.blocks.len());
