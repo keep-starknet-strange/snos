@@ -89,10 +89,10 @@ mod block_processor;
 mod cached_state;
 mod constants;
 mod conversions;
-mod error;
 mod state_update;
 mod utils;
 
+pub mod error;
 pub mod types;
 
 // ================================================================================================

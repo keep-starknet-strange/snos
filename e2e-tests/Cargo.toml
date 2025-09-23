@@ -1,0 +1,17 @@
+[package]
+name = "e2e-tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+generate-pie = { path = "../crates/core/generate-pie" }
+rpc-client = { path = "../crates/rpc-client" }
+starknet-os-types = { path = "../crates/starknet-os-types" }
+
+# Test utilities
+fastrand = { workspace = true }
+glob = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
