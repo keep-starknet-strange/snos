@@ -18,8 +18,12 @@ pub const TEST_TIMEOUT_SECS: u64 = 30 * 60; // 30 minutes
 /// Get RPC URL from environment
 fn get_rpc_url(chain: &str) -> String {
     match chain {
-        "sepolia" => env::var(SNOS_RPC_URL_ENV_SEPOLIA).expect(&format!("{} env is needed", SNOS_RPC_URL_ENV_SEPOLIA)),
-        "mainnet" => env::var(SNOS_RPC_URL_ENV_MAINNET).expect(&format!("{} env is needed", SNOS_RPC_URL_ENV_MAINNET)),
+        "sepolia" => {
+            env::var(SNOS_RPC_URL_ENV_SEPOLIA).unwrap_or_else(|_| panic!("{} env is needed", SNOS_RPC_URL_ENV_SEPOLIA))
+        }
+        "mainnet" => {
+            env::var(SNOS_RPC_URL_ENV_MAINNET).unwrap_or_else(|_| panic!("{} env is needed", SNOS_RPC_URL_ENV_MAINNET))
+        }
         _ => panic!("Unsupported chain: {}", chain),
     }
 }
@@ -27,6 +31,15 @@ fn get_rpc_url(chain: &str) -> String {
 /// Simple PIE generation test with parameterized block numbers
 #[rstest]
 #[case("mainnet", 2403992)]
+#[case("mainnet", 1943728)]
+#[case("mainnet", 1943731)]
+#[case("mainnet", 1943743)]
+#[case("mainnet", 1944976)]
+#[case("sepolia", 994169)]
+#[case("sepolia", 926808)]
+#[case("sepolia", 1004270)]
+#[case("sepolia", 1041119)]
+#[case("sepolia", 927143)]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pie_generation(#[case] chain: &str, #[case] block_number: u64) {
     println!("🧪 Testing PIE generation for block {}", block_number);
