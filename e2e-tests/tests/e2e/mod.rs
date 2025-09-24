@@ -42,7 +42,7 @@ fn get_rpc_url(chain: &str) -> String {
 #[case("sepolia", 927143)]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pie_generation(#[case] chain: &str, #[case] block_number: u64) {
-    println!("🧪 Testing PIE generation for block {}", block_number);
+    println!("🧪 Testing PIE generation for block {} on {}", block_number, chain);
 
     let input = PieGenerationInput {
         rpc_url: get_rpc_url(chain),
