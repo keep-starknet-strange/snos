@@ -65,7 +65,7 @@ use std::path::Path;
 
 // External crate imports
 use cairo_vm::types::layout_name::LayoutName;
-use log::{debug, info, warn};
+use log::{info, warn};
 use rpc_client::RpcClient;
 use starknet::core::types::BlockId;
 use starknet_api::core::CompiledClassHash;
@@ -261,13 +261,6 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         },
     };
     info!("OS hints configuration built successfully for {} blocks", input.blocks.len());
-
-    // Serialize OS hints to JSON for debugging/inspection
-    let os_hints_json_path =
-        format!("os_hints_blocks_{}.json", input.blocks.iter().map(|b| b.to_string()).collect::<Vec<_>>().join("_"));
-    if let Err(e) = serialize_os_hints_to_json(&os_hints, &os_hints_json_path) {
-        warn!("Failed to serialize OS hints to JSON: {}", e);
-    }
 
     // Execute the Starknet OS
     info!("Starting OS execution for multi-block processing");

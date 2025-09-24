@@ -42,6 +42,7 @@ pub struct BlockInfoResult {
     /// Storage keys accessed by each contract address.
     pub accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>>,
     /// The previous block ID (if any).
+    #[allow(dead_code)]
     pub previous_block_id: Option<BlockId>,
 }
 

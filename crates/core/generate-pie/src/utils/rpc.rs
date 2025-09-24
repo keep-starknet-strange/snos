@@ -185,10 +185,11 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         vec![]
     };
 
+    info!("Got {} additional keys for contract {}", additional_keys.len(), contract_address);
+
     // Fetch additional proofs required to fill gaps in the storage trie that could make
     // the OS crash otherwise.
     if !additional_keys.is_empty() {
-        info!("non empty additional_keys now: {:?}", additional_keys);
         let additional_proof =
             fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &additional_keys, block_number).await?;
 
