@@ -7,11 +7,7 @@ publish = false
 
 [dependencies]
 generate-pie = { path = "../crates/core/generate-pie" }
-rpc-client = { path = "../crates/rpc-client" }
-starknet-os-types = { path = "../crates/starknet-os-types" }
 
 # Test utilities
-fastrand = { workspace = true }
-glob = { workspace = true }
-serde_json = { workspace = true }
+rstest = { workspace = true }
 tokio = { workspace = true }
