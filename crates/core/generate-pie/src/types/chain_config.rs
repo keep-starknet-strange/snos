@@ -56,8 +56,8 @@ impl Default for ChainConfig {
 impl ChainConfig {
     pub fn default_with_chain(chain: &str) -> Self {
         match chain {
-            "mainnet" => Self::default(),
-            "sepolia" => Self { chain_id: ChainId::Sepolia, ..Default::default() },
+            "sepolia" => Self::default(),
+            "mainnet" => Self { chain_id: ChainId::Mainnet, ..Default::default() },
             _ => panic!("Unsupported chain: {}", chain),
         }
     }

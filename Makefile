@@ -77,6 +77,8 @@ fmt: ## Format code
 ## Testing
 test-workspace: ## Run all workspace unit tests
 	@echo "$(BLUE)Running workspace unit tests...$(RESET)"
+	RUSTFLAGS="-D warnings" \
+	SNOS_RPC_URL="$(RPC_URL)" \
 	cargo test --workspace --lib -- --nocapture
 
 test-e2e: ## Run simple parameterized PIE generation tests
