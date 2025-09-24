@@ -3,6 +3,7 @@
 
 # Default values
 RPC_URL ?= https://pathfinder-mainnet.d.karnot.xyz
+RPC_URL_SEPOLIA ?= https://pathfinder-sepolia.d.karnot.xyz
 NETWORK ?= mainnet
 BLOCK_NUMBERS ?= 2403992,2403993,2403994,2403995
 
@@ -83,6 +84,7 @@ test-e2e: ## Run simple parameterized PIE generation tests
 	@echo "$(YELLOW)Using RPC: $(RPC_URL)$(RESET)"
 	RUST_LOG=info \
 	SNOS_RPC_URL="$(RPC_URL)" \
+	SNOS_RPC_URL_SEPOLIA="$(RPC_URL_SEPOLIA)" \
 	cargo test -p e2e-tests test_pie_generation -- --nocapture
 
 test-all: test-workspace test-e2e ## Run all tests (unit + integration + e2e)
