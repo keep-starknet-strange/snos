@@ -60,17 +60,20 @@ async fn test_pie_generation(#[case] chain: &str, #[case] block_number: u64) {
     match result {
         Ok(pie_result) => match pie_result {
             Ok(pie_result) => {
-                println!("✅  PIE generation succeeded for block {}", block_number);
+                println!("✅  PIE generation succeeded for block {} on {}", block_number, chain);
                 assert_eq!(pie_result.blocks_processed, vec![block_number]);
                 assert_eq!(pie_result.output_path, None);
-                println!("🎉 Block {} processed successfully!", block_number);
+                println!("🎉 Block {} processed successfully on {}!", block_number, chain);
             }
             Err(e) => {
-                panic!("❌ PIE generation failed for block {}: {}", block_number, e);
+                panic!("❌ PIE generation failed for block {} on {}: {}", block_number, chain, e);
             }
         },
         Err(_) => {
-            panic!("❌ PIE generation timed out after {} seconds", TEST_TIMEOUT_SECS);
+            panic!(
+                "❌ PIE generation timed out for block {} on {} after {} seconds",
+                block_number, chain, TEST_TIMEOUT_SECS
+            );
         }
     }
 }
