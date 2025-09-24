@@ -79,7 +79,7 @@ use block_processor::collect_single_block_info;
 use cached_state::generate_cached_state_input;
 use error::PieGenerationError;
 use types::{PieGenerationInput, PieGenerationResult};
-use utils::{serialize_os_hints_to_json, sort_abi_entries_for_deprecated_class};
+use utils::sort_abi_entries_for_deprecated_class;
 
 // ================================================================================================
 // Module Declarations

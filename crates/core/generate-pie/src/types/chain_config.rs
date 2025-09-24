@@ -45,10 +45,20 @@ impl Default for ChainConfig {
     /// - L3: false (L2 chain)
     fn default() -> Self {
         Self {
-            chain_id: ChainId::Mainnet,
+            chain_id: ChainId::Sepolia,
             strk_fee_token_address: ContractAddress::try_from(Felt::from_hex_unchecked(DEFAULT_SEPOLIA_STRK_FEE_TOKEN))
                 .expect("Valid Sepolia STRK fee token address"),
             is_l3: false,
+        }
+    }
+}
+
+impl ChainConfig {
+    pub fn default_with_chain(chain: &str) -> Self {
+        match chain {
+            "mainnet" => Self::default(),
+            "sepolia" => Self { chain_id: ChainId::Sepolia, ..Default::default() },
+            _ => panic!("Unsupported chain: {}", chain),
         }
     }
 }
