@@ -183,6 +183,6 @@ fn build_os_block_input(
             BlockNumber(block_data.old_block_number.to_u64().unwrap()),
             BlockHash(block_data.old_block_hash),
         )),
-        class_hashes_to_migrate: HashMap::default() // NOTE: leaving it empty because for 0.14.0 we won't have migration
+        class_hashes_to_migrate: HashMap::default(), // NOTE: leaving it empty because for 0.14.0 we won't have migration
     }
 }

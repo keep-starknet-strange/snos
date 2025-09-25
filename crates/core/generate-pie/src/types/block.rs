@@ -17,7 +17,10 @@ use log::{debug, info};
 use rpc_client::state_reader::AsyncRpcStateReader;
 use rpc_client::RpcClient;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
-use starknet::core::types::{BlockId, ConfirmedBlockId, L1DataAvailabilityMode, MaybePreConfirmedBlockWithTxHashes, MaybePreConfirmedBlockWithTxs};
+use starknet::core::types::{
+    BlockId, ConfirmedBlockId, L1DataAvailabilityMode, MaybePreConfirmedBlockWithTxHashes,
+    MaybePreConfirmedBlockWithTxs,
+};
 use starknet::providers::Provider;
 use starknet_api::block::{BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion};
 use starknet_api::contract_address;
