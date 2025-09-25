@@ -48,7 +48,7 @@ jobs:
           pip install -r requirements.txt
       - name: "Run tests"
         run: |
-          RUSTFLAGS="-D warnings" cargo test
+          make test-workspace
 
   udeps:
     runs-on: ubuntu-latest

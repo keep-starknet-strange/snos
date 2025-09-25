@@ -14,7 +14,7 @@ pub const DEFAULT_STORAGE_TREE_HEIGHT: u64 = 251;
 ///
 /// This constant defines the limit on the number of storage keys that can be
 /// included in a single `starknet_getStorageProof` request to Pathfinder.
-pub const MAX_STORAGE_KEYS_PER_REQUEST: usize = 100;
+pub const MAX_STORAGE_KEYS_PER_REQUEST: usize = 80;
 
 /// Default timeout for RPC requests in seconds.
 ///

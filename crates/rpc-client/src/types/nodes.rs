@@ -67,6 +67,12 @@ impl TrieNode {
             TrieNode::Edge { node_hash, .. } => *node_hash,
         }
     }
+
+    pub fn set_node_hash(&mut self, node_hash: Felt) {
+        match self {
+            TrieNode::Binary { node_hash: nh, .. } | TrieNode::Edge { node_hash: nh, .. } => *nh = Some(node_hash),
+        }
+    }
 }
 
 impl EdgeNodePath {

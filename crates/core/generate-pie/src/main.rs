@@ -14,19 +14,19 @@ use log::{error, info};
 #[command(about = "SNOS PoC - Starknet OS Proof of Concept for block processing")]
 struct Cli {
     /// RPC URL to connect to
-    #[arg(short, long, default_value = "https://pathfinder-mainnet.d.karnot.xyz")]
+    #[arg(short, long, required = true, env = "SNOS_RPC_URL")]
     rpc_url: String,
 
     /// Block number(s) to process
-    #[arg(short, long, value_delimiter = ',')]
+    #[arg(short, long, value_delimiter = ',', required = true, env = "SNOS_BLOCKS")]
     blocks: Vec<u64>,
 
     /// Output path for the PIE file
-    #[arg(short, long)]
+    #[arg(short, long, env = "SNOS_OUTPUT")]
     output: Option<String>,
 
     /// Chain configuration (defaults to Sepolia)
-    #[arg(long, default_value = "sepolia")]
+    #[arg(long, env = "SNOS_NETWORK", default_value = "mainnet")]
     chain: String,
 }
 /// Main entry point for the generate-pie application.
@@ -69,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let input = PieGenerationInput {
         rpc_url: cli.rpc_url.clone(),
         blocks: cli.blocks.clone(),
-        chain_config: ChainConfig::default(), // Uses Sepolia defaults for now
+        chain_config: ChainConfig::default_with_chain(&cli.chain),
         os_hints_config: OsHintsConfiguration::default(), // Uses sensible defaults
         output_path: cli.output.clone(),
     };
@@ -81,6 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("  Chain ID: {:?}", input.chain_config.chain_id);
     info!("  Is L3: {}", input.chain_config.is_l3);
     info!("  Debug mode: {}", input.os_hints_config.debug_mode);
+    info!("  Full Output: {}", input.os_hints_config.full_output);
     info!("  Use KZG DA: {}", input.os_hints_config.use_kzg_da);
     info!("  Output path: {:?}", input.output_path);
 
