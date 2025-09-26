@@ -252,6 +252,8 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
                 chain_id: input.chain_config.chain_id,
                 strk_fee_token_address: input.chain_config.strk_fee_token_address,
             },
+            public_keys: None,
+            rng_seed_salt: None,
         },
         os_input: StarknetOsInput {
             os_block_inputs,
