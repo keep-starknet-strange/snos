@@ -15,18 +15,12 @@ pub fn build_gas_price_vector(
     l2_gas_price: &Felt,
 ) -> Result<GasPriceVector, FeltConversionError> {
     Ok(GasPriceVector {
-        l1_gas_price: NonzeroGasPrice::new(GasPrice(
-            felt_to_u128(l1_gas_price).map_err(|_| FeltConversionError::OverflowError)?,
-        ))
-        .map_err(|_| FeltConversionError::new_custom("Invalid STRK L1 gas price"))?,
-        l1_data_gas_price: NonzeroGasPrice::new(GasPrice(
-            felt_to_u128(l1_data_gas_price).map_err(|_| FeltConversionError::OverflowError)?,
-        ))
-        .map_err(|_| FeltConversionError::new_custom("Invalid STRK L1 data gas price"))?,
-        l2_gas_price: NonzeroGasPrice::new(GasPrice(
-            felt_to_u128(l2_gas_price).map_err(|_| FeltConversionError::OverflowError)?,
-        ))
-        .map_err(|_| FeltConversionError::new_custom("Invalid STRK L2 gas price"))?,
+        l1_gas_price: NonzeroGasPrice::new(GasPrice(felt_to_u128(l1_gas_price)?))
+            .map_err(|e| FeltConversionError::new_custom(format!("Invalid STRK L1 gas price: {}", e)))?,
+        l1_data_gas_price: NonzeroGasPrice::new(GasPrice(felt_to_u128(l1_data_gas_price)?))
+            .map_err(|e| FeltConversionError::new_custom(format!("Invalid STRK L1 data gas price: {}", e)))?,
+        l2_gas_price: NonzeroGasPrice::new(GasPrice(felt_to_u128(l2_gas_price)?))
+            .map_err(|e| FeltConversionError::new_custom(format!("Invalid STRK L2 gas price: {}", e)))?,
     })
 }
 

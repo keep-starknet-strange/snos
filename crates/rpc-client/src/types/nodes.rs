@@ -67,6 +67,12 @@ impl TrieNode {
             TrieNode::Edge { node_hash, .. } => *node_hash,
         }
     }
+
+    pub fn set_node_hash(&mut self, node_hash: Felt) {
+        match self {
+            TrieNode::Binary { node_hash: nh, .. } | TrieNode::Edge { node_hash: nh, .. } => *nh = Some(node_hash),
+        }
+    }
 }
 
 impl EdgeNodePath {
@@ -198,6 +204,7 @@ impl Proof for [TrieNode] {
 impl From<MerkleNode> for TrieNode {
     /// Converts `MerkleNode` (coming as a response from the RPC client) into TrieNode
     /// This is needed because the RPC client returns `MerkleNode`, but we need TrieNode as SNOS input
+    ///
     /// NOTE: `node_hash` field in `TrieNode` would be `None` since we don't have that info in `MerkleNode`
     fn from(node: MerkleNode) -> Self {
         match node {

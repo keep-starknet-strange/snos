@@ -2,7 +2,7 @@ use blockifier::execution::contract_class::{CompiledClassV0, CompiledClassV1, Ru
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
 use cairo_lang_starknet_classes::contract_class::version_id_from_serialized_sierra_program;
-use log::{debug, error};
+use log::{debug, warn};
 use starknet::core::types::{BlockId, Felt, StarknetError};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::contract_class::SierraVersion;
@@ -94,67 +94,7 @@ impl AsyncRpcStateReader {
 
         let runnable_contract_class: RunnableCompiledClass = match contract_class {
             starknet::core::types::ContractClass::Sierra(sierra_class) => {
-                // Serialize the sierra class to JSON
-                let sierra_json = serde_json::to_string(&sierra_class).map_err(to_state_err)?;
-
-                // Parse the JSON to fix the ABI field
-                let mut sierra_value: serde_json::Value = serde_json::from_str(&sierra_json).map_err(to_state_err)?;
-
-                // The ABI field is a JSON string, but GenericSierraContractClass expects it to be parseable.
-                // Let's check if the ABI field needs to be converted from string to JSON
-                if let Some(abi_field) = sierra_value.get_mut("abi") {
-                    if let Some(abi_str) = abi_field.as_str() {
-                        // Try to parse the ABI string as JSON
-                        match serde_json::from_str::<serde_json::Value>(abi_str) {
-                            Ok(abi_json) => {
-                                debug!("✅ Successfully parsed ABI string as JSON");
-                                *abi_field = abi_json;
-                            }
-                            Err(e) => {
-                                error!("⚠️  ABI is not valid JSON string: {}", e);
-                                // Keep the ABI as-is if it's not a JSON string
-                            }
-                        }
-                    }
-                }
-
-                // Re-serialize the fixed JSON
-                let fixed_sierra_json = serde_json::to_string(&sierra_value).map_err(to_state_err)?;
-
-                // Parse as GenericSierraContractClass
-                let generic_sierra = GenericSierraContractClass::from_bytes(fixed_sierra_json.into_bytes());
-
-                let generic_cairo_lang_class = generic_sierra
-                    .get_cairo_lang_contract_class()
-                    .map_err(|e| StateError::StateReadError(e.to_string()))?;
-                let (version_id, _) =
-                    version_id_from_serialized_sierra_program(&generic_cairo_lang_class.sierra_program)
-                        .map_err(|e| StateError::StateReadError(e.to_string()))?;
-                let sierra_version =
-                    SierraVersion::new(version_id.major as u64, version_id.minor as u64, version_id.patch as u64);
-
-                // Try compilation
-                match generic_sierra.compile() {
-                    Ok(compiled_class) => {
-                        debug!("✅ Sierra compilation succeeded!");
-                        let versioned_casm =
-                            compiled_class.to_blockifier_contract_class(sierra_version).map_err(to_state_err)?;
-
-                        // Convert VersionedCasm to CompiledClassV1 using TryFrom
-                        let compiled_class_v1 = CompiledClassV1::try_from(versioned_casm).map_err(|e| {
-                            StateError::StateReadError(format!(
-                                "Failed to convert VersionedCasm to CompiledClassV1: {}",
-                                e
-                            ))
-                        })?;
-
-                        RunnableCompiledClass::V1(compiled_class_v1)
-                    }
-                    Err(e) => {
-                        error!("⚠️  Sierra compilation failed: {}", e);
-                        return Err(StateError::StateReadError(format!("Sierra compilation failed: {}", e)));
-                    }
-                }
+                convert_sierra_to_runnable(sierra_class).map_err(to_state_err)?
             }
             starknet::core::types::ContractClass::Legacy(legacy_class) => {
                 // Convert between starknet crate types via serialization
@@ -199,21 +139,7 @@ impl AsyncRpcStateReader {
 
         let class_hash = match contract_class {
             starknet::core::types::ContractClass::Sierra(sierra_class) => {
-                // Apply the same ABI fix as in get_compiled_class_async
-                let sierra_json = serde_json::to_string(&sierra_class).map_err(to_state_err)?;
-                let mut sierra_value: serde_json::Value = serde_json::from_str(&sierra_json).map_err(to_state_err)?;
-
-                // Fix the ABI field if it's a JSON string
-                if let Some(abi_field) = sierra_value.get_mut("abi") {
-                    if let Some(abi_str) = abi_field.as_str() {
-                        if let Ok(abi_json) = serde_json::from_str::<serde_json::Value>(abi_str) {
-                            *abi_field = abi_json;
-                        }
-                    }
-                }
-
-                let fixed_sierra_json = serde_json::to_string(&sierra_value).map_err(to_state_err)?;
-                let generic_sierra = GenericSierraContractClass::from_bytes(fixed_sierra_json.into_bytes());
+                let generic_sierra = convert_sierra_class_for_generic(&sierra_class)?;
                 let compiled_class = generic_sierra.compile().map_err(to_state_err)?;
                 compiled_class.class_hash().map_err(to_state_err)?
             }
@@ -264,5 +190,63 @@ impl StateReader for AsyncRpcStateReader {
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         execute_coroutine(self.get_compiled_class_hash_async(class_hash))
             .map_err(|e| StateError::StateReadError(e.to_string()))?
+    }
+}
+
+/// Convert Sierra class to a format that GenericSierraContractClass can handle.
+/// This properly handles the ABI field conversion by going through starknet_core types.
+fn convert_sierra_class_for_generic(
+    sierra_class: &starknet::core::types::FlattenedSierraClass,
+) -> Result<GenericSierraContractClass, StateError> {
+    // Convert starknet::core types to starknet_core types via JSON serialization
+    // This handles the type differences between the crates
+    let sierra_json = serde_json::to_string(sierra_class).map_err(to_state_err)?;
+    let starknet_core_sierra: starknet_core::types::FlattenedSierraClass =
+        serde_json::from_str(&sierra_json).map_err(to_state_err)?;
+
+    // Use the `From` implementation that properly handles ABI conversion
+    let generic_sierra = GenericSierraContractClass::from(starknet_core_sierra);
+    Ok(generic_sierra)
+}
+
+/// Convert a Sierra contract class using the improved Generic types.
+/// This function uses the approach from snos-core for better type handling.
+fn convert_sierra_to_runnable(
+    sierra_class: starknet::core::types::FlattenedSierraClass,
+) -> Result<RunnableCompiledClass, StateError> {
+    debug!("Converting Sierra contract class using GenericSierraContractClass...");
+
+    // Convert to GenericSierraContractClass using proper From implementation
+    let generic_sierra = convert_sierra_class_for_generic(&sierra_class)?;
+
+    // Get the cairo-lang contract class for version extraction
+    let generic_cairo_lang_class = generic_sierra.get_cairo_lang_contract_class().map_err(to_state_err)?;
+
+    let (version_id, _) =
+        version_id_from_serialized_sierra_program(&generic_cairo_lang_class.sierra_program).map_err(to_state_err)?;
+
+    let sierra_version = SierraVersion::new(
+        version_id.major.try_into().map_err(to_state_err)?,
+        version_id.minor.try_into().map_err(to_state_err)?,
+        version_id.patch.try_into().map_err(to_state_err)?,
+    );
+
+    // Try compilation
+    match generic_sierra.compile() {
+        Ok(compiled_class) => {
+            debug!("✅ Sierra compilation succeeded!");
+            let versioned_casm = compiled_class.to_blockifier_contract_class(sierra_version).map_err(to_state_err)?;
+
+            // Convert VersionedCasm to CompiledClassV1 using TryFrom
+            let compiled_class_v1 = CompiledClassV1::try_from(versioned_casm).map_err(|e| {
+                StateError::StateReadError(format!("Failed to convert VersionedCasm to CompiledClassV1: {}", e))
+            })?;
+
+            Ok(RunnableCompiledClass::V1(compiled_class_v1))
+        }
+        Err(e) => {
+            warn!("⚠️  Sierra compilation failed: {}", e);
+            Err(StateError::StateReadError(format!("Sierra compilation failed: {}", e)))
+        }
     }
 }

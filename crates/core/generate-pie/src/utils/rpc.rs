@@ -45,11 +45,11 @@ pub(crate) fn get_comprehensive_access_info(
     // Include extra keys for contracts that trigger get_block_hash_syscall
     insert_extra_storage_reads_keys(old_block_number, &mut accessed_keys_by_address);
 
-    let mut accessed_contract_addresses = HashSet::new();
-    let mut accessed_class_hashes = HashSet::new();
-    let mut storage_read_values = HashSet::new();
-    let mut read_class_hash_values = HashSet::new();
-    let mut read_block_hash_values = HashSet::new();
+    let accessed_contract_addresses = HashSet::new();
+    let accessed_class_hashes = HashSet::new();
+    let storage_read_values = HashSet::new();
+    let read_class_hash_values = HashSet::new();
+    let read_block_hash_values = HashSet::new();
     let mut accessed_blocks = HashSet::new();
 
     // Collect all access information from transaction execution infos
@@ -62,15 +62,7 @@ pub(crate) fn get_comprehensive_access_info(
         .into_iter()
         .flatten()
         {
-            collect_access_info_from_call(
-                call_info,
-                &mut accessed_contract_addresses,
-                &mut accessed_class_hashes,
-                &mut storage_read_values,
-                &mut read_class_hash_values,
-                &mut read_block_hash_values,
-                &mut accessed_blocks,
-            );
+            collect_access_info_from_call(call_info, &mut accessed_blocks);
         }
     }
 
@@ -91,67 +83,9 @@ pub(crate) fn get_comprehensive_access_info(
     }
 }
 
-/// Merges multiple BlockAccessInfo structures into one comprehensive structure
-/// This is useful when you have access info from current and previous blocks
-#[allow(dead_code)]
-pub(crate) fn merge_access_info(access_infos: Vec<BlockAccessInfo>) -> BlockAccessInfo {
-    let mut merged = BlockAccessInfo {
-        accessed_keys_by_address: HashMap::new(),
-        accessed_contract_addresses: HashSet::new(),
-        accessed_class_hashes: HashSet::new(),
-        storage_read_values: HashSet::new(),
-        read_class_hash_values: HashSet::new(),
-        read_block_hash_values: HashSet::new(),
-        accessed_blocks: HashSet::new(),
-    };
-
-    for access_info in access_infos {
-        // Merge accessed_keys_by_address - combine keys for each contract address
-        for (contract_address, storage_keys) in access_info.accessed_keys_by_address {
-            merged.accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
-        }
-
-        // Merge all global HashSets - union operations
-        merged.accessed_contract_addresses.extend(access_info.accessed_contract_addresses);
-        merged.accessed_class_hashes.extend(access_info.accessed_class_hashes);
-        merged.storage_read_values.extend(access_info.storage_read_values);
-        merged.read_class_hash_values.extend(access_info.read_class_hash_values);
-        merged.read_block_hash_values.extend(access_info.read_block_hash_values);
-        merged.accessed_blocks.extend(access_info.accessed_blocks);
-    }
-
-    merged
-}
-
 /// Recursively collects access information from a call and its inner calls
-fn collect_access_info_from_call(
-    call_info: &CallInfo,
-    accessed_contract_addresses: &mut HashSet<ContractAddress>,
-    _accessed_class_hashes: &mut HashSet<Felt>,
-    storage_read_values: &mut HashSet<Felt>,
-    read_class_hash_values: &mut HashSet<Felt>,
-    read_block_hash_values: &mut HashSet<Felt>,
-    accessed_blocks: &mut HashSet<Felt>,
-) {
+fn collect_access_info_from_call(call_info: &CallInfo, accessed_blocks: &mut HashSet<Felt>) {
     let tracker = &call_info.storage_access_tracker;
-
-    // Collect contract addresses
-    accessed_contract_addresses.extend(&tracker.accessed_contract_addresses);
-
-    // Collect storage read values (insert unique values)
-    for value in &tracker.storage_read_values {
-        storage_read_values.insert(*value);
-    }
-
-    // Collect class hash values (insert unique values) - convert ClassHash to Felt
-    for class_hash in &tracker.read_class_hash_values {
-        read_class_hash_values.insert(class_hash.0);
-    }
-
-    // Collect block hash values (insert unique values) - convert BlockHash to Felt
-    for block_hash in &tracker.read_block_hash_values {
-        read_block_hash_values.insert(block_hash.0);
-    }
 
     // Collect accessed blocks - convert BlockNumber to Felt
     for block_number in &tracker.accessed_blocks {
@@ -160,18 +94,13 @@ fn collect_access_info_from_call(
 
     // Recursively process inner calls
     for inner_call in &call_info.inner_calls {
-        collect_access_info_from_call(
-            inner_call,
-            accessed_contract_addresses,
-            _accessed_class_hashes,
-            storage_read_values,
-            read_class_hash_values,
-            read_block_hash_values,
-            accessed_blocks,
-        );
+        collect_access_info_from_call(inner_call, accessed_blocks);
     }
 }
 
+/// Get the storage proofs for all the specified storage keys for all the given contracts.
+/// We return a hash map of the contract addresses and it's proof ([ContractProof])
+/// TODO: We can optimize this by sending multiple contracts in a single RPC call
 pub(crate) async fn get_storage_proofs(
     client: &RpcClient,
     block_number: u64,
@@ -223,17 +152,29 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     storage_keys: KeyIter,
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
+    info!("Getting storage proof for contract {}", contract_address);
     let contract_address_felt = *contract_address.key();
     let keys: Vec<_> = storage_keys.map(|storage_key| *storage_key.key()).collect();
 
-    let mut storage_proof =
+    let mut contract_proof =
         fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &keys, block_number).await?;
 
-    // Write the storage proof to a file
-
-    let contract_data = match &storage_proof.contract_data {
+    // Combine all storage proofs into a single vector
+    match &contract_proof.contract_data {
         None => {
-            return Ok(storage_proof);
+            return Ok(contract_proof);
+        }
+        Some(contract_data) => {
+            contract_proof.contract_data = Some(ContractData {
+                storage_proofs: vec![contract_data.clone().storage_proofs.into_iter().flatten().collect()],
+                root: contract_proof.contract_data.unwrap().root,
+            });
+        }
+    }
+
+    let contract_data = match &contract_proof.contract_data {
+        None => {
+            return Ok(contract_proof);
         }
         Some(contract_data) => contract_data,
     };
@@ -244,17 +185,18 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         vec![]
     };
 
+    info!("Got {} additional keys for contract {}", additional_keys.len(), contract_address);
+
     // Fetch additional proofs required to fill gaps in the storage trie that could make
     // the OS crash otherwise.
     if !additional_keys.is_empty() {
-        println!("non empty additional_keys now: {:?}", additional_keys);
         let additional_proof =
             fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &additional_keys, block_number).await?;
 
-        storage_proof = merge_storage_proofs(vec![storage_proof, additional_proof]);
+        contract_proof = merge_storage_proofs(vec![contract_proof, additional_proof]);
     }
 
-    Ok(storage_proof)
+    Ok(contract_proof)
 }
 
 /// Fetches the state + storage proof for a single contract for all the specified keys.
@@ -266,32 +208,19 @@ async fn fetch_storage_proof_for_contract(
     keys: &[Felt],
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
-    let storage_proof = if keys.is_empty() {
-        rpc_client
-            .starknet_rpc()
-            .get_proof(block_number, contract_address, &[])
-            .await
-            .map_err(|e| ClientError::CustomError(format!("{}", e)))?
-    } else {
-        // The endpoint is limited to 100 keys at most per call
-        const MAX_KEYS: usize = 100;
-        let mut chunked_storage_proofs = Vec::new();
-        for keys_chunk in keys.chunks(MAX_KEYS) {
-            chunked_storage_proofs.push(
-                rpc_client
-                    .starknet_rpc()
-                    .get_proof(block_number, contract_address, keys_chunk)
-                    .await
-                    .map_err(|e| ClientError::CustomError(format!("{}", e)))?,
-            );
-        }
-        merge_storage_proofs(chunked_storage_proofs)
-    };
+    info!("Fetching storage proof for contract {} with {} keys", contract_address, keys.len());
 
-    Ok(storage_proof)
+    rpc_client
+        .starknet_rpc()
+        .get_proof(block_number, contract_address, keys)
+        .await
+        .map_err(|e| ClientError::CustomError(format!("{}", e)))
 }
 
+/// Merges the storage proofs of the SAME contract.
+/// It takes a vector of [ContractProof] and returns a single [ContractProof]
 fn merge_storage_proofs(proofs: Vec<ContractProof>) -> ContractProof {
+    info!("Merging {} storage proofs", proofs.len());
     let class_commitment = proofs[0].class_commitment;
     let contract_commitment = proofs[0].contract_commitment;
     let state_commitment = proofs[0].state_commitment;

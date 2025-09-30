@@ -22,16 +22,17 @@ starknet_api = { workspace = true }
 starknet_os = { workspace = true }
 starknet_patricia = { workspace = true }
 
+async-trait = { workspace = true }
 cairo-lang-starknet-classes = { workspace = true }
 cairo-vm = { workspace = true }
-env_logger = "0.11.6"
+chrono = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
 log = { workspace = true }
+num-traits = { workspace = true }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
 starknet = { workspace = true }
-starknet-crypto = { workspace = true }
 starknet-types-core = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-num-traits = { workspace = true }
-async-trait = { workspace = true }

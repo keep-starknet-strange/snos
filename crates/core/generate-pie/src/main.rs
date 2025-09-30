@@ -3,10 +3,32 @@
 //! This binary demonstrates how to use the generate-pie library to generate
 //! Cairo PIE files from Starknet blocks.
 
-use log::{error, info};
-
+use clap::Parser;
 use generate_pie::generate_pie;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
+use log::{error, info};
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+#[command(name = "snos-poc")]
+#[command(about = "SNOS PoC - Starknet OS Proof of Concept for block processing")]
+struct Cli {
+    /// RPC URL to connect to
+    #[arg(short, long, required = true, env = "SNOS_RPC_URL")]
+    rpc_url: String,
+
+    /// Block number(s) to process
+    #[arg(short, long, value_delimiter = ',', required = true, env = "SNOS_BLOCKS")]
+    blocks: Vec<u64>,
+
+    /// Output path for the PIE file
+    #[arg(short, long, env = "SNOS_OUTPUT")]
+    output: Option<String>,
+
+    /// Chain configuration (defaults to Sepolia)
+    #[arg(long, env = "SNOS_NETWORK", default_value = "mainnet")]
+    chain: String,
+}
 /// Main entry point for the generate-pie application.
 ///
 /// This function demonstrates the usage of the generate-pie library by:
@@ -32,16 +54,24 @@ use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput}
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize logging
     env_logger::init();
+
+    let cli = Cli::parse();
+
     info!("Starting SNOS PIE generation application");
 
+    // Validate that at least one block is provided
+    if cli.blocks.is_empty() {
+        error!("At least one block number must be provided");
+        std::process::exit(1);
+    }
+
     // Build the input configuration
-    // TODO: take the RPC from env or command line
     let input = PieGenerationInput {
-        rpc_url: "https://pathfinder-snos.d.karnot.xyz".to_string(),
-        blocks: vec![924072],
-        chain_config: ChainConfig::default(),             // Uses Sepolia defaults
+        rpc_url: cli.rpc_url.clone(),
+        blocks: cli.blocks.clone(),
+        chain_config: ChainConfig::default_with_chain(&cli.chain),
         os_hints_config: OsHintsConfiguration::default(), // Uses sensible defaults
-        output_path: None,
+        output_path: cli.output.clone(),
     };
 
     // Display configuration information
@@ -51,6 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("  Chain ID: {:?}", input.chain_config.chain_id);
     info!("  Is L3: {}", input.chain_config.is_l3);
     info!("  Debug mode: {}", input.os_hints_config.debug_mode);
+    info!("  Full Output: {}", input.os_hints_config.full_output);
     info!("  Use KZG DA: {}", input.os_hints_config.use_kzg_da);
     info!("  Output path: {:?}", input.output_path);
 
@@ -65,12 +96,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
         Err(e) => {
             error!("PIE generation failed: {}", e);
-            error!("\n❌ PIE generation failed: {}", e);
             return Err(e.into());
         }
     }
 
     info!("SNOS execution completed successfully!");
-    info!("\n✅ SNOS execution completed successfully!");
     Ok(())
 }

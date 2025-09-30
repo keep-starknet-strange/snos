@@ -24,7 +24,7 @@ use starknet_types_core::felt::Felt;
 ///     is_l3: true,
 /// };
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ChainConfig {
     /// The chain ID for the target Starknet network.
     pub chain_id: ChainId,
@@ -49,6 +49,16 @@ impl Default for ChainConfig {
             strk_fee_token_address: ContractAddress::try_from(Felt::from_hex_unchecked(DEFAULT_SEPOLIA_STRK_FEE_TOKEN))
                 .expect("Valid Sepolia STRK fee token address"),
             is_l3: false,
+        }
+    }
+}
+
+impl ChainConfig {
+    pub fn default_with_chain(chain: &str) -> Self {
+        match chain {
+            "sepolia" => Self::default(),
+            "mainnet" => Self { chain_id: ChainId::Mainnet, ..Default::default() },
+            _ => panic!("Unsupported chain: {}", chain),
         }
     }
 }

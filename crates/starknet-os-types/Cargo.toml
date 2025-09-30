@@ -15,7 +15,7 @@ cairo-vm = { workspace = true }
 flate2 = { workspace = true }
 num-bigint = { workspace = true }
 once_cell = { workspace = true }
-pathfinder-gateway-types = { workspace = true }
+pathfinder-class-hash = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
@@ -24,8 +24,6 @@ starknet-crypto = { workspace = true }
 starknet-types-core = { workspace = true }
 starknet_api = { workspace = true }
 thiserror = { workspace = true }
-starknet_os = { workspace = true }
-starknet_patricia = { workspace = true }
 
 [dev-dependencies]
 indoc = { workspace = true }

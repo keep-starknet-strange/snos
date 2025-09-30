@@ -1,10 +1,10 @@
 //! Utilities for computing class hashes and related operations.
 
+use starknet_api::hash::PoseidonHash;
+use starknet_api::state::ContractClassComponentHashes as OsContractClassComponentHashes;
 use starknet_core::types::SierraEntryPoint;
 use starknet_core::utils::starknet_keccak;
 use starknet_crypto::poseidon_hash_many;
-use starknet_os::io::os_input::ContractClassComponentHashes as OsContractClassComponentHashes;
-use starknet_patricia::hash::hash_trait::HashOutput;
 use starknet_types_core::felt::Felt;
 
 /// The prefix used for contract class version strings.
@@ -153,11 +153,11 @@ impl ContractClassComponentHashes {
     pub fn to_os_format(&self) -> OsContractClassComponentHashes {
         OsContractClassComponentHashes {
             contract_class_version: self.contract_class_version,
-            external_functions_hash: HashOutput(self.external_functions_hash),
-            l1_handlers_hash: HashOutput(self.l1_handlers_hash),
-            constructors_hash: HashOutput(self.constructors_hash),
-            abi_hash: HashOutput(self.abi_hash),
-            sierra_program_hash: HashOutput(self.sierra_program_hash),
+            external_functions_hash: PoseidonHash(self.external_functions_hash),
+            l1_handlers_hash: PoseidonHash(self.l1_handlers_hash),
+            constructors_hash: PoseidonHash(self.constructors_hash),
+            abi_hash: self.abi_hash,
+            sierra_program_hash: self.sierra_program_hash,
         }
     }
 }

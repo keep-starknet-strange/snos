@@ -13,7 +13,7 @@ use cairo_vm::Felt252;
 use log::{debug, info, warn};
 use rpc_client::RpcClient;
 use starknet::core::types::{
-    BlockId, ExecuteInvocation, FunctionInvocation, MaybePendingStateUpdate, StarknetError, StateDiff,
+    BlockId, ExecuteInvocation, FunctionInvocation, MaybePreConfirmedStateUpdate, StarknetError, StateDiff,
     TransactionTrace, TransactionTraceWithHash,
 };
 use starknet::providers::Provider;
@@ -46,6 +46,92 @@ pub struct FormattedStateUpdate {
     pub declared_class_hash_component_hashes: HashMap<Felt252, ContractClassComponentHashes>,
 }
 
+impl FormattedStateUpdate {
+    /// Processes contract classes from the state update.
+    ///
+    /// This function converts the raw contract classes from the state update
+    /// into the proper formats needed for the OS input.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `ContractClassProcessingResult` containing processed classes
+    /// or an error if any conversion fails.
+    #[allow(clippy::result_large_err)]
+    pub fn process_contract_classes(
+        &self,
+    ) -> Result<ContractClassProcessingResult, crate::error::BlockProcessingError> {
+        use crate::error::BlockProcessingError;
+        use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
+        use log::{debug, info};
+        use starknet_api::core::{ClassHash, CompiledClassHash};
+        use starknet_api::deprecated_contract_class::ContractClass;
+        use starknet_api::state::ContractClassComponentHashes;
+        use std::collections::BTreeMap;
+
+        info!("Processing contract classes");
+
+        let compiled_classes = &self.compiled_classes;
+        let deprecated_compiled_classes = &self.deprecated_compiled_classes;
+
+        // Process declared class hash component hashes
+        let declared_class_hash_component_hashes: HashMap<ClassHash, ContractClassComponentHashes> = self
+            .declared_class_hash_component_hashes
+            .iter()
+            .map(|(class_hash, component_hashes)| (ClassHash(*class_hash), component_hashes.to_os_format()))
+            .collect();
+
+        // Convert compiled classes to BTreeMap with ClassHash keys
+        let mut compiled_classes_btree: BTreeMap<CompiledClassHash, CasmContractClass> = BTreeMap::new();
+        for (class_hash_felt, generic_class) in compiled_classes {
+            debug!("Processing class hash: {:?}", class_hash_felt);
+            let class_hash = CompiledClassHash(*class_hash_felt);
+            let cairo_lang_class = generic_class
+                .get_cairo_lang_contract_class()
+                .map_err(|e| {
+                    BlockProcessingError::ContractClassConversion(format!(
+                        "Failed to get cairo-lang contract class: {:?}",
+                        e
+                    ))
+                })?
+                .clone();
+            debug!("Converted class hash: {:?}", class_hash);
+            compiled_classes_btree.insert(class_hash, cairo_lang_class);
+        }
+
+        // Convert deprecated compiled classes to BTreeMap with ClassHash keys
+        let mut deprecated_compiled_classes_btree: BTreeMap<CompiledClassHash, ContractClass> = BTreeMap::new();
+        let deprecated_rpc_calls_made = 0;
+        let deprecated_mapping_hits = 0;
+
+        for (class_hash_felt, generic_class) in deprecated_compiled_classes {
+            let class_hash = CompiledClassHash(*class_hash_felt);
+            let starknet_api_class = generic_class.clone().to_starknet_api_contract_class().map_err(|e| {
+                BlockProcessingError::ContractClassConversion(format!(
+                    "Failed to convert to starknet-api contract class: {:?}",
+                    e
+                ))
+            })?;
+            deprecated_compiled_classes_btree.insert(class_hash, starknet_api_class);
+        }
+
+        info!(
+            "Deprecated classes stats: {} mapping hits, {} RPC calls made",
+            deprecated_mapping_hits, deprecated_rpc_calls_made
+        );
+        info!(
+            "Converted {} compiled classes and {} deprecated classes",
+            compiled_classes_btree.len(),
+            deprecated_compiled_classes_btree.len()
+        );
+
+        Ok(ContractClassProcessingResult {
+            compiled_classes: compiled_classes_btree,
+            deprecated_compiled_classes: deprecated_compiled_classes_btree,
+            declared_class_hash_component_hashes,
+        })
+    }
+}
+
 /// Result containing processed transaction trace data.
 struct TraceProcessingResult {
     accessed_addresses: HashSet<Felt252>,
@@ -57,6 +143,20 @@ struct CompiledClassResult {
     compiled_classes: HashMap<Felt252, GenericCasmContractClass>,
     deprecated_compiled_classes: HashMap<Felt252, GenericDeprecatedCompiledClass>,
     declared_component_hashes: HashMap<Felt252, ContractClassComponentHashes>,
+}
+
+/// Result containing processed contract class data.
+pub struct ContractClassProcessingResult {
+    pub compiled_classes: std::collections::BTreeMap<
+        starknet_api::core::CompiledClassHash,
+        cairo_lang_starknet_classes::casm_contract_class::CasmContractClass,
+    >,
+    pub deprecated_compiled_classes: std::collections::BTreeMap<
+        starknet_api::core::CompiledClassHash,
+        starknet_api::deprecated_contract_class::ContractClass,
+    >,
+    pub declared_class_hash_component_hashes:
+        HashMap<starknet_api::core::ClassHash, starknet_api::state::ContractClassComponentHashes>,
 }
 
 // ================================================================================================
@@ -233,11 +333,11 @@ async fn fetch_state_update(
         rpc_client.starknet_rpc().get_state_update(block_id).await.map_err(StateUpdateError::RpcError)?;
 
     match state_update {
-        MaybePendingStateUpdate::Update(update) => {
+        MaybePreConfirmedStateUpdate::Update(update) => {
             debug!("Successfully fetched state update");
             Ok(update)
         }
-        MaybePendingStateUpdate::PendingUpdate(_) => {
+        MaybePreConfirmedStateUpdate::PreConfirmedUpdate(_) => {
             warn!("Block {:?} is still pending", block_id);
             Err(StateUpdateError::PendingBlock)
         }
@@ -303,6 +403,11 @@ async fn process_accessed_addresses(
     result: &mut CompiledClassResult,
 ) -> Result<(), StateUpdateError> {
     for contract_address in accessed_addresses {
+        // Skip special addresses
+        if *contract_address == Felt::TWO || *contract_address == Felt::ONE {
+            continue;
+        }
+
         debug!("Processing contract address: {:?}", contract_address);
 
         // Try to get class from previous block (may fail if contract was deployed in current block)
@@ -405,7 +510,9 @@ fn process_transaction_trace(trace: &TransactionTrace, result: &mut TraceProcess
             }
         }
         TransactionTrace::L1Handler(l1handler_trace) => {
-            process_function_invocations(&l1handler_trace.function_invocation, result);
+            if let ExecuteInvocation::Success(inv) = &l1handler_trace.function_invocation {
+                process_function_invocations(inv, result);
+            }
         }
         TransactionTrace::DeployAccount(deploy_trace) => {
             if let Some(inv) = &deploy_trace.validate_invocation {

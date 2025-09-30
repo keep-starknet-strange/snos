@@ -20,7 +20,7 @@ use crate::error::PieGenerationError;
 ///     use_kzg_da: false,
 /// };
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct OsHintsConfiguration {
     /// Whether to enable debug mode for detailed logging and output.
     pub debug_mode: bool,
@@ -40,7 +40,7 @@ impl Default for OsHintsConfiguration {
     /// - Full output: disabled (for performance)
     /// - KZG DA: enabled (modern data availability)
     fn default() -> Self {
-        Self { debug_mode: true, full_output: false, use_kzg_da: true }
+        Self { debug_mode: true, full_output: true, use_kzg_da: false }
     }
 }
 
