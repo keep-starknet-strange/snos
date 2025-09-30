@@ -30,16 +30,19 @@ fn get_rpc_url(chain: &str) -> String {
 
 /// Simple PIE generation test with parameterized block numbers
 #[rstest]
-#[case("mainnet", 2403992)]
-#[case("mainnet", 1943728)]
-#[case("mainnet", 1943731)]
-#[case("mainnet", 1943743)]
-#[case("mainnet", 1944976)]
-#[case("sepolia", 994169)]
-#[case("sepolia", 926808)]
-#[case("sepolia", 1004270)]
-#[case("sepolia", 1041119)]
-#[case("sepolia", 927143)]
+// mainnet blocks
+#[case("mainnet", 1943728)] // very slow
+#[case("mainnet", 1943731)] // slow
+#[case("mainnet", 1943743)] // very slow
+#[case("mainnet", 1944976)] // slow
+#[case("mainnet", 2403992)] // slow
+// sepolia blocks
+#[case("sepolia", 994169)] // very slow
+#[case("sepolia", 926808)] // fast
+#[case("sepolia", 927143)] // fast
+#[case("sepolia", 1041119)] // fast
+#[case("sepolia", 1004270)] // fast
+#[case("sepolia", 2244464)] // fast
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pie_generation(#[case] chain: &str, #[case] block_number: u64) {
     println!("🧪 Testing PIE generation for block {} on {}", block_number, chain);

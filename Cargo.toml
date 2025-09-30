@@ -41,6 +41,7 @@ starknet-types-core = "0.2.1"
 
 pathfinder-class-hash = { git = "https://github.com/eqlabs/pathfinder", rev = "f205768f0ca4b6adcdce338e6f95ee9acb80b734", package = "pathfinder-class-hash" }
 
+env_logger = "0.11.6"
 log = "0.4.19"
 reqwest = { version = "0.11.18", features = ["blocking", "json"] }
 serde = { version = "1.0.188", features = ["derive"] }
