@@ -10,7 +10,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
-use starknet_os_types::starknet_core_addons::decompress_starknet_core_contract_class;
+use starknet_os_types::starknet_core_addons::decompress_starknet_legacy_contract_class;
 
 use crate::client::RpcClient;
 use crate::utils::execute_coroutine;
@@ -97,19 +97,15 @@ impl AsyncRpcStateReader {
                 convert_sierra_to_runnable(sierra_class).map_err(to_state_err)?
             }
             starknet::core::types::ContractClass::Legacy(legacy_class) => {
-                // Convert between starknet crate types via serialization
-                let legacy_json = serde_json::to_string(&legacy_class).map_err(to_state_err)?;
-                let starknet_core_legacy_class: starknet_core::types::CompressedLegacyContractClass =
-                    serde_json::from_str(&legacy_json).map_err(to_state_err)?;
-
                 // Now use the decompression function from starknet_core_addons
-                let decompressed_legacy_class = decompress_starknet_core_contract_class(starknet_core_legacy_class)
-                    .map_err(|e| {
+                let decompressed_legacy_class =
+                    decompress_starknet_legacy_contract_class(legacy_class).map_err(|e| {
                         StateError::StateReadError(format!("Failed to decompress legacy contract class: {}", e))
                     })?;
 
                 // Convert the decompressed LegacyContractClass to GenericDeprecatedCompiledClass
-                let generic_deprecated = GenericDeprecatedCompiledClass::from(decompressed_legacy_class);
+                let generic_deprecated =
+                    GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
                 let deprecated_contract_class =
                     generic_deprecated.to_blockifier_contract_class().map_err(to_state_err)?;
 
@@ -144,19 +140,15 @@ impl AsyncRpcStateReader {
                 compiled_class.class_hash().map_err(to_state_err)?
             }
             starknet::core::types::ContractClass::Legacy(legacy_class) => {
-                // Convert between starknet crate types via serialization
-                let legacy_json = serde_json::to_string(&legacy_class).map_err(to_state_err)?;
-                let starknet_core_legacy_class: starknet_core::types::CompressedLegacyContractClass =
-                    serde_json::from_str(&legacy_json).map_err(to_state_err)?;
-
                 // Use the decompression function from starknet_core_addons
-                let decompressed_legacy_class = decompress_starknet_core_contract_class(starknet_core_legacy_class)
-                    .map_err(|e| {
+                let decompressed_legacy_class =
+                    decompress_starknet_legacy_contract_class(legacy_class).map_err(|e| {
                         StateError::StateReadError(format!("Failed to decompress legacy contract class: {}", e))
                     })?;
 
                 // Convert the decompressed LegacyContractClass to GenericDeprecatedCompiledClass
-                let generic_deprecated = GenericDeprecatedCompiledClass::from(decompressed_legacy_class);
+                let generic_deprecated =
+                    GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
                 generic_deprecated.class_hash().map_err(to_state_err)?
             }
         };
