@@ -10,7 +10,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
-use starknet_os_types::starknet_core_addons::decompress_starknet_core_contract_class;
+use starknet_os_types::starknet_core_addons::decompress_starknet_legacy_contract_class;
 use std::future::Future;
 use std::time::Duration;
 use tokio::time::sleep;
