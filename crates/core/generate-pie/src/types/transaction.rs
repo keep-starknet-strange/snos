@@ -52,9 +52,9 @@ impl TransactionProcessingResult {
         let storage_proofs = get_storage_proofs(rpc_client, block_number, &self.accessed_keys_by_address)
             .await
             .map_err(|e| BlockProcessingError::StorageProof(format!("Failed to fetch storage proofs: {:?}", e)))?;
-        info!("Got {} storage proofs", storage_proofs.len());
+        info!("Got {} storage proofs for block {}", storage_proofs.len(), block_number);
 
-        // Fetch previous storage proofs
+        // Fetch storage proofs for the previous block
         let previous_storage_proofs = match previous_block_id {
             Some(BlockId::Number(previous_block_id)) => {
                 get_storage_proofs(rpc_client, previous_block_id, &self.accessed_keys_by_address).await.map_err(

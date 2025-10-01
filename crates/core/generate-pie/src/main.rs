@@ -3,7 +3,10 @@
 //! This binary demonstrates how to use the generate-pie library to generate
 //! Cairo PIE files from Starknet blocks.
 
+use anyhow::bail;
+use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
+use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::generate_pie;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
 use log::{error, info};
@@ -20,6 +23,18 @@ struct Cli {
     /// Block number(s) to process
     #[arg(short, long, value_delimiter = ',', required = true, env = "SNOS_BLOCKS")]
     blocks: Vec<u64>,
+
+    /// Layout to be used for SNOS
+    #[arg(short, long, required = true, default_value = "all_cairo", value_parser=parse_layout, env = "SNOS_LAYOUT")]
+    layout: LayoutName,
+
+    /// STRK fee token address
+    #[arg(short, long, required = true, default_value = DEFAULT_SEPOLIA_STRK_FEE_TOKEN, env = "SNOS_STRK_FEE_TOKEN_ADDRESS")]
+    pub strk_fee_token_address: String,
+
+    /// ETH fee token address
+    #[arg(short, long, required = true, default_value = DEFAULT_SEPOLIA_ETH_FEE_TOKEN, env = "SNOS_ETH_FEE_TOKEN_ADDRESS")]
+    pub eth_fee_token_address: String,
 
     /// Output path for the PIE file
     #[arg(short, long, env = "SNOS_OUTPUT")]
@@ -72,6 +87,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         chain_config: ChainConfig::default_with_chain(&cli.chain),
         os_hints_config: OsHintsConfiguration::default(), // Uses sensible defaults
         output_path: cli.output.clone(),
+        layout: cli.layout,
+        strk_fee_token_address: cli.strk_fee_token_address,
+        eth_fee_token_address: cli.eth_fee_token_address,
     };
 
     // Display configuration information
@@ -79,6 +97,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("  RPC URL: {}", input.rpc_url);
     info!("  Blocks: {:?}", input.blocks);
     info!("  Chain ID: {:?}", input.chain_config.chain_id);
+    info!("  Layout: {:?}", input.layout);
     info!("  Is L3: {}", input.chain_config.is_l3);
     info!("  Debug mode: {}", input.os_hints_config.debug_mode);
     info!("  Full Output: {}", input.os_hints_config.full_output);
@@ -102,4 +121,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     info!("SNOS execution completed successfully!");
     Ok(())
+}
+
+fn parse_layout(layout: &str) -> anyhow::Result<LayoutName> {
+    match layout {
+        "plain" => Ok(LayoutName::plain),
+        "small" => Ok(LayoutName::small),
+        "dex" => Ok(LayoutName::dex),
+        "recursive" => Ok(LayoutName::recursive),
+        "starknet" => Ok(LayoutName::starknet),
+        "starknet_with_keccak" => Ok(LayoutName::starknet_with_keccak),
+        "recursive_large_output" => Ok(LayoutName::recursive_large_output),
+        "recursive_with_poseidon" => Ok(LayoutName::recursive_with_poseidon),
+        "all_solidity" => Ok(LayoutName::all_solidity),
+        "all_cairo" => Ok(LayoutName::all_cairo),
+        "dynamic" => Ok(LayoutName::dynamic),
+        "all_cairo_stwo" => Ok(LayoutName::all_cairo_stwo),
+        _ => bail!("Invalid layout: {}", layout),
+    }
 }

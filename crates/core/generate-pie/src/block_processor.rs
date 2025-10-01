@@ -94,6 +94,8 @@ pub struct BlockInfoResult {
 pub async fn collect_single_block_info(
     block_number: u64,
     is_l3: bool,
+    strk_fee_token_address: &str,
+    eth_fee_token_address: &str,
     rpc_client: RpcClient,
 ) -> Result<BlockInfoResult, BlockProcessingError> {
     info!("Starting block info collection for block {}", block_number);
@@ -102,7 +104,9 @@ pub async fn collect_single_block_info(
     let block_data = BlockData::fetch(block_number, &rpc_client).await?;
 
     // Step 2: Build block context (only once, reused throughout)
-    let block_context = block_data.build_context(is_l3).map_err(BlockProcessingError::ContextBuilding)?;
+    let block_context = block_data
+        .build_context(is_l3, strk_fee_token_address, eth_fee_token_address)
+        .map_err(BlockProcessingError::ContextBuilding)?;
 
     // Step 3: Process transactions and extract execution information
     let tx_result = block_data.process_transactions(block_number, &rpc_client, &block_context).await?;
@@ -179,10 +183,12 @@ fn build_os_block_input(
         block_info: block_context.block_info().clone(),
         prev_block_hash: BlockHash(block_data.previous_block.as_ref().unwrap().block_hash),
         new_block_hash: BlockHash(block_data.current_block.block_hash),
-        old_block_number_and_hash: Some((
-            BlockNumber(block_data.old_block_number.to_u64().unwrap()),
-            BlockHash(block_data.old_block_hash),
-        )),
+        old_block_number_and_hash: if block_data.current_block.block_number == 0 {
+            None // None in case the current block is the genesis block
+        } else {
+            Some((BlockNumber(block_data.old_block_number.to_u64().unwrap()), BlockHash(block_data.old_block_hash)))
+            // Otherwise, get the old block number and hash
+        },
         class_hashes_to_migrate: HashMap::default(), // NOTE: leaving it empty because for 0.14.0 we won't have migration
     }
 }

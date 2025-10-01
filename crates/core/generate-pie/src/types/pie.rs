@@ -1,3 +1,4 @@
+use cairo_vm::types::layout_name::LayoutName;
 use starknet_os::io::os_output::StarknetOsRunnerOutput;
 
 use crate::constants::MAX_BLOCKS_PER_PIE;
@@ -30,6 +31,15 @@ pub struct PieGenerationInput {
     pub blocks: Vec<u64>,
     /// Chain-specific configuration settings.
     pub chain_config: ChainConfig,
+    /// Layout to be used for SNOS
+    pub layout: LayoutName,
+
+    /// STRK fee token address
+    pub strk_fee_token_address: String,
+
+    /// ETH fee token address
+    pub eth_fee_token_address: String,
+
     /// OS hints and execution configuration.
     pub os_hints_config: OsHintsConfiguration,
     /// Optional output file path for the generated PIE file.
