@@ -33,25 +33,26 @@ fn get_rpc_url(chain: &str) -> String {
 /// Simple PIE generation test with parameterized block numbers
 #[rstest]
 // mainnet blocks
-#[case("mainnet", 1943728)] // very slow
-#[case("mainnet", 1943731)] // slow
-#[case("mainnet", 1943743)] // very slow
-#[case("mainnet", 1944976)] // slow
-#[case("mainnet", 2403992)] // slow
+#[case("mainnet", vec![1943728])] // very slow
+#[case("mainnet", vec![1943731])] // slow
+#[case("mainnet", vec![1943743])] // very slow
+#[case("mainnet", vec![1944976])] // slow
+#[case("mainnet", vec![2403992])] // slow
 // sepolia blocks
-#[case("sepolia", 994169)] // very slow
-#[case("sepolia", 926808)] // fast
-#[case("sepolia", 927143)] // fast
-#[case("sepolia", 1041119)] // fast
-#[case("sepolia", 1004270)] // fast
-#[case("sepolia", 2244464)] // fast
+#[case("sepolia", vec![2325530, 2325531])] // very slow
+#[case("sepolia", vec![994169])] // very slow
+#[case("sepolia", vec![926808])] // fast
+#[case("sepolia", vec![927143])] // fast
+#[case("sepolia", vec![1041119])] // fast
+#[case("sepolia", vec![1004270])] // fast
+#[case("sepolia", vec![2244464])] // fast
 #[tokio::test(flavor = "multi_thread")]
-async fn test_pie_generation(#[case] chain: &str, #[case] block_number: u64) {
-    println!("🧪 Testing PIE generation for block {} on {}", block_number, chain);
+async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64>) {
+    println!("🧪 Testing PIE generation for blocks on {}", chain);
 
     let input = PieGenerationInput {
         rpc_url: get_rpc_url(chain),
-        blocks: vec![block_number],
+        blocks: block_numbers.clone(),
         chain_config: ChainConfig::default_with_chain(chain),
         os_hints_config: OsHintsConfiguration::default(),
         output_path: None,
@@ -61,27 +62,24 @@ async fn test_pie_generation(#[case] chain: &str, #[case] block_number: u64) {
     };
 
     println!("📡 Using RPC: {}", input.rpc_url);
-    println!("📦 Processing block: {}", block_number);
+    println!("📦 Processing blocks");
 
     let result = timeout(Duration::from_secs(TEST_TIMEOUT_SECS), generate_pie(input)).await;
 
     match result {
         Ok(pie_result) => match pie_result {
             Ok(pie_result) => {
-                println!("✅  PIE generation succeeded for block {} on {}", block_number, chain);
-                assert_eq!(pie_result.blocks_processed, vec![block_number]);
+                println!("✅  PIE generation succeeded for blocks on {}", chain);
+                assert_eq!(pie_result.blocks_processed, block_numbers);
                 assert_eq!(pie_result.output_path, None);
-                println!("🎉 Block {} processed successfully on {}!", block_number, chain);
+                println!("🎉 Blocks processed successfully on {}!", chain);
             }
             Err(e) => {
-                panic!("❌ PIE generation failed for block {} on {}: {}", block_number, chain, e);
+                panic!("❌ PIE generation failed for blocks on {}: {}", chain, e);
             }
         },
         Err(_) => {
-            panic!(
-                "❌ PIE generation timed out for block {} on {} after {} seconds",
-                block_number, chain, TEST_TIMEOUT_SECS
-            );
+            panic!("❌ PIE generation timed out for blocks on {} after {} seconds", chain, TEST_TIMEOUT_SECS);
         }
     }
 }

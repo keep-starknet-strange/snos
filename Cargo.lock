@@ -1886,6 +1886,7 @@ name = "e2e-tests"
 version = "0.1.0"
 dependencies = [
  "cairo-vm",
+ "env_logger",
  "generate-pie",
  "rstest 0.18.2",
  "tokio",
