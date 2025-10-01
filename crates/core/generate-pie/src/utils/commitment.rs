@@ -1,4 +1,5 @@
 use log::info;
+use rpc_client::constants::DEFAULT_STORAGE_TREE_HEIGHT;
 use rpc_client::types::{ClassProof, TrieNode};
 use starknet_os::io::os_input::CommitmentInfo;
 use starknet_patricia::hash::hash_trait::HashOutput;
@@ -92,7 +93,7 @@ pub fn create_contract_state_commitment_info(
     CommitmentInfo {
         previous_root: HashOutput(previous_contract_trie_root),
         updated_root: HashOutput(current_contract_trie_root),
-        tree_height: SubTreeHeight(251), // Direct construction of SubTreeHeight
+        tree_height: SubTreeHeight(DEFAULT_STORAGE_TREE_HEIGHT as u8), // Direct construction of SubTreeHeight
         commitment_facts: global_state_commitment_facts.into_iter().map(|(k, v)| (HashOutput(k), v)).collect(),
     }
 }

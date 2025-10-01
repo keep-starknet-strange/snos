@@ -2,10 +2,10 @@ use crate::error::BlockProcessingError;
 use crate::utils::{compute_class_commitment, format_commitment_facts};
 use cairo_vm::Felt252;
 use log::{debug, info};
+use rpc_client::constants::DEFAULT_STORAGE_TREE_HEIGHT;
 use rpc_client::types::ContractProof;
 use rpc_client::RpcClient;
 use starknet::core::types::BlockId;
-use starknet::providers::Provider;
 use starknet_api::core::ContractAddress;
 use starknet_os::io::os_input::CommitmentInfo;
 use starknet_patricia::hash::hash_trait::HashOutput;
@@ -46,7 +46,7 @@ impl ProofCollectionResult {
     pub async fn calculate_commitments(
         &self,
         block_id: BlockId,
-        rpc_client: &RpcClient,
+        _rpc_client: &RpcClient,
     ) -> Result<CommitmentCalculationResult, BlockProcessingError> {
         info!("Calculating commitments");
 
@@ -97,7 +97,7 @@ impl ProofCollectionResult {
             let contract_state_commitment_info = CommitmentInfo {
                 previous_root: HashOutput(previous_contract_storage_root),
                 updated_root: HashOutput(current_contract_storage_root),
-                tree_height: SubTreeHeight(251),
+                tree_height: SubTreeHeight(DEFAULT_STORAGE_TREE_HEIGHT as u8),
                 commitment_facts: global_contract_commitment_facts,
             };
 
@@ -114,20 +114,6 @@ impl ProofCollectionResult {
                 HashOutput(previous_contract_storage_root)
             );
             debug!("Contract address: {:?}, block-id: {:?}", contract_address, block_id);
-
-            // Special case handling for contract addresses 0x1 and 0x2
-            let _class_hash = if contract_address == Felt::ONE || contract_address == Felt::TWO {
-                info!("🔧 Special case: Contract address 0x1/0x2 detected, setting class hash to 0x0 without RPC call");
-                Felt::ZERO
-            } else {
-                rpc_client
-                    .starknet_rpc()
-                    .get_class_hash_at(block_id, contract_address)
-                    .await
-                    .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
-            };
-
-            // Note: class_hash is fetched but not currently used in the result
         }
 
         // Extract commitment roots from storage proofs
@@ -136,9 +122,21 @@ impl ProofCollectionResult {
             .get(&Felt::ONE)
             .ok_or_else(|| BlockProcessingError::new_custom("Missing storage proof for block hash contract"))?;
 
-        let previous_block_hash_storage_proof = self.previous_storage_proofs.get(&Felt::ONE).ok_or_else(|| {
-            BlockProcessingError::new_custom("Missing previous storage proof for block hash contract")
-        })?;
+        // Get storage proofs for address 0x1 (block hash storage contract)
+        // NOTE: If the current block number is 0, we take default values for the previous block
+        let default_contract_proof = ContractProof::default();
+        let previous_block_hash_storage_proof = match block_id {
+            BlockId::Number(block_number) => {
+                if block_number == 0 {
+                    self.previous_storage_proofs.get(&Felt::ONE).unwrap_or(&default_contract_proof)
+                } else {
+                    self.previous_storage_proofs.get(&Felt::ONE).ok_or_else(|| {
+                        BlockProcessingError::new_custom("Missing previous storage proof for block hash contract")
+                    })?
+                }
+            }
+            _ => return Err(BlockProcessingError::new_custom(format!("unexpected block_id {:?}", block_id))),
+        };
 
         // Class commitment tree roots
         let updated_root = block_hash_storage_proof.class_commitment.unwrap_or(Felt::ZERO);
@@ -168,7 +166,7 @@ impl ProofCollectionResult {
         let contract_state_commitment_info = CommitmentInfo {
             previous_root: HashOutput(previous_contract_trie_root),
             updated_root: HashOutput(current_contract_trie_root),
-            tree_height: SubTreeHeight(251),
+            tree_height: SubTreeHeight(DEFAULT_STORAGE_TREE_HEIGHT as u8),
             commitment_facts: global_state_commitment_facts,
         };
 
