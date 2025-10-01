@@ -64,8 +64,8 @@ pub async fn generate_cached_state_input(
     let mut all_class_hashes: HashSet<ClassHash> = accessed_classes.clone();
 
     for contract_address in &all_addresses {
-        let class_hash = if *contract_address.key() == Felt::ONE {
-            // Special case for block hash contract
+        let class_hash = if *contract_address.key() == Felt::ONE || *contract_address.key() == Felt::TWO {
+            // Special case for block hash and key mapping contracts
             ClassHash(Felt::ZERO)
         } else {
             let class_hash_felt = rpc_client

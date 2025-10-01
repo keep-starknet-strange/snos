@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 generate-pie = { path = "../crates/core/generate-pie" }
+cairo-vm = { workspace = true }
 
 # Test utilities
 rstest = { workspace = true }

@@ -3,6 +3,8 @@
 //! These tests provide straightforward validation of the PIE generation workflow
 //! using parameterized test cases.
 
+use cairo_vm::types::layout_name::LayoutName;
+use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::generate_pie;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
 use rstest::rstest;
@@ -53,6 +55,9 @@ async fn test_pie_generation(#[case] chain: &str, #[case] block_number: u64) {
         chain_config: ChainConfig::default_with_chain(chain),
         os_hints_config: OsHintsConfiguration::default(),
         output_path: None,
+        layout: LayoutName::all_cairo,
+        strk_fee_token_address: DEFAULT_SEPOLIA_STRK_FEE_TOKEN.to_string(),
+        eth_fee_token_address: DEFAULT_SEPOLIA_ETH_FEE_TOKEN.to_string(),
     };
 
     println!("📡 Using RPC: {}", input.rpc_url);

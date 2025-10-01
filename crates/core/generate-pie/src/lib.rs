@@ -64,7 +64,6 @@
 use std::path::Path;
 
 // External crate imports
-use cairo_vm::types::layout_name::LayoutName;
 use log::{info, warn};
 use rpc_client::RpcClient;
 use starknet::core::types::BlockId;
@@ -87,7 +86,7 @@ use utils::sort_abi_entries_for_deprecated_class;
 
 mod block_processor;
 mod cached_state;
-mod constants;
+pub mod constants;
 mod conversions;
 mod state_update;
 mod utils;
@@ -166,9 +165,15 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
         // Collect block information
         info!("Starting to collect block info for block {}", block_number);
-        let block_info_result = collect_single_block_info(*block_number, input.chain_config.is_l3, rpc_client.clone())
-            .await
-            .map_err(|e| PieGenerationError::BlockProcessing { block_number: *block_number, source: Box::new(e) })?;
+        let block_info_result = collect_single_block_info(
+            *block_number,
+            input.chain_config.is_l3,
+            &input.strk_fee_token_address,
+            &input.eth_fee_token_address,
+            rpc_client.clone(),
+        )
+        .await
+        .map_err(|e| PieGenerationError::BlockProcessing { block_number: *block_number, source: Box::new(e) })?;
 
         let (
             block_input,
@@ -266,8 +271,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
     // Execute the Starknet OS
     info!("Starting OS execution for multi-block processing");
-    info!("Using layout: {:?}", LayoutName::all_cairo);
-    let output = run_os_stateless(LayoutName::all_cairo, os_hints)
+    let output = run_os_stateless(input.layout, os_hints)
         .map_err(|e| PieGenerationError::OsExecution(format!("OS execution failed: {:?}", e)))?;
     info!("Multi-block output generated successfully!");
 

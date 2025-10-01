@@ -1,6 +1,4 @@
-use crate::constants::{
-    DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN, STATEFUL_MAPPING_START, STORED_BLOCK_HASH_BUFFER,
-};
+use crate::constants::{STATEFUL_MAPPING_START, STORED_BLOCK_HASH_BUFFER};
 use crate::conversions::{ConversionContext, TryIntoBlockifierAsync};
 use crate::error::{BlockProcessingError, FeltConversionError};
 use crate::state_update::{get_formatted_state_update, get_subcalled_contracts_from_tx_traces};
@@ -104,10 +102,10 @@ impl BlockData {
         };
 
         // Fetch older block for hash buffer
-        let older_block_number = block_number.saturating_sub(STORED_BLOCK_HASH_BUFFER);
-        let older_block = match rpc_client
+        let old_block_number_u64 = block_number.saturating_sub(STORED_BLOCK_HASH_BUFFER);
+        let old_block = match rpc_client
             .starknet_rpc()
-            .get_block_with_tx_hashes(BlockId::Number(older_block_number))
+            .get_block_with_tx_hashes(BlockId::Number(old_block_number_u64))
             .await
             .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
         {
@@ -117,8 +115,8 @@ impl BlockData {
             }
         };
 
-        let old_block_number = Felt::from(older_block.block_number);
-        let old_block_hash = older_block.block_hash;
+        let old_block_number = Felt::from(old_block.block_number);
+        let old_block_hash = old_block.block_hash;
         info!("Successfully fetched previous and older blocks");
 
         Ok(BlockData { chain_id, current_block, previous_block, old_block_number, old_block_hash, starknet_version })
@@ -293,7 +291,12 @@ impl BlockData {
     /// # Returns
     ///
     /// Returns a `BlockContext` or an error if context building fails.
-    pub fn build_context(&self, is_l3: bool) -> Result<BlockContext, FeltConversionError> {
+    pub fn build_context(
+        &self,
+        is_l3: bool,
+        strk_fee_token_address: &str,
+        eth_fee_token_address: &str,
+    ) -> Result<BlockContext, FeltConversionError> {
         // Extract sequencer address
         let sequencer_address_hex = self.current_block.sequencer_address.to_hex_string();
         let sequencer_address = contract_address!(sequencer_address_hex.as_str());
@@ -331,10 +334,9 @@ impl BlockData {
             chain_id: self.chain_id.clone(),
             // Fee token addresses for Sepolia testnet
             // Reference: https://docs.starknet.io/tools/important-addresses/
-            // TODO: Take these from the user
             fee_token_addresses: FeeTokenAddresses {
-                strk_fee_token_address: contract_address!(DEFAULT_SEPOLIA_STRK_FEE_TOKEN),
-                eth_fee_token_address: contract_address!(DEFAULT_SEPOLIA_ETH_FEE_TOKEN),
+                strk_fee_token_address: contract_address!(strk_fee_token_address),
+                eth_fee_token_address: contract_address!(eth_fee_token_address),
             },
             is_l3,
         };
