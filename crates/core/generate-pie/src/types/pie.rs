@@ -86,9 +86,6 @@ impl PieGenerationInput {
         // Validate chain configuration
         self.chain_config.validate()?;
 
-        // Validate OS hints configuration
-        self.os_hints_config.validate()?;
-
         Ok(())
     }
 }

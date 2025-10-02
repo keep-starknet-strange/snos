@@ -1,5 +1,3 @@
-use crate::error::PieGenerationError;
-
 /// Configuration for OS hints and execution parameters.
 ///
 /// This struct controls various aspects of the Starknet OS execution, including
@@ -41,21 +39,5 @@ impl Default for OsHintsConfiguration {
     /// - KZG DA: enabled (modern data availability)
     fn default() -> Self {
         Self { debug_mode: true, full_output: true, use_kzg_da: false }
-    }
-}
-
-impl OsHintsConfiguration {
-    /// Validates the OS hints configuration.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` if the configuration is valid, or an error if validation fails.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `PieGenerationError::InvalidConfig` if the configuration is invalid.
-    pub fn validate(&self) -> Result<(), PieGenerationError> {
-        // Currently no validation needed, but this provides a place for future validation
-        Ok(())
     }
 }
