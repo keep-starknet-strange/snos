@@ -1,30 +1,36 @@
 [package]
-name = "starknet-os-types"
+name = "rpc-client"
 version.workspace = true
-rust-version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 repository.workspace = true
 license-file.workspace = true
 
 [lib]
 doctest = false
 
+[features]
+cairo_native = []
+
 [dependencies]
+anyhow = { workspace = true }
+bitvec = { workspace = true }
+blockifier = { workspace = true }
 cairo-lang-starknet-classes = { workspace = true }
 cairo-vm = { workspace = true }
-flate2 = { workspace = true }
+log = { workspace = true }
 num-bigint = { workspace = true }
-once_cell = { workspace = true }
-pathfinder-class-hash = { workspace = true }
+reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { workspace = true }
+starknet = { workspace = true }
 starknet-core = { workspace = true }
 starknet-crypto = { workspace = true }
+starknet-os-types = { workspace = true }
 starknet-types-core = { workspace = true }
 starknet_api = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
-indoc = { workspace = true }
 rstest = { workspace = true }

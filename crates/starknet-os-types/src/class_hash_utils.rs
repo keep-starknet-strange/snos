@@ -1,5 +1,7 @@
 //! Utilities for computing class hashes and related operations.
 
+use starknet_api::hash::PoseidonHash;
+use starknet_api::state::ContractClassComponentHashes as OsContractClassComponentHashes;
 use starknet_core::types::SierraEntryPoint;
 use starknet_core::utils::starknet_keccak;
 use starknet_crypto::poseidon_hash_many;
@@ -47,7 +49,7 @@ const CLASS_VERSION_PREFIX: &str = "CONTRACT_CLASS_V";
 ///
 /// let hash = compute_hash_on_sierra_entry_points(entry_points.iter());
 /// ```
-fn compute_hash_on_sierra_entry_points<'a, EntryPoints: Iterator<Item = &'a SierraEntryPoint>>(
+pub fn compute_hash_on_sierra_entry_points<'a, EntryPoints: Iterator<Item = &'a SierraEntryPoint>>(
     entry_points: EntryPoints,
 ) -> Felt {
     let flat_entry_points: Vec<Felt> =
@@ -145,6 +147,18 @@ impl ContractClassComponentHashes {
     #[must_use]
     pub fn sierra_program_hash(&self) -> &Felt {
         &self.sierra_program_hash
+    }
+
+    /// Converts this `ContractClassComponentHashes` to the OS version.
+    pub fn to_os_format(&self) -> OsContractClassComponentHashes {
+        OsContractClassComponentHashes {
+            contract_class_version: self.contract_class_version,
+            external_functions_hash: PoseidonHash(self.external_functions_hash),
+            l1_handlers_hash: PoseidonHash(self.l1_handlers_hash),
+            constructors_hash: PoseidonHash(self.constructors_hash),
+            abi_hash: self.abi_hash,
+            sierra_program_hash: self.sierra_program_hash,
+        }
     }
 }
 

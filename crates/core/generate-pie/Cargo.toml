@@ -6,8 +6,34 @@ edition.workspace = true
 repository.workspace = true
 license-file.workspace = true
 
+[lib]
+doctest = false
+
+[features]
+yaml = []
+
 [dependencies]
-cairo-vm = { workspace = true }
-starknet = { workspace = true }
+rpc-client = { path = "../../rpc-client" }
+starknet-os-types = { path = "../../starknet-os-types" }
+
+blockifier = { workspace = true }
+shared_execution_objects = { workspace = true }
 starknet_api = { workspace = true }
 starknet_os = { workspace = true }
+starknet_patricia = { workspace = true }
+
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+cairo-lang-starknet-classes = { workspace = true }
+cairo-vm = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+num-traits = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+starknet = { workspace = true }
+starknet-types-core = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
