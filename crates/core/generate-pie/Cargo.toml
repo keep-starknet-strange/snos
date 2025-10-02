@@ -22,8 +22,8 @@ starknet_api = { workspace = true }
 starknet_os = { workspace = true }
 starknet_patricia = { workspace = true }
 
-async-trait = { workspace = true }
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 cairo-lang-starknet-classes = { workspace = true }
 cairo-vm = { workspace = true }
 chrono = { workspace = true }

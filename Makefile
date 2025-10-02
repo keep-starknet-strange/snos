@@ -91,6 +91,15 @@ test-e2e: ## Run simple parameterized PIE generation tests
 
 test-all: test-workspace test-e2e ## Run all tests (unit + integration + e2e)
 
+rpc-replay-seq:
+	@echo "$(BLUE)Running RPC replay in sequential mode...$(RESET)"
+	@echo "$(YELLOW)Using RPC: $(RPC_URL)$(RESET)"
+	RUST_LOG=info \
+	cargo run -p rpc-replay -- \
+	--rpc-url "$(RPC_URL)" \
+	--chain "mainnet"
+	--start-block 1943704
+
 test-ci: ## Run tests suitable for CI (no long-running e2e tests)
 	@echo "$(BLUE)Running CI test suite...$(RESET)"
 	$(MAKE) check

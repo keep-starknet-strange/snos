@@ -4,6 +4,7 @@ resolver = "2"
 members = [
   "crates/core/generate-pie",
   "crates/rpc-client",
+  "crates/rpc-replay",
   "crates/starknet-os-types",
   "e2e-tests",
 ]

@@ -6,9 +6,9 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-generate-pie = { path = "../crates/core/generate-pie" }
 cairo-vm = { workspace = true }
 env_logger = { workspace = true }
+generate-pie = { path = "../crates/core/generate-pie" }
 
 # Test utilities
 rstest = { workspace = true }

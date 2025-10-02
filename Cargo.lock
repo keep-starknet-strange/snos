@@ -4279,6 +4279,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "rpc-replay"
+version = "0.1.0"
+dependencies = [
+ "cairo-vm",
+ "chrono",
+ "clap",
+ "env_logger",
+ "generate-pie",
+ "log",
+ "rpc-client",
+ "serde",
+ "serde_json",
+ "starknet",
+ "starknet-types-core",
+ "tokio",
+]
+
+[[package]]
 name = "rstest"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
