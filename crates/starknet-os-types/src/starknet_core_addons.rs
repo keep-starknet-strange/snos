@@ -129,7 +129,7 @@ pub enum LegacyContractDecompressionError {
 /// Compressed classes store the `program` field as a gzipped vector. This function
 /// decompresses the field and performs additional type conversions for the `abi` and
 /// `entry_points_by_type` fields.
-pub fn decompress_starknet_core_contract_class(
+pub fn decompress_starknet_legacy_contract_class(
     compressed_legacy_class: CompressedLegacyContractClass,
 ) -> Result<LegacyContractClass, LegacyContractDecompressionError> {
     let mut program_str = String::new();
@@ -157,7 +157,7 @@ pub fn decompress_starknet_core_contract_class(
 mod tests {
     use starknet_core::types::contract::legacy::LegacyContractClass;
 
-    use crate::starknet_core_addons::decompress_starknet_core_contract_class;
+    use crate::starknet_core_addons::decompress_starknet_legacy_contract_class;
 
     const DEPRECATED_CLASS: &[u8] = include_bytes!("../../../resources/test_contract_compiled.json");
 
@@ -168,6 +168,6 @@ mod tests {
     fn test_decompress_legacy_class() {
         let legacy_class: LegacyContractClass = serde_json::from_slice(DEPRECATED_CLASS).unwrap();
         let compressed_legacy_class = legacy_class.compress().unwrap();
-        let _decompressed_legacy_class = decompress_starknet_core_contract_class(compressed_legacy_class).unwrap();
+        let _decompressed_legacy_class = decompress_starknet_legacy_contract_class(compressed_legacy_class).unwrap();
     }
 }

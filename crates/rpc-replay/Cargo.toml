@@ -1,0 +1,27 @@
+[package]
+name = "rpc-replay"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "rpc-replay"
+path = "src/main.rs"
+
+[dependencies]
+# Internal dependencies
+generate-pie = { path = "../core/generate-pie" }
+rpc-client = { path = "../rpc-client" }
+
+# External dependencies
+cairo-vm = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+# Starknet dependencies
+starknet = { workspace = true }
+starknet-types-core = { workspace = true }

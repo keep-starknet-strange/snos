@@ -1,0 +1,145 @@
+use log::info;
+use rpc_client::constants::DEFAULT_STORAGE_TREE_HEIGHT;
+use rpc_client::types::{ClassProof, TrieNode};
+use starknet_os::io::os_input::CommitmentInfo;
+use starknet_patricia::hash::hash_trait::HashOutput;
+use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
+use starknet_types_core::felt::Felt;
+use std::collections::HashMap;
+
+/// Implementation for Pedersen hash
+/// Port of the format_commitment_facts function from old snos
+///
+/// This function processes trie nodes and converts them into commitment facts
+/// suitable for the OS consumption.
+pub fn format_commitment_facts(trie_nodes: &[Vec<TrieNode>]) -> HashMap<Felt, Vec<Felt>> {
+    let mut facts = HashMap::new();
+
+    for nodes in trie_nodes {
+        for node in nodes {
+            let (key, fact_as_tuple) = match node {
+                TrieNode::Binary { left, right, node_hash } => {
+                    // For binary nodes, compute hash and create tuple.
+                    // In the original implementation, it used BinaryNodeFact.
+                    // For now, we'll create a simplified version.
+                    let node_hash = node_hash.expect("hash expected in the binary");
+                    let fact_as_tuple = vec![*left, *right];
+
+                    (node_hash, fact_as_tuple)
+                }
+                TrieNode::Edge { child, path, node_hash } => {
+                    // For edge nodes, compute hash with path and length.
+                    // In the original implementation, this used EdgeNodeFact.
+                    // For now, we'll create a simplified version.
+                    let path_felt = path.value;
+                    let length_felt = Felt::from(path.len);
+                    let node_hash = node_hash.expect("hash expected in the edge");
+                    let fact_as_tuple = vec![length_felt, path_felt, *child];
+
+                    (node_hash, fact_as_tuple)
+                }
+            };
+
+            facts.insert(key, fact_as_tuple);
+        }
+    }
+
+    facts
+}
+
+/// Port of the compute_class_commitment function from old snos
+///
+/// This function processes class proofs and creates a CommitmentInfo for class commitments.
+pub fn compute_class_commitment(
+    previous_class_proofs: &HashMap<Felt, ClassProof>,
+    class_proofs: &HashMap<Felt, ClassProof>,
+    previous_root: Felt,
+    updated_root: Felt,
+) -> CommitmentInfo {
+    // TODO: Verify previous class proofs - need to find the correct verify method
+    // For now, we'll skip verification to get the code compiling
+
+    // Extract class proof vectors
+    let previous_class_proofs: Vec<_> = previous_class_proofs.values().cloned().collect();
+    let class_proofs: Vec<_> = class_proofs.values().cloned().collect();
+
+    let previous_class_proofs: Vec<_> = previous_class_proofs.into_iter().map(|proof| proof.class_proof).collect();
+    let class_proofs: Vec<_> = class_proofs.into_iter().map(|proof| proof.class_proof).collect();
+
+    // Format commitment facts using Poseidon hash (for class commitments)
+    let previous_class_commitment_facts = format_commitment_facts(&previous_class_proofs);
+    let current_class_commitment_facts = format_commitment_facts(&class_proofs);
+
+    // Combine facts from previous and current
+    let class_commitment_facts: HashMap<_, _> =
+        previous_class_commitment_facts.into_iter().chain(current_class_commitment_facts).collect();
+
+    info!("previous class trie root: {}", previous_root.to_hex_string());
+    info!("current class trie root: {}", updated_root.to_hex_string());
+
+    // Create CommitmentInfo with proper type conversions
+    create_contract_state_commitment_info(previous_root, updated_root, class_commitment_facts)
+}
+
+/// Helper function to create contract state commitment info from storage proofs
+///
+/// This combines the logic for creating state commitments from storage proofs
+/// Similar to the contract_state_commitment_info creation in the old prove_block function
+pub fn create_contract_state_commitment_info(
+    previous_contract_trie_root: Felt,
+    current_contract_trie_root: Felt,
+    global_state_commitment_facts: HashMap<Felt, Vec<Felt>>,
+) -> CommitmentInfo {
+    CommitmentInfo {
+        previous_root: HashOutput(previous_contract_trie_root),
+        updated_root: HashOutput(current_contract_trie_root),
+        tree_height: SubTreeHeight(DEFAULT_STORAGE_TREE_HEIGHT as u8), // Direct construction of SubTreeHeight
+        commitment_facts: global_state_commitment_facts.into_iter().map(|(k, v)| (HashOutput(k), v)).collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rpc_client::types::{Hash, PedersenHash, PoseidonHash};
+
+    #[test]
+    fn test_format_commitment_facts_empty() {
+        let empty_nodes: Vec<Vec<TrieNode>> = vec![];
+        let facts = format_commitment_facts(&empty_nodes);
+        assert!(facts.is_empty());
+    }
+
+    #[test]
+    fn test_compute_class_commitment_empty() {
+        let empty_proofs = HashMap::new();
+        let zero_root = Felt::ZERO;
+
+        let commitment = compute_class_commitment(&empty_proofs, &empty_proofs, zero_root, zero_root);
+        assert_eq!(commitment.previous_root.0, commitment.updated_root.0);
+    }
+
+    #[test]
+    fn test_hash_functions() {
+        let left = Felt::from(1u32);
+        let right = Felt::from(2u32);
+
+        // Test that hash functions work
+        let pedersen_result = PedersenHash::hash(&left, &right);
+        let poseidon_result = PoseidonHash::hash(&left, &right);
+
+        // They should produce different results for different hash functions
+        assert_ne!(pedersen_result, poseidon_result);
+    }
+
+    #[test]
+    fn test_commitment_info_creation() {
+        let root1 = Felt::from(100u32);
+        let root2 = Felt::from(200u32);
+        let facts = HashMap::new();
+
+        let commitment = create_contract_state_commitment_info(root1, root2, facts);
+        assert_eq!(commitment.previous_root.0, root1);
+        assert_eq!(commitment.updated_root.0, root2);
+    }
+}

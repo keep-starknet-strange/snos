@@ -9,7 +9,7 @@ use starknet_types_core::hash::{Pedersen, Poseidon, StarkHash};
 /// # Example
 ///
 /// ```rust
-/// use rpc_client::SimpleHashFunction;
+/// use rpc_client::types::Hash;
 /// use starknet_types_core::felt::Felt;
 ///
 /// struct MyHashFunction;

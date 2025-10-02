@@ -1,6 +1,7 @@
 //! Main RPC client implementation for unified Starknet and Pathfinder access.
 
 use anyhow::anyhow;
+use log::info;
 use reqwest::Url;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError};
@@ -68,7 +69,7 @@ impl RpcClientInner {
     /// ```
     fn try_new(base_url: &str) -> anyhow::Result<Self> {
         let starknet_rpc_url = format!("{}/rpc/{}", base_url, STARKNET_RPC_VERSION);
-        log::info!("Initializing Starknet RPC client with URL: {}", starknet_rpc_url);
+        info!("Initializing Starknet RPC client with URL: {}", starknet_rpc_url);
 
         let provider = JsonRpcClient::new(HttpTransport::new(
             Url::parse(starknet_rpc_url.as_str())
@@ -182,7 +183,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///
     /// # Returns
     ///
-    /// Returns a `PathfinderProof` containing the storage proofs or an error if the
+    /// Returns a `ContractProof` containing the storage proofs or an error if the
     /// request fails.
     ///
     /// # Errors
@@ -225,6 +226,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
         } else {
             // Get proofs for each key, batching requests if possible
             for chunk in keys.chunks(MAX_STORAGE_KEYS_PER_REQUEST) {
+                info!("Calling RPC with {} keys", chunk.len());
                 let proof = self.get_proof_multiple_keys(block_number, contract_address, chunk).await?;
                 proofs.push_back(proof);
             }
@@ -234,9 +236,14 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
         let mut proof = proofs.pop_front().ok_or(ProviderError::ArrayLengthMismatch)?;
         let contract_data = proof.contract_data.as_mut().ok_or(ProviderError::ArrayLengthMismatch)?;
 
+        // Combine all storage proofs in contract data.
+        // NOTE: storage_proof is a vector of proofs. Each of them is the union of all the paths
+        // of storage keys from root to leave for a single contract.
+        // So, storage_proofs.len() == num of contracts sent
         for additional_proof in proofs {
-            let additional_contract_data = additional_proof.contract_data.ok_or(ProviderError::ArrayLengthMismatch)?;
-            contract_data.storage_proofs.extend(additional_contract_data.storage_proofs);
+            contract_data
+                .storage_proofs
+                .extend(additional_proof.contract_data.ok_or(ProviderError::ArrayLengthMismatch)?.storage_proofs);
         }
 
         Ok(proof)
@@ -251,7 +258,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///
     /// # Returns
     ///
-    /// Returns a `PathfinderClassProof` containing the class proof or an error if the
+    /// Returns a `ClassProof` containing the class proof or an error if the
     /// request fails.
     ///
     /// # Errors
@@ -276,7 +283,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     /// }
     /// ```
     async fn get_class_proof(&self, block_number: u64, class_hash: &Felt) -> Result<ClassProof, ProviderError> {
-        log::debug!("Querying starknet_getStorageProofs for class {:x} at block {:x}", class_hash, block_number);
+        info!("Querying starknet_getStorageProofs for class {:x} at block {:x}", class_hash, block_number);
 
         Ok(self.get_storage_proof(ConfirmedBlockId::Number(block_number), [*class_hash], [], []).await?.into())
     }
@@ -294,7 +301,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///
     /// # Returns
     ///
-    /// Returns a `PathfinderProof` containing the storage proof or an error if the
+    /// Returns a `ContractProof` containing the storage proof or an error if the
     /// request fails.
     ///
     /// # Errors
@@ -323,7 +330,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///
     /// # Returns
     ///
-    /// Returns a `PathfinderProof` containing the storage proofs or an error if the
+    /// Returns a `ContractProof` containing the storage proofs or an error if the
     /// request fails.
     ///
     /// # Errors
@@ -335,7 +342,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
         contract_address: Felt,
         storage_keys: &[Felt],
     ) -> Result<ContractProof, ProviderError> {
-        log::debug!(
+        info!(
             "Querying starknet_getStorageProof for address {:x} with {} keys at block {:x}",
             contract_address,
             storage_keys.len(),

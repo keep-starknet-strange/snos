@@ -2,7 +2,7 @@ use blockifier::execution::contract_class::{CompiledClassV0, CompiledClassV1, Ru
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
 use cairo_lang_starknet_classes::contract_class::version_id_from_serialized_sierra_program;
-use log::{debug, error};
+use log::{debug, warn};
 use starknet::core::types::{BlockId, Felt, StarknetError};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::contract_class::SierraVersion;
@@ -10,13 +10,25 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
-use starknet_os_types::starknet_core_addons::decompress_starknet_core_contract_class;
+use starknet_os_types::starknet_core_addons::decompress_starknet_legacy_contract_class;
+use std::future::Future;
+use std::time::Duration;
+use tokio::time::sleep;
 
 use crate::client::RpcClient;
 use crate::utils::execute_coroutine;
 
 #[cfg(test)]
 pub mod tests;
+
+/// Maximum number of retry attempts for RPC calls
+const MAX_RETRY_ATTEMPTS: u32 = 3;
+
+/// Initial delay for exponential backoff (in milliseconds)
+const INITIAL_BACKOFF_MS: u64 = 100;
+
+/// Maximum delay for exponential backoff (in milliseconds)
+const MAX_BACKOFF_MS: u64 = 5000;
 
 #[derive(Clone)]
 pub struct AsyncRpcStateReader {
@@ -27,6 +39,64 @@ pub struct AsyncRpcStateReader {
 impl AsyncRpcStateReader {
     pub fn new(rpc_client: RpcClient, block_id: BlockId) -> Self {
         Self { rpc_client, block_id }
+    }
+
+    /// Execute an RPC call with exponential backoff retry logic
+    ///
+    /// # Arguments
+    /// * `operation_name` - Name of the operation for logging purposes
+    /// * `f` - The async function to execute with retry logic
+    ///
+    /// # Returns
+    /// The result of the RPC call or an error after all retries are exhausted
+    async fn execute_with_retry<T, F, Fut>(&self, operation_name: &str, f: F) -> Result<T, ProviderError>
+    where
+        F: Fn() -> Fut,
+        Fut: Future<Output = Result<T, ProviderError>>,
+    {
+        let mut attempts = 0;
+        let mut backoff_ms = INITIAL_BACKOFF_MS;
+
+        loop {
+            attempts += 1;
+
+            match f().await {
+                Ok(result) => {
+                    if attempts > 1 {
+                        debug!("{}: succeeded after {} attempts", operation_name, attempts);
+                    }
+                    return Ok(result);
+                }
+                Err(e) => {
+                    // Check if the error is retryable
+                    let is_retryable = match &e {
+                        // Don't retry on semantic errors (contract not found, class not found, etc.)
+                        ProviderError::StarknetError(StarknetError::ContractNotFound)
+                        | ProviderError::StarknetError(StarknetError::ClassHashNotFound) => false,
+                        // Retry on network/transport errors
+                        _ => true,
+                    };
+
+                    if !is_retryable || attempts >= MAX_RETRY_ATTEMPTS {
+                        if attempts > 1 {
+                            warn!("{}: failed after {} attempts with error: {:?}", operation_name, attempts, e);
+                        }
+                        return Err(e);
+                    }
+
+                    warn!(
+                        "{}: attempt {} failed with error: {:?}, retrying in {}ms...",
+                        operation_name, attempts, e, backoff_ms
+                    );
+
+                    // Wait with exponential backoff
+                    sleep(Duration::from_millis(backoff_ms)).await;
+
+                    // Increase backoff for next attempt (exponential backoff with cap)
+                    backoff_ms = (backoff_ms * 2).min(MAX_BACKOFF_MS);
+                }
+            }
+        }
     }
 }
 
@@ -41,10 +111,12 @@ fn to_state_err<E: ToString>(e: E) -> StateError {
 
 impl AsyncRpcStateReader {
     pub async fn get_storage_at_async(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt> {
+        let operation_name = format!("get_storage_at(contract: {:?}, key: {:?})", contract_address, key);
+
         let storage_value = match self
-            .rpc_client
-            .starknet_rpc()
-            .get_storage_at(*contract_address.key(), *key.0.key(), self.block_id)
+            .execute_with_retry(&operation_name, || {
+                self.rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *key.0.key(), self.block_id)
+            })
             .await
         {
             Ok(value) => Ok(value),
@@ -57,8 +129,14 @@ impl AsyncRpcStateReader {
 
     pub async fn get_nonce_at_async(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         debug!("got a request of get_nonce_at with parameters the contract address: {:?}", contract_address);
-        let res = self.rpc_client.starknet_rpc().get_nonce(self.block_id, *contract_address.key()).await;
-        let nonce = match res {
+        let operation_name = format!("get_nonce_at(contract: {:?})", contract_address);
+
+        let nonce = match self
+            .execute_with_retry(&operation_name, || {
+                self.rpc_client.starknet_rpc().get_nonce(self.block_id, *contract_address.key())
+            })
+            .await
+        {
             Ok(value) => Ok(value),
             Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
             Err(e) => Err(provider_error_to_state_error(e)),
@@ -68,19 +146,32 @@ impl AsyncRpcStateReader {
 
     pub async fn get_class_hash_at_async(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         debug!("got a request of get_class_hash_at with parameters the contract address: {:?}", contract_address);
-        let class_hash =
-            match self.rpc_client.starknet_rpc().get_class_hash_at(self.block_id, *contract_address.key()).await {
-                Ok(class_hash) => Ok(class_hash),
-                Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(ClassHash::default().0),
-                Err(e) => Err(provider_error_to_state_error(e)),
-            }?;
+        let operation_name = format!("get_class_hash_at(contract: {:?})", contract_address);
+
+        let class_hash = match self
+            .execute_with_retry(&operation_name, || {
+                self.rpc_client.starknet_rpc().get_class_hash_at(self.block_id, *contract_address.key())
+            })
+            .await
+        {
+            Ok(class_hash) => Ok(class_hash),
+            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(ClassHash::default().0),
+            Err(e) => Err(provider_error_to_state_error(e)),
+        }?;
 
         Ok(ClassHash(class_hash))
     }
 
     pub async fn get_compiled_class_async(&self, class_hash: ClassHash) -> StateResult<RunnableCompiledClass> {
         debug!("got a request of get_compiled_class with parameters the class hash: {:?}", class_hash);
-        let contract_class = match self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0).await {
+        let operation_name = format!("get_compiled_class(class_hash: {:?})", class_hash);
+
+        let contract_class = match self
+            .execute_with_retry(&operation_name, || {
+                self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0)
+            })
+            .await
+        {
             Ok(contract_class) => Ok(contract_class),
             // If the ContractClass is declared in the current block,
             // might trigger this error when trying to get it on the previous block.
@@ -94,82 +185,18 @@ impl AsyncRpcStateReader {
 
         let runnable_contract_class: RunnableCompiledClass = match contract_class {
             starknet::core::types::ContractClass::Sierra(sierra_class) => {
-                // Serialize the sierra class to JSON
-                let sierra_json = serde_json::to_string(&sierra_class).map_err(to_state_err)?;
-
-                // Parse the JSON to fix the ABI field
-                let mut sierra_value: serde_json::Value = serde_json::from_str(&sierra_json).map_err(to_state_err)?;
-
-                // The ABI field is a JSON string, but GenericSierraContractClass expects it to be parseable.
-                // Let's check if the ABI field needs to be converted from string to JSON
-                if let Some(abi_field) = sierra_value.get_mut("abi") {
-                    if let Some(abi_str) = abi_field.as_str() {
-                        // Try to parse the ABI string as JSON
-                        match serde_json::from_str::<serde_json::Value>(abi_str) {
-                            Ok(abi_json) => {
-                                debug!("✅ Successfully parsed ABI string as JSON");
-                                *abi_field = abi_json;
-                            }
-                            Err(e) => {
-                                error!("⚠️  ABI is not valid JSON string: {}", e);
-                                // Keep the ABI as-is if it's not a JSON string
-                            }
-                        }
-                    }
-                }
-
-                // Re-serialize the fixed JSON
-                let fixed_sierra_json = serde_json::to_string(&sierra_value).map_err(to_state_err)?;
-
-                // Parse as GenericSierraContractClass
-                let generic_sierra = GenericSierraContractClass::from_bytes(fixed_sierra_json.into_bytes());
-
-                let generic_cairo_lang_class = generic_sierra
-                    .get_cairo_lang_contract_class()
-                    .map_err(|e| StateError::StateReadError(e.to_string()))?;
-                let (version_id, _) =
-                    version_id_from_serialized_sierra_program(&generic_cairo_lang_class.sierra_program)
-                        .map_err(|e| StateError::StateReadError(e.to_string()))?;
-                let sierra_version =
-                    SierraVersion::new(version_id.major as u64, version_id.minor as u64, version_id.patch as u64);
-
-                // Try compilation
-                match generic_sierra.compile() {
-                    Ok(compiled_class) => {
-                        debug!("✅ Sierra compilation succeeded!");
-                        let versioned_casm =
-                            compiled_class.to_blockifier_contract_class(sierra_version).map_err(to_state_err)?;
-
-                        // Convert VersionedCasm to CompiledClassV1 using TryFrom
-                        let compiled_class_v1 = CompiledClassV1::try_from(versioned_casm).map_err(|e| {
-                            StateError::StateReadError(format!(
-                                "Failed to convert VersionedCasm to CompiledClassV1: {}",
-                                e
-                            ))
-                        })?;
-
-                        RunnableCompiledClass::V1(compiled_class_v1)
-                    }
-                    Err(e) => {
-                        error!("⚠️  Sierra compilation failed: {}", e);
-                        return Err(StateError::StateReadError(format!("Sierra compilation failed: {}", e)));
-                    }
-                }
+                convert_sierra_to_runnable(sierra_class).map_err(to_state_err)?
             }
             starknet::core::types::ContractClass::Legacy(legacy_class) => {
-                // Convert between starknet crate types via serialization
-                let legacy_json = serde_json::to_string(&legacy_class).map_err(to_state_err)?;
-                let starknet_core_legacy_class: starknet_core::types::CompressedLegacyContractClass =
-                    serde_json::from_str(&legacy_json).map_err(to_state_err)?;
-
                 // Now use the decompression function from starknet_core_addons
-                let decompressed_legacy_class = decompress_starknet_core_contract_class(starknet_core_legacy_class)
-                    .map_err(|e| {
+                let decompressed_legacy_class =
+                    decompress_starknet_legacy_contract_class(legacy_class).map_err(|e| {
                         StateError::StateReadError(format!("Failed to decompress legacy contract class: {}", e))
                     })?;
 
                 // Convert the decompressed LegacyContractClass to GenericDeprecatedCompiledClass
-                let generic_deprecated = GenericDeprecatedCompiledClass::from(decompressed_legacy_class);
+                let generic_deprecated =
+                    GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
                 let deprecated_contract_class =
                     generic_deprecated.to_blockifier_contract_class().map_err(to_state_err)?;
 
@@ -190,47 +217,31 @@ impl AsyncRpcStateReader {
 
     pub async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         debug!("got a request of get_compiled_class_hash with parameters the class hash: {:?}", class_hash);
+        let operation_name = format!("get_compiled_class_hash(class_hash: {:?})", class_hash);
+
         let contract_class = self
-            .rpc_client
-            .starknet_rpc()
-            .get_class(self.block_id, class_hash.0)
+            .execute_with_retry(&operation_name, || {
+                self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0)
+            })
             .await
             .map_err(provider_error_to_state_error)?;
 
         let class_hash = match contract_class {
             starknet::core::types::ContractClass::Sierra(sierra_class) => {
-                // Apply the same ABI fix as in get_compiled_class_async
-                let sierra_json = serde_json::to_string(&sierra_class).map_err(to_state_err)?;
-                let mut sierra_value: serde_json::Value = serde_json::from_str(&sierra_json).map_err(to_state_err)?;
-
-                // Fix the ABI field if it's a JSON string
-                if let Some(abi_field) = sierra_value.get_mut("abi") {
-                    if let Some(abi_str) = abi_field.as_str() {
-                        if let Ok(abi_json) = serde_json::from_str::<serde_json::Value>(abi_str) {
-                            *abi_field = abi_json;
-                        }
-                    }
-                }
-
-                let fixed_sierra_json = serde_json::to_string(&sierra_value).map_err(to_state_err)?;
-                let generic_sierra = GenericSierraContractClass::from_bytes(fixed_sierra_json.into_bytes());
+                let generic_sierra = convert_sierra_class_for_generic(&sierra_class)?;
                 let compiled_class = generic_sierra.compile().map_err(to_state_err)?;
                 compiled_class.class_hash().map_err(to_state_err)?
             }
             starknet::core::types::ContractClass::Legacy(legacy_class) => {
-                // Convert between starknet crate types via serialization
-                let legacy_json = serde_json::to_string(&legacy_class).map_err(to_state_err)?;
-                let starknet_core_legacy_class: starknet_core::types::CompressedLegacyContractClass =
-                    serde_json::from_str(&legacy_json).map_err(to_state_err)?;
-
                 // Use the decompression function from starknet_core_addons
-                let decompressed_legacy_class = decompress_starknet_core_contract_class(starknet_core_legacy_class)
-                    .map_err(|e| {
+                let decompressed_legacy_class =
+                    decompress_starknet_legacy_contract_class(legacy_class).map_err(|e| {
                         StateError::StateReadError(format!("Failed to decompress legacy contract class: {}", e))
                     })?;
 
                 // Convert the decompressed LegacyContractClass to GenericDeprecatedCompiledClass
-                let generic_deprecated = GenericDeprecatedCompiledClass::from(decompressed_legacy_class);
+                let generic_deprecated =
+                    GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
                 generic_deprecated.class_hash().map_err(to_state_err)?
             }
         };
@@ -264,5 +275,63 @@ impl StateReader for AsyncRpcStateReader {
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         execute_coroutine(self.get_compiled_class_hash_async(class_hash))
             .map_err(|e| StateError::StateReadError(e.to_string()))?
+    }
+}
+
+/// Convert Sierra class to a format that GenericSierraContractClass can handle.
+/// This properly handles the ABI field conversion by going through starknet_core types.
+fn convert_sierra_class_for_generic(
+    sierra_class: &starknet::core::types::FlattenedSierraClass,
+) -> Result<GenericSierraContractClass, StateError> {
+    // Convert starknet::core types to starknet_core types via JSON serialization
+    // This handles the type differences between the crates
+    let sierra_json = serde_json::to_string(sierra_class).map_err(to_state_err)?;
+    let starknet_core_sierra: starknet_core::types::FlattenedSierraClass =
+        serde_json::from_str(&sierra_json).map_err(to_state_err)?;
+
+    // Use the `From` implementation that properly handles ABI conversion
+    let generic_sierra = GenericSierraContractClass::from(starknet_core_sierra);
+    Ok(generic_sierra)
+}
+
+/// Convert a Sierra contract class using the improved Generic types.
+/// This function uses the approach from snos-core for better type handling.
+fn convert_sierra_to_runnable(
+    sierra_class: starknet::core::types::FlattenedSierraClass,
+) -> Result<RunnableCompiledClass, StateError> {
+    debug!("Converting Sierra contract class using GenericSierraContractClass...");
+
+    // Convert to GenericSierraContractClass using proper From implementation
+    let generic_sierra = convert_sierra_class_for_generic(&sierra_class)?;
+
+    // Get the cairo-lang contract class for version extraction
+    let generic_cairo_lang_class = generic_sierra.get_cairo_lang_contract_class().map_err(to_state_err)?;
+
+    let (version_id, _) =
+        version_id_from_serialized_sierra_program(&generic_cairo_lang_class.sierra_program).map_err(to_state_err)?;
+
+    let sierra_version = SierraVersion::new(
+        version_id.major.try_into().map_err(to_state_err)?,
+        version_id.minor.try_into().map_err(to_state_err)?,
+        version_id.patch.try_into().map_err(to_state_err)?,
+    );
+
+    // Try compilation
+    match generic_sierra.compile() {
+        Ok(compiled_class) => {
+            debug!("✅ Sierra compilation succeeded!");
+            let versioned_casm = compiled_class.to_blockifier_contract_class(sierra_version).map_err(to_state_err)?;
+
+            // Convert VersionedCasm to CompiledClassV1 using TryFrom
+            let compiled_class_v1 = CompiledClassV1::try_from(versioned_casm).map_err(|e| {
+                StateError::StateReadError(format!("Failed to convert VersionedCasm to CompiledClassV1: {}", e))
+            })?;
+
+            Ok(RunnableCompiledClass::V1(compiled_class_v1))
+        }
+        Err(e) => {
+            warn!("⚠️  Sierra compilation failed: {}", e);
+            Err(StateError::StateReadError(format!("Sierra compilation failed: {}", e)))
+        }
     }
 }

@@ -19,7 +19,7 @@ pub enum ClientError {
     #[error("Encountered a custom error: {0}")]
     CustomError(String),
 
-    /// Failed to convert a response to a PathfinderProof.
+    /// Failed to convert a response to a ContractProof.
     #[error("Failed to convert RPC response to SNOS Proof: {0}")]
     ProofConversionError(String),
 

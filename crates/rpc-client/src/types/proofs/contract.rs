@@ -1,4 +1,5 @@
 use anyhow::bail;
+use log::info;
 use serde::{Deserialize, Serialize};
 use starknet::macros::short_string;
 use starknet::providers::ProviderError;
@@ -42,6 +43,7 @@ impl ContractData {
     /// This function will panic if the proof contains an invalid node hash (i.e., the hash of a child
     /// node does not match the one specified in the parent).
     pub fn get_additional_keys(&self, keys: &[Felt]) -> anyhow::Result<Vec<Felt>> {
+        info!("Fetching additional keys for a contract which already have {} keys", keys.len());
         let mut additional_keys = vec![];
         if let Err(errors) = self.verify(keys) {
             for error in errors {
@@ -68,8 +70,8 @@ impl ContractData {
     pub fn verify(&self, storage_keys: &[Felt]) -> Result<(), Vec<ProofVerificationError>> {
         let mut errors = vec![];
 
-        for (index, storage_key) in storage_keys.iter().enumerate() {
-            if let Err(e) = self.storage_proofs[index].verify_proof::<PedersenHash>(*storage_key, self.root) {
+        for storage_key in storage_keys.iter() {
+            if let Err(e) = self.storage_proofs[0].verify_proof::<PedersenHash>(*storage_key, self.root) {
                 errors.push(e);
             }
         }
@@ -86,6 +88,7 @@ impl TryFrom<StorageProof> for ContractProof {
     type Error = ProviderError;
 
     /// Convert [StorageProof] (returned as a response from RPC) to [ContractProof] (used by SNOS)
+    ///
     /// TODO: Check if we can handle multiple contracts in this conversion function. Right now, it handles only a single contract from [StorageProof]
     /// TODO: Return proper errors
     fn try_from(proof: StorageProof) -> Result<Self, Self::Error> {
@@ -93,7 +96,6 @@ impl TryFrom<StorageProof> for ContractProof {
         // contracts-tree root to all the leaves
         let contract_proof = proof.contracts_proof;
         let contract_leaf = contract_proof.contract_leaves_data.first().ok_or(ProviderError::ArrayLengthMismatch)?;
-        let storage_proofs = proof.contracts_storage_proofs.first().ok_or(ProviderError::ArrayLengthMismatch)?;
 
         // Compute the state commitment
         let state_commitment = starknet_crypto::poseidon_hash_many(&[
@@ -103,19 +105,20 @@ impl TryFrom<StorageProof> for ContractProof {
         ]);
 
         // Convert storage proofs from response type to SNOS type
-        let mut snos_storage_proofs: Vec<Vec<TrieNode>> = Vec::with_capacity(1);
-        let mut snos_storage_proof: Vec<TrieNode> = Vec::with_capacity(snos_storage_proofs.len());
-        for (node_hash, node) in storage_proofs {
-            // Convert the node from the response type to the SNOS type
-            let mut trie_node: TrieNode = node.clone().into();
-            // Set the node_hash
-            match &mut trie_node {
-                TrieNode::Binary { node_hash: nh, .. } => *nh = Some(*node_hash),
-                TrieNode::Edge { node_hash: nh, .. } => *nh = Some(*node_hash),
-            }
-            snos_storage_proof.push(trie_node);
+        let mut snos_storage_proofs: Vec<Vec<TrieNode>> = Vec::with_capacity(proof.contracts_storage_proofs.len());
+        for contract_storage_proofs in proof.contracts_storage_proofs {
+            snos_storage_proofs.push(
+                contract_storage_proofs
+                    .iter()
+                    .map(|(node_hash, node)| {
+                        // Convert the node from the response type to the SNOS type
+                        let mut trie_node: TrieNode = node.clone().into();
+                        trie_node.set_node_hash(*node_hash);
+                        trie_node
+                    })
+                    .collect(),
+            );
         }
-        snos_storage_proofs.push(snos_storage_proof);
 
         // Convert contract proofs from response to SNOS types
         // Here we are copying all the nodes from the response to the SNOS type

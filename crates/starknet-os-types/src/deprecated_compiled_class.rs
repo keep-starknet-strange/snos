@@ -1,26 +1,27 @@
 //! Cairo 0 legacy (deprecated) contract class types and utilities.
 
-use once_cell::sync::OnceCell;
-use std::sync::Arc;
-
 use crate::error::{ContractClassError, ConversionError};
 use crate::hash::GenericClassHash;
-use crate::starknet_core_addons::{decompress_starknet_core_contract_class, LegacyContractDecompressionError};
-use pathfinder_gateway_types::class_hash::compute_class_hash;
+use crate::starknet_core_addons::{decompress_starknet_legacy_contract_class, LegacyContractDecompressionError};
+use once_cell::sync::OnceCell;
+use pathfinder_class_hash::compute_class_hash;
+use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::sync::Arc;
 
 /// Type alias for StarknetAPI deprecated contract class.
 pub type StarknetApiDeprecatedClass = starknet_api::deprecated_contract_class::ContractClass;
+
+/// Type alias for Blockifier deprecated contract class.
+///
+/// NOTE: This is the same as StarknetApiDeprecatedClass, but kept for clarity.
+pub type BlockifierDeprecatedClass = starknet_api::deprecated_contract_class::ContractClass;
 
 /// Type alias for StarknetCore deprecated contract class.
 pub type StarknetCoreDeprecatedClass = starknet_core::types::contract::legacy::LegacyContractClass;
 
 /// Type alias for a compressed StarknetCore deprecated contract class.
-pub type CompressedStarknetCoreDeprecatedClass = starknet_core::types::CompressedLegacyContractClass;
-
-/// Type alias for Blockifier deprecated contract class.
-/// Note: This is the same as StarknetApiDeprecatedClass, but kept for clarity.
-pub type BlockifierDeprecatedClass = starknet_api::deprecated_contract_class::ContractClass;
+pub type StarknetCoreCompressedDeprecatedClass = starknet_core::types::CompressedLegacyContractClass;
 
 /// A generic deprecated contract class that supports conversion between different formats.
 ///
@@ -46,7 +47,7 @@ pub type BlockifierDeprecatedClass = starknet_api::deprecated_contract_class::Co
 /// // Convert to Blockifier format
 /// let blockifier_class = contract_class.get_blockifier_contract_class()?;
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct GenericDeprecatedCompiledClass {
     /// Lazy-initialized Blockifier contract class.
     blockifier_contract_class: OnceCell<Arc<BlockifierDeprecatedClass>>,
@@ -118,9 +119,11 @@ impl GenericDeprecatedCompiledClass {
     ///
     /// Returns a `ContractClassError` if the Blockifier class cannot be built.
     fn build_blockifier_class(&self) -> Result<BlockifierDeprecatedClass, ContractClassError> {
-        let serialized_class = self.serialized_class.get_or_try_init(|| serde_json::to_vec(self))?;
+        if let Some(serialized_class) = self.serialized_class.get() {
+            return serde_json::from_slice(serialized_class).map_err(ContractClassError::SerdeError);
+        }
 
-        serde_json::from_slice(serialized_class).map_err(ContractClassError::SerdeError)
+        Err(ContractClassError::ConversionError(ConversionError::StarknetClassMissing))
     }
 
     /// Gets a reference to the StarknetAPI contract class, building it if necessary.
@@ -284,14 +287,14 @@ impl Serialize for GenericDeprecatedCompiledClass {
     where
         S: Serializer,
     {
-        // Try to serialize using a StarknetAPI class first
         if let Some(starknet_api_class) = self.starknet_api_contract_class.get() {
             starknet_api_class.serialize(serializer)
+        } else if let Some(starknet_core_class) = self.starknet_core_contract_class.get() {
+            starknet_core_class.serialize(serializer)
+        } else if let Some(blockifier_class) = self.blockifier_contract_class.get() {
+            blockifier_class.serialize(serializer)
         } else {
-            // Fall back to serializing the raw bytes
-            let serialized_class =
-                self.get_serialized_contract_class().map_err(|e| serde::ser::Error::custom(e.to_string()))?;
-            serializer.serialize_bytes(serialized_class)
+            Err(serde::ser::Error::custom("No conversion found"))
         }
     }
 }
@@ -302,60 +305,45 @@ impl<'de> Deserialize<'de> for GenericDeprecatedCompiledClass {
         D: Deserializer<'de>,
     {
         let starknet_api_class = StarknetApiDeprecatedClass::deserialize(deserializer)?;
-        Ok(Self::from(starknet_api_class))
+        Self::try_from(starknet_api_class).map_err(Error::custom)
     }
 }
 
-impl From<StarknetApiDeprecatedClass> for GenericDeprecatedCompiledClass {
-    fn from(starknet_api_class: StarknetApiDeprecatedClass) -> Self {
-        Self {
-            blockifier_contract_class: Default::default(),
+impl TryFrom<StarknetApiDeprecatedClass> for GenericDeprecatedCompiledClass {
+    type Error = ContractClassError;
+
+    fn try_from(starknet_api_class: StarknetApiDeprecatedClass) -> Result<Self, Self::Error> {
+        Ok(Self {
+            serialized_class: OnceCell::from(serde_json::to_vec(&starknet_api_class)?),
             starknet_api_contract_class: OnceCell::from(Arc::new(starknet_api_class)),
-            starknet_core_contract_class: Default::default(),
-            serialized_class: Default::default(),
-            class_hash: Default::default(),
-        }
+            ..Default::default()
+        })
     }
 }
 
-impl From<StarknetCoreDeprecatedClass> for GenericDeprecatedCompiledClass {
-    fn from(starknet_core_class: StarknetCoreDeprecatedClass) -> Self {
-        Self {
-            blockifier_contract_class: Default::default(),
-            starknet_api_contract_class: Default::default(),
+impl TryFrom<StarknetCoreDeprecatedClass> for GenericDeprecatedCompiledClass {
+    type Error = ContractClassError;
+
+    fn try_from(starknet_core_class: StarknetCoreDeprecatedClass) -> Result<Self, Self::Error> {
+        Ok(Self {
+            serialized_class: OnceCell::from(serde_json::to_vec(&starknet_core_class)?),
             starknet_core_contract_class: OnceCell::from(Arc::new(starknet_core_class)),
-            serialized_class: Default::default(),
-            class_hash: Default::default(),
-        }
+            ..Default::default()
+        })
     }
 }
 
-impl TryFrom<CompressedStarknetCoreDeprecatedClass> for GenericDeprecatedCompiledClass {
+impl TryFrom<StarknetCoreCompressedDeprecatedClass> for GenericDeprecatedCompiledClass {
     type Error = LegacyContractDecompressionError;
 
-    fn try_from(compressed_class: CompressedStarknetCoreDeprecatedClass) -> Result<Self, Self::Error> {
-        let decompressed_class = decompress_starknet_core_contract_class(compressed_class)?;
-        Ok(Self::from(decompressed_class))
-    }
-}
-
-impl TryFrom<GenericDeprecatedCompiledClass> for StarknetApiDeprecatedClass {
-    type Error = ContractClassError;
-
-    fn try_from(contract_class: GenericDeprecatedCompiledClass) -> Result<Self, Self::Error> {
-        contract_class.to_starknet_api_contract_class()
-    }
-}
-
-impl TryFrom<GenericDeprecatedCompiledClass> for StarknetCoreDeprecatedClass {
-    type Error = ContractClassError;
-
-    fn try_from(_contract_class: GenericDeprecatedCompiledClass) -> Result<Self, Self::Error> {
-        // This would need to be implemented based on the specific conversion logic
-        // For now, we'll return an error indicating this conversion is not yet supported
-        Err(ContractClassError::ConversionError(ConversionError::InvalidFormat(
-            "Conversion to StarknetCoreDeprecatedClass not yet implemented".to_string(),
-        )))
+    fn try_from(compressed_class: StarknetCoreCompressedDeprecatedClass) -> Result<Self, Self::Error> {
+        let decompressed_class = decompress_starknet_legacy_contract_class(compressed_class)?;
+        Self::try_from(decompressed_class).map_err(|e| {
+            LegacyContractDecompressionError::Serde(serde_json::Error::custom(format!(
+                "Error while converting compressed contract class to legacy contract class: {}",
+                e
+            )))
+        })
     }
 }
 
@@ -380,9 +368,9 @@ mod tests {
         let generic_contract_class_from_serialized =
             GenericDeprecatedCompiledClass::from_bytes(DEPRECATED_CLASS.to_vec());
         let generic_contract_class_from_starknet_core =
-            GenericDeprecatedCompiledClass::from(starknet_core_contract_class);
+            GenericDeprecatedCompiledClass::try_from(starknet_core_contract_class).unwrap();
         let generic_contract_class_from_blockifier =
-            GenericDeprecatedCompiledClass::from(expected_blockifier_contract_class.clone());
+            GenericDeprecatedCompiledClass::try_from(expected_blockifier_contract_class.clone()).unwrap();
 
         let blockifier_class_from_generic_serialized =
             generic_contract_class_from_serialized.to_blockifier_contract_class().unwrap();
