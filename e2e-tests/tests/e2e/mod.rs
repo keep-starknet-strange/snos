@@ -2,6 +2,21 @@
 //!
 //! These tests provide straightforward validation of the PIE generation workflow
 //! using parameterized test cases.
+//!
+//! There's a special case for pathfinder for blocks in range [1943743,1952704] on Mainnet.
+//!
+//! Official Statement from Starknet:
+//!
+//! ---
+//! Due to the Cairo0 bug we had in regard to some of the deprecated contract hashes not being
+//! recognized by the Class Manager component following the upgrade - some txs that should've passed,
+//! failed. The issue this created is that re-execution of these tx will work as these classes do
+//! exist. Therefore, we ask you to rely on the feeder gateway for re-execution requests between
+//! blocks 1943704-1952704. Unfortunately, Starkscan rely on this fix to be fully functioning again.
+//! ---
+//!
+//! One such txn where re-execution leads to a different result is:
+//! `0x1b63eae2bd1b55f06b76d7b32c60f21a0d3d09d34d89587e01a7185d37c274e`
 
 use cairo_vm::types::layout_name::LayoutName;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
@@ -33,14 +48,14 @@ fn get_rpc_url(chain: &str) -> String {
 /// Simple PIE generation test with parameterized block numbers
 #[rstest]
 // mainnet blocks
-#[case("mainnet", vec![1943728])] // very slow
+#[case("mainnet", vec![1943728])] // slow
 #[case("mainnet", vec![1943731])] // slow
-#[case("mainnet", vec![1943743])] // very slow
+#[case("mainnet", vec![1952705])] // slow
 #[case("mainnet", vec![1944976])] // slow
 #[case("mainnet", vec![2403992])] // slow
 // sepolia blocks
-#[case("sepolia", vec![2325530, 2325531])] // very slow
-#[case("sepolia", vec![994169])] // very slow
+#[case("sepolia", vec![2325530, 2325531])] // slow
+#[case("sepolia", vec![994169])] // slow
 #[case("sepolia", vec![926808])] // fast
 #[case("sepolia", vec![927143])] // fast
 #[case("sepolia", vec![1041119])] // fast
