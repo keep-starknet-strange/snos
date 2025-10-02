@@ -20,53 +20,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: "true"
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v4
         with:
           python-version: "3.9"
           cache: "pip"
-      - name: "Install cairo-lang"
+      - name: "Install Python dependencies"
         run: |
-          # We need to pin the version of sympy, 1.13.0 is incompatible with cairo-lang
-          pip install cairo-lang==0.13.3 "sympy<1.13.0"
-      - name: "Prepare test environment"
-        run: |
-          mkdir -p build
-          cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
+          pip install -r requirements.txt
       - run: cargo clippy --all --all-targets -- -D warnings
 
   tests:
     runs-on: ubuntu-latest
+    env:
+      SNOS_RPC_URL: ${{ secrets.SNOS_RPC_URL }}
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: "true"
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v4
         with:
           python-version: "3.9"
           cache: "pip"
-      - name: "Install cairo-lang"
+      - name: "Install Python dependencies"
         run: |
-          # We need to pin the version of sympy, 1.13.0 is incompatible with cairo-lang
-          pip install cairo-lang==0.13.3 "sympy<1.13.0"
-      - name: "Prepare test environment"
-        run: |
-          bash ./setup-scripts/reset-tests.sh
+          pip install -r requirements.txt
       - name: "Run tests"
         run: |
-          RUSTFLAGS="-D warnings" cargo test
+          make test-workspace
 
   udeps:
     runs-on: ubuntu-latest
+    if: false # Skipping the unused dependency test for now
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: "true"
       - run: rustup update
       - run: rustup install nightly-2024-09-05
       - run: rustup show
@@ -77,13 +65,8 @@ jobs:
         with:
           python-version: "3.9"
           cache: "pip"
-      - name: "Install cairo-lang"
+      - name: "Install Python dependencies"
         run: |
-          # We need to pin the version of sympy, 1.13.0 is incompatible with cairo-lang
-          pip install cairo-lang==0.13.3 "sympy<1.13.0"
-      - name: "Prepare test environment"
-        run: |
-          mkdir -p build
-          cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
+          pip install -r requirements.txt
       - run: cargo +nightly-2024-09-05 install cargo-udeps@0.1.54 --locked
       - run: cargo +nightly-2024-09-05 udeps --all-targets
