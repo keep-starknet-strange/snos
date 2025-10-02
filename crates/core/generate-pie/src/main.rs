@@ -13,8 +13,8 @@ use log::{error, info};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
-#[command(name = "snos-poc")]
-#[command(about = "SNOS PoC - Starknet OS Proof of Concept for block processing")]
+#[command(name = "snos")]
+#[command(about = "SNOS - Starknet OS for block processing")]
 struct Cli {
     /// RPC URL to connect to
     #[arg(short, long, required = true, env = "SNOS_RPC_URL")]

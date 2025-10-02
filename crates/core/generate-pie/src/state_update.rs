@@ -100,8 +100,6 @@ impl FormattedStateUpdate {
 
         // Convert deprecated compiled classes to BTreeMap with ClassHash keys
         let mut deprecated_compiled_classes_btree: BTreeMap<CompiledClassHash, ContractClass> = BTreeMap::new();
-        let deprecated_rpc_calls_made = 0;
-        let deprecated_mapping_hits = 0;
 
         for (class_hash_felt, generic_class) in deprecated_compiled_classes {
             let class_hash = CompiledClassHash(*class_hash_felt);
@@ -114,10 +112,6 @@ impl FormattedStateUpdate {
             deprecated_compiled_classes_btree.insert(class_hash, starknet_api_class);
         }
 
-        info!(
-            "Deprecated classes stats: {} mapping hits, {} RPC calls made",
-            deprecated_mapping_hits, deprecated_rpc_calls_made
-        );
         info!(
             "Converted {} compiled classes and {} deprecated classes",
             compiled_classes_btree.len(),
@@ -237,6 +231,7 @@ pub(crate) async fn get_formatted_state_update(
 
     // Handle genesis block case
     let Some(previous_block_id) = previous_block_id else {
+        // TODO: Check if this is the correct behavior
         info!("Processing genesis block - returning empty state update");
         return Ok(FormattedStateUpdate::default());
     };

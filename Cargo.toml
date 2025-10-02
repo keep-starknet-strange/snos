@@ -64,8 +64,5 @@ clap = { version = "4.5.46", features = ["derive"] }
 
 indoc = "2"
 rstest = "0.18.2"
-# Test dependencies
-glob = "0.3"
-fastrand = "2.0"
 
 starknet-os-types = { path = "crates/starknet-os-types" }
