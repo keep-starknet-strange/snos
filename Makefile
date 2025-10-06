@@ -97,7 +97,7 @@ rpc-replay-seq:
 	RUST_LOG=info \
 	cargo run -p rpc-replay -- \
 	--rpc-url "$(RPC_URL)" \
-	--chain "mainnet"
+	--chain "mainnet" \
 	--start-block 1943704
 
 test-ci: ## Run tests suitable for CI (no long-running e2e tests)
