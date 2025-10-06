@@ -77,6 +77,9 @@ struct Args {
     #[arg(short, long)]
     start_block: Option<u64>,
 
+    #[arg(short, long, default_value = "1")]
+    num_blocks: u64,
+
     /// JSON file containing block numbers to process
     /// Supports two formats:
     /// 1. Original: {"error_blocks": [1, 2, 3], "total_count": 3}
@@ -171,7 +174,7 @@ async fn process_sequential_mode(
     info!("🔄 Starting infinite sequential block processing loop");
 
     loop {
-        let block_set = [current_block];
+        let block_set: Vec<u64> = (current_block..current_block + args.num_blocks).collect();
         info!("📋 Processing block set: {:?}", block_set);
 
         // Check if all blocks exist
@@ -183,7 +186,7 @@ async fn process_sequential_mode(
                 match process_block_set(args, &block_set).await {
                     Ok(output_path) => {
                         info!("Successfully generated PIE for blocks {:?} -> {}", block_set, output_path);
-                        current_block += 1; // Move to the next block
+                        current_block += args.num_blocks;
                     }
                     Err(e) => {
                         log::error!("Failed to generate PIE for blocks {:?}: {}", block_set, e);
@@ -193,7 +196,7 @@ async fn process_sequential_mode(
                         write_error_to_file(&error_file, &block_set, &e).await?;
 
                         // Move to the next set anyway to avoid getting stuck
-                        current_block += 1;
+                        current_block += args.num_blocks;
                     }
                 }
             }
@@ -352,7 +355,7 @@ fn load_blocks_from_json(file_path: &str) -> Result<Vec<u64>, Box<dyn error::Err
 /// Check if all blocks in the set exist
 async fn check_blocks_exist(
     rpc_client: &RpcClient,
-    blocks: &[u64; 1],
+    blocks: &[u64],
 ) -> Result<bool, Box<dyn error::Error + Send + Sync>> {
     for &block_num in blocks {
         match rpc_client.starknet_rpc().get_block_with_tx_hashes(BlockId::Number(block_num)).await {
@@ -377,7 +380,7 @@ async fn check_blocks_exist(
 }
 
 /// Process a set of 1 block and generate PIE (keeping the original signature)
-async fn process_block_set(args: &Args, blocks: &[u64; 1]) -> Result<String, ProcessError> {
+async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, ProcessError> {
     let output_filename = format!("cairo_pie_blocks_{}.zip", blocks[0]);
 
     let input = PieGenerationInput {
@@ -436,7 +439,7 @@ async fn process_block_set(args: &Args, blocks: &[u64; 1]) -> Result<String, Pro
 /// Write error details to a file
 async fn write_error_to_file(
     file_path: &str,
-    blocks: &[u64; 1],
+    blocks: &[u64],
     error: &ProcessError,
 ) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     use chrono::Utc;
