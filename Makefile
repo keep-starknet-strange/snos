@@ -5,7 +5,9 @@
 RPC_URL ?= https://pathfinder-mainnet.d.karnot.xyz
 RPC_URL_SEPOLIA ?= https://pathfinder-sepolia.d.karnot.xyz
 NETWORK ?= mainnet
-BLOCK_NUMBERS ?= 2403992,2403993,2403994,2403995
+SEPOLIA_STRK_FEE_TOKEN ?= 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
+MAINNET_STRK_FEE_TOKEN ?= 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
+BLOCK_NUMBERS ?= 1952855
 
 # Define comma for clarity
 comma := ,
@@ -131,6 +133,7 @@ endif
 	SNOS_RPC_URL="$(RPC_URL)" \
 	SNOS_NETWORK="$(NETWORK)" \
 	SNOS_BLOCKS="$(BLOCK_NUMBERS)" \
+	SNOS_STRK_FEE_TOKEN_ADDRESS="$(SEPOLIA_STRK_FEE_TOKEN)" \
 	cargo run -p generate-pie -- --output $(OUTPUT_FILE_PATH)
 
 ## Development Shortcuts
