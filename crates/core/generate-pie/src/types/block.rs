@@ -198,12 +198,7 @@ impl BlockData {
 
         // Execute transactions using Blockifier
         let config = TransactionExecutorConfig::default();
-        let blockifier_state_reader = AsyncRpcStateReader::new(
-            rpc_client.clone(),
-            previous_block_id.ok_or_else(|| {
-                BlockProcessingError::new_custom("Previous block ID is required for transaction execution")
-            })?,
-        );
+        let blockifier_state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);
 
         let mut txn_executor =
             TransactionExecutor::new(CachedState::new(blockifier_state_reader), block_context.clone(), config);

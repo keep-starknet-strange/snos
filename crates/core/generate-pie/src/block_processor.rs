@@ -20,8 +20,8 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass;
 use starknet_api::state::StorageKey;
 use starknet_os::io::os_input::OsBlockInput;
+use starknet_types_core::felt::Felt;
 use std::collections::{BTreeMap, HashMap, HashSet};
-
 // ================================================================================================
 // Type Definitions
 // ================================================================================================
@@ -181,7 +181,11 @@ fn build_os_block_input(
         tx_execution_infos: tx_result.central_txn_execution_infos,
         declared_class_hash_to_component_hashes: class_result.declared_class_hash_component_hashes,
         block_info: block_context.block_info().clone(),
-        prev_block_hash: BlockHash(block_data.previous_block.as_ref().unwrap().block_hash),
+        prev_block_hash: block_data
+            .previous_block
+            .as_ref()
+            .map(|prev_block| BlockHash(prev_block.block_hash))
+            .unwrap_or(BlockHash(Felt::ZERO)), // Return 0x0 when no previous block exists (block 0)
         new_block_hash: BlockHash(block_data.current_block.block_hash),
         old_block_number_and_hash: if block_data.current_block.block_number == 0 {
             None // None in case the current block is the genesis block

@@ -10,14 +10,50 @@ use std::collections::{HashMap, HashSet};
 use rpc_client::state_reader::AsyncRpcStateReader;
 use rpc_client::RpcClient;
 
+// Constants for special contract addresses
+const BLOCK_HASH_CONTRACT_ADDRESS: Felt = Felt::ONE;
+const ALIAS_CONTRACT_ADDRESS: Felt = Felt::TWO;
+
+// Initial storage value for alias contract at genesis (0x80 = 128 in decimal)
+// This value represents the initial state for stateful compression.
+// Reference: https://community.starknet.io/t/starknet-v0-13-4-pre-release-notes/115257#p-2358763-stateful-compression-11
+const GENESIS_ALIAS_CONTRACT_STORAGE_VALUE: Felt = Felt::from_hex_unchecked("0x80");
+
+/// Creates an empty cached state for block 0 (genesis block).
+///
+/// Block 0 has no previous state, but we need to initialize the alias
+/// contract with its initial storage value.
+fn create_genesis_cached_state() -> Result<CachedStateInput, Box<dyn std::error::Error + Send + Sync>> {
+    info!("Creating genesis block cached state");
+
+    // The alias contract (address 0x2) needs initial storage
+    let alias_contract_address = ContractAddress::try_from(ALIAS_CONTRACT_ADDRESS)?;
+    let alias_storage_key = StorageKey::try_from(Felt::ZERO)?;
+    let alias_storage_value = GENESIS_ALIAS_CONTRACT_STORAGE_VALUE;
+
+    Ok(CachedStateInput {
+        storage: HashMap::from([(alias_contract_address, HashMap::from([(alias_storage_key, alias_storage_value)]))]),
+        address_to_class_hash: HashMap::from([(alias_contract_address, ClassHash(Felt::ZERO))]),
+        address_to_nonce: HashMap::from([(alias_contract_address, Nonce(Felt::ZERO))]),
+        class_hash_to_compiled_class_hash: HashMap::new(),
+    })
+}
+
 pub async fn generate_cached_state_input(
     rpc_client: &RpcClient,
-    block_id: BlockId,
+    block_number: &u64,
     accessed_addresses: &HashSet<ContractAddress>,
     accessed_classes: &HashSet<ClassHash>,
     accessed_keys_by_address: &HashMap<ContractAddress, HashSet<StorageKey>>,
 ) -> Result<CachedStateInput, Box<dyn std::error::Error + Send + Sync>> {
-    info!("Generating cached state input for block {:?}", block_id);
+    // For block 0, there's no previous state, so return genesis cached state
+    if *block_number == 0 {
+        return create_genesis_cached_state();
+    }
+
+    // For all other blocks, read state from the previous block (block_number - 1)
+    let block_id = BlockId::Number(block_number - 1);
+    info!("Generating cached state input for block {:?} (reading from previous block)", block_id);
 
     let mut storage = HashMap::new();
     let mut address_to_class_hash = HashMap::new();
@@ -64,8 +100,10 @@ pub async fn generate_cached_state_input(
     let mut all_class_hashes: HashSet<ClassHash> = accessed_classes.clone();
 
     for contract_address in &all_addresses {
-        let class_hash = if *contract_address.key() == Felt::ONE || *contract_address.key() == Felt::TWO {
-            // Special case for block hash and key mapping contracts
+        let class_hash = if *contract_address.key() == BLOCK_HASH_CONTRACT_ADDRESS
+            || *contract_address.key() == ALIAS_CONTRACT_ADDRESS
+        {
+            // Special case for system contracts (block hash and alias contract)
             ClassHash(Felt::ZERO)
         } else {
             let class_hash_felt = rpc_client
@@ -89,7 +127,7 @@ pub async fn generate_cached_state_input(
             continue;
         }
 
-        let state_reader = AsyncRpcStateReader::new(rpc_client.clone(), block_id);
+        let state_reader = AsyncRpcStateReader::new(rpc_client.clone(), Some(block_id));
         let compiled_class_hash = match state_reader.get_compiled_class_hash_async(*class_hash).await {
             Ok(compiled_hash) => compiled_hash,
             Err(_) => {

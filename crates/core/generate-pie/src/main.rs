@@ -43,6 +43,10 @@ struct Cli {
     /// Chain configuration (defaults to Sepolia)
     #[arg(long, env = "SNOS_NETWORK", default_value = "mainnet")]
     chain: String,
+
+    /// Whether this is an L3 chain (true) or L2 chain (false)
+    #[arg(long, env = "SNOS_IS_L3", default_value = "false")]
+    is_l3: bool,
 }
 /// Main entry point for the generate-pie application.
 ///
@@ -80,11 +84,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         std::process::exit(1);
     }
 
+    // Build the chain configuration using the builder pattern
+    let chain_config = ChainConfig::new()
+        .with_chain_id(&cli.chain)
+        .with_strk_fee_token_address_str(&cli.strk_fee_token_address)?
+        .with_is_l3(cli.is_l3);
+
     // Build the input configuration
     let input = PieGenerationInput {
         rpc_url: cli.rpc_url.clone(),
         blocks: cli.blocks.clone(),
-        chain_config: ChainConfig::default_with_chain(&cli.chain),
+        chain_config,
         os_hints_config: OsHintsConfiguration::default(), // Uses sensible defaults
         output_path: cli.output.clone(),
         layout: cli.layout,
