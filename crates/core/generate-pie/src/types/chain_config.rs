@@ -58,7 +58,7 @@ impl ChainConfig {
         match chain {
             "sepolia" => Self::default(),
             "mainnet" => Self { chain_id: ChainId::Mainnet, ..Default::default() },
-            _ => panic!("Unsupported chain: {}", chain),
+            _ => Self { chain_id: ChainId::Other(String::from(chain)), ..Default::default() }, // Assuming the chain ID is given as hex string without 0x
         }
     }
 }
