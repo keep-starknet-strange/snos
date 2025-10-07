@@ -207,7 +207,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         info!("Generating cached state input for block {}", block_number);
         let mut cached_state_input = generate_cached_state_input(
             &rpc_client,
-            &block_number,
+            block_number,
             &block_accessed_addresses,
             &block_accessed_classes,
             &block_accessed_keys_by_address,
