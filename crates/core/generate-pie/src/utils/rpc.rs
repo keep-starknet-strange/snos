@@ -232,7 +232,7 @@ fn merge_storage_proofs(proofs: Vec<ContractProof>) -> ContractProof {
         for proof in proofs {
             if let Some(data) = proof.contract_data {
                 if let Some(contract_data) = contract_data.as_mut() {
-                    contract_data.storage_proofs.extend(data.storage_proofs);
+                    contract_data.storage_proofs[0].extend(data.storage_proofs[0].clone());
                 } else {
                     contract_data = Some(data);
                 }

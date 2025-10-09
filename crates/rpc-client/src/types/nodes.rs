@@ -109,32 +109,26 @@ impl EdgeNodePath {
 
 pub trait Proof {
     fn to_hashmap(&self) -> Result<HashMap<Felt, TrieNode>>;
+    /// This method goes through the tree from top to bottom and verifies that the hash of each node
+    /// is equal to the corresponding hash in the parent node
     #[allow(clippy::result_large_err)]
     fn verify_proof<H: Hash>(&self, key: Felt, commitment: Felt) -> Result<(), ProofVerificationError>;
 }
 
-impl Proof for [TrieNode] {
-    fn to_hashmap(&self) -> Result<HashMap<Felt252, TrieNode>> {
-        self.iter()
-            .map(|node| {
-                let hash = node.get_node_hash().ok_or(anyhow!("Failed to get node hash"))?;
-                Ok((hash, node.clone()))
-            })
-            .collect()
+impl Proof for HashMap<Felt, TrieNode> {
+    fn to_hashmap(&self) -> Result<HashMap<Felt, TrieNode>> {
+        unimplemented!()
     }
 
-    /// This method goes through the tree from top to bottom and verifies that the hash of each node
-    /// is equal to the corresponding hash in the parent node
-    fn verify_proof<H: Hash>(&self, key: Felt252, commitment: Felt252) -> Result<(), ProofVerificationError> {
+    fn verify_proof<H: Hash>(&self, key: Felt, commitment: Felt) -> Result<(), ProofVerificationError> {
         // The tree height is 251, so the first 5 bits are ignored
         let start = 5;
         let mut index = start;
 
         let bits: BitVec<_, Msb0> = BitVec::from_slice(&key.to_bytes_be());
         let mut next_node_hash = commitment;
-        let proof_nodes_map = self.to_hashmap().map_err(|e| ProofVerificationError::ConversionError(e.to_string()))?;
         loop {
-            let node = proof_nodes_map.get(&next_node_hash).ok_or_else(|| {
+            let node = self.get(&next_node_hash).ok_or_else(|| {
                 ProofVerificationError::ProofError(format!(
                     "proof did not contain preimage for node 0x{:x} (index: {})",
                     next_node_hash, index
@@ -196,6 +190,22 @@ impl Proof for [TrieNode] {
             }
         }
         Ok(())
+    }
+}
+
+impl Proof for [TrieNode] {
+    fn to_hashmap(&self) -> Result<HashMap<Felt252, TrieNode>> {
+        self.iter()
+            .map(|node| {
+                let hash = node.get_node_hash().ok_or(anyhow!("Failed to get node hash"))?;
+                Ok((hash, node.clone()))
+            })
+            .collect()
+    }
+
+    fn verify_proof<H: Hash>(&self, key: Felt252, commitment: Felt252) -> Result<(), ProofVerificationError> {
+        let proof_nodes_map = self.to_hashmap().map_err(|e| ProofVerificationError::ConversionError(e.to_string()))?;
+        proof_nodes_map.verify_proof::<H>(key, commitment)
     }
 }
 
