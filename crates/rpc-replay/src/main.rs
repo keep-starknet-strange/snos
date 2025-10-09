@@ -398,8 +398,8 @@ async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, Proces
         os_hints_config: OsHintsConfiguration::default(),
         output_path: None,
         layout: LayoutName::all_cairo,
-        strk_fee_token_address: args.strk_fee_token_address,
-        eth_fee_token_address: args.eth_fee_token_address,
+        strk_fee_token_address: args.strk_fee_token_address.clone(),
+        eth_fee_token_address: args.eth_fee_token_address.clone(),
     };
 
     debug!("Starting PIE generation for blocks {:?}", blocks);
