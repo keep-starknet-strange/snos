@@ -100,6 +100,8 @@ rpc-replay-seq:
 	cargo run -p rpc-replay -- \
 	--rpc-url "$(RPC_URL)" \
 	--chain "mainnet" \
+	--strk-fee-token-address \
+	--eth-fee-token-address \
 	--start-block 1943704
 
 test-ci: ## Run tests suitable for CI (no long-running e2e tests)
@@ -128,7 +130,7 @@ ifndef BLOCK_NUMBERS
 	@exit 1
 endif
 	@echo "$(BLUE)Generating PIE for blocks $(SNOS_BLOCKS), output pie will be at $(OUTPUT_FILE_PATH)  $(RESET)"
-	mkdir -p ./tmp
+	mkdir -p ./tmp/$(NETWORK)
 	RUST_LOG=info \
 	SNOS_RPC_URL="$(RPC_URL)" \
 	SNOS_NETWORK="$(NETWORK)" \

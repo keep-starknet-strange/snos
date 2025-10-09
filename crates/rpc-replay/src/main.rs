@@ -99,6 +99,14 @@ struct Args {
     #[arg(short, long, default_value_t = 1)]
     interval: u64,
 
+    /// STRK fee token address
+    #[arg(short, long, default_value = DEFAULT_SEPOLIA_STRK_FEE_TOKEN, env = "SNOS_STRK_FEE_TOKEN_ADDRESS")]
+    strk_fee_token_address: String,
+
+    /// ETH fee token address
+    #[arg(short, long, default_value = DEFAULT_SEPOLIA_ETH_FEE_TOKEN, env = "SNOS_ETH_FEE_TOKEN_ADDRESS")]
+    eth_fee_token_address: String,
+
     /// Output directory for PIE files (default: current directory)
     #[arg(short, long, default_value = ".")]
     output_dir: String,
@@ -390,8 +398,8 @@ async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, Proces
         os_hints_config: OsHintsConfiguration::default(),
         output_path: None,
         layout: LayoutName::all_cairo,
-        strk_fee_token_address: DEFAULT_SEPOLIA_STRK_FEE_TOKEN.to_string(),
-        eth_fee_token_address: DEFAULT_SEPOLIA_ETH_FEE_TOKEN.to_string(),
+        strk_fee_token_address: args.strk_fee_token_address,
+        eth_fee_token_address: args.eth_fee_token_address,
     };
 
     debug!("Starting PIE generation for blocks {:?}", blocks);
