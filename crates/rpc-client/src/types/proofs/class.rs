@@ -3,7 +3,7 @@ use starknet_core::types::StorageProof;
 use starknet_types_core::felt::Felt;
 
 use crate::error::ProofVerificationError;
-use crate::types::{PoseidonHash, Proof, TrieNode};
+use crate::types::{PoseidonHash, TrieNode};
 
 #[allow(dead_code)]
 #[derive(Clone, Deserialize, Serialize)]
