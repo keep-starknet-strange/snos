@@ -4,7 +4,6 @@ use cairo_vm::Felt252;
 use log::{debug, info};
 use rpc_client::constants::DEFAULT_STORAGE_TREE_HEIGHT;
 use rpc_client::types::ContractProof;
-use rpc_client::RpcClient;
 use starknet::core::types::BlockId;
 use starknet_api::core::ContractAddress;
 use starknet_os::io::os_input::CommitmentInfo;
@@ -46,7 +45,6 @@ impl ProofCollectionResult {
     pub async fn calculate_commitments(
         &self,
         block_id: BlockId,
-        _rpc_client: &RpcClient,
     ) -> Result<CommitmentCalculationResult, BlockProcessingError> {
         info!("Calculating commitments");
 

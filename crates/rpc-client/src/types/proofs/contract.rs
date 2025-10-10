@@ -1,5 +1,6 @@
 use anyhow::bail;
 use log::info;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use starknet::macros::short_string;
 use starknet::providers::ProviderError;
@@ -68,13 +69,16 @@ impl ContractData {
 
     /// Verifies that each contract state proof is valid.
     pub fn verify(&self, storage_keys: &[Felt]) -> Result<(), Vec<ProofVerificationError>> {
-        let mut errors = vec![];
+        info!("Verifying contract data with {} storage keys", storage_keys.len());
 
-        for storage_key in storage_keys.iter() {
-            if let Err(e) = self.storage_proofs[0].verify_proof::<PedersenHash>(*storage_key, self.root) {
-                errors.push(e);
-            }
-        }
+        let proof_map = &self.storage_proofs[0];
+
+        let errors: Vec<ProofVerificationError> = storage_keys
+            .par_iter()
+            .filter_map(|storage_key| proof_map.verify_proof::<PedersenHash>(*storage_key, self.root).err())
+            .collect();
+
+        info!("Verification done. Found {} errors", errors.len());
 
         if errors.is_empty() {
             Ok(())

@@ -116,7 +116,7 @@ pub async fn collect_single_block_info(
 
     // Step 5: Calculate commitment information
     let block_id = BlockId::Number(block_number);
-    let commitment_result = proofs.calculate_commitments(block_id, &rpc_client).await?;
+    let commitment_result = proofs.calculate_commitments(block_id).await?;
 
     // Step 6: Process contract classes
     let class_result = tx_result.processed_state_update.process_contract_classes()?;

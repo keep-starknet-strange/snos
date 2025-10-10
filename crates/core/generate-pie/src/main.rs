@@ -25,23 +25,23 @@ struct Cli {
     blocks: Vec<u64>,
 
     /// Layout to be used for SNOS
-    #[arg(short, long, required = true, default_value = "all_cairo", value_parser=parse_layout, env = "SNOS_LAYOUT")]
+    #[arg(short, long, default_value = "all_cairo", value_parser=parse_layout, env = "SNOS_LAYOUT")]
     layout: LayoutName,
 
     /// STRK fee token address
-    #[arg(short, long, required = true, default_value = DEFAULT_SEPOLIA_STRK_FEE_TOKEN, env = "SNOS_STRK_FEE_TOKEN_ADDRESS")]
-    pub strk_fee_token_address: String,
+    #[arg(short, long, default_value = DEFAULT_SEPOLIA_STRK_FEE_TOKEN, env = "SNOS_STRK_FEE_TOKEN_ADDRESS")]
+    strk_fee_token_address: String,
 
     /// ETH fee token address
-    #[arg(short, long, required = true, default_value = DEFAULT_SEPOLIA_ETH_FEE_TOKEN, env = "SNOS_ETH_FEE_TOKEN_ADDRESS")]
-    pub eth_fee_token_address: String,
+    #[arg(short, long, default_value = DEFAULT_SEPOLIA_ETH_FEE_TOKEN, env = "SNOS_ETH_FEE_TOKEN_ADDRESS")]
+    eth_fee_token_address: String,
 
     /// Output path for the PIE file
     #[arg(short, long, env = "SNOS_OUTPUT")]
     output: Option<String>,
 
     /// Chain configuration (defaults to Sepolia)
-    #[arg(long, env = "SNOS_NETWORK", default_value = "mainnet")]
+    #[arg(long, env = "SNOS_NETWORK", default_value = "sepolia")]
     chain: String,
 
     /// Whether this is an L3 chain (true) or L2 chain (false)
@@ -107,6 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("  RPC URL: {}", input.rpc_url);
     info!("  Blocks: {:?}", input.blocks);
     info!("  Chain ID: {:?}", input.chain_config.chain_id);
+    info!("  STRK Fee Token: {:?}", input.strk_fee_token_address);
     info!("  Layout: {:?}", input.layout);
     info!("  Is L3: {}", input.chain_config.is_l3);
     info!("  Debug mode: {}", input.os_hints_config.debug_mode);
