@@ -25,3 +25,4 @@ run_bootloader.py
 prover
 prover.zip
 tmp
+sequencer_venv

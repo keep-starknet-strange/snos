@@ -254,8 +254,11 @@ impl BlockData {
             })
             .collect::<Result<HashSet<_>, _>>()?;
 
-        let accessed_classes: HashSet<ClassHash> = accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
-
+        let mut accessed_classes: HashSet<ClassHash> =
+            accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
+        accessed_classes
+            .extend(processed_state_update.declared_class_hash_component_hashes.keys().map(|felt| ClassHash(*felt)));
+        
         info!(
             "Successfully Found {} accessed addresses and {} accessed classes",
             accessed_addresses.len(),
