@@ -3,12 +3,11 @@
 //! This binary demonstrates how to use the generate-pie library to generate
 //! Cairo PIE files from Starknet blocks.
 
-use anyhow::bail;
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
-use generate_pie::generate_pie;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
+use generate_pie::{generate_pie, parse_layout};
 use log::{error, info};
 
 #[derive(Parser)]
@@ -16,17 +15,21 @@ use log::{error, info};
 #[command(name = "snos")]
 #[command(about = "SNOS - Starknet OS for block processing")]
 struct Cli {
-    /// RPC URL to connect to
-    #[arg(short, long, required = true, env = "SNOS_RPC_URL")]
-    rpc_url: String,
-
     /// Block number(s) to process
     #[arg(short, long, value_delimiter = ',', required = true, env = "SNOS_BLOCKS")]
     blocks: Vec<u64>,
 
+    /// RPC URL to connect to
+    #[arg(short, long, required = true, env = "SNOS_RPC_URL")]
+    rpc_url: String,
+
     /// Layout to be used for SNOS
     #[arg(short, long, default_value = "all_cairo", value_parser=parse_layout, env = "SNOS_LAYOUT")]
     layout: LayoutName,
+
+    /// Chain configuration (defaults to Sepolia)
+    #[arg(long, env = "SNOS_NETWORK", default_value = "sepolia")]
+    chain: String,
 
     /// STRK fee token address
     #[arg(short, long, default_value = DEFAULT_SEPOLIA_STRK_FEE_TOKEN, env = "SNOS_STRK_FEE_TOKEN_ADDRESS")]
@@ -36,13 +39,13 @@ struct Cli {
     #[arg(short, long, default_value = DEFAULT_SEPOLIA_ETH_FEE_TOKEN, env = "SNOS_ETH_FEE_TOKEN_ADDRESS")]
     eth_fee_token_address: String,
 
+    /// Is L3
+    #[arg(short, long, default_value = "false", env = "SNOS_IS_L3")]
+    is_l3: bool,
+
     /// Output path for the PIE file
     #[arg(short, long, env = "SNOS_OUTPUT")]
     output: Option<String>,
-
-    /// Chain configuration (defaults to Sepolia)
-    #[arg(long, env = "SNOS_NETWORK", default_value = "sepolia")]
-    chain: String,
 }
 /// Main entry point for the generate-pie application.
 ///
@@ -84,12 +87,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let input = PieGenerationInput {
         rpc_url: cli.rpc_url.clone(),
         blocks: cli.blocks.clone(),
-        chain_config: ChainConfig::default_with_chain(&cli.chain),
-        os_hints_config: OsHintsConfiguration::default(), // Uses sensible defaults
+        chain_config: ChainConfig::new(&cli.chain, &cli.strk_fee_token_address, &cli.eth_fee_token_address, false),
+        os_hints_config: OsHintsConfiguration::default_with_is_l3(cli.is_l3),
         output_path: cli.output.clone(),
         layout: cli.layout,
-        strk_fee_token_address: cli.strk_fee_token_address,
-        eth_fee_token_address: cli.eth_fee_token_address,
     };
 
     // Display configuration information
@@ -97,7 +98,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("  RPC URL: {}", input.rpc_url);
     info!("  Blocks: {:?}", input.blocks);
     info!("  Chain ID: {:?}", input.chain_config.chain_id);
-    info!("  STRK Fee Token: {:?}", input.strk_fee_token_address);
+    info!("  STRK Fee Token: {:?}", input.chain_config.strk_fee_token_address);
+    info!("  ETH Fee Token: {:?}", input.chain_config.eth_fee_token_address);
     info!("  Layout: {:?}", input.layout);
     info!("  Is L3: {}", input.chain_config.is_l3);
     info!("  Debug mode: {}", input.os_hints_config.debug_mode);
@@ -122,22 +124,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     info!("SNOS execution completed successfully!");
     Ok(())
-}
-
-fn parse_layout(layout: &str) -> anyhow::Result<LayoutName> {
-    match layout {
-        "plain" => Ok(LayoutName::plain),
-        "small" => Ok(LayoutName::small),
-        "dex" => Ok(LayoutName::dex),
-        "recursive" => Ok(LayoutName::recursive),
-        "starknet" => Ok(LayoutName::starknet),
-        "starknet_with_keccak" => Ok(LayoutName::starknet_with_keccak),
-        "recursive_large_output" => Ok(LayoutName::recursive_large_output),
-        "recursive_with_poseidon" => Ok(LayoutName::recursive_with_poseidon),
-        "all_solidity" => Ok(LayoutName::all_solidity),
-        "all_cairo" => Ok(LayoutName::all_cairo),
-        "dynamic" => Ok(LayoutName::dynamic),
-        "all_cairo_stwo" => Ok(LayoutName::all_cairo_stwo),
-        _ => bail!("Invalid layout: {}", layout),
-    }
 }

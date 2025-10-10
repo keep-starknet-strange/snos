@@ -72,8 +72,6 @@ async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64
         os_hints_config: OsHintsConfiguration::default(),
         output_path: None,
         layout: LayoutName::all_cairo,
-        strk_fee_token_address: DEFAULT_SEPOLIA_STRK_FEE_TOKEN.to_string(),
-        eth_fee_token_address: DEFAULT_SEPOLIA_ETH_FEE_TOKEN.to_string(),
     };
 
     println!("📡 Using RPC: {}", input.rpc_url);

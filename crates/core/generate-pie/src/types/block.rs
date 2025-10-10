@@ -294,8 +294,8 @@ impl BlockData {
     pub fn build_context(
         &self,
         is_l3: bool,
-        strk_fee_token_address: &str,
-        eth_fee_token_address: &str,
+        strk_fee_token_address: &ContractAddress,
+        eth_fee_token_address: &ContractAddress,
     ) -> Result<BlockContext, FeltConversionError> {
         // Extract sequencer address
         let sequencer_address_hex = self.current_block.sequencer_address.to_hex_string();
@@ -335,8 +335,8 @@ impl BlockData {
             // Fee token addresses for Sepolia testnet
             // Reference: https://docs.starknet.io/tools/important-addresses/
             fee_token_addresses: FeeTokenAddresses {
-                strk_fee_token_address: contract_address!(strk_fee_token_address),
-                eth_fee_token_address: contract_address!(eth_fee_token_address),
+                strk_fee_token_address: *strk_fee_token_address,
+                eth_fee_token_address: *eth_fee_token_address,
             },
             is_l3,
         };

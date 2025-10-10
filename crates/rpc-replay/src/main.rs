@@ -2,8 +2,8 @@ use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::error::PieGenerationError;
-use generate_pie::generate_pie;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
+use generate_pie::{generate_pie, parse_layout};
 use log::{debug, info, warn};
 use rpc_client::RpcClient;
 use serde::{Deserialize, Serialize};
@@ -72,6 +72,7 @@ enum ExecutionMode {
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
+/// NOTE: We default for Starknet Sepolia
 struct Args {
     /// Starting block number (only used if --json-file is not provided)
     #[arg(short, long)]
@@ -88,18 +89,18 @@ struct Args {
     json_file: Option<String>,
 
     /// RPC URL to connect to
-    #[arg(short, long)]
+    #[arg(short, long, required = true)]
     rpc_url: String,
 
+    /// Layout to be used for SNOS
+    #[arg(short, long, default_value = "all_cairo")]
+    layout: String,
+
     /// Chain to use
-    #[arg(short, long, required = true)]
+    #[arg(short, long, default_value = "sepolia")]
     chain: String,
 
-    /// Interval between block checks in seconds (default: 1)
-    #[arg(short, long, default_value_t = 1)]
-    interval: u64,
-
-    /// STRK fee token address
+    /// STRK fee token address.
     #[arg(short, long, default_value = DEFAULT_SEPOLIA_STRK_FEE_TOKEN, env = "SNOS_STRK_FEE_TOKEN_ADDRESS")]
     strk_fee_token_address: String,
 
@@ -107,9 +108,21 @@ struct Args {
     #[arg(short, long, default_value = DEFAULT_SEPOLIA_ETH_FEE_TOKEN, env = "SNOS_ETH_FEE_TOKEN_ADDRESS")]
     eth_fee_token_address: String,
 
+    /// Is the chain an L3
+    #[arg(short, long, default_value = "false")]
+    is_l3: bool,
+
+    /// Interval between block checks in seconds (default: 1)
+    #[arg(short, long, default_value_t = 1)]
+    interval: u64,
+
     /// Output directory for PIE files (default: current directory)
-    #[arg(short, long, default_value = ".")]
-    output_dir: String,
+    #[arg(short, long)]
+    output_dir: Option<String>,
+
+    /// Output directory for Error logs
+    #[arg(short, long)]
+    log_dir: String,
 }
 
 #[tokio::main]
@@ -153,10 +166,9 @@ async fn main() -> Result<(), Box<dyn error::Error + Send + Sync>> {
     }
     info!("  RPC URL: {}", args.rpc_url);
     info!("  Check interval: {} seconds", args.interval);
-    info!("  Output directory: {}", args.output_dir);
+    info!("  Error Log directory: {}", args.log_dir);
 
-    // Create an output directory if it doesn't exist
-    fs::create_dir_all(&args.output_dir)?;
+    fs::create_dir_all(&args.log_dir)?;
 
     // Initialize RPC client for block checking
     // let rpc_client = RpcClient::new(&args.rpc_url);
@@ -200,7 +212,7 @@ async fn process_sequential_mode(
                         log::error!("Failed to generate PIE for blocks {:?}: {}", block_set, e);
 
                         // Write error to the file
-                        let error_file = format!("{}/error_blocks_{}.txt", args.output_dir, block_set[0]);
+                        let error_file = format!("{}/error_blocks_{}.txt", args.log_dir, block_set[0]);
                         write_error_to_file(&error_file, &block_set, &e).await?;
 
                         // Move to the next set anyway to avoid getting stuck
@@ -267,7 +279,7 @@ async fn process_json_mode(
                         );
 
                         // Write error to the file for this block
-                        let error_file = format!("{}/error_blocks_{}.txt", args.output_dir, block_number);
+                        let error_file = format!("{}/error_blocks_{}.txt", args.log_dir, block_number);
 
                         if let Err(write_err) = write_error_to_file(&error_file, &block_set, &e).await {
                             log::error!("Failed to write error file {}: {}", error_file, write_err);
@@ -394,12 +406,16 @@ async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, Proces
     let input = PieGenerationInput {
         rpc_url: args.rpc_url.clone(),
         blocks: blocks.to_vec(),
-        chain_config: ChainConfig::default_with_chain(args.chain.as_str()),
-        os_hints_config: OsHintsConfiguration::default(),
-        output_path: None,
-        layout: LayoutName::all_cairo,
-        strk_fee_token_address: args.strk_fee_token_address.clone(),
-        eth_fee_token_address: args.eth_fee_token_address.clone(),
+        chain_config: ChainConfig::new(
+            &args.chain,
+            &args.strk_fee_token_address,
+            &args.eth_fee_token_address,
+            args.is_l3,
+        ),
+        os_hints_config: OsHintsConfiguration::default_with_is_l3(args.is_l3),
+        output_path: args.output_dir.clone(),
+        layout: parse_layout(&args.layout)
+            .map_err(|e| ProcessError::Panic(format!("Failed to parse layout: {}", e)))?,
     };
 
     debug!("Starting PIE generation for blocks {:?}", blocks);

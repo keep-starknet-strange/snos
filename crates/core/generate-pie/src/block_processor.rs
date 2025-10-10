@@ -94,8 +94,8 @@ pub struct BlockInfoResult {
 pub async fn collect_single_block_info(
     block_number: u64,
     is_l3: bool,
-    strk_fee_token_address: &str,
-    eth_fee_token_address: &str,
+    strk_fee_token_address: &ContractAddress,
+    eth_fee_token_address: &ContractAddress,
     rpc_client: RpcClient,
 ) -> Result<BlockInfoResult, BlockProcessingError> {
     info!("Starting block info collection for block {}", block_number);

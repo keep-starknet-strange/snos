@@ -64,6 +64,8 @@
 use std::path::Path;
 
 // External crate imports
+use anyhow::bail;
+use cairo_vm::types::layout_name::LayoutName;
 use log::{info, warn};
 use rpc_client::RpcClient;
 use starknet::core::types::BlockId;
@@ -168,8 +170,8 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         let block_info_result = collect_single_block_info(
             *block_number,
             input.chain_config.is_l3,
-            &input.strk_fee_token_address,
-            &input.eth_fee_token_address,
+            &input.chain_config.strk_fee_token_address,
+            &input.chain_config.eth_fee_token_address,
             rpc_client.clone(),
         )
         .await
@@ -299,4 +301,22 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     info!("PIE generation completed successfully for blocks {:?}", input.blocks);
 
     Ok(PieGenerationResult { output, blocks_processed: input.blocks.clone(), output_path: input.output_path.clone() })
+}
+
+pub fn parse_layout(layout: &str) -> anyhow::Result<LayoutName> {
+    match layout {
+        "plain" => Ok(LayoutName::plain),
+        "small" => Ok(LayoutName::small),
+        "dex" => Ok(LayoutName::dex),
+        "recursive" => Ok(LayoutName::recursive),
+        "starknet" => Ok(LayoutName::starknet),
+        "starknet_with_keccak" => Ok(LayoutName::starknet_with_keccak),
+        "recursive_large_output" => Ok(LayoutName::recursive_large_output),
+        "recursive_with_poseidon" => Ok(LayoutName::recursive_with_poseidon),
+        "all_solidity" => Ok(LayoutName::all_solidity),
+        "all_cairo" => Ok(LayoutName::all_cairo),
+        "dynamic" => Ok(LayoutName::dynamic),
+        "all_cairo_stwo" => Ok(LayoutName::all_cairo_stwo),
+        _ => bail!("Invalid layout: {}", layout),
+    }
 }
