@@ -222,7 +222,7 @@ fn create_account_transaction_result(
 ) -> TransactionConversionResult {
     let mut txn = AccountTransaction::new_for_sequencing(account_tx);
     txn.execution_flags.charge_fee = false;
-    
+
     TransactionConversionResult {
         starknet_api_tx,
         blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(txn),

@@ -193,7 +193,7 @@ impl BlockData {
         info!("All transactions converted to blockifier format");
 
         let blockifier_txns: Vec<_> = transactions.iter().map(|txn_result| txn_result.blockifier_tx.clone()).collect();
-        let mut starknet_api_txns: Vec<_> =
+        let starknet_api_txns: Vec<_> =
             transactions.iter().map(|txn_result| txn_result.starknet_api_tx.clone()).collect();
 
         // Execute transactions using Blockifier
@@ -254,8 +254,10 @@ impl BlockData {
             })
             .collect::<Result<HashSet<_>, _>>()?;
         accessed_addresses.insert(block_context.chain_info().fee_token_addresses.strk_fee_token_address);
-        let mut accessed_classes: HashSet<ClassHash> = accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
-        accessed_classes.extend(processed_state_update.declared_class_hash_component_hashes.keys().map(|felt| ClassHash(*felt)));
+        let mut accessed_classes: HashSet<ClassHash> =
+            accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
+        accessed_classes
+            .extend(processed_state_update.declared_class_hash_component_hashes.keys().map(|felt| ClassHash(*felt)));
 
         info!(
             "Successfully Found {} accessed addresses and {} accessed classes",
