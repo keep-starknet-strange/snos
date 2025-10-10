@@ -14,11 +14,6 @@ pub struct ClassProof {
 
 // Implementations for ClassProof
 impl ClassProof {
-    #[allow(clippy::result_large_err)]
-    pub fn verify(&self, class_hash: Felt) -> Result<(), ProofVerificationError> {
-        self.class_proof.verify_proof::<PoseidonHash>(class_hash, self.class_commitment()?)
-    }
-
     /// Gets the "class_commitment" which is aka the root node of the class Merkle tree.
     ///
     /// Proof always starts with the root node, which means all we have to do is hash the
