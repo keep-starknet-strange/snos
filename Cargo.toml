@@ -10,31 +10,26 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.87.0"
 repository = "https://github.com/keep-starknet-strange/snos/"
 license-file = "LICENSE"
 
 [workspace.dependencies]
-#starknet_api = { git = "https://github.com/karnotxyz/sequencer", rev = "241bf0766f1f68f36e2c0e39e99c2222932dca9a", features = [
-#  "testing",
-#] }
-#starknet_os = { git = "https://github.com/karnotxyz/sequencer", rev = "241bf0766f1f68f36e2c0e39e99c2222932dca9a", features = [
-#  "testing",
-#] }
-#blockifier = { git = "https://github.com/karnotxyz/sequencer", rev = "241bf0766f1f68f36e2c0e39e99c2222932dca9a", features = [
-#  "testing",
-#] }
-#starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", rev = "241bf0766f1f68f36e2c0e39e99c2222932dca9a", features = [
-#  "testing",
-#] }
-#shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", rev = "241bf0766f1f68f36e2c0e39e99c2222932dca9a" }
-blockifier = { path = "/Users/mohit/Desktop/karnot/sequencer/crates/blockifier", features = ["testing"]}
-starknet_api = { path = "/Users/mohit/Desktop/karnot/sequencer/crates/starknet_api", features = ["testing"]}
-starknet_os = { path = "/Users/mohit/Desktop/karnot/sequencer/crates/starknet_os", features = ["testing"]}
-starknet_patricia = { path = "/Users/mohit/Desktop/karnot/sequencer/crates/starknet_patricia", features = ["testing"]}
-shared_execution_objects = { path = "/Users/mohit/Desktop/karnot/sequencer/crates/shared_execution_objects"}
+starknet_api = { git = "https://github.com/karnotxyz/sequencer", rev = "ca0bab2bd9324fb02becba51dd401c47a92569fe", features = [
+ "testing",
+] }
+starknet_os = { git = "https://github.com/karnotxyz/sequencer", rev = "ca0bab2bd9324fb02becba51dd401c47a92569fe", features = [
+ "testing",
+] }
+blockifier = { git = "https://github.com/karnotxyz/sequencer", rev = "ca0bab2bd9324fb02becba51dd401c47a92569fe", features = [
+ "testing",
+] }
+starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", rev = "ca0bab2bd9324fb02becba51dd401c47a92569fe", features = [
+ "testing",
+] }
+shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", rev = "ca0bab2bd9324fb02becba51dd401c47a92569fe" }
 
 cairo-lang-starknet = "=2.12.3"
 cairo-lang-starknet-classes = "=2.12.3"
