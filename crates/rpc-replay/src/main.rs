@@ -75,53 +75,53 @@ enum ExecutionMode {
 /// NOTE: We default for Starknet Sepolia
 struct Args {
     /// Starting block number (only used if --json-file is not provided)
-    #[arg(short, long)]
+    #[arg(long)]
     start_block: Option<u64>,
 
-    #[arg(short, long, default_value = "1")]
+    #[arg(long, default_value = "1")]
     num_blocks: u64,
 
     /// JSON file containing block numbers to process
     /// Supports two formats:
     /// 1. Original: {"error_blocks": [1, 2, 3], "total_count": 3}
     /// 2. Error decoding: {"failing_blocks": [1, 2, 3], "metadata": {...}}
-    #[arg(short, long)]
+    #[arg(long)]
     json_file: Option<String>,
 
     /// RPC URL to connect to
-    #[arg(short, long, required = true)]
+    #[arg(long, required = true)]
     rpc_url: String,
 
     /// Layout to be used for SNOS
-    #[arg(short, long, default_value = "all_cairo")]
+    #[arg(long, default_value = "all_cairo")]
     layout: String,
 
     /// Chain to use
-    #[arg(short, long, default_value = "sepolia")]
+    #[arg(long, default_value = "sepolia")]
     chain: String,
 
     /// STRK fee token address.
-    #[arg(short, long, default_value = DEFAULT_SEPOLIA_STRK_FEE_TOKEN, env = "SNOS_STRK_FEE_TOKEN_ADDRESS")]
+    #[arg(long, default_value = DEFAULT_SEPOLIA_STRK_FEE_TOKEN, env = "SNOS_STRK_FEE_TOKEN_ADDRESS")]
     strk_fee_token_address: String,
 
     /// ETH fee token address
-    #[arg(short, long, default_value = DEFAULT_SEPOLIA_ETH_FEE_TOKEN, env = "SNOS_ETH_FEE_TOKEN_ADDRESS")]
+    #[arg(long, default_value = DEFAULT_SEPOLIA_ETH_FEE_TOKEN, env = "SNOS_ETH_FEE_TOKEN_ADDRESS")]
     eth_fee_token_address: String,
 
     /// Is the chain an L3
-    #[arg(short, long, default_value = "false")]
+    #[arg(long, default_value = "false")]
     is_l3: bool,
 
     /// Interval between block checks in seconds (default: 1)
-    #[arg(short, long, default_value_t = 1)]
+    #[arg(long, default_value_t = 1)]
     interval: u64,
 
     /// Output directory for PIE files (default: current directory)
-    #[arg(short, long)]
+    #[arg(long)]
     output_dir: Option<String>,
 
     /// Output directory for Error logs
-    #[arg(short, long)]
+    #[arg(long)]
     log_dir: String,
 }
 
@@ -221,7 +221,7 @@ async fn process_sequential_mode(
                 }
             }
             Ok(false) => {
-                debug!("Not all blocks in set {:?} exist yet, waiting {} seconds", block_set, args.interval);
+                info!("Not all blocks in set {:?} exist yet, waiting {} seconds", block_set, args.interval);
                 sleep(Duration::from_secs(args.interval)).await;
             }
             Err(e) => {
