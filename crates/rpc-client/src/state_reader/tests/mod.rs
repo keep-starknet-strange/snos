@@ -35,11 +35,11 @@ fn test_async_rpc_state_reader_creation() {
     let rpc_client = create_test_rpc_client();
     let block_id = BlockId::Number(1309254);
 
-    let state_reader = AsyncRpcStateReader::new(rpc_client, block_id);
+    let state_reader = AsyncRpcStateReader::new(rpc_client, Some(block_id));
 
     // Verify the state reader was created successfully
     println!("✅ AsyncRpcStateReader created successfully");
-    assert_eq!(state_reader.block_id, BlockId::Number(1309254));
+    assert_eq!(state_reader.block_id, Some(BlockId::Number(1309254)));
 }
 
 #[tokio::test]
@@ -47,7 +47,7 @@ fn test_async_rpc_state_reader_creation() {
 async fn test_real_rpc_calls() {
     let rpc_client = create_test_rpc_client();
     let (contract_address, storage_key, class_hash, block_id) = create_test_values();
-    let state_reader = AsyncRpcStateReader::new(rpc_client, block_id);
+    let state_reader = AsyncRpcStateReader::new(rpc_client, Some(block_id));
 
     println!("Testing real RPC calls with:");
     println!("  Block: {:?}", block_id);
@@ -144,7 +144,7 @@ fn test_state_reader_sync_methods() {
     // Note: These will still fail without a runtime, but let's test the error handling is proper
     let rpc_client = create_test_rpc_client();
     let block_id = BlockId::Number(1309254);
-    let state_reader = AsyncRpcStateReader::new(rpc_client, block_id);
+    let state_reader = AsyncRpcStateReader::new(rpc_client, Some(block_id));
 
     let (contract_address, storage_key, _class_hash, _) = create_test_values();
 
@@ -177,7 +177,7 @@ fn test_state_reader_sync_methods() {
 async fn test_error_handling_with_invalid_values() {
     let rpc_client = create_test_rpc_client();
     let block_id = BlockId::Number(1309254);
-    let state_reader = AsyncRpcStateReader::new(rpc_client, block_id);
+    let state_reader = AsyncRpcStateReader::new(rpc_client, Some(block_id));
 
     // Test with invalid contract address
     let invalid_contract = ContractAddress::try_from(StarknetTypesFelt::ZERO).unwrap();
@@ -275,7 +275,7 @@ fn test_helper_functions() {
 async fn test_multiple_class_hashes() {
     let rpc_client = create_test_rpc_client();
     let block_id = BlockId::Number(1309254);
-    let state_reader = AsyncRpcStateReader::new(rpc_client, block_id);
+    let state_reader = AsyncRpcStateReader::new(rpc_client, Some(block_id));
 
     // Test multiple class hashes to see which ones work
     let test_class_hashes = vec![

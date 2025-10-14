@@ -33,11 +33,11 @@ const MAX_BACKOFF_MS: u64 = 5000;
 #[derive(Clone)]
 pub struct AsyncRpcStateReader {
     rpc_client: RpcClient,
-    block_id: BlockId,
+    block_id: Option<BlockId>,
 }
 
 impl AsyncRpcStateReader {
-    pub fn new(rpc_client: RpcClient, block_id: BlockId) -> Self {
+    pub fn new(rpc_client: RpcClient, block_id: Option<BlockId>) -> Self {
         Self { rpc_client, block_id }
     }
 
@@ -110,12 +110,23 @@ fn to_state_err<E: ToString>(e: E) -> StateError {
 }
 
 impl AsyncRpcStateReader {
+    /// Check if there's no block_id (e.g., when processing block 0 and trying to read from block -1)
+    fn has_no_block(&self) -> bool {
+        self.block_id.is_none()
+    }
+
     pub async fn get_storage_at_async(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt> {
+        // Return zero when no block exists (e.g., reading from block -1 when processing block 0)
+        if self.has_no_block() {
+            return Ok(Felt::ZERO);
+        }
+
+        let block_id = self.block_id.unwrap();
         let operation_name = format!("get_storage_at(contract: {:?}, key: {:?})", contract_address, key);
 
         let storage_value = match self
             .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *key.0.key(), self.block_id)
+                self.rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *key.0.key(), block_id)
             })
             .await
         {
@@ -128,12 +139,18 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_nonce_at_async(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        // Return zero nonce when no block exists
+        if self.has_no_block() {
+            return Ok(Nonce(Felt::ZERO));
+        }
+
+        let block_id = self.block_id.unwrap();
         debug!("got a request of get_nonce_at with parameters the contract address: {:?}", contract_address);
         let operation_name = format!("get_nonce_at(contract: {:?})", contract_address);
 
         let nonce = match self
             .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_nonce(self.block_id, *contract_address.key())
+                self.rpc_client.starknet_rpc().get_nonce(block_id, *contract_address.key())
             })
             .await
         {
@@ -145,12 +162,18 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_class_hash_at_async(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        // Return default class hash when no block exists
+        if self.has_no_block() {
+            return Ok(ClassHash::default());
+        }
+
+        let block_id = self.block_id.unwrap();
         debug!("got a request of get_class_hash_at with parameters the contract address: {:?}", contract_address);
         let operation_name = format!("get_class_hash_at(contract: {:?})", contract_address);
 
         let class_hash = match self
             .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_class_hash_at(self.block_id, *contract_address.key())
+                self.rpc_client.starknet_rpc().get_class_hash_at(block_id, *contract_address.key())
             })
             .await
         {
@@ -163,13 +186,17 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_class_async(&self, class_hash: ClassHash) -> StateResult<RunnableCompiledClass> {
+        // When no block exists, no classes are available
+        if self.has_no_block() {
+            return Err(StateError::UndeclaredClassHash(class_hash));
+        }
+
+        let block_id = self.block_id.unwrap();
         debug!("got a request of get_compiled_class with parameters the class hash: {:?}", class_hash);
         let operation_name = format!("get_compiled_class(class_hash: {:?})", class_hash);
 
         let contract_class = match self
-            .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0)
-            })
+            .execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
             .await
         {
             Ok(contract_class) => Ok(contract_class),
@@ -216,13 +243,17 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        // When no block exists, no classes are available
+        if self.has_no_block() {
+            return Err(StateError::UndeclaredClassHash(class_hash));
+        }
+
+        let block_id = self.block_id.unwrap();
         debug!("got a request of get_compiled_class_hash with parameters the class hash: {:?}", class_hash);
         let operation_name = format!("get_compiled_class_hash(class_hash: {:?})", class_hash);
 
         let contract_class = self
-            .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0)
-            })
+            .execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
             .await
             .map_err(provider_error_to_state_error)?;
 

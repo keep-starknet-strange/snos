@@ -68,7 +68,6 @@ use anyhow::bail;
 use cairo_vm::types::layout_name::LayoutName;
 use log::{info, warn};
 use rpc_client::RpcClient;
-use starknet::core::types::BlockId;
 use starknet_api::core::CompiledClassHash;
 use starknet_os::{
     io::os_input::{OsChainInfo, OsHints, OsHintsConfig, StarknetOsInput},
@@ -210,8 +209,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         info!("Generating cached state input for block {}", block_number);
         let mut cached_state_input = generate_cached_state_input(
             &rpc_client,
-            // TODO: Update this since it's not safe when block_number == 0
-            BlockId::Number(block_number - 1),
+            block_number,
             &block_accessed_addresses,
             &block_accessed_classes,
             &block_accessed_keys_by_address,

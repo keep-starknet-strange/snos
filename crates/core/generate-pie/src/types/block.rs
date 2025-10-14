@@ -198,12 +198,7 @@ impl BlockData {
 
         // Execute transactions using Blockifier
         let config = TransactionExecutorConfig::default();
-        let blockifier_state_reader = AsyncRpcStateReader::new(
-            rpc_client.clone(),
-            previous_block_id.ok_or_else(|| {
-                BlockProcessingError::new_custom("Previous block ID is required for transaction execution")
-            })?,
-        );
+        let blockifier_state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);
 
         let mut txn_executor =
             TransactionExecutor::new(CachedState::new(blockifier_state_reader), block_context.clone(), config);
@@ -251,15 +246,18 @@ impl BlockData {
         info!("Fetched processed state update successfully");
 
         // Convert Felt252 to proper types
-        let accessed_addresses: HashSet<ContractAddress> = accessed_addresses_felt
+        let mut accessed_addresses: HashSet<ContractAddress> = accessed_addresses_felt
             .iter()
             .map(|felt| {
                 ContractAddress::try_from(*felt)
                     .map_err(|e| BlockProcessingError::new_custom(format!("Invalid contract address: {:?}", e)))
             })
             .collect::<Result<HashSet<_>, _>>()?;
-
-        let accessed_classes: HashSet<ClassHash> = accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
+        accessed_addresses.insert(block_context.chain_info().fee_token_addresses.strk_fee_token_address);
+        let mut accessed_classes: HashSet<ClassHash> =
+            accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
+        accessed_classes
+            .extend(processed_state_update.declared_class_hash_component_hashes.keys().map(|felt| ClassHash(*felt)));
 
         info!(
             "Successfully Found {} accessed addresses and {} accessed classes",
