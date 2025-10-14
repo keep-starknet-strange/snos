@@ -26,3 +26,5 @@ prover
 prover.zip
 tmp
 sequencer_venv
+
+**/error_blocks*.txt
