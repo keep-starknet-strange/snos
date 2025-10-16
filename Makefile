@@ -22,19 +22,20 @@ PARADEX_TESTNET_ETH_FEE_TOKEN ?= 0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C7
 # Define comma for clarity
 comma := ,
 
-# Function to generate output file path
-# Usage: $(call get_output_path,NETWORK,BLOCK_NUMBERS)
-define get_output_path
+# Function to set output file path
+# Usage: $(call set_output_path,NETWORK,BLOCK_NUMBERS)
+define set_output_path
 $(eval _block_list := $(subst $(comma), ,$(2)))
 $(eval _first := $(word 1,$(_block_list)))
 $(eval _last := $(word $(words $(_block_list)),$(_block_list)))
 $(eval _output_file := $(_first)$(if $(filter-out $(_first),$(_last)),_$(_last)))
-./tmp/$(1)/$(_output_file).zip
+$(eval OUTPUT_FILE_PATH := ./tmp/$(1)/$(_output_file).zip)
 endef
 
 # Function to set network configuration variables
 # Usage: $(call set_network_config,NETWORK)
 define set_network_config
+$(info [set_network_config] Called with NETWORK=$(1))
 $(eval SNOS_NETWORK := $(if $(filter sepolia,$(1)),sepolia,\
 	$(if $(filter mainnet,$(1)),mainnet,\
 	$(if $(filter paradex-testnet,$(1)),PRIVATE_SN_POTC_SEPOLIA,\
@@ -72,9 +73,8 @@ help: ## Show this help message
 	@echo ""
 	@echo "$(YELLOW)Environment variables:$(RESET)"
 	@echo "  SNOS_RPC_URL = $(SEPOLIA_RPC_URL)"
-	@echo "  SNOS_BLOCKS  = $(BLOCK_NUMBERS)"
+	@echo "  SNOS_BLOCKS  = $(DEFAULT_BLOCK_NUMBERS)"
 	@echo "  SNOS_NETWORK = $(DEFAULT_NETWORK)"
-	@echo "  SNOS_OUTPUT  = $(OUTPUT_FILE_PATH)"
 	@echo ""
 	@echo "$(YELLOW)Examples:$(RESET)"
 	@echo "  make test-e2e"
@@ -126,14 +126,26 @@ test-all: test-workspace test-e2e ## Run all tests (unit + integration + e2e)
 ## PIE Generation
 generate-pie:
 	$(eval ARGS := $(filter-out $@,$(MAKECMDGOALS)))
-	$(eval NETWORK := $(or $(word 1,$(ARGS)),$(DEFAULT_NETWORK)))
-	$(eval BLOCK_NUMBERS := $(or $(word 2,$(ARGS)),$(DEFAULT_BLOCK_NUMBERS)))
+	$(eval NETWORK := $(word 1,$(ARGS)))
+	$(eval BLOCK_NUMBERS := $(word 2,$(ARGS)))
+	@if [ -z "$(NETWORK)" ]; then \
+		echo "$(RED)Error: NETWORK is required$(RESET)"; \
+		echo "Usage: make generate-pie <network> <block_numbers>"; \
+		echo "Example: make generate-pie sepolia 924015"; \
+		exit 1; \
+	fi
+	@if [ -z "$(BLOCK_NUMBERS)" ]; then \
+		echo "$(RED)Error: BLOCK_NUMBERS is required$(RESET)"; \
+		echo "Usage: make generate-pie <network> <block_numbers>"; \
+		echo "Example: make generate-pie sepolia 924015"; \
+		exit 1; \
+	fi
 	$(call set_network_config,$(NETWORK))
-	$(eval OUTPUT_FILE_PATH := $(call get_output_path,$(SNOS_NETWORK),$(BLOCK_NUMBERS)))
+	$(call set_output_path,$(SNOS_NETWORK),$(BLOCK_NUMBERS))
 	$(eval LOG_FILE_BASE := $(notdir $(basename $(OUTPUT_FILE_PATH))))
-	$(eval LOG_FILE_PATH := ./tmp/logs/$(LOG_FILE_BASE)_$$(date +%Y-%m-%d--%H-%M-%S).log)
+	$(eval LOG_FILE_PATH := ./tmp/$(SNOS_NETWORK)/logs/$(LOG_FILE_BASE)_$$(shell date +%Y-%m-%d--%H-%M-%S).log)
 	@mkdir -p ./tmp/$(SNOS_NETWORK)
-	@mkdir -p ./tmp/logs
+	@mkdir -p ./tmp/$(SNOS_NETWORK)/logs
 	@echo "$(BLUE)Generating PIE for network: $(SNOS_NETWORK), blocks: $(BLOCK_NUMBERS)$(RESET)"
 	@echo "$(BLUE)RPC URL: $(SNOS_RPC_URL)$(RESET)"
 	@echo "$(BLUE)Output will be at: $(OUTPUT_FILE_PATH)$(RESET)"
