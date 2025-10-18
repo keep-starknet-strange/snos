@@ -1,3 +1,6 @@
+use aws_config::BehaviorVersion;
+use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::Client as S3Client;
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
@@ -10,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use starknet::core::types::BlockId;
 use starknet::providers::Provider;
 use std::time::Duration;
-use std::{error, fs};
+use std::{env, error, fs};
 use tokio::time::sleep;
 
 // Custom error type to handle both regular errors and panics
@@ -123,6 +126,10 @@ struct Args {
     /// Output directory for Error logs
     #[arg(long)]
     log_dir: String,
+
+    /// Upload error files to S3 instead of storing locally
+    #[arg(long, default_value = "false")]
+    upload_to_s3: bool,
 }
 
 #[tokio::main]
@@ -213,7 +220,7 @@ async fn process_sequential_mode(
 
                         // Write error to the file
                         let error_file = format!("{}/error_blocks_{}.txt", args.log_dir, block_set[0]);
-                        write_error_to_file(&error_file, &block_set, &e).await?;
+                        write_error_to_file(&error_file, &block_set, &e, args.upload_to_s3).await?;
 
                         // Move to the next set anyway to avoid getting stuck
                         current_block += args.num_blocks;
@@ -281,7 +288,7 @@ async fn process_json_mode(
                         // Write error to the file for this block
                         let error_file = format!("{}/error_blocks_{}.txt", args.log_dir, block_number);
 
-                        if let Err(write_err) = write_error_to_file(&error_file, &block_set, &e).await {
+                        if let Err(write_err) = write_error_to_file(&error_file, &block_set, &e, args.upload_to_s3).await {
                             log::error!("Failed to write error file {}: {}", error_file, write_err);
                         }
 
@@ -460,11 +467,39 @@ async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, Proces
     }
 }
 
-/// Write error details to a file
+/// Initialize S3 client using credentials from environment
+async fn create_s3_client() -> Result<S3Client, Box<dyn error::Error + Send + Sync>> {
+    let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+    Ok(S3Client::new(&config))
+}
+
+/// Upload content to S3
+async fn upload_file_to_s3(
+    s3_client: &S3Client,
+    bucket: &str,
+    key: &str,
+    content: String,
+) -> Result<(), Box<dyn error::Error + Send + Sync>> {
+    let body = ByteStream::from(content.into_bytes());
+
+    s3_client
+        .put_object()
+        .bucket(bucket)
+        .key(key)
+        .body(body)
+        .send()
+        .await?;
+
+    log::info!("Successfully uploaded to s3://{}/{}", bucket, key);
+    Ok(())
+}
+
+/// Write error details to a file (local or S3)
 async fn write_error_to_file(
     file_path: &str,
     blocks: &[u64],
     error: &ProcessError,
+    upload_to_s3: bool,
 ) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     use chrono::Utc;
 
@@ -479,7 +514,19 @@ async fn write_error_to_file(
         timestamp, blocks, error, error
     );
 
-    fs::write(file_path, error_content)?;
-    log::error!("Error details written to: {}", file_path);
+    if upload_to_s3 {
+        // Upload to S3
+        let bucket = env::var("AWS_S3_BUCKET")
+            .map_err(|_| "AWS_S3_BUCKET environment variable not set")?;
+
+        let s3_client = create_s3_client().await?;
+        upload_file_to_s3(&s3_client, &bucket, file_path, error_content).await?;
+        log::error!("Error details uploaded to S3: s3://{}/{}", bucket, file_path);
+    } else {
+        // Write to local file
+        fs::write(file_path, error_content)?;
+        log::error!("Error details written to: {}", file_path);
+    }
+
     Ok(())
 }
