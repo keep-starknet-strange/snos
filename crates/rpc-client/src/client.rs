@@ -1,6 +1,7 @@
 //! Main RPC client implementation for unified Starknet and Pathfinder access.
 
 use anyhow::anyhow;
+use futures::stream::{self, StreamExt};
 use log::info;
 use reqwest::Url;
 use starknet::providers::jsonrpc::HttpTransport;
@@ -10,7 +11,7 @@ use starknet_types_core::felt::Felt;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-use crate::constants::{MAX_STORAGE_KEYS_PER_REQUEST, STARKNET_RPC_VERSION};
+use crate::constants::{MAX_CONCURRENT_PROOF_REQUESTS, MAX_STORAGE_KEYS_PER_REQUEST, STARKNET_RPC_VERSION};
 use crate::types::{ClassProof, ContractProof};
 
 pub trait ProofClient {
@@ -224,12 +225,27 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
             let proof = self.get_proof_one_key(block_number, contract_address, None).await?;
             proofs.push_back(proof);
         } else {
-            // Get proofs for each key, batching requests if possible
-            for chunk in keys.chunks(MAX_STORAGE_KEYS_PER_REQUEST) {
-                info!("Calling RPC with {} keys", chunk.len());
-                let proof = self.get_proof_multiple_keys(block_number, contract_address, chunk).await?;
-                proofs.push_back(proof);
-            }
+            // Get proofs for each key chunk concurrently
+            let chunks: Vec<_> = keys.chunks(MAX_STORAGE_KEYS_PER_REQUEST).map(|c| c.to_vec()).collect();
+
+            info!("Fetching proofs for {} chunks with max {} concurrent requests", chunks.len(), MAX_CONCURRENT_PROOF_REQUESTS);
+
+            // Create futures for all chunks and execute them concurrently
+            let chunk_proofs: Vec<ContractProof> = stream::iter(chunks)
+                .map(|chunk| {
+                    let chunk_len = chunk.len();
+                    async move {
+                        info!("Calling RPC with {} keys", chunk_len);
+                        self.get_proof_multiple_keys(block_number, contract_address, &chunk).await
+                    }
+                })
+                .buffer_unordered(MAX_CONCURRENT_PROOF_REQUESTS)
+                .collect::<Vec<_>>()
+                .await
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()?;
+
+            proofs.extend(chunk_proofs);
         }
 
         // Merge all the proofs into a single proof

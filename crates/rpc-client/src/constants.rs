@@ -16,6 +16,13 @@ pub const DEFAULT_STORAGE_TREE_HEIGHT: u64 = 251;
 /// included in a single `starknet_getStorageProof` request to Pathfinder.
 pub const MAX_STORAGE_KEYS_PER_REQUEST: usize = 80;
 
+/// Maximum number of concurrent proof requests to send at a time.
+///
+/// This constant defines the limit on the number of concurrent RPC requests
+/// that can be made when fetching storage proofs for multiple key chunks.
+/// Higher values increase throughput but may overwhelm the RPC server.
+pub const MAX_CONCURRENT_PROOF_REQUESTS: usize = 10;
+
 /// Default timeout for RPC requests in seconds.
 ///
 /// This constant defines the default timeout duration for HTTP requests to
