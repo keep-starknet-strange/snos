@@ -1,4 +1,6 @@
+use futures::stream::{self, StreamExt};
 use log::info;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use starknet::core::types::BlockId;
 use starknet::providers::Provider;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -7,7 +9,8 @@ use starknet_os::io::os_input::CachedStateInput;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 
-use rpc_client::state_reader::AsyncRpcStateReader;
+use crate::constants::{MAX_CONCURRENT_GET_CLASS_REQUESTS, MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS};
+use rpc_client::state_reader::compute_compiled_class_hash;
 use rpc_client::RpcClient;
 
 // Constants for special contract addresses
@@ -67,23 +70,39 @@ pub async fn generate_cached_state_input(
     info!("Processing {} total addresses...", all_addresses.len());
 
     // 1. Fill storage using accessed keys
-    for (contract_address, storage_keys) in accessed_keys_by_address {
-        let mut contract_storage = HashMap::new();
+    // Flatten all (contract_address, storage_key) pairs for concurrent fetching
+    let storage_requests: Vec<(ContractAddress, StorageKey)> = accessed_keys_by_address
+        .iter()
+        .flat_map(|(contract_address, storage_keys)| {
+            storage_keys.iter().map(move |storage_key| (*contract_address, *storage_key))
+        })
+        .collect();
 
-        // TODO: Optimize this
-        for storage_key in storage_keys {
+    info!(
+        "Fetching {} storage values across {} contracts with max {} concurrent requests",
+        storage_requests.len(),
+        accessed_keys_by_address.len(),
+        MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS
+    );
+
+    // Fetch all storage values concurrently
+    let storage_results: Vec<(ContractAddress, StorageKey, Felt)> = stream::iter(storage_requests)
+        .map(|(contract_address, storage_key)| async move {
             let storage_value = rpc_client
                 .starknet_rpc()
                 .get_storage_at(*contract_address.key(), *storage_key.0.key(), block_id)
                 .await
                 .unwrap_or(Felt::ZERO); // Default to zero if not found
 
-            contract_storage.insert(*storage_key, storage_value);
-        }
+            (contract_address, storage_key, storage_value)
+        })
+        .buffer_unordered(MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS)
+        .collect()
+        .await;
 
-        if !contract_storage.is_empty() {
-            storage.insert(*contract_address, contract_storage);
-        }
+    // Reconstruct the nested HashMap structure from results
+    for (contract_address, storage_key, storage_value) in storage_results {
+        storage.entry(contract_address).or_insert_with(HashMap::new).insert(storage_key, storage_value);
     }
 
     info!("Filled storage for {} contracts", storage.len());
@@ -121,25 +140,48 @@ pub async fn generate_cached_state_input(
 
     info!("Retrieved class hashes for {} addresses", address_to_class_hash.len());
 
-    // 4. Get compiled class hashes for all class hashes
-    for class_hash in &all_class_hashes {
-        if class_hash.0 == Felt::ZERO {
-            // Skip zero class hash
-            continue;
-        }
+    // 4. Get compiled class hashes for all class hashes (two-phase optimization)
+    // Filter out zero class hashes
+    let non_zero_class_hashes: Vec<ClassHash> =
+        all_class_hashes.iter().filter(|ch| ch.0 != Felt::ZERO).copied().collect();
 
-        let state_reader = AsyncRpcStateReader::new(rpc_client.clone(), Some(block_id));
-        let compiled_class_hash = match state_reader.get_compiled_class_hash_async(*class_hash).await {
-            Ok(compiled_hash) => compiled_hash,
-            Err(_) => {
-                // Put zero class hash in the map if we can't get the compiled class hash
-                // TODO: Check the error type and only put zero if it's not a not found error
-                class_hash_to_compiled_class_hash.insert(*class_hash, CompiledClassHash(Felt::ZERO));
-                continue;
-            }
-        };
+    info!(
+        "Computing compiled class hashes for {} classes (fetching with max {} concurrent requests, then processing in parallel)",
+        non_zero_class_hashes.len(),
+        MAX_CONCURRENT_GET_CLASS_REQUESTS
+    );
 
-        class_hash_to_compiled_class_hash.insert(*class_hash, compiled_class_hash);
+    // Phase 1: Fetch all contract classes concurrently (network I/O parallelization)
+    let class_fetch_results: Vec<(ClassHash, Option<starknet::core::types::ContractClass>)> =
+        stream::iter(non_zero_class_hashes.clone())
+            .map(|class_hash| async move {
+                let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash.0).await.ok();
+                (class_hash, contract_class)
+            })
+            .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
+            .collect()
+            .await;
+
+    info!("Fetched {} contract classes, now computing hashes in parallel...", class_fetch_results.len());
+
+    // Phase 2: Process contract classes in parallel using rayon (CPU parallelization)
+    let compiled_class_hash_results: Vec<(ClassHash, CompiledClassHash)> = class_fetch_results
+        .par_iter()
+        .filter_map(|(class_hash, contract_class_opt)| {
+            let contract_class = contract_class_opt.as_ref()?;
+            let compiled_hash = compute_compiled_class_hash(contract_class).ok()?;
+            Some((*class_hash, compiled_hash))
+        })
+        .collect();
+
+    // Insert successful results into the map
+    for (class_hash, compiled_class_hash) in compiled_class_hash_results {
+        class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash);
+    }
+
+    // Insert zero for classes that failed to compile
+    for class_hash in &non_zero_class_hashes {
+        class_hash_to_compiled_class_hash.entry(*class_hash).or_insert(CompiledClassHash(Felt::ZERO));
     }
 
     info!("Retrieved compiled class hashes for {} classes", class_hash_to_compiled_class_hash.len());
