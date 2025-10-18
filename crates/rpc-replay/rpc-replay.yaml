@@ -20,11 +20,12 @@ spec:
     spec:
       containers:
         - name: rpc-replay
-          image: prkpandey942/snos:rpc-replay-7bed6c2
+          image: prkpandey942/snos:rpc-replay-7bed6c20
           imagePullPolicy: Always
           args:
             - "sepolia"
             - "979833"
+            - "2"
           env:
             - name: AWS_S3_BUCKET
               value: ""
