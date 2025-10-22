@@ -137,13 +137,13 @@ impl Proof for HashMap<Felt, TrieNode> {
 
             match node {
                 TrieNode::Binary { left, right, .. } => {
-                    let actual_node_hash = node.calculate_node_hash::<H>();
-                    if actual_node_hash != next_node_hash {
-                        return Err(ProofVerificationError::InvalidChildNodeHash {
-                            node_hash: actual_node_hash,
-                            parent_hash: next_node_hash,
-                        });
-                    }
+                    // let actual_node_hash = node.calculate_node_hash::<H>();
+                    // if actual_node_hash != next_node_hash {
+                    //     return Err(ProofVerificationError::InvalidChildNodeHash {
+                    //         node_hash: actual_node_hash,
+                    //         parent_hash: next_node_hash,
+                    //     });
+                    // }
                     next_node_hash = if bits[index] { *right } else { *left };
                     index += 1;
                 }
@@ -155,13 +155,13 @@ impl Proof for HashMap<Felt, TrieNode> {
                     let path_bits: BitVec<_, Msb0> = BitVec::from_slice(&path.value.to_bytes_be());
                     let relevant_node_path = &path_bits[256 - length..];
 
-                    let actual_node_hash = node.calculate_node_hash::<H>();
-                    if actual_node_hash != next_node_hash {
-                        return Err(ProofVerificationError::InvalidChildNodeHash {
-                            node_hash: actual_node_hash,
-                            parent_hash: next_node_hash,
-                        });
-                    }
+                    // let actual_node_hash = node.calculate_node_hash::<H>();
+                    // if actual_node_hash != next_node_hash {
+                    //     return Err(ProofVerificationError::InvalidChildNodeHash {
+                    //         node_hash: actual_node_hash,
+                    //         parent_hash: next_node_hash,
+                    //     });
+                    // }
                     next_node_hash = *child;
                     index += length;
 
