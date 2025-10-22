@@ -11,7 +11,7 @@ use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::CachedState;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use log::{debug, info};
+use log::{debug, info, warn};
 use rpc_client::state_reader::AsyncRpcStateReader;
 use rpc_client::RpcClient;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
@@ -28,6 +28,9 @@ use starknet_os_types::chain_id::chain_id_from_felt;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
+use std::env;
+
+const BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV: &str = "SNOS_BLOCKIFIER_TXN_EXECUTOR_CONFIG";
 
 /// Result containing fetched block data needed for processing.
 #[derive(Debug)]
@@ -198,7 +201,17 @@ impl BlockData {
             transactions.iter().map(|txn_result| txn_result.starknet_api_tx.clone()).collect();
 
         // Execute transactions using Blockifier
-        let config = TransactionExecutorConfig::default();
+        let config: TransactionExecutorConfig = match env::var(BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV) {
+            Ok(config) => serde_json::from_str(&config).unwrap_or_else(|err| {
+                warn!("Failed to serialize {} env: {}. Using default config", BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV, err);
+                TransactionExecutorConfig::default()
+            }),
+            Err(err) => {
+                warn!("Failed to read {} env: {}. Using default config.", BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV, err);
+                TransactionExecutorConfig::default()
+            }
+        };
+
         let blockifier_state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);
 
         let mut txn_executor =
