@@ -76,6 +76,9 @@ rpc-replay \
 --strk-fee-token-address $STRK_FEE_TOKEN \
 --eth-fee-token-address $ETH_FEE_TOKEN \
 --upload-to-s3 \
---log-dir "$NETWORK"
+--log-dir "$NETWORK" \
+--upload-to-db \
+--mongo-uri \
+--db-name "snos-testing-$NETWORK"
 
 echo "Docker container 'rpc-replay-$NETWORK' started successfully"

@@ -22,6 +22,10 @@ use starknet_api::state::StorageKey;
 use starknet_os::io::os_input::OsBlockInput;
 use starknet_types_core::felt::Felt;
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fs::File;
+use std::io::Write;
+use std::time::Duration;
+use tokio::time::Instant;
 // ================================================================================================
 // Type Definitions
 // ================================================================================================
@@ -97,7 +101,7 @@ pub async fn collect_single_block_info(
     strk_fee_token_address: &ContractAddress,
     eth_fee_token_address: &ContractAddress,
     rpc_client: RpcClient,
-) -> Result<BlockInfoResult, BlockProcessingError> {
+) -> Result<(BlockInfoResult, Vec<Duration>), BlockProcessingError> {
     info!("Starting block info collection for block {}", block_number);
 
     // Step 1: Fetch all required block data
@@ -109,10 +113,13 @@ pub async fn collect_single_block_info(
         .map_err(BlockProcessingError::ContextBuilding)?;
 
     // Step 3: Process transactions and extract execution information
-    let tx_result = block_data.process_transactions(block_number, &rpc_client, &block_context).await?;
+    let (tx_result, mut durations_process_txns) =
+        block_data.process_transactions(block_number, &rpc_client, &block_context).await?;
 
     // Step 4: Collect storage and class proofs
+    let start = Instant::now();
     let proofs = tx_result.collect_proofs(block_number, &rpc_client).await?;
+    let duration_collect_proofs = start.elapsed();
 
     // Step 5: Calculate commitment information
     let block_id = BlockId::Number(block_number);
@@ -133,15 +140,19 @@ pub async fn collect_single_block_info(
 
     info!("Successfully completed construction of OsBlockInput for block {}", block_number);
 
-    Ok(BlockInfoResult {
-        os_block_input,
-        compiled_classes,
-        deprecated_compiled_classes,
-        accessed_addresses,
-        accessed_classes,
-        accessed_keys_by_address,
-        previous_block_id: if block_number == 0 { None } else { Some(BlockId::Number(block_number - 1)) },
-    })
+    durations_process_txns.push(duration_collect_proofs);
+    Ok((
+        BlockInfoResult {
+            os_block_input,
+            compiled_classes,
+            deprecated_compiled_classes,
+            accessed_addresses,
+            accessed_classes,
+            accessed_keys_by_address,
+            previous_block_id: if block_number == 0 { None } else { Some(BlockId::Number(block_number - 1)) },
+        },
+        durations_process_txns,
+    ))
 }
 
 // ================================================================================================

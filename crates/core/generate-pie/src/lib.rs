@@ -62,7 +62,7 @@
 
 // Standard library imports
 use std::path::Path;
-
+use std::time::{Duration, Instant};
 // External crate imports
 use anyhow::bail;
 use cairo_vm::types::layout_name::LayoutName;
@@ -143,7 +143,9 @@ pub mod types;
 ///     Ok(())
 /// }
 /// ```
-pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResult, PieGenerationError> {
+pub async fn generate_pie(
+    input: PieGenerationInput,
+) -> Result<(PieGenerationResult, Vec<Vec<Duration>>), PieGenerationError> {
     info!("Starting PIE generation for {} blocks: {:?}", input.blocks.len(), input.blocks);
 
     // Validate input configuration
@@ -160,13 +162,15 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     let mut compiled_classes = std::collections::BTreeMap::new();
     let mut deprecated_compiled_classes = std::collections::BTreeMap::new();
 
+    let mut durations: Vec<Vec<Duration>> = Vec::new();
+
     // Process each block
     for (index, block_number) in input.blocks.iter().enumerate() {
         info!("=== Processing block {} ({}/{}) ===", block_number, index + 1, input.blocks.len());
 
         // Collect block information
         info!("Starting to collect block info for block {}", block_number);
-        let block_info_result = collect_single_block_info(
+        let (block_info_result, mut durations_collect_single_block_info) = collect_single_block_info(
             *block_number,
             input.chain_config.is_l3,
             &input.chain_config.strk_fee_token_address,
@@ -207,6 +211,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
         // Generate cached state input
         info!("Generating cached state input for block {}", block_number);
+        let start = Instant::now();
         let mut cached_state_input = generate_cached_state_input(
             &rpc_client,
             block_number,
@@ -225,6 +230,9 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         cached_state_input
             .class_hash_to_compiled_class_hash
             .retain(|class_hash, _| !deprecated_compiled_classes.contains_key(&CompiledClassHash(class_hash.0)));
+        let duration_cached_state_input = start.elapsed();
+        durations_collect_single_block_info.push(duration_cached_state_input);
+        durations.push(durations_collect_single_block_info);
 
         info!("Cached state input generated successfully for block {}", block_number);
 
@@ -270,20 +278,25 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     };
     info!("OS hints configuration built successfully for {} blocks", input.blocks.len());
 
+    let start = Instant::now();
     // Execute the Starknet OS
     info!("Starting OS execution for multi-block processing");
     let output = run_os_stateless(input.layout, os_hints)
         .map_err(|e| PieGenerationError::OsExecution(format!("OS execution failed: {:?}", e)))?;
+    let duration_os_execution = start.elapsed();
     info!("Multi-block output generated successfully!");
 
+    let start = Instant::now();
     // Validate the generated PIE
     info!("Validating generated Cairo PIE");
     output
         .cairo_pie
         .run_validity_checks()
         .map_err(|e| PieGenerationError::OsExecution(format!("PIE validation failed: {:?}", e)))?;
+    let duration_pie_verification = start.elapsed();
     info!("Cairo PIE validation completed successfully");
 
+    let start = Instant::now();
     // Save to file if a path is specified
     if let Some(output_path) = &input.output_path {
         info!("Writing PIE to file: {}", output_path);
@@ -295,10 +308,60 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         })?;
         info!("PIE written to file successfully: {}", output_path);
     }
+    let duration_pie_write = start.elapsed();
+
+    durations = transpose_durations(&durations);
+
+    // So now we have 7 durations, 4 block specific and 3 combined
+    // In order, these are -
+
+    durations.extend(vec![vec![duration_os_execution], vec![duration_pie_verification], vec![duration_pie_write]]);
 
     info!("PIE generation completed successfully for blocks {:?}", input.blocks);
 
-    Ok(PieGenerationResult { output, blocks_processed: input.blocks.clone(), output_path: input.output_path.clone() })
+    Ok((
+        PieGenerationResult { output, blocks_processed: input.blocks.clone(), output_path: input.output_path.clone() },
+        durations,
+    ))
+}
+
+fn transpose_durations(matrix: &Vec<Vec<Duration>>) -> Vec<Vec<Duration>> {
+    // 1. Handle the empty matrix case
+    if matrix.is_empty() || matrix[0].is_empty() {
+        return Vec::new();
+    }
+
+    // Determine the dimensions:
+    let rows = matrix.len(); // Number of rows in the original matrix
+    let cols = matrix[0].len(); // Number of columns in the original matrix
+
+    // Pre-check for uniformity
+    for row in matrix {
+        if row.len() != cols {
+            panic!("Cannot transpose: All inner vectors must have the same length.");
+        }
+    }
+
+    // 2. Initialize the new (transposed) matrix
+    // The new matrix will have 'cols' rows and 'rows' columns.
+    // We pre-allocate to avoid repeated memory reallocations.
+    let mut transposed: Vec<Vec<Duration>> = vec![vec![Duration::new(0, 0); rows]; cols];
+
+    // 3. Perform the transposition
+    // We iterate through the original matrix (matrix[i][j])
+    // and assign it to the new matrix at the swapped indices (transposed[j][i]).
+    for i in 0..rows {
+        for j in 0..cols {
+            // The value at (row i, col j) in the original
+            // moves to (row j, col i) in the transposed.
+            // We use .clone() because Duration is Copy, but this is the general
+            // approach for non-Copy types as well. Duration implements Copy,
+            // so a simple copy occurs.
+            transposed[j][i] = matrix[i][j].clone();
+        }
+    }
+
+    transposed
 }
 
 pub fn parse_layout(layout: &str) -> anyhow::Result<LayoutName> {

@@ -109,7 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Call the core PIE generation function
     match generate_pie(input).await {
-        Ok(result) => {
+        Ok((result, _)) => {
             info!("PIE generation completed successfully!");
             info!("  Blocks processed: {:?}", result.blocks_processed);
             if let Some(output_path) = result.output_path {

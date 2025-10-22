@@ -27,6 +27,7 @@ use starknet_api::state::StorageKey;
 use starknet_os_types::chain_id::chain_id_from_felt;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 /// Result containing fetched block data needed for processing.
 #[derive(Debug)]
@@ -143,7 +144,7 @@ impl BlockData {
         block_number: u64,
         rpc_client: &RpcClient,
         block_context: &BlockContext,
-    ) -> Result<TransactionProcessingResult, BlockProcessingError> {
+    ) -> Result<(TransactionProcessingResult, Vec<Duration>), BlockProcessingError> {
         info!("Processing transactions for block {}", block_number);
 
         let block_id = BlockId::Number(block_number);
@@ -205,6 +206,7 @@ impl BlockData {
         info!("Transaction executor created successfully");
         info!("Executing {} transactions using Blockifier", blockifier_txns.len());
 
+        let start = Instant::now();
         // Execute transactions
         let execution_deadline = None;
         let execution_outputs: Vec<_> = txn_executor
@@ -212,6 +214,7 @@ impl BlockData {
             .into_iter()
             .collect::<Result<_, TransactionExecutorError>>()
             .map_err(BlockProcessingError::TransactionExecution)?;
+        let duration_blockifier_execution = start.elapsed();
 
         info!("{} transactions executed successfully", blockifier_txns.len());
 
@@ -232,6 +235,7 @@ impl BlockData {
             felt
         }));
 
+        let start = Instant::now();
         let processed_state_update = get_formatted_state_update(
             rpc_client,
             previous_block_id,
@@ -243,6 +247,8 @@ impl BlockData {
         .map_err(|e| {
             BlockProcessingError::StateUpdateProcessing(format!("Failed to get formatted state update: {:?}", e))
         })?;
+        let duration_state_update_processing = start.elapsed();
+
         info!("Fetched processed state update successfully");
 
         // Convert Felt252 to proper types
@@ -267,14 +273,17 @@ impl BlockData {
 
         populate_alias_contract_keys(&accessed_addresses, &accessed_classes, &mut accessed_keys_by_address);
 
-        Ok(TransactionProcessingResult {
-            starknet_api_txns,
-            central_txn_execution_infos,
-            accessed_addresses,
-            accessed_classes,
-            accessed_keys_by_address,
-            processed_state_update,
-        })
+        Ok((
+            TransactionProcessingResult {
+                starknet_api_txns,
+                central_txn_execution_infos,
+                accessed_addresses,
+                accessed_classes,
+                accessed_keys_by_address,
+                processed_state_update,
+            },
+            vec![duration_blockifier_execution, duration_state_update_processing],
+        ))
     }
 
     /// Builds the block context for this block data.

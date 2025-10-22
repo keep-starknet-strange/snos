@@ -1,13 +1,13 @@
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client as S3Client;
-use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::error::PieGenerationError;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
 use generate_pie::{generate_pie, parse_layout};
 use log::{debug, info, warn};
+use mongodb::{bson::doc, options::ClientOptions, Client as MongoClient, Collection};
 use rpc_client::RpcClient;
 use serde::{Deserialize, Serialize};
 use starknet::core::types::BlockId;
@@ -15,6 +15,28 @@ use starknet::providers::Provider;
 use std::time::Duration;
 use std::{env, error, fs};
 use tokio::time::sleep;
+
+// MongoDB document structure for block processing results
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct BlockProcessingResult {
+    start_block: u64,
+    end_block: u64,
+    num_blocks: u64,
+    // Individual block durations (vectors for per-block tracking)
+    blockifier_execution_ms: Vec<f64>,
+    state_update_processing_ms: Vec<f64>,
+    collecting_proofs_ms: Vec<f64>,
+    generating_cached_state_input_ms: Vec<f64>,
+    // Single values for batch operations
+    generating_cairo_pie_ms: f64,
+    verifying_cairo_pie_ms: f64,
+    writing_cairo_pie_ms: f64,
+    // Total time spent in generate_pie function
+    total_time_ms: f64,
+    status: String,
+    error: Option<String>,
+    timestamp: chrono::DateTime<chrono::Utc>,
+}
 
 // Custom error type to handle both regular errors and panics
 #[derive(Debug)]
@@ -71,6 +93,55 @@ enum ExecutionMode {
     Sequential { start_block: u64 },
     /// Process specific blocks from a JSON file
     FromJson { blocks: Vec<u64> },
+}
+
+// MongoDB helper functions
+async fn create_mongo_client(uri: &str) -> Result<MongoClient, Box<dyn error::Error + Send + Sync>> {
+    let mut client_options = ClientOptions::parse(uri).await?;
+    client_options.app_name = Some("rpc-replay".to_string());
+    Ok(MongoClient::with_options(client_options)?)
+}
+
+async fn get_last_processed_block(
+    mongo_client: &MongoClient,
+    db_name: &str,
+) -> Result<Option<u64>, Box<dyn error::Error + Send + Sync>> {
+    let db = mongo_client.database(db_name);
+    let collection: Collection<BlockProcessingResult> = db.collection("block_processing_results");
+
+    // Find the document with the highest end_block where status is "passed"
+    let filter = doc! { "status": "passed" };
+    let options = mongodb::options::FindOneOptions::builder().sort(doc! { "end_block": -1 }).build();
+
+    match collection.find_one(filter).with_options(options).await? {
+        Some(result) => {
+            info!(
+                "Found last processed block in DB: {} (blocks {}-{})",
+                result.end_block, result.start_block, result.end_block
+            );
+            Ok(Some(result.end_block))
+        }
+        None => {
+            info!("No previously processed blocks found in DB");
+            Ok(None)
+        }
+    }
+}
+
+async fn upload_to_mongodb(
+    mongo_client: &MongoClient,
+    db_name: &str,
+    result: BlockProcessingResult,
+) -> Result<(), Box<dyn error::Error + Send + Sync>> {
+    let db = mongo_client.database(db_name);
+    let collection: Collection<BlockProcessingResult> = db.collection("block_processing_results");
+
+    collection.insert_one(result.clone()).await?;
+    info!(
+        "Uploaded block processing result to MongoDB: blocks {}-{}, status: {}",
+        result.start_block, result.end_block, result.status
+    );
+    Ok(())
 }
 
 #[derive(Parser, Debug)]
@@ -130,6 +201,18 @@ struct Args {
     /// Upload error files to S3 instead of storing locally
     #[arg(long, default_value = "false")]
     upload_to_s3: bool,
+
+    /// Upload block processing results to MongoDB
+    #[arg(long, default_value = "false")]
+    upload_to_db: bool,
+
+    /// MongoDB connection URI (required if upload-to-db is enabled)
+    #[arg(long)]
+    mongo_uri: Option<String>,
+
+    /// MongoDB database name (required if upload-to-db is enabled)
+    #[arg(long)]
+    db_name: Option<String>,
 }
 
 #[tokio::main]
@@ -137,11 +220,53 @@ async fn main() -> Result<(), Box<dyn error::Error + Send + Sync>> {
     env_logger::init();
     let args = Args::parse();
 
+    // Validate MongoDB parameters
+    if args.upload_to_db {
+        if args.mongo_uri.is_none() {
+            return Err("--mongo-uri is required when --upload-to-db is enabled".into());
+        }
+        if args.db_name.is_none() {
+            return Err("--db-name is required when --upload-to-db is enabled".into());
+        }
+    }
+
+    // Initialize MongoDB client if needed
+    let mongo_client = if args.upload_to_db {
+        let uri = args.mongo_uri.as_ref().unwrap();
+        info!("Connecting to MongoDB...");
+        Some(create_mongo_client(uri).await?)
+    } else {
+        None
+    };
+
     // Validate arguments and determine execution mode
     let execution_mode = match (&args.start_block, &args.json_file) {
         (Some(start_block), None) => {
             info!("🚀 Starting RPC Replay service in SEQUENTIAL mode");
-            ExecutionMode::Sequential { start_block: *start_block }
+
+            // If MongoDB is enabled, check for last processed block
+            let actual_start_block = if let Some(ref client) = mongo_client {
+                let db_name = args.db_name.as_ref().unwrap();
+                match get_last_processed_block(client, db_name).await? {
+                    Some(last_block) => {
+                        let next_block = last_block + 1;
+                        info!(
+                            "📍 Resuming from block {} (found last processed block: {} in MongoDB)",
+                            next_block, last_block
+                        );
+                        next_block
+                    }
+                    None => {
+                        info!("📍 Starting from block {} (no previous blocks found in MongoDB)", start_block);
+                        *start_block
+                    }
+                }
+            } else {
+                info!("📍 Starting from block {} (MongoDB disabled)", start_block);
+                *start_block
+            };
+
+            ExecutionMode::Sequential { start_block: actual_start_block }
         }
         (None, Some(json_file)) => {
             info!("🚀 Starting RPC Replay service in JSON mode");
@@ -185,8 +310,12 @@ async fn main() -> Result<(), Box<dyn error::Error + Send + Sync>> {
     info!("🔄 Starting block processing");
 
     match execution_mode {
-        ExecutionMode::Sequential { start_block } => process_sequential_mode(&args, &rpc_client, start_block).await,
-        ExecutionMode::FromJson { blocks } => process_json_mode(&args, &rpc_client, blocks).await,
+        ExecutionMode::Sequential { start_block } => {
+            process_sequential_mode(&args, &rpc_client, start_block, mongo_client.as_ref()).await
+        }
+        ExecutionMode::FromJson { blocks } => {
+            process_json_mode(&args, &rpc_client, blocks, mongo_client.as_ref()).await
+        }
     }
 }
 
@@ -195,6 +324,7 @@ async fn process_sequential_mode(
     args: &Args,
     rpc_client: &RpcClient,
     start_block: u64,
+    mongo_client: Option<&MongoClient>,
 ) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     let mut current_block = start_block;
 
@@ -211,8 +341,18 @@ async fn process_sequential_mode(
 
                 // Generate PIE for this block set
                 match process_block_set(args, &block_set).await {
-                    Ok(output_path) => {
+                    Ok((output_path, durations, total_time_ms)) => {
                         info!("Successfully generated PIE for blocks {:?} -> {}", block_set, output_path);
+
+                        // Upload to MongoDB if enabled
+                        if let Some(client) = mongo_client {
+                            let db_name = args.db_name.as_ref().unwrap();
+                            let result = create_block_processing_result(&block_set, &durations, total_time_ms, None);
+                            if let Err(e) = upload_to_mongodb(client, db_name, result).await {
+                                log::error!("Failed to upload to MongoDB: {}", e);
+                            }
+                        }
+
                         current_block += args.num_blocks;
                     }
                     Err(e) => {
@@ -221,6 +361,15 @@ async fn process_sequential_mode(
                         // Write error to the file
                         let error_file = format!("{}/error_blocks_{}.txt", args.log_dir, block_set[0]);
                         write_error_to_file(&error_file, &block_set, &e, args.upload_to_s3).await?;
+
+                        // Upload error to MongoDB if enabled
+                        if let Some(client) = mongo_client {
+                            let db_name = args.db_name.as_ref().unwrap();
+                            let result = create_failed_block_processing_result(&block_set, &e);
+                            if let Err(upload_err) = upload_to_mongodb(client, db_name, result).await {
+                                log::error!("Failed to upload error to MongoDB: {}", upload_err);
+                            }
+                        }
 
                         // Move to the next set anyway to avoid getting stuck
                         current_block += args.num_blocks;
@@ -244,6 +393,7 @@ async fn process_json_mode(
     args: &Args,
     rpc_client: &RpcClient,
     mut blocks: Vec<u64>,
+    mongo_client: Option<&MongoClient>,
 ) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     // Sort blocks to process them in order
     blocks.sort();
@@ -269,11 +419,21 @@ async fn process_json_mode(
 
                 // Process this block using the existing process_block_set function
                 match process_block_set(args, &block_set).await {
-                    Ok(output_path) => {
+                    Ok((output_path, durations, total_time_ms)) => {
                         info!(
                             "✅ Successfully generated PIE for block {} ({}/{}) -> {}",
                             block_number, progress, total_blocks, output_path
                         );
+
+                        // Upload to MongoDB if enabled
+                        if let Some(client) = mongo_client {
+                            let db_name = args.db_name.as_ref().unwrap();
+                            let result = create_block_processing_result(&block_set, &durations, total_time_ms, None);
+                            if let Err(e) = upload_to_mongodb(client, db_name, result).await {
+                                log::error!("Failed to upload to MongoDB: {}", e);
+                            }
+                        }
+
                         processed_count += 1;
                     }
                     Err(e) => {
@@ -288,8 +448,19 @@ async fn process_json_mode(
                         // Write error to the file for this block
                         let error_file = format!("{}/error_blocks_{}.txt", args.log_dir, block_number);
 
-                        if let Err(write_err) = write_error_to_file(&error_file, &block_set, &e, args.upload_to_s3).await {
+                        if let Err(write_err) =
+                            write_error_to_file(&error_file, &block_set, &e, args.upload_to_s3).await
+                        {
                             log::error!("Failed to write error file {}: {}", error_file, write_err);
+                        }
+
+                        // Upload error to MongoDB if enabled
+                        if let Some(client) = mongo_client {
+                            let db_name = args.db_name.as_ref().unwrap();
+                            let result = create_failed_block_processing_result(&block_set, &e);
+                            if let Err(upload_err) = upload_to_mongodb(client, db_name, result).await {
+                                log::error!("Failed to upload error to MongoDB: {}", upload_err);
+                            }
                         }
 
                         failed_count += 1;
@@ -406,8 +577,8 @@ async fn check_blocks_exist(
     Ok(true)
 }
 
-/// Process a set of 1 block and generate PIE (keeping the original signature)
-async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, ProcessError> {
+/// Process a set of 1 block and generate PIE
+async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<(String, Vec<Vec<Duration>>, f64), ProcessError> {
     let output_filename = format!("cairo_pie_blocks_{}.zip", blocks[0]);
 
     let input = PieGenerationInput {
@@ -427,6 +598,9 @@ async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, Proces
 
     debug!("Starting PIE generation for blocks {:?}", blocks);
 
+    // Measure total time for generate_pie execution
+    let start_time = std::time::Instant::now();
+
     // Use tokio::task::spawn_blocking to handle potential panics in async context
     let result = tokio::task::spawn_blocking(move || {
         // This will run in a separate thread and catch panics
@@ -437,10 +611,22 @@ async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, Proces
     })
     .await;
 
+    // Calculate total time in milliseconds
+    let total_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
+
+    // durations is a Vec<Vec<Duration>> and contain data in the following format:
+    // 1. First vector contains durations for blockifier execution
+    // 2. Contains durations for state update processing
+    // 3. Contains durations for collecting proofs
+    // 4. Contains durations for generating cached state input
+    // 5. Contains durations for generating Cairo PIE
+    // 6. Contains durations for verifying Cairo PIE
+    // 7. Contains durations for writing Cairo PIE to disk
+    // NOTE: The first 4 durations vectors have length equal to number of blocks in the batch. The last 3 durations vectors have length = 1
     match result {
-        Ok(Ok(Ok(output))) => {
-            info!("PIE generation completed for blocks {:?}", output.blocks_processed);
-            Ok(output_filename)
+        Ok(Ok(Ok((output, durations)))) => {
+            info!("PIE generation completed for blocks {:?} in {:.2}ms", output.blocks_processed, total_time_ms);
+            Ok((output_filename, durations, total_time_ms))
         }
         Ok(Ok(Err(e))) => {
             log::error!("PIE generation failed for blocks {:?}: {}", blocks, e);
@@ -482,16 +668,84 @@ async fn upload_file_to_s3(
 ) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     let body = ByteStream::from(content.into_bytes());
 
-    s3_client
-        .put_object()
-        .bucket(bucket)
-        .key(key)
-        .body(body)
-        .send()
-        .await?;
+    s3_client.put_object().bucket(bucket).key(key).body(body).send().await?;
 
     log::info!("Successfully uploaded to s3://{}/{}", bucket, key);
     Ok(())
+}
+
+/// Create a BlockProcessingResult from successful processing
+fn create_block_processing_result(
+    blocks: &[u64],
+    durations: &[Vec<Duration>],
+    total_time_ms: f64,
+    error: Option<String>,
+) -> BlockProcessingResult {
+    // Convert individual block durations to milliseconds (keep as vectors)
+    let blockifier_execution_ms =
+        durations.get(0).map(|v| v.iter().map(|d| d.as_secs_f64() * 1000.0).collect()).unwrap_or_else(Vec::new);
+    let state_update_processing_ms =
+        durations.get(1).map(|v| v.iter().map(|d| d.as_secs_f64() * 1000.0).collect()).unwrap_or_else(Vec::new);
+    let collecting_proofs_ms =
+        durations.get(2).map(|v| v.iter().map(|d| d.as_secs_f64() * 1000.0).collect()).unwrap_or_else(Vec::new);
+    let generating_cached_state_input_ms =
+        durations.get(3).map(|v| v.iter().map(|d| d.as_secs_f64() * 1000.0).collect()).unwrap_or_else(Vec::new);
+
+    // Single values for batch operations
+    let generating_cairo_pie_ms =
+        durations.get(4).and_then(|v| v.first()).map(|d| d.as_secs_f64() * 1000.0).unwrap_or(0.0);
+    let verifying_cairo_pie_ms =
+        durations.get(5).and_then(|v| v.first()).map(|d| d.as_secs_f64() * 1000.0).unwrap_or(0.0);
+    let writing_cairo_pie_ms =
+        durations.get(6).and_then(|v| v.first()).map(|d| d.as_secs_f64() * 1000.0).unwrap_or(0.0);
+
+    BlockProcessingResult {
+        start_block: blocks[0],
+        end_block: blocks[blocks.len() - 1],
+        num_blocks: blocks.len() as u64,
+        blockifier_execution_ms,
+        state_update_processing_ms,
+        collecting_proofs_ms,
+        generating_cached_state_input_ms,
+        generating_cairo_pie_ms,
+        verifying_cairo_pie_ms,
+        writing_cairo_pie_ms,
+        total_time_ms,
+        status: "passed".to_string(),
+        error,
+        timestamp: chrono::Utc::now(),
+    }
+}
+
+/// Create a BlockProcessingResult for a failed processing
+fn create_failed_block_processing_result(blocks: &[u64], error: &ProcessError) -> BlockProcessingResult {
+    let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC");
+    let error_content = format!(
+        "Error Report\n\
+         ============\n\
+         Timestamp: {}\n\
+         Blocks: {:?}\n\
+         Error: {}\n\
+         Error Debug: {:?}\n\n",
+        timestamp, blocks, error, error
+    );
+
+    BlockProcessingResult {
+        start_block: blocks[0],
+        end_block: blocks[blocks.len() - 1],
+        num_blocks: blocks.len() as u64,
+        blockifier_execution_ms: Vec::new(),
+        state_update_processing_ms: Vec::new(),
+        collecting_proofs_ms: Vec::new(),
+        generating_cached_state_input_ms: Vec::new(),
+        generating_cairo_pie_ms: 0.0,
+        verifying_cairo_pie_ms: 0.0,
+        writing_cairo_pie_ms: 0.0,
+        total_time_ms: 0.0,
+        status: "failed".to_string(),
+        error: Some(error_content),
+        timestamp: chrono::Utc::now(),
+    }
 }
 
 /// Write error details to a file (local or S3)
@@ -516,8 +770,7 @@ async fn write_error_to_file(
 
     if upload_to_s3 {
         // Upload to S3
-        let bucket = env::var("AWS_S3_BUCKET")
-            .map_err(|_| "AWS_S3_BUCKET environment variable not set")?;
+        let bucket = env::var("AWS_S3_BUCKET").map_err(|_| "AWS_S3_BUCKET environment variable not set")?;
 
         let s3_client = create_s3_client().await?;
         upload_file_to_s3(&s3_client, &bucket, file_path, error_content).await?;
