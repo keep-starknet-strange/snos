@@ -62,6 +62,7 @@
 
 // Standard library imports
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 // External crate imports
 use anyhow::bail;
@@ -69,6 +70,7 @@ use cairo_vm::types::layout_name::LayoutName;
 use futures::future::join_all;
 use log::{info, warn};
 use rpc_client::RpcClient;
+use tokio::sync::Semaphore;
 use starknet_api::core::CompiledClassHash;
 use starknet_os::{
     io::os_input::{OsChainInfo, OsHints, OsHintsConfig, StarknetOsInput},
@@ -158,7 +160,14 @@ pub async fn generate_pie(
         .map_err(|e| PieGenerationError::RpcClient(format!("Failed to initialize RPC client: {:?}", e)))?;
     info!("RPC client initialized for {}", input.rpc_url);
 
-    // Process all blocks in parallel
+    // Create semaphore to limit parallel execution to available CPU cores
+    let max_parallel_blocks = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4);
+    let semaphore = Arc::new(Semaphore::new(max_parallel_blocks));
+    info!("Processing blocks with max parallelism: {} (CPU cores)", max_parallel_blocks);
+
+    // Process all blocks in parallel using tokio::spawn for true parallelism
     info!("Starting parallel processing of {} blocks", input.blocks.len());
     let block_tasks = input.blocks.iter().enumerate().map(|(index, block_number)| {
         let block_number = *block_number;
@@ -167,8 +176,12 @@ pub async fn generate_pie(
         let strk_fee_token_address = input.chain_config.strk_fee_token_address.clone();
         let eth_fee_token_address = input.chain_config.eth_fee_token_address.clone();
         let total_blocks = input.blocks.len();
+        let sem = semaphore.clone();
 
-        async move {
+        tokio::spawn(async move {
+            // Acquire semaphore permit to limit concurrent execution
+            let _permit = sem.acquire().await.expect("Failed to acquire semaphore permit");
+
             info!("=== Processing block {} ({}/{}) ===", block_number, index + 1, total_blocks);
 
             // Collect block information
@@ -237,7 +250,8 @@ pub async fn generate_pie(
                 cached_state_input,
                 durations_collect_single_block_info,
             ))
-        }
+            // Permit is automatically released when _permit is dropped
+        })
     });
 
     // Wait for all block processing tasks to complete
@@ -251,13 +265,17 @@ pub async fn generate_pie(
     let mut durations: Vec<Vec<Duration>> = Vec::new();
 
     for result in results {
+        // First unwrap the JoinHandle, then unwrap the inner Result
         let (
             block_input,
             block_compiled_classes,
             block_deprecated_compiled_classes,
             mut cached_state_input,
             block_durations,
-        ) = result?;
+        ) = result
+            .map_err(|e| {
+                PieGenerationError::RpcClient(format!("Task join error: {:?}", e))
+            })??;
 
         // Add block input to our collection
         os_block_inputs.push(block_input);
