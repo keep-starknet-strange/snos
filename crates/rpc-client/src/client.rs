@@ -228,7 +228,11 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
             // Get proofs for each key chunk concurrently
             let chunks: Vec<_> = keys.chunks(MAX_STORAGE_KEYS_PER_REQUEST).map(|c| c.to_vec()).collect();
 
-            info!("Fetching proofs for {} chunks with max {} concurrent requests", chunks.len(), MAX_CONCURRENT_PROOF_REQUESTS);
+            info!(
+                "Fetching proofs for {} chunks with max {} concurrent requests",
+                chunks.len(),
+                MAX_CONCURRENT_PROOF_REQUESTS
+            );
 
             // Create futures for all chunks and execute them concurrently
             let chunk_proofs: Vec<ContractProof> = stream::iter(chunks)

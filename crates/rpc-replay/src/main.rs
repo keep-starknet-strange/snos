@@ -1,7 +1,6 @@
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client as S3Client;
-use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::error::PieGenerationError;
@@ -288,7 +287,9 @@ async fn process_json_mode(
                         // Write error to the file for this block
                         let error_file = format!("{}/error_blocks_{}.txt", args.log_dir, block_number);
 
-                        if let Err(write_err) = write_error_to_file(&error_file, &block_set, &e, args.upload_to_s3).await {
+                        if let Err(write_err) =
+                            write_error_to_file(&error_file, &block_set, &e, args.upload_to_s3).await
+                        {
                             log::error!("Failed to write error file {}: {}", error_file, write_err);
                         }
 
@@ -482,13 +483,7 @@ async fn upload_file_to_s3(
 ) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     let body = ByteStream::from(content.into_bytes());
 
-    s3_client
-        .put_object()
-        .bucket(bucket)
-        .key(key)
-        .body(body)
-        .send()
-        .await?;
+    s3_client.put_object().bucket(bucket).key(key).body(body).send().await?;
 
     log::info!("Successfully uploaded to s3://{}/{}", bucket, key);
     Ok(())
@@ -516,8 +511,7 @@ async fn write_error_to_file(
 
     if upload_to_s3 {
         // Upload to S3
-        let bucket = env::var("AWS_S3_BUCKET")
-            .map_err(|_| "AWS_S3_BUCKET environment variable not set")?;
+        let bucket = env::var("AWS_S3_BUCKET").map_err(|_| "AWS_S3_BUCKET environment variable not set")?;
 
         let s3_client = create_s3_client().await?;
         upload_file_to_s3(&s3_client, &bucket, file_path, error_content).await?;

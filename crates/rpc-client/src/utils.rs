@@ -9,10 +9,7 @@ static GLOBAL_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
 /// Gets or creates the global Tokio runtime.
 fn get_global_runtime() -> &'static tokio::runtime::Runtime {
     GLOBAL_RUNTIME.get_or_init(|| {
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .expect("Failed to create global Tokio runtime")
+        tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("Failed to create global Tokio runtime")
     })
 }
 
@@ -33,23 +30,6 @@ fn get_global_runtime() -> &'static tokio::runtime::Runtime {
 /// # Returns
 ///
 /// Returns the result of the coroutine execution.
-///
-/// # Example
-///
-/// ```rust
-/// use rpc_client::utils::execute_coroutine;
-///
-/// fn main() {
-///     // Execute an async operation in a blocking context
-///     let result = execute_coroutine(async {
-///         // Some async operation
-///         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-///         42
-///     });
-///
-///     assert_eq!(result, 42);
-/// }
-/// ```
 ///
 /// # Note
 ///

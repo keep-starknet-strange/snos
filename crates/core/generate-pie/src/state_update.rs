@@ -402,11 +402,8 @@ async fn process_accessed_addresses(
     result: &mut CompiledClassResult,
 ) -> Result<(), StateUpdateError> {
     // Filter out special addresses
-    let addresses_to_process: Vec<Felt252> = accessed_addresses
-        .iter()
-        .filter(|addr| **addr != Felt::TWO && **addr != Felt::ONE)
-        .copied()
-        .collect();
+    let addresses_to_process: Vec<Felt252> =
+        accessed_addresses.iter().filter(|addr| **addr != Felt::TWO && **addr != Felt::ONE).copied().collect();
 
     if addresses_to_process.is_empty() {
         return Ok(());
@@ -428,7 +425,7 @@ async fn process_accessed_addresses(
     let class_hash_results: Vec<(Felt252, BlockId, bool, Result<Felt, ProviderError>)> =
         stream::iter(address_block_pairs)
             .map(|(address, bid, is_prev)| async move {
-                let class_hash = rpc_client.starknet_rpc().get_class_hash_at(bid, &address).await;
+                let class_hash = rpc_client.starknet_rpc().get_class_hash_at(bid, address).await;
                 (address, bid, is_prev, class_hash)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
@@ -454,7 +451,7 @@ async fn process_accessed_addresses(
     let class_results: Vec<(Felt, Result<starknet::core::types::ContractClass, ProviderError>)> =
         stream::iter(class_fetch_pairs)
             .map(|(_, bid, _, class_hash)| async move {
-                let contract_class = rpc_client.starknet_rpc().get_class(bid, &class_hash).await;
+                let contract_class = rpc_client.starknet_rpc().get_class(bid, class_hash).await;
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
@@ -510,7 +507,7 @@ async fn process_accessed_classes(
         stream::iter(class_hashes.clone())
             .map(|class_hash| async move {
                 debug!("Fetching class hash: {:?}", class_hash);
-                let contract_class = rpc_client.starknet_rpc().get_class(block_id, &class_hash).await.ok();
+                let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash).await.ok();
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
@@ -565,7 +562,7 @@ async fn process_declared_classes(
         stream::iter(class_hashes)
             .map(|class_hash| async move {
                 debug!("Fetching declared class: {:?}", class_hash);
-                let contract_class = rpc_client.starknet_rpc().get_class(block_id, &class_hash).await;
+                let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash).await;
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)

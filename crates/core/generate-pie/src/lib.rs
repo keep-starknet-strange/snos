@@ -167,8 +167,8 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         let block_number = *block_number;
         let rpc_client = rpc_client.clone();
         let is_l3 = input.chain_config.is_l3;
-        let strk_fee_token_address = input.chain_config.strk_fee_token_address.clone();
-        let eth_fee_token_address = input.chain_config.eth_fee_token_address.clone();
+        let strk_fee_token_address = input.chain_config.strk_fee_token_address;
+        let eth_fee_token_address = input.chain_config.eth_fee_token_address;
         let total_blocks = input.blocks.len();
         let sem = semaphore.clone();
 
