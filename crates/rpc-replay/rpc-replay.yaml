@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: rpc-replay
-          image: prkpandey942/snos:rpc-replay-7bed6c20
+          image: prkpandey942/snos:rpc-replay-e41836b-20251025
           imagePullPolicy: Always
           args:
             - "sepolia"
@@ -33,6 +33,8 @@ spec:
               value: ""
             - name: AWS_SECRET_ACCESS_KEY
               value: ""
+            - name: AWS_REGION
+              value: ap-south-1
           resources:
             limits:
               cpu: "4"
