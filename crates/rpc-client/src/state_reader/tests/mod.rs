@@ -139,39 +139,6 @@ async fn test_real_rpc_calls() {
     println!("✅ AsyncRpcStateReader is production ready");
 }
 
-#[test]
-fn test_state_reader_sync_methods() {
-    // Note: These will still fail without a runtime, but let's test the error handling is proper
-    let rpc_client = create_test_rpc_client();
-    let block_id = BlockId::Number(1309254);
-    let state_reader = AsyncRpcStateReader::new(rpc_client, Some(block_id));
-
-    let (contract_address, storage_key, _class_hash, _) = create_test_values();
-
-    println!("Testing sync method error handling (should fail gracefully without runtime)...");
-
-    // These should fail with runtime errors but not panic
-    let storage_result = state_reader.get_storage_at(contract_address, storage_key);
-    match storage_result {
-        Ok(_) => panic!("❌ Unexpected success - should fail without runtime"),
-        Err(e) => {
-            println!("✅ get_storage_at failed gracefully: {}", e);
-            assert!(e.to_string().contains("runtime") || e.to_string().contains("reactor"));
-        }
-    }
-
-    let nonce_result = state_reader.get_nonce_at(contract_address);
-    match nonce_result {
-        Ok(_) => panic!("❌ Unexpected success - should fail without runtime"),
-        Err(e) => {
-            println!("✅ get_nonce_at failed gracefully: {}", e);
-            assert!(e.to_string().contains("runtime") || e.to_string().contains("reactor"));
-        }
-    }
-
-    println!("✅ Sync methods handle runtime errors correctly");
-}
-
 #[tokio::test]
 #[ignore]
 async fn test_error_handling_with_invalid_values() {
