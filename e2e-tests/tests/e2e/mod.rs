@@ -19,7 +19,6 @@
 //! `0x1b63eae2bd1b55f06b76d7b32c60f21a0d3d09d34d89587e01a7185d37c274e`
 
 use cairo_vm::types::layout_name::LayoutName;
-use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::generate_pie;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
 use rstest::rstest;
