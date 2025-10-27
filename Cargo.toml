@@ -18,16 +18,16 @@ license-file = "LICENSE"
 
 [workspace.dependencies]
 starknet_api = { git = "https://github.com/karnotxyz/sequencer", rev = "e04617e0581d5ec93a035ec0e15419b4c201b629", features = [
- "testing",
+  "testing",
 ] }
 starknet_os = { git = "https://github.com/karnotxyz/sequencer", rev = "e04617e0581d5ec93a035ec0e15419b4c201b629", features = [
- "testing",
+  "testing",
 ] }
 blockifier = { git = "https://github.com/karnotxyz/sequencer", rev = "e04617e0581d5ec93a035ec0e15419b4c201b629", features = [
- "testing",
+  "testing",
 ] }
 starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", rev = "e04617e0581d5ec93a035ec0e15419b4c201b629", features = [
- "testing",
+  "testing",
 ] }
 shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", rev = "e04617e0581d5ec93a035ec0e15419b4c201b629" }
 
