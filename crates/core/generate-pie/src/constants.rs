@@ -17,10 +17,10 @@ pub const STATEFUL_MAPPING_START: Felt = Felt::from_hex_unchecked("0x80"); // 12
 /// This constant defines the limit on the number of concurrent RPC requests
 /// that can be made when fetching storage values.
 /// Higher values increase throughput but may overwhelm the RPC server.
-pub const MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS: usize = 50;
+pub const MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS: usize = 100;
 
 /// Maximum number of concurrent RPC requests to send at a time when fetching contract classes.
 ///
 /// This constant defines the limit on the number of concurrent get_class RPC requests.
 /// The actual classes are fetched concurrently, then compiled/hashed in parallel using CPU cores.
-pub const MAX_CONCURRENT_GET_CLASS_REQUESTS: usize = 20;
+pub const MAX_CONCURRENT_GET_CLASS_REQUESTS: usize = 100;
