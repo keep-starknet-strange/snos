@@ -1873,7 +1873,7 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "e2e-tests"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cairo-vm",
  "env_logger",
@@ -2271,7 +2271,7 @@ dependencies = [
 
 [[package]]
 name = "generate-pie"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4245,7 +4245,7 @@ dependencies = [
 
 [[package]]
 name = "rpc-client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -5019,7 +5019,7 @@ dependencies = [
 
 [[package]]
 name = "starknet-os-types"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cairo-lang-starknet-classes",
  "cairo-vm",
