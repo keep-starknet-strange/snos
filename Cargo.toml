@@ -17,19 +17,19 @@ repository = "https://github.com/keep-starknet-strange/snos/"
 license-file = "LICENSE"
 
 [workspace.dependencies]
-starknet_api = { git = "https://github.com/karnotxyz/sequencer", rev = "ca0bab2bd9324fb02becba51dd401c47a92569fe", features = [
- "testing",
+starknet_api = { git = "https://github.com/karnotxyz/sequencer", rev = "e04617e0581d5ec93a035ec0e15419b4c201b629", features = [
+  "testing",
 ] }
-starknet_os = { git = "https://github.com/karnotxyz/sequencer", rev = "ca0bab2bd9324fb02becba51dd401c47a92569fe", features = [
- "testing",
+starknet_os = { git = "https://github.com/karnotxyz/sequencer", rev = "e04617e0581d5ec93a035ec0e15419b4c201b629", features = [
+  "testing",
 ] }
-blockifier = { git = "https://github.com/karnotxyz/sequencer", rev = "ca0bab2bd9324fb02becba51dd401c47a92569fe", features = [
- "testing",
+blockifier = { git = "https://github.com/karnotxyz/sequencer", rev = "e04617e0581d5ec93a035ec0e15419b4c201b629", features = [
+  "testing",
 ] }
-starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", rev = "ca0bab2bd9324fb02becba51dd401c47a92569fe", features = [
- "testing",
+starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", rev = "e04617e0581d5ec93a035ec0e15419b4c201b629", features = [
+  "testing",
 ] }
-shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", rev = "ca0bab2bd9324fb02becba51dd401c47a92569fe" }
+shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", rev = "e04617e0581d5ec93a035ec0e15419b4c201b629" }
 
 cairo-lang-starknet = "=2.12.3"
 cairo-lang-starknet-classes = "=2.12.3"
