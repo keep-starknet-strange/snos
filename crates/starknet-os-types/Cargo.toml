@@ -1,27 +1,29 @@
 [package]
 name = "starknet-os-types"
 version.workspace = true
+rust-version.workspace = true
 edition.workspace = true
 repository.workspace = true
 license-file.workspace = true
 
+[lib]
+doctest = false
+
 [dependencies]
-blockifier = { workspace = true }
 cairo-lang-starknet-classes = { workspace = true }
 cairo-vm = { workspace = true }
-num-bigint = { workspace = true }
 flate2 = { workspace = true }
+num-bigint = { workspace = true }
 once_cell = { workspace = true }
-pathfinder-gateway-types = { workspace = true }
+pathfinder-class-hash = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
-starknet_api = { workspace = true }
 starknet-core = { workspace = true }
 starknet-crypto = { workspace = true }
 starknet-types-core = { workspace = true }
+starknet_api = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
 
 [dev-dependencies]
 indoc = { workspace = true }

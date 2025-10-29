@@ -1,3 +1,5 @@
+//! Cairo 1 Sierra contract class types and utilities.
+
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
@@ -12,24 +14,68 @@ use crate::casm_contract_class::{CairoLangCasmClass, GenericCasmContractClass};
 use crate::error::ContractClassError;
 use crate::hash::GenericClassHash;
 
+/// Type alias for CairoLang Sierra contract class.
 pub type CairoLangSierraContractClass = cairo_lang_starknet_classes::contract_class::ContractClass;
-pub type StarknetCoreSierraContractClass = starknet_core::types::FlattenedSierraClass;
 
-/// A generic Sierra contract class that supports conversion to/from the most commonly used
-/// contract class types in Starknet and provides utility methods.
+/// Type alias for StarknetCore Sierra contract class.
+pub type StarknetCoreSierraContractClass = FlattenedSierraClass;
+
+/// A generic Sierra contract class that supports conversion between different formats.
 ///
-/// Operations are implemented as lazily as possible, i.e. we only convert
-/// between different types if strictly necessary.
-/// Fields are boxed in an Arc for cheap cloning.
+/// This struct provides a unified interface for working with Cairo 1 Sierra contract classes
+/// across different Starknet implementations. It supports lazy conversion between CairoLang
+/// and StarknetCore formats, only performing conversions when necessary.
+///
+/// The struct uses `OnceCell` for lazy initialization of different representations and `Arc` for
+/// inexpensive cloning of the underlying data.
+///
+/// # Examples
+///
+/// ```rust
+/// use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+///
+/// // Create from serialized bytes
+/// let sierra_bytes = include_bytes!("path/to/contract.sierra");
+/// let sierra_class = GenericSierraContractClass::from_bytes(sierra_bytes.to_vec());
+///
+/// // Get the class hash
+/// let class_hash = sierra_class.class_hash()?;
+///
+/// // Compile to CASM
+/// let casm_class = sierra_class.compile()?;
+/// ```
 #[derive(Debug, Clone)]
 pub struct GenericSierraContractClass {
+    /// Lazy-initialized CairoLang contract class.
     cairo_lang_contract_class: OnceCell<Arc<CairoLangSierraContractClass>>,
+    /// Lazy-initialized StarknetCore contract class.
     starknet_core_contract_class: OnceCell<Arc<StarknetCoreSierraContractClass>>,
+    /// Lazy-initialized serialized contract class bytes.
     serialized_class: OnceCell<Vec<u8>>,
+    /// Lazy-initialized computed class hash.
     class_hash: OnceCell<GenericClassHash>,
 }
 
 impl GenericSierraContractClass {
+    /// Creates a new generic Sierra contract class from serialized bytes.
+    ///
+    /// # Arguments
+    ///
+    /// * `serialized_class` - The serialized contract class bytes
+    ///
+    /// # Returns
+    ///
+    /// A new `GenericSierraContractClass` instance.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+    ///
+    /// let sierra_bytes = include_bytes!("path/to/contract.sierra");
+    /// let sierra_class = GenericSierraContractClass::from_bytes(sierra_bytes.to_vec());
+    /// ```
+    #[must_use]
     pub fn from_bytes(serialized_class: Vec<u8>) -> Self {
         Self {
             cairo_lang_contract_class: Default::default(),
@@ -39,17 +85,43 @@ impl GenericSierraContractClass {
         }
     }
 
+    /// Builds the CairoLang contract class from available data.
+    ///
+    /// # Returns
+    ///
+    /// The CairoLang contract class, or an error if it cannot be built.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the CairoLang class cannot be built.
     fn build_cairo_lang_class(&self) -> Result<CairoLangSierraContractClass, ContractClassError> {
-        self.get_serialized_contract_class().and_then(|res| {
-            let contract_class = serde_json::from_slice(res)?;
-            Ok(contract_class)
+        self.get_serialized_contract_class().and_then(|serialized_class| {
+            serde_json::from_slice(serialized_class).map_err(ContractClassError::SerdeError)
         })
     }
 
+    /// Gets a reference to the serialized contract class bytes, serializing if necessary.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the serialized contract class bytes, or an error if serialization fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if serialization fails.
     pub fn get_serialized_contract_class(&self) -> Result<&Vec<u8>, ContractClassError> {
         self.serialized_class.get_or_try_init(|| serde_json::to_vec(self)).map_err(Into::into)
     }
 
+    /// Builds the StarknetCore contract class from available data.
+    ///
+    /// # Returns
+    ///
+    /// The StarknetCore contract class, or an error if it cannot be built.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the StarknetCore class cannot be built.
     fn build_starknet_core_class(&self) -> Result<StarknetCoreSierraContractClass, ContractClassError> {
         let serialized_class = self.get_serialized_contract_class()?;
         let sierra_class: starknet_core::types::contract::SierraClass =
@@ -57,44 +129,167 @@ impl GenericSierraContractClass {
 
         sierra_class.flatten().map_err(|e| ContractClassError::SerdeError(serde_json::Error::custom(e)))
     }
+
+    /// Gets a reference to the CairoLang contract class, building it if necessary.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the CairoLang contract class, or an error if it cannot be built.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the CairoLang class cannot be built.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+    ///
+    /// let sierra_class = GenericSierraContractClass::from_bytes(vec![0]);
+    /// let cairo_lang_class = sierra_class.get_cairo_lang_contract_class()?;
+    /// ```
     pub fn get_cairo_lang_contract_class(&self) -> Result<&CairoLangSierraContractClass, ContractClassError> {
         self.cairo_lang_contract_class
             .get_or_try_init(|| self.build_cairo_lang_class().map(Arc::new))
-            .map(|boxed| boxed.as_ref())
+            .map(|arc| arc.as_ref())
     }
 
+    /// Gets a reference to the StarknetCore contract class, building it if necessary.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the StarknetCore contract class, or an error if it cannot be built.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the StarknetCore class cannot be built.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+    ///
+    /// let sierra_class = GenericSierraContractClass::from_bytes(vec![0]);
+    /// let starknet_core_class = sierra_class.get_starknet_core_contract_class()?;
+    /// ```
     pub fn get_starknet_core_contract_class(&self) -> Result<&StarknetCoreSierraContractClass, ContractClassError> {
         self.starknet_core_contract_class
             .get_or_try_init(|| self.build_starknet_core_class().map(Arc::new))
-            .map(|boxed| boxed.as_ref())
+            .map(|arc| arc.as_ref())
     }
 
+    /// Converts this generic class to a CairoLang contract class.
+    ///
+    /// # Returns
+    ///
+    /// The CairoLang contract class, or an error if conversion fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the conversion fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+    ///
+    /// let sierra_class = GenericSierraContractClass::from_bytes(vec![0]);
+    /// let cairo_lang_class = sierra_class.to_cairo_lang_contract_class()?;
+    /// ```
     pub fn to_cairo_lang_contract_class(self) -> Result<CairoLangSierraContractClass, ContractClassError> {
         let cairo_lang_class = self.get_cairo_lang_contract_class()?;
         Ok(cairo_lang_class.clone())
     }
 
+    /// Converts this generic class to a StarknetCore contract class.
+    ///
+    /// # Returns
+    ///
+    /// The StarknetCore contract class, or an error if conversion fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the conversion fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+    ///
+    /// let sierra_class = GenericSierraContractClass::from_bytes(vec![0]);
+    /// let starknet_core_class = sierra_class.to_starknet_core_contract_class()?;
+    /// ```
     pub fn to_starknet_core_contract_class(self) -> Result<StarknetCoreSierraContractClass, ContractClassError> {
-        let blockifier_class = self.get_starknet_core_contract_class()?;
-        Ok(blockifier_class.clone())
+        let starknet_core_class = self.get_starknet_core_contract_class()?;
+        Ok(starknet_core_class.clone())
     }
 
+    /// Computes the class hash for this contract class.
+    ///
+    /// # Returns
+    ///
+    /// The computed class hash, or an error if computation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the class hash computation fails.
     fn compute_class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
         let starknet_core_contract_class = self.get_starknet_core_contract_class()?;
         let class_hash = starknet_core_contract_class.class_hash();
         Ok(GenericClassHash::new(class_hash.into()))
     }
 
+    /// Gets the class hash for this contract class, computing it if necessary.
+    ///
+    /// # Returns
+    ///
+    /// The class hash, or an error if computation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the class hash computation fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+    ///
+    /// let sierra_class = GenericSierraContractClass::from_bytes(vec![0]);
+    /// let class_hash = sierra_class.class_hash()?;
+    /// ```
     pub fn class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
         self.class_hash.get_or_try_init(|| self.compute_class_hash()).copied()
     }
 
+    /// Compiles this Sierra contract class to a CASM contract class.
+    ///
+    /// This method compiles the Sierra program to CASM bytecode using the CairoLang compiler.
+    /// The compilation uses default settings that are compatible with most Starknet contracts.
+    ///
+    /// # Returns
+    ///
+    /// The compiled CASM contract class, or an error if compilation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the compilation fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
+    ///
+    /// let sierra_class = GenericSierraContractClass::from_bytes(vec![0]);
+    /// let casm_class = sierra_class.compile()?;
+    /// ```
     pub fn compile(&self) -> Result<GenericCasmContractClass, ContractClassError> {
         let cairo_lang_class = self.get_cairo_lang_contract_class()?.clone();
+
         // Values taken from the defaults of `starknet-sierra-compile`, see here:
         // https://github.com/starkware-libs/cairo/blob/main/crates/bin/starknet-sierra-compile/src/main.rs
         let add_pythonic_hints = false;
         let max_bytecode_size = 180000;
+
         let casm_contract_class =
             CairoLangCasmClass::from_contract_class(cairo_lang_class, add_pythonic_hints, max_bytecode_size)?;
 
@@ -102,24 +297,36 @@ impl GenericSierraContractClass {
     }
 }
 
+/// A flattened Sierra class with deserialized ABI.
+///
+/// This struct represents a Sierra contract class with the ABI field deserialized
+/// into a proper contract ABI structure rather than a JSON string.
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FlattenedSierraClassWithAbi {
-    /// The list of sierra instructions of which the program consists
+    /// The list of Sierra instructions that make up the program.
     pub sierra_program: Vec<Felt>,
-    /// The version of the contract class object. Currently, the Starknet os supports version 0.1.0
+    /// The version of the contract class object. Currently, Starknet supports version 0.1.0.
     pub contract_class_version: String,
-    /// Entry points by type
+    /// Entry points organized by type (external, constructor, L1 handler).
     pub entry_points_by_type: EntryPointsByType,
-    /// ABI, deserialized
+    /// The contract ABI, deserialized from JSON.
     pub abi: Option<cairo_lang_starknet_classes::abi::Contract>,
 }
 
+/// A contract class structure for Pathfinder compatibility.
+///
+/// This struct is used internally for converting between different contract class formats
+/// while maintaining compatibility with Pathfinder's expected structure.
 #[derive(Debug, Serialize)]
 struct ContractClassForPathfinderCompat {
+    /// The Sierra program as a list of Felt252 values.
     pub sierra_program: Vec<Felt252>,
+    /// The contract class version string.
     pub contract_class_version: String,
+    /// Entry points organized by type.
     pub entry_points_by_type: cairo_lang_starknet_classes::contract_class::ContractEntryPoints,
+    /// The ABI as a JSON string.
     pub abi: String,
 }
 
@@ -155,14 +362,16 @@ impl Serialize for GenericSierraContractClass {
     where
         S: Serializer,
     {
+        // Try to serialize using CairoLang class first
         if let Some(cairo_lang_class) = self.cairo_lang_contract_class.get() {
             cairo_lang_class.serialize(serializer)
         } else if let Some(starknet_core_class) = self.starknet_core_contract_class.get() {
+            // Fall back to StarknetCore class with ABI deserialization
             let class_with_abi = FlattenedSierraClassWithAbi::try_from(starknet_core_class.as_ref())
-                .map_err(|e| S::Error::custom(e.to_string()))?;
+                .map_err(|e| Error::custom(e.to_string()))?;
             class_with_abi.serialize(serializer)
         } else {
-            Err(S::Error::custom("No possible serialization"))
+            Err(Error::custom("No contract class available for serialization"))
         }
     }
 }

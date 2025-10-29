@@ -71,26 +71,60 @@ In order to compile the Starknet OS Cairo program, you’ll need the Cairo compi
 This will create a virtual environment and download needed dependencies to compile cairo programs. You will need to activate it to compile Cairo programs.
 
 ## 🧪 Running Tests
-To verify your setup, follow these steps:
 
-### Activate snos-env:
-```bash
- source ./snos-env/bin/activate
- ```
+SNOS includes comprehensive end-to-end tests for PIE generation. Tests can be run using the convenient Makefile or directly with cargo.
 
-### Run Tests
+### Quick Start - Using Makefile
 
 ```bash
-./scripts/setup-tests.sh
+# Run quick integration tests (no RPC required)
+make test-quick
 
-cargo test
+# Check test environment
+make env-check
+
+# Run full e2e tests (requires RPC endpoint)
+make test-e2e
+
+# See all available test commands
+make help
 ```
 
-### Reset Tests
+### Test Categories
 
-If you need to reset the test environment:
+- **Quick Integration Tests**: Fast tests that verify workspace integration without requiring external RPC
+- **E2E PIE Generation Tests**: Complete workflow tests that generate actual PIE files
+- **Error Handling Tests**: Comprehensive error scenario testing
+- **Performance Tests**: Timing and resource usage validation
+
+### Using Different RPC Endpoints
 
 ```bash
+# Test against local Pathfinder instance
+make test-e2e RPC_URL=http://localhost:9545
+
+# Test against Sepolia testnet
+make test-sepolia
+
+# Test with verbose output
+make test-pie VERBOSE=true
+```
+
+### Legacy Test Setup
+
+For the original Cairo test environment:
+
+```bash
+# Activate Cairo environment
+source ./snos-env/bin/activate
+
+# Set up tests
+./scripts/setup-tests.sh
+
+# Run workspace tests
+cargo test --workspace
+
+# Reset test environment if needed
 ./scripts/reset-tests.sh
 ```
 
