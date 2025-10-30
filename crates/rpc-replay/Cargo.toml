@@ -13,8 +13,8 @@ generate-pie = { path = "../core/generate-pie" }
 rpc-client = { path = "../rpc-client" }
 
 # External dependencies
-aws-config = "1.1"
-aws-sdk-s3 = "1.15"
+aws-config = { workspace = true }
+aws-sdk-s3 = { workspace = true }
 cairo-vm = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }

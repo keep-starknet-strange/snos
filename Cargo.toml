@@ -67,4 +67,8 @@ futures = "0.3"
 indoc = "2"
 rstest = "0.18.2"
 
+# Used for RPC Replay
+aws-config = "1.1"
+aws-sdk-s3 = "1.15"
+
 starknet-os-types = { path = "crates/starknet-os-types" }
