@@ -167,6 +167,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         Some(contract_data) => {
             contract_proof.contract_data = Some(ContractData {
                 storage_proofs: vec![contract_data.clone().storage_proofs.into_iter().flatten().collect()],
+                // This unwrap is safe since we are checking that it's Some above
                 root: contract_proof.contract_data.unwrap().root,
             });
         }
@@ -201,6 +202,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
             Some(contract_data) => {
                 additional_proof.contract_data = Some(ContractData {
                     storage_proofs: vec![contract_data.clone().storage_proofs.into_iter().flatten().collect()],
+                    // This unwrap is safe since we are checking that it's Some above
                     root: additional_proof.contract_data.unwrap().root,
                 });
             }

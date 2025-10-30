@@ -24,3 +24,6 @@ pub const MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS: usize = 100;
 /// This constant defines the limit on the number of concurrent get_class RPC requests.
 /// The actual classes are fetched concurrently, then compiled/hashed in parallel using CPU cores.
 pub const MAX_CONCURRENT_GET_CLASS_REQUESTS: usize = 100;
+
+/// Default value of maximum blocks to process in parallel to construct the OS input
+pub const DEFAULT_MAX_PARALLEL_BLOCKS: usize = 4;

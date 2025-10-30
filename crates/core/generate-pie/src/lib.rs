@@ -76,6 +76,7 @@ use starknet_os::{
 };
 use tokio::sync::Semaphore;
 // Local module imports
+use crate::constants::DEFAULT_MAX_PARALLEL_BLOCKS;
 use block_processor::collect_single_block_info;
 use cached_state::generate_cached_state_input;
 use error::PieGenerationError;
@@ -157,7 +158,8 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     info!("RPC client initialized for {}", input.rpc_url);
 
     // Create semaphore to limit parallel execution to available CPU cores
-    let max_parallel_blocks = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    let max_parallel_blocks =
+        std::thread::available_parallelism().map(|n| n.get()).unwrap_or(DEFAULT_MAX_PARALLEL_BLOCKS);
     let semaphore = Arc::new(Semaphore::new(max_parallel_blocks));
     info!("Processing blocks with max parallelism: {} (CPU cores)", max_parallel_blocks);
 

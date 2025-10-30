@@ -136,7 +136,7 @@ impl Proof for HashMap<Felt, TrieNode> {
             })?;
 
             // NOTE: Commenting out the check for node hash since it takes time
-            // TODO: Add a CLI flag to enable this check
+            // TODO(Prakhar, 30/10/25): Add a CLI flag to enable this check
             match node {
                 TrieNode::Binary { left, right, .. } => {
                     // let actual_node_hash = node.calculate_node_hash::<H>();
