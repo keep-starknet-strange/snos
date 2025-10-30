@@ -19,7 +19,6 @@
 //! `0x1b63eae2bd1b55f06b76d7b32c60f21a0d3d09d34d89587e01a7185d37c274e`
 
 use cairo_vm::types::layout_name::LayoutName;
-use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::generate_pie;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
 use rstest::rstest;
@@ -72,8 +71,6 @@ async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64
         os_hints_config: OsHintsConfiguration::default(),
         output_path: None,
         layout: LayoutName::all_cairo,
-        strk_fee_token_address: DEFAULT_SEPOLIA_STRK_FEE_TOKEN.to_string(),
-        eth_fee_token_address: DEFAULT_SEPOLIA_ETH_FEE_TOKEN.to_string(),
     };
 
     println!("📡 Using RPC: {}", input.rpc_url);

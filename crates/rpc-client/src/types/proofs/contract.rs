@@ -6,6 +6,7 @@ use starknet::macros::short_string;
 use starknet::providers::ProviderError;
 use starknet_core::types::StorageProof;
 use starknet_types_core::felt::Felt;
+use std::time::Instant;
 
 use crate::constants::DEFAULT_STORAGE_TREE_HEIGHT;
 use crate::error::ProofVerificationError;
@@ -71,14 +72,18 @@ impl ContractData {
     pub fn verify(&self, storage_keys: &[Felt]) -> Result<(), Vec<ProofVerificationError>> {
         info!("Verifying contract data with {} storage keys", storage_keys.len());
 
-        let proof_map = &self.storage_proofs[0];
+        let proof_map = &self.storage_proofs[0].to_hashmap().map_err(|err| {
+            vec![ProofVerificationError::ConversionError(format!("Failed to convert storage proofs: {}", err))]
+        })?;
 
+        let start = Instant::now();
         let errors: Vec<ProofVerificationError> = storage_keys
             .par_iter()
             .filter_map(|storage_key| proof_map.verify_proof::<PedersenHash>(*storage_key, self.root).err())
             .collect();
 
-        info!("Verification done. Found {} errors", errors.len());
+        let duration = start.elapsed();
+        info!("Verification done in {:?}. Found {} errors", duration, errors.len());
 
         if errors.is_empty() {
             Ok(())

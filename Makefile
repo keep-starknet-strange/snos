@@ -1,27 +1,64 @@
 # Makefile for SNOS (Starknet OS) Project
 # Provides convenient commands for building, testing, and development
 
-# Default values
-RPC_URL ?= https://pathfinder-mainnet.d.karnot.xyz
-RPC_URL_SEPOLIA ?= https://pathfinder-sepolia.d.karnot.xyz
-NETWORK ?= mainnet
+DEFAULT_NETWORK := sepolia
+DEFAULT_BLOCK_NUMBERS := 924015
+
+# Starknet Sepolia
+SEPOLIA_RPC_URL ?= https://pathfinder-sepolia.d.karnot.xyz
 SEPOLIA_STRK_FEE_TOKEN ?= 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
+SEPOLIA_ETH_FEE_TOKEN ?= 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+
+# Starknet Mainnet
+MAINNET_RPC_URL ?= https://pathfinder-mainnet.d.karnot.xyz
 MAINNET_STRK_FEE_TOKEN ?= 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
-BLOCK_NUMBERS ?= 1952855
+MAINNET_ETH_FEE_TOKEN ?= 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+
+# Paradex Testnet
+PARADEX_TESTNET_RPC_URL ?= https://pathfinder-paradex-sandbox-testnet.d.karnot.xyz
+PARADEX_TESTNET_STRK_FEE_TOKEN ?= 0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7
+PARADEX_TESTNET_ETH_FEE_TOKEN ?= 0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7
+
+# Paradex Mainnet
+PARADEX_MAINNET_RPC_URL ?= https://pathfinder-paradex-sandbox-mainnet.d.karnot.xyz
+PARADEX_MAINNET_STRK_FEE_TOKEN ?= 0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7
+PARADEX_MAINNET_ETH_FEE_TOKEN ?= 0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7
 
 # Define comma for clarity
 comma := ,
 
-# Convert comma-separated to space-separated
-BLOCK_LIST := $(subst $(comma), ,$(BLOCK_NUMBERS))
+# Function to set output file path
+# Usage: $(call set_output_path,NETWORK,BLOCK_NUMBERS)
+define set_output_path
+$(eval _block_list := $(subst $(comma), ,$(2)))
+$(eval _first := $(word 1,$(_block_list)))
+$(eval _last := $(word $(words $(_block_list)),$(_block_list)))
+$(eval _output_file := $(_first)$(if $(filter-out $(_first),$(_last)),_$(_last)))
+$(eval OUTPUT_FILE_PATH := ./tmp/$(1)/$(_output_file).zip)
+endef
 
-# Get first and last values
-FIRST := $(word 1,$(BLOCK_LIST))
-LAST := $(word $(words $(BLOCK_LIST)),$(BLOCK_LIST))
-
-# Create output file name
-OUTPUT_FILE := $(FIRST)$(if $(filter-out $(FIRST),$(LAST)),_$(LAST))
-OUTPUT_FILE_PATH := "./tmp/$(NETWORK)/$(OUTPUT_FILE).zip"
+# Function to set network configuration variables
+# Usage: $(call set_network_config,NETWORK)
+define set_network_config
+$(info [set_network_config] Called with NETWORK=$(1))
+$(eval SNOS_NETWORK := $(if $(filter sepolia,$(1)),sepolia,\
+	$(if $(filter mainnet,$(1)),mainnet,\
+	$(if $(filter paradex-testnet,$(1)),PRIVATE_SN_POTC_SEPOLIA,\
+	$(if $(filter paradex-mainnet,$(1)),PRIVATE_SN_PARACLEAR_MAINNET,\
+	$(error Invalid NETWORK: $(1). Must be one of: sepolia, mainnet, paradex-testnet, paradex-mainnet))))))
+$(eval SNOS_RPC_URL := $(if $(filter sepolia,$(1)),$(SEPOLIA_RPC_URL),\
+	$(if $(filter mainnet,$(1)),$(MAINNET_RPC_URL),\
+	$(if $(filter paradex-testnet,$(1)),$(PARADEX_TESTNET_RPC_URL),\
+	$(PARADEX_MAINNET_RPC_URL)))))
+$(eval SNOS_STRK_FEE_TOKEN := $(if $(filter sepolia,$(1)),$(SEPOLIA_STRK_FEE_TOKEN),\
+	$(if $(filter mainnet,$(1)),$(MAINNET_STRK_FEE_TOKEN),\
+	$(if $(filter paradex-testnet,$(1)),$(PARADEX_TESTNET_STRK_FEE_TOKEN),\
+	$(PARADEX_MAINNET_STRK_FEE_TOKEN)))))
+$(eval SNOS_ETH_FEE_TOKEN := $(if $(filter sepolia,$(1)),$(SEPOLIA_ETH_FEE_TOKEN),\
+	$(if $(filter mainnet,$(1)),$(MAINNET_ETH_FEE_TOKEN),\
+	$(if $(filter paradex-testnet,$(1)),$(PARADEX_TESTNET_ETH_FEE_TOKEN),\
+	$(PARADEX_MAINNET_ETH_FEE_TOKEN)))))
+endef
 
 # Colors for output
 BLUE := \033[36m
@@ -40,10 +77,9 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(YELLOW)Environment variables:$(RESET)"
-	@echo "  SNOS_RPC_URL = $(RPC_URL)"
-	@echo "  SNOS_BLOCKS  = $(BLOCK_NUMBERS)"
-	@echo "  SNOS_NETWORK = $(NETWORK)"
-	@echo "  SNOS_OUTPUT  = $(OUTPUT_FILE_PATH)"
+	@echo "  SNOS_RPC_URL = $(SEPOLIA_RPC_URL)"
+	@echo "  SNOS_BLOCKS  = $(DEFAULT_BLOCK_NUMBERS)"
+	@echo "  SNOS_NETWORK = $(DEFAULT_NETWORK)"
 	@echo ""
 	@echo "$(YELLOW)Examples:$(RESET)"
 	@echo "  make test-e2e"
@@ -80,29 +116,98 @@ fmt: ## Format code
 test-workspace: ## Run all workspace unit tests
 	@echo "$(BLUE)Running workspace unit tests...$(RESET)"
 	RUSTFLAGS="-D warnings" \
-	SNOS_RPC_URL="$(RPC_URL)" \
+	SNOS_RPC_URL="$(MAINNET_RPC_URL)" \
 	cargo test --workspace --lib -- --nocapture
 
 test-e2e: ## Run simple parameterized PIE generation tests
-	@echo "$(BLUE)Running simple PIE generation tests...$(RESET)"
-	@echo "$(YELLOW)Using RPC: $(RPC_URL)$(RESET)"
+	@echo "$(BLUE)Running simple E2E tests...$(RESET)"
 	RUST_LOG=info \
-	SNOS_RPC_URL="$(RPC_URL)" \
-	SNOS_RPC_URL_SEPOLIA="$(RPC_URL_SEPOLIA)" \
+	SNOS_RPC_URL="$(MAINNET_RPC_URL)" \
+	SNOS_RPC_URL_SEPOLIA="$(SEPOLIA_RPC_URL)" \
 	cargo test -p e2e-tests test_pie_generation -- --nocapture
 
 test-all: test-workspace test-e2e ## Run all tests (unit + integration + e2e)
 
-rpc-replay-seq:
+## PIE Generation
+generate-pie:
+	$(eval ARGS := $(filter-out $@,$(MAKECMDGOALS)))
+	$(eval NETWORK := $(word 1,$(ARGS)))
+	$(eval BLOCK_NUMBERS := $(word 2,$(ARGS)))
+	@if [ -z "$(NETWORK)" ]; then \
+		echo "$(RED)Error: NETWORK is required$(RESET)"; \
+		echo "Usage: make generate-pie <network> <block_numbers>"; \
+		echo "Example: make generate-pie sepolia 924015"; \
+		exit 1; \
+	fi
+	@if [ -z "$(BLOCK_NUMBERS)" ]; then \
+		echo "$(RED)Error: BLOCK_NUMBERS is required$(RESET)"; \
+		echo "Usage: make generate-pie <network> <block_numbers>"; \
+		echo "Example: make generate-pie sepolia 924015"; \
+		exit 1; \
+	fi
+	$(call set_network_config,$(NETWORK))
+	$(call set_output_path,$(SNOS_NETWORK),$(BLOCK_NUMBERS))
+	$(eval LOG_FILE_BASE := $(notdir $(basename $(OUTPUT_FILE_PATH))))
+	$(eval LOG_FILE_PATH := ./tmp/$(SNOS_NETWORK)/logs/$(LOG_FILE_BASE)_$$(shell date +%Y-%m-%d--%H-%M-%S).log)
+	@mkdir -p ./tmp/$(SNOS_NETWORK)
+	@mkdir -p ./tmp/$(SNOS_NETWORK)/logs
+	@echo "$(BLUE)Generating PIE for network: $(SNOS_NETWORK), blocks: $(BLOCK_NUMBERS)$(RESET)"
+	@echo "$(BLUE)RPC URL: $(SNOS_RPC_URL)$(RESET)"
+	@echo "$(BLUE)Output will be at: $(OUTPUT_FILE_PATH)$(RESET)"
+	RUST_LOG=info \
+	SNOS_LAYOUT=all_cairo \
+	SNOS_IS_L3=false \
+	SNOS_RPC_URL="$(SNOS_RPC_URL)" \
+	SNOS_NETWORK="$(SNOS_NETWORK)" \
+	SNOS_BLOCKS="$(BLOCK_NUMBERS)" \
+	SNOS_STRK_FEE_TOKEN_ADDRESS="$(SNOS_STRK_FEE_TOKEN)" \
+	SNOS_ETH_FEE_TOKEN_ADDRESS="$(SNOS_ETH_FEE_TOKEN)" \
+	SNOS_OUTPUT="$(OUTPUT_FILE_PATH)" \
+	cargo run -p generate-pie \
+	2>&1 | tee "$(LOG_FILE_PATH)"
+
+rpc-replay-seq: ## Run RPC replay in sequential mode
+	$(eval ARGS := $(filter-out $@,$(MAKECMDGOALS)))
+	$(eval NETWORK := $(word 1,$(ARGS)))
+	$(eval START_BLOCK := $(word 2,$(ARGS)))
+	$(eval NUM_BLOCKS := $(word 3,$(ARGS)))
+	@if [ -z "$(NETWORK)" ]; then \
+		echo "$(RED)Error: NETWORK is required$(RESET)"; \
+		echo "Usage: make rpc-replay-seq <network> <start_block> <num_blocks>"; \
+		echo "Example: make rpc-replay-seq sepolia 924015 2"; \
+		exit 1; \
+	fi
+	@if [ -z "$(START_BLOCK)" ]; then \
+		echo "$(RED)Error: START_BLOCK is required$(RESET)"; \
+		echo "Usage: make rpc-replay-seq <network> <start_block> <num_blocks>"; \
+		echo "Example: make rpc-replay-seq sepolia 924015 2"; \
+		exit 1; \
+	fi
+	@if [ -z "$(NUM_BLOCKS)" ]; then \
+		echo "$(RED)Error: NUM_BLOCKS is required$(RESET)"; \
+		echo "Usage: make rpc-replay-seq <network> <start_block> <num_blocks>"; \
+		echo "Example: make rpc-replay-seq sepolia 924015 2"; \
+		exit 1; \
+	fi
+	$(call set_network_config,$(NETWORK))
+	$(eval ERROR_LOG_DIR := ./tmp/$(SNOS_NETWORK)/error)
+	@mkdir -p $(ERROR_LOG_DIR)
 	@echo "$(BLUE)Running RPC replay in sequential mode...$(RESET)"
-	@echo "$(YELLOW)Using RPC: $(RPC_URL)$(RESET)"
+	@echo "$(YELLOW)Network: $(SNOS_NETWORK)$(RESET)"
+	@echo "$(YELLOW)RPC URL: $(SNOS_RPC_URL)$(RESET)"
+	@echo "$(YELLOW)Start Block: $(START_BLOCK), Num Blocks: $(NUM_BLOCKS)$(RESET)"
+	@echo "$(YELLOW)Error logs: $(ERROR_LOG_DIR)$(RESET)"
 	RUST_LOG=info \
 	cargo run -p rpc-replay -- \
-	--rpc-url "$(RPC_URL)" \
-	--chain "mainnet" \
-	--strk-fee-token-address \
-	--eth-fee-token-address \
-	--start-block 1943704
+	--rpc-url "$(SNOS_RPC_URL)" \
+	--layout "all_cairo" \
+	--is-l3 false \
+	--chain "$(SNOS_NETWORK)" \
+	--strk-fee-token-address "$(SNOS_STRK_FEE_TOKEN)" \
+	--eth-fee-token-address "$(SNOS_ETH_FEE_TOKEN)" \
+	--log-dir "$(ERROR_LOG_DIR)" \
+	--start-block $(START_BLOCK) \
+	--num-blocks $(NUM_BLOCKS)
 
 test-ci: ## Run tests suitable for CI (no long-running e2e tests)
 	@echo "$(BLUE)Running CI test suite...$(RESET)"
@@ -121,22 +226,6 @@ setup: ## Set up development environment
 activate: ## Show command to activate Python environment
 	@echo "$(YELLOW)Run this command to activate the Cairo environment:$(RESET)"
 	@echo "source ./venv/bin/activate"
-
-## PIE Generation
-generate-pie: ## Generate PIE for a specific block (requires BLOCK_NUMBERS)
-ifndef BLOCK_NUMBERS
-	@echo "$(RED)Error: BLOCK_NUMBERS is required$(RESET)"
-	@echo "Usage: make generate-pie BLOCK_NUMBERS=12345"
-	@exit 1
-endif
-	@echo "$(BLUE)Generating PIE for blocks $(SNOS_BLOCKS), output pie will be at $(OUTPUT_FILE_PATH)  $(RESET)"
-	mkdir -p ./tmp/$(NETWORK)
-	RUST_LOG=info \
-	SNOS_RPC_URL="$(RPC_URL)" \
-	SNOS_NETWORK="$(NETWORK)" \
-	SNOS_BLOCKS="$(BLOCK_NUMBERS)" \
-	SNOS_STRK_FEE_TOKEN_ADDRESS="$(SEPOLIA_STRK_FEE_TOKEN)" \
-	cargo run -p generate-pie -- --output $(OUTPUT_FILE_PATH)
 
 ## Development Shortcuts
 dev-check: check lint
@@ -190,3 +279,7 @@ c: check ## Alias for check
 b: build ## Alias for build
 f: fmt ## Alias for fmt
 l: lint ## Alias for lint
+
+# Catch-all target to prevent Make from complaining about unknown targets
+%:
+	@:

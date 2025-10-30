@@ -62,18 +62,21 @@
 
 // Standard library imports
 use std::path::Path;
-
+use std::sync::Arc;
 // External crate imports
+use anyhow::bail;
+use cairo_vm::types::layout_name::LayoutName;
+use futures::future::join_all;
 use log::{info, warn};
 use rpc_client::RpcClient;
-use starknet::core::types::BlockId;
 use starknet_api::core::CompiledClassHash;
 use starknet_os::{
     io::os_input::{OsChainInfo, OsHints, OsHintsConfig, StarknetOsInput},
     runner::run_os_stateless,
 };
-
+use tokio::sync::Semaphore;
 // Local module imports
+use crate::constants::DEFAULT_MAX_PARALLEL_BLOCKS;
 use block_processor::collect_single_block_info;
 use cached_state::generate_cached_state_input;
 use error::PieGenerationError;
@@ -154,83 +157,124 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         .map_err(|e| PieGenerationError::RpcClient(format!("Failed to initialize RPC client: {:?}", e)))?;
     info!("RPC client initialized for {}", input.rpc_url);
 
+    // Create semaphore to limit parallel execution to available CPU cores
+    let max_parallel_blocks =
+        std::thread::available_parallelism().map(|n| n.get()).unwrap_or(DEFAULT_MAX_PARALLEL_BLOCKS);
+    let semaphore = Arc::new(Semaphore::new(max_parallel_blocks));
+    info!("Processing blocks with max parallelism: {} (CPU cores)", max_parallel_blocks);
+
+    // Process all blocks in parallel using tokio::spawn for true parallelism
+    info!("Starting parallel processing of {} blocks", input.blocks.len());
+    let block_tasks = input.blocks.iter().enumerate().map(|(index, block_number)| {
+        let block_number = *block_number;
+        let rpc_client = rpc_client.clone();
+        let is_l3 = input.chain_config.is_l3;
+        let strk_fee_token_address = input.chain_config.strk_fee_token_address;
+        let eth_fee_token_address = input.chain_config.eth_fee_token_address;
+        let total_blocks = input.blocks.len();
+        let sem = semaphore.clone();
+
+        tokio::spawn(async move {
+            // Acquire semaphore permit to limit concurrent execution
+            let _permit = sem.acquire().await.expect("Failed to acquire semaphore permit");
+            info!("=== Processing block {} ({}/{}) ===", block_number, index + 1, total_blocks);
+
+            // Collect block information
+            info!("Starting to collect block info for block {}", block_number);
+            let block_info_result = collect_single_block_info(
+                block_number,
+                is_l3,
+                &strk_fee_token_address,
+                &eth_fee_token_address,
+                rpc_client.clone(),
+            )
+            .await
+            .map_err(|e| PieGenerationError::BlockProcessing { block_number, source: Box::new(e) })?;
+
+            let (
+                block_input,
+                block_compiled_classes,
+                block_deprecated_compiled_classes,
+                block_accessed_addresses,
+                block_accessed_classes,
+                block_accessed_keys_by_address,
+            ) = (
+                block_info_result.os_block_input,
+                block_info_result.compiled_classes,
+                block_info_result.deprecated_compiled_classes,
+                block_info_result.accessed_addresses,
+                block_info_result.accessed_classes,
+                block_info_result.accessed_keys_by_address,
+            );
+
+            info!("Block info collection completed for block {}", block_number);
+            info!(
+                "Block {}, accessed classes={}, accessed addresses={}",
+                block_number,
+                block_accessed_classes.len(),
+                block_accessed_addresses.len()
+            );
+
+            // Generate cached state input
+            info!("Generating cached state input for block {}", block_number);
+            let cached_state_input = generate_cached_state_input(
+                &rpc_client,
+                &block_number,
+                &block_accessed_addresses,
+                &block_accessed_classes,
+                &block_accessed_keys_by_address,
+            )
+            .await
+            .map_err(|e| {
+                PieGenerationError::StateProcessing(format!(
+                    "Failed to generate cached state input for block {}: {:?}",
+                    block_number, e
+                ))
+            })?;
+
+            info!("Cached state input generated successfully for block {}", block_number);
+            info!("Block {} processed successfully", block_number);
+
+            Ok::<_, PieGenerationError>((
+                block_input,
+                block_compiled_classes,
+                block_deprecated_compiled_classes,
+                cached_state_input,
+            ))
+            // Permit is automatically released when _permit is dropped
+        })
+    });
+
+    // Wait for all block processing tasks to complete
+    let results = join_all(block_tasks).await;
+
+    // Collect and merge results from all blocks
     let mut os_block_inputs = Vec::new();
     let mut cached_state_inputs = Vec::new();
     let mut compiled_classes = std::collections::BTreeMap::new();
     let mut deprecated_compiled_classes = std::collections::BTreeMap::new();
 
-    // Process each block
-    for (index, block_number) in input.blocks.iter().enumerate() {
-        info!("=== Processing block {} ({}/{}) ===", block_number, index + 1, input.blocks.len());
+    for result in results {
+        // First unwrap the JoinHandle, then unwrap the inner Result
+        let (block_input, block_compiled_classes, block_deprecated_compiled_classes, mut cached_state_input) =
+            result.map_err(|e| PieGenerationError::RpcClient(format!("Task join error: {:?}", e)))??;
 
-        // Collect block information
-        info!("Starting to collect block info for block {}", block_number);
-        let block_info_result = collect_single_block_info(
-            *block_number,
-            input.chain_config.is_l3,
-            &input.strk_fee_token_address,
-            &input.eth_fee_token_address,
-            rpc_client.clone(),
-        )
-        .await
-        .map_err(|e| PieGenerationError::BlockProcessing { block_number: *block_number, source: Box::new(e) })?;
-
-        let (
-            block_input,
-            block_compiled_classes,
-            block_deprecated_compiled_classes,
-            block_accessed_addresses,
-            block_accessed_classes,
-            block_accessed_keys_by_address,
-        ) = (
-            block_info_result.os_block_input,
-            block_info_result.compiled_classes,
-            block_info_result.deprecated_compiled_classes,
-            block_info_result.accessed_addresses,
-            block_info_result.accessed_classes,
-            block_info_result.accessed_keys_by_address,
-        );
-
-        info!("Block info collection completed for block {}", block_number);
-        info!(
-            "Block {}, accessed classes={}, accessed addresses={}",
-            block_number,
-            block_accessed_classes.len(),
-            block_accessed_addresses.len()
-        );
-
-        // Add block input to our collection and merge compiled classes (these are shared across blocks)
+        // Add block input to our collection
         os_block_inputs.push(block_input);
+
+        // Merge compiled classes (these are shared across blocks)
         compiled_classes.extend(block_compiled_classes);
         deprecated_compiled_classes.extend(block_deprecated_compiled_classes);
 
-        // Generate cached state input
-        info!("Generating cached state input for block {}", block_number);
-        let mut cached_state_input = generate_cached_state_input(
-            &rpc_client,
-            // TODO: Update this since it's not safe when block_number == 0
-            BlockId::Number(block_number - 1),
-            &block_accessed_addresses,
-            &block_accessed_classes,
-            &block_accessed_keys_by_address,
-        )
-        .await
-        .map_err(|e| {
-            PieGenerationError::StateProcessing(format!(
-                "Failed to generate cached state input for block {}: {:?}",
-                block_number, e
-            ))
-        })?;
         // Remove deprecated compiled classes from cached state input
         cached_state_input
             .class_hash_to_compiled_class_hash
             .retain(|class_hash, _| !deprecated_compiled_classes.contains_key(&CompiledClassHash(class_hash.0)));
 
-        info!("Cached state input generated successfully for block {}", block_number);
-
         cached_state_inputs.push(cached_state_input);
-        info!("Block {} processed successfully", block_number);
     }
+
+    info!("All {} blocks processed successfully in parallel", input.blocks.len());
 
     // Sort ABI entries for all deprecated compiled classes
     info!("Sorting ABI entries for deprecated compiled classes");
@@ -299,4 +343,22 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     info!("PIE generation completed successfully for blocks {:?}", input.blocks);
 
     Ok(PieGenerationResult { output, blocks_processed: input.blocks.clone(), output_path: input.output_path.clone() })
+}
+
+pub fn parse_layout(layout: &str) -> anyhow::Result<LayoutName> {
+    match layout {
+        "plain" => Ok(LayoutName::plain),
+        "small" => Ok(LayoutName::small),
+        "dex" => Ok(LayoutName::dex),
+        "recursive" => Ok(LayoutName::recursive),
+        "starknet" => Ok(LayoutName::starknet),
+        "starknet_with_keccak" => Ok(LayoutName::starknet_with_keccak),
+        "recursive_large_output" => Ok(LayoutName::recursive_large_output),
+        "recursive_with_poseidon" => Ok(LayoutName::recursive_with_poseidon),
+        "all_solidity" => Ok(LayoutName::all_solidity),
+        "all_cairo" => Ok(LayoutName::all_cairo),
+        "dynamic" => Ok(LayoutName::dynamic),
+        "all_cairo_stwo" => Ok(LayoutName::all_cairo_stwo),
+        _ => bail!("Invalid layout: {}", layout),
+    }
 }

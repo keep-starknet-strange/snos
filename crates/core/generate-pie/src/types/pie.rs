@@ -29,17 +29,10 @@ pub struct PieGenerationInput {
     pub rpc_url: String,
     /// The list of block numbers to process for PIE generation.
     pub blocks: Vec<u64>,
-    /// Chain-specific configuration settings.
-    pub chain_config: ChainConfig,
     /// Layout to be used for SNOS
     pub layout: LayoutName,
-
-    /// STRK fee token address
-    pub strk_fee_token_address: String,
-
-    /// ETH fee token address
-    pub eth_fee_token_address: String,
-
+    /// Chain-specific configuration settings.
+    pub chain_config: ChainConfig,
     /// OS hints and execution configuration.
     pub os_hints_config: OsHintsConfiguration,
     /// Optional output file path for the generated PIE file.

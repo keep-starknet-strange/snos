@@ -220,11 +220,13 @@ fn create_account_transaction_result(
     starknet_api_tx: starknet_api::executable_transaction::Transaction,
     account_tx: starknet_api::executable_transaction::AccountTransaction,
 ) -> TransactionConversionResult {
+    // TODO(30/10/25): Think of a way to figure out that for which txn we should have charge_fee as true
+    let mut txn = AccountTransaction::new_for_sequencing(account_tx);
+    txn.execution_flags.charge_fee = true;
+
     TransactionConversionResult {
         starknet_api_tx,
-        blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(
-            AccountTransaction::new_for_sequencing(account_tx),
-        ),
+        blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(txn),
     }
 }
 

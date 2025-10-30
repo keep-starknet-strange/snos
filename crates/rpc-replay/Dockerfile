@@ -85,8 +85,12 @@ COPY --from=builder /app/target/release/rpc-replay /usr/local/bin/rpc-replay
 # Copy Python virtual environment
 COPY --from=builder /app/sequencer_venv /app/sequencer_venv
 
+# COPY the bash script
+COPY --from=builder /app/crates/rpc-replay/rpc-replay-binary.sh /app/rpc-replay-binary.sh
+
 # Set proper permissions
 RUN chmod +x /usr/local/bin/rpc-replay
+RUN chmod +x /app/rpc-replay-binary.sh
 
 # Switch to non-root user
 USER appuser
@@ -98,6 +102,9 @@ WORKDIR /app
 ENV RUST_LOG=info
 ENV RUST_BACKTRACE=1
 ENV RUST_LOG_STYLE=always
+ENV AWS_S3_BUCKET=""
+ENV AWS_ACCESS_KEY_ID=""
+ENV AWS_SECRET_ACCESS_KEY=""
 ENV PATH=/app/sequencer_venv/bin:$PATH
 
 # Expose volumes for output files and logs

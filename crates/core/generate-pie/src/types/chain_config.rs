@@ -1,4 +1,4 @@
-use crate::constants::DEFAULT_SEPOLIA_STRK_FEE_TOKEN;
+use crate::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use crate::error::PieGenerationError;
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_types_core::felt::Felt;
@@ -30,6 +30,8 @@ pub struct ChainConfig {
     pub chain_id: ChainId,
     /// The address of the STRK fee token contract.
     pub strk_fee_token_address: ContractAddress,
+    /// The address of the ETH fee token contract.
+    pub eth_fee_token_address: ContractAddress,
     /// Whether this is an L3 chain (true) or L2 chain (false).
     pub is_l3: bool,
 }
@@ -47,7 +49,9 @@ impl Default for ChainConfig {
         Self {
             chain_id: ChainId::Sepolia,
             strk_fee_token_address: ContractAddress::try_from(Felt::from_hex_unchecked(DEFAULT_SEPOLIA_STRK_FEE_TOKEN))
-                .expect("Valid Sepolia STRK fee token address"),
+                .expect("Invalid Sepolia STRK fee token address"),
+            eth_fee_token_address: ContractAddress::try_from(Felt::from_hex_unchecked(DEFAULT_SEPOLIA_ETH_FEE_TOKEN))
+                .expect("Invalid Sepolia ETH fee token"),
             is_l3: false,
         }
     }
@@ -58,8 +62,19 @@ impl ChainConfig {
         match chain {
             "sepolia" => Self::default(),
             "mainnet" => Self { chain_id: ChainId::Mainnet, ..Default::default() },
-            _ => Self { chain_id: ChainId::Other(String::from(chain)), ..Default::default() }, // Assuming the chain ID is given as hex string without 0x
+            _ => Self { chain_id: ChainId::Other(String::from(chain)), ..Default::default() },
         }
+    }
+
+    pub fn new(chain_id: &str, strk_fee_token_address: &str, eth_fee_token_address: &str, is_l3: bool) -> Self {
+        let mut chain_config = Self::default_with_chain(chain_id);
+        chain_config.strk_fee_token_address =
+            ContractAddress::try_from(Felt::from_hex_unchecked(strk_fee_token_address))
+                .expect("Invalid Sepolia STRK fee token address");
+        chain_config.eth_fee_token_address = ContractAddress::try_from(Felt::from_hex_unchecked(eth_fee_token_address))
+            .expect("Invalid Sepolia STRK fee token address");
+        chain_config.is_l3 = is_l3;
+        chain_config
     }
 }
 

@@ -1,16 +1,18 @@
-use cairo_vm::types::layout_name::LayoutName;
+use aws_config::BehaviorVersion;
+use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::Client as S3Client;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::error::PieGenerationError;
-use generate_pie::generate_pie;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
+use generate_pie::{generate_pie, parse_layout};
 use log::{debug, info, warn};
 use rpc_client::RpcClient;
 use serde::{Deserialize, Serialize};
 use starknet::core::types::BlockId;
 use starknet::providers::Provider;
 use std::time::Duration;
-use std::{error, fs};
+use std::{env, error, fs};
 use tokio::time::sleep;
 
 // Custom error type to handle both regular errors and panics
@@ -72,44 +74,61 @@ enum ExecutionMode {
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
+/// NOTE: We default for Starknet Sepolia
 struct Args {
     /// Starting block number (only used if --json-file is not provided)
-    #[arg(short, long)]
+    #[arg(long)]
     start_block: Option<u64>,
 
-    #[arg(short, long, default_value = "1")]
+    #[arg(long, default_value = "1")]
     num_blocks: u64,
 
     /// JSON file containing block numbers to process
     /// Supports two formats:
     /// 1. Original: {"error_blocks": [1, 2, 3], "total_count": 3}
     /// 2. Error decoding: {"failing_blocks": [1, 2, 3], "metadata": {...}}
-    #[arg(short, long)]
+    #[arg(long)]
     json_file: Option<String>,
 
     /// RPC URL to connect to
-    #[arg(short, long)]
+    #[arg(long, required = true)]
     rpc_url: String,
 
+    /// Layout to be used for SNOS
+    #[arg(long, default_value = "all_cairo")]
+    layout: String,
+
     /// Chain to use
-    #[arg(short, long, required = true)]
+    #[arg(long, default_value = "sepolia")]
     chain: String,
 
-    /// Interval between block checks in seconds (default: 1)
-    #[arg(short, long, default_value_t = 1)]
-    interval: u64,
-
-    /// STRK fee token address
-    #[arg(short, long, default_value = DEFAULT_SEPOLIA_STRK_FEE_TOKEN, env = "SNOS_STRK_FEE_TOKEN_ADDRESS")]
+    /// STRK fee token address.
+    #[arg(long, default_value = DEFAULT_SEPOLIA_STRK_FEE_TOKEN, env = "SNOS_STRK_FEE_TOKEN_ADDRESS")]
     strk_fee_token_address: String,
 
     /// ETH fee token address
-    #[arg(short, long, default_value = DEFAULT_SEPOLIA_ETH_FEE_TOKEN, env = "SNOS_ETH_FEE_TOKEN_ADDRESS")]
+    #[arg(long, default_value = DEFAULT_SEPOLIA_ETH_FEE_TOKEN, env = "SNOS_ETH_FEE_TOKEN_ADDRESS")]
     eth_fee_token_address: String,
 
+    /// Is the chain an L3
+    #[arg(long, default_value = "false")]
+    is_l3: bool,
+
+    /// Interval between block checks in seconds (default: 1)
+    #[arg(long, default_value_t = 1)]
+    interval: u64,
+
     /// Output directory for PIE files (default: current directory)
-    #[arg(short, long, default_value = ".")]
-    output_dir: String,
+    #[arg(long)]
+    output_dir: Option<String>,
+
+    /// Output directory for Error logs
+    #[arg(long)]
+    log_dir: String,
+
+    /// Upload error files to S3 instead of storing locally
+    #[arg(long, default_value = "false")]
+    upload_to_s3: bool,
 }
 
 #[tokio::main]
@@ -153,10 +172,9 @@ async fn main() -> Result<(), Box<dyn error::Error + Send + Sync>> {
     }
     info!("  RPC URL: {}", args.rpc_url);
     info!("  Check interval: {} seconds", args.interval);
-    info!("  Output directory: {}", args.output_dir);
+    info!("  Error Log directory: {}", args.log_dir);
 
-    // Create an output directory if it doesn't exist
-    fs::create_dir_all(&args.output_dir)?;
+    fs::create_dir_all(&args.log_dir)?;
 
     // Initialize RPC client for block checking
     // let rpc_client = RpcClient::new(&args.rpc_url);
@@ -200,8 +218,8 @@ async fn process_sequential_mode(
                         log::error!("Failed to generate PIE for blocks {:?}: {}", block_set, e);
 
                         // Write error to the file
-                        let error_file = format!("{}/error_blocks_{}.txt", args.output_dir, block_set[0]);
-                        write_error_to_file(&error_file, &block_set, &e).await?;
+                        let error_file = format!("{}/error_blocks_{}.txt", args.log_dir, block_set[0]);
+                        write_error_to_file(&error_file, &block_set, &e, args.upload_to_s3).await?;
 
                         // Move to the next set anyway to avoid getting stuck
                         current_block += args.num_blocks;
@@ -209,7 +227,7 @@ async fn process_sequential_mode(
                 }
             }
             Ok(false) => {
-                debug!("Not all blocks in set {:?} exist yet, waiting {} seconds", block_set, args.interval);
+                info!("Not all blocks in set {:?} exist yet, waiting {} seconds", block_set, args.interval);
                 sleep(Duration::from_secs(args.interval)).await;
             }
             Err(e) => {
@@ -267,9 +285,11 @@ async fn process_json_mode(
                         );
 
                         // Write error to the file for this block
-                        let error_file = format!("{}/error_blocks_{}.txt", args.output_dir, block_number);
+                        let error_file = format!("{}/error_blocks_{}.txt", args.log_dir, block_number);
 
-                        if let Err(write_err) = write_error_to_file(&error_file, &block_set, &e).await {
+                        if let Err(write_err) =
+                            write_error_to_file(&error_file, &block_set, &e, args.upload_to_s3).await
+                        {
                             log::error!("Failed to write error file {}: {}", error_file, write_err);
                         }
 
@@ -394,12 +414,16 @@ async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, Proces
     let input = PieGenerationInput {
         rpc_url: args.rpc_url.clone(),
         blocks: blocks.to_vec(),
-        chain_config: ChainConfig::default_with_chain(args.chain.as_str()),
-        os_hints_config: OsHintsConfiguration::default(),
-        output_path: None,
-        layout: LayoutName::all_cairo,
-        strk_fee_token_address: args.strk_fee_token_address.clone(),
-        eth_fee_token_address: args.eth_fee_token_address.clone(),
+        chain_config: ChainConfig::new(
+            &args.chain,
+            &args.strk_fee_token_address,
+            &args.eth_fee_token_address,
+            args.is_l3,
+        ),
+        os_hints_config: OsHintsConfiguration::default_with_is_l3(args.is_l3),
+        output_path: args.output_dir.clone(),
+        layout: parse_layout(&args.layout)
+            .map_err(|e| ProcessError::Panic(format!("Failed to parse layout: {}", e)))?,
     };
 
     debug!("Starting PIE generation for blocks {:?}", blocks);
@@ -444,11 +468,33 @@ async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, Proces
     }
 }
 
-/// Write error details to a file
+/// Initialize S3 client using credentials from environment
+async fn create_s3_client() -> Result<S3Client, Box<dyn error::Error + Send + Sync>> {
+    let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+    Ok(S3Client::new(&config))
+}
+
+/// Upload content to S3
+async fn upload_file_to_s3(
+    s3_client: &S3Client,
+    bucket: &str,
+    key: &str,
+    content: String,
+) -> Result<(), Box<dyn error::Error + Send + Sync>> {
+    let body = ByteStream::from(content.into_bytes());
+
+    s3_client.put_object().bucket(bucket).key(key).body(body).send().await?;
+
+    log::info!("Successfully uploaded to s3://{}/{}", bucket, key);
+    Ok(())
+}
+
+/// Write error details to a file (local or S3)
 async fn write_error_to_file(
     file_path: &str,
     blocks: &[u64],
     error: &ProcessError,
+    upload_to_s3: bool,
 ) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     use chrono::Utc;
 
@@ -463,7 +509,18 @@ async fn write_error_to_file(
         timestamp, blocks, error, error
     );
 
-    fs::write(file_path, error_content)?;
-    log::error!("Error details written to: {}", file_path);
+    if upload_to_s3 {
+        // Upload to S3
+        let bucket = env::var("AWS_S3_BUCKET").map_err(|_| "AWS_S3_BUCKET environment variable not set")?;
+
+        let s3_client = create_s3_client().await?;
+        upload_file_to_s3(&s3_client, &bucket, file_path, error_content).await?;
+        log::error!("Error details uploaded to S3: s3://{}/{}", bucket, file_path);
+    } else {
+        // Write to local file
+        fs::write(file_path, error_content)?;
+        log::error!("Error details written to: {}", file_path);
+    }
+
     Ok(())
 }
