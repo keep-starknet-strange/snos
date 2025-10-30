@@ -10,7 +10,9 @@
 //! state update processing pipeline.
 
 use cairo_vm::Felt252;
+use futures::stream::{self, StreamExt};
 use log::{debug, info, warn};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rpc_client::RpcClient;
 use starknet::core::types::{
     BlockId, ExecuteInvocation, FunctionInvocation, MaybePreConfirmedStateUpdate, StarknetError, StateDiff,
@@ -26,6 +28,8 @@ use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
+
+use crate::constants::MAX_CONCURRENT_GET_CLASS_REQUESTS;
 
 // ================================================================================================
 // Type Definitions
@@ -397,44 +401,83 @@ async fn process_accessed_addresses(
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
     result: &mut CompiledClassResult,
 ) -> Result<(), StateUpdateError> {
-    for contract_address in accessed_addresses {
-        // Skip special addresses
-        if *contract_address == Felt::TWO || *contract_address == Felt::ONE {
-            continue;
-        }
+    // Filter out special addresses
+    let addresses_to_process: Vec<Felt252> =
+        accessed_addresses.iter().filter(|addr| **addr != Felt::TWO && **addr != Felt::ONE).copied().collect();
 
-        debug!("Processing contract address: {:?}", contract_address);
+    if addresses_to_process.is_empty() {
+        return Ok(());
+    }
 
-        // Try to get class from previous block (may fail if contract was deployed in current block)
-        if let Err(e) = add_compiled_class_from_contract(
-            rpc_client,
-            *contract_address,
-            previous_block_id,
-            class_hash_to_compiled_class_hash,
-            result,
-        )
-        .await
-        {
-            match e {
-                StateUpdateError::RpcError(ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
-                    debug!(
-                        "Contract {:?} not found in previous block (likely deployed in current block)",
-                        contract_address
-                    );
-                }
-                _ => return Err(e),
+    info!(
+        "Processing {} accessed addresses with max {} concurrent requests",
+        addresses_to_process.len(),
+        MAX_CONCURRENT_GET_CLASS_REQUESTS
+    );
+
+    // Phase 1: Fetch all class hashes concurrently for both blocks
+    let mut address_block_pairs = Vec::new();
+    for address in &addresses_to_process {
+        address_block_pairs.push((*address, previous_block_id, true)); // true = is_previous_block
+        address_block_pairs.push((*address, block_id, false));
+    }
+
+    let class_hash_results: Vec<(Felt252, BlockId, bool, Result<Felt, ProviderError>)> =
+        stream::iter(address_block_pairs)
+            .map(|(address, bid, is_prev)| async move {
+                let class_hash = rpc_client.starknet_rpc().get_class_hash_at(bid, address).await;
+                (address, bid, is_prev, class_hash)
+            })
+            .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
+            .collect()
+            .await;
+
+    // Phase 2: Fetch all contract classes concurrently
+    let mut class_fetch_pairs = Vec::new();
+    for (address, bid, is_prev, class_hash_result) in class_hash_results {
+        match class_hash_result {
+            Ok(class_hash) => {
+                class_fetch_pairs.push((address, bid, is_prev, class_hash));
             }
+            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) if is_prev => {
+                debug!("Contract {:?} not found in previous block (likely deployed in current block)", address);
+            }
+            Err(e) => return Err(StateUpdateError::RpcError(e)),
         }
+    }
 
-        // Get class from current block
-        add_compiled_class_from_contract(
-            rpc_client,
-            *contract_address,
-            block_id,
-            class_hash_to_compiled_class_hash,
-            result,
-        )
-        .await?;
+    info!("Fetching {} contract classes concurrently...", class_fetch_pairs.len());
+
+    let class_results: Vec<(Felt, Result<starknet::core::types::ContractClass, ProviderError>)> =
+        stream::iter(class_fetch_pairs)
+            .map(|(_, bid, _, class_hash)| async move {
+                let contract_class = rpc_client.starknet_rpc().get_class(bid, class_hash).await;
+                (class_hash, contract_class)
+            })
+            .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
+            .collect()
+            .await;
+
+    info!("Fetched {} contract classes, now compiling in parallel...", class_results.len());
+
+    // Phase 3: Compile classes in parallel using rayon (CPU parallelization)
+    let compilation_results: Vec<(Felt, Result<GenericCompiledClass, StateUpdateError>)> = class_results
+        .into_par_iter()
+        .filter_map(|(class_hash, contract_class_result)| {
+            let contract_class = contract_class_result.ok()?;
+            let compiled_result = compile_contract_class(contract_class);
+            Some((class_hash, compiled_result))
+        })
+        .collect();
+
+    // Add compiled classes to result
+    for (class_hash, compiled_result) in compilation_results {
+        match compiled_result {
+            Ok(compiled_class) => {
+                add_compiled_class_internal(class_hash, compiled_class, class_hash_to_compiled_class_hash, result)?;
+            }
+            Err(e) => return Err(e),
+        }
     }
 
     Ok(())
@@ -448,13 +491,49 @@ async fn process_accessed_classes(
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
     result: &mut CompiledClassResult,
 ) -> Result<(), StateUpdateError> {
-    for class_hash in accessed_classes {
-        debug!("Processing class hash: {:?}", class_hash);
+    if accessed_classes.is_empty() {
+        return Ok(());
+    }
 
-        let contract_class =
-            rpc_client.starknet_rpc().get_class(block_id, class_hash).await.map_err(StateUpdateError::RpcError)?;
+    info!(
+        "Processing {} accessed classes with max {} concurrent requests",
+        accessed_classes.len(),
+        MAX_CONCURRENT_GET_CLASS_REQUESTS
+    );
 
-        add_compiled_class(*class_hash, contract_class, class_hash_to_compiled_class_hash, result)?;
+    // Phase 1: Fetch all contract classes concurrently (network I/O parallelization)
+    let class_hashes: Vec<Felt252> = accessed_classes.iter().copied().collect();
+    let class_fetch_results: Vec<(Felt252, Option<starknet::core::types::ContractClass>)> =
+        stream::iter(class_hashes.clone())
+            .map(|class_hash| async move {
+                debug!("Fetching class hash: {:?}", class_hash);
+                let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash).await.ok();
+                (class_hash, contract_class)
+            })
+            .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
+            .collect()
+            .await;
+
+    info!("Fetched {} contract classes, now compiling in parallel...", class_fetch_results.len());
+
+    // Phase 2: Compile classes in parallel using rayon (CPU parallelization)
+    let compilation_results: Vec<(Felt252, Result<GenericCompiledClass, StateUpdateError>)> = class_fetch_results
+        .into_par_iter()
+        .filter_map(|(class_hash, contract_class_opt)| {
+            let contract_class = contract_class_opt?;
+            let compiled_result = compile_contract_class(contract_class);
+            Some((class_hash, compiled_result))
+        })
+        .collect();
+
+    // Add compiled classes to result
+    for (class_hash, compiled_result) in compilation_results {
+        match compiled_result {
+            Ok(compiled_class) => {
+                add_compiled_class_internal(class_hash, compiled_class, class_hash_to_compiled_class_hash, result)?;
+            }
+            Err(e) => return Err(e),
+        }
     }
 
     Ok(())
@@ -467,15 +546,36 @@ async fn process_declared_classes(
     block_id: BlockId,
     result: &mut CompiledClassResult,
 ) -> Result<(), StateUpdateError> {
-    for class_hash in declared_classes {
-        debug!("Processing declared class: {:?}", class_hash);
+    if declared_classes.is_empty() {
+        return Ok(());
+    }
 
-        let contract_class =
-            rpc_client.starknet_rpc().get_class(block_id, class_hash).await.map_err(StateUpdateError::RpcError)?;
+    info!(
+        "Processing {} declared classes with max {} concurrent requests",
+        declared_classes.len(),
+        MAX_CONCURRENT_GET_CLASS_REQUESTS
+    );
+
+    // Fetch all declared classes concurrently
+    let class_hashes: Vec<Felt252> = declared_classes.iter().copied().collect();
+    let class_fetch_results: Vec<(Felt252, Result<starknet::core::types::ContractClass, ProviderError>)> =
+        stream::iter(class_hashes)
+            .map(|class_hash| async move {
+                debug!("Fetching declared class: {:?}", class_hash);
+                let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash).await;
+                (class_hash, contract_class)
+            })
+            .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
+            .collect()
+            .await;
+
+    // Extract component hashes from Sierra classes
+    for (class_hash, contract_class_result) in class_fetch_results {
+        let contract_class = contract_class_result.map_err(StateUpdateError::RpcError)?;
 
         if let starknet::core::types::ContractClass::Sierra(sierra_class) = contract_class {
             let component_hashes = ContractClassComponentHashes::from(sierra_class);
-            result.declared_component_hashes.insert(*class_hash, component_hashes);
+            result.declared_component_hashes.insert(class_hash, component_hashes);
         }
     }
 
@@ -532,30 +632,10 @@ fn process_function_invocations(inv: &FunctionInvocation, result: &mut TraceProc
     }
 }
 
-/// Fetches and compiles a contract class from a contract address.
-async fn add_compiled_class_from_contract(
-    rpc_client: &RpcClient,
-    contract_address: Felt,
-    block_id: BlockId,
-    class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
-    result: &mut CompiledClassResult,
-) -> Result<(), StateUpdateError> {
-    let class_hash = rpc_client
-        .starknet_rpc()
-        .get_class_hash_at(block_id, contract_address)
-        .await
-        .map_err(StateUpdateError::RpcError)?;
-
-    let contract_class =
-        rpc_client.starknet_rpc().get_class(block_id, class_hash).await.map_err(StateUpdateError::RpcError)?;
-
-    add_compiled_class(class_hash, contract_class, class_hash_to_compiled_class_hash, result)
-}
-
-/// Compiles and adds a contract class to the result.
-fn add_compiled_class(
+/// Adds an already-compiled class to the result (used in optimized parallel compilation paths).
+fn add_compiled_class_internal(
     class_hash: Felt,
-    contract_class: starknet::core::types::ContractClass,
+    compiled_class: GenericCompiledClass,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
     result: &mut CompiledClassResult,
 ) -> Result<(), StateUpdateError> {
@@ -565,7 +645,6 @@ fn add_compiled_class(
         return Ok(());
     }
 
-    let compiled_class = compile_contract_class(contract_class)?;
     let compiled_class_hash = compiled_class
         .class_hash()
         .map_err(|e| StateUpdateError::CompilationFailed(format!("Failed to get class hash: {:?}", e)))?;

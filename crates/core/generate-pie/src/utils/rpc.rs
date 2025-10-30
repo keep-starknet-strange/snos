@@ -167,6 +167,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         Some(contract_data) => {
             contract_proof.contract_data = Some(ContractData {
                 storage_proofs: vec![contract_data.clone().storage_proofs.into_iter().flatten().collect()],
+                // This unwrap is safe since we are checking that it's Some above
                 root: contract_proof.contract_data.unwrap().root,
             });
         }
@@ -190,10 +191,23 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     // Fetch additional proofs required to fill gaps in the storage trie that could make
     // the OS crash otherwise.
     if !additional_keys.is_empty() {
-        let additional_proof =
+        let mut additional_proof =
             fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &additional_keys, block_number).await?;
 
-        contract_proof = merge_storage_proofs(vec![contract_proof, additional_proof]);
+        // Combine all storage proofs into a single vector
+        match &additional_proof.contract_data {
+            None => {
+                panic!("Failed to fetch additional proof for contract {}", contract_address)
+            }
+            Some(contract_data) => {
+                additional_proof.contract_data = Some(ContractData {
+                    storage_proofs: vec![contract_data.clone().storage_proofs.into_iter().flatten().collect()],
+                    // This unwrap is safe since we are checking that it's Some above
+                    root: additional_proof.contract_data.unwrap().root,
+                });
+            }
+        }
+        contract_proof = merge_storage_proofs(vec![contract_proof.clone(), additional_proof]);
     }
 
     Ok(contract_proof)

@@ -257,27 +257,7 @@ impl AsyncRpcStateReader {
             .await
             .map_err(provider_error_to_state_error)?;
 
-        let class_hash = match contract_class {
-            starknet::core::types::ContractClass::Sierra(sierra_class) => {
-                let generic_sierra = convert_sierra_class_for_generic(&sierra_class)?;
-                let compiled_class = generic_sierra.compile().map_err(to_state_err)?;
-                compiled_class.class_hash().map_err(to_state_err)?
-            }
-            starknet::core::types::ContractClass::Legacy(legacy_class) => {
-                // Use the decompression function from starknet_core_addons
-                let decompressed_legacy_class =
-                    decompress_starknet_legacy_contract_class(legacy_class).map_err(|e| {
-                        StateError::StateReadError(format!("Failed to decompress legacy contract class: {}", e))
-                    })?;
-
-                // Convert the decompressed LegacyContractClass to GenericDeprecatedCompiledClass
-                let generic_deprecated =
-                    GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
-                generic_deprecated.class_hash().map_err(to_state_err)?
-            }
-        };
-
-        Ok(class_hash.into())
+        compute_compiled_class_hash(&contract_class)
     }
 }
 
@@ -285,28 +265,59 @@ impl AsyncRpcStateReader {
 impl StateReader for AsyncRpcStateReader {
     fn get_storage_at(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt> {
         execute_coroutine(self.get_storage_at_async(contract_address, key))
-            .map_err(|e| StateError::StateReadError(e.to_string()))?
     }
 
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         execute_coroutine(self.get_nonce_at_async(contract_address))
-            .map_err(|e| StateError::StateReadError(e.to_string()))?
     }
 
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         execute_coroutine(self.get_class_hash_at_async(contract_address))
-            .map_err(|e| StateError::StateReadError(e.to_string()))?
     }
 
     fn get_compiled_class(&self, class_hash: ClassHash) -> StateResult<RunnableCompiledClass> {
         execute_coroutine(self.get_compiled_class_async(class_hash))
-            .map_err(|e| StateError::StateReadError(e.to_string()))?
     }
 
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         execute_coroutine(self.get_compiled_class_hash_async(class_hash))
-            .map_err(|e| StateError::StateReadError(e.to_string()))?
     }
+}
+
+/// Computes the compiled class hash for a given contract class.
+///
+/// This is a CPU-intensive operation that compiles Sierra classes or decompresses Legacy classes
+/// to compute their compiled class hash. This function can be used in parallel processing scenarios.
+///
+/// # Arguments
+/// * `contract_class` - The contract class to compute the hash for
+///
+/// # Returns
+/// The compiled class hash or an error if computation fails
+pub fn compute_compiled_class_hash(
+    contract_class: &starknet::core::types::ContractClass,
+) -> Result<CompiledClassHash, StateError> {
+    let class_hash = match contract_class {
+        starknet::core::types::ContractClass::Sierra(sierra_class) => {
+            let generic_sierra = convert_sierra_class_for_generic(sierra_class)?;
+            let compiled_class = generic_sierra.compile().map_err(to_state_err)?;
+            compiled_class.class_hash().map_err(to_state_err)?
+        }
+        starknet::core::types::ContractClass::Legacy(legacy_class) => {
+            // Use the decompression function from starknet_core_addons
+            let decompressed_legacy_class =
+                decompress_starknet_legacy_contract_class(legacy_class.clone()).map_err(|e| {
+                    StateError::StateReadError(format!("Failed to decompress legacy contract class: {}", e))
+                })?;
+
+            // Convert the decompressed LegacyContractClass to GenericDeprecatedCompiledClass
+            let generic_deprecated =
+                GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
+            generic_deprecated.class_hash().map_err(to_state_err)?
+        }
+    };
+
+    Ok(class_hash.into())
 }
 
 /// Convert Sierra class to a format that GenericSierraContractClass can handle.

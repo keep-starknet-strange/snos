@@ -62,8 +62,13 @@ num-traits = "0.2.19"
 async-trait = "0.1.89"
 chrono = "0.4.41"
 clap = { version = "4.5.46", features = ["derive"] }
+futures = "0.3"
 
 indoc = "2"
 rstest = "0.18.2"
+
+# Used for RPC Replay
+aws-config = "1.1"
+aws-sdk-s3 = "1.15"
 
 starknet-os-types = { path = "crates/starknet-os-types" }
