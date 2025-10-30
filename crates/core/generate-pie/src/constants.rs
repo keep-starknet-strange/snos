@@ -11,3 +11,19 @@ pub const DEFAULT_SEPOLIA_ETH_FEE_TOKEN: &str = "0x049d36570d4e46f48e99674bd3fcc
 
 pub const STORED_BLOCK_HASH_BUFFER: u64 = 10;
 pub const STATEFUL_MAPPING_START: Felt = Felt::from_hex_unchecked("0x80"); // 128
+
+/// Maximum number of concurrent RPC requests to send at a time when fetching storage values.
+///
+/// This constant defines the limit on the number of concurrent RPC requests
+/// that can be made when fetching storage values.
+/// Higher values increase throughput but may overwhelm the RPC server.
+pub const MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS: usize = 100;
+
+/// Maximum number of concurrent RPC requests to send at a time when fetching contract classes.
+///
+/// This constant defines the limit on the number of concurrent get_class RPC requests.
+/// The actual classes are fetched concurrently, then compiled/hashed in parallel using CPU cores.
+pub const MAX_CONCURRENT_GET_CLASS_REQUESTS: usize = 100;
+
+/// Default value of maximum blocks to process in parallel to construct the OS input
+pub const DEFAULT_MAX_PARALLEL_BLOCKS: usize = 4;

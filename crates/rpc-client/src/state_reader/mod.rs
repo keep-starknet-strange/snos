@@ -33,11 +33,11 @@ const MAX_BACKOFF_MS: u64 = 5000;
 #[derive(Clone)]
 pub struct AsyncRpcStateReader {
     rpc_client: RpcClient,
-    block_id: BlockId,
+    block_id: Option<BlockId>,
 }
 
 impl AsyncRpcStateReader {
-    pub fn new(rpc_client: RpcClient, block_id: BlockId) -> Self {
+    pub fn new(rpc_client: RpcClient, block_id: Option<BlockId>) -> Self {
         Self { rpc_client, block_id }
     }
 
@@ -110,12 +110,23 @@ fn to_state_err<E: ToString>(e: E) -> StateError {
 }
 
 impl AsyncRpcStateReader {
+    /// Check if there's no block_id (e.g., when processing block 0 and trying to read from block -1)
+    fn has_no_block(&self) -> bool {
+        self.block_id.is_none()
+    }
+
     pub async fn get_storage_at_async(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt> {
+        // Return zero when no block exists (e.g., reading from block -1 when processing block 0)
+        if self.has_no_block() {
+            return Ok(Felt::ZERO);
+        }
+
+        let block_id = self.block_id.unwrap();
         let operation_name = format!("get_storage_at(contract: {:?}, key: {:?})", contract_address, key);
 
         let storage_value = match self
             .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *key.0.key(), self.block_id)
+                self.rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *key.0.key(), block_id)
             })
             .await
         {
@@ -128,12 +139,18 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_nonce_at_async(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        // Return zero nonce when no block exists
+        if self.has_no_block() {
+            return Ok(Nonce(Felt::ZERO));
+        }
+
+        let block_id = self.block_id.unwrap();
         debug!("got a request of get_nonce_at with parameters the contract address: {:?}", contract_address);
         let operation_name = format!("get_nonce_at(contract: {:?})", contract_address);
 
         let nonce = match self
             .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_nonce(self.block_id, *contract_address.key())
+                self.rpc_client.starknet_rpc().get_nonce(block_id, *contract_address.key())
             })
             .await
         {
@@ -145,12 +162,18 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_class_hash_at_async(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        // Return default class hash when no block exists
+        if self.has_no_block() {
+            return Ok(ClassHash::default());
+        }
+
+        let block_id = self.block_id.unwrap();
         debug!("got a request of get_class_hash_at with parameters the contract address: {:?}", contract_address);
         let operation_name = format!("get_class_hash_at(contract: {:?})", contract_address);
 
         let class_hash = match self
             .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_class_hash_at(self.block_id, *contract_address.key())
+                self.rpc_client.starknet_rpc().get_class_hash_at(block_id, *contract_address.key())
             })
             .await
         {
@@ -163,13 +186,17 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_class_async(&self, class_hash: ClassHash) -> StateResult<RunnableCompiledClass> {
+        // When no block exists, no classes are available
+        if self.has_no_block() {
+            return Err(StateError::UndeclaredClassHash(class_hash));
+        }
+
+        let block_id = self.block_id.unwrap();
         debug!("got a request of get_compiled_class with parameters the class hash: {:?}", class_hash);
         let operation_name = format!("get_compiled_class(class_hash: {:?})", class_hash);
 
         let contract_class = match self
-            .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0)
-            })
+            .execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
             .await
         {
             Ok(contract_class) => Ok(contract_class),
@@ -216,37 +243,21 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        // When no block exists, no classes are available
+        if self.has_no_block() {
+            return Err(StateError::UndeclaredClassHash(class_hash));
+        }
+
+        let block_id = self.block_id.unwrap();
         debug!("got a request of get_compiled_class_hash with parameters the class hash: {:?}", class_hash);
         let operation_name = format!("get_compiled_class_hash(class_hash: {:?})", class_hash);
 
         let contract_class = self
-            .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_class(self.block_id, class_hash.0)
-            })
+            .execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
             .await
             .map_err(provider_error_to_state_error)?;
 
-        let class_hash = match contract_class {
-            starknet::core::types::ContractClass::Sierra(sierra_class) => {
-                let generic_sierra = convert_sierra_class_for_generic(&sierra_class)?;
-                let compiled_class = generic_sierra.compile().map_err(to_state_err)?;
-                compiled_class.class_hash().map_err(to_state_err)?
-            }
-            starknet::core::types::ContractClass::Legacy(legacy_class) => {
-                // Use the decompression function from starknet_core_addons
-                let decompressed_legacy_class =
-                    decompress_starknet_legacy_contract_class(legacy_class).map_err(|e| {
-                        StateError::StateReadError(format!("Failed to decompress legacy contract class: {}", e))
-                    })?;
-
-                // Convert the decompressed LegacyContractClass to GenericDeprecatedCompiledClass
-                let generic_deprecated =
-                    GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
-                generic_deprecated.class_hash().map_err(to_state_err)?
-            }
-        };
-
-        Ok(class_hash.into())
+        compute_compiled_class_hash(&contract_class)
     }
 }
 
@@ -254,28 +265,59 @@ impl AsyncRpcStateReader {
 impl StateReader for AsyncRpcStateReader {
     fn get_storage_at(&self, contract_address: ContractAddress, key: StorageKey) -> StateResult<Felt> {
         execute_coroutine(self.get_storage_at_async(contract_address, key))
-            .map_err(|e| StateError::StateReadError(e.to_string()))?
     }
 
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         execute_coroutine(self.get_nonce_at_async(contract_address))
-            .map_err(|e| StateError::StateReadError(e.to_string()))?
     }
 
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         execute_coroutine(self.get_class_hash_at_async(contract_address))
-            .map_err(|e| StateError::StateReadError(e.to_string()))?
     }
 
     fn get_compiled_class(&self, class_hash: ClassHash) -> StateResult<RunnableCompiledClass> {
         execute_coroutine(self.get_compiled_class_async(class_hash))
-            .map_err(|e| StateError::StateReadError(e.to_string()))?
     }
 
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         execute_coroutine(self.get_compiled_class_hash_async(class_hash))
-            .map_err(|e| StateError::StateReadError(e.to_string()))?
     }
+}
+
+/// Computes the compiled class hash for a given contract class.
+///
+/// This is a CPU-intensive operation that compiles Sierra classes or decompresses Legacy classes
+/// to compute their compiled class hash. This function can be used in parallel processing scenarios.
+///
+/// # Arguments
+/// * `contract_class` - The contract class to compute the hash for
+///
+/// # Returns
+/// The compiled class hash or an error if computation fails
+pub fn compute_compiled_class_hash(
+    contract_class: &starknet::core::types::ContractClass,
+) -> Result<CompiledClassHash, StateError> {
+    let class_hash = match contract_class {
+        starknet::core::types::ContractClass::Sierra(sierra_class) => {
+            let generic_sierra = convert_sierra_class_for_generic(sierra_class)?;
+            let compiled_class = generic_sierra.compile().map_err(to_state_err)?;
+            compiled_class.class_hash().map_err(to_state_err)?
+        }
+        starknet::core::types::ContractClass::Legacy(legacy_class) => {
+            // Use the decompression function from starknet_core_addons
+            let decompressed_legacy_class =
+                decompress_starknet_legacy_contract_class(legacy_class.clone()).map_err(|e| {
+                    StateError::StateReadError(format!("Failed to decompress legacy contract class: {}", e))
+                })?;
+
+            // Convert the decompressed LegacyContractClass to GenericDeprecatedCompiledClass
+            let generic_deprecated =
+                GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
+            generic_deprecated.class_hash().map_err(to_state_err)?
+        }
+    };
+
+    Ok(class_hash.into())
 }
 
 /// Convert Sierra class to a format that GenericSierraContractClass can handle.

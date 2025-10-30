@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rpc-replay
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rpc-replay
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: rpc-replay
+    spec:
+      containers:
+        - name: rpc-replay
+          image: prkpandey942/snos:rpc-replay-e41836b-20251025
+          imagePullPolicy: Always
+          args:
+            - "sepolia"
+            - "979833"
+            - "2"
+          env:
+            - name: AWS_S3_BUCKET
+              value: ""
+            - name: AWS_ACCESS_KEY_ID
+              value: ""
+            - name: AWS_SECRET_ACCESS_KEY
+              value: ""
+            - name: AWS_REGION
+              value: ap-south-1
+          resources:
+            limits:
+              cpu: "4"
+              memory: 8Gi
+            requests:
+              cpu: "4"
+              memory: 8Gi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: { }
+      terminationGracePeriodSeconds: 30

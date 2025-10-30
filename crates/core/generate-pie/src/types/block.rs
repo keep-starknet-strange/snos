@@ -11,7 +11,7 @@ use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::CachedState;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use log::{debug, info};
+use log::{debug, info, warn};
 use rpc_client::state_reader::AsyncRpcStateReader;
 use rpc_client::RpcClient;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
@@ -27,6 +27,9 @@ use starknet_api::state::StorageKey;
 use starknet_os_types::chain_id::chain_id_from_felt;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
+use std::env;
+
+const BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV: &str = "SNOS_BLOCKIFIER_TXN_EXECUTOR_CONFIG";
 
 /// Result containing fetched block data needed for processing.
 #[derive(Debug)]
@@ -197,13 +200,18 @@ impl BlockData {
             transactions.iter().map(|txn_result| txn_result.starknet_api_tx.clone()).collect();
 
         // Execute transactions using Blockifier
-        let config = TransactionExecutorConfig::default();
-        let blockifier_state_reader = AsyncRpcStateReader::new(
-            rpc_client.clone(),
-            previous_block_id.ok_or_else(|| {
-                BlockProcessingError::new_custom("Previous block ID is required for transaction execution")
-            })?,
-        );
+        let config: TransactionExecutorConfig = match env::var(BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV) {
+            Ok(config) => serde_json::from_str(&config).unwrap_or_else(|err| {
+                warn!("Failed to serialize {} env: {}. Using default config", BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV, err);
+                TransactionExecutorConfig::default()
+            }),
+            Err(err) => {
+                warn!("Failed to read {} env: {}. Using default config.", BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV, err);
+                TransactionExecutorConfig::default()
+            }
+        };
+
+        let blockifier_state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);
 
         let mut txn_executor =
             TransactionExecutor::new(CachedState::new(blockifier_state_reader), block_context.clone(), config);
@@ -251,15 +259,18 @@ impl BlockData {
         info!("Fetched processed state update successfully");
 
         // Convert Felt252 to proper types
-        let accessed_addresses: HashSet<ContractAddress> = accessed_addresses_felt
+        let mut accessed_addresses: HashSet<ContractAddress> = accessed_addresses_felt
             .iter()
             .map(|felt| {
                 ContractAddress::try_from(*felt)
                     .map_err(|e| BlockProcessingError::new_custom(format!("Invalid contract address: {:?}", e)))
             })
             .collect::<Result<HashSet<_>, _>>()?;
-
-        let accessed_classes: HashSet<ClassHash> = accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
+        accessed_addresses.insert(block_context.chain_info().fee_token_addresses.strk_fee_token_address);
+        let mut accessed_classes: HashSet<ClassHash> =
+            accessed_classes_felt.iter().map(|felt| ClassHash(*felt)).collect();
+        accessed_classes
+            .extend(processed_state_update.declared_class_hash_component_hashes.keys().map(|felt| ClassHash(*felt)));
 
         info!(
             "Successfully Found {} accessed addresses and {} accessed classes",
