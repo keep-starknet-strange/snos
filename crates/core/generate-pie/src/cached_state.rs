@@ -70,7 +70,6 @@ pub async fn generate_cached_state_input(
     for (contract_address, storage_keys) in accessed_keys_by_address {
         let mut contract_storage = HashMap::new();
 
-        // TODO: Optimize this
         for storage_key in storage_keys {
             let storage_value = rpc_client
                 .starknet_rpc()
