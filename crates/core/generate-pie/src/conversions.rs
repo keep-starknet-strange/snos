@@ -221,7 +221,9 @@ fn create_account_transaction_result(
     account_tx: starknet_api::executable_transaction::AccountTransaction,
 ) -> TransactionConversionResult {
     let mut charge_fee = true;
-    if let Some(resource_bounds) = account_tx.resource_bounds() {
+    if account_tx.version().0 == Felt::ZERO {
+        charge_fee = false;
+    } else if let resource_bounds = account_tx.resource_bounds() {
         match resource_bounds {
             ValidResourceBounds::AllResources(all_resources) => {
                 if all_resources.l2_gas.max_amount.0 == 0 {
