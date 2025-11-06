@@ -220,9 +220,23 @@ fn create_account_transaction_result(
     starknet_api_tx: starknet_api::executable_transaction::Transaction,
     account_tx: starknet_api::executable_transaction::AccountTransaction,
 ) -> TransactionConversionResult {
-    // TODO(30/10/25): Think of a way to figure out that for which txn we should have charge_fee as true
+    let mut charge_fee = true;
+    if let Some(resource_bounds) = account_tx.resource_bounds() {
+        match resource_bounds {
+            ValidResourceBounds::AllResources(all_resources) => {
+                if all_resources.l2_gas.max_amount.0 == 0 {
+                    charge_fee = false;
+                }
+            }
+            ValidResourceBounds::L1Gas(l1_gas) => {
+                if l1_gas.max_amount.0 == 0 {
+                    charge_fee = false;
+                }
+            }
+        }
+    }
     let mut txn = AccountTransaction::new_for_sequencing(account_tx);
-    txn.execution_flags.charge_fee = true;
+    txn.execution_flags.charge_fee = charge_fee;
 
     TransactionConversionResult {
         starknet_api_tx,
