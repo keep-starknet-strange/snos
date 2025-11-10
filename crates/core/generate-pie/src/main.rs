@@ -3,12 +3,14 @@
 //! This binary demonstrates how to use the generate-pie library to generate
 //! Cairo PIE files from Starknet blocks.
 
+use blockifier::blockifier_versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
 use generate_pie::{generate_pie, parse_layout};
-use log::{error, info};
+use log::{error, info, warn};
+use std::path::Path;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -46,6 +48,10 @@ struct Cli {
     /// Output path for the PIE file
     #[arg(short, long, env = "SNOS_OUTPUT")]
     output: Option<String>,
+
+    /// Path to a JSON file containing versioned constants (optional)
+    #[arg(long, env = "SNOS_VERSIONED_CONSTANTS_PATH")]
+    versioned_constants_path: Option<String>,
 }
 /// Main entry point for the generate-pie application.
 ///
@@ -83,6 +89,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         std::process::exit(1);
     }
 
+    // Load versioned constants from file if provided
+    let versioned_constants = if let Some(path) = &cli.versioned_constants_path {
+        info!("Loading versioned constants from: {}", path);
+        match VersionedConstants::from_path(Path::new(path)) {
+            Ok(constants) => {
+                info!("Successfully loaded versioned constants from file");
+                Some(constants)
+            }
+            Err(e) => {
+                error!("Failed to load versioned constants from {}: {:?}", path, e);
+                return Err(format!("Failed to load versioned constants: {:?}", e).into());
+            }
+        }
+    } else {
+        None
+    };
+
     // Build the input configuration
     let input = PieGenerationInput {
         rpc_url: cli.rpc_url.clone(),
@@ -91,6 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         os_hints_config: OsHintsConfiguration::default_with_is_l3(cli.is_l3),
         output_path: cli.output.clone(),
         layout: cli.layout,
+        versioned_constants,
     };
 
     // Display configuration information
@@ -106,6 +130,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("  Full Output: {}", input.os_hints_config.full_output);
     info!("  Use KZG DA: {}", input.os_hints_config.use_kzg_da);
     info!("  Output path: {:?}", input.output_path);
+    info!(
+        "  Versioned constants: {}",
+        if input.versioned_constants.is_some() { "provided from file" } else { "auto-detect from block" }
+    );
 
     // Call the core PIE generation function
     match generate_pie(input).await {
