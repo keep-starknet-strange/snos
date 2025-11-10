@@ -223,8 +223,8 @@ fn create_account_transaction_result(
     let mut charge_fee = true;
     if account_tx.version().0 == Felt::ZERO {
         charge_fee = false;
-    } else if let resource_bounds = account_tx.resource_bounds() {
-        match resource_bounds {
+    } else {
+        match account_tx.resource_bounds() {
             ValidResourceBounds::AllResources(all_resources) => {
                 if all_resources.l2_gas.max_amount.0 == 0 {
                     charge_fee = false;

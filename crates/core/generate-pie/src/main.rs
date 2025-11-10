@@ -9,7 +9,7 @@ use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
 use generate_pie::{generate_pie, parse_layout};
-use log::{error, info, warn};
+use log::{error, info};
 use std::path::Path;
 
 #[derive(Parser)]
