@@ -1,3 +1,4 @@
+use blockifier::blockifier_versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use starknet_os::io::os_output::StarknetOsRunnerOutput;
 
@@ -37,6 +38,8 @@ pub struct PieGenerationInput {
     pub os_hints_config: OsHintsConfiguration,
     /// Optional output file path for the generated PIE file.
     pub output_path: Option<String>,
+    /// Optional versioned constants to use instead of auto-detecting from block version.
+    pub versioned_constants: Option<VersionedConstants>,
 }
 
 impl PieGenerationInput {
