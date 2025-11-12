@@ -5,6 +5,7 @@ use starknet::core::types::BlockId;
 use starknet::providers::Provider;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
+use starknet_core::types::MaybePreConfirmedStateUpdate;
 use starknet_os::io::os_input::CachedStateInput;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
@@ -21,21 +22,57 @@ const ALIAS_CONTRACT_ADDRESS: Felt = Felt::TWO;
 ///
 /// Block 0 has no previous state, but we need to initialize the alias
 /// contract with its initial storage value.
-fn create_genesis_cached_state() -> Result<CachedStateInput, Box<dyn std::error::Error + Send + Sync>> {
+async fn create_genesis_cached_state(
+    rpc_client: &RpcClient,
+    accessed_classes: &HashSet<ClassHash>
+) -> Result<CachedStateInput, Box<dyn std::error::Error + Send + Sync>> {
     info!("Creating genesis block cached state");
 
-    // The alias contract (address 0x2) needs initial storage
-    let alias_contract_address = ContractAddress::try_from(ALIAS_CONTRACT_ADDRESS)?;
-    let alias_storage_key = StorageKey::try_from(Felt::ZERO)?;
 
-    Ok(CachedStateInput {
-        // Counter is set to 0 in the beginning
-        // It will be set to 0x80 as a part of block 0
-        storage: HashMap::from([(alias_contract_address, HashMap::from([(alias_storage_key, Felt::ZERO)]))]),
-        address_to_class_hash: HashMap::from([(alias_contract_address, ClassHash(Felt::ZERO))]),
-        address_to_nonce: HashMap::from([(alias_contract_address, Nonce(Felt::ZERO))]),
-        class_hash_to_compiled_class_hash: HashMap::new(),
-    })
+    let block_id = BlockId::Number(0);
+    let state_update = match rpc_client.starknet_rpc().get_state_update(block_id).await {
+        Ok(state_update) => match state_update {
+            MaybePreConfirmedStateUpdate::Update(update) => update,
+            MaybePreConfirmedStateUpdate::PreConfirmedUpdate(_) => panic!("Pending update"),
+        },
+        Err(e) => return Err(format!("Error fetching state update for genesis block: {:?}", e).into()),
+    };
+
+    let address_to_nonce = state_update
+        .state_diff
+        .nonces
+        .iter()
+        .map(|nonce| (ContractAddress::try_from(Felt::ZERO).unwrap(), Nonce(nonce.nonce)))
+        .collect::<HashMap<_, _>>();
+   
+    let address_to_class_hash = state_update
+        .state_diff
+        .deployed_contracts
+        .iter()
+        .map(|dc| (ContractAddress::try_from(dc.address).unwrap(), ClassHash(Felt::ZERO)))
+        .collect::<HashMap<_, _>>();
+  
+    let storage = state_update
+        .state_diff
+        .storage_diffs
+        .iter()
+        .map(|sd| {
+            (
+                ContractAddress::try_from(sd.address).unwrap(),
+                sd.storage_entries
+                    .iter()
+                    .map(|sd| (StorageKey::try_from(sd.key).unwrap(), Felt::ZERO))
+                    .collect::<HashMap<_, _>>(),
+            )
+        })
+        .collect::<HashMap<_, _>>();
+  
+    let class_hash_to_compiled_class_hash = accessed_classes
+        .iter()
+        .map(|class_hash| (*class_hash, CompiledClassHash(Felt::ZERO)))
+        .collect::<HashMap<_, _>>();
+
+    Ok(CachedStateInput { class_hash_to_compiled_class_hash, address_to_nonce, address_to_class_hash, storage })
 }
 
 pub async fn generate_cached_state_input(
@@ -47,7 +84,7 @@ pub async fn generate_cached_state_input(
 ) -> Result<CachedStateInput, Box<dyn std::error::Error + Send + Sync>> {
     // For block 0, there's no previous state, so return genesis cached state
     if *block_number == 0 {
-        return create_genesis_cached_state();
+        return create_genesis_cached_state(rpc_client, accessed_classes).await;
     }
 
     // For all other blocks, read state from the previous block (block_number - 1)

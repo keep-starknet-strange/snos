@@ -68,11 +68,11 @@ use anyhow::bail;
 use cairo_vm::types::layout_name::LayoutName;
 use futures::future::join_all;
 use log::{info, warn};
-use rpc_client::RpcClient;
+use rpc_client::{state_reader::AsyncRpcStateReader, RpcClient};
 use starknet_api::core::CompiledClassHash;
 use starknet_os::{
     io::os_input::{OsChainInfo, OsHints, OsHintsConfig, StarknetOsInput},
-    runner::run_os_stateless,
+    runner::{run_os},
 };
 use tokio::sync::Semaphore;
 // Local module imports
@@ -318,7 +318,15 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
     // Execute the Starknet OS
     info!("Starting OS execution for multi-block processing");
-    let output = run_os_stateless(input.layout, os_hints)
+    let state_readers = input.blocks.iter().map(|_| {
+        AsyncRpcStateReader::new(
+            rpc_client.clone(),
+            None, 
+        )
+    });
+    
+    let output = run_os(input.layout, os_hints, state_readers.collect())
+    // let output = run_os_stateless(input.layout, os_hints)
         .map_err(|e| PieGenerationError::OsExecution(format!("OS execution failed: {:?}", e)))?;
     info!("Multi-block output generated successfully!");
 

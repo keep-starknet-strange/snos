@@ -177,12 +177,14 @@ impl BlockData {
         {
             // Convert transaction using the new async trait, passing trace separately
             let transaction =
-                transaction.clone().try_into_blockifier_async(&conversion_ctx, trace).await.map_err(|e| {
-                    BlockProcessingError::new_custom(format!(
-                        "Failed to convert transaction to blockifier format: {:?}",
-                        e
-                    ))
-                })?;
+                transaction.clone().try_into_blockifier_async(&conversion_ctx, trace, block_number).await.map_err(
+                    |e| {
+                        BlockProcessingError::new_custom(format!(
+                            "Failed to convert transaction to blockifier format: {:?}",
+                            e
+                        ))
+                    },
+                )?;
             transactions.push(transaction);
 
             if (i + 1) % 10 == 0 || i == self.current_block.transactions.len() - 1 {

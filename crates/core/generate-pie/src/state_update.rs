@@ -234,10 +234,11 @@ pub(crate) async fn get_formatted_state_update(
     info!("Starting state update processing for block {:?}", block_id);
 
     // Handle genesis block case
-    let Some(previous_block_id) = previous_block_id else {
-        // TODO: Check if this is the correct behavior
-        info!("Processing genesis block - returning empty state update");
-        return Ok(FormattedStateUpdate::default());
+    let previous_block_id = if let Some(id) = previous_block_id {
+        id
+    } else {
+        info!("Processing genesis block - setting previous_block_id to zero");
+        BlockId::Number(0) 
     };
 
     // Fetch and validate state update
