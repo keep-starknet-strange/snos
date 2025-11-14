@@ -27,3 +27,4 @@ tokio = { workspace = true }
 # Starknet dependencies
 starknet = { workspace = true }
 starknet-types-core = { workspace = true }
+blockifier = { workspace = true }

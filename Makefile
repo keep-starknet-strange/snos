@@ -14,6 +14,11 @@ MAINNET_RPC_URL ?= https://pathfinder-mainnet.d.karnot.xyz
 MAINNET_STRK_FEE_TOKEN ?= 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
 MAINNET_ETH_FEE_TOKEN ?= 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
 
+# Paradex Devnet
+PARADEX_DEVNET_RPC_URL ?= https://pathfinder.api.nightly.paradex.trade
+PARADEX_DEVNET_STRK_FEE_TOKEN ?= 0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+PARADEX_DEVNET_ETH_FEE_TOKEN ?= 0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+
 # Paradex Testnet
 PARADEX_TESTNET_RPC_URL ?= https://pathfinder-paradex-sandbox-testnet.d.karnot.xyz
 PARADEX_TESTNET_STRK_FEE_TOKEN ?= 0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7
@@ -23,6 +28,12 @@ PARADEX_TESTNET_ETH_FEE_TOKEN ?= 0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C7
 PARADEX_MAINNET_RPC_URL ?= https://pathfinder-paradex-sandbox-mainnet.d.karnot.xyz
 PARADEX_MAINNET_STRK_FEE_TOKEN ?= 0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7
 PARADEX_MAINNET_ETH_FEE_TOKEN ?= 0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7
+
+# Madara Devnet
+MADARA_DEVNET_CHAIN_ID ?= MADARA_DEVNET
+MADARA_DEVNET_RPC_URL ?= http://localhost:8888
+MADARA_DEVNET_STRK_FEE_TOKEN ?= 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
+MADARA_DEVNET_ETH_FEE_TOKEN ?= 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
 
 # Define comma for clarity
 comma := ,
@@ -43,21 +54,29 @@ define set_network_config
 $(info [set_network_config] Called with NETWORK=$(1))
 $(eval SNOS_NETWORK := $(if $(filter sepolia,$(1)),sepolia,\
 	$(if $(filter mainnet,$(1)),mainnet,\
+	$(if $(filter paradex-devnet,$(1)),PRIVATE_SN_POTC_MOCK_SEPOLIA,\
 	$(if $(filter paradex-testnet,$(1)),PRIVATE_SN_POTC_SEPOLIA,\
 	$(if $(filter paradex-mainnet,$(1)),PRIVATE_SN_PARACLEAR_MAINNET,\
-	$(error Invalid NETWORK: $(1). Must be one of: sepolia, mainnet, paradex-testnet, paradex-mainnet))))))
+	$(if $(filter madara-devnet,$(1)),$(MADARA_DEVNET_CHAIN_ID),\
+	$(error Invalid NETWORK: $(1). Must be one of: sepolia, mainnet, paradex-devnet, paradex-testnet, paradex-mainnet, madara-devnet))))))))
 $(eval SNOS_RPC_URL := $(if $(filter sepolia,$(1)),$(SEPOLIA_RPC_URL),\
 	$(if $(filter mainnet,$(1)),$(MAINNET_RPC_URL),\
+	$(if $(filter paradex-devnet,$(1)),$(PARADEX_DEVNET_RPC_URL),\
 	$(if $(filter paradex-testnet,$(1)),$(PARADEX_TESTNET_RPC_URL),\
-	$(PARADEX_MAINNET_RPC_URL)))))
+	$(if $(filter madara-devnet,$(1)),$(MADARA_DEVNET_RPC_URL),\
+	$(PARADEX_MAINNET_RPC_URL)))))))
 $(eval SNOS_STRK_FEE_TOKEN := $(if $(filter sepolia,$(1)),$(SEPOLIA_STRK_FEE_TOKEN),\
 	$(if $(filter mainnet,$(1)),$(MAINNET_STRK_FEE_TOKEN),\
+	$(if $(filter paradex-devnet,$(1)),$(PARADEX_DEVNET_STRK_FEE_TOKEN),\
 	$(if $(filter paradex-testnet,$(1)),$(PARADEX_TESTNET_STRK_FEE_TOKEN),\
-	$(PARADEX_MAINNET_STRK_FEE_TOKEN)))))
+	$(if $(filter madara-devnet,$(1)),$(MADARA_DEVNET_STRK_FEE_TOKEN),\
+	$(PARADEX_MAINNET_STRK_FEE_TOKEN)))))))
 $(eval SNOS_ETH_FEE_TOKEN := $(if $(filter sepolia,$(1)),$(SEPOLIA_ETH_FEE_TOKEN),\
 	$(if $(filter mainnet,$(1)),$(MAINNET_ETH_FEE_TOKEN),\
+	$(if $(filter paradex-devnet,$(1)),$(PARADEX_DEVNET_ETH_FEE_TOKEN),\
 	$(if $(filter paradex-testnet,$(1)),$(PARADEX_TESTNET_ETH_FEE_TOKEN),\
-	$(PARADEX_MAINNET_ETH_FEE_TOKEN)))))
+	$(if $(filter madara-devnet,$(1)),$(MADARA_DEVNET_ETH_FEE_TOKEN),\
+	$(PARADEX_MAINNET_ETH_FEE_TOKEN)))))))
 endef
 
 # Colors for output
