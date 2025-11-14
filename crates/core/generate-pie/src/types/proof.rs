@@ -53,20 +53,40 @@ impl ProofCollectionResult {
         // Process contract storage commitments
         for (contract_address, storage_proof) in self.storage_proofs.clone() {
             let contract_address: Felt = contract_address;
-            let previous_storage_proof = self.previous_storage_proofs.get(&contract_address).ok_or_else(|| {
-                BlockProcessingError::new_custom(format!(
-                    "Failed to find previous storage proof for contract address: {:?}",
-                    contract_address
-                ))
-            })?;
+            let (previous_contract_commitment_facts, previous_contract_storage_root) = match block_id {
+                BlockId::Number(0) => {
+                    // For block 0 we don't have any commitment and root is 0x0
+                    (HashMap::new(), Felt::ZERO)
+                }
+                _ => {
+                    let previous_storage_proof =
+                        self.previous_storage_proofs.get(&contract_address).ok_or_else(|| {
+                            BlockProcessingError::new_custom(format!(
+                                "Failed to find previous storage proof for contract address: {:?}",
+                                contract_address
+                            ))
+                        })?;
 
-            let previous_contract_commitment_facts = format_commitment_facts(
-                &previous_storage_proof
-                    .clone()
-                    .contract_data
-                    .ok_or_else(|| BlockProcessingError::new_custom("Previous storage proof missing contract data"))?
-                    .storage_proofs,
-            );
+                    let previous_contract_storage_root: Felt = previous_storage_proof
+                        .contract_data
+                        .as_ref()
+                        .map(|contract_data| contract_data.root)
+                        .unwrap_or(Felt::ZERO);
+
+                    (
+                        format_commitment_facts(
+                            &previous_storage_proof
+                                .clone()
+                                .contract_data
+                                .ok_or_else(|| {
+                                    BlockProcessingError::new_custom("Previous storage proof missing contract data")
+                                })?
+                                .storage_proofs,
+                        ),
+                        previous_contract_storage_root,
+                    )
+                }
+            };
 
             let current_contract_commitment_facts = format_commitment_facts(
                 &storage_proof
@@ -82,12 +102,6 @@ impl ProofCollectionResult {
                     .chain(current_contract_commitment_facts)
                     .map(|(key, value)| (HashOutput(key), value))
                     .collect();
-
-            let previous_contract_storage_root: Felt = previous_storage_proof
-                .contract_data
-                .as_ref()
-                .map(|contract_data| contract_data.root)
-                .unwrap_or(Felt::ZERO);
 
             let current_contract_storage_root: Felt =
                 storage_proof.contract_data.as_ref().map(|contract_data| contract_data.root).unwrap_or(Felt::ZERO);

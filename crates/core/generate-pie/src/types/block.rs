@@ -298,6 +298,9 @@ impl BlockData {
     /// # Arguments
     ///
     /// * `is_l3` - Whether this is an L3 chain
+    /// * `strk_fee_token_address` - The STRK fee token address
+    /// * `eth_fee_token_address` - The ETH fee token address
+    /// * `versioned_constants` - Optional versioned constants to use instead of auto-detecting from block version
     ///
     /// # Returns
     ///
@@ -307,6 +310,7 @@ impl BlockData {
         is_l3: bool,
         strk_fee_token_address: &ContractAddress,
         eth_fee_token_address: &ContractAddress,
+        versioned_constants: Option<VersionedConstants>,
     ) -> Result<BlockContext, FeltConversionError> {
         // Extract sequencer address
         let sequencer_address_hex = self.current_block.sequencer_address.to_hex_string();
@@ -352,17 +356,30 @@ impl BlockData {
             is_l3,
         };
 
-        // Get versioned constants
-        // TODO: Add support for taking custom versioned constants from the user
-        let versioned_constants = VersionedConstants::get(&self.starknet_version).map_err(|_| {
-            FeltConversionError::new_custom(format!("Failed to get versioned constants for {}", self.starknet_version))
-        })?;
+        // Get versioned constants - use provided if available, otherwise auto-detect from block version
+        let versioned_constants = match versioned_constants {
+            Some(constants) => {
+                info!("Using provided versioned constants");
+                constants
+            }
+            None => {
+                info!("Auto-detecting versioned constants from block version: {:?}", self.starknet_version);
+                VersionedConstants::get(&self.starknet_version)
+                    .map_err(|_| {
+                        FeltConversionError::new_custom(format!(
+                            "Failed to get versioned constants for {}",
+                            self.starknet_version
+                        ))
+                    })?
+                    .clone()
+            }
+        };
 
         // Use maximum bouncer configuration
         // TODO: Add support for taking custom bouncer configuration from the user
         let bouncer_config = BouncerConfig::max();
 
-        Ok(BlockContext::new(block_info, chain_info, versioned_constants.clone(), bouncer_config))
+        Ok(BlockContext::new(block_info, chain_info, versioned_constants, bouncer_config))
     }
 }
 

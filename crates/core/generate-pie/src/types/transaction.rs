@@ -61,10 +61,8 @@ impl TransactionProcessingResult {
                     |e| BlockProcessingError::StorageProof(format!("Failed to fetch previous storage proofs: {:?}", e)),
                 )?
             }
-            // TODO: Check if we need to use some other block number for current block = 0
-            None => get_storage_proofs(rpc_client, 0, &self.accessed_keys_by_address).await.map_err(|e| {
-                BlockProcessingError::StorageProof(format!("Failed to fetch storage proofs for block 0: {:?}", e))
-            })?,
+            // No previous storage proofs for block 0
+            None => HashMap::new(),
             _ => {
                 let mut map = HashMap::new();
                 // Add a default proof for the block hash contract

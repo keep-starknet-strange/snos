@@ -71,6 +71,7 @@ async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64
         os_hints_config: OsHintsConfiguration::default(),
         output_path: None,
         layout: LayoutName::all_cairo,
+        versioned_constants: None,
     };
 
     println!("📡 Using RPC: {}", input.rpc_url);
