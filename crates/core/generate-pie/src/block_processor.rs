@@ -60,6 +60,9 @@ pub struct BlockInfoResult {
 ///
 /// * `block_number` - The block number to process
 /// * `is_l3` - Whether this is an L3 chain (true) or L2 chain (false)
+/// * `strk_fee_token_address` - The STRK fee token address
+/// * `eth_fee_token_address` - The ETH fee token address
+/// * `versioned_constants` - Optional versioned constants to use instead of auto-detecting
 /// * `rpc_client` - The RPC client for fetching block data
 ///
 /// # Returns
@@ -86,7 +89,7 @@ pub struct BlockInfoResult {
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let rpc_client = RpcClient::try_new("https://your-starknet-node.com")?;
-///     let result = collect_single_block_info(12345, false, rpc_client).await?;
+///     let result = collect_single_block_info(12345, false, &strk_addr, &eth_addr, None, rpc_client).await?;
 ///     println!("Processed block with {} transactions", result.os_block_input.transactions.len());
 ///     Ok(())
 /// }
@@ -96,6 +99,7 @@ pub async fn collect_single_block_info(
     is_l3: bool,
     strk_fee_token_address: &ContractAddress,
     eth_fee_token_address: &ContractAddress,
+    versioned_constants: Option<blockifier::blockifier_versioned_constants::VersionedConstants>,
     rpc_client: RpcClient,
 ) -> Result<BlockInfoResult, BlockProcessingError> {
     info!("Starting block info collection for block {}", block_number);
@@ -105,7 +109,7 @@ pub async fn collect_single_block_info(
 
     // Step 2: Build block context (only once, reused throughout)
     let block_context = block_data
-        .build_context(is_l3, strk_fee_token_address, eth_fee_token_address)
+        .build_context(is_l3, strk_fee_token_address, eth_fee_token_address, versioned_constants)
         .map_err(BlockProcessingError::ContextBuilding)?;
 
     // Step 3: Process transactions and extract execution information

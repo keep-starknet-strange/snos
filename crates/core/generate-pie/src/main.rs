@@ -7,6 +7,7 @@ use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
+use generate_pie::utils::load_versioned_constants;
 use generate_pie::{generate_pie, parse_layout};
 use log::{error, info};
 
@@ -46,6 +47,10 @@ struct Cli {
     /// Output path for the PIE file
     #[arg(short, long, env = "SNOS_OUTPUT")]
     output: Option<String>,
+
+    /// Path to a JSON file containing versioned constants (optional)
+    #[arg(long, env = "SNOS_VERSIONED_CONSTANTS_PATH")]
+    versioned_constants_path: Option<String>,
 }
 /// Main entry point for the generate-pie application.
 ///
@@ -83,6 +88,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         std::process::exit(1);
     }
 
+    // Load versioned constants from file if provided
+    let versioned_constants = load_versioned_constants(cli.versioned_constants_path.as_deref()).map_err(|e| {
+        error!("{}", e);
+        e
+    })?;
+
     // Build the input configuration
     let input = PieGenerationInput {
         rpc_url: cli.rpc_url.clone(),
@@ -91,6 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         os_hints_config: OsHintsConfiguration::default_with_is_l3(cli.is_l3),
         output_path: cli.output.clone(),
         layout: cli.layout,
+        versioned_constants,
     };
 
     // Display configuration information
@@ -106,6 +118,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("  Full Output: {}", input.os_hints_config.full_output);
     info!("  Use KZG DA: {}", input.os_hints_config.use_kzg_da);
     info!("  Output path: {:?}", input.output_path);
+    info!(
+        "  Versioned constants: {}",
+        if input.versioned_constants.is_some() { "provided from file" } else { "auto-detect from block" }
+    );
 
     // Call the core PIE generation function
     match generate_pie(input).await {

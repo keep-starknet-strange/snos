@@ -5,6 +5,7 @@ use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::error::PieGenerationError;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
+use generate_pie::utils::load_versioned_constants;
 use generate_pie::{generate_pie, parse_layout};
 use log::{debug, info, warn};
 use rpc_client::RpcClient;
@@ -129,6 +130,10 @@ struct Args {
     /// Upload error files to S3 instead of storing locally
     #[arg(long, default_value = "false")]
     upload_to_s3: bool,
+
+    /// Path to a JSON file containing versioned constants (optional)
+    #[arg(long, env = "SNOS_VERSIONED_CONSTANTS_PATH")]
+    versioned_constants_path: Option<String>,
 }
 
 #[tokio::main]
@@ -411,6 +416,17 @@ async fn check_blocks_exist(
 async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, ProcessError> {
     let output_filename = format!("cairo_pie_blocks_{}.zip", blocks[0]);
 
+    // Load versioned constants from file if provided
+    // Note: Non-fatal error handling - if loading fails, we fall back to auto-detection
+    let versioned_constants = match load_versioned_constants(args.versioned_constants_path.as_deref()) {
+        Ok(Some(constants)) => Some(constants),
+        Ok(None) => None,
+        Err(e) => {
+            warn!("Failed to load versioned constants: {}, will auto-detect from block", e);
+            None
+        }
+    };
+
     let input = PieGenerationInput {
         rpc_url: args.rpc_url.clone(),
         blocks: blocks.to_vec(),
@@ -424,6 +440,7 @@ async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, Proces
         output_path: args.output_dir.clone(),
         layout: parse_layout(&args.layout)
             .map_err(|e| ProcessError::Panic(format!("Failed to parse layout: {}", e)))?,
+        versioned_constants,
     };
 
     debug!("Starting PIE generation for blocks {:?}", blocks);
