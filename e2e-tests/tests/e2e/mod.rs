@@ -21,6 +21,7 @@
 use cairo_vm::types::layout_name::LayoutName;
 use generate_pie::generate_pie;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
+use generate_pie::utils::load_versioned_constants;
 use rstest::rstest;
 use std::env;
 use std::time::Duration;
@@ -32,6 +33,7 @@ pub const SNOS_RPC_URL_ENV_SEPOLIA: &str = "SNOS_RPC_URL_SEPOLIA";
 pub const TEST_TIMEOUT_SECS: u64 = 30 * 60; // 30 minutes
 
 /// Get RPC URL from environment
+/// Falls back to default RPC URLs if environment variables are not set
 fn get_rpc_url(chain: &str) -> String {
     match chain {
         "sepolia" => {
@@ -76,6 +78,75 @@ async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64
 
     println!("📡 Using RPC: {}", input.rpc_url);
     println!("📦 Processing blocks");
+
+    let result = timeout(Duration::from_secs(TEST_TIMEOUT_SECS), generate_pie(input)).await;
+
+    match result {
+        Ok(pie_result) => match pie_result {
+            Ok(pie_result) => {
+                println!("✅  PIE generation succeeded for blocks on {}", chain);
+                assert_eq!(pie_result.blocks_processed, block_numbers);
+                assert_eq!(pie_result.output_path, None);
+                println!("🎉 Blocks processed successfully on {}!", chain);
+            }
+            Err(e) => {
+                panic!("❌ PIE generation failed for blocks on {}: {}", chain, e);
+            }
+        },
+        Err(_) => {
+            panic!("❌ PIE generation timed out for blocks on {} after {} seconds", chain, TEST_TIMEOUT_SECS);
+        }
+    }
+}
+
+/// Test PIE generation with custom versioned constants
+///
+/// This test demonstrates how to use custom versioned constants from a file.
+/// It uses the `resources/custom_version_constants.json` file directly.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_pie_generation_with_custom_versioned_constants() {
+    // Construct path to the custom versioned constants file relative to workspace root
+    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let constants_path = workspace_root.join("resources").join("custom_version_constants.json");
+    let constants_path_str = constants_path.to_str().expect("Invalid path");
+
+    // Test the loading function
+    let versioned_constants = match load_versioned_constants(Some(constants_path_str)) {
+        Ok(Some(constants)) => {
+            println!("✅ Successfully loaded versioned constants from file: {}", constants_path_str);
+            Some(constants)
+        }
+        Ok(None) => {
+            panic!("❌ Expected to load versioned constants from file, but got None");
+        }
+        Err(e) => {
+            panic!("❌ Failed to load versioned constants from {}: {}", constants_path_str, e);
+        }
+    };
+
+    // Use a simple block for testing
+    let chain = "sepolia";
+    let block_numbers = vec![926808]; // fast block
+
+    println!("🧪 Testing PIE generation with custom versioned constants for blocks on {}", chain);
+
+    let input = PieGenerationInput {
+        rpc_url: get_rpc_url(chain),
+        blocks: block_numbers.clone(),
+        chain_config: ChainConfig::default_with_chain(chain),
+        os_hints_config: OsHintsConfiguration::default(),
+        output_path: None,
+        layout: LayoutName::all_cairo,
+        versioned_constants,
+    };
+
+    println!("📡 Using RPC: {}", input.rpc_url);
+    println!("📦 Processing blocks");
+    if input.versioned_constants.is_some() {
+        println!("📋 Using custom versioned constants from file");
+    } else {
+        println!("📋 Using auto-detected versioned constants");
+    }
 
     let result = timeout(Duration::from_secs(TEST_TIMEOUT_SECS), generate_pie(input)).await;
 

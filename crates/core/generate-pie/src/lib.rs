@@ -92,7 +92,7 @@ mod cached_state;
 pub mod constants;
 mod conversions;
 mod state_update;
-mod utils;
+pub mod utils;
 
 pub mod error;
 pub mod types;
