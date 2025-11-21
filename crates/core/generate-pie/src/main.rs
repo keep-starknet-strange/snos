@@ -3,7 +3,6 @@
 //! This binary demonstrates how to use the generate-pie library to generate
 //! Cairo PIE files from Starknet blocks.
 
-use blockifier::blockifier_versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
@@ -11,7 +10,6 @@ use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput}
 use generate_pie::utils::load_versioned_constants;
 use generate_pie::{generate_pie, parse_layout};
 use log::{error, info};
-use std::path::Path;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

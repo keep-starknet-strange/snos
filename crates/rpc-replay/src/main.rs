@@ -1,7 +1,6 @@
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client as S3Client;
-use blockifier::blockifier_versioned_constants::VersionedConstants;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::error::PieGenerationError;
@@ -13,7 +12,6 @@ use rpc_client::RpcClient;
 use serde::{Deserialize, Serialize};
 use starknet::core::types::BlockId;
 use starknet::providers::Provider;
-use std::path::Path;
 use std::time::Duration;
 use std::{env, error, fs};
 use tokio::time::sleep;
