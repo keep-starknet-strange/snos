@@ -8,6 +8,7 @@ use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
+use generate_pie::utils::load_versioned_constants;
 use generate_pie::{generate_pie, parse_layout};
 use log::{error, info};
 use std::path::Path;
@@ -90,21 +91,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     // Load versioned constants from file if provided
-    let versioned_constants = if let Some(path) = &cli.versioned_constants_path {
-        info!("Loading versioned constants from: {}", path);
-        match VersionedConstants::from_path(Path::new(path)) {
-            Ok(constants) => {
-                info!("Successfully loaded versioned constants from file");
-                Some(constants)
-            }
-            Err(e) => {
-                error!("Failed to load versioned constants from {}: {:?}", path, e);
-                return Err(format!("Failed to load versioned constants: {:?}", e).into());
-            }
-        }
-    } else {
-        None
-    };
+    let versioned_constants = load_versioned_constants(cli.versioned_constants_path.as_deref()).map_err(|e| {
+        error!("{}", e);
+        e
+    })?;
 
     // Build the input configuration
     let input = PieGenerationInput {

@@ -357,6 +357,11 @@ impl BlockData {
         };
 
         // Get versioned constants - use provided if available, otherwise auto-detect from block version
+        //
+        // Note: Currently, we support a single versioned constants file. Future enhancements may
+        // support multiple versioned constants files for different Starknet versions (similar to
+        // how Madara and Pathfinder handle versioned constants), allowing users to provide a
+        // directory or mapping of version -> constants file.
         let versioned_constants = match versioned_constants {
             Some(constants) => {
                 info!("Using provided versioned constants");

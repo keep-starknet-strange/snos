@@ -6,6 +6,7 @@ use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::error::PieGenerationError;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
+use generate_pie::utils::load_versioned_constants;
 use generate_pie::{generate_pie, parse_layout};
 use log::{debug, info, warn};
 use rpc_client::RpcClient;
@@ -418,20 +419,14 @@ async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, Proces
     let output_filename = format!("cairo_pie_blocks_{}.zip", blocks[0]);
 
     // Load versioned constants from file if provided
-    let versioned_constants = if let Some(path) = &args.versioned_constants_path {
-        debug!("Loading versioned constants from: {}", path);
-        match VersionedConstants::from_path(Path::new(path)) {
-            Ok(constants) => {
-                debug!("Successfully loaded versioned constants from file");
-                Some(constants)
-            }
-            Err(e) => {
-                warn!("Failed to load versioned constants from {}: {:?}, will auto-detect from block", path, e);
-                None
-            }
+    // Note: Non-fatal error handling - if loading fails, we fall back to auto-detection
+    let versioned_constants = match load_versioned_constants(args.versioned_constants_path.as_deref()) {
+        Ok(Some(constants)) => Some(constants),
+        Ok(None) => None,
+        Err(e) => {
+            warn!("Failed to load versioned constants: {}, will auto-detect from block", e);
+            None
         }
-    } else {
-        None
     };
 
     let input = PieGenerationInput {
