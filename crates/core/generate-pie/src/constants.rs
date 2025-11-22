@@ -1,7 +1,7 @@
 use starknet_types_core::felt::Felt;
 
-/// Maximum number of blocks that can be processed in a single PIE generation.
-pub const MAX_BLOCKS_PER_PIE: usize = 10;
+/// Threshold for warning when CairoPIE execution steps exceed this value.
+pub const MAX_EXECUTION_STEPS_WARNING_THRESHOLD: usize = 50_000_000;
 
 /// Default Sepolia STRK fee token address.
 pub const DEFAULT_SEPOLIA_STRK_FEE_TOKEN: &str = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";

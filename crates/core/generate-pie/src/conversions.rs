@@ -222,7 +222,7 @@ fn create_account_transaction_result(
 ) -> TransactionConversionResult {
     // TODO(30/10/25): Think of a way to figure out that for which txn we should have charge_fee as true
     let mut txn = AccountTransaction::new_for_sequencing(account_tx);
-    txn.execution_flags.charge_fee = true;
+    txn.execution_flags.charge_fee = false;
 
     TransactionConversionResult {
         starknet_api_tx,

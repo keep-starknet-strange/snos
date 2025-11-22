@@ -76,7 +76,7 @@ use starknet_os::{
 };
 use tokio::sync::Semaphore;
 // Local module imports
-use crate::constants::DEFAULT_MAX_PARALLEL_BLOCKS;
+use crate::constants::{DEFAULT_MAX_PARALLEL_BLOCKS, MAX_EXECUTION_STEPS_WARNING_THRESHOLD};
 use block_processor::collect_single_block_info;
 use cached_state::generate_cached_state_input;
 use error::PieGenerationError;
@@ -319,6 +319,15 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     let output = run_os_stateless(input.layout, os_hints)
         .map_err(|e| PieGenerationError::OsExecution(format!("OS execution failed: {:?}", e)))?;
     info!("Multi-block output generated successfully!");
+
+    // Check execution steps and warn if exceeding threshold
+    let steps_count = output.cairo_pie.execution_resources.n_steps;
+    if steps_count > MAX_EXECUTION_STEPS_WARNING_THRESHOLD {
+        warn!(
+            "CairoPIE execution steps ({}) exceeds threshold ({})",
+            steps_count, MAX_EXECUTION_STEPS_WARNING_THRESHOLD
+        );
+    }
 
     // Validate the generated PIE
     info!("Validating generated Cairo PIE");
