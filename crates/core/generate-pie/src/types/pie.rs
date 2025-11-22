@@ -2,7 +2,6 @@ use blockifier::blockifier_versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use starknet_os::io::os_output::StarknetOsRunnerOutput;
 
-use crate::constants::MAX_BLOCKS_PER_PIE;
 use crate::error::PieGenerationError;
 use crate::types::{ChainConfig, OsHintsConfiguration};
 
@@ -61,15 +60,6 @@ impl PieGenerationInput {
         // Validate blocks
         if self.blocks.is_empty() {
             return Err(PieGenerationError::InvalidConfig("At least one block must be specified".to_string()));
-        }
-
-        // Validate maximum number of blocks
-        if self.blocks.len() > MAX_BLOCKS_PER_PIE {
-            return Err(PieGenerationError::InvalidConfig(format!(
-                "Too many blocks specified: {} (maximum: {})",
-                self.blocks.len(),
-                MAX_BLOCKS_PER_PIE
-            )));
         }
 
         // Validate that blocks are in ascending order
