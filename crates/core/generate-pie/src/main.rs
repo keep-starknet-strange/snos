@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let input = PieGenerationInput {
         rpc_url: cli.rpc_url.clone(),
         blocks: cli.blocks.clone(),
-        chain_config: ChainConfig::new(&cli.chain, &cli.strk_fee_token_address, &cli.eth_fee_token_address, false),
+        chain_config: ChainConfig::new(&cli.chain, &cli.strk_fee_token_address, &cli.eth_fee_token_address, cli.is_l3),
         os_hints_config: OsHintsConfiguration::default_with_is_l3(cli.is_l3),
         output_path: cli.output.clone(),
         layout: cli.layout,
