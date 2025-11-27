@@ -3,6 +3,8 @@
 //! This binary demonstrates how to use the generate-pie library to generate
 //! Cairo PIE files from Starknet blocks.
 
+use std::collections::BTreeSet;
+
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
@@ -11,14 +13,42 @@ use generate_pie::utils::load_versioned_constants;
 use generate_pie::{generate_pie, parse_layout};
 use log::{error, info};
 
+/// Parses a range string in format "start,end" and returns (start, end).
+/// Both start and end are inclusive.
+fn parse_range(range_str: &str) -> Result<(u64, u64), String> {
+    let parts: Vec<&str> = range_str.split(',').collect();
+    if parts.len() != 2 {
+        return Err(format!("Invalid range format '{}'. Expected format: start,end (e.g., 1,999)", range_str));
+    }
+
+    let start: u64 = parts[0]
+        .trim()
+        .parse()
+        .map_err(|_| format!("Invalid start value '{}'. Must be a positive integer.", parts[0]))?;
+    let end: u64 = parts[1]
+        .trim()
+        .parse()
+        .map_err(|_| format!("Invalid end value '{}'. Must be a positive integer.", parts[1]))?;
+
+    if start > end {
+        return Err(format!("Invalid range: start ({}) must be less than or equal to end ({})", start, end));
+    }
+
+    Ok((start, end))
+}
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 #[command(name = "snos")]
 #[command(about = "SNOS - Starknet OS for block processing")]
 struct Cli {
-    /// Block number(s) to process
-    #[arg(short, long, value_delimiter = ',', required = true, env = "SNOS_BLOCKS")]
+    /// Block number(s) to process (comma-separated)
+    #[arg(short, long, value_delimiter = ',', env = "SNOS_BLOCKS")]
     blocks: Vec<u64>,
+
+    /// Block range to process (format: start,end - inclusive)
+    #[arg(short = 'R', long, env = "SNOS_RANGE")]
+    range: Option<String>,
 
     /// RPC URL to connect to
     #[arg(short, long, required = true, env = "SNOS_RPC_URL")]
@@ -82,9 +112,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     info!("Starting SNOS PIE generation application");
 
+    // Collect blocks from --blocks and --range arguments
+    let mut blocks: BTreeSet<u64> = cli.blocks.into_iter().collect();
+
+    // Parse and add blocks from range if provided
+    if let Some(range_str) = &cli.range {
+        match parse_range(range_str) {
+            Ok((start, end)) => {
+                info!("Adding blocks from range {} to {} (inclusive)", start, end);
+                for block in start..=end {
+                    blocks.insert(block);
+                }
+            }
+            Err(e) => {
+                error!("Range parsing error: {}", e);
+                std::process::exit(1);
+            }
+        }
+    }
+
+    // Convert to sorted Vec
+    let blocks: Vec<u64> = blocks.into_iter().collect();
+
     // Validate that at least one block is provided
-    if cli.blocks.is_empty() {
-        error!("At least one block number must be provided");
+    if blocks.is_empty() {
+        error!("At least one block number must be provided. Use --blocks and/or --range.");
         std::process::exit(1);
     }
 
@@ -97,7 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Build the input configuration
     let input = PieGenerationInput {
         rpc_url: cli.rpc_url.clone(),
-        blocks: cli.blocks.clone(),
+        blocks: blocks.clone(),
         chain_config: ChainConfig::new(&cli.chain, &cli.strk_fee_token_address, &cli.eth_fee_token_address, cli.is_l3),
         os_hints_config: OsHintsConfiguration::default_with_is_l3(cli.is_l3),
         output_path: cli.output.clone(),
