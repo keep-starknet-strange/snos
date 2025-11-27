@@ -292,7 +292,12 @@ SNOS is organized as a Cargo workspace with the following crates:
 | `starknet-os-types` | Type definitions and contract class abstractions |
 | `e2e-tests` | End-to-end test suite |
 
-For detailed architecture documentation including data flow, configuration options, and performance considerations, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
+**Documentation:**
+
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Crate overview, configuration options, and build requirements |
+| [CODE_FLOW.md](./docs/CODE_FLOW.md) | Detailed code execution flow, parallelization, RPC patterns, and type conversions |
 
 ## 🤝 Related Projects
 
@@ -304,15 +309,22 @@ For detailed architecture documentation including data flow, configuration optio
 
 ## 📚 Documentation
 
-### Starknet OS
+### SNOS Documentation
+
+- [Architecture Overview](./docs/ARCHITECTURE.md) - Crate structure, configuration, and build requirements
+- [Code Flow](./docs/CODE_FLOW.md) - Detailed execution flow, parallelization, and type conversions
+
+### External Resources
+
+**Starknet OS:**
 - [Starknet OS in sequencer](https://github.com/starkware-libs/sequencer/tree/main/crates/apollo_starknet_os_program)
 
-### Cairo
+**Cairo:**
 - [The Cairo Book](https://book.cairo-lang.org/)
 - [How Cairo Works](https://docs.cairo-lang.org/how_cairo_works/index.html)
 - [Cairo Whitepaper](https://eprint.iacr.org/2021/1063)
 
-### Starknet
+**Starknet:**
 - [Starknet Docs](https://docs.starknet.io/)
 - [Starknet State](https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/)
 
