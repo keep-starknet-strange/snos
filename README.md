@@ -3,7 +3,7 @@
   
   ### ✨ SNOS ✨
   
-  A Rust Library for running the [Starknet OS](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/core/os/os.cairo).
+  A Rust toolkit for generating Cairo PIE (Program Independent Execution) from blocks on Starknet-spec compatible chains.
 
   [Report Bug](https://github.com/keep-starknet-strange/snos/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=bug%3A+) · [Request Feature](https://github.com/keep-starknet-strange/snos/issues/new?labels=enhancement&title=feat%3A+)
 
@@ -16,176 +16,317 @@
 </div>
 
 ## Table of Contents
-- [Table of Contents](#table-of-contents)
-- [📖 About](#-about)
-- [🛠️ Getting Started](#️-getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-- [🧪 Running Tests](#-running-tests)
-  - [Run Tests](#run-tests)
-  - [Reset Tests](#reset-tests)
-- [🚀 Usage](#-usage)
-  - [Adding SNOS as a Dependency](#adding-snos-as-a-dependency)
-  - [Using the **prove_block** Binary](#using-the-prove_block-binary)
-- [🤝 Related Projects](#-related-projects)
-- [📚 Documentation](#-documentation)
-- [📜 License](#-license)
 
+- [About](#-about)
+- [Getting Started](#️-getting-started)
+- [Usage](#-usage)
+- [Supported Networks](#-supported-networks)
+- [Testing](#-testing)
+- [Architecture](#-architecture)
+- [Related Projects](#-related-projects)
+- [Documentation](#-documentation)
+- [License](#-license)
 
 ## 📖 About
 
-[Starknet OS](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/core/os/os.cairo) is a [Cairo](https://www.cairo-lang.org/) program designed to prove the integrity of state transitions between blocks on Starknet.
+SNOS generates Cairo PIE by re-executing blocks and producing inputs for the Starknet OS. These PIE can be used to generate STARK proofs that verify block validity. It works with any Starknet-spec compatible chain, including Starknet (Mainnet/Sepolia) and custom L2/L3 networks.
 
-By re-executing transactions from a block and verifying consistency, it produces a [PIE](https://github.com/starkware-libs/cairo-lang/blob/a86e92bfde9c171c0856d7b46580c66e004922f3/src/starkware/cairo/lang/vm/cairo_pie.py#L219-L225) (Program Independent Execution) result. This PIE can be used to generate a STARK proof of integrity, which, if accepted by Starknet L1 verifiers, confirms block validity and updates the Starknet state root in the [StarknetCore contract](https://etherscan.io/address/0xc662c410c0ecf747543f5ba90660f6abebd9c8c4#code).
+The Starknet OS code is sourced from the [sequencer repository](https://github.com/starkware-libs/sequencer) at `crates/apollo_starknet_os_program/src/cairo/starkware/starknet/core/os/os.cairo`.
+
+### Key Features
+
+- **Multi-block Processing**: Process multiple blocks into a single PIE
+- **Parallel Execution**: Concurrent block processing for improved performance  
+- **Network Flexibility**: Support for Starknet Mainnet, Sepolia, and custom L2/L3 networks
+- **Configurable**: Extensive CLI options and environment variable support
+- **Modular Design**: Clean separation between RPC client, PIE generation, and type handling
+
+> **Important**: SNOS generates a PIE for all blocks provided to it without awareness of prover resource limits. It is the user's/application's responsibility to determine the appropriate number of blocks per PIE based on your proving infrastructure constraints.
 
 ## 🛠️ Getting Started
 
 ### Prerequisites
 
-Ensure you have the following dependencies installed:
-- [Rust 1.76.0 or newer](https://www.rust-lang.org/tools/install)
+- [Rust 1.87.0 or newer](https://www.rust-lang.org/tools/install)
+- [Python 3.9+](https://www.python.org/downloads/) with `cairo-compile` (for building)
+- Access to a Starknet-spec compatible node with storage proof support (e.g., [Pathfinder](https://github.com/eqlabs/pathfinder), [Madara](https://github.com/madara-alliance/madara), [Katana](https://github.com/dojoengine/dojo))
 
-#### Optional
-- [pyenv](https://github.com/pyenv/pyenv-installer?tab=readme-ov-file#install) (recommended for managing Python versions and setting up environment)
+> **Note**: The node must have storage proofs available for the block(s) you want to process. This typically requires running the node in archive mode.
 
-- [rclone](https://rclone.org/install/) (recommended for downloading Pathfinder's database and being able to quickly use [`prove_block`](#using-the-prove_block-binary) binary)
+### Build Requirements
+
+Building SNOS compiles the `apollo_starknet_os` crate which in turn compiles `os.cairo`. This requires `cairo-compile` to be available in your PATH.
+
+**Using the setup script (recommended)**
+
+```bash
+./setup-scripts/setup-cairo.sh
+source ./snos-env/bin/activate
+```
+
+This creates a virtual environment with the correct `cairo-lang` dependencies. The requirements are based on the sequencer repo's `scripts/requirements.txt` (sequencer commit is specified in `Cargo.toml`).
+
+**Alternative: Manual setup**
+
+If you prefer manual setup, ensure `cairo-compile` is available in your PATH. You can install `cairo-lang` in a virtual environment or system-wide.
 
 ### Installation
 
-1. **Clone the Repository**
-
-Clone this repository and its submodules:
-   ```bash
-   git clone https://github.com/keep-starknet-strange/snos.git --recursive
-  ``` 
-
-#### Install project dependencies
-In order to compile the Starknet OS Cairo program, you’ll need the Cairo compiler:
-
-- Follow the [Cairo documentation](https://docs.cairo-lang.org/quickstart.html)
-- Or simply run:
 ```bash
-./setup-scripts/setup-cairo.sh
+git clone https://github.com/keep-starknet-strange/snos.git
+cd snos
+
+# Ensure cairo-compile is available (activate venv if using one)
+source venv/bin/activate  # or source ./snos-env/bin/activate
+
+cargo build --release
 ```
 
-This will create a virtual environment and download needed dependencies to compile cairo programs. You will need to activate it to compile Cairo programs.
+## 🚀 Usage
 
-## 🧪 Running Tests
+### Quick Start with Makefile
 
-SNOS includes comprehensive end-to-end tests for PIE generation. Tests can be run using the convenient Makefile or directly with cargo.
-
-### Quick Start - Using Makefile
+The easiest way to generate PIE is using the Makefile:
 
 ```bash
-# Run quick integration tests (no RPC required)
-make test-quick
+# Generate PIE for a Sepolia block
+make generate-pie sepolia 924015
 
-# Check test environment
-make env-check
+# Generate PIE for multiple blocks (comma-separated)
+make generate-pie sepolia 924015,924016,924017
 
-# Run full e2e tests (requires RPC endpoint)
-make test-e2e
+# Generate PIE for Mainnet
+make generate-pie mainnet 1952705
 
-# See all available test commands
-make help
+# Generate PIE for a custom L2/L3 network (e.g., madara-devnet)
+make generate-pie madara-devnet 100
 ```
 
-### Test Categories
-
-- **Quick Integration Tests**: Fast tests that verify workspace integration without requiring external RPC
-- **E2E PIE Generation Tests**: Complete workflow tests that generate actual PIE files
-- **Error Handling Tests**: Comprehensive error scenario testing
-- **Performance Tests**: Timing and resource usage validation
-
-### Using Different RPC Endpoints
+### Using the CLI Directly
 
 ```bash
-# Test against local Pathfinder instance
-make test-e2e RPC_URL=http://localhost:9545
-
-# Test against Sepolia testnet
-make test-sepolia
-
-# Test with verbose output
-make test-pie VERBOSE=true
+cargo run -p generate-pie -- \
+  --blocks 924015 \
+  --rpc-url https://your-node.com \
+  --output ./output.zip
 ```
 
-### Legacy Test Setup
+### CLI Options
 
-For the original Cairo test environment:
+| Option | Env Variable | Description | Default |
+|--------|--------------|-------------|---------|
+| `-b, --blocks` | `SNOS_BLOCKS` | Block number(s) to process (comma-separated) | **Required** |
+| `-r, --rpc-url` | `SNOS_RPC_URL` | RPC endpoint with storage proof support | **Required** |
+| `-o, --output` | `SNOS_OUTPUT` | Output path for PIE file | None (PIE not saved to disk) |
+| `-l, --layout` | `SNOS_LAYOUT` | Cairo VM layout | `all_cairo` |
+| `--chain` | `SNOS_NETWORK` | Network/chain ID | `sepolia` |
+| `-s, --strk-fee-token-address` | `SNOS_STRK_FEE_TOKEN_ADDRESS` | STRK fee token address | Sepolia default |
+| `-e, --eth-fee-token-address` | `SNOS_ETH_FEE_TOKEN_ADDRESS` | ETH fee token address | Sepolia default |
+| `-i, --is-l3` | `SNOS_IS_L3` | Whether this is an L3 chain | `false` |
+| `--versioned-constants-path` | `SNOS_VERSIONED_CONSTANTS_PATH` | Custom versioned constants JSON | Auto-detect from block |
+
+### Default Values
+
+When not specified, these defaults are used:
+
+| Setting | Default Value |
+|---------|---------------|
+| Layout | `all_cairo` |
+| Chain | `sepolia` |
+| STRK Fee Token | `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d` |
+| ETH Fee Token | `0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7` |
+| Is L3 | `false` |
+| Versioned Constants | Auto-detected from block version |
+
+### Examples
 
 ```bash
-# Activate Cairo environment
-source ./snos-env/bin/activate
+# Minimal - single block (uses all defaults for Sepolia)
+cargo run -p generate-pie -- -b 924015 -r $RPC_URL
 
-# Set up tests
-./scripts/setup-tests.sh
+# With output file
+cargo run -p generate-pie -- -b 924015 -r $RPC_URL -o output.zip
 
-# Run workspace tests
-cargo test --workspace
+# Multiple blocks
+cargo run -p generate-pie -- -b 924015,924016,924017 -r $RPC_URL
 
-# Reset test environment if needed
-./scripts/reset-tests.sh
+# With verbose logging
+RUST_LOG=info cargo run -p generate-pie -- -b 924015 -r $RPC_URL -o pie.zip
+
+# Mainnet
+cargo run -p generate-pie -- \
+  -b 1952705 \
+  -r $RPC_URL \
+  --chain mainnet
+
+# Custom L2 network
+cargo run -p generate-pie -- \
+  -b 1000 \
+  -r https://your-l2-node.example.com \
+  --chain YOUR_CUSTOM_CHAIN_ID \
+  -s 0x_YOUR_STRK_FEE_TOKEN_ADDRESS \
+  -e 0x_YOUR_ETH_FEE_TOKEN_ADDRESS
+
+# Custom L3 network (important: set --is-l3 true)
+cargo run -p generate-pie -- \
+  -b 1000 \
+  -r https://your-l3-node.example.com \
+  --chain YOUR_CUSTOM_CHAIN_ID \
+  -s 0x_YOUR_STRK_FEE_TOKEN_ADDRESS \
+  -e 0x_YOUR_ETH_FEE_TOKEN_ADDRESS \
+  --is-l3 true
+
+# With custom layout
+cargo run -p generate-pie -- \
+  -b 924015 \
+  -r $RPC_URL \
+  -l starknet_with_keccak
+
+# With custom versioned constants
+cargo run -p generate-pie -- \
+  -b 924015 \
+  -r $RPC_URL \
+  --versioned-constants-path ./custom_constants.json
+
+# Using all environment variables
+export SNOS_RPC_URL=https://your-node.com
+export SNOS_BLOCKS=924015,924016
+export SNOS_NETWORK=sepolia
+export SNOS_LAYOUT=all_cairo
+export SNOS_OUTPUT=./output.zip
+export SNOS_IS_L3=false
+cargo run -p generate-pie
 ```
 
-##  🚀 Usage 
-### Adding SNOS as a dependency
+### RPC Replay Service
 
-You can add the following to your rust project's `Cargo.toml`:
+For continuous block processing and correctness testing, use the `rpc-replay` binary:
+
+```bash
+# Sequential mode - process blocks starting from a specific number
+make rpc-replay-seq sepolia 924015 10
+
+# Or directly:
+cargo run -p rpc-replay -- \
+  --start-block 924015 \
+  --num-blocks 10 \
+  --rpc-url $RPC_URL \
+  --log-dir ./logs
+```
+
+### Using as a Library
+
+Add to your `Cargo.toml`:
 
 ```toml
-starknet-os = { git = "https://github.com/keep-starknet-strange/snos", rev = "662d1706f5855044e52ebf688a18dd80016c8700" }
+generate-pie = { git = "https://github.com/keep-starknet-strange/snos" }
 ```
 
-### Using the `prove_block` Binary
+Example usage:
 
-To execute correctly, SNOS requires detailed block information, including:
+```rust
+use generate_pie::{generate_pie, PieGenerationInput, ChainConfig, OsHintsConfiguration};
+use cairo_vm::types::layout_name::LayoutName;
 
-- **State changes**: Information about new classes, contracts, and any modifications to contract storage. (See [StateDiff](https://github.com/xJonathanLEI/starknet-rs/blob/5c676a64031901b5a203168fd8ef8d6b40a5862f/starknet-core/src/types/codegen.rs#L1723-L1737))
-- **Storage proofs**: [Merkle Proofs](https://www.quicknode.com/docs/starknet/pathfinder_getProof) from both class and contract tries, needed for validating that updated values match the global state root.
-- **Transaction execution Information**: Data on [calls, subcalls](https://github.com/starkware-libs/sequencer/blob/7aa546acde88c94825992501662788e716db5fe0/crates/blockifier/src/transaction/objects.rs#L168-L183), and specific program counters visited ([VisitedPCs](https://github.com/starkware-libs/sequencer/blob/7aa546acde88c94825992501662788e716db5fe0/crates/blockifier/src/state/cached_state.rs#L34-L35)) during execution.
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let input = PieGenerationInput {
+        rpc_url: "https://your-node.com".to_string(),
+        blocks: vec![924015, 924016],
+        chain_config: ChainConfig::default_with_chain("sepolia"),
+        os_hints_config: OsHintsConfiguration::default(),
+        output_path: Some("output.zip".to_string()),
+        layout: LayoutName::all_cairo,
+        versioned_constants: None,
+    };
 
-The `prove_block` binary handles this entire process by collecting, formatting, and feeding the necessary data into the OS, ensuring the correct `OSInput` is passed for execution.
+    let result = generate_pie(input).await?;
+    println!("Processed blocks: {:?}", result.blocks_processed);
+    Ok(())
+}
+```
 
-To accomplish this, it queries the required information from a full node. Currently, Pathfinder is the only full node implementing all the necessary RPC methods, so a synced [Pathfinder](https://github.com/eqlabs/pathfinder) instance running as an [**archive node**](https://github.com/eqlabs/pathfinder?tab=readme-ov-file#state-trie-pruning) (to provide access to storage proofs) is required to execute this binary successfully.
+## 🌐 Supported Networks
 
-For example, you can run Pathfinder executing:
+| Network | Chain ID | Notes |
+|---------|----------|-------|
+| Sepolia | `sepolia` | Starknet testnet |
+| Mainnet | `mainnet` | Starknet mainnet |
+| Custom L2 | Your chain ID | Custom Starknet L2 networks |
+| Custom L3 | Your chain ID | Set `--is-l3 true` for L3 networks |
+
+> **Important**: For custom L3 networks, you must set `--is-l3 true` (or `SNOS_IS_L3=true`) for correct execution.
+
+## 🧪 Testing
 
 ```bash
-PATHFINDER_ETHEREUM_API_URL="YOUR_KEY" ./target/release/pathfinder --data-directory /home/herman/pathfinder-data --http-rpc 0.0.0.0:9545 --storage.state-tries archive
+# Run workspace unit tests
+make test-workspace
+
+# Run E2E tests (requires RPC access)
+make test-e2e
+
+# Run all tests
+make test-all
+
+# Run CI-suitable tests
+make test-ci
 ```
 
-Once you have a synced full node, you can start generating PIEs of a given block by running:
+### Environment Variables for Tests
 
 ```bash
-cargo run --release -p prove_block -- --block-number 200000 --rpc-provider http://0.0.0.0:9545
+export SNOS_RPC_URL=https://your-mainnet-node.com
+export SNOS_RPC_URL_SEPOLIA=https://your-sepolia-node.com
 ```
+
+## 🏗️ Architecture
+
+SNOS is organized as a Cargo workspace with the following crates:
+
+| Crate | Description |
+|-------|-------------|
+| `generate-pie` | Core PIE generation library and CLI |
+| `rpc-client` | Unified RPC client for Starknet-spec nodes with storage proof support |
+| `rpc-replay` | Continuous block processing service for correctness testing |
+| `starknet-os-types` | Type definitions and contract class abstractions |
+| `e2e-tests` | End-to-end test suite |
+
+**Documentation:**
+
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Crate overview, configuration options, and build requirements |
+| [CODE_FLOW.md](./docs/CODE_FLOW.md) | Detailed code execution flow, parallelization, RPC patterns, and type conversions |
 
 ## 🤝 Related Projects
 
-- [cairo compiler](https://github.com/starkware-libs/cairo): A blazing fast compiler for Cairo, written in Rust
-- [cairo vm](https://github.com/lambdaclass/cairo-vm): A faster and safer implementation of the Cairo VM in Rust
-- [blockifier](https://github.com/starkware-libs/sequencer/tree/7218aa1f7ca3fe21c0a2bede2570820939ffe069/crates/blockifier): The transaction-executing component in the Starknet sequencer.
-- [pathfinder](https://github.com/eqlabs/pathfinder): A Starknet full node written in Rust
-- [madara](https://github.com/madara-alliance/madara): A powerful Starknet client written in Rust.
+- [sequencer](https://github.com/starkware-libs/sequencer): Starknet sequencer containing the Starknet OS
+- [cairo-vm](https://github.com/lambdaclass/cairo-vm): Cairo VM implementation in Rust
+- [pathfinder](https://github.com/eqlabs/pathfinder): Starknet full node with storage proofs
+- [madara](https://github.com/madara-alliance/madara): Starknet client for app-chains
+- [katana](https://github.com/dojoengine/dojo): Local Starknet development node
 
 ## 📚 Documentation
 
-### Cairo:
+### SNOS Documentation
+
+- [Architecture Overview](./docs/ARCHITECTURE.md) - Crate structure, configuration, and build requirements
+- [Code Flow](./docs/CODE_FLOW.md) - Detailed execution flow, parallelization, and type conversions
+
+### External Resources
+
+**Starknet OS:**
+- [Starknet OS in sequencer](https://github.com/starkware-libs/sequencer/tree/main/crates/apollo_starknet_os_program)
+
+**Cairo:**
 - [The Cairo Book](https://book.cairo-lang.org/)
 - [How Cairo Works](https://docs.cairo-lang.org/how_cairo_works/index.html)
-- [Cairo – a Turing-complete STARK-friendly CPU architecture](https://eprint.iacr.org/2021/1063)
-- [A Verified Algebraic Representation of Cairo Program Execution](https://arxiv.org/pdf/2109.14534)
+- [Cairo Whitepaper](https://eprint.iacr.org/2021/1063)
 
-### Starknet
+**Starknet:**
 - [Starknet Docs](https://docs.starknet.io/)
-  -  [Starknet State](https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/)
-- [MoonsongLabs talk in StarknetCC](https://www.youtube.com/watch?v=xHc_pKXN9h8)
-
-### StarknetOS
-- [Pragma Article on os.cairo](https://hackmd.io/@pragma/ByP-iux1T)
-- [os.cairo code](https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/starknet/core/os/os.cairo)
-
+- [Starknet State](https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/)
 
 ## 📜 License
 

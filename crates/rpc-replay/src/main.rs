@@ -1,3 +1,56 @@
+//! # RPC Replay Service
+//!
+//! A continuous block processing service for replaying blocks from Starknet-spec compatible chains.
+//!
+//! ## Overview
+//!
+//! This service replays blocks to verify the correctness of SNOS by generating Cairo PIE
+//! for each block. It's primarily used to test already-settled blocks and ensure the
+//! PIE generation logic produces consistent results.
+//!
+//! This binary provides two execution modes:
+//!
+//! - **Sequential Mode**: Start from a specific block and process blocks continuously
+//! - **JSON Mode**: Process a list of blocks from a JSON file (useful for retrying failed blocks)
+//!
+//! ## Usage
+//!
+//! ### Sequential Mode
+//!
+//! Process blocks starting from a specific block number:
+//!
+//! ```bash
+//! cargo run -p rpc-replay -- \
+//!     --start-block 924015 \
+//!     --num-blocks 10 \
+//!     --rpc-url https://your-node.com \
+//!     --log-dir ./error-logs
+//! ```
+//!
+//! ### JSON Mode
+//!
+//! Process specific blocks from a JSON file:
+//!
+//! ```bash
+//! cargo run -p rpc-replay -- \
+//!     --json-file ./failed_blocks.json \
+//!     --rpc-url https://your-node.com \
+//!     --log-dir ./error-logs
+//! ```
+//!
+//! The JSON file can be in two formats:
+//!
+//! 1. Original format: `{"error_blocks": [1, 2, 3], "total_count": 3}`
+//! 2. Error decoding format: `{"failing_blocks": [1, 2, 3], "metadata": {...}}`
+//!
+//! ## Features
+//!
+//! - **Correctness Testing**: Replay settled blocks to verify SNOS behavior
+//! - **Error Logging**: Failed blocks are logged to files (local or S3)
+//! - **Panic Recovery**: Catches panics during PIE generation to continue processing
+//! - **Progress Tracking**: Detailed progress reporting for JSON mode
+//! - **Network Agnostic**: Works with any Starknet-spec compatible chain (L2 or L3)
+
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client as S3Client;
