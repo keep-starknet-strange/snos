@@ -222,7 +222,7 @@ fn create_account_transaction_result(
     account_tx: starknet_api::executable_transaction::AccountTransaction,
     block_number: u64
 ) -> TransactionConversionResult {
-    let mut charge_fee = true;
+    let mut charge_fee = false;
        if block_number == 0 {
         warn!("Genesis block transaction - skipping fee charging");
         charge_fee = false;
