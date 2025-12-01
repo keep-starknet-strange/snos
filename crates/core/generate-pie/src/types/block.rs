@@ -21,6 +21,7 @@ use starknet::core::types::{
 };
 use starknet::providers::Provider;
 use starknet_api::block::{BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion};
+use starknet_api::versioned_constants_logic::VersionedConstantsTrait;
 use starknet_api::contract_address;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
