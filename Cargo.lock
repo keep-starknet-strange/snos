@@ -5036,7 +5036,6 @@ dependencies = [
  "starknet-rust",
  "starknet-rust-core",
  "starknet-rust-crypto",
- "starknet-rust-macros",
  "starknet-types-core",
  "starknet_api",
  "thiserror 1.0.69",
