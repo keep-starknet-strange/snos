@@ -37,7 +37,7 @@ cairo-lang-utils = "=2.12.3"
 cairo-lang-casm = "=2.12.3"
 cairo-vm = "=2.5.0"
 
-starknet = {package = "starknet-rust", version = "0.17.0"}
+starknet = {package = "starknet-rust", version = "0.18.0-rc.0"}
 starknet-types-core = "0.2.3"
 
 pathfinder-class-hash = { git = "https://github.com/eqlabs/pathfinder", rev = "f205768f0ca4b6adcdce338e6f95ee9acb80b734", package = "pathfinder-class-hash" }
@@ -55,8 +55,8 @@ num-bigint = "0.4"
 once_cell = "1.20.0"
 rayon = "1.10"
 serde_with = "3.3.0"
-starknet-core = {package = "starknet-rust-core", version = "0.16.0"}
-starknet-crypto = {package = "starknet-rust-crypto", version = "0.8.1"}
+starknet-core = {package = "starknet-rust-core", version = "0.17.0-rc.0"}
+starknet-crypto = {package = "starknet-rust-crypto", version = "0.9.0-rc.0"}
 bitvec = { version = "1.0", default-features = false, features = ["std"] }
 num-traits = "0.2.19"
 async-trait = "0.1.89"

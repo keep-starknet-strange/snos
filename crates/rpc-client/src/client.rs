@@ -6,7 +6,7 @@ use log::info;
 use reqwest::Url;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError};
-use starknet_core::types::{ConfirmedBlockId, ContractStorageKeys};
+use starknet_core::types::{ConfirmedBlockId, ContractStorageKeys, StorageKey};
 use starknet_types_core::felt::Felt;
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -373,7 +373,10 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
             ConfirmedBlockId::Number(block_number),
             [],
             [contract_address],
-            [ContractStorageKeys { contract_address, storage_keys: storage_keys.to_vec() }],
+            [ContractStorageKeys {
+                contract_address,
+                storage_keys: storage_keys.iter().map(|k| StorageKey(k.to_hex_string())).collect(),
+            }],
         )
         .await?
         .try_into()
