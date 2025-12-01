@@ -161,7 +161,6 @@ pub async fn generate_cached_state_input(
     info!("Fetched {} contract classes, now computing hashes in parallel...", class_fetch_results.len());
 
     // Phase 2: Process contract classes in parallel using rayon (CPU parallelization)
-    // Using BLAKE2s hash (SNIP-34) for compiled class hashes
     let compiled_class_hash_results: Vec<(ClassHash, CompiledClassHash)> = class_fetch_results
         .par_iter()
         .filter_map(|(class_hash, contract_class_opt)| {

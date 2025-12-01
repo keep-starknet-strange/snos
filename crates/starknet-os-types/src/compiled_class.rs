@@ -67,39 +67,11 @@ impl GenericCompiledClass {
         }
     }
 
-    /// Computes the class hash v2 (BLAKE2s) for this compiled class.
-    ///
-    /// This is the SNIP-34 compliant hash computation:
-    /// - For Cairo 0 contracts: Returns the same hash as `class_hash()` (no migration for legacy classes)
-    /// - For Cairo 1 contracts: Uses BLAKE2s hash computation algorithm instead of Poseidon
-    ///
-    /// # Returns
-    ///
-    /// Returns the computed BLAKE2s class hash, or an error if the computation fails.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `ContractClassError` if the class hash computation fails due to
-    /// invalid contract data, serialization issues, or other internal errors.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use starknet_os_types::compiled_class::GenericCompiledClass;
-    /// use starknet_os_types::casm_contract_class::GenericCasmContractClass;
-    ///
-    /// let compiled_class = GenericCompiledClass::Cairo1(GenericCasmContractClass::from_bytes(vec![0]);
-    /// // Get BLAKE2s hash (SNIP-34)
-    /// match compiled_class.class_hash_v2() {
-    ///     Ok(hash) => println!("BLAKE2s class hash: {:?}", hash),
-    ///     Err(e) => eprintln!("Failed to compute class hash: {}", e),
-    /// }
-    /// ```
+    /// Computes the class hash v2 (BLAKE2s / SNIP-34) for this compiled class.
+    /// Cairo 0 contracts return the same hash as `class_hash()` (no migration).
     pub fn class_hash_v2(&self) -> Result<GenericClassHash, ContractClassError> {
         match self {
-            // Cairo 0 classes don't migrate - return the same hash
             GenericCompiledClass::Cairo0(deprecated_class) => deprecated_class.class_hash(),
-            // Cairo 1 classes use BLAKE2s hash (SNIP-34)
             GenericCompiledClass::Cairo1(casm_class) => casm_class.class_hash_v2(),
         }
     }

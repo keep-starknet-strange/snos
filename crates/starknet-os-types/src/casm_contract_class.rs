@@ -325,46 +325,14 @@ impl GenericCasmContractClass {
         self.class_hash.get_or_try_init(|| self.compute_class_hash()).copied()
     }
 
-    /// Computes the class hash v2 (BLAKE2s) for this contract class.
-    ///
-    /// This is the SNIP-34 compliant hash using BLAKE2s instead of Poseidon.
-    ///
-    /// # Returns
-    ///
-    /// The computed class hash, or an error if computation fails.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `ContractClassError` if the class hash computation fails.
+    /// Computes the class hash v2 (BLAKE2s / SNIP-34) for this contract class.
     fn compute_class_hash_v2(&self) -> Result<GenericClassHash, ContractClassError> {
         let compiled_class = self.get_cairo_lang_contract_class()?;
         let class_hash = compiled_class.hash(&HashVersion::V2);
-
         Ok(GenericClassHash::from_bytes_be(class_hash.0.to_bytes_be()))
     }
 
-    /// Gets the class hash v2 (BLAKE2s) for this contract class, computing it if necessary.
-    ///
-    /// This returns the **BLAKE2s hash** (post-SNIP-34) as specified in SNIP-34.
-    /// For the legacy Poseidon hash (pre-SNIP-34), use [`class_hash`](Self::class_hash).
-    ///
-    /// # Returns
-    ///
-    /// The BLAKE2s class hash, or an error if computation fails.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `ContractClassError` if the class hash computation fails.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use starknet_os_types::casm_contract_class::GenericCasmContractClass;
-    ///
-    /// let casm_class = GenericCasmContractClass::from_bytes(vec![]);
-    /// // Get BLAKE2s hash (SNIP-34)
-    /// let class_hash_v2 = casm_class.class_hash_v2()?;
-    /// ```
+    /// Gets the class hash v2 (BLAKE2s / SNIP-34) for this contract class, computing it if necessary.
     pub fn class_hash_v2(&self) -> Result<GenericClassHash, ContractClassError> {
         self.class_hash_v2.get_or_try_init(|| self.compute_class_hash_v2()).copied()
     }
