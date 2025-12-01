@@ -10,7 +10,7 @@ use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 
 use crate::constants::{MAX_CONCURRENT_GET_CLASS_REQUESTS, MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS};
-use rpc_client::state_reader::compute_compiled_class_hash;
+use rpc_client::state_reader::compute_compiled_class_hash_v2;
 use rpc_client::RpcClient;
 
 // Constants for special contract addresses
@@ -161,11 +161,12 @@ pub async fn generate_cached_state_input(
     info!("Fetched {} contract classes, now computing hashes in parallel...", class_fetch_results.len());
 
     // Phase 2: Process contract classes in parallel using rayon (CPU parallelization)
+    // Using BLAKE2s hash (SNIP-34) for compiled class hashes
     let compiled_class_hash_results: Vec<(ClassHash, CompiledClassHash)> = class_fetch_results
         .par_iter()
         .filter_map(|(class_hash, contract_class_opt)| {
             let contract_class = contract_class_opt.as_ref()?;
-            let compiled_hash = compute_compiled_class_hash(contract_class).ok()?;
+            let compiled_hash = compute_compiled_class_hash_v2(contract_class).ok()?;
             Some((*class_hash, compiled_hash))
         })
         .collect();

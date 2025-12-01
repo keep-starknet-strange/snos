@@ -633,6 +633,7 @@ fn process_function_invocations(inv: &FunctionInvocation, result: &mut TraceProc
 }
 
 /// Adds an already-compiled class to the result (used in optimized parallel compilation paths).
+/// Uses BLAKE2s hash (SNIP-34) for compiled class hashes.
 fn add_compiled_class_internal(
     class_hash: Felt,
     compiled_class: GenericCompiledClass,
@@ -645,9 +646,10 @@ fn add_compiled_class_internal(
         return Ok(());
     }
 
+    // Use BLAKE2s hash (SNIP-34) for compiled class hashes
     let compiled_class_hash = compiled_class
-        .class_hash()
-        .map_err(|e| StateUpdateError::CompilationFailed(format!("Failed to get class hash: {:?}", e)))?;
+        .class_hash_v2()
+        .map_err(|e| StateUpdateError::CompilationFailed(format!("Failed to get class hash v2 (BLAKE): {:?}", e)))?;
 
     match compiled_class {
         GenericCompiledClass::Cairo0(deprecated_cc) => {
@@ -655,7 +657,7 @@ fn add_compiled_class_internal(
             result.deprecated_compiled_classes.insert(class_hash, deprecated_cc);
         }
         GenericCompiledClass::Cairo1(casm_cc) => {
-            debug!("Adding compiled class: {:?} -> {:?}", class_hash, compiled_class_hash);
+            debug!("Adding compiled class: {:?} -> {:?} (BLAKE2s)", class_hash, compiled_class_hash);
             class_hash_to_compiled_class_hash.insert(class_hash, compiled_class_hash.into());
             result.compiled_classes.insert(compiled_class_hash.into(), casm_cc);
         }

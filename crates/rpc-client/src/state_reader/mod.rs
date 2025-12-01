@@ -259,6 +259,45 @@ impl AsyncRpcStateReader {
 
         compute_compiled_class_hash(&contract_class)
     }
+
+    /// Gets the compiled class hash v2 (BLAKE2s) for a given class hash.
+    ///
+    /// This is the SNIP-34 compliant hash computation using BLAKE2s instead of Poseidon.
+    /// Use this method for post-SNIP-34 blocks.
+    ///
+    /// # Arguments
+    /// * `class_hash` - The class hash to get the compiled class hash for
+    ///
+    /// # Returns
+    /// The BLAKE2s compiled class hash or an error if the class is not found
+    ///
+    /// # Notes
+    /// - For Sierra classes: Returns BLAKE2s hash (different from Poseidon)
+    /// - For Legacy classes: Returns the same hash as v1 (no migration for Cairo 0)
+    pub async fn get_compiled_class_hash_v2_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        // When no block exists, no classes are available
+        if self.has_no_block() {
+            return Err(StateError::UndeclaredClassHash(class_hash));
+        }
+
+        let block_id = self.block_id.unwrap();
+        debug!("got a request of get_compiled_class_hash_v2 with parameters the class hash: {:?}", class_hash);
+        let operation_name = format!("get_compiled_class_hash_v2(class_hash: {:?})", class_hash);
+
+        let contract_class = self
+            .execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
+            .await
+            .map_err(provider_error_to_state_error)?;
+
+        compute_compiled_class_hash_v2(&contract_class)
+    }
+
+    /// Synchronous wrapper for `get_compiled_class_hash_v2_async`.
+    ///
+    /// This is the SNIP-34 compliant hash computation using BLAKE2s instead of Poseidon.
+    pub fn get_compiled_class_hash_v2(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        execute_coroutine(self.get_compiled_class_hash_v2_async(class_hash))
+    }
 }
 
 // Implementing StateReader for AsyncRpcStateReader using coroutines
@@ -282,12 +321,41 @@ impl StateReader for AsyncRpcStateReader {
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         execute_coroutine(self.get_compiled_class_hash_async(class_hash))
     }
+
+    /// Returns the compiled class hash v2 (BLAKE2s) for the given class.
+    ///
+    /// This is the SNIP-34 compliant hash computation using BLAKE2s instead of Poseidon.
+    /// - For Cairo 0 (V0) classes: These should not have compiled class hash v2
+    /// - For Cairo 1 (V1) classes: Computes and returns BLAKE2s hash
+    fn get_compiled_class_hash_v2(
+        &self,
+        _class_hash: ClassHash,
+        compiled_class: &RunnableCompiledClass,
+    ) -> StateResult<CompiledClassHash> {
+        use starknet_api::contract_class::compiled_class_hash::{HashVersion, HashableCompiledClass};
+
+        match compiled_class {
+            RunnableCompiledClass::V0(_) => {
+                // Cairo 0 classes don't migrate - return error as they shouldn't have v2 hash
+                Err(StateError::StateReadError(
+                    "Cairo0 classes should not have compiled class hash v2".to_string(),
+                ))
+            }
+            RunnableCompiledClass::V1(compiled_class_v1) => {
+                // Cairo 1 classes use BLAKE2s hash (SNIP-34)
+                Ok(compiled_class_v1.hash(&HashVersion::V2))
+            }
+        }
+    }
 }
 
 /// Computes the compiled class hash for a given contract class.
 ///
 /// This is a CPU-intensive operation that compiles Sierra classes or decompresses Legacy classes
 /// to compute their compiled class hash. This function can be used in parallel processing scenarios.
+///
+/// This returns the **Poseidon hash** (pre-SNIP-34). For the BLAKE2s hash
+/// (post-SNIP-34), use [`compute_compiled_class_hash_v2`].
 ///
 /// # Arguments
 /// * `contract_class` - The contract class to compute the hash for
@@ -311,6 +379,47 @@ pub fn compute_compiled_class_hash(
                 })?;
 
             // Convert the decompressed LegacyContractClass to GenericDeprecatedCompiledClass
+            let generic_deprecated =
+                GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
+            generic_deprecated.class_hash().map_err(to_state_err)?
+        }
+    };
+
+    Ok(class_hash.into())
+}
+
+/// Computes the compiled class hash v2 (BLAKE2s) for a given contract class.
+///
+/// This is the SNIP-34 compliant hash computation using BLAKE2s instead of Poseidon.
+/// This is a CPU-intensive operation that compiles Sierra classes or decompresses Legacy classes
+/// to compute their compiled class hash.
+///
+/// # Arguments
+/// * `contract_class` - The contract class to compute the hash for
+///
+/// # Returns
+/// The BLAKE2s compiled class hash or an error if computation fails
+///
+/// # Notes
+/// - For Sierra classes: Returns BLAKE2s hash (different from Poseidon)
+/// - For Legacy classes: Returns the same hash as v1 (no migration for Cairo 0)
+pub fn compute_compiled_class_hash_v2(
+    contract_class: &starknet::core::types::ContractClass,
+) -> Result<CompiledClassHash, StateError> {
+    let class_hash = match contract_class {
+        starknet::core::types::ContractClass::Sierra(sierra_class) => {
+            let generic_sierra = convert_sierra_class_for_generic(sierra_class)?;
+            let compiled_class = generic_sierra.compile().map_err(to_state_err)?;
+            // Use BLAKE2s hash (SNIP-34)
+            compiled_class.class_hash_v2().map_err(to_state_err)?
+        }
+        starknet::core::types::ContractClass::Legacy(legacy_class) => {
+            // Legacy classes don't migrate - use the same hash
+            let decompressed_legacy_class =
+                decompress_starknet_legacy_contract_class(legacy_class.clone()).map_err(|e| {
+                    StateError::StateReadError(format!("Failed to decompress legacy contract class: {}", e))
+                })?;
+
             let generic_deprecated =
                 GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
             generic_deprecated.class_hash().map_err(to_state_err)?

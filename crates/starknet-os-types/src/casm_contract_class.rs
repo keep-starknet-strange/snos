@@ -6,6 +6,7 @@ use std::sync::Arc;
 use crate::error::{ContractClassError, ConversionError};
 use crate::hash::GenericClassHash;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use starknet_api::contract_class::compiled_class_hash::{HashVersion, HashableCompiledClass};
 use starknet_api::contract_class::SierraVersion;
 
 /// Type alias for CairoLang CASM contract class.
@@ -47,8 +48,10 @@ pub struct GenericCasmContractClass {
     cairo_lang_contract_class: OnceCell<Arc<CairoLangCasmClass>>,
     /// Lazy-initialized serialized contract class bytes.
     serialized_class: OnceCell<Arc<Vec<u8>>>,
-    /// Lazy-initialized computed class hash.
+    /// Lazy-initialized computed class hash (Poseidon - pre-SNIP-34).
     class_hash: OnceCell<GenericClassHash>,
+    /// Lazy-initialized computed class hash v2 (BLAKE2s - post-SNIP-34).
+    class_hash_v2: OnceCell<GenericClassHash>,
 }
 
 /// Converts a CairoLang CASM class to a Blockifier CASM class.
@@ -116,6 +119,7 @@ impl GenericCasmContractClass {
             cairo_lang_contract_class: OnceCell::new(),
             serialized_class: OnceCell::from(Arc::new(serialized_class)),
             class_hash: OnceCell::new(),
+            class_hash_v2: OnceCell::new(),
         }
     }
 
@@ -298,6 +302,9 @@ impl GenericCasmContractClass {
 
     /// Gets the class hash for this contract class, computing it if necessary.
     ///
+    /// This returns the **Poseidon hash** (pre-SNIP-34). For the BLAKE2s hash
+    /// (post-SNIP-34), use [`class_hash_v2`](Self::class_hash_v2).
+    ///
     /// # Returns
     ///
     /// The class hash, or an error if computation fails.
@@ -316,6 +323,50 @@ impl GenericCasmContractClass {
     /// ```
     pub fn class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
         self.class_hash.get_or_try_init(|| self.compute_class_hash()).copied()
+    }
+
+    /// Computes the class hash v2 (BLAKE2s) for this contract class.
+    ///
+    /// This is the SNIP-34 compliant hash using BLAKE2s instead of Poseidon.
+    ///
+    /// # Returns
+    ///
+    /// The computed class hash, or an error if computation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the class hash computation fails.
+    fn compute_class_hash_v2(&self) -> Result<GenericClassHash, ContractClassError> {
+        let compiled_class = self.get_cairo_lang_contract_class()?;
+        let class_hash = compiled_class.hash(&HashVersion::V2);
+
+        Ok(GenericClassHash::from_bytes_be(class_hash.0.to_bytes_be()))
+    }
+
+    /// Gets the class hash v2 (BLAKE2s) for this contract class, computing it if necessary.
+    ///
+    /// This returns the **BLAKE2s hash** (post-SNIP-34) as specified in SNIP-34.
+    /// For the legacy Poseidon hash (pre-SNIP-34), use [`class_hash`](Self::class_hash).
+    ///
+    /// # Returns
+    ///
+    /// The BLAKE2s class hash, or an error if computation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContractClassError` if the class hash computation fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use starknet_os_types::casm_contract_class::GenericCasmContractClass;
+    ///
+    /// let casm_class = GenericCasmContractClass::from_bytes(vec![]);
+    /// // Get BLAKE2s hash (SNIP-34)
+    /// let class_hash_v2 = casm_class.class_hash_v2()?;
+    /// ```
+    pub fn class_hash_v2(&self) -> Result<GenericClassHash, ContractClassError> {
+        self.class_hash_v2.get_or_try_init(|| self.compute_class_hash_v2()).copied()
     }
 }
 
@@ -348,6 +399,7 @@ impl From<CairoLangCasmClass> for GenericCasmContractClass {
             cairo_lang_contract_class: OnceCell::from(Arc::new(cairo_lang_class)),
             serialized_class: Default::default(),
             class_hash: Default::default(),
+            class_hash_v2: Default::default(),
         }
     }
 }
@@ -359,6 +411,7 @@ impl From<BlockifierCasmClass> for GenericCasmContractClass {
             cairo_lang_contract_class: Default::default(),
             serialized_class: Default::default(),
             class_hash: Default::default(),
+            class_hash_v2: Default::default(),
         }
     }
 }
