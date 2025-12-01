@@ -4,6 +4,7 @@
 //! Cairo PIE files from Starknet blocks.
 
 use std::collections::BTreeSet;
+use std::str::FromStr;
 
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
@@ -13,28 +14,44 @@ use generate_pie::utils::load_versioned_constants;
 use generate_pie::{generate_pie, parse_layout};
 use log::{error, info};
 
-/// Parses a range string in format "start,end" and returns (start, end).
-/// Both start and end are inclusive.
-fn parse_range(range_str: &str) -> Result<(u64, u64), String> {
-    let parts: Vec<&str> = range_str.split(',').collect();
-    if parts.len() != 2 {
-        return Err(format!("Invalid range format '{}'. Expected format: start,end (e.g., 1,999)", range_str));
+/// Represents a range of block numbers (inclusive).
+#[derive(Debug, Clone, Copy)]
+struct BlockRange {
+    start: u64,
+    end: u64,
+}
+
+impl BlockRange {
+    /// Returns an iterator over all block numbers in this range (inclusive).
+    fn iter(&self) -> impl Iterator<Item = u64> {
+        self.start..=self.end
     }
+}
 
-    let start: u64 = parts[0]
-        .trim()
-        .parse()
-        .map_err(|_| format!("Invalid start value '{}'. Must be a positive integer.", parts[0]))?;
-    let end: u64 = parts[1]
-        .trim()
-        .parse()
-        .map_err(|_| format!("Invalid end value '{}'. Must be a positive integer.", parts[1]))?;
+impl FromStr for BlockRange {
+    type Err = String;
 
-    if start > end {
-        return Err(format!("Invalid range: start ({}) must be less than or equal to end ({})", start, end));
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split(',').collect();
+        if parts.len() != 2 {
+            return Err(format!("Invalid range format '{}'. Expected format: start,end (e.g., 1,999).", s));
+        }
+
+        let start: u64 = parts[0]
+            .trim()
+            .parse()
+            .map_err(|_| format!("Invalid start value '{}'. Must be a positive integer.", parts[0]))?;
+        let end: u64 = parts[1]
+            .trim()
+            .parse()
+            .map_err(|_| format!("Invalid end value '{}'. Must be a positive integer.", parts[1]))?;
+
+        if start > end {
+            return Err(format!("Invalid range: start ({}) must be less than or equal to end ({}).", start, end));
+        }
+
+        Ok(BlockRange { start, end })
     }
-
-    Ok((start, end))
 }
 
 #[derive(Parser)]
@@ -48,7 +65,7 @@ struct Cli {
 
     /// Block range to process (format: start,end - inclusive)
     #[arg(short = 'R', long, env = "SNOS_RANGE")]
-    range: Option<String>,
+    range: Option<BlockRange>,
 
     /// RPC URL to connect to
     #[arg(short, long, required = true, env = "SNOS_RPC_URL")]
@@ -115,30 +132,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Collect blocks from --blocks and --range arguments
     let mut blocks: BTreeSet<u64> = cli.blocks.into_iter().collect();
 
-    // Parse and add blocks from range if provided
-    if let Some(range_str) = &cli.range {
-        match parse_range(range_str) {
-            Ok((start, end)) => {
-                info!("Adding blocks from range {} to {} (inclusive)", start, end);
-                for block in start..=end {
-                    blocks.insert(block);
-                }
-            }
-            Err(e) => {
-                error!("Range parsing error: {}", e);
-                std::process::exit(1);
-            }
-        }
+    // Add blocks from range if provided
+    if let Some(range) = cli.range {
+        info!("Adding blocks from range {} to {} (inclusive)", range.start, range.end);
+        blocks.extend(range.iter());
     }
-
-    // Convert to sorted Vec
-    let blocks: Vec<u64> = blocks.into_iter().collect();
 
     // Validate that at least one block is provided
     if blocks.is_empty() {
         error!("At least one block number must be provided. Use --blocks and/or --range.");
         std::process::exit(1);
     }
+
+    // Convert to sorted Vec
+    let blocks: Vec<u64> = blocks.into_iter().collect();
 
     // Load versioned constants from file if provided
     let versioned_constants = load_versioned_constants(cli.versioned_constants_path.as_deref()).map_err(|e| {
