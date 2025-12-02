@@ -207,7 +207,9 @@ fn test_type_conversions() {
     let actual_type = std::any::type_name_of_val(&block_id);
     println!("   Actual type: {}", actual_type);
     // The type can be either, depending on which crate is being used
-    assert!(actual_type == "starknet::core::types::BlockId" || actual_type == "starknet_core::types::BlockId");
+    assert!(
+        actual_type == "starknet_rust::core::types::BlockId" || actual_type == "starknet_rust_core::types::BlockId"
+    );
 }
 
 #[test]
