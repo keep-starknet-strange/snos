@@ -176,25 +176,6 @@ pub enum StateUpdateError {
     CompilationFailed(String),
 }
 
-// Legacy error type for backward compatibility
-#[derive(Debug, Error)]
-pub enum ProveBlockError {
-    #[error("RPC Error: {0}")]
-    RpcError(#[from] ProviderError),
-    #[error("Conversion Failed: {0}")]
-    ConversionFailed(String),
-}
-
-impl From<StateUpdateError> for ProveBlockError {
-    fn from(err: StateUpdateError) -> Self {
-        match err {
-            StateUpdateError::RpcError(e) => ProveBlockError::RpcError(e),
-            StateUpdateError::ConversionFailed(e) => ProveBlockError::ConversionFailed(e),
-            _ => ProveBlockError::ConversionFailed(err.to_string()),
-        }
-    }
-}
-
 // ================================================================================================
 // Public API
 // ================================================================================================
