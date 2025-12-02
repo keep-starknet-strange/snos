@@ -10,7 +10,7 @@ use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 
 use crate::constants::{MAX_CONCURRENT_GET_CLASS_REQUESTS, MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS};
-use rpc_client::state_reader::compute_compiled_class_hash_v2;
+use rpc_client::state_reader::{compute_compiled_class_hash, compute_compiled_class_hash_v2};
 use rpc_client::RpcClient;
 
 // Constants for special contract addresses
@@ -44,6 +44,7 @@ pub async fn generate_cached_state_input(
     accessed_addresses: &HashSet<ContractAddress>,
     accessed_classes: &HashSet<ClassHash>,
     accessed_keys_by_address: &HashMap<ContractAddress, HashSet<StorageKey>>,
+    migrated_class_hashes: &HashSet<ClassHash>,
 ) -> Result<CachedStateInput, Box<dyn std::error::Error + Send + Sync>> {
     // For block 0, there's no previous state, so return genesis cached state
     if *block_number == 0 {
@@ -161,11 +162,19 @@ pub async fn generate_cached_state_input(
     info!("Fetched {} contract classes, now computing hashes in parallel...", class_fetch_results.len());
 
     // Phase 2: Process contract classes in parallel using rayon (CPU parallelization)
+    // For migrated classes, use v1 (Poseidon) hash since cached state represents previous block
+    // For other classes, use v2 (BLAKE) hash
     let compiled_class_hash_results: Vec<(ClassHash, CompiledClassHash)> = class_fetch_results
         .par_iter()
         .filter_map(|(class_hash, contract_class_opt)| {
             let contract_class = contract_class_opt.as_ref()?;
-            let compiled_hash = compute_compiled_class_hash_v2(contract_class).ok()?;
+            let compiled_hash = if migrated_class_hashes.contains(class_hash) {
+                // Use old Poseidon hash (v1) for migrated classes in cached state
+                compute_compiled_class_hash(contract_class).ok()?
+            } else {
+                // Use BLAKE hash (v2) for non-migrated classes
+                compute_compiled_class_hash_v2(contract_class).ok()?
+            };
             Some((*class_hash, compiled_hash))
         })
         .collect();

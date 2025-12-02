@@ -48,6 +48,13 @@ pub struct BlockInfoResult {
     pub migrated_compiled_classes: HashMap<ClassHash, CompiledClassHash>,
 }
 
+impl BlockInfoResult {
+    /// Returns the set of class hashes being migrated (SNIP-34).
+    pub fn migrated_class_hashes(&self) -> HashSet<ClassHash> {
+        self.migrated_compiled_classes.keys().copied().collect()
+    }
+}
+
 // ================================================================================================
 // Public API
 // ================================================================================================
@@ -142,9 +149,15 @@ pub async fn collect_single_block_info(
         .map(|(class_hash, compiled_class_hash)| (ClassHash(*class_hash), CompiledClassHash(*compiled_class_hash)))
         .collect();
 
-    // Step 8: Build final OS block input (consuming the result structs)
-    let os_block_input =
-        build_os_block_input(&block_data, tx_result, commitment_result, class_result, &block_context, &migrated_compiled_classes);
+    // Step 8: Build final OS block input
+    let os_block_input = build_os_block_input(
+        &block_data,
+        tx_result,
+        commitment_result,
+        class_result,
+        &block_context,
+        migrated_compiled_classes.clone(),
+    );
 
     info!("Successfully completed construction of OsBlockInput for block {}", block_number);
 
@@ -165,29 +178,13 @@ pub async fn collect_single_block_info(
 // ================================================================================================
 
 /// Builds the final OS block input from all processed data.
-///
-/// This function constructs the `OsBlockInput` structure containing all the
-/// information needed for the Starknet OS execution.
-///
-/// # Arguments
-///
-/// * `block_data` - The fetched block data
-/// * `tx_result` - The processed transaction data
-/// * `commitment_result` - The calculated commitment information
-/// * `class_result` - The processed contract class data
-/// * `block_context` - The built block context
-/// * `migrated_compiled_classes` - Classes migrated from Poseidon to BLAKE hash (SNIP-34)
-///
-/// # Returns
-///
-/// Returns an `OsBlockInput` ready for OS execution.
 fn build_os_block_input(
     block_data: &BlockData,
     tx_result: TransactionProcessingResult,
     commitment_result: CommitmentCalculationResult,
     class_result: ContractClassProcessingResult,
     block_context: &BlockContext,
-    migrated_compiled_classes: &HashMap<ClassHash, CompiledClassHash>,
+    migrated_compiled_classes: HashMap<ClassHash, CompiledClassHash>,
 ) -> OsBlockInput {
     info!("Building OS block input");
 
@@ -210,6 +207,6 @@ fn build_os_block_input(
         } else {
             Some((BlockNumber(block_data.old_block_number.to_u64().unwrap()), BlockHash(block_data.old_block_hash)))
         },
-        class_hashes_to_migrate: migrated_compiled_classes.clone(),
+        class_hashes_to_migrate: migrated_compiled_classes,
     }
 }

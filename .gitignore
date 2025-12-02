@@ -28,3 +28,4 @@ tmp
 sequencer_venv
 
 **/error_blocks*.txt
+.env
