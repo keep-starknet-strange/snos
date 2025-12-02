@@ -2947,6 +2947,8 @@ dependencies = [
  "starknet-os-types",
  "starknet-rust",
  "starknet-rust-core",
+ "starknet-rust",
+ "starknet-rust-core",
  "starknet-types-core",
  "starknet_api",
  "starknet_os",
@@ -5053,6 +5055,9 @@ dependencies = [
  "starknet-rust",
  "starknet-rust-core",
  "starknet-rust-crypto",
+ "starknet-rust",
+ "starknet-rust-core",
+ "starknet-rust-crypto",
  "starknet-types-core",
  "starknet_api",
  "thiserror 1.0.69",
@@ -5075,6 +5080,7 @@ dependencies = [
  "rpc-client",
  "serde",
  "serde_json",
+ "starknet-rust",
  "starknet-rust",
  "starknet-types-core",
  "tokio",
@@ -5778,9 +5784,23 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "starknet-crypto"
 version = "0.8.1"
+name = "starknet-crypto"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1004a16c25dc6113c19d4f9d0c19ff97d85804829894bba22c0d0e9e7b249812"
+checksum = "1004a16c25dc6113c19d4f9d0c19ff97d85804829894bba22c0d0e9e7b249812"
 dependencies = [
+ "crypto-bigint 0.5.5",
+ "hex",
+ "hmac",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rfc6979 0.4.0",
+ "sha2",
+ "starknet-curve",
+ "starknet-types-core",
+ "zeroize",
  "crypto-bigint 0.5.5",
  "hex",
  "hmac",
@@ -5852,6 +5872,10 @@ dependencies = [
  "starknet-rust-crypto",
  "starknet-rust-providers",
  "starknet-rust-signers",
+ "starknet-rust-core",
+ "starknet-rust-crypto",
+ "starknet-rust-providers",
+ "starknet-rust-signers",
  "thiserror 1.0.69",
 ]
 
@@ -5864,6 +5888,9 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "starknet-rust-accounts",
+ "starknet-rust-core",
+ "starknet-rust-providers",
  "starknet-rust-accounts",
  "starknet-rust-core",
  "starknet-rust-providers",
@@ -5884,6 +5911,7 @@ dependencies = [
  "indexmap 2.11.4",
  "num-traits",
  "semver",
+ "semver",
  "serde",
  "serde_json",
  "serde_json_pythonic",
@@ -5891,13 +5919,17 @@ dependencies = [
  "sha3",
  "starknet-rust-core-derive",
  "starknet-rust-crypto",
+ "starknet-rust-core-derive",
+ "starknet-rust-crypto",
  "starknet-types-core",
 ]
 
 [[package]]
 name = "starknet-rust-core-derive"
+name = "starknet-rust-core-derive"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77fe79a81e657d7f500b9a3706a42cdb3691fd36049845e1ea4b7ea8181860cd"
 checksum = "77fe79a81e657d7f500b9a3706a42cdb3691fd36049845e1ea4b7ea8181860cd"
 dependencies = [
  "proc-macro2",
@@ -5912,7 +5944,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "534092a41de7cbdf0576b44324c43ab65de8abe302bc02aa7b0abc9057857ce7"
 dependencies = [
  "blake2",
+ "blake2",
  "crypto-bigint 0.5.5",
+ "digest",
  "digest",
  "hex",
  "hmac",
@@ -5922,14 +5956,17 @@ dependencies = [
  "rfc6979 0.4.0",
  "sha2",
  "starknet-rust-curve",
+ "starknet-rust-curve",
  "starknet-types-core",
  "zeroize",
 ]
 
 [[package]]
 name = "starknet-rust-curve"
+name = "starknet-rust-curve"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1977caca63a4e6439968abe0c9d8c0d2074df7641f1153e8a551f8200470d8da"
 checksum = "1977caca63a4e6439968abe0c9d8c0d2074df7641f1153e8a551f8200470d8da"
 dependencies = [
  "starknet-types-core",
@@ -5941,6 +5978,7 @@ version = "0.2.6-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1580c3ab3fd51da2b2b6398574958c038a7b7acf4d5d7940237fee3723e26226"
 dependencies = [
+ "starknet-rust-core",
  "starknet-rust-core",
  "syn 2.0.106",
 ]
@@ -5962,6 +6000,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "starknet-rust-core",
+ "starknet-rust-core",
  "thiserror 1.0.69",
  "url",
 ]
@@ -5978,6 +6017,8 @@ dependencies = [
  "eth-keystore",
  "getrandom 0.2.16",
  "rand 0.8.5",
+ "starknet-rust-core",
+ "starknet-rust-crypto",
  "starknet-rust-core",
  "starknet-rust-crypto",
  "thiserror 1.0.69",
