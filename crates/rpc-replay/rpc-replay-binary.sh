@@ -78,7 +78,7 @@ rpc-replay \
 --upload-to-s3 \
 --log-dir "$NETWORK" \
 --upload-to-db \
---mongo-uri \
+--mongo-uri "mongodb://user:password@host:port" \
 --db-name "snos-testing-$NETWORK"
 
 echo "Docker container 'rpc-replay-$NETWORK' started successfully"

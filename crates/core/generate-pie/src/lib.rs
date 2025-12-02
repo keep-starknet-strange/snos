@@ -70,12 +70,12 @@ use cairo_vm::types::layout_name::LayoutName;
 use futures::future::join_all;
 use log::{info, warn};
 use rpc_client::RpcClient;
-use tokio::sync::Semaphore;
 use starknet_api::core::CompiledClassHash;
 use starknet_os::{
     io::os_input::{OsChainInfo, OsHints, OsHintsConfig, StarknetOsInput},
     runner::run_os_stateless,
 };
+use tokio::sync::Semaphore;
 
 // Local module imports
 use block_processor::collect_single_block_info;
@@ -161,9 +161,7 @@ pub async fn generate_pie(
     info!("RPC client initialized for {}", input.rpc_url);
 
     // Create semaphore to limit parallel execution to available CPU cores
-    let max_parallel_blocks = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(4);
+    let max_parallel_blocks = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
     let semaphore = Arc::new(Semaphore::new(max_parallel_blocks));
     info!("Processing blocks with max parallelism: {} (CPU cores)", max_parallel_blocks);
 
@@ -272,10 +270,7 @@ pub async fn generate_pie(
             block_deprecated_compiled_classes,
             mut cached_state_input,
             block_durations,
-        ) = result
-            .map_err(|e| {
-                PieGenerationError::RpcClient(format!("Task join error: {:?}", e))
-            })??;
+        ) = result.map_err(|e| PieGenerationError::RpcClient(format!("Task join error: {:?}", e)))??;
 
         // Add block input to our collection
         os_block_inputs.push(block_input);

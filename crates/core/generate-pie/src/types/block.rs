@@ -27,8 +27,8 @@ use starknet_api::state::StorageKey;
 use starknet_os_types::chain_id::chain_id_from_felt;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
-use std::time::{Duration, Instant};
 use std::env;
+use std::time::{Duration, Instant};
 
 const BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV: &str = "SNOS_BLOCKIFIER_TXN_EXECUTOR_CONFIG";
 

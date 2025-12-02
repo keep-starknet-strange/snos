@@ -402,11 +402,8 @@ async fn process_accessed_addresses(
     result: &mut CompiledClassResult,
 ) -> Result<(), StateUpdateError> {
     // Filter out special addresses
-    let addresses_to_process: Vec<Felt252> = accessed_addresses
-        .iter()
-        .filter(|addr| **addr != Felt::TWO && **addr != Felt::ONE)
-        .copied()
-        .collect();
+    let addresses_to_process: Vec<Felt252> =
+        accessed_addresses.iter().filter(|addr| **addr != Felt::TWO && **addr != Felt::ONE).copied().collect();
 
     if addresses_to_process.is_empty() {
         return Ok(());
