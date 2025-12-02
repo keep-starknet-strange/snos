@@ -48,6 +48,9 @@ pub struct FormattedStateUpdate {
     pub deprecated_compiled_classes: HashMap<Felt252, GenericDeprecatedCompiledClass>,
     /// Component hashes for declared classes
     pub declared_class_hash_component_hashes: HashMap<Felt252, ContractClassComponentHashes>,
+    /// Classes migrated from Poseidon to BLAKE hash (SNIP-34).
+    /// Maps class_hash -> compiled_class_hash_v2 (BLAKE)
+    pub migrated_compiled_classes: HashMap<Felt252, Felt252>,
 }
 
 impl FormattedStateUpdate {
@@ -248,6 +251,10 @@ pub(crate) async fn get_formatted_state_update(
     let declared_classes = extract_declared_classes(state_diff);
     info!("Found {} declared classes", declared_classes.len());
 
+    // Extract migrated compiled classes (SNIP-34)
+    let migrated_compiled_classes = extract_migrated_compiled_classes(state_diff);
+    info!("Found {} migrated compiled classes", migrated_compiled_classes.len());
+
     // Build compiled classes and mappings
     let mut class_hash_to_compiled_class_hash = HashMap::new();
     let compiled_result = build_compiled_classes(
@@ -271,6 +278,7 @@ pub(crate) async fn get_formatted_state_update(
         compiled_classes: compiled_result.compiled_classes,
         deprecated_compiled_classes: compiled_result.deprecated_compiled_classes,
         declared_class_hash_component_hashes: compiled_result.declared_component_hashes,
+        migrated_compiled_classes,
     })
 }
 
@@ -346,6 +354,16 @@ async fn fetch_state_update(
 /// Extracts declared class hashes from state diff.
 fn extract_declared_classes(state_diff: &StateDiff) -> HashSet<Felt252> {
     state_diff.declared_classes.iter().map(|declared_item| declared_item.class_hash).collect()
+}
+
+/// Extracts migrated compiled classes from state diff (SNIP-34).
+/// Returns a map of class_hash -> compiled_class_hash_v2 (BLAKE).
+fn extract_migrated_compiled_classes(state_diff: &StateDiff) -> HashMap<Felt252, Felt252> {
+    state_diff
+        .migrated_compiled_classes
+        .as_ref()
+        .map(|classes| classes.iter().map(|item| (item.class_hash, item.compiled_class_hash)).collect())
+        .unwrap_or_default()
 }
 
 /// Builds compiled classes from accessed addresses and classes.

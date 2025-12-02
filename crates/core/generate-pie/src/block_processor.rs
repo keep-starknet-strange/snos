@@ -44,6 +44,8 @@ pub struct BlockInfoResult {
     /// The previous block ID (if any).
     #[allow(dead_code)]
     pub previous_block_id: Option<BlockId>,
+    /// Classes migrated from Poseidon to BLAKE hash (SNIP-34).
+    pub migrated_compiled_classes: HashMap<ClassHash, CompiledClassHash>,
 }
 
 // ================================================================================================
@@ -132,8 +134,17 @@ pub async fn collect_single_block_info(
     let compiled_classes = class_result.compiled_classes.clone();
     let deprecated_compiled_classes = class_result.deprecated_compiled_classes.clone();
 
+    // Step 7b: Extract migrated compiled classes (SNIP-34)
+    let migrated_compiled_classes: HashMap<ClassHash, CompiledClassHash> = tx_result
+        .processed_state_update
+        .migrated_compiled_classes
+        .iter()
+        .map(|(class_hash, compiled_class_hash)| (ClassHash(*class_hash), CompiledClassHash(*compiled_class_hash)))
+        .collect();
+
     // Step 8: Build final OS block input (consuming the result structs)
-    let os_block_input = build_os_block_input(&block_data, tx_result, commitment_result, class_result, &block_context);
+    let os_block_input =
+        build_os_block_input(&block_data, tx_result, commitment_result, class_result, &block_context, &migrated_compiled_classes);
 
     info!("Successfully completed construction of OsBlockInput for block {}", block_number);
 
@@ -145,6 +156,7 @@ pub async fn collect_single_block_info(
         accessed_classes,
         accessed_keys_by_address,
         previous_block_id: if block_number == 0 { None } else { Some(BlockId::Number(block_number - 1)) },
+        migrated_compiled_classes,
     })
 }
 
@@ -164,6 +176,7 @@ pub async fn collect_single_block_info(
 /// * `commitment_result` - The calculated commitment information
 /// * `class_result` - The processed contract class data
 /// * `block_context` - The built block context
+/// * `migrated_compiled_classes` - Classes migrated from Poseidon to BLAKE hash (SNIP-34)
 ///
 /// # Returns
 ///
@@ -174,6 +187,7 @@ fn build_os_block_input(
     commitment_result: CommitmentCalculationResult,
     class_result: ContractClassProcessingResult,
     block_context: &BlockContext,
+    migrated_compiled_classes: &HashMap<ClassHash, CompiledClassHash>,
 ) -> OsBlockInput {
     info!("Building OS block input");
 
@@ -189,14 +203,13 @@ fn build_os_block_input(
             .previous_block
             .as_ref()
             .map(|prev_block| BlockHash(prev_block.block_hash))
-            .unwrap_or(BlockHash(Felt::ZERO)), // Return 0x0 when no previous block exists (block 0)
+            .unwrap_or(BlockHash(Felt::ZERO)),
         new_block_hash: BlockHash(block_data.current_block.block_hash),
         old_block_number_and_hash: if block_data.current_block.block_number == 0 {
-            None // None in case the current block is the genesis block
+            None
         } else {
             Some((BlockNumber(block_data.old_block_number.to_u64().unwrap()), BlockHash(block_data.old_block_hash)))
-            // Otherwise, get the old block number and hash
         },
-        class_hashes_to_migrate: HashMap::default(), // NOTE: leaving it empty because for 0.14.0 we won't have migration
+        class_hashes_to_migrate: migrated_compiled_classes.clone(),
     }
 }
