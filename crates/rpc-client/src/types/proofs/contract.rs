@@ -2,7 +2,6 @@ use anyhow::bail;
 use log::info;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use starknet::macros::short_string;
 use starknet::providers::ProviderError;
 use starknet_core::types::StorageProof;
 use starknet_types_core::felt::Felt;
@@ -11,6 +10,9 @@ use std::time::Instant;
 use crate::constants::DEFAULT_STORAGE_TREE_HEIGHT;
 use crate::error::ProofVerificationError;
 use crate::types::{PedersenHash, Proof, TrieNode};
+
+/// Hex value of the string "STARKNET_STATE_V0"
+const STARKNET_STATE_V0: Felt = Felt::from_hex_unchecked("0x535441524b4e45545f53544154455f5630");
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct ContractProof {
@@ -108,7 +110,7 @@ impl TryFrom<StorageProof> for ContractProof {
 
         // Compute the state commitment
         let state_commitment = starknet_crypto::poseidon_hash_many(&[
-            short_string!("STARKNET_STATE_V0"),
+            STARKNET_STATE_V0,
             proof.global_roots.contracts_tree_root,
             proof.global_roots.classes_tree_root,
         ]);

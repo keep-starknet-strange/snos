@@ -17,19 +17,19 @@ repository = "https://github.com/keep-starknet-strange/snos/"
 license-file = "LICENSE"
 
 [workspace.dependencies]
-starknet_api = { git = "https://github.com/karnotxyz/sequencer", rev = "57052466290163f95ec085fc5ad877c4e04d5e2d", features = [
+starknet_api = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.0", features = [
   "testing",
 ] }
-starknet_os = { git = "https://github.com/karnotxyz/sequencer", rev = "57052466290163f95ec085fc5ad877c4e04d5e2d", features = [
+starknet_os = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.0", features = [
   "testing",
 ] }
-blockifier = { git = "https://github.com/karnotxyz/sequencer", rev = "57052466290163f95ec085fc5ad877c4e04d5e2d", features = [
+blockifier = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.0", features = [
   "testing",
 ] }
-starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", rev = "57052466290163f95ec085fc5ad877c4e04d5e2d", features = [
+starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.0", features = [
   "testing",
 ] }
-shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", rev = "57052466290163f95ec085fc5ad877c4e04d5e2d" }
+shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.0" }
 
 cairo-lang-starknet = "=2.12.3"
 cairo-lang-starknet-classes = "=2.12.3"
@@ -37,7 +37,7 @@ cairo-lang-utils = "=2.12.3"
 cairo-lang-casm = "=2.12.3"
 cairo-vm = "=2.5.0"
 
-starknet = "0.17.0"
+starknet = {package = "starknet-rust", version = "0.17.0"}
 starknet-types-core = "0.2.3"
 
 pathfinder-class-hash = { git = "https://github.com/eqlabs/pathfinder", rev = "f205768f0ca4b6adcdce338e6f95ee9acb80b734", package = "pathfinder-class-hash" }
@@ -55,8 +55,8 @@ num-bigint = "0.4"
 once_cell = "1.20.0"
 rayon = "1.10"
 serde_with = "3.3.0"
-starknet-core = "0.16.0"
-starknet-crypto = "0.8.1"
+starknet-core = {package = "starknet-rust-core", version = "0.16.0"}
+starknet-crypto = {package = "starknet-rust-crypto", version = "0.8.1"}
 bitvec = { version = "1.0", default-features = false, features = ["std"] }
 num-traits = "0.2.19"
 async-trait = "0.1.89"
