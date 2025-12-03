@@ -182,7 +182,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
             // Collect block information
             info!("Starting to collect block info for block {}", block_number);
-            let block_info_result = collect_single_block_info(
+            let block_info = collect_single_block_info(
                 block_number,
                 is_l3,
                 &strk_fee_token_address,
@@ -193,38 +193,23 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
             .await
             .map_err(|e| PieGenerationError::BlockProcessing { block_number, source: Box::new(e) })?;
 
-            let (
-                block_input,
-                block_compiled_classes,
-                block_deprecated_compiled_classes,
-                block_accessed_addresses,
-                block_accessed_classes,
-                block_accessed_keys_by_address,
-            ) = (
-                block_info_result.os_block_input,
-                block_info_result.compiled_classes,
-                block_info_result.deprecated_compiled_classes,
-                block_info_result.accessed_addresses,
-                block_info_result.accessed_classes,
-                block_info_result.accessed_keys_by_address,
-            );
-
             info!("Block info collection completed for block {}", block_number);
             info!(
                 "Block {}, accessed classes={}, accessed addresses={}",
                 block_number,
-                block_accessed_classes.len(),
-                block_accessed_addresses.len()
+                block_info.accessed_classes.len(),
+                block_info.accessed_addresses.len()
             );
 
-            // Generate cached state input
+            // Generate cached state input (migrated classes use v1 hash since cached state is previous block)
             info!("Generating cached state input for block {}", block_number);
             let cached_state_input = generate_cached_state_input(
                 &rpc_client,
                 &block_number,
-                &block_accessed_addresses,
-                &block_accessed_classes,
-                &block_accessed_keys_by_address,
+                &block_info.accessed_addresses,
+                &block_info.accessed_classes,
+                &block_info.accessed_keys_by_address,
+                &block_info.migrated_class_hashes(),
             )
             .await
             .map_err(|e| {
@@ -235,12 +220,11 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
             })?;
 
             info!("Cached state input generated successfully for block {}", block_number);
-            info!("Block {} processed successfully", block_number);
 
             Ok::<_, PieGenerationError>((
-                block_input,
-                block_compiled_classes,
-                block_deprecated_compiled_classes,
+                block_info.os_block_input,
+                block_info.compiled_classes,
+                block_info.deprecated_compiled_classes,
                 cached_state_input,
             ))
             // Permit is automatically released when _permit is dropped

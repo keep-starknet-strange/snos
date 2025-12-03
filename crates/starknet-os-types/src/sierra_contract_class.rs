@@ -3,7 +3,6 @@
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
-use cairo_vm::Felt252;
 use serde::ser::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::serde_as;
@@ -312,33 +311,6 @@ pub struct FlattenedSierraClassWithAbi {
     pub entry_points_by_type: EntryPointsByType,
     /// The contract ABI, deserialized from JSON.
     pub abi: Option<cairo_lang_starknet_classes::abi::Contract>,
-}
-
-/// A contract class structure for Pathfinder compatibility.
-///
-/// This struct is used internally for converting between different contract class formats
-/// while maintaining compatibility with Pathfinder's expected structure.
-#[derive(Debug, Serialize)]
-struct ContractClassForPathfinderCompat {
-    /// The Sierra program as a list of Felt252 values.
-    pub sierra_program: Vec<Felt252>,
-    /// The contract class version string.
-    pub contract_class_version: String,
-    /// Entry points organized by type.
-    pub entry_points_by_type: cairo_lang_starknet_classes::contract_class::ContractEntryPoints,
-    /// The ABI as a JSON string.
-    pub abi: String,
-}
-
-impl From<cairo_lang_starknet_classes::contract_class::ContractClass> for ContractClassForPathfinderCompat {
-    fn from(value: cairo_lang_starknet_classes::contract_class::ContractClass) -> Self {
-        Self {
-            sierra_program: value.sierra_program.into_iter().map(|x| Felt252::from(x.value)).collect(),
-            contract_class_version: value.contract_class_version,
-            entry_points_by_type: value.entry_points_by_type,
-            abi: value.abi.map(|abi| abi.json()).unwrap_or_default(),
-        }
-    }
 }
 
 impl TryFrom<&FlattenedSierraClass> for FlattenedSierraClassWithAbi {

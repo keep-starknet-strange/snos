@@ -1,6 +1,6 @@
 //! Constants used throughout the RPC client
 
-pub const STARKNET_RPC_VERSION: &str = "v0_9";
+pub const STARKNET_RPC_VERSION: &str = "v0_10";
 
 pub const SNOS_RPC_URL_ENV: &str = "SNOS_RPC_URL";
 

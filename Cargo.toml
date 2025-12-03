@@ -17,19 +17,19 @@ repository = "https://github.com/keep-starknet-strange/snos/"
 license-file = "LICENSE"
 
 [workspace.dependencies]
-starknet_api = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.0", features = [
+starknet_api = { git = "https://github.com/karnotxyz/sequencer", rev = "0f818e011ae8e4085d7a70b0d5e1532499a62de9", features = [
   "testing",
 ] }
-starknet_os = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.0", features = [
+starknet_os = { git = "https://github.com/karnotxyz/sequencer", rev = "0f818e011ae8e4085d7a70b0d5e1532499a62de9", features = [
   "testing",
 ] }
-blockifier = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.0", features = [
+blockifier = { git = "https://github.com/karnotxyz/sequencer", rev = "0f818e011ae8e4085d7a70b0d5e1532499a62de9", features = [
   "testing",
 ] }
-starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.0", features = [
+starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", rev = "0f818e011ae8e4085d7a70b0d5e1532499a62de9", features = [
   "testing",
 ] }
-shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.0" }
+shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", rev = "0f818e011ae8e4085d7a70b0d5e1532499a62de9" }
 
 cairo-lang-starknet = "=2.12.3"
 cairo-lang-starknet-classes = "=2.12.3"
@@ -37,7 +37,7 @@ cairo-lang-utils = "=2.12.3"
 cairo-lang-casm = "=2.12.3"
 cairo-vm = "=2.5.0"
 
-starknet = {package = "starknet-rust", version = "0.17.0"}
+starknet = {package = "starknet-rust", version = "0.18.0-rc.0"}
 starknet-types-core = "0.2.3"
 
 pathfinder-class-hash = { git = "https://github.com/eqlabs/pathfinder", rev = "f205768f0ca4b6adcdce338e6f95ee9acb80b734", package = "pathfinder-class-hash" }
@@ -55,12 +55,12 @@ num-bigint = "0.4"
 once_cell = "1.20.0"
 rayon = "1.10"
 serde_with = "3.3.0"
-starknet-core = {package = "starknet-rust-core", version = "0.16.0"}
-starknet-crypto = {package = "starknet-rust-crypto", version = "0.8.1"}
+starknet-core = {package = "starknet-rust-core", version = "0.17.0-rc.0"}
+starknet-crypto = {package = "starknet-rust-crypto", version = "0.9.0-rc.0"}
 bitvec = { version = "1.0", default-features = false, features = ["std"] }
 num-traits = "0.2.19"
 async-trait = "0.1.89"
-chrono = "0.4.41"
+chrono = { version = "0.4.41", features = ["serde"] }
 clap = { version = "4.5.46", features = ["derive"] }
 futures = "0.3"
 
