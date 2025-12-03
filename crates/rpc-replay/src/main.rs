@@ -8,6 +8,7 @@ use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput}
 use generate_pie::utils::load_versioned_constants;
 use generate_pie::{generate_pie, parse_layout};
 use log::{debug, info, warn};
+use mongodb::{bson::doc, options::ClientOptions, Client as MongoClient, Collection};
 use rpc_client::RpcClient;
 use serde::{Deserialize, Serialize};
 use starknet::core::types::BlockId;
@@ -33,6 +34,17 @@ impl std::fmt::Display for ProcessError {
 }
 
 impl error::Error for ProcessError {}
+
+// MongoDB document structure for block processing results
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct BlockProcessingResult {
+    start_block: u64,
+    end_block: u64,
+    num_blocks: u64,
+    status: String,
+    error: Option<String>,
+    timestamp: chrono::DateTime<chrono::Utc>,
+}
 
 /// Structure to parse the JSON file containing block numbers (original format)
 #[derive(Deserialize, Serialize, Debug)]
@@ -71,6 +83,55 @@ enum ExecutionMode {
     Sequential { start_block: u64 },
     /// Process specific blocks from a JSON file
     FromJson { blocks: Vec<u64> },
+}
+
+// MongoDB helper functions
+async fn create_mongo_client(uri: &str) -> Result<MongoClient, Box<dyn error::Error + Send + Sync>> {
+    let mut client_options = ClientOptions::parse(uri).await?;
+    client_options.app_name = Some("rpc-replay".to_string());
+    Ok(MongoClient::with_options(client_options)?)
+}
+
+async fn get_last_processed_block(
+    mongo_client: &MongoClient,
+    db_name: &str,
+) -> Result<Option<u64>, Box<dyn error::Error + Send + Sync>> {
+    let db = mongo_client.database(db_name);
+    let collection: Collection<BlockProcessingResult> = db.collection("block_processing_results");
+
+    // Find the document with the highest end_block where status is "passed"
+    let filter = doc! { "status": "passed" };
+    let options = mongodb::options::FindOneOptions::builder().sort(doc! { "end_block": -1 }).build();
+
+    match collection.find_one(filter).with_options(options).await? {
+        Some(result) => {
+            info!(
+                "Found last processed block in DB: {} (blocks {}-{})",
+                result.end_block, result.start_block, result.end_block
+            );
+            Ok(Some(result.end_block))
+        }
+        None => {
+            info!("No previously processed blocks found in DB");
+            Ok(None)
+        }
+    }
+}
+
+async fn upload_to_mongodb(
+    mongo_client: &MongoClient,
+    db_name: &str,
+    result: BlockProcessingResult,
+) -> Result<(), Box<dyn error::Error + Send + Sync>> {
+    let db = mongo_client.database(db_name);
+    let collection: Collection<BlockProcessingResult> = db.collection("block_processing_results");
+
+    collection.insert_one(result.clone()).await?;
+    info!(
+        "Uploaded block processing result to MongoDB: blocks {}-{}, status: {}",
+        result.start_block, result.end_block, result.status
+    );
+    Ok(())
 }
 
 #[derive(Parser, Debug)]
@@ -131,6 +192,18 @@ struct Args {
     #[arg(long, default_value = "false")]
     upload_to_s3: bool,
 
+    /// Upload block processing results to MongoDB
+    #[arg(long, default_value = "false", env = "SNOS_UPLOAD_TO_DB")]
+    upload_to_db: bool,
+
+    /// MongoDB connection URI (required if upload-to-db is enabled)
+    #[arg(long, env = "SNOS_MONGO_URI")]
+    mongo_uri: Option<String>,
+
+    /// MongoDB database name (required if upload-to-db is enabled)
+    #[arg(long, env = "SNOS_DB_NAME")]
+    db_name: Option<String>,
+
     /// Path to a JSON file containing versioned constants (optional)
     #[arg(long, env = "SNOS_VERSIONED_CONSTANTS_PATH")]
     versioned_constants_path: Option<String>,
@@ -141,11 +214,53 @@ async fn main() -> Result<(), Box<dyn error::Error + Send + Sync>> {
     env_logger::init();
     let args = Args::parse();
 
+    // Validate MongoDB parameters
+    if args.upload_to_db {
+        if args.mongo_uri.is_none() {
+            return Err("--mongo-uri is required when --upload-to-db is enabled".into());
+        }
+        if args.db_name.is_none() {
+            return Err("--db-name is required when --upload-to-db is enabled".into());
+        }
+    }
+
+    // Initialize MongoDB client if needed
+    let mongo_client = if args.upload_to_db {
+        let uri = args.mongo_uri.as_ref().unwrap();
+        info!("Connecting to MongoDB...");
+        Some(create_mongo_client(uri).await?)
+    } else {
+        None
+    };
+
     // Validate arguments and determine execution mode
     let execution_mode = match (&args.start_block, &args.json_file) {
         (Some(start_block), None) => {
             info!("🚀 Starting RPC Replay service in SEQUENTIAL mode");
-            ExecutionMode::Sequential { start_block: *start_block }
+
+            // If MongoDB is enabled, check for last processed block
+            let actual_start_block = if let Some(ref client) = mongo_client {
+                let db_name = args.db_name.as_ref().unwrap();
+                match get_last_processed_block(client, db_name).await? {
+                    Some(last_block) => {
+                        let next_block = last_block + 1;
+                        info!(
+                            "📍 Resuming from block {} (found last processed block: {} in MongoDB)",
+                            next_block, last_block
+                        );
+                        next_block
+                    }
+                    None => {
+                        info!("📍 Starting from block {} (no previous blocks found in MongoDB)", start_block);
+                        *start_block
+                    }
+                }
+            } else {
+                info!("📍 Starting from block {} (MongoDB disabled)", start_block);
+                *start_block
+            };
+
+            ExecutionMode::Sequential { start_block: actual_start_block }
         }
         (None, Some(json_file)) => {
             info!("🚀 Starting RPC Replay service in JSON mode");
@@ -189,8 +304,12 @@ async fn main() -> Result<(), Box<dyn error::Error + Send + Sync>> {
     info!("🔄 Starting block processing");
 
     match execution_mode {
-        ExecutionMode::Sequential { start_block } => process_sequential_mode(&args, &rpc_client, start_block).await,
-        ExecutionMode::FromJson { blocks } => process_json_mode(&args, &rpc_client, blocks).await,
+        ExecutionMode::Sequential { start_block } => {
+            process_sequential_mode(&args, &rpc_client, start_block, mongo_client.as_ref()).await
+        }
+        ExecutionMode::FromJson { blocks } => {
+            process_json_mode(&args, &rpc_client, blocks, mongo_client.as_ref()).await
+        }
     }
 }
 
@@ -199,6 +318,7 @@ async fn process_sequential_mode(
     args: &Args,
     rpc_client: &RpcClient,
     start_block: u64,
+    mongo_client: Option<&MongoClient>,
 ) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     let mut current_block = start_block;
 
@@ -217,6 +337,16 @@ async fn process_sequential_mode(
                 match process_block_set(args, &block_set).await {
                     Ok(output_path) => {
                         info!("Successfully generated PIE for blocks {:?} -> {}", block_set, output_path);
+
+                        // Upload to MongoDB if enabled
+                        if let Some(client) = mongo_client {
+                            let db_name = args.db_name.as_ref().unwrap();
+                            let result = create_block_processing_result(&block_set);
+                            if let Err(e) = upload_to_mongodb(client, db_name, result).await {
+                                log::error!("Failed to upload to MongoDB: {}", e);
+                            }
+                        }
+
                         current_block += args.num_blocks;
                     }
                     Err(e) => {
@@ -225,6 +355,15 @@ async fn process_sequential_mode(
                         // Write error to the file
                         let error_file = format!("{}/error_blocks_{}.txt", args.log_dir, block_set[0]);
                         write_error_to_file(&error_file, &block_set, &e, args.upload_to_s3).await?;
+
+                        // Upload error to MongoDB if enabled
+                        if let Some(client) = mongo_client {
+                            let db_name = args.db_name.as_ref().unwrap();
+                            let result = create_failed_block_processing_result(&block_set, &e);
+                            if let Err(upload_err) = upload_to_mongodb(client, db_name, result).await {
+                                log::error!("Failed to upload error to MongoDB: {}", upload_err);
+                            }
+                        }
 
                         // Move to the next set anyway to avoid getting stuck
                         current_block += args.num_blocks;
@@ -248,6 +387,7 @@ async fn process_json_mode(
     args: &Args,
     rpc_client: &RpcClient,
     mut blocks: Vec<u64>,
+    mongo_client: Option<&MongoClient>,
 ) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     // Sort blocks to process them in order
     blocks.sort();
@@ -278,6 +418,16 @@ async fn process_json_mode(
                             "✅ Successfully generated PIE for block {} ({}/{}) -> {}",
                             block_number, progress, total_blocks, output_path
                         );
+
+                        // Upload to MongoDB if enabled
+                        if let Some(client) = mongo_client {
+                            let db_name = args.db_name.as_ref().unwrap();
+                            let result = create_block_processing_result(&block_set);
+                            if let Err(e) = upload_to_mongodb(client, db_name, result).await {
+                                log::error!("Failed to upload to MongoDB: {}", e);
+                            }
+                        }
+
                         processed_count += 1;
                     }
                     Err(e) => {
@@ -296,6 +446,15 @@ async fn process_json_mode(
                             write_error_to_file(&error_file, &block_set, &e, args.upload_to_s3).await
                         {
                             log::error!("Failed to write error file {}: {}", error_file, write_err);
+                        }
+
+                        // Upload error to MongoDB if enabled
+                        if let Some(client) = mongo_client {
+                            let db_name = args.db_name.as_ref().unwrap();
+                            let result = create_failed_block_processing_result(&block_set, &e);
+                            if let Err(upload_err) = upload_to_mongodb(client, db_name, result).await {
+                                log::error!("Failed to upload error to MongoDB: {}", upload_err);
+                            }
                         }
 
                         failed_count += 1;
@@ -412,7 +571,7 @@ async fn check_blocks_exist(
     Ok(true)
 }
 
-/// Process a set of 1 block and generate PIE (keeping the original signature)
+/// Process a set of 1 block and generate PIE
 async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, ProcessError> {
     let output_filename = format!("cairo_pie_blocks_{}.zip", blocks[0]);
 
@@ -504,6 +663,41 @@ async fn upload_file_to_s3(
 
     log::info!("Successfully uploaded to s3://{}/{}", bucket, key);
     Ok(())
+}
+
+/// Create a BlockProcessingResult from successful processing
+fn create_block_processing_result(blocks: &[u64]) -> BlockProcessingResult {
+    BlockProcessingResult {
+        start_block: blocks[0],
+        end_block: blocks[blocks.len() - 1],
+        num_blocks: blocks.len() as u64,
+        status: "passed".to_string(),
+        error: None,
+        timestamp: chrono::Utc::now(),
+    }
+}
+
+/// Create a BlockProcessingResult for a failed processing
+fn create_failed_block_processing_result(blocks: &[u64], error: &ProcessError) -> BlockProcessingResult {
+    let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC");
+    let error_content = format!(
+        "Error Report\n\
+         ============\n\
+         Timestamp: {}\n\
+         Blocks: {:?}\n\
+         Error: {}\n\
+         Error Debug: {:?}\n\n",
+        timestamp, blocks, error, error
+    );
+
+    BlockProcessingResult {
+        start_block: blocks[0],
+        end_block: blocks[blocks.len() - 1],
+        num_blocks: blocks.len() as u64,
+        status: "failed".to_string(),
+        error: Some(error_content),
+        timestamp: chrono::Utc::now(),
+    }
 }
 
 /// Write error details to a file (local or S3)

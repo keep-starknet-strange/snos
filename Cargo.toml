@@ -60,7 +60,7 @@ starknet-crypto = {package = "starknet-rust-crypto", version = "0.9.0-rc.0"}
 bitvec = { version = "1.0", default-features = false, features = ["std"] }
 num-traits = "0.2.19"
 async-trait = "0.1.89"
-chrono = "0.4.41"
+chrono = { version = "0.4.41", features = ["serde"] }
 clap = { version = "4.5.46", features = ["derive"] }
 futures = "0.3"
 
