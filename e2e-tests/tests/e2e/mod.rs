@@ -57,6 +57,7 @@ fn get_rpc_url(chain: &str) -> String {
 // sepolia blocks (0.14.1)
 #[case("sepolia", vec![2934726])] // first 0.14.1 block
 #[case("sepolia", vec![2934727])] // empty block, second block of 0.14.1
+#[case("sepolia", vec![2935507])] // uses cairo0 class
 #[case("sepolia", vec![3023829])] // has declare txn
 #[case("sepolia", vec![3028228])] // deploy account ready multisig
 #[case("sepolia", vec![3028244])] // deploy account ready simple

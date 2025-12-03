@@ -303,13 +303,11 @@ impl StateReader for AsyncRpcStateReader {
 
     fn get_compiled_class_hash_v2(
         &self,
-        _class_hash: ClassHash,
+        class_hash: ClassHash,
         compiled_class: &RunnableCompiledClass,
     ) -> StateResult<CompiledClassHash> {
         match compiled_class {
-            RunnableCompiledClass::V0(_) => {
-                Err(StateError::StateReadError("Cairo0 classes should not have compiled class hash v2".to_string()))
-            }
+            RunnableCompiledClass::V0(_) => Ok(CompiledClassHash(class_hash.0)),
             RunnableCompiledClass::V1(compiled_class_v1) => Ok(compiled_class_v1.hash(&HashVersion::V2)),
         }
     }
