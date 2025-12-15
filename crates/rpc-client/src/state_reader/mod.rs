@@ -22,6 +22,25 @@ use crate::utils::execute_coroutine;
 #[cfg(test)]
 pub mod tests;
 
+/// Version of the compiled class hash algorithm.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledClassHashVersion {
+    /// Poseidon hash (pre-SNIP-34, legacy)
+    V1,
+    /// BLAKE2s hash (post-SNIP-34)
+    V2,
+}
+
+impl CompiledClassHashVersion {
+    /// Returns the version string for logging purposes.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::V1 => "v1",
+            Self::V2 => "v2",
+        }
+    }
+}
+
 /// Maximum number of retry attempts for RPC calls
 const MAX_RETRY_ATTEMPTS: u32 = 3;
 
@@ -244,34 +263,33 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        self.get_compiled_class_hash_with_version_async(class_hash, false).await
+        self.get_compiled_class_hash_with_version_async(class_hash, CompiledClassHashVersion::V1).await
     }
 
     pub async fn get_compiled_class_hash_v2_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        self.get_compiled_class_hash_with_version_async(class_hash, true).await
+        self.get_compiled_class_hash_with_version_async(class_hash, CompiledClassHashVersion::V2).await
     }
 
     /// Internal async method for fetching compiled class hash with version selection.
     async fn get_compiled_class_hash_with_version_async(
         &self,
         class_hash: ClassHash,
-        use_v2: bool,
+        version: CompiledClassHashVersion,
     ) -> StateResult<CompiledClassHash> {
         if self.has_no_block() {
             return Err(StateError::UndeclaredClassHash(class_hash));
         }
 
         let block_id = self.block_id.unwrap();
-        let version_str = if use_v2 { "v2" } else { "v1" };
-        debug!("get_compiled_class_hash_{} for class_hash: {:?}", version_str, class_hash);
-        let operation_name = format!("get_compiled_class_hash_{}(class_hash: {:?})", version_str, class_hash);
+        debug!("get_compiled_class_hash_{} for class_hash: {:?}", version.as_str(), class_hash);
+        let operation_name = format!("get_compiled_class_hash_{}(class_hash: {:?})", version.as_str(), class_hash);
 
         let contract_class = self
             .execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
             .await
             .map_err(provider_error_to_state_error)?;
 
-        compute_compiled_class_hash_internal(&contract_class, use_v2)
+        compute_compiled_class_hash_internal(&contract_class, version)
     }
 
     pub fn get_compiled_class_hash_v2(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
@@ -318,29 +336,28 @@ impl StateReader for AsyncRpcStateReader {
 pub fn compute_compiled_class_hash(
     contract_class: &starknet::core::types::ContractClass,
 ) -> Result<CompiledClassHash, StateError> {
-    compute_compiled_class_hash_internal(contract_class, false)
+    compute_compiled_class_hash_internal(contract_class, CompiledClassHashVersion::V1)
 }
 
 /// Computes the compiled class hash v2 (BLAKE2s) for a given contract class (SNIP-34).
 pub fn compute_compiled_class_hash_v2(
     contract_class: &starknet::core::types::ContractClass,
 ) -> Result<CompiledClassHash, StateError> {
-    compute_compiled_class_hash_internal(contract_class, true)
+    compute_compiled_class_hash_internal(contract_class, CompiledClassHashVersion::V2)
 }
 
 /// Internal helper for computing compiled class hash with version selection.
 fn compute_compiled_class_hash_internal(
     contract_class: &starknet::core::types::ContractClass,
-    use_v2: bool,
+    version: CompiledClassHashVersion,
 ) -> Result<CompiledClassHash, StateError> {
     let class_hash = match contract_class {
         starknet::core::types::ContractClass::Sierra(sierra_class) => {
             let generic_sierra = convert_sierra_class_for_generic(sierra_class)?;
             let compiled_class = generic_sierra.compile().map_err(to_state_err)?;
-            if use_v2 {
-                compiled_class.class_hash_v2().map_err(to_state_err)?
-            } else {
-                compiled_class.class_hash().map_err(to_state_err)?
+            match version {
+                CompiledClassHashVersion::V1 => compiled_class.class_hash().map_err(to_state_err)?,
+                CompiledClassHashVersion::V2 => compiled_class.class_hash_v2().map_err(to_state_err)?,
             }
         }
         starknet::core::types::ContractClass::Legacy(legacy_class) => {
