@@ -219,24 +219,15 @@ async fn fetch_class_info(
 fn create_account_transaction_result(
     starknet_api_tx: starknet_api::executable_transaction::Transaction,
     account_tx: starknet_api::executable_transaction::AccountTransaction,
+    block_number: u64,
 ) -> TransactionConversionResult {
     let mut charge_fee = true;
-    if account_tx.version().0 == Felt::ZERO {
+
+    if block_number == 0 {
+        warn!("Genesis block transaction - skipping fee charging");
         charge_fee = false;
-    } else {
-        match account_tx.resource_bounds() {
-            ValidResourceBounds::AllResources(all_resources) => {
-                if all_resources.l2_gas.max_amount.0 == 0 {
-                    charge_fee = false;
-                }
-            }
-            ValidResourceBounds::L1Gas(l1_gas) => {
-                if l1_gas.max_amount.0 == 0 {
-                    charge_fee = false;
-                }
-            }
-        }
     }
+
     let mut txn = AccountTransaction::new_for_sequencing(account_tx);
     txn.execution_flags.charge_fee = charge_fee;
 
@@ -342,7 +333,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV1
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Invoke(invoke_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, ctx.block_number))
     }
 }
 
@@ -379,7 +370,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV3
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Invoke(invoke_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, ctx.block_number))
     }
 }
 
@@ -412,7 +403,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, ctx.block_number))
     }
 }
 
@@ -445,7 +436,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, ctx.block_number))
     }
 }
 
@@ -479,7 +470,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, ctx.block_number))
     }
 }
 
@@ -520,7 +511,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, ctx.block_number))
     }
 }
 
@@ -554,7 +545,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeployAccountTransa
             starknet_api::executable_transaction::AccountTransaction::DeployAccount(deploy_account_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, ctx.block_number))
     }
 }
 
@@ -592,7 +583,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeployAccountTransa
             starknet_api::executable_transaction::AccountTransaction::DeployAccount(deploy_account_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, ctx.block_number))
     }
 }
 
