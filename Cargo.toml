@@ -17,19 +17,21 @@ repository = "https://github.com/keep-starknet-strange/snos/"
 license-file = "LICENSE"
 
 [workspace.dependencies]
-starknet_api = { git = "https://github.com/karnotxyz/sequencer", rev = "0f818e011ae8e4085d7a70b0d5e1532499a62de9", features = [
+# TODO(mohit 16/12/2025): move the dependencies to the official sequencer repository once the next release is out.
+#                        the current v0.16.0-rc2 release doesn't have the snos related changes that we need
+starknet_api = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.0", features = [
   "testing",
 ] }
-starknet_os = { git = "https://github.com/karnotxyz/sequencer", rev = "0f818e011ae8e4085d7a70b0d5e1532499a62de9", features = [
+starknet_os = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.0", features = [
   "testing",
 ] }
-blockifier = { git = "https://github.com/karnotxyz/sequencer", rev = "0f818e011ae8e4085d7a70b0d5e1532499a62de9", features = [
+blockifier = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.0", features = [
   "testing",
 ] }
-starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", rev = "0f818e011ae8e4085d7a70b0d5e1532499a62de9", features = [
+starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.0", features = [
   "testing",
 ] }
-shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", rev = "0f818e011ae8e4085d7a70b0d5e1532499a62de9" }
+shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.0" }
 
 cairo-lang-starknet = "=2.12.3"
 cairo-lang-starknet-classes = "=2.12.3"
@@ -40,7 +42,7 @@ cairo-vm = "=2.5.0"
 starknet = {package = "starknet-rust", version = "0.18.0-rc.0"}
 starknet-types-core = "0.2.3"
 
-pathfinder-class-hash = { git = "https://github.com/eqlabs/pathfinder", rev = "f205768f0ca4b6adcdce338e6f95ee9acb80b734", package = "pathfinder-class-hash" }
+pathfinder-class-hash = { git = "https://github.com/eqlabs/pathfinder", tag = "v0.21.3", package = "pathfinder-class-hash" }
 
 env_logger = "0.11.6"
 log = "0.4.19"
