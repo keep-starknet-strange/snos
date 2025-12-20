@@ -362,10 +362,10 @@ fn compute_compiled_class_hash_internal(
         }
         starknet::core::types::ContractClass::Legacy(_) => {
             // Cairo 0 (legacy) contracts do not have a compiled class hash.
-            // Return ZERO to signal this to the blockifier's migration logic.
-            // The `should_migrate` function in blockifier expects ZERO for Cairo 0 contracts
+            // Return default (zero) to signal this to the blockifier's migration logic.
+            // The `should_migrate` function in blockifier expects zero for Cairo 0 contracts
             // to skip them during casm hash migration.
-            return Ok(CompiledClassHash(Felt::ZERO));
+            return Ok(CompiledClassHash::default());
         }
     };
 
