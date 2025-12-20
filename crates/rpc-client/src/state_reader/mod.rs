@@ -360,15 +360,12 @@ fn compute_compiled_class_hash_internal(
                 CompiledClassHashVersion::V2 => compiled_class.class_hash_v2().map_err(to_state_err)?,
             }
         }
-        starknet::core::types::ContractClass::Legacy(legacy_class) => {
-            // Legacy classes don't migrate - same hash for v1 and v2
-            let decompressed_legacy_class =
-                decompress_starknet_legacy_contract_class(legacy_class.clone()).map_err(|e| {
-                    StateError::StateReadError(format!("Failed to decompress legacy contract class: {}", e))
-                })?;
-            let generic_deprecated =
-                GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
-            generic_deprecated.class_hash().map_err(to_state_err)?
+        starknet::core::types::ContractClass::Legacy(_) => {
+            // Cairo 0 (legacy) contracts do not have a compiled class hash.
+            // Return ZERO to signal this to the blockifier's migration logic.
+            // The `should_migrate` function in blockifier expects ZERO for Cairo 0 contracts
+            // to skip them during casm hash migration.
+            return Ok(CompiledClassHash(Felt::ZERO));
         }
     };
 
