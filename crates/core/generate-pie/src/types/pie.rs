@@ -1,6 +1,7 @@
 use blockifier::blockifier_versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use starknet_os::io::os_output::StarknetOsRunnerOutput;
+use starknet_types_core::felt::Felt;
 
 use crate::error::PieGenerationError;
 use crate::types::{ChainConfig, OsHintsConfiguration};
@@ -21,6 +22,7 @@ use crate::types::{ChainConfig, OsHintsConfiguration};
 ///     chain_config: ChainConfig::default(),
 ///     os_hints_config: OsHintsConfiguration::default(),
 ///     output_path: Some("output.pie".to_string()),
+///     public_keys: None,
 /// };
 /// ```
 #[derive(Debug, Clone)]
@@ -39,6 +41,8 @@ pub struct PieGenerationInput {
     pub output_path: Option<String>,
     /// Optional versioned constants to use instead of auto-detecting from block version.
     pub versioned_constants: Option<VersionedConstants>,
+    /// Optional public keys to use for OS execution.
+    pub public_keys: Option<Vec<Felt>>,
 }
 
 impl PieGenerationInput {

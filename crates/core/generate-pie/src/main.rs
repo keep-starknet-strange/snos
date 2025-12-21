@@ -103,6 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         output_path: cli.output.clone(),
         layout: cli.layout,
         versioned_constants,
+        public_keys: None,
     };
 
     // Display configuration information

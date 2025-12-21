@@ -600,6 +600,7 @@ async fn process_block_set(args: &Args, blocks: &[u64]) -> Result<String, Proces
         layout: parse_layout(&args.layout)
             .map_err(|e| ProcessError::Panic(format!("Failed to parse layout: {}", e)))?,
         versioned_constants,
+        public_keys: None,
     };
 
     debug!("Starting PIE generation for blocks {:?}", blocks);

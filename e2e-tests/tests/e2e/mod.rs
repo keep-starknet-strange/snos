@@ -77,6 +77,7 @@ async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64
         output_path: None,
         layout: LayoutName::all_cairo,
         versioned_constants: None,
+        public_keys: None,
     };
 
     println!("📡 Using RPC: {}", input.rpc_url);
@@ -141,6 +142,7 @@ async fn test_pie_generation_with_custom_versioned_constants() {
         output_path: None,
         layout: LayoutName::all_cairo,
         versioned_constants,
+        public_keys: None,
     };
 
     println!("📡 Using RPC: {}", input.rpc_url);
