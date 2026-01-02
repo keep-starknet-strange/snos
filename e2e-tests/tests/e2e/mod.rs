@@ -48,12 +48,20 @@ fn get_rpc_url(chain: &str) -> String {
 
 /// Simple PIE generation test with parameterized block numbers
 #[rstest]
-// mainnet not on 0.14.1 yet
-// #[case("mainnet", vec![1943728])] // slow
-// #[case("mainnet", vec![1943731])] // slow
-// #[case("mainnet", vec![1952705])] // slow
-// #[case("mainnet", vec![1944976])] // slow
-// #[case("mainnet", vec![2403992])] // slow
+// mainnet blocks (0.14.1)
+#[case("mainnet", vec![4129455])] // first block of 0.14.1
+#[case("mainnet", vec![4346247])] // declare txn
+#[case("mainnet", vec![4256358])] // ready deploy account
+#[case("mainnet", vec![4996611])] // ready proxy 0 deploy account
+#[case("mainnet", vec![4997095])] // accountUpgradable deploy account
+#[case("mainnet", vec![4996555])] // OKX deploy account
+#[case("mainnet", vec![5003456])] // OKX proxy deploy account
+#[case("mainnet", vec![4283703])] // l1 handler USDT bridge
+#[case("mainnet", vec![4286303])] // l1 handler ETH bridge
+#[case("mainnet", vec![4284442])] // l1 handler STRK bridge
+#[case("mainnet", vec![4288250])] // l1 handler USDC bridge
+#[case("mainnet", vec![4303342])] // l1 handler staking minting
+#[case("mainnet", vec![4308192])] // l1 handler wBTC bridge
 // sepolia blocks (0.14.1)
 #[case("sepolia", vec![2934726])] // first 0.14.1 block
 #[case("sepolia", vec![2934727])] // empty block, second block of 0.14.1

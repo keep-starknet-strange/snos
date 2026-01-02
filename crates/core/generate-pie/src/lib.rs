@@ -357,3 +357,8 @@ pub fn parse_layout(layout: &str) -> anyhow::Result<LayoutName> {
         _ => bail!("Invalid layout: {}", layout),
     }
 }
+
+pub fn parse_public_key(key: &str) -> anyhow::Result<starknet_types_core::felt::Felt> {
+    let trimmed = key.trim();
+    Ok(starknet_types_core::felt::Felt::from_hex_unchecked(trimmed))
+}
