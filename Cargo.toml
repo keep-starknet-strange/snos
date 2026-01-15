@@ -19,19 +19,19 @@ license-file = "LICENSE"
 [workspace.dependencies]
 # TODO(mohit 16/12/2025): move the dependencies to the official sequencer repository once the next release is out.
 #                        the current v0.16.0-rc2 release doesn't have the snos related changes that we need
-starknet_api = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.0", features = [
+starknet_api = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
   "testing",
 ] }
-starknet_os = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.0", features = [
+starknet_os = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
   "testing",
 ] }
-blockifier = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.0", features = [
+blockifier = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
   "testing",
 ] }
-starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.0", features = [
+starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
   "testing",
 ] }
-shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.0" }
+shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1" }
 
 cairo-lang-starknet = "=2.12.3"
 cairo-lang-starknet-classes = "=2.12.3"
