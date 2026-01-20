@@ -10,12 +10,15 @@ use crate::error::BlockProcessingError;
 use crate::state_update::ContractClassProcessingResult;
 use crate::types::{BlockData, CommitmentCalculationResult, TransactionProcessingResult};
 use blockifier::context::BlockContext;
+use blockifier::state::cached_state::StateMaps;
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use log::info;
 use num_traits::ToPrimitive;
 use rpc_client::RpcClient;
 use starknet::core::types::BlockId;
 use starknet_api::block::{BlockHash, BlockNumber};
+use starknet_api::data_availability::L1DataAvailabilityMode;
+use starknet_api::block_hash::block_hash_calculator::{calculate_block_commitments, BlockHeaderCommitments};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass;
 use starknet_api::state::StorageKey;
@@ -34,7 +37,7 @@ pub struct BlockInfoResult {
     /// Compiled classes used in the block.
     pub compiled_classes: BTreeMap<CompiledClassHash, CasmContractClass>,
     /// Deprecated compiled classes used in the block.
-    pub deprecated_compiled_classes: BTreeMap<CompiledClassHash, ContractClass>,
+    pub deprecated_compiled_classes: BTreeMap<ClassHash, ContractClass>,
     /// Addresses accessed during block execution.
     pub accessed_addresses: HashSet<ContractAddress>,
     /// Class hashes accessed during block execution.
@@ -149,6 +152,18 @@ pub async fn collect_single_block_info(
         .map(|(class_hash, compiled_class_hash)| (ClassHash(*class_hash), CompiledClassHash(*compiled_class_hash)))
         .collect();
 
+    let l1_da_mode = match block_data.current_block.l1_da_mode {
+        starknet::core::types::L1DataAvailabilityMode::Blob => L1DataAvailabilityMode::Blob,
+        starknet::core::types::L1DataAvailabilityMode::Calldata => L1DataAvailabilityMode::Calldata,
+    };
+    let block_hash_commitments = calculate_block_commitments(
+        &tx_result.transactions_hashing_data,
+        tx_result.processed_state_update.thin_state_diff.clone(),
+        l1_da_mode,
+        &block_data.starknet_version,
+    )
+    .await;
+
     // Step 8: Build final OS block input
     let os_block_input = build_os_block_input(
         &block_data,
@@ -157,6 +172,7 @@ pub async fn collect_single_block_info(
         class_result,
         &block_context,
         migrated_compiled_classes.clone(),
+        block_hash_commitments,
     );
 
     info!("Successfully completed construction of OsBlockInput for block {}", block_number);
@@ -185,6 +201,7 @@ fn build_os_block_input(
     class_result: ContractClassProcessingResult,
     block_context: &BlockContext,
     migrated_compiled_classes: HashMap<ClassHash, CompiledClassHash>,
+    block_hash_commitments: BlockHeaderCommitments,
 ) -> OsBlockInput {
     info!("Building OS block input");
 
@@ -196,6 +213,7 @@ fn build_os_block_input(
         tx_execution_infos: tx_result.central_txn_execution_infos,
         declared_class_hash_to_component_hashes: class_result.declared_class_hash_component_hashes,
         block_info: block_context.block_info().clone(),
+        block_hash_commitments,
         prev_block_hash: block_data
             .previous_block
             .as_ref()
@@ -207,6 +225,7 @@ fn build_os_block_input(
         } else {
             Some((BlockNumber(block_data.old_block_number.to_u64().unwrap()), BlockHash(block_data.old_block_hash)))
         },
-        class_hashes_to_migrate: migrated_compiled_classes,
+        class_hashes_to_migrate: migrated_compiled_classes.into_iter().collect(),
+        initial_reads: StateMaps::default(),
     }
 }

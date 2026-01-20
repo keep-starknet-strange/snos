@@ -7,6 +7,7 @@ use rpc_client::types::ContractProof;
 use rpc_client::RpcClient;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
 use starknet::core::types::BlockId;
+use starknet_api::block_hash::block_hash_calculator::TransactionHashingData;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
@@ -17,6 +18,7 @@ use std::collections::{HashMap, HashSet};
 pub struct TransactionProcessingResult {
     /// Transactions in sequencer::starknet_api format
     pub starknet_api_txns: Vec<starknet_api::executable_transaction::Transaction>,
+    pub transactions_hashing_data: Vec<TransactionHashingData>,
     pub central_txn_execution_infos: Vec<CentralTransactionExecutionInfo>,
     pub accessed_addresses: HashSet<ContractAddress>,
     pub accessed_classes: HashSet<ClassHash>,

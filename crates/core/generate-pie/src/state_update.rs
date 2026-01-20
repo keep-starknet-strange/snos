@@ -10,6 +10,7 @@
 //! state update processing pipeline.
 
 use cairo_vm::Felt252;
+use indexmap::IndexMap;
 use futures::stream::{self, StreamExt};
 use log::{debug, info, warn};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -20,6 +21,8 @@ use starknet::core::types::{
 };
 use starknet::providers::Provider;
 use starknet::providers::ProviderError;
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
+use starknet_api::state::{StorageKey as ApiStorageKey, ThinStateDiff};
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::class_hash_utils::ContractClassComponentHashes;
 use starknet_os_types::compiled_class::GenericCompiledClass;
@@ -51,6 +54,8 @@ pub struct FormattedStateUpdate {
     /// Classes migrated from Poseidon to BLAKE hash (SNIP-34).
     /// Maps class_hash -> compiled_class_hash_v2 (BLAKE)
     pub migrated_compiled_classes: HashMap<Felt252, Felt252>,
+    /// Thin state diff used for block hash commitments.
+    pub thin_state_diff: ThinStateDiff,
 }
 
 impl FormattedStateUpdate {
@@ -106,10 +111,10 @@ impl FormattedStateUpdate {
         }
 
         // Convert deprecated compiled classes to BTreeMap with ClassHash keys
-        let mut deprecated_compiled_classes_btree: BTreeMap<CompiledClassHash, ContractClass> = BTreeMap::new();
+        let mut deprecated_compiled_classes_btree: BTreeMap<ClassHash, ContractClass> = BTreeMap::new();
 
         for (class_hash_felt, generic_class) in deprecated_compiled_classes {
-            let class_hash = CompiledClassHash(*class_hash_felt);
+            let class_hash = ClassHash(*class_hash_felt);
             let starknet_api_class = generic_class.clone().to_starknet_api_contract_class().map_err(|e| {
                 BlockProcessingError::ContractClassConversion(format!(
                     "Failed to convert to starknet-api contract class: {:?}",
@@ -153,7 +158,7 @@ pub struct ContractClassProcessingResult {
         cairo_lang_starknet_classes::casm_contract_class::CasmContractClass,
     >,
     pub deprecated_compiled_classes: std::collections::BTreeMap<
-        starknet_api::core::CompiledClassHash,
+        starknet_api::core::ClassHash,
         starknet_api::deprecated_contract_class::ContractClass,
     >,
     pub declared_class_hash_component_hashes:
@@ -227,6 +232,7 @@ pub(crate) async fn get_formatted_state_update(
     // Fetch and validate state update
     let state_update = fetch_state_update(rpc_client, block_id).await?;
     let state_diff = &state_update.state_diff;
+    let thin_state_diff = build_thin_state_diff(state_diff)?;
 
     // Extract declared classes
     let declared_classes = extract_declared_classes(state_diff);
@@ -260,6 +266,81 @@ pub(crate) async fn get_formatted_state_update(
         deprecated_compiled_classes: compiled_result.deprecated_compiled_classes,
         declared_class_hash_component_hashes: compiled_result.declared_component_hashes,
         migrated_compiled_classes,
+        thin_state_diff,
+    })
+}
+
+fn build_thin_state_diff(state_diff: &StateDiff) -> Result<ThinStateDiff, StateUpdateError> {
+    let mut deployed_contracts_pairs: Vec<(ContractAddress, ClassHash)> = Vec::new();
+    for item in &state_diff.deployed_contracts {
+        let address = ContractAddress::try_from(item.address).map_err(|err| {
+            StateUpdateError::ConversionFailed(format!("Invalid deployed contract address: {err:?}"))
+        })?;
+        deployed_contracts_pairs.push((address, ClassHash(item.class_hash)));
+    }
+    for item in &state_diff.replaced_classes {
+        let address = ContractAddress::try_from(item.contract_address).map_err(|err| {
+            StateUpdateError::ConversionFailed(format!("Invalid replaced contract address: {err:?}"))
+        })?;
+        deployed_contracts_pairs.push((address, ClassHash(item.class_hash)));
+    }
+    deployed_contracts_pairs.sort_by_key(|(address, _)| *address);
+    let deployed_contracts: IndexMap<_, _> = deployed_contracts_pairs.into_iter().collect();
+
+    let mut storage_diffs: IndexMap<ContractAddress, IndexMap<ApiStorageKey, Felt>> = IndexMap::new();
+    for item in &state_diff.storage_diffs {
+        let address = ContractAddress::try_from(item.address).map_err(|err| {
+            StateUpdateError::ConversionFailed(format!("Invalid storage diff address: {err:?}"))
+        })?;
+        let mut storage_pairs: Vec<(ApiStorageKey, Felt)> = Vec::new();
+        for entry in &item.storage_entries {
+            let key = ApiStorageKey::try_from(entry.key).map_err(|err| {
+                StateUpdateError::ConversionFailed(format!("Invalid storage key: {err:?}"))
+            })?;
+            storage_pairs.push((key, entry.value));
+        }
+        storage_pairs.sort_by_key(|(key, _)| **key);
+        storage_diffs.insert(address, storage_pairs.into_iter().collect());
+    }
+
+    let mut class_pairs: Vec<(ClassHash, CompiledClassHash)> = state_diff
+        .declared_classes
+        .iter()
+        .map(|item| (ClassHash(item.class_hash), CompiledClassHash(item.compiled_class_hash)))
+        .collect();
+    if let Some(migrated) = &state_diff.migrated_compiled_classes {
+        class_pairs.extend(
+            migrated
+                .iter()
+                .map(|item| (ClassHash(item.class_hash), CompiledClassHash(item.compiled_class_hash))),
+        );
+    }
+    class_pairs.sort_by_key(|(class_hash, _)| *class_hash);
+    let class_hash_to_compiled_class_hash: IndexMap<_, _> = class_pairs.into_iter().collect();
+
+    let mut deprecated_declared_classes: Vec<ClassHash> = state_diff
+        .deprecated_declared_classes
+        .iter()
+        .map(|class_hash| ClassHash(*class_hash))
+        .collect();
+    deprecated_declared_classes.sort_unstable();
+
+    let mut nonce_pairs: Vec<(ContractAddress, Nonce)> = Vec::new();
+    for item in &state_diff.nonces {
+        let address = ContractAddress::try_from(item.contract_address).map_err(|err| {
+            StateUpdateError::ConversionFailed(format!("Invalid nonce address: {err:?}"))
+        })?;
+        nonce_pairs.push((address, Nonce(item.nonce)));
+    }
+    nonce_pairs.sort_by_key(|(address, _)| *address);
+    let nonces: IndexMap<_, _> = nonce_pairs.into_iter().collect();
+
+    Ok(ThinStateDiff {
+        deployed_contracts,
+        storage_diffs,
+        class_hash_to_compiled_class_hash,
+        deprecated_declared_classes,
+        nonces,
     })
 }
 

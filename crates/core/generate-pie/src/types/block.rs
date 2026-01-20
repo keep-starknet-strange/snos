@@ -21,9 +21,11 @@ use starknet::core::types::{
 };
 use starknet::providers::Provider;
 use starknet_api::block::{BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion};
+use starknet_api::block_hash::block_hash_calculator::TransactionHashingData;
 use starknet_api::contract_address;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
+use starknet_api::transaction::fields::TransactionSignature;
 use starknet_api::versioned_constants_logic::VersionedConstantsTrait;
 use starknet_os_types::chain_id::chain_id_from_felt;
 use starknet_types_core::felt::Felt;
@@ -235,6 +237,24 @@ impl BlockData {
         let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
             txn_execution_infos.clone().into_iter().map(|execution_info| execution_info.clone().into()).collect();
 
+        let transactions_hashing_data: Vec<TransactionHashingData> = starknet_api_txns
+            .iter()
+            .zip(txn_execution_infos.iter())
+            .map(|(tx, execution_info)| {
+                let signature = match tx {
+                    starknet_api::executable_transaction::Transaction::Account(account_tx) => account_tx.signature(),
+                    starknet_api::executable_transaction::Transaction::L1Handler(_) => {
+                        TransactionSignature::default()
+                    }
+                };
+                TransactionHashingData {
+                    transaction_hash: tx.tx_hash(),
+                    transaction_output: execution_info.output_for_hashing(),
+                    transaction_signature: signature,
+                }
+            })
+            .collect();
+
         // Get accessed keys and populate alias contract keys
         let mut accessed_keys_by_address =
             get_accessed_keys_with_block_hash(&txn_execution_infos, self.old_block_number);
@@ -283,6 +303,7 @@ impl BlockData {
 
         Ok(TransactionProcessingResult {
             starknet_api_txns,
+            transactions_hashing_data,
             central_txn_execution_infos,
             accessed_addresses,
             accessed_classes,
@@ -338,6 +359,7 @@ impl BlockData {
         let block_info = BlockInfo {
             block_number: BlockNumber(self.current_block.block_number),
             block_timestamp: BlockTimestamp(self.current_block.timestamp),
+            starknet_version: self.starknet_version.clone(),
             sequencer_address,
             gas_prices: GasPrices { eth_gas_prices, strk_gas_prices },
             use_kzg_da,
