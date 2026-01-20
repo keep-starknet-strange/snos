@@ -19,25 +19,17 @@ license-file = "LICENSE"
 [workspace.dependencies]
 # TODO(mohit 16/12/2025): move the dependencies to the official sequencer repository once the next release is out.
 #                        the current v0.16.0-rc2 release doesn't have the snos related changes that we need
-starknet_api = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
-  "testing",
-] }
-starknet_os = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
-  "testing",
-] }
-blockifier = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
-  "testing",
-] }
-starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
-  "testing",
-] }
-shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1" }
+starknet_api = { path = "../starkware-sequencer/crates/starknet_api", features = ["testing"] }
+starknet_os = { path = "../starkware-sequencer/crates/starknet_os", features = ["testing"] }
+blockifier = { path = "../starkware-sequencer/crates/blockifier", features = ["testing"] }
+starknet_patricia = { path = "../starkware-sequencer/crates/starknet_patricia", features = ["testing"] }
+shared_execution_objects = { path = "../starkware-sequencer/crates/shared_execution_objects" }
 
-cairo-lang-starknet = "=2.12.3"
-cairo-lang-starknet-classes = "=2.12.3"
-cairo-lang-utils = "=2.12.3"
-cairo-lang-casm = "=2.12.3"
-cairo-vm = "=2.5.0"
+cairo-lang-starknet = "=2.14.1-dev.3"
+cairo-lang-starknet-classes = "=2.14.1-dev.3"
+cairo-lang-utils = "=2.14.1-dev.3"
+cairo-lang-casm = "=2.14.1-dev.3"
+cairo-vm = "=3.0.1"
 
 starknet = {package = "starknet-rust", version = "0.18.0-rc.0"}
 starknet-types-core = "0.2.3"
@@ -65,6 +57,7 @@ async-trait = "0.1.89"
 chrono = { version = "0.4.41", features = ["serde"] }
 clap = { version = "4.5.46", features = ["derive"] }
 futures = "0.3"
+indexmap = "2.1.0"
 
 indoc = "2"
 rstest = "0.18.2"

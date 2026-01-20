@@ -98,42 +98,6 @@ pub fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Resu
             })
         }).collect();
 
-    // Serialize cached state inputs completely
-    let cached_state_inputs_json: Vec<serde_json::Value> = os_hints.os_input.cached_state_inputs.iter()
-        .map(|cached_state| {
-            json!({
-                "storage": cached_state.storage.iter().map(|(addr, storage_map)| {
-                    json!({
-                        "address": format!("{:#x}", addr.0.key()),
-                        "storage": storage_map.iter().map(|(key, value)| {
-                            json!({
-                                "key": format!("{:#x}", key.0.key()),
-                                "value": format!("{:#x}", value)
-                            })
-                        }).collect::<Vec<_>>()
-                    })
-                }).collect::<Vec<_>>(),
-                "address_to_class_hash": cached_state.address_to_class_hash.iter().map(|(addr, class_hash)| {
-                    json!({
-                        "address": format!("{:#x}", addr.0.key()),
-                        "class_hash": format!("{:#x}", class_hash.0)
-                    })
-                }).collect::<Vec<_>>(),
-                "address_to_nonce": cached_state.address_to_nonce.iter().map(|(addr, nonce)| {
-                    json!({
-                        "address": format!("{:#x}", addr.0.key()),
-                        "nonce": format!("{:#x}", nonce.0)
-                    })
-                }).collect::<Vec<_>>(),
-                "class_hash_to_compiled_class_hash": cached_state.class_hash_to_compiled_class_hash.iter().map(|(class_hash, compiled_hash)| {
-                    json!({
-                        "class_hash": format!("{:#x}", class_hash.0),
-                        "compiled_class_hash": format!("{:#x}", compiled_hash.0)
-                    })
-                }).collect::<Vec<_>>()
-            })
-        }).collect();
-
     // Serialize compiled classes completely
     let compiled_classes_json: Vec<serde_json::Value> = os_hints
         .os_input
@@ -165,7 +129,6 @@ pub fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Resu
         "os_hints_config": os_hints_config_json,
         "os_input": {
             "os_block_inputs": block_inputs_json,
-            "cached_state_inputs": cached_state_inputs_json,
             "compiled_classes": compiled_classes_json,
             "deprecated_compiled_classes": deprecated_compiled_classes_json
         },
@@ -174,7 +137,6 @@ pub fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Resu
             "serialization_note": "Complete serialization of OsHints including all nested structures and data.",
             "statistics": {
                 "num_blocks": os_hints.os_input.os_block_inputs.len(),
-                "num_cached_states": os_hints.os_input.cached_state_inputs.len(),
                 "num_compiled_classes": os_hints.os_input.compiled_classes.len(),
                 "num_deprecated_compiled_classes": os_hints.os_input.deprecated_compiled_classes.len(),
                 "total_transactions": os_hints.os_input.os_block_inputs.iter()

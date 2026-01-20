@@ -69,7 +69,6 @@ use cairo_vm::types::layout_name::LayoutName;
 use futures::future::join_all;
 use log::{info, warn};
 use rpc_client::RpcClient;
-use starknet_api::core::CompiledClassHash;
 use starknet_os::{
     io::os_input::{OsChainInfo, OsHints, OsHintsConfig, StarknetOsInput},
     runner::run_os_stateless,
@@ -236,28 +235,23 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
     // Collect and merge results from all blocks
     let mut os_block_inputs = Vec::new();
-    let mut cached_state_inputs = Vec::new();
     let mut compiled_classes = std::collections::BTreeMap::new();
     let mut deprecated_compiled_classes = std::collections::BTreeMap::new();
 
     for result in results {
         // First unwrap the JoinHandle, then unwrap the inner Result
-        let (block_input, block_compiled_classes, block_deprecated_compiled_classes, mut cached_state_input) =
+        let (mut block_input, block_compiled_classes, block_deprecated_compiled_classes, cached_state_input) =
             result.map_err(|e| PieGenerationError::RpcClient(format!("Task join error: {:?}", e)))??;
 
-        // Add block input to our collection
+        // Attach initial reads for this block.
+        block_input.initial_reads = cached_state_input;
+        // Add block input to our collection.
         os_block_inputs.push(block_input);
 
         // Merge compiled classes (these are shared across blocks)
         compiled_classes.extend(block_compiled_classes);
         deprecated_compiled_classes.extend(block_deprecated_compiled_classes);
 
-        // Remove deprecated compiled classes from cached state input
-        cached_state_input
-            .class_hash_to_compiled_class_hash
-            .retain(|class_hash, _| !deprecated_compiled_classes.contains_key(&CompiledClassHash(class_hash.0)));
-
-        cached_state_inputs.push(cached_state_input);
     }
 
     info!("All {} blocks processed successfully in parallel", input.blocks.len());
@@ -271,11 +265,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     }
 
     info!("=== Finalizing multi-block processing ===");
-    info!(
-        "OS inputs prepared with {} block inputs and {} cached state inputs",
-        os_block_inputs.len(),
-        cached_state_inputs.len()
-    );
+    info!("OS inputs prepared with {} block inputs", os_block_inputs.len());
 
     // Build OS hints configuration
     info!("Building OS hints configuration for multi-block processing");
@@ -293,7 +283,6 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         },
         os_input: StarknetOsInput {
             os_block_inputs,
-            cached_state_inputs,
             deprecated_compiled_classes,
             compiled_classes,
         },

@@ -2,7 +2,7 @@ use log::info;
 use rpc_client::constants::DEFAULT_STORAGE_TREE_HEIGHT;
 use rpc_client::types::{ClassProof, TrieNode};
 use starknet_os::io::os_input::CommitmentInfo;
-use starknet_patricia::hash::hash_trait::HashOutput;
+use starknet_api::hash::HashOutput;
 use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
 use starknet_types_core::felt::Felt;
 use std::collections::HashMap;

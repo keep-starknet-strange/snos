@@ -373,6 +373,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV3
             account_deployment_data: starknet_api::transaction::fields::AccountDeploymentData(
                 self.account_deployment_data,
             ),
+            proof_facts: starknet_api::transaction::fields::ProofFacts::default(),
         });
 
         let invoke_tx = starknet_api::executable_transaction::InvokeTransaction::create(api_tx, ctx.chain_id)?;

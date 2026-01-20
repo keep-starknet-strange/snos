@@ -5,7 +5,7 @@ use starknet::core::types::BlockId;
 use starknet::providers::Provider;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
-use starknet_os::io::os_input::CachedStateInput;
+use blockifier::state::cached_state::{StateMaps, StorageEntry};
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 
@@ -21,20 +21,20 @@ const ALIAS_CONTRACT_ADDRESS: Felt = Felt::TWO;
 ///
 /// Block 0 has no previous state, but we need to initialize the alias
 /// contract with its initial storage value.
-fn create_genesis_cached_state() -> Result<CachedStateInput, Box<dyn std::error::Error + Send + Sync>> {
+fn create_genesis_cached_state() -> Result<StateMaps, Box<dyn std::error::Error + Send + Sync>> {
     info!("Creating genesis block cached state");
 
     // The alias contract (address 0x2) needs initial storage
     let alias_contract_address = ContractAddress::try_from(ALIAS_CONTRACT_ADDRESS)?;
     let alias_storage_key = StorageKey::try_from(Felt::ZERO)?;
 
-    Ok(CachedStateInput {
-        // Counter is set to 0 in the beginning
-        // It will be set to 0x80 as a part of block 0
-        storage: HashMap::from([(alias_contract_address, HashMap::from([(alias_storage_key, Felt::ZERO)]))]),
-        address_to_class_hash: HashMap::from([(alias_contract_address, ClassHash(Felt::ZERO))]),
-        address_to_nonce: HashMap::from([(alias_contract_address, Nonce(Felt::ZERO))]),
-        class_hash_to_compiled_class_hash: HashMap::new(),
+    Ok(StateMaps {
+        // Counter is set to 0 in the beginning; it will be set to 0x80 as a part of block 0.
+        storage: HashMap::from([((alias_contract_address, alias_storage_key), Felt::ZERO)]),
+        class_hashes: HashMap::from([(alias_contract_address, ClassHash(Felt::ZERO))]),
+        nonces: HashMap::from([(alias_contract_address, Nonce(Felt::ZERO))]),
+        compiled_class_hashes: HashMap::new(),
+        declared_contracts: HashMap::new(),
     })
 }
 
@@ -45,7 +45,7 @@ pub async fn generate_cached_state_input(
     accessed_classes: &HashSet<ClassHash>,
     accessed_keys_by_address: &HashMap<ContractAddress, HashSet<StorageKey>>,
     migrated_class_hashes: &HashSet<ClassHash>,
-) -> Result<CachedStateInput, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<StateMaps, Box<dyn std::error::Error + Send + Sync>> {
     // For block 0, there's no previous state, so return genesis cached state
     if *block_number == 0 {
         return create_genesis_cached_state();
@@ -55,7 +55,7 @@ pub async fn generate_cached_state_input(
     let block_id = BlockId::Number(block_number - 1);
     info!("Generating cached state input for block {:?} (reading from previous block)", block_id);
 
-    let mut storage = HashMap::new();
+    let mut storage: HashMap<StorageEntry, Felt> = HashMap::new();
     let mut address_to_class_hash = HashMap::new();
     let mut address_to_nonce = HashMap::new();
     let mut class_hash_to_compiled_class_hash = HashMap::new();
@@ -99,7 +99,7 @@ pub async fn generate_cached_state_input(
 
     // Reconstruct the nested HashMap structure from results
     for (contract_address, storage_key, storage_value) in storage_results {
-        storage.entry(contract_address).or_insert_with(HashMap::new).insert(storage_key, storage_value);
+        storage.insert((contract_address, storage_key), storage_value);
     }
 
     info!("Filled storage for {} contracts", storage.len());
@@ -191,8 +191,13 @@ pub async fn generate_cached_state_input(
 
     info!("Retrieved compiled class hashes for {} classes", class_hash_to_compiled_class_hash.len());
 
-    let cached_state_input =
-        CachedStateInput { storage, address_to_class_hash, address_to_nonce, class_hash_to_compiled_class_hash };
+    let cached_state_input = StateMaps {
+        storage,
+        class_hashes: address_to_class_hash,
+        nonces: address_to_nonce,
+        compiled_class_hashes: class_hash_to_compiled_class_hash,
+        declared_contracts: HashMap::new(),
+    };
 
     info!("Generated cached state input successfully!");
     Ok(cached_state_input)
