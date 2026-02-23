@@ -67,6 +67,15 @@ impl GenericCompiledClass {
         }
     }
 
+    /// Computes the class hash v2 (BLAKE2s / SNIP-34) for this compiled class.
+    /// Cairo 0 contracts return the same hash as `class_hash()` (no migration).
+    pub fn class_hash_v2(&self) -> Result<GenericClassHash, ContractClassError> {
+        match self {
+            GenericCompiledClass::Cairo0(deprecated_class) => deprecated_class.class_hash(),
+            GenericCompiledClass::Cairo1(casm_class) => casm_class.class_hash_v2(),
+        }
+    }
+
     /// Returns `true` if this is a Cairo 0 contract class.
     ///
     /// # Example

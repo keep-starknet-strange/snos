@@ -48,20 +48,31 @@ fn get_rpc_url(chain: &str) -> String {
 
 /// Simple PIE generation test with parameterized block numbers
 #[rstest]
-// mainnet blocks
-#[case("mainnet", vec![1943728])] // slow
-#[case("mainnet", vec![1943731])] // slow
-#[case("mainnet", vec![1952705])] // slow
-#[case("mainnet", vec![1944976])] // slow
-#[case("mainnet", vec![2403992])] // slow
-// sepolia blocks
-#[case("sepolia", vec![2325530, 2325531])] // slow
-#[case("sepolia", vec![994169])] // slow
-#[case("sepolia", vec![926808])] // fast
-#[case("sepolia", vec![927143])] // fast
-#[case("sepolia", vec![1041119])] // fast
-#[case("sepolia", vec![1004270])] // fast
-#[case("sepolia", vec![2244464])] // fast
+// mainnet blocks (0.14.1)
+#[case("mainnet", vec![4129455])] // first block of 0.14.1
+#[case("mainnet", vec![4346247])] // declare txn
+#[case("mainnet", vec![4256358])] // ready deploy account
+#[case("mainnet", vec![4996611])] // ready proxy 0 deploy account
+#[case("mainnet", vec![4997095])] // accountUpgradable deploy account
+#[case("mainnet", vec![4996555])] // OKX deploy account
+#[case("mainnet", vec![5003456])] // OKX proxy deploy account
+#[case("mainnet", vec![4283703])] // l1 handler USDT bridge
+#[case("mainnet", vec![4286303])] // l1 handler ETH bridge
+#[case("mainnet", vec![4284442])] // l1 handler STRK bridge
+#[case("mainnet", vec![4288250])] // l1 handler USDC bridge
+#[case("mainnet", vec![4303342])] // l1 handler staking minting
+#[case("mainnet", vec![4308192])] // l1 handler wBTC bridge
+// sepolia blocks (0.14.1)
+#[case("sepolia", vec![2934726])] // first 0.14.1 block
+#[case("sepolia", vec![2934727])] // empty block, second block of 0.14.1
+#[case("sepolia", vec![2935507])] // uses cairo0 class
+#[case("sepolia", vec![3023829])] // has declare txn
+#[case("sepolia", vec![3028228])] // deploy account ready multisig
+#[case("sepolia", vec![3028244])] // deploy account ready simple
+#[case("sepolia", vec![3030489])] // l1 handler reverted txn
+#[case("sepolia", vec![3042980])] // l1 handler eth bridge txn
+#[case("sepolia", vec![3048281])] // l1 handler strk bridge txn
+#[case("sepolia", vec![3030480])] // l1 handler random
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64>) {
     println!("🧪 Testing PIE generation for blocks on {}", chain);
@@ -74,6 +85,7 @@ async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64
         output_path: None,
         layout: LayoutName::all_cairo,
         versioned_constants: None,
+        public_keys: None,
     };
 
     println!("📡 Using RPC: {}", input.rpc_url);
@@ -124,9 +136,9 @@ async fn test_pie_generation_with_custom_versioned_constants() {
         }
     };
 
-    // Use a simple block for testing
+    // Use a simple block for testing (0.14.1 empty block)
     let chain = "sepolia";
-    let block_numbers = vec![926808]; // fast block
+    let block_numbers = vec![2934727]; // empty block, second block of 0.14.1
 
     println!("🧪 Testing PIE generation with custom versioned constants for blocks on {}", chain);
 
@@ -138,6 +150,7 @@ async fn test_pie_generation_with_custom_versioned_constants() {
         output_path: None,
         layout: LayoutName::all_cairo,
         versioned_constants,
+        public_keys: None,
     };
 
     println!("📡 Using RPC: {}", input.rpc_url);

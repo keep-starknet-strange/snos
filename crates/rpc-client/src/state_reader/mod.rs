@@ -5,6 +5,7 @@ use cairo_lang_starknet_classes::contract_class::version_id_from_serialized_sier
 use log::{debug, warn};
 use starknet::core::types::{BlockId, Felt, StarknetError};
 use starknet::providers::{Provider, ProviderError};
+use starknet_api::contract_class::compiled_class_hash::{HashVersion, HashableCompiledClass};
 use starknet_api::contract_class::SierraVersion;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
@@ -20,6 +21,25 @@ use crate::utils::execute_coroutine;
 
 #[cfg(test)]
 pub mod tests;
+
+/// Version of the compiled class hash algorithm.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledClassHashVersion {
+    /// Poseidon hash (pre-SNIP-34, legacy)
+    V1,
+    /// BLAKE2s hash (post-SNIP-34)
+    V2,
+}
+
+impl CompiledClassHashVersion {
+    /// Returns the version string for logging purposes.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::V1 => "v1",
+            Self::V2 => "v2",
+        }
+    }
+}
 
 /// Maximum number of retry attempts for RPC calls
 const MAX_RETRY_ATTEMPTS: u32 = 3;
@@ -243,21 +263,37 @@ impl AsyncRpcStateReader {
     }
 
     pub async fn get_compiled_class_hash_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        // When no block exists, no classes are available
+        self.get_compiled_class_hash_with_version_async(class_hash, CompiledClassHashVersion::V1).await
+    }
+
+    pub async fn get_compiled_class_hash_v2_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        self.get_compiled_class_hash_with_version_async(class_hash, CompiledClassHashVersion::V2).await
+    }
+
+    /// Internal async method for fetching compiled class hash with version selection.
+    async fn get_compiled_class_hash_with_version_async(
+        &self,
+        class_hash: ClassHash,
+        version: CompiledClassHashVersion,
+    ) -> StateResult<CompiledClassHash> {
         if self.has_no_block() {
             return Err(StateError::UndeclaredClassHash(class_hash));
         }
 
         let block_id = self.block_id.unwrap();
-        debug!("got a request of get_compiled_class_hash with parameters the class hash: {:?}", class_hash);
-        let operation_name = format!("get_compiled_class_hash(class_hash: {:?})", class_hash);
+        debug!("get_compiled_class_hash_{} for class_hash: {:?}", version.as_str(), class_hash);
+        let operation_name = format!("get_compiled_class_hash_{}(class_hash: {:?})", version.as_str(), class_hash);
 
         let contract_class = self
             .execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
             .await
             .map_err(provider_error_to_state_error)?;
 
-        compute_compiled_class_hash(&contract_class)
+        compute_compiled_class_hash_internal(&contract_class, version)
+    }
+
+    pub fn get_compiled_class_hash_v2(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        execute_coroutine(self.get_compiled_class_hash_v2_async(class_hash))
     }
 }
 
@@ -282,38 +318,54 @@ impl StateReader for AsyncRpcStateReader {
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         execute_coroutine(self.get_compiled_class_hash_async(class_hash))
     }
+
+    fn get_compiled_class_hash_v2(
+        &self,
+        class_hash: ClassHash,
+        compiled_class: &RunnableCompiledClass,
+    ) -> StateResult<CompiledClassHash> {
+        match compiled_class {
+            RunnableCompiledClass::V0(_) => Ok(CompiledClassHash(class_hash.0)),
+            RunnableCompiledClass::V1(compiled_class_v1) => Ok(compiled_class_v1.hash(&HashVersion::V2)),
+        }
+    }
 }
 
-/// Computes the compiled class hash for a given contract class.
-///
-/// This is a CPU-intensive operation that compiles Sierra classes or decompresses Legacy classes
-/// to compute their compiled class hash. This function can be used in parallel processing scenarios.
-///
-/// # Arguments
-/// * `contract_class` - The contract class to compute the hash for
-///
-/// # Returns
-/// The compiled class hash or an error if computation fails
+/// Computes the compiled class hash for a given contract class (Poseidon, pre-SNIP-34).
+/// For BLAKE2s hash (post-SNIP-34), use [`compute_compiled_class_hash_v2`].
 pub fn compute_compiled_class_hash(
     contract_class: &starknet::core::types::ContractClass,
+) -> Result<CompiledClassHash, StateError> {
+    compute_compiled_class_hash_internal(contract_class, CompiledClassHashVersion::V1)
+}
+
+/// Computes the compiled class hash v2 (BLAKE2s) for a given contract class (SNIP-34).
+pub fn compute_compiled_class_hash_v2(
+    contract_class: &starknet::core::types::ContractClass,
+) -> Result<CompiledClassHash, StateError> {
+    compute_compiled_class_hash_internal(contract_class, CompiledClassHashVersion::V2)
+}
+
+/// Internal helper for computing compiled class hash with version selection.
+fn compute_compiled_class_hash_internal(
+    contract_class: &starknet::core::types::ContractClass,
+    version: CompiledClassHashVersion,
 ) -> Result<CompiledClassHash, StateError> {
     let class_hash = match contract_class {
         starknet::core::types::ContractClass::Sierra(sierra_class) => {
             let generic_sierra = convert_sierra_class_for_generic(sierra_class)?;
             let compiled_class = generic_sierra.compile().map_err(to_state_err)?;
-            compiled_class.class_hash().map_err(to_state_err)?
+            match version {
+                CompiledClassHashVersion::V1 => compiled_class.class_hash().map_err(to_state_err)?,
+                CompiledClassHashVersion::V2 => compiled_class.class_hash_v2().map_err(to_state_err)?,
+            }
         }
-        starknet::core::types::ContractClass::Legacy(legacy_class) => {
-            // Use the decompression function from starknet_core_addons
-            let decompressed_legacy_class =
-                decompress_starknet_legacy_contract_class(legacy_class.clone()).map_err(|e| {
-                    StateError::StateReadError(format!("Failed to decompress legacy contract class: {}", e))
-                })?;
-
-            // Convert the decompressed LegacyContractClass to GenericDeprecatedCompiledClass
-            let generic_deprecated =
-                GenericDeprecatedCompiledClass::try_from(decompressed_legacy_class).map_err(to_state_err)?;
-            generic_deprecated.class_hash().map_err(to_state_err)?
+        starknet::core::types::ContractClass::Legacy(_) => {
+            // Cairo 0 (legacy) contracts do not have a compiled class hash.
+            // Return default (zero) to signal this to the blockifier's migration logic.
+            // The `should_migrate` function in blockifier expects zero for Cairo 0 contracts
+            // to skip them during casm hash migration.
+            return Ok(CompiledClassHash::default());
         }
     };
 
