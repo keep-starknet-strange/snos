@@ -25,6 +25,7 @@
 - [Architecture](#-architecture)
 - [Related Projects](#-related-projects)
 - [Documentation](#-documentation)
+- [Contributing](#-contributing)
 - [License](#-license)
 
 ## 📖 About
@@ -37,6 +38,28 @@ At a high level, the pipeline is:
 3. Export the resulting Cairo PIE for downstream proving.
 
 The Starknet OS code is sourced from [starkware-libs/sequencer's `os.cairo`](https://github.com/starkware-libs/sequencer/blob/main/crates/apollo_starknet_os_program/src/cairo/starkware/starknet/core/os/os.cairo).
+
+### SNOS Role in Madara
+
+From a Madara component perspective, SNOS is responsible for:
+
+1. Running Cairo VM execution for blocks.
+2. Executing transactions and producing execution artifacts.
+3. Handling state transitions and output data formatting expected by proving pipelines.
+
+For broader context, see:
+
+- [Madara Starknet OS Component](https://madara-docs.pages.dev/components/starknet_os)
+- [Madara Architecture (Transaction Flow)](https://madara-docs.pages.dev/architecture)
+
+### Transaction Failure Semantics
+
+When reasoning about failures in replay/proving pipelines, keep two classes in mind:
+
+- **Rejected**: pre-execution validation failures (e.g., malformed transaction, invalid nonce, insufficient preconditions).
+- **Reverted**: execution started but failed in contract logic or runtime checks.
+
+This distinction is important when triaging block re-execution mismatches.
 
 ### Key Features
 
@@ -92,8 +115,7 @@ cargo build --release
 
 ### Quick Start with Makefile
 
-The easiest way to generate PIE is using the Makefile:
-The Make targets are convenience wrappers around the same `generate-pie` CLI arguments.
+The easiest way to generate PIE is using the Makefile. The Make targets are convenience wrappers around the same `generate-pie` CLI arguments.
 
 ```bash
 # Generate PIE for a Sepolia block
@@ -309,6 +331,8 @@ SNOS is organized as a Cargo workspace with the following crates:
 |----------|-------------|
 | [ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Crate overview, configuration options, and build requirements |
 | [CODE_FLOW.md](./docs/CODE_FLOW.md) | Detailed code execution flow, parallelization, RPC patterns, and type conversions |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Developer and contributor workflow guide |
+| [CLAUDE.md](./CLAUDE.md) | Agent-oriented code navigation and implementation runbook |
 
 ## 🤝 Related Projects
 
@@ -324,11 +348,15 @@ SNOS is organized as a Cargo workspace with the following crates:
 
 - [Architecture Overview](./docs/ARCHITECTURE.md) - Crate structure, configuration, and build requirements
 - [Code Flow](./docs/CODE_FLOW.md) - Detailed execution flow, parallelization, and type conversions
+- [Contributing Guide](./CONTRIBUTING.md) - Local setup, validation, and PR checklist
+- [Agent Runbook](./CLAUDE.md) - Fast task routing, commands, and gotchas for code agents
 
 ### External Resources
 
 **Starknet OS:**
 - [Starknet OS in sequencer](https://github.com/starkware-libs/sequencer/tree/main/crates/apollo_starknet_os_program)
+- [Madara Starknet OS component](https://madara-docs.pages.dev/components/starknet_os)
+- [Madara architecture](https://madara-docs.pages.dev/architecture)
 
 **Cairo:**
 - [The Cairo Book](https://book.cairo-lang.org/)
@@ -338,6 +366,10 @@ SNOS is organized as a Cargo workspace with the following crates:
 **Starknet:**
 - [Starknet Docs](https://docs.starknet.io/)
 - [Starknet State](https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/)
+
+## 🤝 Contributing
+
+For contributor setup, validation commands, and PR expectations, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## 📜 License
 

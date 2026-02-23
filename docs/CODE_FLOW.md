@@ -34,6 +34,16 @@ Execute Starknet OS (run_os_stateless)
 Validate & Output Cairo PIE
 ```
 
+Related external context:
+
+- [Madara Starknet OS component](https://madara-docs.pages.dev/components/starknet_os)
+- [Madara architecture](https://madara-docs.pages.dev/architecture)
+
+Failure classification reminder:
+
+- **Rejected**: fails before execution begins.
+- **Reverted**: fails during execution after entering runtime.
+
 ---
 
 ## Entry Points
@@ -124,8 +134,8 @@ collect_single_block_info(block_number, ...)
     │       └── Compile contract classes (parallel)
     │
     ├── Step 4: tx_result.collect_proofs()
-    │   ├── RPC: pathfinder_rpc().get_proof() for storage proofs
-    │   └── RPC: pathfinder_rpc().get_class_proof() for class proofs
+    │   ├── RPC: starknet_rpc().get_proof() for storage proofs
+    │   └── RPC: starknet_rpc().get_class_proof() for class proofs
     │
     ├── Step 5: proofs.calculate_commitments()
     │   └── Build commitment info from proofs
@@ -326,8 +336,7 @@ class_fetch_results
 
 ```rust
 RpcClient {
-    starknet_rpc: JsonRpcClient<HttpTransport>,    // Standard Starknet RPC
-    pathfinder_rpc: PathfinderRpcClient,           // Storage proof extensions
+    starknet_client: JsonRpcClient<HttpTransport>, // Standard RPC + proof extension methods
 }
 ```
 
@@ -345,7 +354,7 @@ RpcClient {
 | `get_class_hash_at()` | `generate_cached_state_input` | Get class hash for address |
 | `get_class()` | Multiple locations | Fetch contract class |
 
-### Pathfinder-Specific RPC Calls
+### Proof RPC Calls
 
 | Method | Location | Purpose |
 |--------|----------|---------|
@@ -396,8 +405,8 @@ RpcClient {
 ┌────────────────────────────────────────────────────────────────────┐
 │                        collect_proofs()                             │
 ├────────────────────────────────────────────────────────────────────┤
-│  1. pathfinder_rpc.get_proof() - for storage proofs                │
-│  2. pathfinder_rpc.get_class_proof() - for class proofs            │
+│  1. starknet_rpc.get_proof() - for storage proofs                  │
+│  2. starknet_rpc.get_class_proof() - for class proofs              │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -660,4 +669,3 @@ RPC Types (starknet-rs)
   → Blockifier Types (sequencer)
   → OS Input Types (starknet_os)
 ```
-

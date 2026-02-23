@@ -1,4 +1,4 @@
-//! Main RPC client implementation for unified Starknet and Pathfinder access.
+//! Main RPC client implementation for unified Starknet and proof-capable RPC access.
 
 use anyhow::anyhow;
 use futures::stream::{self, StreamExt};
@@ -40,17 +40,14 @@ pub trait ProofClient {
     ) -> impl std::future::Future<Output = Result<ContractProof, ProviderError>> + Send;
 }
 
-/// Internal structure containing the underlying RPC clients.
-///
-/// This struct encapsulates both the standard Starknet RPC client and the Pathfinder-specific
-/// client, providing a unified interface for accessing different types of RPC endpoints.
+/// Internal structure containing the underlying RPC client.
 struct RpcClientInner {
     /// Starknet-rs client for accessing standard Starknet RPC endpoints.
     starknet_client: JsonRpcClient<HttpTransport>,
 }
 
 impl RpcClientInner {
-    /// Creates a new RPC client inner with both Starknet and Pathfinder clients.
+    /// Creates a new RPC client inner.
     ///
     /// # Arguments
     ///
@@ -61,13 +58,7 @@ impl RpcClientInner {
     /// This function will throw an error if the URL cannot be parsed or if the HTTP client
     /// cannot be created.
     ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use rpc_client::client::RpcClientInner;
-    ///
-    /// let inner = RpcClientInner::new("https://your-starknet-node.com");
-    /// ```
+    /// This is an internal constructor used by [`RpcClient::try_new`].
     fn try_new(base_url: &str) -> anyhow::Result<Self> {
         let starknet_rpc_url = format!("{}/rpc/{}", base_url, STARKNET_RPC_VERSION);
         info!("Initializing Starknet RPC client with URL: {}", starknet_rpc_url);
@@ -83,25 +74,30 @@ impl RpcClientInner {
 
 /// A unified RPC client for interacting with Starknet nodes.
 ///
-/// This client provides access to both standard Starknet RPC endpoints and Pathfinder-specific
-/// extensions through a single interface. It's designed to be thread-safe and can be cloned
+/// This client provides access to standard Starknet RPC endpoints and proof methods through a
+/// single interface. It's designed to be thread-safe and can be cloned
 /// for use across multiple tasks.
 ///
 /// # Examples
 ///
 /// ## Basic Usage
 ///
-/// ```rust
+/// ```no_run
 /// use rpc_client::RpcClient;
 /// use starknet::core::types::BlockId;
+/// use starknet::providers::Provider;
+/// use starknet_core::types::BlockTag;
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let client = RpcClient::new("https://your-starknet-node.com");
+///     let client = RpcClient::try_new("https://your-starknet-node.com")?;
 ///
 ///     // Get the latest block
-///     let block = client.starknet_rpc().get_block(BlockId::Latest).await?;
-///     println!("Latest block number: {}", block.block_number);
+///     let block = client
+///         .starknet_rpc()
+///         .get_block_with_txs(BlockId::Tag(BlockTag::Latest))
+///         .await?;
+///     println!("Latest block response: {:?}", block);
 ///
 ///     Ok(())
 /// }
@@ -129,10 +125,13 @@ impl RpcClient {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```no_run
     /// use rpc_client::RpcClient;
     ///
-    /// let client = RpcClient::new("https://your-starknet-node.com");
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let client = RpcClient::try_new("https://your-starknet-node.com")?;
+    ///     Ok(())
+    /// }
     /// ```
     pub fn try_new(base_url: &str) -> anyhow::Result<Self> {
         Ok(Self { inner: Arc::new(RpcClientInner::try_new(base_url)?) })
@@ -149,17 +148,22 @@ impl RpcClient {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```no_run
     /// use rpc_client::RpcClient;
     /// use starknet::core::types::BlockId;
+    /// use starknet::providers::Provider;
+    /// use starknet_core::types::BlockTag;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let client = RpcClient::new("https://your-starknet-node.com");
+    ///     let client = RpcClient::try_new("https://your-starknet-node.com")?;
     ///
     ///     // Use the Starknet RPC client directly
-    ///     let block = client.starknet_rpc().get_block(BlockId::Latest).await?;
-    ///     println!("Block hash: {:?}", block.block_hash);
+    ///     let block = client
+    ///         .starknet_rpc()
+    ///         .get_block_with_txs(BlockId::Tag(BlockTag::Latest))
+    ///         .await?;
+    ///     println!("Block response: {:?}", block);
     ///
     ///     Ok(())
     /// }
@@ -194,18 +198,19 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///
     /// # Example
     ///
-    /// ```rust
-    /// use rpc_client::pathfinder::client::PathfinderRpcClient;
+    /// ```no_run
+    /// use rpc_client::client::ProofClient;
+    /// use rpc_client::RpcClient;
     /// use starknet_types_core::felt::Felt;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let client = PathfinderRpcClient::new("https://your-pathfinder-node.com");
+    ///     let client = RpcClient::try_new("https://your-starknet-node.com")?;
     ///
     ///     let contract_address = Felt::from_hex("0x123...").unwrap();
     ///     let keys = vec![Felt::from_hex("0x456...").unwrap()];
     ///
-    ///     let proof = client.get_proof(12345, contract_address, &keys).await?;
+    ///     let proof = client.starknet_rpc().get_proof(12345, contract_address, &keys).await?;
     ///     println!("Proof obtained for {} keys", keys.len());
     ///
     ///     Ok(())
@@ -287,16 +292,17 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///
     /// # Example
     ///
-    /// ```rust
-    /// use rpc_client::pathfinder::client::PathfinderRpcClient;
+    /// ```no_run
+    /// use rpc_client::client::ProofClient;
+    /// use rpc_client::RpcClient;
     /// use starknet_types_core::felt::Felt;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let client = PathfinderRpcClient::new("https://your-pathfinder-node.com");
+    ///     let client = RpcClient::try_new("https://your-starknet-node.com")?;
     ///
     ///     let class_hash = Felt::from_hex("0x789...").unwrap();
-    ///     let proof = client.get_class_proof(12345, &class_hash).await?;
+    ///     let proof = client.starknet_rpc().get_class_proof(12345, &class_hash).await?;
     ///     println!("Class proof obtained successfully");
     ///
     ///     Ok(())

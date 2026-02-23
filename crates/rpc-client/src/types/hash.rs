@@ -14,10 +14,10 @@ use starknet_types_core::hash::{Pedersen, Poseidon, StarkHash};
 ///
 /// struct MyHashFunction;
 ///
-/// impl SimpleHashFunction for MyHashFunction {
+/// impl Hash for MyHashFunction {
 ///     fn hash(left: &Felt, right: &Felt) -> Felt {
 ///         // Implement your hash function here
-///         Felt::from(0)
+///         *left + *right
 ///     }
 /// }
 /// ```

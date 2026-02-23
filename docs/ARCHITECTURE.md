@@ -5,6 +5,19 @@ This document provides a detailed overview of the SNOS codebase architecture.
 SNOS generates Cairo PIE from blocks on Starknet-spec compatible chains (Starknet L2, custom L2s, and L3 networks).
 
 > **See Also:** For a detailed walkthrough of the code execution flow, parallelization strategies, and type conversions, see [CODE_FLOW.md](./CODE_FLOW.md).
+> **Contributor Workflow:** See [CONTRIBUTING.md](../CONTRIBUTING.md) for setup and validation expectations.
+
+## Madara Context
+
+From the Madara architecture perspective, SNOS is the component responsible for replaying/processing Starknet blocks and producing execution artifacts consumed by proving-related flows.
+
+- Component reference: [Madara Starknet OS](https://madara-docs.pages.dev/components/starknet_os)
+- System flow reference: [Madara Architecture](https://madara-docs.pages.dev/architecture)
+
+When triaging processing outcomes, keep failure classes explicit:
+
+- **Rejected**: pre-execution validation failures.
+- **Reverted**: execution entered VM/runtime but failed during contract execution.
 
 ## Workspace Structure
 
@@ -181,6 +194,25 @@ SNOS uses typed errors throughout:
 - `ToBlockifierError`: Type conversion errors
 
 All errors implement `std::error::Error` and provide detailed context.
+
+## Contributor Entry Points
+
+When making changes, start from the narrowest entry point:
+
+- CLI flags/config wiring:
+  - `crates/core/generate-pie/src/main.rs`
+- Core generation pipeline:
+  - `crates/core/generate-pie/src/lib.rs`
+- Per-block execution and artifacts:
+  - `crates/core/generate-pie/src/block_processor.rs`
+  - `crates/core/generate-pie/src/cached_state.rs`
+  - `crates/core/generate-pie/src/state_update.rs`
+- RPC/proof behavior:
+  - `crates/rpc-client/src/client.rs`
+- Shared contract/class abstractions:
+  - `crates/starknet-os-types/src/`
+- Replay service behavior:
+  - `crates/rpc-replay/src/main.rs`
 
 ## Performance Considerations
 
