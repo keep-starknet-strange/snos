@@ -11,7 +11,7 @@ use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
 use generate_pie::utils::load_versioned_constants;
-use generate_pie::{generate_pie, parse_layout};
+use generate_pie::{generate_pie, parse_layout, parse_public_key};
 use log::{error, info};
 
 /// Represents a range of block numbers (inclusive).
@@ -97,6 +97,10 @@ struct Cli {
     /// Path to a JSON file containing versioned constants (optional)
     #[arg(long, env = "SNOS_VERSIONED_CONSTANTS_PATH")]
     versioned_constants_path: Option<String>,
+
+    /// Public keys for OS execution (comma-separated hex values)
+    #[arg(long, value_delimiter = ',', value_parser = parse_public_key, env = "SNOS_PUBLIC_KEYS")]
+    public_keys: Option<Vec<starknet_types_core::felt::Felt>>,
 }
 
 const EMPTY_BLOCK_SELECTION_ERROR: &str = "At least one block number must be provided. Use --blocks and/or --range.";
@@ -171,6 +175,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         output_path: cli.output.clone(),
         layout: cli.layout,
         versioned_constants,
+        public_keys: cli.public_keys,
     };
 
     // Display configuration information
@@ -190,6 +195,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         "  Versioned constants: {}",
         if input.versioned_constants.is_some() { "provided from file" } else { "auto-detect from block" }
     );
+    if let Some(ref public_keys) = input.public_keys {
+        info!("  Public keys: {} provided", public_keys.len());
+    } else {
+        info!("  Public keys: none");
+    }
 
     // Call the core PIE generation function
     match generate_pie(input).await {

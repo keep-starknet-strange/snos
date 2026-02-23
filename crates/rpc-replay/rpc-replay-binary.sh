@@ -69,13 +69,16 @@ mkdir -p "$NETWORK-logs"/ "$NETWORK-output"/
 chown -R 1000:1000 "$NETWORK-logs"/ "$NETWORK-output"/
 
 rpc-replay \
---rpc-url $RPC_URL \
---chain $CHAIN \
+--rpc-url "$RPC_URL" \
+--chain "$CHAIN" \
 --start-block "$START_BLOCK" \
 --num-blocks "$NUM_BLOCKS" \
---strk-fee-token-address $STRK_FEE_TOKEN \
---eth-fee-token-address $ETH_FEE_TOKEN \
+--strk-fee-token-address "$STRK_FEE_TOKEN" \
+--eth-fee-token-address "$ETH_FEE_TOKEN" \
 --upload-to-s3 \
---log-dir "$NETWORK"
+--log-dir "$NETWORK" \
+--upload-to-db \
+--mongo-uri "mongodb://user:password@host:port" \
+--db-name "snos-testing-$NETWORK"
 
 echo "Docker container 'rpc-replay-$NETWORK' started successfully"

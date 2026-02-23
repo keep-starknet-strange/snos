@@ -115,5 +115,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD pgrep rpc-replay || exit 1
 
 # Default command - passes all arguments to the binary
-ENTRYPOINT ["rpc-replay"]
+ENTRYPOINT ["/app/rpc-replay-binary.sh"]
 CMD ["--help"]

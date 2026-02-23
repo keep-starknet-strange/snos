@@ -24,6 +24,7 @@ use starknet_api::block::{BlockInfo, BlockNumber, BlockTimestamp, GasPrices, Sta
 use starknet_api::contract_address;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
+use starknet_api::versioned_constants_logic::VersionedConstantsTrait;
 use starknet_os_types::chain_id::chain_id_from_felt;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
