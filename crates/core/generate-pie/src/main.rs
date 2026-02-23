@@ -21,6 +21,30 @@ struct BlockRange {
     end: u64,
 }
 
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+enum CliInputError {
+    #[error("Invalid range format '{input}'. Expected format: start,end (e.g., 1,999).")]
+    InvalidRangeFormat { input: String },
+    #[error("Invalid start value '{value}'. Must be a positive integer.")]
+    InvalidStartValue { value: String },
+    #[error("Invalid end value '{value}'. Must be a positive integer.")]
+    InvalidEndValue { value: String },
+    #[error("Invalid range: start ({start}) must be less than or equal to end ({end}).")]
+    InvalidRangeBounds { start: u64, end: u64 },
+    #[error("At least one block number must be provided. Use --blocks and/or --range.")]
+    EmptyBlockSelection,
+    #[error("Invalid versioned constants configuration: {message}")]
+    VersionedConstantsConfig { message: String },
+}
+
+#[derive(Debug, thiserror::Error)]
+enum AppError {
+    #[error(transparent)]
+    CliInput(#[from] CliInputError),
+    #[error(transparent)]
+    PieGeneration(#[from] generate_pie::error::PieGenerationError),
+}
+
 impl BlockRange {
     /// Returns an iterator over all block numbers in this range (inclusive).
     fn iter(&self) -> impl Iterator<Item = u64> {
@@ -29,24 +53,19 @@ impl BlockRange {
 }
 
 impl FromStr for BlockRange {
-    type Err = String;
+    type Err = CliInputError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (start_raw, end_raw) = s
-            .split_once(',')
-            .ok_or_else(|| format!("Invalid range format '{}'. Expected format: start,end (e.g., 1,999).", s))?;
+        let (start_raw, end_raw) =
+            s.split_once(',').ok_or_else(|| CliInputError::InvalidRangeFormat { input: s.to_string() })?;
 
-        let start: u64 = start_raw
-            .trim()
-            .parse()
-            .map_err(|_| format!("Invalid start value '{}'. Must be a positive integer.", start_raw))?;
-        let end: u64 = end_raw
-            .trim()
-            .parse()
-            .map_err(|_| format!("Invalid end value '{}'. Must be a positive integer.", end_raw))?;
+        let start: u64 =
+            start_raw.trim().parse().map_err(|_| CliInputError::InvalidStartValue { value: start_raw.to_string() })?;
+        let end: u64 =
+            end_raw.trim().parse().map_err(|_| CliInputError::InvalidEndValue { value: end_raw.to_string() })?;
 
         if start > end {
-            return Err(format!("Invalid range: start ({}) must be less than or equal to end ({}).", start, end));
+            return Err(CliInputError::InvalidRangeBounds { start, end });
         }
 
         Ok(BlockRange { start, end })
@@ -103,9 +122,7 @@ struct Cli {
     public_keys: Option<Vec<starknet_types_core::felt::Felt>>,
 }
 
-const EMPTY_BLOCK_SELECTION_ERROR: &str = "At least one block number must be provided. Use --blocks and/or --range.";
-
-fn collect_blocks(blocks: Vec<u64>, range: Option<BlockRange>) -> Result<Vec<u64>, &'static str> {
+fn collect_blocks(blocks: Vec<u64>, range: Option<BlockRange>) -> Result<Vec<u64>, CliInputError> {
     let mut selected_blocks: BTreeSet<u64> = blocks.into_iter().collect();
 
     if let Some(range) = range {
@@ -113,7 +130,7 @@ fn collect_blocks(blocks: Vec<u64>, range: Option<BlockRange>) -> Result<Vec<u64
     }
 
     if selected_blocks.is_empty() {
-        return Err(EMPTY_BLOCK_SELECTION_ERROR);
+        return Err(CliInputError::EmptyBlockSelection);
     }
 
     Ok(selected_blocks.into_iter().collect())
@@ -140,7 +157,7 @@ fn collect_blocks(blocks: Vec<u64>, range: Option<BlockRange>) -> Result<Vec<u64
 /// - OS execution errors
 /// - File I/O errors
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn main() -> Result<(), AppError> {
     // Initialize logging
     env_logger::init();
 
@@ -152,18 +169,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         info!("Adding blocks from range {} to {} (inclusive)", range.start, range.end);
     }
 
-    let blocks = match collect_blocks(std::mem::take(&mut cli.blocks), cli.range) {
-        Ok(blocks) => blocks,
-        Err(message) => {
-            error!("{message}");
-            std::process::exit(1);
-        }
-    };
+    let blocks = collect_blocks(std::mem::take(&mut cli.blocks), cli.range).map_err(|e| {
+        error!("{e}");
+        e
+    })?;
 
     // Load versioned constants from file if provided
     let versioned_constants = load_versioned_constants(cli.versioned_constants_path.as_deref()).map_err(|e| {
-        error!("{}", e);
-        e
+        let typed_error = CliInputError::VersionedConstantsConfig { message: e };
+        error!("{typed_error}");
+        typed_error
     })?;
 
     // Build the input configuration
@@ -202,18 +217,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     // Call the core PIE generation function
-    match generate_pie(input).await {
-        Ok(result) => {
-            info!("PIE generation completed successfully!");
-            info!("  Blocks processed: {:?}", result.blocks_processed);
-            if let Some(output_path) = result.output_path {
-                info!("  Output written to: {}", output_path);
-            }
-        }
-        Err(e) => {
-            error!("PIE generation failed: {}", e);
-            return Err(e.into());
-        }
+    let result = generate_pie(input).await.map_err(|e| {
+        error!("PIE generation failed: {}", e);
+        e
+    })?;
+
+    info!("PIE generation completed successfully!");
+    info!("  Blocks processed: {:?}", result.blocks_processed);
+    if let Some(output_path) = result.output_path {
+        info!("  Output written to: {}", output_path);
     }
 
     info!("SNOS execution completed successfully!");
@@ -240,11 +252,26 @@ mod tests {
     }
 
     #[rstest]
-    #[case("1", "Invalid range format '1'. Expected format: start,end (e.g., 1,999).")]
-    #[case("abc,2", "Invalid start value 'abc'. Must be a positive integer.")]
-    #[case("1,xyz", "Invalid end value 'xyz'. Must be a positive integer.")]
-    #[case("9,2", "Invalid range: start (9) must be less than or equal to end (2).")]
-    fn block_range_rejects_invalid_input(#[case] input: &str, #[case] expected_error: &str) {
+    #[case(
+        "1",
+        CliInputError::InvalidRangeFormat {
+            input: "1".to_string()
+        }
+    )]
+    #[case(
+        "abc,2",
+        CliInputError::InvalidStartValue {
+            value: "abc".to_string()
+        }
+    )]
+    #[case(
+        "1,xyz",
+        CliInputError::InvalidEndValue {
+            value: "xyz".to_string()
+        }
+    )]
+    #[case("9,2", CliInputError::InvalidRangeBounds { start: 9, end: 2 })]
+    fn block_range_rejects_invalid_input(#[case] input: &str, #[case] expected_error: CliInputError) {
         let error = BlockRange::from_str(input).expect_err("invalid range should fail");
 
         assert_eq!(error, expected_error);
@@ -254,11 +281,11 @@ mod tests {
     #[case(vec![5, 3, 5, 4], None, Ok(vec![3, 4, 5]))]
     #[case(vec![], Some(BlockRange { start: 7, end: 9 }), Ok(vec![7, 8, 9]))]
     #[case(vec![10, 12], Some(BlockRange { start: 11, end: 12 }), Ok(vec![10, 11, 12]))]
-    #[case(vec![], None, Err(EMPTY_BLOCK_SELECTION_ERROR))]
+    #[case(vec![], None, Err(CliInputError::EmptyBlockSelection))]
     fn collect_blocks_handles_inputs(
         #[case] blocks: Vec<u64>,
         #[case] range: Option<BlockRange>,
-        #[case] expected: Result<Vec<u64>, &'static str>,
+        #[case] expected: Result<Vec<u64>, CliInputError>,
     ) {
         assert_eq!(collect_blocks(blocks, range), expected);
     }
