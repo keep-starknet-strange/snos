@@ -223,71 +223,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
-    #[test]
-    fn block_range_parses_valid_input() {
-        let range = BlockRange::from_str("1,3").expect("valid range should parse");
+    #[rstest]
+    #[case("1,3", BlockRange { start: 1, end: 3 }, vec![1, 2, 3])]
+    #[case(" 4 , 5 ", BlockRange { start: 4, end: 5 }, vec![4, 5])]
+    fn block_range_parses_valid_input(
+        #[case] input: &str,
+        #[case] expected_range: BlockRange,
+        #[case] expected_blocks: Vec<u64>,
+    ) {
+        let range = BlockRange::from_str(input).expect("valid range should parse");
 
-        assert_eq!(range.start, 1);
-        assert_eq!(range.end, 3);
-        assert_eq!(range.iter().collect::<Vec<_>>(), vec![1, 2, 3]);
+        assert_eq!(range, expected_range);
+        assert_eq!(range.iter().collect::<Vec<_>>(), expected_blocks);
     }
 
-    #[test]
-    fn block_range_rejects_invalid_format() {
-        let error = BlockRange::from_str("1").expect_err("single value should fail");
+    #[rstest]
+    #[case("1", "Invalid range format '1'. Expected format: start,end (e.g., 1,999).")]
+    #[case("abc,2", "Invalid start value 'abc'. Must be a positive integer.")]
+    #[case("1,xyz", "Invalid end value 'xyz'. Must be a positive integer.")]
+    #[case("9,2", "Invalid range: start (9) must be less than or equal to end (2).")]
+    fn block_range_rejects_invalid_input(#[case] input: &str, #[case] expected_error: &str) {
+        let error = BlockRange::from_str(input).expect_err("invalid range should fail");
 
-        assert_eq!(error, "Invalid range format '1'. Expected format: start,end (e.g., 1,999).");
+        assert_eq!(error, expected_error);
     }
 
-    #[test]
-    fn block_range_rejects_invalid_start() {
-        let error = BlockRange::from_str("abc,2").expect_err("non numeric start should fail");
-
-        assert_eq!(error, "Invalid start value 'abc'. Must be a positive integer.");
-    }
-
-    #[test]
-    fn block_range_rejects_invalid_end() {
-        let error = BlockRange::from_str("1,xyz").expect_err("non numeric end should fail");
-
-        assert_eq!(error, "Invalid end value 'xyz'. Must be a positive integer.");
-    }
-
-    #[test]
-    fn block_range_rejects_start_greater_than_end() {
-        let error = BlockRange::from_str("9,2").expect_err("start greater than end should fail");
-
-        assert_eq!(error, "Invalid range: start (9) must be less than or equal to end (2).");
-    }
-
-    #[test]
-    fn collect_blocks_from_blocks_only_deduplicates_and_sorts() {
-        let blocks = collect_blocks(vec![5, 3, 5, 4], None).expect("blocks should be collected");
-
-        assert_eq!(blocks, vec![3, 4, 5]);
-    }
-
-    #[test]
-    fn collect_blocks_from_range_only() {
-        let blocks = collect_blocks(vec![], Some(BlockRange { start: 7, end: 9 })).expect("range should be collected");
-
-        assert_eq!(blocks, vec![7, 8, 9]);
-    }
-
-    #[test]
-    fn collect_blocks_combines_range_and_blocks() {
-        let blocks = collect_blocks(vec![10, 12], Some(BlockRange { start: 11, end: 12 }))
-            .expect("range and blocks should be combined");
-
-        assert_eq!(blocks, vec![10, 11, 12]);
-    }
-
-    #[test]
-    fn collect_blocks_rejects_empty_input() {
-        let error = collect_blocks(vec![], None).expect_err("empty input should fail");
-
-        assert_eq!(error, EMPTY_BLOCK_SELECTION_ERROR);
+    #[rstest]
+    #[case(vec![5, 3, 5, 4], None, Ok(vec![3, 4, 5]))]
+    #[case(vec![], Some(BlockRange { start: 7, end: 9 }), Ok(vec![7, 8, 9]))]
+    #[case(vec![10, 12], Some(BlockRange { start: 11, end: 12 }), Ok(vec![10, 11, 12]))]
+    #[case(vec![], None, Err(EMPTY_BLOCK_SELECTION_ERROR))]
+    fn collect_blocks_handles_inputs(
+        #[case] blocks: Vec<u64>,
+        #[case] range: Option<BlockRange>,
+        #[case] expected: Result<Vec<u64>, &'static str>,
+    ) {
+        assert_eq!(collect_blocks(blocks, range), expected);
     }
 
     #[test]

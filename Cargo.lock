@@ -3011,6 +3011,7 @@ dependencies = [
  "num-traits",
  "rayon",
  "rpc-client",
+ "rstest 0.18.2",
  "serde",
  "serde_json",
  "shared_execution_objects",
