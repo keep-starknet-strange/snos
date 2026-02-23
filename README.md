@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./docs/images/SNOS.png" height="400" width="500">
   
-  ### ✨ SNOS ✨
+  ### ✨ Starknet OS (SNOS) Rust library ✨
   
   A Rust toolkit for generating Cairo PIE (Program Independent Execution) from blocks on Starknet-spec compatible chains.
 
@@ -29,9 +29,14 @@
 
 ## 📖 About
 
-SNOS generates Cairo PIE by re-executing blocks and producing inputs for the Starknet OS. These PIE can be used to generate STARK proofs that verify block validity. It works with any Starknet-spec compatible chain, including Starknet (Mainnet/Sepolia) and custom L2/L3 networks.
+SNOS generates Cairo PIE by re-executing blocks and producing inputs for the Starknet OS. This PIE can be used to generate STARK proofs that verify block validity. It works with any Starknet-spec compatible chain, including Starknet (Mainnet/Sepolia) and custom L2/L3 networks.
 
-The Starknet OS code is sourced from the [sequencer repository](https://github.com/starkware-libs/sequencer) at `crates/apollo_starknet_os_program/src/cairo/starkware/starknet/core/os/os.cairo`.
+At a high level, the pipeline is:
+1. Re-execute one or more blocks and prepare Starknet OS inputs.
+2. Run Starknet OS with those inputs.
+3. Export the resulting Cairo PIE for downstream proving.
+
+The Starknet OS code is sourced from [starkware-libs/sequencer's `os.cairo`](https://github.com/starkware-libs/sequencer/blob/main/crates/apollo_starknet_os_program/src/cairo/starkware/starknet/core/os/os.cairo).
 
 ### Key Features
 
@@ -42,6 +47,7 @@ The Starknet OS code is sourced from the [sequencer repository](https://github.c
 - **Modular Design**: Clean separation between RPC client, PIE generation, and type handling
 
 > **Important**: SNOS generates a PIE for all blocks provided to it without awareness of prover resource limits. It is the user's/application's responsibility to determine the appropriate number of blocks per PIE based on your proving infrastructure constraints.
+> **Performance note**: Runtime and artifact size generally grow with block complexity (transaction count, calldata volume, and state diffs). Benchmark on your target workload before large batch proving.
 
 ## 🛠️ Getting Started
 
@@ -61,10 +67,10 @@ Building SNOS compiles the `apollo_starknet_os` crate which in turn compiles `os
 
 ```bash
 ./setup-scripts/setup-cairo.sh
-source ./snos-env/bin/activate
+source ./venv/bin/activate
 ```
 
-This creates a virtual environment with the correct `cairo-lang` dependencies. The requirements are based on the sequencer repo's `scripts/requirements.txt` (sequencer commit is specified in `Cargo.toml`).
+This creates `./venv` with the correct `cairo-lang` dependencies. The requirements are based on the sequencer repo's `scripts/requirements.txt` (sequencer commit is specified in `Cargo.toml`).
 
 **Alternative: Manual setup**
 
@@ -76,8 +82,8 @@ If you prefer manual setup, ensure `cairo-compile` is available in your PATH. Yo
 git clone https://github.com/keep-starknet-strange/snos.git
 cd snos
 
-# Ensure cairo-compile is available (activate venv if using one)
-source venv/bin/activate  # or source ./snos-env/bin/activate
+# Ensure cairo-compile is available (activate the setup venv)
+source ./venv/bin/activate
 
 cargo build --release
 ```
@@ -87,6 +93,7 @@ cargo build --release
 ### Quick Start with Makefile
 
 The easiest way to generate PIE is using the Makefile:
+The Make targets are convenience wrappers around the same `generate-pie` CLI arguments.
 
 ```bash
 # Generate PIE for a Sepolia block
@@ -137,6 +144,8 @@ When not specified, these defaults are used:
 | ETH Fee Token | `0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7` |
 | Is L3 | `false` |
 | Versioned Constants | Auto-detected from block version |
+
+`all_cairo` is the default layout because it is the baseline layout used by SNOS for Starknet OS execution. Change `--layout` only if you explicitly need a different Cairo VM layout.
 
 ### Examples
 
@@ -219,8 +228,10 @@ cargo run -p rpc-replay -- \
 Add to your `Cargo.toml`:
 
 ```toml
-generate-pie = { git = "https://github.com/keep-starknet-strange/snos" }
+generate-pie = { git = "https://github.com/keep-starknet-strange/snos", tag = "v0.14.0" }
 ```
+
+> **Note**: `generate-pie` is not yet published on crates.io, so use a Git dependency.
 
 Example usage:
 
