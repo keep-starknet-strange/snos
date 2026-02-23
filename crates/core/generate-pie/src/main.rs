@@ -15,7 +15,7 @@ use generate_pie::{generate_pie, parse_layout};
 use log::{error, info};
 
 /// Represents a range of block numbers (inclusive).
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct BlockRange {
     start: u64,
     end: u64,
@@ -32,19 +32,18 @@ impl FromStr for BlockRange {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split(',').collect();
-        if parts.len() != 2 {
-            return Err(format!("Invalid range format '{}'. Expected format: start,end (e.g., 1,999).", s));
-        }
+        let (start_raw, end_raw) = s
+            .split_once(',')
+            .ok_or_else(|| format!("Invalid range format '{}'. Expected format: start,end (e.g., 1,999).", s))?;
 
-        let start: u64 = parts[0]
+        let start: u64 = start_raw
             .trim()
             .parse()
-            .map_err(|_| format!("Invalid start value '{}'. Must be a positive integer.", parts[0]))?;
-        let end: u64 = parts[1]
+            .map_err(|_| format!("Invalid start value '{}'. Must be a positive integer.", start_raw))?;
+        let end: u64 = end_raw
             .trim()
             .parse()
-            .map_err(|_| format!("Invalid end value '{}'. Must be a positive integer.", parts[1]))?;
+            .map_err(|_| format!("Invalid end value '{}'. Must be a positive integer.", end_raw))?;
 
         if start > end {
             return Err(format!("Invalid range: start ({}) must be less than or equal to end ({}).", start, end));
@@ -99,6 +98,22 @@ struct Cli {
     #[arg(long, env = "SNOS_VERSIONED_CONSTANTS_PATH")]
     versioned_constants_path: Option<String>,
 }
+
+const EMPTY_BLOCK_SELECTION_ERROR: &str = "At least one block number must be provided. Use --blocks and/or --range.";
+
+fn collect_blocks(blocks: Vec<u64>, range: Option<BlockRange>) -> Result<Vec<u64>, &'static str> {
+    let mut selected_blocks: BTreeSet<u64> = blocks.into_iter().collect();
+
+    if let Some(range) = range {
+        selected_blocks.extend(range.iter());
+    }
+
+    if selected_blocks.is_empty() {
+        return Err(EMPTY_BLOCK_SELECTION_ERROR);
+    }
+
+    Ok(selected_blocks.into_iter().collect())
+}
 /// Main entry point for the generate-pie application.
 ///
 /// This function demonstrates the usage of the generate-pie library by:
@@ -125,27 +140,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize logging
     env_logger::init();
 
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
 
     info!("Starting SNOS PIE generation application");
 
-    // Collect blocks from --blocks and --range arguments
-    let mut blocks: BTreeSet<u64> = cli.blocks.into_iter().collect();
-
-    // Add blocks from range if provided
     if let Some(range) = cli.range {
         info!("Adding blocks from range {} to {} (inclusive)", range.start, range.end);
-        blocks.extend(range.iter());
     }
 
-    // Validate that at least one block is provided
-    if blocks.is_empty() {
-        error!("At least one block number must be provided. Use --blocks and/or --range.");
-        std::process::exit(1);
-    }
-
-    // Convert to sorted Vec
-    let blocks: Vec<u64> = blocks.into_iter().collect();
+    let blocks = match collect_blocks(std::mem::take(&mut cli.blocks), cli.range) {
+        Ok(blocks) => blocks,
+        Err(message) => {
+            error!("{message}");
+            std::process::exit(1);
+        }
+    };
 
     // Load versioned constants from file if provided
     let versioned_constants = load_versioned_constants(cli.versioned_constants_path.as_deref()).map_err(|e| {
@@ -156,7 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Build the input configuration
     let input = PieGenerationInput {
         rpc_url: cli.rpc_url.clone(),
-        blocks: blocks.clone(),
+        blocks,
         chain_config: ChainConfig::new(&cli.chain, &cli.strk_fee_token_address, &cli.eth_fee_token_address, cli.is_l3),
         os_hints_config: OsHintsConfiguration::default_with_is_l3(cli.is_l3),
         output_path: cli.output.clone(),
@@ -199,4 +208,83 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     info!("SNOS execution completed successfully!");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn block_range_parses_valid_input() {
+        let range = BlockRange::from_str("1,3").expect("valid range should parse");
+
+        assert_eq!(range.start, 1);
+        assert_eq!(range.end, 3);
+        assert_eq!(range.iter().collect::<Vec<_>>(), vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn block_range_rejects_invalid_format() {
+        let error = BlockRange::from_str("1").expect_err("single value should fail");
+
+        assert_eq!(error, "Invalid range format '1'. Expected format: start,end (e.g., 1,999).");
+    }
+
+    #[test]
+    fn block_range_rejects_invalid_start() {
+        let error = BlockRange::from_str("abc,2").expect_err("non numeric start should fail");
+
+        assert_eq!(error, "Invalid start value 'abc'. Must be a positive integer.");
+    }
+
+    #[test]
+    fn block_range_rejects_invalid_end() {
+        let error = BlockRange::from_str("1,xyz").expect_err("non numeric end should fail");
+
+        assert_eq!(error, "Invalid end value 'xyz'. Must be a positive integer.");
+    }
+
+    #[test]
+    fn block_range_rejects_start_greater_than_end() {
+        let error = BlockRange::from_str("9,2").expect_err("start greater than end should fail");
+
+        assert_eq!(error, "Invalid range: start (9) must be less than or equal to end (2).");
+    }
+
+    #[test]
+    fn collect_blocks_from_blocks_only_deduplicates_and_sorts() {
+        let blocks = collect_blocks(vec![5, 3, 5, 4], None).expect("blocks should be collected");
+
+        assert_eq!(blocks, vec![3, 4, 5]);
+    }
+
+    #[test]
+    fn collect_blocks_from_range_only() {
+        let blocks = collect_blocks(vec![], Some(BlockRange { start: 7, end: 9 })).expect("range should be collected");
+
+        assert_eq!(blocks, vec![7, 8, 9]);
+    }
+
+    #[test]
+    fn collect_blocks_combines_range_and_blocks() {
+        let blocks = collect_blocks(vec![10, 12], Some(BlockRange { start: 11, end: 12 }))
+            .expect("range and blocks should be combined");
+
+        assert_eq!(blocks, vec![10, 11, 12]);
+    }
+
+    #[test]
+    fn collect_blocks_rejects_empty_input() {
+        let error = collect_blocks(vec![], None).expect_err("empty input should fail");
+
+        assert_eq!(error, EMPTY_BLOCK_SELECTION_ERROR);
+    }
+
+    #[test]
+    fn cli_parses_range_argument_into_block_range() {
+        let cli = Cli::try_parse_from(["snos", "--rpc-url", "http://localhost:8545", "--range", "4,6"])
+            .expect("cli should parse range argument");
+
+        assert_eq!(cli.range, Some(BlockRange { start: 4, end: 6 }));
+    }
 }
