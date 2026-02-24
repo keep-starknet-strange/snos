@@ -18,6 +18,13 @@ license-file = "LICENSE"
 
 [workspace.dependencies]
 # 0.14.2 migration baseline: pin sequencer crates to upstream main-v0.14.2 revision.
+# Tracking note (checked 2026-02-24 UTC):
+# - Branch: https://github.com/starkware-libs/sequencer/tree/main-v0.14.2
+#   (head 3f0847b3c441d268f0c43a78bdbf069c0d42869d @ 2026-02-24T09:53:58Z)
+# - Pinned commit in this workspace:
+#   https://github.com/starkware-libs/sequencer/commit/da4a9f93737b1c9acfa609ec4a9caefba03cf3d1
+#   (2026-02-23T15:06:11Z)
+# - No upstream tag/release matching "0.14.2" found at check time.
 starknet_api = { git = "https://github.com/starkware-libs/sequencer", rev = "da4a9f93737b1c9acfa609ec4a9caefba03cf3d1", features = [
   "testing",
 ] }
