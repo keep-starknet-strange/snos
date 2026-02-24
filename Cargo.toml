@@ -17,30 +17,30 @@ repository = "https://github.com/keep-starknet-strange/snos/"
 license-file = "LICENSE"
 
 [workspace.dependencies]
-# TODO(mohit 16/12/2025): move the dependencies to the official sequencer repository once the next release is out.
-#                        the current v0.16.0-rc2 release doesn't have the snos related changes that we need
-starknet_api = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
+# 0.14.2 migration baseline: pin sequencer crates to upstream main-v0.14.2 revision.
+starknet_api = { git = "https://github.com/starkware-libs/sequencer", rev = "da4a9f93737b1c9acfa609ec4a9caefba03cf3d1", features = [
   "testing",
 ] }
-starknet_os = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
+starknet_os = { git = "https://github.com/starkware-libs/sequencer", rev = "da4a9f93737b1c9acfa609ec4a9caefba03cf3d1", features = [
   "testing",
 ] }
-blockifier = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
+blockifier = { git = "https://github.com/starkware-libs/sequencer", rev = "da4a9f93737b1c9acfa609ec4a9caefba03cf3d1", features = [
+  "testing",
+  "reexecution",
+] }
+starknet_patricia = { git = "https://github.com/starkware-libs/sequencer", rev = "da4a9f93737b1c9acfa609ec4a9caefba03cf3d1", features = [
   "testing",
 ] }
-starknet_patricia = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1", features = [
-  "testing",
-] }
-shared_execution_objects = { git = "https://github.com/karnotxyz/sequencer", tag = "v0.14.1-alpha.1" }
+shared_execution_objects = { git = "https://github.com/starkware-libs/sequencer", rev = "da4a9f93737b1c9acfa609ec4a9caefba03cf3d1" }
 
-cairo-lang-starknet = "=2.12.3"
-cairo-lang-starknet-classes = "=2.12.3"
-cairo-lang-utils = "=2.12.3"
-cairo-lang-casm = "=2.12.3"
-cairo-vm = "=2.5.0"
+cairo-lang-starknet = "=2.14.1-dev.3"
+cairo-lang-starknet-classes = "=2.14.1-dev.3"
+cairo-lang-utils = "=2.14.1-dev.3"
+cairo-lang-casm = "=2.14.1-dev.3"
+cairo-vm = "=3.0.1"
 
 starknet = {package = "starknet-rust", version = "0.18.0-rc.0"}
-starknet-types-core = "0.2.3"
+starknet-types-core = "0.2.4"
 
 pathfinder-class-hash = { git = "https://github.com/eqlabs/pathfinder", tag = "v0.21.3", package = "pathfinder-class-hash" }
 

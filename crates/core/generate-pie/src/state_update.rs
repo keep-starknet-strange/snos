@@ -30,6 +30,7 @@ use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
 use crate::constants::MAX_CONCURRENT_GET_CLASS_REQUESTS;
+use crate::utils::core_state_diff_to_thin_state_diff;
 
 // ================================================================================================
 // Type Definitions
@@ -51,6 +52,8 @@ pub struct FormattedStateUpdate {
     /// Classes migrated from Poseidon to BLAKE hash (SNIP-34).
     /// Maps class_hash -> compiled_class_hash_v2 (BLAKE)
     pub migrated_compiled_classes: HashMap<Felt252, Felt252>,
+    /// Thin state diff representation used for block hash commitment computation.
+    pub thin_state_diff: starknet_api::state::ThinStateDiff,
 }
 
 impl FormattedStateUpdate {
@@ -106,10 +109,10 @@ impl FormattedStateUpdate {
         }
 
         // Convert deprecated compiled classes to BTreeMap with ClassHash keys
-        let mut deprecated_compiled_classes_btree: BTreeMap<CompiledClassHash, ContractClass> = BTreeMap::new();
+        let mut deprecated_compiled_classes_btree: BTreeMap<ClassHash, ContractClass> = BTreeMap::new();
 
         for (class_hash_felt, generic_class) in deprecated_compiled_classes {
-            let class_hash = CompiledClassHash(*class_hash_felt);
+            let class_hash = ClassHash(*class_hash_felt);
             let starknet_api_class = generic_class.clone().to_starknet_api_contract_class().map_err(|e| {
                 BlockProcessingError::ContractClassConversion(format!(
                     "Failed to convert to starknet-api contract class: {:?}",
@@ -153,7 +156,7 @@ pub struct ContractClassProcessingResult {
         cairo_lang_starknet_classes::casm_contract_class::CasmContractClass,
     >,
     pub deprecated_compiled_classes: std::collections::BTreeMap<
-        starknet_api::core::CompiledClassHash,
+        starknet_api::core::ClassHash,
         starknet_api::deprecated_contract_class::ContractClass,
     >,
     pub declared_class_hash_component_hashes:
@@ -217,16 +220,10 @@ pub(crate) async fn get_formatted_state_update(
 ) -> Result<FormattedStateUpdate, Box<dyn std::error::Error>> {
     info!("Starting state update processing for block {:?}", block_id);
 
-    // Handle genesis block case
-    let Some(previous_block_id) = previous_block_id else {
-        // TODO: Check if this is the correct behavior
-        info!("Processing genesis block - returning empty state update");
-        return Ok(FormattedStateUpdate::default());
-    };
-
     // Fetch and validate state update
     let state_update = fetch_state_update(rpc_client, block_id).await?;
     let state_diff = &state_update.state_diff;
+    let thin_state_diff = core_state_diff_to_thin_state_diff(state_diff)?;
 
     // Extract declared classes
     let declared_classes = extract_declared_classes(state_diff);
@@ -260,6 +257,7 @@ pub(crate) async fn get_formatted_state_update(
         deprecated_compiled_classes: compiled_result.deprecated_compiled_classes,
         declared_class_hash_component_hashes: compiled_result.declared_component_hashes,
         migrated_compiled_classes,
+        thin_state_diff,
     })
 }
 
@@ -350,7 +348,7 @@ fn extract_migrated_compiled_classes(state_diff: &StateDiff) -> HashMap<Felt252,
 /// Builds compiled classes from accessed addresses and classes.
 async fn build_compiled_classes(
     rpc_client: &RpcClient,
-    previous_block_id: BlockId,
+    previous_block_id: PreviousBlockId,
     block_id: BlockId,
     accessed_addresses: &HashSet<Felt252>,
     declared_classes: &HashSet<Felt252>,
@@ -395,7 +393,7 @@ async fn build_compiled_classes(
 async fn process_accessed_addresses(
     rpc_client: &RpcClient,
     accessed_addresses: &HashSet<Felt252>,
-    previous_block_id: BlockId,
+    previous_block_id: PreviousBlockId,
     block_id: BlockId,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
     result: &mut CompiledClassResult,
@@ -417,7 +415,9 @@ async fn process_accessed_addresses(
     // Phase 1: Fetch all class hashes concurrently for both blocks
     let mut address_block_pairs = Vec::new();
     for address in &addresses_to_process {
-        address_block_pairs.push((*address, previous_block_id, true)); // true = is_previous_block
+        if let Some(previous_block_id) = previous_block_id {
+            address_block_pairs.push((*address, previous_block_id, true)); // true = is_previous_block
+        }
         address_block_pairs.push((*address, block_id, false));
     }
 

@@ -1,12 +1,14 @@
 use crate::error::BlockProcessingError;
 use crate::types::ProofCollectionResult;
 use crate::utils::{get_class_proofs, get_storage_proofs};
+use blockifier::state::cached_state::StateMaps;
 use cairo_vm::Felt252;
 use log::info;
 use rpc_client::types::ContractProof;
 use rpc_client::RpcClient;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
 use starknet::core::types::BlockId;
+use starknet_api::block_hash::block_hash_calculator::BlockHeaderCommitments;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
@@ -21,6 +23,8 @@ pub struct TransactionProcessingResult {
     pub accessed_addresses: HashSet<ContractAddress>,
     pub accessed_classes: HashSet<ClassHash>,
     pub accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>>,
+    pub initial_reads: StateMaps,
+    pub block_hash_commitments: BlockHeaderCommitments,
     pub processed_state_update: crate::state_update::FormattedStateUpdate,
 }
 

@@ -3,7 +3,7 @@ use crate::conversions::{ConversionContext, TryIntoBlockifierAsync};
 use crate::error::{BlockProcessingError, FeltConversionError};
 use crate::state_update::{get_formatted_state_update, get_subcalled_contracts_from_tx_traces};
 use crate::types::TransactionProcessingResult;
-use crate::utils::{build_gas_price_vector, get_accessed_keys_with_block_hash};
+use crate::utils::{build_gas_price_vector, compute_block_hash_commitments, get_accessed_keys_with_block_hash};
 use blockifier::blockifier::config::TransactionExecutorConfig;
 use blockifier::blockifier::transaction_executor::{TransactionExecutor, TransactionExecutorError};
 use blockifier::blockifier_versioned_constants::VersionedConstants;
@@ -232,6 +232,13 @@ impl BlockData {
         let txn_execution_infos: Vec<TransactionExecutionInfo> =
             execution_outputs.into_iter().map(|(execution_info, _)| execution_info).collect();
 
+        let initial_reads = txn_executor
+            .block_state
+            .as_ref()
+            .ok_or_else(|| BlockProcessingError::new_custom("Missing block state after transaction execution"))?
+            .get_initial_reads()
+            .map_err(|e| BlockProcessingError::new_custom(format!("Failed to capture initial reads: {:?}", e)))?;
+
         let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
             txn_execution_infos.clone().into_iter().map(|execution_info| execution_info.clone().into()).collect();
 
@@ -258,6 +265,19 @@ impl BlockData {
             BlockProcessingError::StateUpdateProcessing(format!("Failed to get formatted state update: {:?}", e))
         })?;
         info!("Fetched processed state update successfully");
+
+        let block_hash_commitments = compute_block_hash_commitments(
+            &starknet_api_txns,
+            &txn_execution_infos,
+            &processed_state_update.thin_state_diff,
+            self.current_block.l1_da_mode,
+            &self.starknet_version,
+        )
+        .await
+        .map_err(|e| {
+            BlockProcessingError::StateUpdateProcessing(format!("Failed to compute block hash commitments: {:?}", e))
+        })?;
+        info!("Computed block hash commitments for block {}", block_number);
 
         // Convert Felt252 to proper types
         let mut accessed_addresses: HashSet<ContractAddress> = accessed_addresses_felt
@@ -287,6 +307,8 @@ impl BlockData {
             accessed_addresses,
             accessed_classes,
             accessed_keys_by_address,
+            initial_reads,
+            block_hash_commitments,
             processed_state_update,
         })
     }
@@ -341,6 +363,7 @@ impl BlockData {
             sequencer_address,
             gas_prices: GasPrices { eth_gas_prices, strk_gas_prices },
             use_kzg_da,
+            starknet_version: self.starknet_version,
         };
 
         debug!("Block info created: {:?}", block_info);

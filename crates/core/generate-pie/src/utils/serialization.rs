@@ -53,7 +53,10 @@ pub fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Resu
     });
 
     // Serialize block inputs completely
-    let block_inputs_json: Vec<serde_json::Value> = os_hints.os_input.os_block_inputs.iter()
+    let block_inputs_json: Vec<serde_json::Value> = os_hints
+        .os_input
+        .os_block_inputs
+        .iter()
         .map(|block_input| {
             json!({
                 "block_info": {
@@ -61,18 +64,14 @@ pub fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Resu
                     "sequencer_address": format!("{:#x}", block_input.block_info.sequencer_address.0.key()),
                     "block_timestamp": block_input.block_info.block_timestamp.0,
                     "use_kzg_da": block_input.block_info.use_kzg_da,
+                    "starknet_version": block_input.block_info.starknet_version.to_string(),
                     "gas_prices": {
                         "eth_gas_prices": format!("{:#?}", block_input.block_info.gas_prices.eth_gas_prices),
                         "strk_gas_prices": format!("{:#?}", block_input.block_info.gas_prices.strk_gas_prices),
                     }
                 },
-                "transactions": block_input.transactions.iter().map(|tx| {
-                    // Use Debug format for comprehensive transaction serialization
-                    format!("{:#?}", tx)
-                }).collect::<Vec<_>>(),
-                "tx_execution_infos": block_input.tx_execution_infos.iter().map(|exec_info| {
-                    format!("{:#?}", exec_info)
-                }).collect::<Vec<_>>(),
+                "transactions": block_input.transactions.iter().map(|tx| format!("{:#?}", tx)).collect::<Vec<_>>(),
+                "tx_execution_infos": block_input.tx_execution_infos.iter().map(|exec_info| format!("{:#?}", exec_info)).collect::<Vec<_>>(),
                 "contract_state_commitment_info": format!("{:#?}", block_input.contract_state_commitment_info),
                 "contract_class_commitment_info": format!("{:#?}", block_input.contract_class_commitment_info),
                 "address_to_storage_commitment_info": block_input.address_to_storage_commitment_info.iter().map(|(addr, commitment_info)| {
@@ -87,6 +86,13 @@ pub fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Resu
                         "component_hashes": format!("{:#?}", component_hashes)
                     })
                 }).collect::<Vec<_>>(),
+                "block_hash_commitments": {
+                    "transaction_commitment": format!("{:#x}", block_input.block_hash_commitments.transaction_commitment.0),
+                    "event_commitment": format!("{:#x}", block_input.block_hash_commitments.event_commitment.0),
+                    "receipt_commitment": format!("{:#x}", block_input.block_hash_commitments.receipt_commitment.0),
+                    "state_diff_commitment": format!("{:#x}", block_input.block_hash_commitments.state_diff_commitment.0.0),
+                    "concatenated_counts": format!("{:#x}", block_input.block_hash_commitments.concatenated_counts),
+                },
                 "prev_block_hash": format!("{:#x}", block_input.prev_block_hash.0),
                 "new_block_hash": format!("{:#x}", block_input.new_block_hash.0),
                 "old_block_number_and_hash": block_input.old_block_number_and_hash.as_ref().map(|(block_number, block_hash)| {
@@ -94,45 +100,49 @@ pub fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Resu
                         "block_number": block_number.0,
                         "block_hash": format!("{:#x}", block_hash.0)
                     })
-                })
-            })
-        }).collect();
-
-    // Serialize cached state inputs completely
-    let cached_state_inputs_json: Vec<serde_json::Value> = os_hints.os_input.cached_state_inputs.iter()
-        .map(|cached_state| {
-            json!({
-                "storage": cached_state.storage.iter().map(|(addr, storage_map)| {
-                    json!({
-                        "address": format!("{:#x}", addr.0.key()),
-                        "storage": storage_map.iter().map(|(key, value)| {
-                            json!({
-                                "key": format!("{:#x}", key.0.key()),
-                                "value": format!("{:#x}", value)
-                            })
-                        }).collect::<Vec<_>>()
-                    })
-                }).collect::<Vec<_>>(),
-                "address_to_class_hash": cached_state.address_to_class_hash.iter().map(|(addr, class_hash)| {
-                    json!({
-                        "address": format!("{:#x}", addr.0.key()),
-                        "class_hash": format!("{:#x}", class_hash.0)
-                    })
-                }).collect::<Vec<_>>(),
-                "address_to_nonce": cached_state.address_to_nonce.iter().map(|(addr, nonce)| {
-                    json!({
-                        "address": format!("{:#x}", addr.0.key()),
-                        "nonce": format!("{:#x}", nonce.0)
-                    })
-                }).collect::<Vec<_>>(),
-                "class_hash_to_compiled_class_hash": cached_state.class_hash_to_compiled_class_hash.iter().map(|(class_hash, compiled_hash)| {
+                }),
+                "class_hashes_to_migrate": block_input.class_hashes_to_migrate.iter().map(|(class_hash, compiled_class_hash)| {
                     json!({
                         "class_hash": format!("{:#x}", class_hash.0),
-                        "compiled_class_hash": format!("{:#x}", compiled_hash.0)
+                        "compiled_class_hash": format!("{:#x}", compiled_class_hash.0)
                     })
-                }).collect::<Vec<_>>()
+                }).collect::<Vec<_>>(),
+                "initial_reads": {
+                    "nonces": block_input.initial_reads.nonces.iter().map(|(address, nonce)| {
+                        json!({
+                            "address": format!("{:#x}", address.0.key()),
+                            "nonce": format!("{:#x}", nonce.0)
+                        })
+                    }).collect::<Vec<_>>(),
+                    "class_hashes": block_input.initial_reads.class_hashes.iter().map(|(address, class_hash)| {
+                        json!({
+                            "address": format!("{:#x}", address.0.key()),
+                            "class_hash": format!("{:#x}", class_hash.0)
+                        })
+                    }).collect::<Vec<_>>(),
+                    "storage": block_input.initial_reads.storage.iter().map(|((address, storage_key), value)| {
+                        json!({
+                            "address": format!("{:#x}", address.0.key()),
+                            "storage_key": format!("{:#x}", storage_key.0.key()),
+                            "value": format!("{:#x}", value)
+                        })
+                    }).collect::<Vec<_>>(),
+                    "compiled_class_hashes": block_input.initial_reads.compiled_class_hashes.iter().map(|(class_hash, compiled_class_hash)| {
+                        json!({
+                            "class_hash": format!("{:#x}", class_hash.0),
+                            "compiled_class_hash": format!("{:#x}", compiled_class_hash.0)
+                        })
+                    }).collect::<Vec<_>>(),
+                    "declared_contracts": block_input.initial_reads.declared_contracts.iter().map(|(class_hash, is_declared)| {
+                        json!({
+                            "class_hash": format!("{:#x}", class_hash.0),
+                            "is_declared": is_declared
+                        })
+                    }).collect::<Vec<_>>()
+                }
             })
-        }).collect();
+        })
+        .collect();
 
     // Serialize compiled classes completely
     let compiled_classes_json: Vec<serde_json::Value> = os_hints
@@ -165,7 +175,6 @@ pub fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Resu
         "os_hints_config": os_hints_config_json,
         "os_input": {
             "os_block_inputs": block_inputs_json,
-            "cached_state_inputs": cached_state_inputs_json,
             "compiled_classes": compiled_classes_json,
             "deprecated_compiled_classes": deprecated_compiled_classes_json
         },
@@ -174,9 +183,17 @@ pub fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Resu
             "serialization_note": "Complete serialization of OsHints including all nested structures and data.",
             "statistics": {
                 "num_blocks": os_hints.os_input.os_block_inputs.len(),
-                "num_cached_states": os_hints.os_input.cached_state_inputs.len(),
                 "num_compiled_classes": os_hints.os_input.compiled_classes.len(),
                 "num_deprecated_compiled_classes": os_hints.os_input.deprecated_compiled_classes.len(),
+                "total_initial_read_cells": os_hints.os_input.os_block_inputs.iter()
+                    .map(|block| {
+                        block.initial_reads.nonces.len()
+                            + block.initial_reads.class_hashes.len()
+                            + block.initial_reads.storage.len()
+                            + block.initial_reads.compiled_class_hashes.len()
+                            + block.initial_reads.declared_contracts.len()
+                    })
+                    .sum::<usize>(),
                 "total_transactions": os_hints.os_input.os_block_inputs.iter()
                     .map(|block| block.transactions.len())
                     .sum::<usize>(),

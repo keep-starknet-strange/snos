@@ -40,3 +40,6 @@ starknet-core = { workspace = true }
 starknet-types-core = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+
+[dev-dependencies]
+rstest = { workspace = true }
