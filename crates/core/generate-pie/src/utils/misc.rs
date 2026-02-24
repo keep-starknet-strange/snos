@@ -47,7 +47,6 @@ pub fn felt_to_u128(felt: &Felt) -> Result<u128, FeltConversionError> {
 /// let traces = get_transaction_traces();
 /// write_serializable_to_file(&traces, "debug/traces.json", None)?;
 /// ```
-#[allow(dead_code)]
 pub fn write_serializable_to_file<T>(
     object: &T,
     file_path: &str,

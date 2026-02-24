@@ -37,7 +37,6 @@ use crate::error::PieGenerationError;
 /// let output_path = "os_hints_block_123.json";
 /// serialize_os_hints_to_json(&os_hints, output_path)?;
 /// ```
-#[allow(dead_code)]
 pub fn serialize_os_hints_to_json(os_hints: &OsHints, output_path: &str) -> Result<(), PieGenerationError> {
     info!("Serializing OS hints to JSON file: {}", output_path);
 

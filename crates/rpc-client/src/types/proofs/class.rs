@@ -5,7 +5,6 @@ use starknet_types_core::felt::Felt;
 use crate::error::ProofVerificationError;
 use crate::types::{PoseidonHash, TrieNode};
 
-#[allow(dead_code)]
 #[derive(Clone, Deserialize, Serialize)]
 pub struct ClassProof {
     pub class_commitment: Felt,
