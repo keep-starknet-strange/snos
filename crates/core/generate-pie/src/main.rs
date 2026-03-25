@@ -44,6 +44,14 @@ struct Cli {
     #[arg(short, long, default_value = "false", env = "SNOS_IS_L3")]
     is_l3: bool,
 
+    /// Use KZG data availability mode
+    #[arg(long, default_value = "false", action = clap::ArgAction::Set, env = "SNOS_USE_KZG_DA")]
+    use_kzg_da: bool,
+
+    /// Generate full output including intermediate states
+    #[arg(long, default_value = "true", action = clap::ArgAction::Set, env = "SNOS_FULL_OUTPUT")]
+    full_output: bool,
+
     /// Output path for the PIE file
     #[arg(short, long, env = "SNOS_OUTPUT")]
     output: Option<String>,
@@ -103,7 +111,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         rpc_url: cli.rpc_url.clone(),
         blocks: cli.blocks.clone(),
         chain_config: ChainConfig::new(&cli.chain, &cli.strk_fee_token_address, &cli.eth_fee_token_address, cli.is_l3),
-        os_hints_config: OsHintsConfiguration::default_with_is_l3(cli.is_l3),
+        os_hints_config: OsHintsConfiguration {
+            debug_mode: true,
+            full_output: cli.full_output,
+            use_kzg_da: cli.use_kzg_da,
+        },
         output_path: cli.output.clone(),
         layout: cli.layout,
         versioned_constants,

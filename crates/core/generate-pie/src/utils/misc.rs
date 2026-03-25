@@ -29,6 +29,10 @@ pub fn felt_to_u128(felt: &Felt) -> Result<u128, FeltConversionError> {
     felt.to_u128().ok_or(FeltConversionError::OverflowError)
 }
 
+pub fn format_optional_felt(felt: Option<&Felt>) -> String {
+    felt.map(|value| format!("{:#x}", value)).unwrap_or_else(|| "None".to_string())
+}
+
 /// Generic function to serialize any serializable object and write it to a file
 ///
 /// # Arguments
