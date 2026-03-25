@@ -146,11 +146,11 @@ impl AsyncRpcStateReader {
 
         let storage_value = match self
             .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *key.0.key(), block_id)
+                self.rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *key.0.key(), block_id, None)
             })
             .await
         {
-            Ok(value) => Ok(value),
+            Ok(value) => Ok(value.value()),
             Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
             Err(e) => Err(provider_error_to_state_error(e)),
         }?;

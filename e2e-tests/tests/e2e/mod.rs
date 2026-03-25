@@ -73,6 +73,13 @@ fn get_rpc_url(chain: &str) -> String {
 #[case("sepolia", vec![3042980])] // l1 handler eth bridge txn
 #[case("sepolia", vec![3048281])] // l1 handler strk bridge txn
 #[case("sepolia", vec![3030480])] // l1 handler random
+// sepolia blocks (0.14.2)
+#[case("sepolia", vec![7984520])] // first 0.14.2 block
+#[case("sepolia", vec![7984521])] // second 0.14.2 block, empty and contiguous with first block
+#[case("sepolia", vec![7984520, 7984521])] // first contiguous 0.14.2 multi-block pair
+#[case("sepolia", vec![7984528])] // first non-empty invoke-v3 block
+#[case("sepolia", vec![7984545])] // l1 handler-heavy block
+#[case("sepolia", vec![7984561])] // declare-v3 block
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64>) {
     println!("🧪 Testing PIE generation for blocks on {}", chain);
@@ -136,9 +143,9 @@ async fn test_pie_generation_with_custom_versioned_constants() {
         }
     };
 
-    // Use a simple block for testing (0.14.1 empty block)
+    // Use a simple block for testing (0.14.2 empty block)
     let chain = "sepolia";
-    let block_numbers = vec![2934727]; // empty block, second block of 0.14.1
+    let block_numbers = vec![7984521]; // empty block, second block of 0.14.2
 
     println!("🧪 Testing PIE generation with custom versioned constants for blocks on {}", chain);
 

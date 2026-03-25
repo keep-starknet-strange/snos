@@ -2,7 +2,6 @@
 //!
 //! This module handles the processing of Starknet state updates, including:
 //! - Fetching and formatting state updates from RPC
-//! - Processing transaction traces to extract accessed contracts
 //! - Compiling contract classes to CASM format
 //! - Managing class hash mappings and component hashes
 //!
@@ -14,10 +13,7 @@ use futures::stream::{self, StreamExt};
 use log::{debug, info, warn};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rpc_client::RpcClient;
-use starknet::core::types::{
-    BlockId, ExecuteInvocation, FunctionInvocation, MaybePreConfirmedStateUpdate, StarknetError, StateDiff,
-    TransactionTrace, TransactionTraceWithHash,
-};
+use starknet::core::types::{BlockId, MaybePreConfirmedStateUpdate, StarknetError, StateDiff};
 use starknet::providers::Provider;
 use starknet::providers::ProviderError;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
@@ -134,12 +130,6 @@ impl FormattedStateUpdate {
             declared_class_hash_component_hashes,
         })
     }
-}
-
-/// Result containing processed transaction trace data.
-struct TraceProcessingResult {
-    accessed_addresses: HashSet<Felt252>,
-    accessed_classes: HashSet<Felt252>,
 }
 
 /// Result containing compiled class data.
@@ -259,49 +249,6 @@ pub(crate) async fn get_formatted_state_update(
         migrated_compiled_classes,
         thin_state_diff,
     })
-}
-
-/// Extracts accessed contract addresses and class hashes from transaction traces.
-///
-/// This function processes transaction traces to identify all contracts and classes
-/// that were accessed during block execution, including nested function calls.
-///
-/// # Arguments
-///
-/// * `traces` - Array of transaction traces with hashes
-///
-/// # Returns
-///
-/// Returns a tuple containing:
-/// - Set of accessed contract addresses
-/// - Set of accessed class hashes
-///
-/// # Example
-///
-/// ```rust
-/// let traces = get_block_traces(block_id).await?;
-/// let (addresses, classes) = get_subcalled_contracts_from_tx_traces(&traces);
-/// println!("Found {} addresses and {} classes", addresses.len(), classes.len());
-/// ```
-pub(crate) fn get_subcalled_contracts_from_tx_traces(
-    traces: &[TransactionTraceWithHash],
-) -> (HashSet<Felt252>, HashSet<Felt252>) {
-    info!("Processing {} transaction traces", traces.len());
-
-    let mut result = TraceProcessingResult { accessed_addresses: HashSet::new(), accessed_classes: HashSet::new() };
-
-    for (index, trace) in traces.iter().enumerate() {
-        debug!("Processing trace {}/{}", index + 1, traces.len());
-        process_transaction_trace(&trace.trace_root, &mut result);
-    }
-
-    info!(
-        "Extracted {} accessed addresses and {} accessed classes",
-        result.accessed_addresses.len(),
-        result.accessed_classes.len()
-    );
-
-    (result.accessed_addresses, result.accessed_classes)
 }
 
 // ================================================================================================
@@ -579,56 +526,6 @@ async fn process_declared_classes(
     }
 
     Ok(())
-}
-
-/// Processes a single transaction trace to extract accessed contracts and classes.
-fn process_transaction_trace(trace: &TransactionTrace, result: &mut TraceProcessingResult) {
-    match trace {
-        TransactionTrace::Invoke(invoke_trace) => {
-            if let Some(inv) = &invoke_trace.validate_invocation {
-                process_function_invocations(inv, result);
-            }
-            if let ExecuteInvocation::Success(inv) = &invoke_trace.execute_invocation {
-                process_function_invocations(inv, result);
-            }
-            if let Some(inv) = &invoke_trace.fee_transfer_invocation {
-                process_function_invocations(inv, result);
-            }
-        }
-        TransactionTrace::Declare(declare_trace) => {
-            if let Some(inv) = &declare_trace.validate_invocation {
-                process_function_invocations(inv, result);
-            }
-            if let Some(inv) = &declare_trace.fee_transfer_invocation {
-                process_function_invocations(inv, result);
-            }
-        }
-        TransactionTrace::L1Handler(l1handler_trace) => {
-            if let ExecuteInvocation::Success(inv) = &l1handler_trace.function_invocation {
-                process_function_invocations(inv, result);
-            }
-        }
-        TransactionTrace::DeployAccount(deploy_trace) => {
-            if let Some(inv) = &deploy_trace.validate_invocation {
-                process_function_invocations(inv, result);
-            }
-            if let Some(inv) = &deploy_trace.fee_transfer_invocation {
-                process_function_invocations(inv, result);
-            }
-            process_function_invocations(&deploy_trace.constructor_invocation, result);
-        }
-    }
-}
-
-/// Recursively processes function invocations to extract contract addresses and class hashes.
-fn process_function_invocations(inv: &FunctionInvocation, result: &mut TraceProcessingResult) {
-    result.accessed_addresses.insert(inv.contract_address);
-    result.accessed_classes.insert(inv.class_hash);
-
-    // Recursively process nested calls
-    for call in &inv.calls {
-        process_function_invocations(call, result);
-    }
 }
 
 /// Adds an already-compiled class to the result (used in optimized parallel compilation paths).

@@ -1,23 +1,23 @@
 use crate::constants::{STATEFUL_MAPPING_START, STORED_BLOCK_HASH_BUFFER};
 use crate::conversions::{ConversionContext, TryIntoBlockifierAsync};
 use crate::error::{BlockProcessingError, FeltConversionError};
-use crate::state_update::{get_formatted_state_update, get_subcalled_contracts_from_tx_traces};
+use crate::state_update::get_formatted_state_update;
 use crate::types::TransactionProcessingResult;
-use crate::utils::{build_gas_price_vector, compute_block_hash_commitments, get_accessed_keys_with_block_hash};
+use crate::utils::{build_gas_price_vector, compute_block_hash_commitments, get_comprehensive_access_info};
 use blockifier::blockifier::config::TransactionExecutorConfig;
 use blockifier::blockifier::transaction_executor::{TransactionExecutor, TransactionExecutorError};
 use blockifier::blockifier_versioned_constants::VersionedConstants;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::CachedState;
+use blockifier::state::state_api::StateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use log::{debug, info, warn};
 use rpc_client::state_reader::AsyncRpcStateReader;
 use rpc_client::RpcClient;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
 use starknet::core::types::{
-    BlockId, ConfirmedBlockId, L1DataAvailabilityMode, MaybePreConfirmedBlockWithTxHashes,
-    MaybePreConfirmedBlockWithTxs,
+    BlockId, L1DataAvailabilityMode, MaybePreConfirmedBlockWithTxHashes, MaybePreConfirmedBlockWithTxs,
 };
 use starknet::providers::Provider;
 use starknet_api::block::{BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion};
@@ -73,7 +73,7 @@ impl BlockData {
         // Fetch the current block with transactions
         let current_block = match rpc_client
             .starknet_rpc()
-            .get_block_with_txs(block_id)
+            .get_block_with_txs(block_id, None)
             .await
             .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
         {
@@ -128,8 +128,8 @@ impl BlockData {
 
     /// Processes transactions and extracts execution information.
     ///
-    /// This function fetches transaction traces, executes transactions using Blockifier,
-    /// and extracts accessed data.
+    /// This function converts transactions, executes them using Blockifier, and extracts
+    /// the access information needed for OS input construction.
     ///
     /// # Arguments
     ///
@@ -151,39 +151,18 @@ impl BlockData {
         info!("Processing transactions for block {}", block_number);
 
         let block_id = BlockId::Number(block_number);
-        let confirmed_block_id = ConfirmedBlockId::Number(block_number);
         let previous_block_id =
             self.previous_block.as_ref().map(|previous_block| BlockId::Number(previous_block.block_number));
 
-        // Fetch transaction traces
-        let transaction_traces = rpc_client
-            .starknet_rpc()
-            .trace_block_transactions(confirmed_block_id)
-            .await
-            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
-        info!("Successfully fetched {} transaction traces for block {}", transaction_traces.len(), block_number);
-
-        // Extract accessed contracts and classes from traces
-        let (mut accessed_addresses_felt, accessed_classes_felt) =
-            get_subcalled_contracts_from_tx_traces(&transaction_traces);
-
         // Create a single conversion context for all transactions
-        let conversion_ctx =
-            ConversionContext::new(&self.chain_id, block_number, rpc_client, &block_context.block_info().gas_prices);
+        let conversion_ctx = ConversionContext::new(&self.chain_id, block_number, rpc_client);
 
         // Convert transactions to blockifier format
         let mut transactions = Vec::new();
-        for (i, (transaction, trace)) in
-            self.current_block.transactions.iter().zip(transaction_traces.iter()).enumerate()
-        {
-            // Convert transaction using the new async trait, passing trace separately
-            let transaction =
-                transaction.clone().try_into_blockifier_async(&conversion_ctx, trace).await.map_err(|e| {
-                    BlockProcessingError::new_custom(format!(
-                        "Failed to convert transaction to blockifier format: {:?}",
-                        e
-                    ))
-                })?;
+        for (i, transaction) in self.current_block.transactions.iter().enumerate() {
+            let transaction = transaction.clone().try_into_blockifier_async(&conversion_ctx).await.map_err(|e| {
+                BlockProcessingError::new_custom(format!("Failed to convert transaction to blockifier format: {:?}", e))
+            })?;
             transactions.push(transaction);
 
             if (i + 1) % 10 == 0 || i == self.current_block.transactions.len() - 1 {
@@ -215,7 +194,7 @@ impl BlockData {
         let blockifier_state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);
 
         let mut txn_executor =
-            TransactionExecutor::new(CachedState::new(blockifier_state_reader), block_context.clone(), config);
+            TransactionExecutor::new(CachedState::new(blockifier_state_reader.clone()), block_context.clone(), config);
         info!("Transaction executor created successfully");
         info!("Executing {} transactions using Blockifier", blockifier_txns.len());
 
@@ -232,19 +211,65 @@ impl BlockData {
         let txn_execution_infos: Vec<TransactionExecutionInfo> =
             execution_outputs.into_iter().map(|(execution_info, _)| execution_info).collect();
 
-        let initial_reads = txn_executor
-            .block_state
-            .as_ref()
-            .ok_or_else(|| BlockProcessingError::new_custom("Missing block state after transaction execution"))?
-            .get_initial_reads()
-            .map_err(|e| BlockProcessingError::new_custom(format!("Failed to capture initial reads: {:?}", e)))?;
+        let mut initial_reads = {
+            let block_state = txn_executor
+                .block_state
+                .as_ref()
+                .ok_or_else(|| BlockProcessingError::new_custom("Missing block state after transaction execution"))?;
+
+            let raw_initial_reads = block_state
+                .get_initial_reads()
+                .map_err(|e| BlockProcessingError::new_custom(format!("Failed to capture initial reads: {:?}", e)))?;
+
+            let mut hydrated_contract_addresses = raw_initial_reads.get_contract_addresses();
+            hydrated_contract_addresses.insert(contract_address!("0x1"));
+            hydrated_contract_addresses.insert(contract_address!("0x2"));
+
+            for contract_address in hydrated_contract_addresses {
+                block_state.get_class_hash_at(contract_address).map_err(|e| {
+                    BlockProcessingError::new_custom(format!(
+                        "Failed to extend initial reads with class hash for {:?}: {:?}",
+                        contract_address, e
+                    ))
+                })?;
+                block_state.get_nonce_at(contract_address).map_err(|e| {
+                    BlockProcessingError::new_custom(format!(
+                        "Failed to extend initial reads with nonce for {:?}: {:?}",
+                        contract_address, e
+                    ))
+                })?;
+            }
+
+            for class_hash in raw_initial_reads.declared_contracts.keys().copied().collect::<Vec<_>>() {
+                block_state.get_compiled_class_hash(class_hash).map_err(|e| {
+                    BlockProcessingError::new_custom(format!(
+                        "Failed to extend initial reads with compiled class hash for {:?}: {:?}",
+                        class_hash, e
+                    ))
+                })?;
+            }
+
+            let mut initial_reads = block_state.get_initial_reads().map_err(|e| {
+                BlockProcessingError::new_custom(format!("Failed to capture extended initial reads: {:?}", e))
+            })?;
+            initial_reads.declared_contracts.clear();
+            initial_reads
+        };
 
         let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
             txn_execution_infos.clone().into_iter().map(|execution_info| execution_info.clone().into()).collect();
 
-        // Get accessed keys and populate alias contract keys
-        let mut accessed_keys_by_address =
-            get_accessed_keys_with_block_hash(&txn_execution_infos, self.old_block_number);
+        let access_info = get_comprehensive_access_info(&txn_execution_infos, &initial_reads, self.old_block_number);
+        let mut accessed_keys_by_address = access_info.accessed_keys_by_address;
+        let accessed_classes_felt = access_info.accessed_class_hashes;
+        let mut accessed_addresses_felt: HashSet<Felt> = access_info
+            .accessed_contract_addresses
+            .into_iter()
+            .map(|contract_addr| {
+                let felt: Felt = contract_addr.into();
+                felt
+            })
+            .collect();
 
         info!("Got accessed keys for {} contracts", accessed_keys_by_address.len());
 
@@ -300,6 +325,11 @@ impl BlockData {
         );
 
         populate_alias_contract_keys(&accessed_addresses, &accessed_classes, &mut accessed_keys_by_address);
+        extend_initial_reads_storage(&blockifier_state_reader, &mut initial_reads, &accessed_keys_by_address)
+            .await
+            .map_err(|e| {
+                BlockProcessingError::new_custom(format!("Failed to extend initial reads storage witness: {:?}", e))
+            })?;
 
         Ok(TransactionProcessingResult {
             starknet_api_txns,
@@ -495,4 +525,24 @@ fn populate_alias_contract_keys(
             accessed_keys_by_address.get(&alias_contract_address).unwrap().len()
         );
     }
+}
+
+async fn extend_initial_reads_storage(
+    state_reader: &AsyncRpcStateReader,
+    initial_reads: &mut blockifier::state::cached_state::StateMaps,
+    accessed_keys_by_address: &HashMap<ContractAddress, HashSet<StorageKey>>,
+) -> Result<(), blockifier::state::errors::StateError> {
+    for (contract_address, storage_keys) in accessed_keys_by_address {
+        for storage_key in storage_keys {
+            let storage_entry = (*contract_address, *storage_key);
+            if initial_reads.storage.contains_key(&storage_entry) {
+                continue;
+            }
+
+            let value = state_reader.get_storage_at_async(*contract_address, *storage_key).await?;
+            initial_reads.storage.insert(storage_entry, value);
+        }
+    }
+
+    Ok(())
 }
