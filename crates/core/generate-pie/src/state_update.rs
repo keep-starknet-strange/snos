@@ -385,8 +385,15 @@ async fn process_accessed_addresses(
             Ok(class_hash) => {
                 class_fetch_pairs.push((address, bid, is_prev, class_hash));
             }
-            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) if is_prev => {
-                debug!("Contract {:?} not found in previous block (likely deployed in current block)", address);
+            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
+                if is_prev {
+                    debug!("Contract {:?} not found in previous block (likely deployed in current block)", address);
+                } else {
+                    debug!(
+                        "Contract {:?} not found in current block {:?}; skipping class fetch for non-deployed accessed address",
+                        address, bid
+                    );
+                }
             }
             Err(e) => return Err(StateUpdateError::RpcError(e)),
         }
