@@ -95,7 +95,7 @@ async fn create_mongo_client(uri: &str) -> Result<MongoClient, Box<dyn error::Er
 async fn get_last_processed_block(
     mongo_client: &MongoClient,
     db_name: &str,
-) -> Result<Option<BlockProcessingResult>, Box<dyn error::Error + Send + Sync>> {
+) -> Result<Option<u64>, Box<dyn error::Error + Send + Sync>> {
     let db = mongo_client.database(db_name);
     let collection: Collection<BlockProcessingResult> = db.collection("block_processing_results");
 
@@ -109,7 +109,7 @@ async fn get_last_processed_block(
                 "Found last processed block in DB: {} (blocks {}-{})",
                 result.end_block, result.start_block, result.end_block
             );
-            Ok(Some(result))
+            Ok(Some(result.end_block))
         }
         None => {
             info!("No previously processed blocks found in DB");
@@ -144,15 +144,6 @@ struct Args {
 
     #[arg(long, default_value = "1")]
     num_blocks: u64,
-
-    /// Advance the sequential window by this many blocks after each run.
-    /// Defaults to `num_blocks`, preserving the previous non-overlapping behavior.
-    #[arg(long)]
-    stride: Option<u64>,
-
-    /// Stop sequential mode after processing this many block sets.
-    #[arg(long)]
-    max_sets: Option<u64>,
 
     /// JSON file containing block numbers to process
     /// Supports two formats:
@@ -201,10 +192,6 @@ struct Args {
     #[arg(long, default_value = "false")]
     upload_to_s3: bool,
 
-    /// Stop immediately after the first failed block set in sequential mode.
-    #[arg(long, default_value = "false")]
-    stop_on_failure: bool,
-
     /// Upload block processing results to MongoDB
     #[arg(long, default_value = "false", env = "SNOS_UPLOAD_TO_DB")]
     upload_to_db: bool,
@@ -222,12 +209,6 @@ struct Args {
     versioned_constants_path: Option<String>,
 }
 
-impl Args {
-    fn stride(&self) -> u64 {
-        self.stride.unwrap_or(self.num_blocks)
-    }
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error + Send + Sync>> {
     env_logger::init();
@@ -235,12 +216,6 @@ async fn main() -> Result<(), Box<dyn error::Error + Send + Sync>> {
 
     if args.num_blocks == 0 {
         return Err("--num-blocks must be greater than 0".into());
-    }
-    if args.stride() == 0 {
-        return Err("--stride must be greater than 0".into());
-    }
-    if matches!(args.max_sets, Some(0)) {
-        return Err("--max-sets must be greater than 0 when provided".into());
     }
 
     // Validate MongoDB parameters
@@ -272,13 +247,10 @@ async fn main() -> Result<(), Box<dyn error::Error + Send + Sync>> {
                 let db_name = args.db_name.as_ref().unwrap();
                 match get_last_processed_block(client, db_name).await? {
                     Some(last_block) => {
-                        let next_block = last_block.start_block + args.stride();
+                        let next_block = last_block + 1;
                         info!(
-                            "📍 Resuming from block {} (last passed window was {}-{}, stride={})",
-                            next_block,
-                            last_block.start_block,
-                            last_block.end_block,
-                            args.stride()
+                            "📍 Resuming from block {} (found last processed block: {} in MongoDB)",
+                            next_block, last_block
                         );
                         next_block
                     }
@@ -313,14 +285,6 @@ async fn main() -> Result<(), Box<dyn error::Error + Send + Sync>> {
         ExecutionMode::Sequential { start_block } => {
             info!("  Mode: Sequential");
             info!("  Start block: {}", start_block);
-            info!("  Blocks per set: {}", args.num_blocks);
-            info!("  Stride: {}", args.stride());
-            if let Some(max_sets) = args.max_sets {
-                info!("  Max sets: {}", max_sets);
-            } else {
-                info!("  Max sets: unlimited");
-            }
-            info!("  Stop on failure: {}", args.stop_on_failure);
         }
         ExecutionMode::FromJson { blocks } => {
             info!("  Mode: JSON file");
@@ -361,22 +325,12 @@ async fn process_sequential_mode(
     mongo_client: Option<&MongoClient>,
 ) -> Result<(), Box<dyn error::Error + Send + Sync>> {
     let mut current_block = start_block;
-    let mut processed_sets = 0_u64;
-    let stride = args.stride();
 
-    info!("🔄 Starting sequential block processing loop");
+    info!("🔄 Starting infinite sequential block processing loop");
 
     loop {
-        if let Some(max_sets) = args.max_sets {
-            if processed_sets >= max_sets {
-                info!("🏁 Reached max set count ({}), stopping sequential processing", max_sets);
-                return Ok(());
-            }
-        }
-
         let block_set: Vec<u64> = (current_block..current_block + args.num_blocks).collect();
-        let set_index = processed_sets + 1;
-        info!("📋 Processing block set #{}: {:?}", set_index, block_set);
+        info!("📋 Processing block set: {:?}", block_set);
 
         // Check if all blocks exist
         match check_blocks_exist(rpc_client, &block_set).await {
@@ -397,8 +351,7 @@ async fn process_sequential_mode(
                             }
                         }
 
-                        processed_sets += 1;
-                        current_block += stride;
+                        current_block += args.num_blocks;
                     }
                     Err(e) => {
                         log::error!("Failed to generate PIE for blocks {:?}: {}", block_set, e);
@@ -416,13 +369,8 @@ async fn process_sequential_mode(
                             }
                         }
 
-                        processed_sets += 1;
-                        if args.stop_on_failure {
-                            return Err(format!("Stopping on failed block set {:?}: {}", block_set, e).into());
-                        }
-
                         // Move to the next set anyway to avoid getting stuck
-                        current_block += stride;
+                        current_block += args.num_blocks;
                     }
                 }
             }
