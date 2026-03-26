@@ -429,7 +429,7 @@ mod tests {
         // Some eccentric type conversions here to load the class hash from string easily, may be
         // improved with more methods on `Hash` / `GenericClassHash`.
         let expected_class_hash =
-            Felt::from_str("0x607c67298d45092cca5b2ae6804373dd8a2cbe7d2ec4072b3f67097461d5ff4").unwrap();
+            Felt::from_str("0x73a7597a1db28cbe2870c4f98d302d4989ad0a12a8ffc441ce965f86a884efd").unwrap();
         assert_eq!(Felt::from(*class_hash), expected_class_hash);
     }
 
@@ -517,11 +517,11 @@ mod tests {
     #[rstest]
     #[case::without_segmentation(
         TEST_CONTRACT_WITHOUT_SEGMENTATION,
-        "0xB268995DD0EE80DEBFB8718852750B5FD22082D0C729121C48A0487A4D2F64"
+        "0x19d0d3a56f350492db590c3e79770e0f4edc158a7ea800c2d2e2bf0e57aa08b"
     )]
     #[case::with_segmentation(
         TEST_CONTRACT_WITH_SEGMENTATION,
-        "0x5517AD8471C9AA4D1ADD31837240DEAD9DC6653854169E489A813DB4376BE9C"
+        "0x8dbcbb99355868e8a6147ebe4a29fef7c3c06fa24af109f42d67326799cb07"
     )]
     fn test_compiled_class_hash_without_segmentation(#[case] test_contract: &str, #[case] expected_hash_str: &str) {
         let expected_hash = Felt::from_hex(expected_hash_str).unwrap();

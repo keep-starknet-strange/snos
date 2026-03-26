@@ -95,7 +95,7 @@ pub(crate) fn get_comprehensive_access_info(
 fn get_accessed_keys_from_initial_reads(initial_reads: &StateMaps) -> HashMap<ContractAddress, HashSet<StorageKey>> {
     let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
 
-    for ((contract_address, storage_key), _) in &initial_reads.storage {
+    for (contract_address, storage_key) in initial_reads.storage.keys() {
         accessed_keys_by_address.entry(*contract_address).or_default().insert(*storage_key);
     }
 
