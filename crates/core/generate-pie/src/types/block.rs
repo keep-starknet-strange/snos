@@ -9,9 +9,11 @@ use blockifier::blockifier::transaction_executor::{TransactionExecutor, Transact
 use blockifier::blockifier_versioned_constants::VersionedConstants;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
-use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CachedState, StateMaps};
+use blockifier::state::errors::StateError;
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
+use futures::stream::{self, StreamExt, TryStreamExt};
 use log::{debug, info, warn};
 use rpc_client::state_reader::AsyncRpcStateReader;
 use rpc_client::RpcClient;
@@ -31,6 +33,7 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 
 const BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV: &str = "SNOS_BLOCKIFIER_TXN_EXECUTOR_CONFIG";
+const MAX_CONCURRENT_INITIAL_READ_STORAGE_FETCHES: usize = 32;
 
 /// Result containing fetched block data needed for processing.
 #[derive(Debug)]
@@ -216,44 +219,7 @@ impl BlockData {
                 .block_state
                 .as_ref()
                 .ok_or_else(|| BlockProcessingError::new_custom("Missing block state after transaction execution"))?;
-
-            let raw_initial_reads = block_state
-                .get_initial_reads()
-                .map_err(|e| BlockProcessingError::new_custom(format!("Failed to capture initial reads: {:?}", e)))?;
-
-            let mut hydrated_contract_addresses = raw_initial_reads.get_contract_addresses();
-            hydrated_contract_addresses.insert(contract_address!("0x1"));
-            hydrated_contract_addresses.insert(contract_address!("0x2"));
-
-            for contract_address in hydrated_contract_addresses {
-                block_state.get_class_hash_at(contract_address).map_err(|e| {
-                    BlockProcessingError::new_custom(format!(
-                        "Failed to extend initial reads with class hash for {:?}: {:?}",
-                        contract_address, e
-                    ))
-                })?;
-                block_state.get_nonce_at(contract_address).map_err(|e| {
-                    BlockProcessingError::new_custom(format!(
-                        "Failed to extend initial reads with nonce for {:?}: {:?}",
-                        contract_address, e
-                    ))
-                })?;
-            }
-
-            for class_hash in raw_initial_reads.declared_contracts.keys().copied().collect::<Vec<_>>() {
-                block_state.get_compiled_class_hash(class_hash).map_err(|e| {
-                    BlockProcessingError::new_custom(format!(
-                        "Failed to extend initial reads with compiled class hash for {:?}: {:?}",
-                        class_hash, e
-                    ))
-                })?;
-            }
-
-            let mut initial_reads = block_state.get_initial_reads().map_err(|e| {
-                BlockProcessingError::new_custom(format!("Failed to capture extended initial reads: {:?}", e))
-            })?;
-            initial_reads.declared_contracts.clear();
-            initial_reads
+            capture_extended_initial_reads(block_state)?
         };
 
         let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
@@ -527,22 +493,154 @@ fn populate_alias_contract_keys(
     }
 }
 
+/// Extends `initial_reads.storage` with storage entries that SNOS adds after execution.
+///
+/// Blockifier records only storage cells that were actually read during transaction execution.
+/// SNOS later augments the witness with synthetic reads for OS/proof completeness, most notably:
+/// - block-hash contract (`0x1`) keys used during OS preprocessing and `get_block_hash_syscall`
+/// - alias contract (`0x2`) keys introduced by stateful storage/class mapping
+///
+/// These cells must be fetched from the same pre-state used by execution, otherwise stateless OS
+/// replay can panic when it encounters a synthetic key that is not present in `initial_reads`.
 async fn extend_initial_reads_storage(
     state_reader: &AsyncRpcStateReader,
-    initial_reads: &mut blockifier::state::cached_state::StateMaps,
+    initial_reads: &mut StateMaps,
     accessed_keys_by_address: &HashMap<ContractAddress, HashSet<StorageKey>>,
-) -> Result<(), blockifier::state::errors::StateError> {
-    for (contract_address, storage_keys) in accessed_keys_by_address {
-        for storage_key in storage_keys {
-            let storage_entry = (*contract_address, *storage_key);
-            if initial_reads.storage.contains_key(&storage_entry) {
-                continue;
-            }
+) -> Result<(), StateError> {
+    let missing_entries = collect_missing_initial_read_storage_entries(initial_reads, accessed_keys_by_address);
+    if missing_entries.is_empty() {
+        return Ok(());
+    }
 
-            let value = state_reader.get_storage_at_async(*contract_address, *storage_key).await?;
-            initial_reads.storage.insert(storage_entry, value);
-        }
+    let fetched_entries = fetch_missing_initial_read_storage_entries(state_reader, &missing_entries).await?;
+
+    for (storage_entry, value) in fetched_entries {
+        initial_reads.storage.insert(storage_entry, value);
     }
 
     Ok(())
+}
+
+fn capture_extended_initial_reads(
+    block_state: &CachedState<AsyncRpcStateReader>,
+) -> Result<StateMaps, BlockProcessingError> {
+    let raw_initial_reads = get_initial_reads_snapshot(block_state, "capture initial reads")?;
+    hydrate_initial_read_contract_metadata(block_state, &raw_initial_reads)?;
+    hydrate_initial_read_declared_classes(block_state, &raw_initial_reads)?;
+
+    let mut initial_reads = get_initial_reads_snapshot(block_state, "capture extended initial reads")?;
+    initial_reads.declared_contracts.clear();
+    Ok(initial_reads)
+}
+
+fn get_initial_reads_snapshot(
+    block_state: &CachedState<AsyncRpcStateReader>,
+    context: &str,
+) -> Result<StateMaps, BlockProcessingError> {
+    block_state
+        .get_initial_reads()
+        .map_err(|e| BlockProcessingError::new_custom(format!("Failed to {}: {:?}", context, e)))
+}
+
+fn hydrate_initial_read_contract_metadata(
+    block_state: &CachedState<AsyncRpcStateReader>,
+    raw_initial_reads: &StateMaps,
+) -> Result<(), BlockProcessingError> {
+    let mut hydrated_contract_addresses = raw_initial_reads.get_contract_addresses();
+    hydrated_contract_addresses.insert(contract_address!("0x1"));
+    hydrated_contract_addresses.insert(contract_address!("0x2"));
+
+    for contract_address in hydrated_contract_addresses {
+        block_state.get_class_hash_at(contract_address).map_err(|e| {
+            BlockProcessingError::new_custom(format!(
+                "Failed to extend initial reads with class hash for {:?}: {:?}",
+                contract_address, e
+            ))
+        })?;
+        block_state.get_nonce_at(contract_address).map_err(|e| {
+            BlockProcessingError::new_custom(format!(
+                "Failed to extend initial reads with nonce for {:?}: {:?}",
+                contract_address, e
+            ))
+        })?;
+    }
+
+    Ok(())
+}
+
+fn hydrate_initial_read_declared_classes(
+    block_state: &CachedState<AsyncRpcStateReader>,
+    raw_initial_reads: &StateMaps,
+) -> Result<(), BlockProcessingError> {
+    for class_hash in raw_initial_reads.declared_contracts.keys().copied().collect::<Vec<_>>() {
+        block_state.get_compiled_class_hash(class_hash).map_err(|e| {
+            BlockProcessingError::new_custom(format!(
+                "Failed to extend initial reads with compiled class hash for {:?}: {:?}",
+                class_hash, e
+            ))
+        })?;
+    }
+
+    Ok(())
+}
+
+/// Returns only the storage entries that were added to the SNOS witness after execution and are
+/// therefore absent from Blockifier's raw `initial_reads.storage`.
+fn collect_missing_initial_read_storage_entries(
+    initial_reads: &StateMaps,
+    accessed_keys_by_address: &HashMap<ContractAddress, HashSet<StorageKey>>,
+) -> Vec<(ContractAddress, StorageKey)> {
+    let mut missing_entries = Vec::new();
+
+    for (contract_address, storage_keys) in accessed_keys_by_address {
+        for storage_key in storage_keys {
+            let storage_entry = (*contract_address, *storage_key);
+            if !initial_reads.storage.contains_key(&storage_entry) {
+                missing_entries.push(storage_entry);
+            }
+        }
+    }
+    missing_entries
+}
+
+/// Fetches missing witness cells concurrently because each lookup is an independent pre-state RPC
+/// read against the same block snapshot.
+async fn fetch_missing_initial_read_storage_entries(
+    state_reader: &AsyncRpcStateReader,
+    missing_entries: &[(ContractAddress, StorageKey)],
+) -> Result<Vec<((ContractAddress, StorageKey), Felt)>, StateError> {
+    stream::iter(missing_entries.iter().copied())
+        .map(|(contract_address, storage_key)| async move {
+            let value = state_reader.get_storage_at_async(contract_address, storage_key).await?;
+            Ok::<_, StateError>(((contract_address, storage_key), value))
+        })
+        .buffer_unordered(MAX_CONCURRENT_INITIAL_READ_STORAGE_FETCHES)
+        .try_collect()
+        .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collect_missing_initial_read_storage_entries_only_returns_absent_entries() {
+        let mut initial_reads = StateMaps::default();
+        let existing_key = StorageKey::try_from(Felt::ONE).unwrap();
+        let missing_key = StorageKey::try_from(Felt::from(2_u8)).unwrap();
+        let alias_key = StorageKey::try_from(Felt::from(3_u8)).unwrap();
+
+        initial_reads.storage.insert((contract_address!("0x1"), existing_key), Felt::from(11_u8));
+
+        let accessed_keys_by_address = HashMap::from([
+            (contract_address!("0x1"), HashSet::from([existing_key, missing_key])),
+            (contract_address!("0x2"), HashSet::from([alias_key])),
+        ]);
+
+        let missing_entries = collect_missing_initial_read_storage_entries(&initial_reads, &accessed_keys_by_address);
+
+        assert_eq!(missing_entries.len(), 2);
+        assert!(missing_entries.contains(&(contract_address!("0x1"), missing_key)));
+        assert!(missing_entries.contains(&(contract_address!("0x2"), alias_key)));
+    }
 }
