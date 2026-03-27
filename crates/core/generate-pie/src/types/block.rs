@@ -20,6 +20,7 @@ use rpc_client::RpcClient;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
 use starknet::core::types::{
     BlockId, L1DataAvailabilityMode, MaybePreConfirmedBlockWithTxHashes, MaybePreConfirmedBlockWithTxs,
+    TransactionResponseFlag,
 };
 use starknet::providers::Provider;
 use starknet_api::block::{BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion};
@@ -34,6 +35,7 @@ use std::env;
 
 const BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV: &str = "SNOS_BLOCKIFIER_TXN_EXECUTOR_CONFIG";
 const MAX_CONCURRENT_INITIAL_READ_STORAGE_FETCHES: usize = 32;
+const TRANSACTION_RESPONSE_FLAGS: [TransactionResponseFlag; 1] = [TransactionResponseFlag::IncludeProofFacts];
 
 /// Result containing fetched block data needed for processing.
 #[derive(Debug)]
@@ -76,7 +78,7 @@ impl BlockData {
         // Fetch the current block with transactions
         let current_block = match rpc_client
             .starknet_rpc()
-            .get_block_with_txs(block_id, None)
+            .get_block_with_txs(block_id, Some(&TRANSACTION_RESPONSE_FLAGS))
             .await
             .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
         {
