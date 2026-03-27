@@ -396,92 +396,6 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV3
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use starknet::core::types::{DataAvailabilityMode, ResourceBounds, ResourceBoundsMapping};
-
-    #[tokio::test]
-    async fn invoke_v3_conversion_preserves_proof_facts() {
-        let chain_id = ChainId::Sepolia;
-        let rpc_client = RpcClient::try_new("http://localhost:9545").expect("valid dummy rpc url");
-        let ctx = ConversionContext::new(&chain_id, 9112643, &rpc_client);
-        let proof_facts = vec![
-            Felt::from_hex_unchecked("0x50524f4f4630"),
-            Felt::from_hex_unchecked("0x5649525455414c5f534e4f53"),
-            Felt::from_hex_unchecked("0x3e98c2d7703b03a7edb73ed7f075f97f1dcbaa8f717cdf6e1a57bf058265473"),
-        ];
-        let tx_fields = InvokeTransactionV3 {
-            transaction_hash: Felt::ZERO,
-            sender_address: Felt::from_hex_unchecked(
-                "0x041c9dbe8ab9b414fa0ec4d22b7a41d80a3911b77a2c9c819ce949faa5edb9f9",
-            ),
-            calldata: vec![Felt::ONE, Felt::TWO],
-            signature: vec![Felt::from(3_u64)],
-            nonce: Felt::from(7_u64),
-            resource_bounds: ResourceBoundsMapping {
-                l1_gas: ResourceBounds { max_amount: 1_000_000, max_price_per_unit: 1 },
-                l2_gas: ResourceBounds { max_amount: 2_000_000, max_price_per_unit: 3 },
-                l1_data_gas: ResourceBounds { max_amount: 4_000_000, max_price_per_unit: 5 },
-            },
-            tip: 0,
-            paymaster_data: vec![],
-            account_deployment_data: vec![],
-            nonce_data_availability_mode: DataAvailabilityMode::L1,
-            fee_data_availability_mode: DataAvailabilityMode::L1,
-            proof_facts: Some(proof_facts.clone()),
-        };
-        let expected_tx_hash = starknet_api::executable_transaction::InvokeTransaction::create(
-            starknet_api::transaction::InvokeTransaction::V3(starknet_api::transaction::InvokeTransactionV3 {
-                resource_bounds: tx_fields
-                    .resource_bounds
-                    .clone()
-                    .try_into_blockifier()
-                    .expect("valid resource bounds"),
-                tip: starknet_api::transaction::fields::Tip(tx_fields.tip),
-                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(
-                    tx_fields.signature.clone(),
-                )),
-                nonce: starknet_api::core::Nonce(tx_fields.nonce),
-                sender_address: starknet_api::core::ContractAddress(
-                    felt_to_patricia_key(tx_fields.sender_address, "sender_address").expect("valid sender"),
-                ),
-                calldata: starknet_api::transaction::fields::Calldata(Arc::new(tx_fields.calldata.clone())),
-                nonce_data_availability_mode: tx_fields
-                    .nonce_data_availability_mode
-                    .try_into_blockifier()
-                    .expect("valid nonce da mode"),
-                fee_data_availability_mode: tx_fields
-                    .fee_data_availability_mode
-                    .try_into_blockifier()
-                    .expect("valid fee da mode"),
-                paymaster_data: starknet_api::transaction::fields::PaymasterData(tx_fields.paymaster_data.clone()),
-                account_deployment_data: starknet_api::transaction::fields::AccountDeploymentData(
-                    tx_fields.account_deployment_data.clone(),
-                ),
-                proof_facts: proof_facts.clone().into(),
-            }),
-            &chain_id,
-        )
-        .expect("expected tx hash should compute")
-        .tx_hash()
-        .0;
-        let tx = InvokeTransactionV3 { transaction_hash: expected_tx_hash, ..tx_fields };
-
-        let result = tx.clone().try_into_blockifier_async(&ctx).await.expect("conversion should succeed");
-
-        let converted_tx = match result.starknet_api_tx {
-            starknet_api::executable_transaction::Transaction::Account(
-                starknet_api::executable_transaction::AccountTransaction::Invoke(invoke_tx),
-            ) => invoke_tx,
-            other => panic!("expected invoke account transaction, got {other:?}"),
-        };
-
-        assert_eq!(converted_tx.proof_facts_length(), 3);
-        assert_eq!(converted_tx.tx_hash().0, tx.transaction_hash);
-    }
-}
-
 #[async_trait]
 impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV0 {
     type Error = ConversionError;
@@ -753,5 +667,91 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for Transaction {
                 Err(ConversionError::UnsupportedTransaction { transaction_type: "Deploy".to_string() })
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use starknet::core::types::{DataAvailabilityMode, ResourceBounds, ResourceBoundsMapping};
+
+    #[tokio::test]
+    async fn invoke_v3_conversion_preserves_proof_facts() {
+        let chain_id = ChainId::Sepolia;
+        let rpc_client = RpcClient::try_new("http://localhost:9545").expect("valid dummy rpc url");
+        let ctx = ConversionContext::new(&chain_id, 9112643, &rpc_client);
+        let proof_facts = vec![
+            Felt::from_hex_unchecked("0x50524f4f4630"),
+            Felt::from_hex_unchecked("0x5649525455414c5f534e4f53"),
+            Felt::from_hex_unchecked("0x3e98c2d7703b03a7edb73ed7f075f97f1dcbaa8f717cdf6e1a57bf058265473"),
+        ];
+        let tx_fields = InvokeTransactionV3 {
+            transaction_hash: Felt::ZERO,
+            sender_address: Felt::from_hex_unchecked(
+                "0x041c9dbe8ab9b414fa0ec4d22b7a41d80a3911b77a2c9c819ce949faa5edb9f9",
+            ),
+            calldata: vec![Felt::ONE, Felt::TWO],
+            signature: vec![Felt::from(3_u64)],
+            nonce: Felt::from(7_u64),
+            resource_bounds: ResourceBoundsMapping {
+                l1_gas: ResourceBounds { max_amount: 1_000_000, max_price_per_unit: 1 },
+                l2_gas: ResourceBounds { max_amount: 2_000_000, max_price_per_unit: 3 },
+                l1_data_gas: ResourceBounds { max_amount: 4_000_000, max_price_per_unit: 5 },
+            },
+            tip: 0,
+            paymaster_data: vec![],
+            account_deployment_data: vec![],
+            nonce_data_availability_mode: DataAvailabilityMode::L1,
+            fee_data_availability_mode: DataAvailabilityMode::L1,
+            proof_facts: Some(proof_facts.clone()),
+        };
+        let expected_tx_hash = starknet_api::executable_transaction::InvokeTransaction::create(
+            starknet_api::transaction::InvokeTransaction::V3(starknet_api::transaction::InvokeTransactionV3 {
+                resource_bounds: tx_fields
+                    .resource_bounds
+                    .clone()
+                    .try_into_blockifier()
+                    .expect("valid resource bounds"),
+                tip: starknet_api::transaction::fields::Tip(tx_fields.tip),
+                signature: starknet_api::transaction::fields::TransactionSignature(Arc::new(
+                    tx_fields.signature.clone(),
+                )),
+                nonce: starknet_api::core::Nonce(tx_fields.nonce),
+                sender_address: starknet_api::core::ContractAddress(
+                    felt_to_patricia_key(tx_fields.sender_address, "sender_address").expect("valid sender"),
+                ),
+                calldata: starknet_api::transaction::fields::Calldata(Arc::new(tx_fields.calldata.clone())),
+                nonce_data_availability_mode: tx_fields
+                    .nonce_data_availability_mode
+                    .try_into_blockifier()
+                    .expect("valid nonce da mode"),
+                fee_data_availability_mode: tx_fields
+                    .fee_data_availability_mode
+                    .try_into_blockifier()
+                    .expect("valid fee da mode"),
+                paymaster_data: starknet_api::transaction::fields::PaymasterData(tx_fields.paymaster_data.clone()),
+                account_deployment_data: starknet_api::transaction::fields::AccountDeploymentData(
+                    tx_fields.account_deployment_data.clone(),
+                ),
+                proof_facts: proof_facts.clone().into(),
+            }),
+            &chain_id,
+        )
+        .expect("expected tx hash should compute")
+        .tx_hash()
+        .0;
+        let tx = InvokeTransactionV3 { transaction_hash: expected_tx_hash, ..tx_fields };
+
+        let result = tx.clone().try_into_blockifier_async(&ctx).await.expect("conversion should succeed");
+
+        let converted_tx = match result.starknet_api_tx {
+            starknet_api::executable_transaction::Transaction::Account(
+                starknet_api::executable_transaction::AccountTransaction::Invoke(invoke_tx),
+            ) => invoke_tx,
+            other => panic!("expected invoke account transaction, got {other:?}"),
+        };
+
+        assert_eq!(converted_tx.proof_facts_length(), 3);
+        assert_eq!(converted_tx.tx_hash().0, tx.transaction_hash);
     }
 }
