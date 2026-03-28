@@ -40,6 +40,8 @@ fn get_rpc_url(chain: &str) -> String {
 #[case("sepolia", vec![7984528])] // first non-empty invoke-v3 block
 #[case("sepolia", vec![7984545])] // l1 handler-heavy block
 #[case("sepolia", vec![7984561])] // declare-v3 block
+#[case("sepolia", vec![8002289])] // boundary get_block_hash regression block
+#[case("sepolia", vec![8002288, 8002289])] // original failing replay window for the boundary block-hash read
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64>) {
     println!("🧪 Testing PIE generation for blocks on {}", chain);

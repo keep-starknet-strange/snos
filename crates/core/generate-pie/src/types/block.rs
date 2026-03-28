@@ -23,7 +23,9 @@ use starknet::core::types::{
     TransactionResponseFlag,
 };
 use starknet::providers::Provider;
-use starknet_api::block::{BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion};
+use starknet_api::block::{
+    BlockHash, BlockHashAndNumber, BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion,
+};
 use starknet_api::contract_address;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
@@ -198,8 +200,26 @@ impl BlockData {
 
         let blockifier_state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);
 
-        let mut txn_executor =
-            TransactionExecutor::new(CachedState::new(blockifier_state_reader.clone()), block_context.clone(), config);
+        let old_block_number_and_hash = if self.current_block.block_number >= STORED_BLOCK_HASH_BUFFER {
+            Some(BlockHashAndNumber {
+                number: BlockNumber(self.current_block.block_number - STORED_BLOCK_HASH_BUFFER),
+                hash: BlockHash(self.old_block_hash),
+            })
+        } else {
+            None
+        };
+
+        // Blockifier must be pre-processed with the boundary old block hash so `get_block_hash`
+        // syscalls observe the same block-hash mapping semantics as the official sequencer path.
+        let mut txn_executor = TransactionExecutor::pre_process_and_create(
+            blockifier_state_reader.clone(),
+            block_context.clone(),
+            old_block_number_and_hash,
+            config,
+        )
+        .map_err(|e| {
+            BlockProcessingError::new_custom(format!("Failed to create pre-processed transaction executor: {:?}", e))
+        })?;
         info!("Transaction executor created successfully");
         info!("Executing {} transactions using Blockifier", blockifier_txns.len());
 
