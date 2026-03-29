@@ -48,6 +48,10 @@ fn get_rpc_url(chain: &str) -> String {
 #[case("sepolia", vec![8138442, 8138443])] // original failing replay window for revert-heavy receipt hashing
 #[case("sepolia", vec![8138930])] // reverted invoke block with receipt-hash mismatch
 #[case("sepolia", vec![8138930, 8138931])] // original failing replay window for reverted receipt hashing
+#[case("sepolia", vec![8168453])] // reverted constructor deployment block-hash regression block
+#[case("sepolia", vec![8168452, 8168453])] // original failing replay window for constructor deployment receipt hashing
+#[case("sepolia", vec![8169410])] // repeated reverted constructor deployment block-hash regression block
+#[case("sepolia", vec![8169410, 8169411])] // original failing replay window for repeated constructor deployment receipt hashing
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64>) {
     println!("🧪 Testing PIE generation for blocks on {}", chain);

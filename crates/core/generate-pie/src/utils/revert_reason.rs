@@ -1,13 +1,14 @@
-use blockifier::execution::stack_trace::{EntryPointErrorFrame, ErrorStack, ErrorStackSegment, PreambleType};
+use blockifier::execution::stack_trace::{EntryPointErrorFrame, ErrorStack, ErrorStackSegment};
 use blockifier::transaction::objects::{RevertError, TransactionExecutionInfo};
 use starknet_api::block_hash::block_hash_calculator::TransactionOutputForHash;
 use starknet_api::transaction::{RevertedTransactionExecutionStatus, TransactionExecutionStatus};
 
 /// Build the transaction output used for block-hash commitments.
 ///
-/// For constructor-based reverts, Pathfinder receipts omit VM traceback frames even though
-/// Blockifier's raw `Display` includes them. Receipt commitment hashing is sensitive to the exact
-/// revert-reason string, so we normalize only this receipt-hashing path to the canonical form.
+/// For nested revert summaries, Pathfinder receipts omit the intermediate VM traceback frames even
+/// though Blockifier's raw `Display` includes them. Receipt commitment hashing is sensitive to the
+/// exact revert-reason string, so we normalize only this receipt-hashing path to the canonical
+/// form.
 pub(crate) fn transaction_output_for_block_hash(execution_info: &TransactionExecutionInfo) -> TransactionOutputForHash {
     let mut output = execution_info.output_for_hashing();
 
@@ -31,13 +32,10 @@ fn format_revert_reason_for_block_hash(revert_error: Option<&RevertError>) -> Op
 }
 
 fn should_strip_vm_tracebacks(error_stack: &ErrorStack) -> bool {
-    deepest_entry_point_preamble_type(error_stack) == Some(PreambleType::Constructor)
-}
-
-fn deepest_entry_point_preamble_type(error_stack: &ErrorStack) -> Option<PreambleType> {
-    error_stack.stack.iter().rev().find_map(|segment| match segment {
-        ErrorStackSegment::EntryPoint(entry_point) => Some(entry_point.preamble_type.clone()),
-        _ => None,
+    error_stack.stack.iter().any(|segment| match segment {
+        ErrorStackSegment::Cairo1RevertSummary(_) => true,
+        ErrorStackSegment::StringFrame(frame) => frame.starts_with("Execution failed. Failure reason:\n"),
+        _ => false,
     })
 }
 
@@ -75,7 +73,8 @@ fn copy_entry_point(entry_point: &EntryPointErrorFrame) -> EntryPointErrorFrame 
 mod tests {
     use super::{format_revert_reason_for_block_hash, transaction_output_for_block_hash};
     use blockifier::execution::stack_trace::{
-        EntryPointErrorFrame, ErrorStack, ErrorStackHeader, ErrorStackSegment, PreambleType, VmExceptionFrame,
+        Cairo1RevertFrame, Cairo1RevertHeader, Cairo1RevertSummary, EntryPointErrorFrame, ErrorStack, ErrorStackHeader,
+        ErrorStackSegment, PreambleType, VmExceptionFrame,
     };
     use blockifier::transaction::objects::{RevertError, TransactionExecutionInfo};
     use cairo_vm::types::relocatable::Relocatable;
@@ -167,6 +166,97 @@ mod tests {
         RevertError::Execution(stack)
     }
 
+    fn constructor_deployment_failure_revert_error() -> RevertError {
+        let mut stack = ErrorStack { header: ErrorStackHeader::Execution, stack: Vec::new() };
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            0,
+            PreambleType::CallContract,
+            contract_address!("0x03666fcf7f5c9195d08464c5f2713d756864220f02342bd2382f781afc1c2b0d"),
+            class_hash!("0x05b4b537eaa2399e3aa99c4e2e0208ebd6c71bc1467938cd52c798c601e43564"),
+            felt!("0x015d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
+        )));
+        stack.push(ErrorStackSegment::Vm(VmExceptionFrame {
+            pc: Relocatable::from((0, 7331)),
+            error_attr_value: None,
+            traceback: Some(
+                "Cairo traceback (most recent call last):\nUnknown location (pc=0:188)\nUnknown location \
+                 (pc=0:2616)\nUnknown location (pc=0:3553)\nUnknown location (pc=0:4820)\nUnknown \
+                 location (pc=0:5564)\nUnknown location (pc=0:6675)\n"
+                    .replace("                 ", ""),
+            ),
+        }));
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            1,
+            PreambleType::CallContract,
+            contract_address!("0x076f0c5e5a7c9ded2d875321902d958dafa28a40bd56b51b6c983df94d7e03c9"),
+            class_hash!("0x0637eda47d4e51b44a71ae559a69601ea8fcda38dfc1345665a8465ebe02a2e9"),
+            felt!("0x00161dc77f8e29b5e4194910df4cf7368b6c3c4ef7168245d7b194c9402b3fa6"),
+        )));
+        stack.push(ErrorStackSegment::Vm(VmExceptionFrame {
+            pc: Relocatable::from((0, 651)),
+            error_attr_value: None,
+            traceback: Some("Cairo traceback (most recent call last):\nUnknown location (pc=0:70)\n".to_string()),
+        }));
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            2,
+            PreambleType::Constructor,
+            contract_address!("0x03673e9f0d6396cac1c232bfbfb2155d7bcc3af7e0268e440b4822c8145e47c4"),
+            class_hash!("0x07efbb7f0a20d7fa7d25ff24fff9a974695c109ff17696aa8a68b105542c5cd3"),
+            felt!("0x0"),
+        )));
+        stack.push(ErrorStackSegment::StringFrame(
+            "Deployment failed: contract already deployed at address \
+             0x03673e9f0d6396cac1c232bfbfb2155d7bcc3af7e0268e440b4822c8145e47c4\n"
+                .replace("             ", ""),
+        ));
+
+        RevertError::Execution(stack)
+    }
+
+    fn cairo1_revert_summary_error() -> RevertError {
+        let mut stack = ErrorStack { header: ErrorStackHeader::Execution, stack: Vec::new() };
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            0,
+            PreambleType::CallContract,
+            contract_address!("0x578a41eafe7e6f5a34ff42444ca7df1b04516fc2e6d4d9a65e329eeb75109de"),
+            class_hash!("0x12276b8ff0f4c1f5c3a087ddc53a263fda97a5ee784f66bcda65467be5a98c"),
+            felt!("0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
+        )));
+        stack.push(ErrorStackSegment::Vm(VmExceptionFrame {
+            pc: Relocatable::from((0, 2929)),
+            error_attr_value: None,
+            traceback: Some(
+                "Cairo traceback (most recent call last):\nUnknown location (pc=0:56)\nUnknown location \
+                 (pc=0:1187)\nUnknown location (pc=0:1670)\nUnknown location (pc=0:2289)\n"
+                    .replace("                 ", ""),
+            ),
+        }));
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            1,
+            PreambleType::Constructor,
+            contract_address!("0x62d39dd09d4799967ad7201a2a7651ae7c9ace4722182b900329e0817aef9a3"),
+            class_hash!("0x12276b8ff0f4c1f5c3a087ddc53a263fda97a5ee784f66bcda65467be5a98c"),
+            felt!("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"),
+        )));
+        stack.push(ErrorStackSegment::Cairo1RevertSummary(Cairo1RevertSummary {
+            header: Cairo1RevertHeader::Execution,
+            stack: vec![Cairo1RevertFrame {
+                contract_address: contract_address!(
+                    "0x62d39dd09d4799967ad7201a2a7651ae7c9ace4722182b900329e0817aef9a3"
+                ),
+                class_hash: Some(class_hash!("0x12276b8ff0f4c1f5c3a087ddc53a263fda97a5ee784f66bcda65467be5a98c")),
+                selector: starknet_api::core::EntryPointSelector(felt!(
+                    "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
+                )),
+            }],
+            last_retdata: blockifier::execution::call_info::Retdata(vec![felt!(
+                "0x4661696c656420746f20646573657269616c697a6520706172616d202331"
+            )]),
+        }));
+
+        RevertError::Execution(stack)
+    }
+
     #[test]
     fn constructor_revert_reason_strips_vm_tracebacks_for_block_hash() {
         let raw = constructor_revert_error().to_string();
@@ -186,6 +276,28 @@ mod tests {
 
         assert_eq!(formatted, revert_error.to_string());
         assert!(formatted.contains("Error at pc="));
+    }
+
+    #[test]
+    fn constructor_deployment_failure_keeps_outer_vm_tracebacks_for_block_hash() {
+        let revert_error = constructor_deployment_failure_revert_error();
+        let formatted = format_revert_reason_for_block_hash(Some(&revert_error)).unwrap();
+
+        assert_eq!(formatted, revert_error.to_string());
+        assert!(formatted.contains("Error at pc=0:7331:"));
+        assert!(formatted.contains("Error at pc=0:651:"));
+        assert!(formatted.contains("Deployment failed: contract already deployed"));
+    }
+
+    #[test]
+    fn cairo1_revert_summary_strips_vm_tracebacks_for_block_hash() {
+        let revert_error = cairo1_revert_summary_error();
+        let formatted = format_revert_reason_for_block_hash(Some(&revert_error)).unwrap();
+
+        assert!(!formatted.contains("Error at pc="));
+        assert!(!formatted.contains("Cairo traceback (most recent call last):"));
+        assert!(formatted.contains("Execution failed. Failure reason:"));
+        assert!(formatted.contains("Failed to deserialize param #1"));
     }
 
     #[test]
