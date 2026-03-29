@@ -1,6 +1,7 @@
 pub mod block_hash;
 pub mod commitment;
 pub mod misc;
+pub mod revert_reason;
 pub mod rpc;
 pub mod serialization;
 

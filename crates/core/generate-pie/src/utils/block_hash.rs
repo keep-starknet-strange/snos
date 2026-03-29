@@ -11,6 +11,7 @@ use starknet_api::state::{StorageKey, ThinStateDiff};
 use starknet_api::transaction::fields::TransactionSignature;
 
 use crate::error::BlockProcessingError;
+use crate::utils::revert_reason::transaction_output_for_block_hash;
 
 fn convert_da_mode(mode: CoreL1DataAvailabilityMode) -> L1DataAvailabilityMode {
     match mode {
@@ -43,7 +44,7 @@ fn build_transaction_hashing_data(
         .zip(tx_execution_infos.iter())
         .map(|(tx, tx_execution_info)| TransactionHashingData {
             transaction_signature: tx_signature_for_hashing(tx),
-            transaction_output: tx_execution_info.output_for_hashing(),
+            transaction_output: transaction_output_for_block_hash(tx_execution_info),
             transaction_hash: tx.tx_hash(),
         })
         .collect())
