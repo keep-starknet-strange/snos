@@ -125,8 +125,8 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "apollo_compilation_utils"
-version = "0.16.0-rc.2"
-source = "git+https://github.com/karnotxyz/sequencer?tag=v0.14.1-alpha.0#9c2b40665faae1fee2fe264b1dbcb1286879563f"
+version = "0.16.0-rc.3"
+source = "git+https://github.com/karnotxyz/sequencer?tag=v0.14.1-alpha.1#7c2d0cd1ad31975e6c83d302278dd0f4e83ad9b0"
 dependencies = [
  "apollo_infra_utils",
  "cairo-lang-sierra",
@@ -143,8 +143,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_compile_to_native"
-version = "0.16.0-rc.2"
-source = "git+https://github.com/karnotxyz/sequencer?tag=v0.14.1-alpha.0#9c2b40665faae1fee2fe264b1dbcb1286879563f"
+version = "0.16.0-rc.3"
+source = "git+https://github.com/karnotxyz/sequencer?tag=v0.14.1-alpha.1#7c2d0cd1ad31975e6c83d302278dd0f4e83ad9b0"
 dependencies = [
  "apollo_compilation_utils",
  "apollo_compile_to_native_types",
