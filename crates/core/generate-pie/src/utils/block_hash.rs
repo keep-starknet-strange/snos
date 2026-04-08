@@ -182,7 +182,7 @@ mod tests {
 
     use super::{core_state_diff_to_thin_state_diff, tx_signature_for_hashing};
 
-    fn empty_state_diff() -> StateDiff {
+    fn state_diff() -> StateDiff {
         StateDiff {
             storage_diffs: vec![],
             deprecated_declared_classes: vec![],
@@ -195,59 +195,51 @@ mod tests {
     }
 
     fn populated_state_diff() -> StateDiff {
-        StateDiff {
-            storage_diffs: vec![ContractStorageDiffItem {
-                address: Felt::from(11_u64),
-                storage_entries: vec![
-                    StorageEntry { key: Felt::from(101_u64), value: Felt::from(1001_u64) },
-                    StorageEntry { key: Felt::from(102_u64), value: Felt::from(1002_u64) },
-                ],
-            }],
-            deprecated_declared_classes: vec![Felt::from(21_u64)],
-            declared_classes: vec![DeclaredClassItem {
-                class_hash: Felt::from(31_u64),
-                compiled_class_hash: Felt::from(41_u64),
-            }],
-            migrated_compiled_classes: Some(vec![MigratedCompiledClassItem {
-                class_hash: Felt::from(32_u64),
-                compiled_class_hash: Felt::from(42_u64),
-            }]),
-            deployed_contracts: vec![DeployedContractItem {
-                address: Felt::from(12_u64),
-                class_hash: Felt::from(22_u64),
-            }],
-            replaced_classes: vec![ReplacedClassItem {
-                contract_address: Felt::from(13_u64),
-                class_hash: Felt::from(23_u64),
-            }],
-            nonces: vec![NonceUpdate { contract_address: Felt::from(14_u64), nonce: Felt::from(24_u64) }],
-        }
+        let mut diff = state_diff();
+        diff.storage_diffs = vec![ContractStorageDiffItem {
+            address: Felt::from(11_u64),
+            storage_entries: vec![
+                StorageEntry { key: Felt::from(101_u64), value: Felt::from(1001_u64) },
+                StorageEntry { key: Felt::from(102_u64), value: Felt::from(1002_u64) },
+            ],
+        }];
+        diff.deprecated_declared_classes = vec![Felt::from(21_u64)];
+        diff.declared_classes =
+            vec![DeclaredClassItem { class_hash: Felt::from(31_u64), compiled_class_hash: Felt::from(41_u64) }];
+        diff.migrated_compiled_classes = Some(vec![MigratedCompiledClassItem {
+            class_hash: Felt::from(32_u64),
+            compiled_class_hash: Felt::from(42_u64),
+        }]);
+        diff.deployed_contracts =
+            vec![DeployedContractItem { address: Felt::from(12_u64), class_hash: Felt::from(22_u64) }];
+        diff.replaced_classes =
+            vec![ReplacedClassItem { contract_address: Felt::from(13_u64), class_hash: Felt::from(23_u64) }];
+        diff.nonces = vec![NonceUpdate { contract_address: Felt::from(14_u64), nonce: Felt::from(24_u64) }];
+        diff
     }
 
     #[rstest]
-    #[case::empty(empty_state_diff(), 0, 0, 0, 0, 0)]
-    #[case::populated(populated_state_diff(), 2, 1, 2, 1, 1)]
-    fn core_state_diff_conversion_works(
-        #[case] state_diff: StateDiff,
-        #[case] expected_deployed_or_replaced: usize,
-        #[case] expected_storage_contracts: usize,
-        #[case] expected_declared_or_migrated: usize,
-        #[case] expected_deprecated_declared: usize,
-        #[case] expected_nonce_updates: usize,
-    ) {
+    #[case::empty(state_diff(), [0, 0, 0, 0, 0])]
+    #[case::populated(populated_state_diff(), [2, 1, 2, 1, 1])]
+    fn core_state_diff_conversion_works(#[case] state_diff: StateDiff, #[case] expected_counts: [usize; 5]) {
         let thin_state_diff = core_state_diff_to_thin_state_diff(&state_diff).expect("state diff conversion");
 
-        assert_eq!(thin_state_diff.deployed_contracts.len(), expected_deployed_or_replaced);
-        assert_eq!(thin_state_diff.storage_diffs.len(), expected_storage_contracts);
-        assert_eq!(thin_state_diff.class_hash_to_compiled_class_hash.len(), expected_declared_or_migrated);
-        assert_eq!(thin_state_diff.deprecated_declared_classes.len(), expected_deprecated_declared);
-        assert_eq!(thin_state_diff.nonces.len(), expected_nonce_updates);
+        assert_eq!(
+            [
+                thin_state_diff.deployed_contracts.len(),
+                thin_state_diff.storage_diffs.len(),
+                thin_state_diff.class_hash_to_compiled_class_hash.len(),
+                thin_state_diff.deprecated_declared_classes.len(),
+                thin_state_diff.nonces.len(),
+            ],
+            expected_counts
+        );
     }
 
-    fn account_invoke_tx_with_signature(signature_felts: Vec<Felt>) -> ExecutableTransaction {
+    fn account_invoke_tx_with_signature(signature_felts: &[u64]) -> ExecutableTransaction {
         let tx = ExecutableInvokeTransaction {
             tx: ApiInvokeTransaction::V1(InvokeTransactionV1 {
-                signature: TransactionSignature(Arc::new(signature_felts)),
+                signature: TransactionSignature(Arc::new(signature_felts.iter().copied().map(Felt::from).collect())),
                 ..Default::default()
             }),
             tx_hash: TransactionHash::default(),
@@ -256,7 +248,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case::account(account_invoke_tx_with_signature(vec![Felt::from(7_u64)]), 1)]
+    #[case::account(account_invoke_tx_with_signature(&[7]), 1)]
     #[case::l1_handler(ExecutableTransaction::L1Handler(L1HandlerTransaction::default()), 0)]
     fn tx_signature_extraction_for_hashing_is_correct(
         #[case] tx: ExecutableTransaction,
