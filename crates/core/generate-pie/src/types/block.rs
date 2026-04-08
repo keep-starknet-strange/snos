@@ -1,4 +1,7 @@
-use crate::constants::{STATEFUL_MAPPING_START, STORED_BLOCK_HASH_BUFFER};
+use crate::constants::{
+    is_special_contract_felt, ALIAS_CONTRACT_ADDRESS, BLOCK_HASH_CONTRACT_ADDRESS_FELT, SPECIAL_CONTRACT_ADDRESSES,
+    STATEFUL_MAPPING_START, STORED_BLOCK_HASH_BUFFER,
+};
 use crate::conversions::{ConversionContext, TryIntoBlockifierAsync};
 use crate::error::{BlockProcessingError, FeltConversionError};
 use crate::state_update::get_formatted_state_update;
@@ -15,6 +18,7 @@ use blockifier::state::state_api::StateReader;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use log::{debug, info, warn};
+use num_traits::ToPrimitive;
 use rpc_client::state_reader::AsyncRpcStateReader;
 use rpc_client::RpcClient;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
@@ -133,6 +137,20 @@ impl BlockData {
         Ok(BlockData { chain_id, current_block, previous_block, old_block_number, old_block_hash, starknet_version })
     }
 
+    fn blockifier_old_block_number_and_hash(&self) -> Result<Option<BlockHashAndNumber>, BlockProcessingError> {
+        blockifier_old_block_number_and_hash(
+            self.current_block.block_number,
+            self.old_block_number,
+            self.old_block_hash,
+        )
+    }
+
+    pub(crate) fn os_old_block_number_and_hash(
+        &self,
+    ) -> Result<Option<(BlockNumber, BlockHash)>, BlockProcessingError> {
+        os_old_block_number_and_hash(self.current_block.block_number, self.old_block_number, self.old_block_hash)
+    }
+
     /// Processes transactions and extracts execution information.
     ///
     /// This function converts transactions, executes them using Blockifier, and extracts
@@ -167,9 +185,10 @@ impl BlockData {
         // Convert transactions to blockifier format
         let mut transactions = Vec::new();
         for (i, transaction) in self.current_block.transactions.iter().enumerate() {
-            let transaction = transaction.clone().try_into_blockifier_async(&conversion_ctx).await.map_err(|e| {
-                BlockProcessingError::new_custom(format!("Failed to convert transaction to blockifier format: {:?}", e))
-            })?;
+            let transaction =
+                transaction.clone().try_into_blockifier_async(&conversion_ctx).await.map_err(|source| {
+                    BlockProcessingError::TransactionConversion { transaction_index: i, source: Box::new(source) }
+                })?;
             transactions.push(transaction);
 
             if (i + 1) % 10 == 0 || i == self.current_block.transactions.len() - 1 {
@@ -200,26 +219,15 @@ impl BlockData {
 
         let blockifier_state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);
 
-        let old_block_number_and_hash = if self.current_block.block_number >= STORED_BLOCK_HASH_BUFFER {
-            Some(BlockHashAndNumber {
-                number: BlockNumber(self.current_block.block_number - STORED_BLOCK_HASH_BUFFER),
-                hash: BlockHash(self.old_block_hash),
-            })
-        } else {
-            None
-        };
-
         // Blockifier must be pre-processed with the boundary old block hash so `get_block_hash`
         // syscalls observe the same block-hash mapping semantics as the official sequencer path.
         let mut txn_executor = TransactionExecutor::pre_process_and_create(
             blockifier_state_reader.clone(),
             block_context.clone(),
-            old_block_number_and_hash,
+            self.blockifier_old_block_number_and_hash()?,
             config,
         )
-        .map_err(|e| {
-            BlockProcessingError::new_custom(format!("Failed to create pre-processed transaction executor: {:?}", e))
-        })?;
+        .map_err(|source| BlockProcessingError::TransactionExecutorCreation { source })?;
         info!("Transaction executor created successfully");
         info!("Executing {} transactions using Blockifier", blockifier_txns.len());
 
@@ -237,10 +245,8 @@ impl BlockData {
             execution_outputs.into_iter().map(|(execution_info, _)| execution_info).collect();
 
         let mut initial_reads = {
-            let block_state = txn_executor
-                .block_state
-                .as_ref()
-                .ok_or_else(|| BlockProcessingError::new_custom("Missing block state after transaction execution"))?;
+            let block_state =
+                txn_executor.block_state.as_ref().ok_or(BlockProcessingError::MissingBlockStateAfterExecution)?;
             capture_extended_initial_reads(block_state)?
         };
 
@@ -297,7 +303,7 @@ impl BlockData {
             .iter()
             .map(|felt| {
                 ContractAddress::try_from(*felt)
-                    .map_err(|e| BlockProcessingError::new_custom(format!("Invalid contract address: {:?}", e)))
+                    .map_err(|source| BlockProcessingError::InvalidContractAddress { address: *felt, source })
             })
             .collect::<Result<HashSet<_>, _>>()?;
         accessed_addresses.insert(block_context.chain_info().fee_token_addresses.strk_fee_token_address);
@@ -315,9 +321,7 @@ impl BlockData {
         populate_alias_contract_keys(&accessed_addresses, &accessed_classes, &mut accessed_keys_by_address);
         extend_initial_reads_storage(&blockifier_state_reader, &mut initial_reads, &accessed_keys_by_address)
             .await
-            .map_err(|e| {
-                BlockProcessingError::new_custom(format!("Failed to extend initial reads storage witness: {:?}", e))
-            })?;
+            .map_err(|source| BlockProcessingError::InitialReadsExtension { source })?;
 
         Ok(TransactionProcessingResult {
             starknet_api_txns,
@@ -430,6 +434,34 @@ impl BlockData {
     }
 }
 
+fn block_number_from_felt(old_block_number: Felt) -> Result<BlockNumber, BlockProcessingError> {
+    old_block_number.to_u64().map(BlockNumber).ok_or(BlockProcessingError::InvalidOldBlockNumber { old_block_number })
+}
+
+fn blockifier_old_block_number_and_hash(
+    current_block_number: u64,
+    old_block_number: Felt,
+    old_block_hash: Felt,
+) -> Result<Option<BlockHashAndNumber>, BlockProcessingError> {
+    if current_block_number < STORED_BLOCK_HASH_BUFFER {
+        return Ok(None);
+    }
+
+    Ok(Some(BlockHashAndNumber { number: block_number_from_felt(old_block_number)?, hash: BlockHash(old_block_hash) }))
+}
+
+fn os_old_block_number_and_hash(
+    current_block_number: u64,
+    old_block_number: Felt,
+    old_block_hash: Felt,
+) -> Result<Option<(BlockNumber, BlockHash)>, BlockProcessingError> {
+    if current_block_number == 0 {
+        return Ok(None);
+    }
+
+    Ok(Some((block_number_from_felt(old_block_number)?, BlockHash(old_block_hash))))
+}
+
 /// Helper function to populate accessed_keys_by_address with special address 0x2
 /// based on accessed addresses, classes, and current storage mapping.
 ///
@@ -443,9 +475,6 @@ fn populate_alias_contract_keys(
     accessed_classes: &HashSet<ClassHash>,
     accessed_keys_by_address: &mut HashMap<ContractAddress, HashSet<StorageKey>>,
 ) {
-    // Special address 0x2 for alias contract
-    let alias_contract_address = ContractAddress::try_from(Felt::TWO).expect("0x2 should be a valid contract address");
-
     let mut alias_keys = HashSet::new();
 
     // Process accessed contract addresses
@@ -453,7 +482,7 @@ fn populate_alias_contract_keys(
         let address_felt: Felt = (*contract_address).into();
 
         // Skip address 0x1 (system contract)
-        if address_felt == Felt::ONE || address_felt == Felt::TWO {
+        if is_special_contract_felt(address_felt) {
             continue;
         }
 
@@ -469,8 +498,8 @@ fn populate_alias_contract_keys(
     for class_hash in accessed_classes {
         let class_hash_felt: Felt = class_hash.0;
 
-        // Skip if it's address 0x1
-        if class_hash_felt == Felt::ONE {
+        // Skip the block-hash contract address, which is not remapped through the alias contract.
+        if class_hash_felt == BLOCK_HASH_CONTRACT_ADDRESS_FELT {
             continue;
         }
 
@@ -488,7 +517,7 @@ fn populate_alias_contract_keys(
             let contract_felt: Felt = (*(contract_addr)).into();
 
             // Skip if it's address 0x1
-            if contract_felt == Felt::ONE || contract_felt == Felt::TWO {
+            if is_special_contract_felt(contract_felt) {
                 continue;
             }
 
@@ -506,11 +535,11 @@ fn populate_alias_contract_keys(
 
     // Add all qualifying keys to the alias contract (address 0x2)
     if !alias_keys.is_empty() {
-        accessed_keys_by_address.entry(alias_contract_address).or_default().extend(alias_keys);
+        accessed_keys_by_address.entry(ALIAS_CONTRACT_ADDRESS).or_default().extend(alias_keys);
 
         info!(
-            "Added {} keys to alias contract (0x2) for storage mapping",
-            accessed_keys_by_address.get(&alias_contract_address).unwrap().len()
+            "Added {} keys to alias contract for storage mapping",
+            accessed_keys_by_address.get(&ALIAS_CONTRACT_ADDRESS).unwrap().len()
         );
     }
 }
@@ -546,11 +575,26 @@ async fn extend_initial_reads_storage(
 fn capture_extended_initial_reads(
     block_state: &CachedState<AsyncRpcStateReader>,
 ) -> Result<StateMaps, BlockProcessingError> {
-    let raw_initial_reads = get_initial_reads_snapshot(block_state, "capture initial reads")?;
-    hydrate_initial_read_contract_metadata(block_state, &raw_initial_reads)?;
-    hydrate_initial_read_declared_classes(block_state, &raw_initial_reads)?;
+    // The first snapshot tells us which metadata needs to be hydrated into Blockifier's witness.
+    // The second snapshot captures that expanded witness after those reads have been forced.
+    let hydration_targets = get_initial_reads_snapshot(block_state, "capture initial reads for hydration")?;
+    hydrate_initial_reads(block_state, &hydration_targets)?;
+    get_extended_initial_reads_snapshot(block_state)
+}
 
-    let mut initial_reads = get_initial_reads_snapshot(block_state, "capture extended initial reads")?;
+fn hydrate_initial_reads(
+    block_state: &CachedState<AsyncRpcStateReader>,
+    hydration_targets: &StateMaps,
+) -> Result<(), BlockProcessingError> {
+    hydrate_initial_read_contract_metadata(block_state, hydration_targets)?;
+    hydrate_initial_read_declared_classes(block_state, hydration_targets)
+}
+
+fn get_extended_initial_reads_snapshot(
+    block_state: &CachedState<AsyncRpcStateReader>,
+) -> Result<StateMaps, BlockProcessingError> {
+    let mut initial_reads = get_initial_reads_snapshot(block_state, "capture hydrated initial reads")?;
+    // `declared_contracts` is only used to discover which compiled class hashes must be hydrated.
     initial_reads.declared_contracts.clear();
     Ok(initial_reads)
 }
@@ -561,7 +605,7 @@ fn get_initial_reads_snapshot(
 ) -> Result<StateMaps, BlockProcessingError> {
     block_state
         .get_initial_reads()
-        .map_err(|e| BlockProcessingError::new_custom(format!("Failed to {}: {:?}", context, e)))
+        .map_err(|source| BlockProcessingError::InitialReadsSnapshot { context: context.to_string(), source })
 }
 
 fn hydrate_initial_read_contract_metadata(
@@ -569,22 +613,15 @@ fn hydrate_initial_read_contract_metadata(
     raw_initial_reads: &StateMaps,
 ) -> Result<(), BlockProcessingError> {
     let mut hydrated_contract_addresses = raw_initial_reads.get_contract_addresses();
-    hydrated_contract_addresses.insert(contract_address!("0x1"));
-    hydrated_contract_addresses.insert(contract_address!("0x2"));
+    hydrated_contract_addresses.extend(SPECIAL_CONTRACT_ADDRESSES);
 
     for contract_address in hydrated_contract_addresses {
-        block_state.get_class_hash_at(contract_address).map_err(|e| {
-            BlockProcessingError::new_custom(format!(
-                "Failed to extend initial reads with class hash for {:?}: {:?}",
-                contract_address, e
-            ))
-        })?;
-        block_state.get_nonce_at(contract_address).map_err(|e| {
-            BlockProcessingError::new_custom(format!(
-                "Failed to extend initial reads with nonce for {:?}: {:?}",
-                contract_address, e
-            ))
-        })?;
+        block_state
+            .get_class_hash_at(contract_address)
+            .map_err(|source| BlockProcessingError::InitialReadClassHashHydration { contract_address, source })?;
+        block_state
+            .get_nonce_at(contract_address)
+            .map_err(|source| BlockProcessingError::InitialReadNonceHydration { contract_address, source })?;
     }
 
     Ok(())
@@ -595,12 +632,9 @@ fn hydrate_initial_read_declared_classes(
     raw_initial_reads: &StateMaps,
 ) -> Result<(), BlockProcessingError> {
     for class_hash in raw_initial_reads.declared_contracts.keys().copied().collect::<Vec<_>>() {
-        block_state.get_compiled_class_hash(class_hash).map_err(|e| {
-            BlockProcessingError::new_custom(format!(
-                "Failed to extend initial reads with compiled class hash for {:?}: {:?}",
-                class_hash, e
-            ))
-        })?;
+        block_state
+            .get_compiled_class_hash(class_hash)
+            .map_err(|source| BlockProcessingError::InitialReadCompiledClassHashHydration { class_hash, source })?;
     }
 
     Ok(())
@@ -644,6 +678,8 @@ async fn fetch_missing_initial_read_storage_entries(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::BLOCK_HASH_CONTRACT_ADDRESS;
+    use rstest::rstest;
 
     #[test]
     fn collect_missing_initial_read_storage_entries_only_returns_absent_entries() {
@@ -652,17 +688,72 @@ mod tests {
         let missing_key = StorageKey::try_from(Felt::from(2_u8)).unwrap();
         let alias_key = StorageKey::try_from(Felt::from(3_u8)).unwrap();
 
-        initial_reads.storage.insert((contract_address!("0x1"), existing_key), Felt::from(11_u8));
+        initial_reads.storage.insert((BLOCK_HASH_CONTRACT_ADDRESS, existing_key), Felt::from(11_u8));
 
         let accessed_keys_by_address = HashMap::from([
-            (contract_address!("0x1"), HashSet::from([existing_key, missing_key])),
-            (contract_address!("0x2"), HashSet::from([alias_key])),
+            (BLOCK_HASH_CONTRACT_ADDRESS, HashSet::from([existing_key, missing_key])),
+            (ALIAS_CONTRACT_ADDRESS, HashSet::from([alias_key])),
         ]);
 
         let missing_entries = collect_missing_initial_read_storage_entries(&initial_reads, &accessed_keys_by_address);
 
         assert_eq!(missing_entries.len(), 2);
-        assert!(missing_entries.contains(&(contract_address!("0x1"), missing_key)));
-        assert!(missing_entries.contains(&(contract_address!("0x2"), alias_key)));
+        assert!(missing_entries.contains(&(BLOCK_HASH_CONTRACT_ADDRESS, missing_key)));
+        assert!(missing_entries.contains(&(ALIAS_CONTRACT_ADDRESS, alias_key)));
+    }
+
+    #[rstest]
+    #[case::before_buffer(STORED_BLOCK_HASH_BUFFER - 1, Felt::ZERO, Felt::from(9_u8), None)]
+    #[case::at_buffer(STORED_BLOCK_HASH_BUFFER, Felt::ZERO, Felt::from(9_u8), Some((0_u64, Felt::from(9_u8))))]
+    #[case::after_buffer(STORED_BLOCK_HASH_BUFFER + 3, Felt::from(3_u8), Felt::from(12_u8), Some((3_u64, Felt::from(12_u8))))]
+    fn blockifier_old_block_number_and_hash_returns_expected_pair(
+        #[case] current_block_number: u64,
+        #[case] old_block_number: Felt,
+        #[case] old_block_hash: Felt,
+        #[case] expected: Option<(u64, Felt)>,
+    ) {
+        let result =
+            blockifier_old_block_number_and_hash(current_block_number, old_block_number, old_block_hash).unwrap();
+
+        assert_eq!(result.map(|pair| (pair.number.0, pair.hash.0)), expected);
+    }
+
+    #[rstest]
+    #[case::genesis(0, Felt::ZERO, Felt::from(9_u8), None)]
+    #[case::pre_buffer_non_genesis(1, Felt::ZERO, Felt::from(9_u8), Some((0_u64, Felt::from(9_u8))))]
+    #[case::after_buffer(STORED_BLOCK_HASH_BUFFER + 3, Felt::from(3_u8), Felt::from(12_u8), Some((3_u64, Felt::from(12_u8))))]
+    fn os_old_block_number_and_hash_returns_expected_pair(
+        #[case] current_block_number: u64,
+        #[case] old_block_number: Felt,
+        #[case] old_block_hash: Felt,
+        #[case] expected: Option<(u64, Felt)>,
+    ) {
+        let result = os_old_block_number_and_hash(current_block_number, old_block_number, old_block_hash).unwrap();
+
+        assert_eq!(result.map(|(number, hash)| (number.0, hash.0)), expected);
+    }
+
+    #[rstest]
+    #[case(STORED_BLOCK_HASH_BUFFER)]
+    fn blockifier_old_block_number_and_hash_rejects_non_u64_old_block_number(#[case] current_block_number: u64) {
+        let invalid_old_block_number = Felt::from(u128::from(u64::MAX) + 1);
+        let old_block_hash = Felt::from(9_u8);
+
+        let blockifier_error =
+            blockifier_old_block_number_and_hash(current_block_number, invalid_old_block_number, old_block_hash)
+                .unwrap_err();
+
+        assert!(matches!(blockifier_error, BlockProcessingError::InvalidOldBlockNumber { .. }));
+    }
+
+    #[rstest]
+    #[case(1)]
+    fn os_old_block_number_and_hash_rejects_non_u64_old_block_number(#[case] current_block_number: u64) {
+        let invalid_old_block_number = Felt::from(u128::from(u64::MAX) + 1);
+        let old_block_hash = Felt::from(9_u8);
+        let os_error =
+            os_old_block_number_and_hash(current_block_number, invalid_old_block_number, old_block_hash).unwrap_err();
+
+        assert!(matches!(os_error, BlockProcessingError::InvalidOldBlockNumber { .. }));
     }
 }

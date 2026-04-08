@@ -25,7 +25,7 @@ use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
-use crate::constants::MAX_CONCURRENT_GET_CLASS_REQUESTS;
+use crate::constants::{is_special_contract_felt, MAX_CONCURRENT_GET_CLASS_REQUESTS};
 use crate::utils::core_state_diff_to_thin_state_diff;
 
 // ================================================================================================
@@ -347,7 +347,7 @@ async fn process_accessed_addresses(
 ) -> Result<(), StateUpdateError> {
     // Filter out special addresses
     let addresses_to_process: Vec<Felt252> =
-        accessed_addresses.iter().filter(|addr| **addr != Felt::TWO && **addr != Felt::ONE).copied().collect();
+        accessed_addresses.iter().filter(|addr| !is_special_contract_felt(**addr)).copied().collect();
 
     if addresses_to_process.is_empty() {
         return Ok(());

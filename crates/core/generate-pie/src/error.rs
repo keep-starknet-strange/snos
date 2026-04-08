@@ -1,7 +1,11 @@
 //! Error types for pie generation, felt conversion operations, and block processing.
 
+use crate::conversions::ConversionError;
+use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
+use starknet::core::types::Felt;
 use starknet::providers::ProviderError;
+use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
@@ -109,6 +113,21 @@ pub enum BlockProcessingError {
     #[error("Context building error: {0}")]
     ContextBuilding(#[from] FeltConversionError),
 
+    /// Transaction conversion error.
+    #[error("Transaction conversion failed at index {transaction_index}: {source}")]
+    TransactionConversion {
+        transaction_index: usize,
+        #[source]
+        source: Box<ConversionError>,
+    },
+
+    /// Transaction executor creation error.
+    #[error("Failed to create pre-processed transaction executor: {source}")]
+    TransactionExecutorCreation {
+        #[source]
+        source: StateError,
+    },
+
     /// State update processing error.
     #[error("State update processing error: {0}")]
     StateUpdateProcessing(String),
@@ -132,6 +151,61 @@ pub enum BlockProcessingError {
     /// Starknet version error.
     #[error("Starknet version error: {0}")]
     StarknetVersion(String),
+
+    /// Missing block state after execution.
+    #[error("Missing block state after transaction execution")]
+    MissingBlockStateAfterExecution,
+
+    /// Invalid contract address.
+    #[error("Invalid contract address {address:?}: {source}")]
+    InvalidContractAddress {
+        address: Felt,
+        #[source]
+        source: StarknetApiError,
+    },
+
+    /// Initial reads storage extension error.
+    #[error("Failed to extend initial reads storage witness: {source}")]
+    InitialReadsExtension {
+        #[source]
+        source: StateError,
+    },
+
+    /// Initial reads snapshot error.
+    #[error("Failed to {context}: {source}")]
+    InitialReadsSnapshot {
+        context: String,
+        #[source]
+        source: StateError,
+    },
+
+    /// Initial read class-hash hydration error.
+    #[error("Failed to extend initial reads with class hash for {contract_address:?}: {source}")]
+    InitialReadClassHashHydration {
+        contract_address: ContractAddress,
+        #[source]
+        source: StateError,
+    },
+
+    /// Initial read nonce hydration error.
+    #[error("Failed to extend initial reads with nonce for {contract_address:?}: {source}")]
+    InitialReadNonceHydration {
+        contract_address: ContractAddress,
+        #[source]
+        source: StateError,
+    },
+
+    /// Initial read compiled-class-hash hydration error.
+    #[error("Failed to extend initial reads with compiled class hash for {class_hash:?}: {source}")]
+    InitialReadCompiledClassHashHydration {
+        class_hash: ClassHash,
+        #[source]
+        source: StateError,
+    },
+
+    /// Invalid old block number.
+    #[error("Old block number does not fit into u64: {old_block_number:?}")]
+    InvalidOldBlockNumber { old_block_number: Felt },
 
     /// File I/O error.
     #[error("File I/O error: {0}")]

@@ -1,3 +1,4 @@
+use crate::constants::{ALIAS_CONTRACT_ADDRESS, BLOCK_HASH_CONTRACT_ADDRESS};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::StateMaps;
 use blockifier::transaction::objects::TransactionExecutionInfo;
@@ -50,9 +51,12 @@ pub(crate) fn get_comprehensive_access_info(
         accessed_keys_by_address.entry(*address).or_default();
     }
 
-    // We need to fetch the storage proof for the block hash contract
-    accessed_keys_by_address.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
-    accessed_keys_by_address.entry(contract_address!("0x2")).or_default().insert(Felt::ZERO.try_into().unwrap());
+    // We need to fetch the storage proof for the block-hash contract and alias contract.
+    accessed_keys_by_address
+        .entry(BLOCK_HASH_CONTRACT_ADDRESS)
+        .or_default()
+        .insert(old_block_number.try_into().unwrap());
+    accessed_keys_by_address.entry(ALIAS_CONTRACT_ADDRESS).or_default().insert(Felt::ZERO.try_into().unwrap());
     // Include extra keys for contracts that trigger get_block_hash_syscall
     insert_extra_storage_reads_keys(old_block_number, &mut accessed_keys_by_address);
 
@@ -75,10 +79,10 @@ pub(crate) fn get_comprehensive_access_info(
         }
     }
 
-    // Extend contract address 0x1 with values from accessed_blocks
-    let contract_0x1_keys = accessed_keys_by_address.entry(contract_address!("0x1")).or_default();
+    // Extend the block-hash contract with values from accessed_blocks.
+    let block_hash_contract_keys = accessed_keys_by_address.entry(BLOCK_HASH_CONTRACT_ADDRESS).or_default();
     for block_number in &accessed_blocks {
-        contract_0x1_keys.insert((*block_number).try_into().unwrap());
+        block_hash_contract_keys.insert((*block_number).try_into().unwrap());
     }
 
     BlockAccessInfo {
@@ -308,7 +312,7 @@ fn insert_extra_storage_reads_keys(old_block_number: Felt, keys: &mut HashMap<Co
         let extra_storage_reads = 200 * 10; // TODO: 10 here is the STORED_BLOCK_HASH_BUFFER
         if old_block_number >= Felt252::from(extra_storage_reads) {
             for i in 1..=extra_storage_reads {
-                keys.entry(contract_address!("0x1"))
+                keys.entry(BLOCK_HASH_CONTRACT_ADDRESS)
                     .or_default()
                     .insert((old_block_number - i).try_into().expect("Felt to StorageKey conversion failed"));
             }

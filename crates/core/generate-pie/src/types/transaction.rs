@@ -1,3 +1,4 @@
+use crate::constants::BLOCK_HASH_CONTRACT_ADDRESS_FELT;
 use crate::error::BlockProcessingError;
 use crate::types::ProofCollectionResult;
 use crate::utils::{get_class_proofs, get_storage_proofs};
@@ -11,7 +12,6 @@ use starknet::core::types::BlockId;
 use starknet_api::block_hash::block_hash_calculator::BlockHeaderCommitments;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
-use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 
 /// Result containing processed transaction data.
@@ -71,7 +71,7 @@ impl TransactionProcessingResult {
                 let mut map = HashMap::new();
                 // Add a default proof for the block hash contract
                 map.insert(
-                    Felt::ONE,
+                    BLOCK_HASH_CONTRACT_ADDRESS_FELT,
                     ContractProof {
                         state_commitment: Default::default(),
                         class_commitment: None,

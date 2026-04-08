@@ -12,10 +12,9 @@ use crate::types::{BlockData, CommitmentCalculationResult, TransactionProcessing
 use blockifier::context::BlockContext;
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use log::info;
-use num_traits::ToPrimitive;
 use rpc_client::RpcClient;
 use starknet::core::types::BlockId;
-use starknet_api::block::{BlockHash, BlockNumber};
+use starknet_api::block::BlockHash;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass;
 use starknet_os::io::os_input::OsBlockInput;
@@ -136,7 +135,7 @@ pub async fn collect_single_block_info(
         class_result,
         &block_context,
         class_hashes_to_migrate,
-    );
+    )?;
 
     info!("Successfully completed construction of OsBlockInput for block {}", block_number);
 
@@ -155,10 +154,10 @@ fn build_os_block_input(
     class_result: ContractClassProcessingResult,
     block_context: &BlockContext,
     class_hashes_to_migrate: Vec<(ClassHash, CompiledClassHash)>,
-) -> OsBlockInput {
+) -> Result<OsBlockInput, BlockProcessingError> {
     info!("Building OS block input");
 
-    OsBlockInput {
+    Ok(OsBlockInput {
         contract_state_commitment_info: commitment_result.contract_state_commitment_info,
         contract_class_commitment_info: commitment_result.contract_class_commitment_info,
         address_to_storage_commitment_info: commitment_result.address_to_storage_commitment_info,
@@ -173,12 +172,8 @@ fn build_os_block_input(
             .map(|prev_block| BlockHash(prev_block.block_hash))
             .unwrap_or(BlockHash(Felt::ZERO)),
         new_block_hash: BlockHash(block_data.current_block.block_hash),
-        old_block_number_and_hash: if block_data.current_block.block_number == 0 {
-            None
-        } else {
-            Some((BlockNumber(block_data.old_block_number.to_u64().unwrap()), BlockHash(block_data.old_block_hash)))
-        },
+        old_block_number_and_hash: block_data.os_old_block_number_and_hash()?,
         class_hashes_to_migrate,
         initial_reads: tx_result.initial_reads,
-    }
+    })
 }
