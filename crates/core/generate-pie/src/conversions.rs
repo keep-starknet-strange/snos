@@ -216,29 +216,28 @@ async fn fetch_class_info(
 }
 
 /// Creates a transaction conversion result for account transactions.
+///
+/// SNOS re-executes transactions that already succeeded on the canonical chain in order
+/// to produce a proof. Fee enforcement during re-execution serves no purpose:
+///
+///   - For the SNOS proof to be valid, the re-execution must produce the same state diff
+///     as the original. If the original ran without fees (e.g. on an L3 chain that runs
+///     with fee enforcement disabled), the re-execution must not charge fees either, or
+///     the state diff diverges.
+///   - Re-checking fees against a fee policy that doesn't match the source chain can only
+///     ever make the proof wrong, never more correct.
+///
+/// The previous heuristic tried to selectively disable fees only for V0 transactions and
+/// V3 transactions whose `l2_gas.max_amount` was zero. That misses the very common case of
+/// chains that submit V3 transactions with non-zero gas amounts but **zero gas prices** —
+/// blockifier still rejects those because every `max_price_per_unit` is below the actual
+/// price. We instead disable fee charging unconditionally for the re-execution path.
 fn create_account_transaction_result(
     starknet_api_tx: starknet_api::executable_transaction::Transaction,
     account_tx: starknet_api::executable_transaction::AccountTransaction,
 ) -> TransactionConversionResult {
-    let mut charge_fee = true;
-    if account_tx.version().0 == Felt::ZERO {
-        charge_fee = false;
-    } else {
-        match account_tx.resource_bounds() {
-            ValidResourceBounds::AllResources(all_resources) => {
-                if all_resources.l2_gas.max_amount.0 == 0 {
-                    charge_fee = false;
-                }
-            }
-            ValidResourceBounds::L1Gas(l1_gas) => {
-                if l1_gas.max_amount.0 == 0 {
-                    charge_fee = false;
-                }
-            }
-        }
-    }
     let mut txn = AccountTransaction::new_for_sequencing(account_tx);
-    txn.execution_flags.charge_fee = charge_fee;
+    txn.execution_flags.charge_fee = false;
 
     TransactionConversionResult {
         starknet_api_tx,
