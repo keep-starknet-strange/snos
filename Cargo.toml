@@ -17,27 +17,26 @@ repository = "https://github.com/keep-starknet-strange/snos/"
 license-file = "LICENSE"
 
 [workspace.dependencies]
-# 0.14.2 baseline: pin the sequencer revision from `main-v0.14.2`
-# that carries Sierra 1.8-compatible Cairo dependencies.
-starknet_api = { git = "https://github.com/starkware-libs/sequencer", rev = "8b090b27bca8a8366c63ae864507f59c78c8bdc5", features = [
+# 0.14.2 baseline: use the published Apollo release tag for the 0.14.2 line.
+starknet_api = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.4", features = [
   "testing",
 ] }
-starknet_os = { git = "https://github.com/starkware-libs/sequencer", rev = "8b090b27bca8a8366c63ae864507f59c78c8bdc5", features = [
+starknet_os = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.4", features = [
   "testing",
 ] }
-blockifier = { git = "https://github.com/starkware-libs/sequencer", rev = "8b090b27bca8a8366c63ae864507f59c78c8bdc5", features = [
+blockifier = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.4", features = [
   "testing",
   "reexecution",
 ] }
-starknet_patricia = { git = "https://github.com/starkware-libs/sequencer", rev = "8b090b27bca8a8366c63ae864507f59c78c8bdc5", features = [
+starknet_patricia = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.4", features = [
   "testing",
 ] }
-shared_execution_objects = { git = "https://github.com/starkware-libs/sequencer", rev = "8b090b27bca8a8366c63ae864507f59c78c8bdc5" }
+shared_execution_objects = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.4" }
 
-cairo-lang-starknet = "=2.17.0-rc.4"
-cairo-lang-starknet-classes = "=2.17.0-rc.4"
-cairo-lang-utils = "=2.17.0-rc.4"
-cairo-lang-casm = "=2.17.0-rc.4"
+cairo-lang-starknet = "=2.17.0"
+cairo-lang-starknet-classes = "=2.17.0"
+cairo-lang-utils = "=2.17.0"
+cairo-lang-casm = "=2.17.0"
 cairo-vm = "=3.2.0"
 
 starknet = {package = "starknet-rust", version = "0.19.0-rc.2"}
