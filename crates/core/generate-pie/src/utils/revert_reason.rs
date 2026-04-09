@@ -1,4 +1,4 @@
-use blockifier::execution::stack_trace::{EntryPointErrorFrame, ErrorStack, ErrorStackSegment};
+use blockifier::execution::stack_trace::{EntryPointErrorFrame, ErrorStack, ErrorStackSegment, PreambleType};
 use blockifier::transaction::objects::{RevertError, TransactionExecutionInfo};
 use starknet_api::block_hash::block_hash_calculator::TransactionOutputForHash;
 use starknet_api::transaction::{RevertedTransactionExecutionStatus, TransactionExecutionStatus};
@@ -32,9 +32,17 @@ fn format_revert_reason_for_block_hash(revert_error: Option<&RevertError>) -> Op
 }
 
 fn should_strip_vm_tracebacks(error_stack: &ErrorStack) -> bool {
+    has_constructor_frame(error_stack)
+        && error_stack.stack.iter().any(|segment| match segment {
+            ErrorStackSegment::Cairo1RevertSummary(_) => true,
+            ErrorStackSegment::StringFrame(frame) => frame.starts_with("Execution failed. Failure reason:\n"),
+            _ => false,
+        })
+}
+
+fn has_constructor_frame(error_stack: &ErrorStack) -> bool {
     error_stack.stack.iter().any(|segment| match segment {
-        ErrorStackSegment::Cairo1RevertSummary(_) => true,
-        ErrorStackSegment::StringFrame(frame) => frame.starts_with("Execution failed. Failure reason:\n"),
+        ErrorStackSegment::EntryPoint(entry_point) => matches!(entry_point.preamble_type, PreambleType::Constructor),
         _ => false,
     })
 }
@@ -213,6 +221,61 @@ mod tests {
         RevertError::Execution(stack)
     }
 
+    fn nested_library_revert_error() -> RevertError {
+        let mut stack = ErrorStack { header: ErrorStackHeader::Execution, stack: Vec::new() };
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            0,
+            PreambleType::CallContract,
+            contract_address!("0x059ca23468e45338238bee2787d4143f42214b479d8c149846c98c3675ae5e62"),
+            class_hash!("0x025ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
+            felt!("0x015d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
+        )));
+        stack.push(ErrorStackSegment::Vm(VmExceptionFrame {
+            pc: Relocatable::from((0, 12)),
+            error_attr_value: None,
+            traceback: Some(
+                "Cairo traceback (most recent call last):\nUnknown location (pc=0:161)\nUnknown location (pc=0:147)\n"
+                    .to_string(),
+            ),
+        }));
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            1,
+            PreambleType::LibraryCall,
+            contract_address!("0x059ca23468e45338238bee2787d4143f42214b479d8c149846c98c3675ae5e62"),
+            class_hash!("0x033434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
+            felt!("0x015d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
+        )));
+        stack.push(ErrorStackSegment::Vm(VmExceptionFrame {
+            pc: Relocatable::from((0, 39)),
+            error_attr_value: None,
+            traceback: Some(
+                "Cairo traceback (most recent call last):\nUnknown location (pc=0:1398)\nUnknown location \
+                 (pc=0:1351)\nUnknown location (pc=0:569)\n"
+                    .replace("                 ", ""),
+            ),
+        }));
+        stack.push(ErrorStackSegment::StringFrame(
+            "Error message: argent: multicall 6:6 failed\nUnknown location (pc=0:586)\n".to_string(),
+        ));
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            2,
+            PreambleType::CallContract,
+            contract_address!("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
+            class_hash!("0x02e77ee61d4df3d988ee1f42ea5442e913862cc82c2584d212ecda76666498fc"),
+            felt!("0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+        )));
+        stack.push(ErrorStackSegment::StringFrame(
+            "Execution failed. Failure reason:\nError in contract (contract address: \
+             0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d, class hash: \
+             0x02e77ee61d4df3d988ee1f42ea5442e913862cc82c2584d212ecda76666498fc, selector: \
+             0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e):\n\
+             0x496e70757420746f6f206c6f6e6720666f7220617267756d656e7473 ('Input too long for arguments').\n"
+                .replace("             ", ""),
+        ));
+
+        RevertError::Execution(stack)
+    }
+
     fn cairo1_revert_summary_error() -> RevertError {
         let mut stack = ErrorStack { header: ErrorStackHeader::Execution, stack: Vec::new() };
         stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
@@ -257,6 +320,68 @@ mod tests {
         RevertError::Execution(stack)
     }
 
+    fn nested_library_cairo1_revert_summary_error() -> RevertError {
+        let mut stack = ErrorStack { header: ErrorStackHeader::Execution, stack: Vec::new() };
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            0,
+            PreambleType::CallContract,
+            contract_address!("0x059ca23468e45338238bee2787d4143f42214b479d8c149846c98c3675ae5e62"),
+            class_hash!("0x025ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
+            felt!("0x015d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
+        )));
+        stack.push(ErrorStackSegment::Vm(VmExceptionFrame {
+            pc: Relocatable::from((0, 12)),
+            error_attr_value: None,
+            traceback: Some(
+                "Cairo traceback (most recent call last):\nUnknown location (pc=0:161)\nUnknown location (pc=0:147)\n"
+                    .to_string(),
+            ),
+        }));
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            1,
+            PreambleType::LibraryCall,
+            contract_address!("0x059ca23468e45338238bee2787d4143f42214b479d8c149846c98c3675ae5e62"),
+            class_hash!("0x033434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
+            felt!("0x015d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
+        )));
+        stack.push(ErrorStackSegment::Vm(VmExceptionFrame {
+            pc: Relocatable::from((0, 39)),
+            error_attr_value: None,
+            traceback: Some(
+                "Cairo traceback (most recent call last):\nUnknown location (pc=0:1398)\nUnknown location \
+                 (pc=0:1351)\nUnknown location (pc=0:569)\n"
+                    .replace("                 ", ""),
+            ),
+        }));
+        stack.push(ErrorStackSegment::StringFrame(
+            "Error message: argent: multicall 6:6 failed\nUnknown location (pc=0:586)\n".to_string(),
+        ));
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            2,
+            PreambleType::CallContract,
+            contract_address!("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
+            class_hash!("0x02e77ee61d4df3d988ee1f42ea5442e913862cc82c2584d212ecda76666498fc"),
+            felt!("0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+        )));
+        stack.push(ErrorStackSegment::Cairo1RevertSummary(Cairo1RevertSummary {
+            header: Cairo1RevertHeader::Execution,
+            stack: vec![Cairo1RevertFrame {
+                contract_address: contract_address!(
+                    "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
+                ),
+                class_hash: Some(class_hash!("0x02e77ee61d4df3d988ee1f42ea5442e913862cc82c2584d212ecda76666498fc")),
+                selector: starknet_api::core::EntryPointSelector(felt!(
+                    "0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"
+                )),
+            }],
+            last_retdata: blockifier::execution::call_info::Retdata(vec![felt!(
+                "0x496e70757420746f6f206c6f6e6720666f7220617267756d656e7473"
+            )]),
+        }));
+
+        RevertError::Execution(stack)
+    }
+
     #[test]
     fn constructor_revert_reason_strips_vm_tracebacks_for_block_hash() {
         let raw = constructor_revert_error().to_string();
@@ -287,6 +412,30 @@ mod tests {
         assert!(formatted.contains("Error at pc=0:7331:"));
         assert!(formatted.contains("Error at pc=0:651:"));
         assert!(formatted.contains("Deployment failed: contract already deployed"));
+    }
+
+    #[test]
+    fn nested_library_revert_keeps_vm_tracebacks_for_block_hash() {
+        let revert_error = nested_library_revert_error();
+        let formatted = format_revert_reason_for_block_hash(Some(&revert_error)).unwrap();
+
+        assert_eq!(formatted, revert_error.to_string());
+        assert!(formatted.contains("Error at pc=0:12:"));
+        assert!(formatted.contains("Error at pc=0:39:"));
+        assert!(formatted.contains("argent: multicall 6:6 failed"));
+        assert!(formatted.contains("Input too long for arguments"));
+    }
+
+    #[test]
+    fn nested_library_cairo1_revert_summary_keeps_vm_tracebacks_for_block_hash() {
+        let revert_error = nested_library_cairo1_revert_summary_error();
+        let formatted = format_revert_reason_for_block_hash(Some(&revert_error)).unwrap();
+
+        assert_eq!(formatted, revert_error.to_string());
+        assert!(formatted.contains("Error at pc=0:12:"));
+        assert!(formatted.contains("Error at pc=0:39:"));
+        assert!(formatted.contains("argent: multicall 6:6 failed"));
+        assert!(formatted.contains("Input too long for arguments"));
     }
 
     #[test]

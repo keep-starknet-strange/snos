@@ -42,10 +42,14 @@ fn build_transaction_hashing_data(
     Ok(transactions
         .iter()
         .zip(tx_execution_infos.iter())
-        .map(|(tx, tx_execution_info)| TransactionHashingData {
-            transaction_signature: tx_signature_for_hashing(tx),
-            transaction_output: transaction_output_for_block_hash(tx_execution_info),
-            transaction_hash: tx.tx_hash(),
+        .map(|(tx, tx_execution_info)| {
+            let transaction_output = transaction_output_for_block_hash(tx_execution_info);
+
+            TransactionHashingData {
+                transaction_signature: tx_signature_for_hashing(tx),
+                transaction_output,
+                transaction_hash: tx.tx_hash(),
+            }
         })
         .collect())
 }

@@ -22,8 +22,9 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust for linux/amd64
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.87 \
+# Install Rust for linux/amd64.
+# Keep the image builder aligned with the workspace toolchain used for local validation.
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.89 \
     && . /usr/local/cargo/env \
     && rustup target add x86_64-unknown-linux-gnu
 
