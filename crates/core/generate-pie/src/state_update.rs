@@ -177,7 +177,7 @@ pub enum StateUpdateError {
 ///
 /// This function orchestrates the entire state update processing pipeline:
 /// 1. Fetches the state update from RPC
-/// 2. Processes transaction traces to extract accessed contracts
+/// 2. Uses the executed-address and executed-class sets collected from Blockifier
 /// 3. Compiles contract classes to CASM format
 /// 4. Formats the data for OS consumption
 ///

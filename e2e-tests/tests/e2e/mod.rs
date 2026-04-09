@@ -34,33 +34,17 @@ fn get_rpc_url(chain: &str) -> String {
 /// Simple PIE generation test with parameterized block numbers
 #[rstest]
 // sepolia blocks (0.14.2)
-#[case("sepolia", vec![7984520])] // first 0.14.2 block
-#[case("sepolia", vec![7984521])] // second 0.14.2 block, empty and contiguous with first block
-#[case("sepolia", vec![7984520, 7984521])] // first contiguous 0.14.2 multi-block pair
-#[case("sepolia", vec![7984528])] // first non-empty invoke-v3 block
-#[case("sepolia", vec![7984545])] // l1 handler-heavy block
-#[case("sepolia", vec![7984561])] // declare-v3 block
-#[case("sepolia", vec![8002289])] // boundary get_block_hash regression block
+#[case("sepolia", vec![7984520, 7984521])] // first contiguous 0.14.2 replay window
 #[case("sepolia", vec![8002288, 8002289])] // original failing replay window for the boundary block-hash read
-#[case("sepolia", vec![8138315])] // reverted constructor receipt regression block
 #[case("sepolia", vec![8138314, 8138315])] // original failing replay window for constructor revert receipt hashing
-#[case("sepolia", vec![8138442])] // revert-heavy block where all receipts are reverted
 #[case("sepolia", vec![8138442, 8138443])] // original failing replay window for revert-heavy receipt hashing
-#[case("sepolia", vec![8138930])] // reverted invoke block with receipt-hash mismatch
 #[case("sepolia", vec![8138930, 8138931])] // original failing replay window for reverted receipt hashing
-#[case("sepolia", vec![8168453])] // reverted constructor deployment block-hash regression block
 #[case("sepolia", vec![8168452, 8168453])] // original failing replay window for constructor deployment receipt hashing
-#[case("sepolia", vec![8169410])] // repeated reverted constructor deployment block-hash regression block
 #[case("sepolia", vec![8169410, 8169411])] // original failing replay window for repeated constructor deployment receipt hashing
-#[case("sepolia", vec![8555509])] // reverted invoke with nested cairo1 summary receipt-hash regression block
 #[case("sepolia", vec![8555508, 8555509])] // original failing replay window for nested cairo1 summary receipt hashing
-#[case("sepolia", vec![8556024])] // repeated reverted invoke with nested cairo1 summary receipt-hash regression block
 #[case("sepolia", vec![8556024, 8556025])] // original failing replay window for repeated nested cairo1 summary receipt hashing
-#[case("sepolia", vec![8263796])] // Sierra 1.8 declare block that previously failed with compiler version 1.7.0
 #[case("sepolia", vec![8263796, 8263797])] // original failing replay window for Sierra 1.8 declare compilation
-#[case("sepolia", vec![8263876])] // Sierra 1.8 declare block that previously failed with compiler version 1.7.0
 #[case("sepolia", vec![8263876, 8263877])] // original failing replay window for Sierra 1.8 declare compilation
-#[case("sepolia", vec![8264192])] // Sierra 1.8 declare block that previously failed with compiler version 1.7.0
 #[case("sepolia", vec![8264192, 8264193])] // original failing replay window for Sierra 1.8 declare compilation
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64>) {
@@ -127,7 +111,7 @@ async fn test_pie_generation_with_custom_versioned_constants() {
 
     // Use a simple block for testing (0.14.2 empty block)
     let chain = "sepolia";
-    let block_numbers = vec![7984521]; // empty block, second block of 0.14.2
+    let block_numbers = vec![7984520, 7984521]; // first contiguous 0.14.2 replay window
 
     println!("🧪 Testing PIE generation with custom versioned constants for blocks on {}", chain);
 

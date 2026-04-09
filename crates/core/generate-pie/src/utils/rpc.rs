@@ -1,4 +1,5 @@
 use crate::constants::{ALIAS_CONTRACT_ADDRESS, BLOCK_HASH_CONTRACT_ADDRESS};
+use crate::types::initial_reads::accessed_keys_from_initial_reads;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::StateMaps;
 use blockifier::transaction::objects::TransactionExecutionInfo;
@@ -42,7 +43,7 @@ pub(crate) fn get_comprehensive_access_info(
     initial_reads: &StateMaps,
     old_block_number: Felt,
 ) -> BlockAccessInfo {
-    let mut accessed_keys_by_address = get_accessed_keys_from_initial_reads(initial_reads);
+    let mut accessed_keys_by_address = accessed_keys_from_initial_reads(initial_reads);
     let accessed_contract_addresses = extract_accessed_contract_addresses(tx_execution_infos, initial_reads);
     let accessed_class_hashes: HashSet<Felt> =
         extract_executed_class_hashes(tx_execution_infos).into_iter().map(|class_hash| class_hash.0).collect();
@@ -94,16 +95,6 @@ pub(crate) fn get_comprehensive_access_info(
         read_block_hash_values,
         accessed_blocks,
     }
-}
-
-fn get_accessed_keys_from_initial_reads(initial_reads: &StateMaps) -> HashMap<ContractAddress, HashSet<StorageKey>> {
-    let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
-
-    for (contract_address, storage_key) in initial_reads.storage.keys() {
-        accessed_keys_by_address.entry(*contract_address).or_default().insert(*storage_key);
-    }
-
-    accessed_keys_by_address
 }
 
 fn extract_accessed_contract_addresses(
@@ -378,5 +369,72 @@ fn extract_inner_class_hashes(call_info: &CallInfo, class_hashes: &mut HashSet<C
 
     for inner_call in &call_info.inner_calls {
         extract_inner_class_hashes(inner_call, class_hashes);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use blockifier::transaction::objects::TransactionExecutionInfo;
+
+    fn contract_address(value: u64) -> ContractAddress {
+        ContractAddress::try_from(Felt::from(value)).unwrap()
+    }
+
+    fn class_hash(value: u64) -> ClassHash {
+        ClassHash(Felt::from(value))
+    }
+
+    fn call_info(
+        class_hash: Option<ClassHash>,
+        storage_address: u64,
+        code_address: Option<u64>,
+        inner_calls: Vec<CallInfo>,
+    ) -> CallInfo {
+        let mut call_info = CallInfo::default();
+        call_info.call.class_hash = class_hash;
+        call_info.call.storage_address = contract_address(storage_address);
+        call_info.call.code_address = code_address.map(contract_address);
+        call_info.inner_calls = inner_calls;
+        call_info
+    }
+
+    #[test]
+    fn extract_inner_class_hashes_collects_nested_class_hashes() {
+        let nested = call_info(Some(class_hash(3)), 3, None, vec![]);
+        let inner = call_info(Some(class_hash(2)), 2, None, vec![nested]);
+        let root = call_info(Some(class_hash(1)), 1, None, vec![inner]);
+        let mut class_hashes = HashSet::new();
+
+        extract_inner_class_hashes(&root, &mut class_hashes);
+
+        assert_eq!(class_hashes, HashSet::from([class_hash(1), class_hash(2), class_hash(3)]));
+    }
+
+    #[test]
+    fn extract_executed_class_hashes_collects_all_transaction_call_branches() {
+        let validate_call = call_info(Some(class_hash(10)), 10, None, vec![]);
+        let execute_call =
+            call_info(Some(class_hash(20)), 20, None, vec![call_info(Some(class_hash(21)), 21, None, vec![])]);
+        let fee_transfer_call = call_info(Some(class_hash(30)), 30, None, vec![]);
+
+        let tx_execution_infos = vec![
+            TransactionExecutionInfo {
+                validate_call_info: Some(validate_call),
+                execute_call_info: Some(execute_call),
+                fee_transfer_call_info: None,
+                ..Default::default()
+            },
+            TransactionExecutionInfo {
+                validate_call_info: None,
+                execute_call_info: None,
+                fee_transfer_call_info: Some(fee_transfer_call),
+                ..Default::default()
+            },
+        ];
+
+        let class_hashes = extract_executed_class_hashes(&tx_execution_infos);
+
+        assert_eq!(class_hashes, HashSet::from([class_hash(10), class_hash(20), class_hash(21), class_hash(30)]));
     }
 }

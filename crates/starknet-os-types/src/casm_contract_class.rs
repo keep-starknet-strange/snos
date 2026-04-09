@@ -326,6 +326,9 @@ impl GenericCasmContractClass {
     }
 
     /// Computes the class hash v2 (BLAKE2s / SNIP-34) for this contract class.
+    ///
+    /// SNOS needs both hash versions because 0.14.2-era reexecution can encounter classes whose
+    /// commitments were produced before and after the SNIP-34 hash migration.
     fn compute_class_hash_v2(&self) -> Result<GenericClassHash, ContractClassError> {
         let compiled_class = self.get_cairo_lang_contract_class()?;
         let class_hash = compiled_class.hash(&HashVersion::V2);

@@ -24,7 +24,8 @@ use starknet::core::types::{
     BlockId, DataAvailabilityMode, DeclareTransaction, DeclareTransactionV0, DeclareTransactionV1,
     DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV1,
     DeployAccountTransactionV3, Felt, InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3,
-    L1HandlerTransaction, ResourceBoundsMapping, Transaction, TransactionReceipt,
+    L1DataAvailabilityMode as CoreL1DataAvailabilityMode, L1HandlerTransaction, ResourceBoundsMapping, Transaction,
+    TransactionReceipt,
 };
 use starknet::providers::Provider;
 use starknet_api::block::GasPrice;
@@ -36,6 +37,7 @@ use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use thiserror::Error;
 
+use crate::constants::DEFAULT_PAID_FEE_ON_L1;
 use crate::error::ToBlockifierError;
 use rpc_client::RpcClient;
 
@@ -282,12 +284,19 @@ fn proof_facts_from_rpc(proof_facts: Option<Vec<Felt>>) -> starknet_api::transac
 }
 
 async fn fetch_paid_fee_on_l1(rpc_client: &RpcClient, tx_hash: Felt) -> Result<Fee, ConversionError> {
-    const DEFAULT_PAID_FEE_ON_L1: u128 = 1_000_000_000_000u128;
-
     let receipt = rpc_client.starknet_rpc().get_transaction_receipt(tx_hash).await?;
     let fee_amount = felt_to_u128_safe(extract_receipt_fee_amount(&receipt.receipt), "actual_fee")?;
 
     Ok(Fee(if fee_amount == 0 { DEFAULT_PAID_FEE_ON_L1 } else { fee_amount }))
+}
+
+pub(crate) fn convert_l1_da_mode(
+    mode: CoreL1DataAvailabilityMode,
+) -> starknet_api::data_availability::L1DataAvailabilityMode {
+    match mode {
+        CoreL1DataAvailabilityMode::Blob => starknet_api::data_availability::L1DataAvailabilityMode::Blob,
+        CoreL1DataAvailabilityMode::Calldata => starknet_api::data_availability::L1DataAvailabilityMode::Calldata,
+    }
 }
 
 // ================================================================================================

@@ -5,20 +5,16 @@ use starknet_api::block_hash::block_hash_calculator::{
     calculate_block_commitments, BlockHeaderCommitments, TransactionHashingData,
 };
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::data_availability::L1DataAvailabilityMode;
 use starknet_api::executable_transaction::Transaction as ExecutableTransaction;
 use starknet_api::state::{StorageKey, ThinStateDiff};
 use starknet_api::transaction::fields::TransactionSignature;
 
+use crate::conversions::convert_l1_da_mode;
 use crate::error::BlockProcessingError;
 use crate::utils::revert_reason::transaction_output_for_block_hash;
 
-fn convert_da_mode(mode: CoreL1DataAvailabilityMode) -> L1DataAvailabilityMode {
-    match mode {
-        CoreL1DataAvailabilityMode::Blob => L1DataAvailabilityMode::Blob,
-        CoreL1DataAvailabilityMode::Calldata => L1DataAvailabilityMode::Calldata,
-    }
-}
+type StorageDiffEntries = Vec<(StorageKey, starknet_types_core::felt::Felt)>;
+type StorageDiffItem = (ContractAddress, StorageDiffEntries);
 
 pub(crate) fn tx_signature_for_hashing(tx: &ExecutableTransaction) -> TransactionSignature {
     match tx {
@@ -54,62 +50,67 @@ fn build_transaction_hashing_data(
         .collect())
 }
 
-pub(crate) fn core_state_diff_to_thin_state_diff(
+fn contract_address_from_felt(
+    address: starknet_types_core::felt::Felt,
+    context: &str,
+) -> Result<ContractAddress, BlockProcessingError> {
+    ContractAddress::try_from(address).map_err(|error| {
+        BlockProcessingError::new_custom(format!("Failed converting {context} address {address:#x}: {error:?}"))
+    })
+}
+
+fn storage_key_from_felt(
+    contract_address: starknet_types_core::felt::Felt,
+    storage_key: starknet_types_core::felt::Felt,
+) -> Result<StorageKey, BlockProcessingError> {
+    StorageKey::try_from(storage_key).map_err(|error| {
+        BlockProcessingError::new_custom(format!(
+            "Failed converting storage key {storage_key:#x} for contract {contract_address:#x}: {error:?}"
+        ))
+    })
+}
+
+fn deployed_contract_items(
     state_diff: &CoreStateDiff,
-) -> Result<ThinStateDiff, BlockProcessingError> {
-    let deployed_contracts_items: Vec<(ContractAddress, ClassHash)> = state_diff
+) -> Result<Vec<(ContractAddress, ClassHash)>, BlockProcessingError> {
+    state_diff
         .deployed_contracts
         .iter()
         .map(|contract| {
-            let address = ContractAddress::try_from(contract.address).map_err(|e| {
-                BlockProcessingError::new_custom(format!(
-                    "Failed converting deployed contract address {:#x}: {:?}",
-                    contract.address, e
-                ))
-            })?;
-            Ok::<(ContractAddress, ClassHash), BlockProcessingError>((address, ClassHash(contract.class_hash)))
+            Ok((contract_address_from_felt(contract.address, "deployed contract")?, ClassHash(contract.class_hash)))
         })
         .chain(state_diff.replaced_classes.iter().map(|class_replacement| {
-            let address = ContractAddress::try_from(class_replacement.contract_address).map_err(|e| {
-                BlockProcessingError::new_custom(format!(
-                    "Failed converting replaced contract address {:#x}: {:?}",
-                    class_replacement.contract_address, e
-                ))
-            })?;
-            Ok::<(ContractAddress, ClassHash), BlockProcessingError>((address, ClassHash(class_replacement.class_hash)))
+            Ok((
+                contract_address_from_felt(class_replacement.contract_address, "replaced contract")?,
+                ClassHash(class_replacement.class_hash),
+            ))
         }))
-        .collect::<Result<_, _>>()?;
+        .collect()
+}
 
-    let storage_diff_items: Vec<(ContractAddress, Vec<(StorageKey, starknet_types_core::felt::Felt)>)> = state_diff
+fn storage_diff_items(state_diff: &CoreStateDiff) -> Result<Vec<StorageDiffItem>, BlockProcessingError> {
+    state_diff
         .storage_diffs
         .iter()
         .map(|contract_storage_diff| {
-            let address = ContractAddress::try_from(contract_storage_diff.address).map_err(|e| {
-                BlockProcessingError::new_custom(format!(
-                    "Failed converting storage diff address {:#x}: {:?}",
-                    contract_storage_diff.address, e
-                ))
-            })?;
+            let address = contract_address_from_felt(contract_storage_diff.address, "storage diff")?;
             let entries = contract_storage_diff
                 .storage_entries
                 .iter()
                 .map(|entry| {
-                    let key = StorageKey::try_from(entry.key).map_err(|e| {
-                        BlockProcessingError::new_custom(format!(
-                            "Failed converting storage key {:#x} for contract {:#x}: {:?}",
-                            entry.key, contract_storage_diff.address, e
-                        ))
-                    })?;
-                    Ok::<(StorageKey, starknet_types_core::felt::Felt), BlockProcessingError>((key, entry.value))
+                    Ok::<_, BlockProcessingError>((
+                        storage_key_from_felt(contract_storage_diff.address, entry.key)?,
+                        entry.value,
+                    ))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            Ok::<(ContractAddress, Vec<(StorageKey, starknet_types_core::felt::Felt)>), BlockProcessingError>((
-                address, entries,
-            ))
+            Ok((address, entries))
         })
-        .collect::<Result<_, _>>()?;
+        .collect()
+}
 
-    let class_hash_to_compiled_class_hash_items: Vec<(ClassHash, CompiledClassHash)> = state_diff
+fn class_hash_to_compiled_class_hash_items(state_diff: &CoreStateDiff) -> Vec<(ClassHash, CompiledClassHash)> {
+    state_diff
         .declared_classes
         .iter()
         .map(|declared_class| {
@@ -118,24 +119,31 @@ pub(crate) fn core_state_diff_to_thin_state_diff(
         .chain(state_diff.migrated_compiled_classes.iter().flatten().map(|migrated_class| {
             (ClassHash(migrated_class.class_hash), CompiledClassHash(migrated_class.compiled_class_hash))
         }))
-        .collect();
+        .collect()
+}
 
-    let deprecated_declared_classes: Vec<ClassHash> =
-        state_diff.deprecated_declared_classes.iter().map(|class_hash| ClassHash(*class_hash)).collect();
+fn deprecated_declared_classes(state_diff: &CoreStateDiff) -> Vec<ClassHash> {
+    state_diff.deprecated_declared_classes.iter().map(|class_hash| ClassHash(*class_hash)).collect()
+}
 
-    let nonce_items: Vec<(ContractAddress, Nonce)> = state_diff
+fn nonce_items(state_diff: &CoreStateDiff) -> Result<Vec<(ContractAddress, Nonce)>, BlockProcessingError> {
+    state_diff
         .nonces
         .iter()
         .map(|nonce_update| {
-            let address = ContractAddress::try_from(nonce_update.contract_address).map_err(|e| {
-                BlockProcessingError::new_custom(format!(
-                    "Failed converting nonce update address {:#x}: {:?}",
-                    nonce_update.contract_address, e
-                ))
-            })?;
-            Ok::<(ContractAddress, Nonce), BlockProcessingError>((address, Nonce(nonce_update.nonce)))
+            Ok((contract_address_from_felt(nonce_update.contract_address, "nonce update")?, Nonce(nonce_update.nonce)))
         })
-        .collect::<Result<_, _>>()?;
+        .collect()
+}
+
+pub(crate) fn core_state_diff_to_thin_state_diff(
+    state_diff: &CoreStateDiff,
+) -> Result<ThinStateDiff, BlockProcessingError> {
+    let deployed_contracts_items = deployed_contract_items(state_diff)?;
+    let storage_diff_items = storage_diff_items(state_diff)?;
+    let class_hash_to_compiled_class_hash_items = class_hash_to_compiled_class_hash_items(state_diff);
+    let deprecated_declared_classes = deprecated_declared_classes(state_diff);
+    let nonce_items = nonce_items(state_diff)?;
 
     Ok(ThinStateDiff {
         deployed_contracts: deployed_contracts_items.into_iter().collect(),
@@ -160,7 +168,7 @@ pub async fn compute_block_hash_commitments(
     let (commitments, _measurements) = calculate_block_commitments(
         &transaction_hashing_data,
         thin_state_diff.clone(),
-        convert_da_mode(l1_da_mode),
+        convert_l1_da_mode(l1_da_mode),
         starknet_version,
     )
     .await;
@@ -264,8 +272,8 @@ mod tests {
 
     #[test]
     fn da_mode_mapping_shape_is_covered_by_compiler() {
-        let blob = super::convert_da_mode(L1DataAvailabilityMode::Blob);
-        let calldata = super::convert_da_mode(L1DataAvailabilityMode::Calldata);
+        let blob = crate::conversions::convert_l1_da_mode(L1DataAvailabilityMode::Blob);
+        let calldata = crate::conversions::convert_l1_da_mode(L1DataAvailabilityMode::Calldata);
         assert_ne!(blob, calldata);
     }
 }
