@@ -10,9 +10,13 @@ use starknet_core::types::{ConfirmedBlockId, ContractStorageKeys, StorageKey};
 use starknet_types_core::felt::Felt;
 use std::collections::VecDeque;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::constants::{MAX_CONCURRENT_PROOF_REQUESTS, MAX_STORAGE_KEYS_PER_REQUEST, STARKNET_RPC_VERSION};
 use crate::types::{ClassProof, ContractProof};
+
+const RPC_REQUEST_TIMEOUT_SECS: u64 = 15;
+const RPC_CONNECT_TIMEOUT_SECS: u64 = 5;
 
 pub trait ProofClient {
     fn get_proof(
@@ -72,10 +76,15 @@ impl RpcClientInner {
         let starknet_rpc_url = format!("{}/rpc/{}", base_url, STARKNET_RPC_VERSION);
         info!("Initializing Starknet RPC client with URL: {}", starknet_rpc_url);
 
-        let provider = JsonRpcClient::new(HttpTransport::new(
-            Url::parse(starknet_rpc_url.as_str())
-                .map_err(|e| anyhow!("Failed to parse URL ({}): {}", starknet_rpc_url, e))?,
-        ));
+        let starknet_rpc_url = Url::parse(starknet_rpc_url.as_str())
+            .map_err(|e| anyhow!("Failed to parse URL ({}): {}", starknet_rpc_url, e))?;
+        let http_client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(RPC_CONNECT_TIMEOUT_SECS))
+            .timeout(Duration::from_secs(RPC_REQUEST_TIMEOUT_SECS))
+            .build()
+            .map_err(|e| anyhow!("Failed to create reqwest client for {}: {}", starknet_rpc_url, e))?;
+
+        let provider = JsonRpcClient::new(HttpTransport::new_with_client(starknet_rpc_url, http_client));
 
         Ok(Self { starknet_client: provider })
     }

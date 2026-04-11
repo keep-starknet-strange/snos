@@ -14,6 +14,7 @@
 //! 4. **Error Propagation**: Comprehensive error handling with context
 //! 5. **Zero-Copy**: Avoids unnecessary cloning where possible
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -39,6 +40,7 @@ use thiserror::Error;
 
 use crate::constants::DEFAULT_PAID_FEE_ON_L1;
 use crate::error::ToBlockifierError;
+use rpc_client::utils::execute_with_retry;
 use rpc_client::RpcClient;
 
 // ================================================================================================
@@ -59,6 +61,8 @@ pub enum ConversionError {
     ClassCompilationFailed { reason: String },
     #[error("Field conversion failed: {field}, reason: {reason}")]
     FieldConversionFailed { field: String, reason: String },
+    #[error("Missing transaction receipt for {tx_hash:#x}")]
+    MissingTransactionReceipt { tx_hash: Felt },
 }
 
 // ================================================================================================
@@ -83,6 +87,8 @@ pub struct ConversionContext<'a> {
     pub block_number: u64,
     /// RPC client for fetching additional data
     pub rpc_client: &'a RpcClient,
+    /// Receipts for the current block keyed by transaction hash
+    pub transaction_receipts: &'a HashMap<Felt, TransactionReceipt>,
 }
 
 impl<'a> ConversionContext<'a> {
@@ -93,6 +99,7 @@ impl<'a> ConversionContext<'a> {
     /// * `chain_id` - The chain ID for the network
     /// * `block_number` - The block number being processed
     /// * `rpc_client` - The RPC client for fetching additional data
+    /// * `transaction_receipts` - Receipts for the current block keyed by transaction hash
     /// # Example
     ///
     /// ```rust
@@ -100,10 +107,16 @@ impl<'a> ConversionContext<'a> {
     ///     &chain_id,
     ///     block_number,
     ///     &rpc_client,
+    ///     &transaction_receipts,
     /// );
     /// ```
-    pub fn new(chain_id: &'a ChainId, block_number: u64, rpc_client: &'a RpcClient) -> Self {
-        Self { chain_id, block_number, rpc_client }
+    pub fn new(
+        chain_id: &'a ChainId,
+        block_number: u64,
+        rpc_client: &'a RpcClient,
+        transaction_receipts: &'a HashMap<Felt, TransactionReceipt>,
+    ) -> Self {
+        Self { chain_id, block_number, rpc_client, transaction_receipts }
     }
 }
 
@@ -147,7 +160,11 @@ async fn fetch_class_info(
 ) -> Result<ClassInfo, ConversionError> {
     debug!("Fetching class info for hash: {:?} at block: {}", class_hash, block_number);
 
-    let contract_class = rpc_client.starknet_rpc().get_class(BlockId::Number(block_number), class_hash).await?;
+    let operation_name = format!("get_class(class_hash: {class_hash:?}, block_number: {block_number})");
+    let contract_class = execute_with_retry(&operation_name, || {
+        rpc_client.starknet_rpc().get_class(BlockId::Number(block_number), class_hash)
+    })
+    .await?;
 
     let (blockifier_contract_class, program_length, abi_length, version) = match contract_class {
         starknet::core::types::ContractClass::Sierra(sierra) => {
@@ -279,13 +296,27 @@ fn extract_receipt_fee_amount(receipt: &TransactionReceipt) -> &Felt {
     }
 }
 
+pub(crate) fn transaction_receipt_hash(receipt: &TransactionReceipt) -> Felt {
+    match receipt {
+        TransactionReceipt::Invoke(receipt) => receipt.transaction_hash,
+        TransactionReceipt::L1Handler(receipt) => receipt.transaction_hash,
+        TransactionReceipt::Declare(receipt) => receipt.transaction_hash,
+        TransactionReceipt::Deploy(receipt) => receipt.transaction_hash,
+        TransactionReceipt::DeployAccount(receipt) => receipt.transaction_hash,
+    }
+}
+
 fn proof_facts_from_rpc(proof_facts: Option<Vec<Felt>>) -> starknet_api::transaction::fields::ProofFacts {
     proof_facts.unwrap_or_default().into()
 }
 
-async fn fetch_paid_fee_on_l1(rpc_client: &RpcClient, tx_hash: Felt) -> Result<Fee, ConversionError> {
-    let receipt = rpc_client.starknet_rpc().get_transaction_receipt(tx_hash).await?;
-    let fee_amount = felt_to_u128_safe(extract_receipt_fee_amount(&receipt.receipt), "actual_fee")?;
+#[allow(clippy::result_large_err)]
+fn fetch_paid_fee_on_l1(
+    transaction_receipts: &HashMap<Felt, TransactionReceipt>,
+    tx_hash: Felt,
+) -> Result<Fee, ConversionError> {
+    let receipt = transaction_receipts.get(&tx_hash).ok_or(ConversionError::MissingTransactionReceipt { tx_hash })?;
+    let fee_amount = felt_to_u128_safe(extract_receipt_fee_amount(receipt), "actual_fee")?;
 
     Ok(Fee(if fee_amount == 0 { DEFAULT_PAID_FEE_ON_L1 } else { fee_amount }))
 }
@@ -633,7 +664,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for L1HandlerTransactio
             calldata: starknet_api::transaction::fields::Calldata(Arc::new(self.calldata)),
         };
 
-        let paid_fee_on_l1 = fetch_paid_fee_on_l1(ctx.rpc_client, self.transaction_hash).await?;
+        let paid_fee_on_l1 = fetch_paid_fee_on_l1(ctx.transaction_receipts, self.transaction_hash)?;
         let l1_handler_tx =
             starknet_api::executable_transaction::L1HandlerTransaction::create(api_tx, ctx.chain_id, paid_fee_on_l1)?;
 
@@ -688,7 +719,8 @@ mod tests {
     async fn invoke_v3_conversion_preserves_proof_facts() {
         let chain_id = ChainId::Sepolia;
         let rpc_client = RpcClient::try_new("http://localhost:9545").expect("valid dummy rpc url");
-        let ctx = ConversionContext::new(&chain_id, 9112643, &rpc_client);
+        let transaction_receipts = HashMap::new();
+        let ctx = ConversionContext::new(&chain_id, 9112643, &rpc_client, &transaction_receipts);
         let proof_facts = vec![
             Felt::from_hex_unchecked("0x50524f4f4630"),
             Felt::from_hex_unchecked("0x5649525455414c5f534e4f53"),

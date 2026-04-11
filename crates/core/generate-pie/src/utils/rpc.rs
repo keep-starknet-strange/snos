@@ -35,6 +35,13 @@ pub struct BlockAccessInfo {
     pub accessed_blocks: HashSet<Felt>,
 }
 
+#[derive(Default)]
+struct CallTreeAccesses {
+    accessed_contract_addresses: HashSet<ContractAddress>,
+    accessed_class_hashes: HashSet<ClassHash>,
+    accessed_blocks: HashSet<Felt>,
+}
+
 /// Collects comprehensive access information from local blockifier execution, using
 /// `initial_reads` as the authoritative storage witness and the execution call tree for
 /// executed contract/class metadata.
@@ -44,11 +51,12 @@ pub(crate) fn get_comprehensive_access_info(
     old_block_number: Felt,
 ) -> BlockAccessInfo {
     let mut accessed_keys_by_address = accessed_keys_from_initial_reads(initial_reads);
-    let accessed_contract_addresses = extract_accessed_contract_addresses(tx_execution_infos, initial_reads);
+    let mut call_tree_accesses = collect_call_tree_accesses(tx_execution_infos);
+    merge_initial_read_contract_addresses(&mut call_tree_accesses.accessed_contract_addresses, initial_reads);
     let accessed_class_hashes: HashSet<Felt> =
-        extract_executed_class_hashes(tx_execution_infos).into_iter().map(|class_hash| class_hash.0).collect();
+        call_tree_accesses.accessed_class_hashes.iter().map(|class_hash| class_hash.0).collect();
 
-    for address in &accessed_contract_addresses {
+    for address in &call_tree_accesses.accessed_contract_addresses {
         accessed_keys_by_address.entry(*address).or_default();
     }
 
@@ -64,21 +72,7 @@ pub(crate) fn get_comprehensive_access_info(
     let storage_read_values = HashSet::new();
     let read_class_hash_values = HashSet::new();
     let read_block_hash_values = HashSet::new();
-    let mut accessed_blocks = HashSet::new();
-
-    // Collect all access information from transaction execution infos
-    for tx_execution_info in tx_execution_infos {
-        for call_info in [
-            &tx_execution_info.validate_call_info,
-            &tx_execution_info.execute_call_info,
-            &tx_execution_info.fee_transfer_call_info,
-        ]
-        .into_iter()
-        .flatten()
-        {
-            collect_access_info_from_call(call_info, &mut accessed_blocks);
-        }
-    }
+    let accessed_blocks = std::mem::take(&mut call_tree_accesses.accessed_blocks);
 
     // Extend the block-hash contract with values from accessed_blocks.
     let block_hash_contract_keys = accessed_keys_by_address.entry(BLOCK_HASH_CONTRACT_ADDRESS).or_default();
@@ -88,7 +82,7 @@ pub(crate) fn get_comprehensive_access_info(
 
     BlockAccessInfo {
         accessed_keys_by_address,
-        accessed_contract_addresses,
+        accessed_contract_addresses: call_tree_accesses.accessed_contract_addresses,
         accessed_class_hashes,
         storage_read_values,
         read_class_hash_values,
@@ -97,30 +91,24 @@ pub(crate) fn get_comprehensive_access_info(
     }
 }
 
-fn extract_accessed_contract_addresses(
-    tx_execution_infos: &[TransactionExecutionInfo],
-    initial_reads: &StateMaps,
-) -> HashSet<ContractAddress> {
-    let mut addresses = extract_code_addresses(tx_execution_infos);
+fn merge_initial_read_contract_addresses(addresses: &mut HashSet<ContractAddress>, initial_reads: &StateMaps) {
     addresses.extend(initial_reads.storage.keys().map(|(contract_address, _)| *contract_address));
     addresses.extend(initial_reads.class_hashes.keys().copied());
     addresses.extend(initial_reads.nonces.keys().copied());
-    addresses
 }
 
-/// Recursively collects access information from a call and its inner calls
-fn collect_access_info_from_call(call_info: &CallInfo, accessed_blocks: &mut HashSet<Felt>) {
-    let tracker = &call_info.storage_access_tracker;
+fn collect_call_tree_accesses(transaction_info: &[TransactionExecutionInfo]) -> CallTreeAccesses {
+    let mut accesses = CallTreeAccesses::default();
 
-    // Collect accessed blocks - convert BlockNumber to Felt
-    for block_number in &tracker.accessed_blocks {
-        accessed_blocks.insert(Felt::from(block_number.0));
+    for info in transaction_info {
+        for call_info in
+            [&info.validate_call_info, &info.execute_call_info, &info.fee_transfer_call_info].into_iter().flatten()
+        {
+            collect_call_tree_accesses_from_call(call_info, &mut accesses);
+        }
     }
 
-    // Recursively process inner calls
-    for inner_call in &call_info.inner_calls {
-        collect_access_info_from_call(inner_call, accessed_blocks);
-    }
+    accesses
 }
 
 /// Get the storage proofs for all the specified storage keys for all the given contracts.
@@ -311,71 +299,33 @@ fn insert_extra_storage_reads_keys(old_block_number: Felt, keys: &mut HashMap<Co
     }
 }
 
-fn extract_code_addresses(transaction_info: &[TransactionExecutionInfo]) -> HashSet<ContractAddress> {
-    let mut addresses = HashSet::new();
-
-    for info in transaction_info {
-        if let Some(call_info) = &info.validate_call_info {
-            extract_inner_addresses(call_info, &mut addresses);
-        }
-        if let Some(call_info) = &info.execute_call_info {
-            extract_inner_addresses(call_info, &mut addresses);
-        }
-        if let Some(call_info) = &info.fee_transfer_call_info {
-            extract_inner_addresses(call_info, &mut addresses);
-        }
-    }
-
-    addresses
-}
-
-/// Extracts inner code addresses recursively
-///
-/// *Note* This is an unbounded recursive call
-fn extract_inner_addresses(call_info: &CallInfo, addresses: &mut HashSet<ContractAddress>) {
-    addresses.insert(call_info.call.storage_address);
-    addresses.extend(&call_info.storage_access_tracker.accessed_contract_addresses);
+fn collect_call_tree_accesses_from_call(call_info: &CallInfo, accesses: &mut CallTreeAccesses) {
+    accesses.accessed_contract_addresses.insert(call_info.call.storage_address);
+    accesses
+        .accessed_contract_addresses
+        .extend(call_info.storage_access_tracker.accessed_contract_addresses.iter().copied());
     if let Some(code_address) = &call_info.call.code_address {
-        addresses.insert(*code_address);
+        accesses.accessed_contract_addresses.insert(*code_address);
     }
-
-    for inner_call in &call_info.inner_calls {
-        extract_inner_addresses(inner_call, addresses);
-    }
-}
-
-fn extract_executed_class_hashes(transaction_info: &[TransactionExecutionInfo]) -> HashSet<ClassHash> {
-    let mut class_hashes = HashSet::new();
-
-    for info in transaction_info {
-        if let Some(call_info) = &info.validate_call_info {
-            extract_inner_class_hashes(call_info, &mut class_hashes);
-        }
-        if let Some(call_info) = &info.execute_call_info {
-            extract_inner_class_hashes(call_info, &mut class_hashes);
-        }
-        if let Some(call_info) = &info.fee_transfer_call_info {
-            extract_inner_class_hashes(call_info, &mut class_hashes);
-        }
-    }
-
-    class_hashes
-}
-
-fn extract_inner_class_hashes(call_info: &CallInfo, class_hashes: &mut HashSet<ClassHash>) {
     if let Some(class_hash) = call_info.call.class_hash {
-        class_hashes.insert(class_hash);
+        accesses.accessed_class_hashes.insert(class_hash);
+    }
+    for block_number in &call_info.storage_access_tracker.accessed_blocks {
+        accesses.accessed_blocks.insert(Felt::from(block_number.0));
     }
 
     for inner_call in &call_info.inner_calls {
-        extract_inner_class_hashes(inner_call, class_hashes);
+        collect_call_tree_accesses_from_call(inner_call, accesses);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use blockifier::state::cached_state::StateMaps;
     use blockifier::transaction::objects::TransactionExecutionInfo;
+    use starknet_api::block::BlockNumber;
+    use starknet_api::state::StorageKey;
 
     fn contract_address(value: u64) -> ContractAddress {
         ContractAddress::try_from(Felt::from(value)).unwrap()
@@ -389,34 +339,33 @@ mod tests {
         class_hash: Option<ClassHash>,
         storage_address: u64,
         code_address: Option<u64>,
+        tracked_addresses: &[u64],
+        accessed_blocks: &[u64],
         inner_calls: Vec<CallInfo>,
     ) -> CallInfo {
         let mut call_info = CallInfo::default();
         call_info.call.class_hash = class_hash;
         call_info.call.storage_address = contract_address(storage_address);
         call_info.call.code_address = code_address.map(contract_address);
+        call_info.storage_access_tracker.accessed_contract_addresses =
+            tracked_addresses.iter().copied().map(contract_address).collect();
+        call_info.storage_access_tracker.accessed_blocks = accessed_blocks.iter().copied().map(BlockNumber).collect();
         call_info.inner_calls = inner_calls;
         call_info
     }
 
     #[test]
-    fn extract_inner_class_hashes_collects_nested_class_hashes() {
-        let nested = call_info(Some(class_hash(3)), 3, None, vec![]);
-        let inner = call_info(Some(class_hash(2)), 2, None, vec![nested]);
-        let root = call_info(Some(class_hash(1)), 1, None, vec![inner]);
-        let mut class_hashes = HashSet::new();
-
-        extract_inner_class_hashes(&root, &mut class_hashes);
-
-        assert_eq!(class_hashes, HashSet::from([class_hash(1), class_hash(2), class_hash(3)]));
-    }
-
-    #[test]
-    fn extract_executed_class_hashes_collects_all_transaction_call_branches() {
-        let validate_call = call_info(Some(class_hash(10)), 10, None, vec![]);
-        let execute_call =
-            call_info(Some(class_hash(20)), 20, None, vec![call_info(Some(class_hash(21)), 21, None, vec![])]);
-        let fee_transfer_call = call_info(Some(class_hash(30)), 30, None, vec![]);
+    fn collect_call_tree_accesses_collects_nested_contracts_classes_and_blocks() {
+        let validate_call = call_info(Some(class_hash(10)), 10, Some(11), &[12], &[100], vec![]);
+        let execute_call = call_info(
+            Some(class_hash(20)),
+            20,
+            None,
+            &[22],
+            &[200],
+            vec![call_info(Some(class_hash(21)), 21, Some(23), &[24], &[201], vec![])],
+        );
+        let fee_transfer_call = call_info(Some(class_hash(30)), 30, None, &[31], &[300], vec![]);
 
         let tx_execution_infos = vec![
             TransactionExecutionInfo {
@@ -433,8 +382,47 @@ mod tests {
             },
         ];
 
-        let class_hashes = extract_executed_class_hashes(&tx_execution_infos);
+        let accesses = collect_call_tree_accesses(&tx_execution_infos);
 
-        assert_eq!(class_hashes, HashSet::from([class_hash(10), class_hash(20), class_hash(21), class_hash(30)]));
+        assert_eq!(
+            accesses.accessed_contract_addresses,
+            HashSet::from([
+                contract_address(10),
+                contract_address(11),
+                contract_address(12),
+                contract_address(20),
+                contract_address(21),
+                contract_address(22),
+                contract_address(23),
+                contract_address(24),
+                contract_address(30),
+                contract_address(31),
+            ])
+        );
+        assert_eq!(
+            accesses.accessed_class_hashes,
+            HashSet::from([class_hash(10), class_hash(20), class_hash(21), class_hash(30)])
+        );
+        assert_eq!(
+            accesses.accessed_blocks,
+            HashSet::from([Felt::from(100_u64), Felt::from(200_u64), Felt::from(201_u64), Felt::from(300_u64)])
+        );
+    }
+
+    #[test]
+    fn get_comprehensive_access_info_merges_initial_read_contract_addresses() {
+        let storage_contract = contract_address(40);
+        let class_hash_contract = contract_address(41);
+        let nonce_contract = contract_address(42);
+        let mut initial_reads = StateMaps::default();
+        initial_reads.storage.insert((storage_contract, StorageKey::try_from(Felt::ONE).unwrap()), Felt::from(7_u64));
+        initial_reads.class_hashes.insert(class_hash_contract, class_hash(410));
+        initial_reads.nonces.insert(nonce_contract, starknet_api::core::Nonce(Felt::from(9_u64)));
+
+        let access_info = get_comprehensive_access_info(&[], &initial_reads, Felt::from(500_u64));
+
+        assert!(access_info.accessed_contract_addresses.contains(&storage_contract));
+        assert!(access_info.accessed_contract_addresses.contains(&class_hash_contract));
+        assert!(access_info.accessed_contract_addresses.contains(&nonce_contract));
     }
 }

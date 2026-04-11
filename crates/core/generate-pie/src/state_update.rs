@@ -12,10 +12,12 @@ use cairo_vm::Felt252;
 use futures::stream::{self, StreamExt};
 use log::{debug, info, warn};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rpc_client::utils::execute_with_retry;
 use rpc_client::RpcClient;
 use starknet::core::types::{BlockId, MaybePreConfirmedStateUpdate, StarknetError, StateDiff};
 use starknet::providers::Provider;
 use starknet::providers::ProviderError;
+use starknet_api::core::ClassHash;
 use starknet_os_types::casm_contract_class::GenericCasmContractClass;
 use starknet_os_types::class_hash_utils::ContractClassComponentHashes;
 use starknet_os_types::compiled_class::GenericCompiledClass;
@@ -139,6 +141,15 @@ struct CompiledClassResult {
     declared_component_hashes: HashMap<Felt252, ContractClassComponentHashes>,
 }
 
+struct CompiledClassBuildInputs<'a> {
+    previous_block_id: PreviousBlockId,
+    block_id: BlockId,
+    accessed_addresses: &'a HashSet<Felt252>,
+    pre_state_class_hashes: &'a HashMap<Felt252, ClassHash>,
+    declared_classes: &'a HashSet<Felt252>,
+    accessed_classes: &'a HashSet<Felt252>,
+}
+
 /// Result containing processed contract class data.
 pub struct ContractClassProcessingResult {
     pub compiled_classes: std::collections::BTreeMap<
@@ -207,6 +218,7 @@ pub(crate) async fn get_formatted_state_update(
     block_id: BlockId,
     accessed_addresses: HashSet<Felt>,
     accessed_classes: HashSet<Felt>,
+    pre_state_class_hashes: &HashMap<Felt252, ClassHash>,
 ) -> Result<FormattedStateUpdate, Box<dyn std::error::Error>> {
     info!("Starting state update processing for block {:?}", block_id);
 
@@ -227,11 +239,14 @@ pub(crate) async fn get_formatted_state_update(
     let mut class_hash_to_compiled_class_hash = HashMap::new();
     let compiled_result = build_compiled_classes(
         rpc_client,
-        previous_block_id,
-        block_id,
-        &accessed_addresses,
-        &declared_classes,
-        &accessed_classes,
+        CompiledClassBuildInputs {
+            previous_block_id,
+            block_id,
+            accessed_addresses: &accessed_addresses,
+            pre_state_class_hashes,
+            declared_classes: &declared_classes,
+            accessed_classes: &accessed_classes,
+        },
         &mut class_hash_to_compiled_class_hash,
     )
     .await?;
@@ -262,8 +277,11 @@ async fn fetch_state_update(
 ) -> Result<starknet::core::types::StateUpdate, StateUpdateError> {
     debug!("Fetching state update for block {:?}", block_id);
 
-    let state_update =
-        rpc_client.starknet_rpc().get_state_update(block_id).await.map_err(StateUpdateError::RpcError)?;
+    let state_update = execute_with_retry(&format!("get_state_update(block_id: {block_id:?})"), || {
+        rpc_client.starknet_rpc().get_state_update(block_id)
+    })
+    .await
+    .map_err(StateUpdateError::RpcError)?;
 
     match state_update {
         MaybePreConfirmedStateUpdate::Update(update) => {
@@ -295,17 +313,13 @@ fn extract_migrated_compiled_classes(state_diff: &StateDiff) -> HashMap<Felt252,
 /// Builds compiled classes from accessed addresses and classes.
 async fn build_compiled_classes(
     rpc_client: &RpcClient,
-    previous_block_id: PreviousBlockId,
-    block_id: BlockId,
-    accessed_addresses: &HashSet<Felt252>,
-    declared_classes: &HashSet<Felt252>,
-    accessed_classes: &HashSet<Felt252>,
+    inputs: CompiledClassBuildInputs<'_>,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
 ) -> Result<CompiledClassResult, StateUpdateError> {
     info!(
         "Building compiled classes from {} addresses and {} classes",
-        accessed_addresses.len(),
-        accessed_classes.len()
+        inputs.accessed_addresses.len(),
+        inputs.accessed_classes.len()
     );
 
     let mut result = CompiledClassResult {
@@ -317,20 +331,27 @@ async fn build_compiled_classes(
     // Process accessed addresses (both current and previous blocks)
     process_accessed_addresses(
         rpc_client,
-        accessed_addresses,
-        previous_block_id,
-        block_id,
+        inputs.accessed_addresses,
+        inputs.pre_state_class_hashes,
+        inputs.previous_block_id,
+        inputs.block_id,
         class_hash_to_compiled_class_hash,
         &mut result,
     )
     .await?;
 
     // Process accessed classes
-    process_accessed_classes(rpc_client, accessed_classes, block_id, class_hash_to_compiled_class_hash, &mut result)
-        .await?;
+    process_accessed_classes(
+        rpc_client,
+        inputs.accessed_classes,
+        inputs.block_id,
+        class_hash_to_compiled_class_hash,
+        &mut result,
+    )
+    .await?;
 
     // Process declared classes for component hashes
-    process_declared_classes(rpc_client, declared_classes, block_id, &mut result).await?;
+    process_declared_classes(rpc_client, inputs.declared_classes, inputs.block_id, &mut result).await?;
 
     info!("Compiled classes processing completed successfully");
     Ok(result)
@@ -340,6 +361,7 @@ async fn build_compiled_classes(
 async fn process_accessed_addresses(
     rpc_client: &RpcClient,
     accessed_addresses: &HashSet<Felt252>,
+    pre_state_class_hashes: &HashMap<Felt252, ClassHash>,
     previous_block_id: PreviousBlockId,
     block_id: BlockId,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
@@ -359,11 +381,17 @@ async fn process_accessed_addresses(
         MAX_CONCURRENT_GET_CLASS_REQUESTS
     );
 
-    // Phase 1: Fetch all class hashes concurrently for both blocks
+    // Phase 1: Reuse pre-state class hashes from Blockifier when available, and only hit RPC
+    // for the remaining previous-block lookups plus all current-block lookups.
     let mut address_block_pairs = Vec::new();
+    let mut class_fetch_pairs = Vec::new();
     for address in &addresses_to_process {
         if let Some(previous_block_id) = previous_block_id {
-            address_block_pairs.push((*address, previous_block_id, true)); // true = is_previous_block
+            if let Some(previous_class_hash) = pre_state_class_hashes.get(address) {
+                class_fetch_pairs.push((*address, previous_block_id, true, previous_class_hash.0));
+            } else {
+                address_block_pairs.push((*address, previous_block_id, true));
+            }
         }
         address_block_pairs.push((*address, block_id, false));
     }
@@ -371,15 +399,17 @@ async fn process_accessed_addresses(
     let class_hash_results: Vec<(Felt252, BlockId, bool, Result<Felt, ProviderError>)> =
         stream::iter(address_block_pairs)
             .map(|(address, bid, is_prev)| async move {
-                let class_hash = rpc_client.starknet_rpc().get_class_hash_at(bid, address).await;
+                let operation_name = format!("get_class_hash_at(block_id: {bid:?}, address: {address:?})");
+                let class_hash =
+                    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class_hash_at(bid, address))
+                        .await;
                 (address, bid, is_prev, class_hash)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
             .collect()
             .await;
 
-    // Phase 2: Fetch all contract classes concurrently
-    let mut class_fetch_pairs = Vec::new();
+    // Phase 2: Fetch all contract classes concurrently.
     for (address, bid, is_prev, class_hash_result) in class_hash_results {
         match class_hash_result {
             Ok(class_hash) => {
@@ -404,7 +434,9 @@ async fn process_accessed_addresses(
     let class_results: Vec<(Felt, Result<starknet::core::types::ContractClass, ProviderError>)> =
         stream::iter(class_fetch_pairs)
             .map(|(_, bid, _, class_hash)| async move {
-                let contract_class = rpc_client.starknet_rpc().get_class(bid, class_hash).await;
+                let operation_name = format!("get_class(block_id: {bid:?}, class_hash: {class_hash:?})");
+                let contract_class =
+                    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class(bid, class_hash)).await;
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
@@ -460,7 +492,11 @@ async fn process_accessed_classes(
         stream::iter(class_hashes.clone())
             .map(|class_hash| async move {
                 debug!("Fetching class hash: {:?}", class_hash);
-                let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash).await.ok();
+                let operation_name = format!("get_class(block_id: {block_id:?}, class_hash: {class_hash:?})");
+                let contract_class =
+                    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class(block_id, class_hash))
+                        .await
+                        .ok();
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
@@ -515,7 +551,10 @@ async fn process_declared_classes(
         stream::iter(class_hashes)
             .map(|class_hash| async move {
                 debug!("Fetching declared class: {:?}", class_hash);
-                let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash).await;
+                let operation_name = format!("get_class(block_id: {block_id:?}, class_hash: {class_hash:?})");
+                let contract_class =
+                    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class(block_id, class_hash))
+                        .await;
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)

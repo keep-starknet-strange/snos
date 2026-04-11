@@ -2,7 +2,7 @@ use crate::constants::{
     is_special_contract_felt, ALIAS_CONTRACT_ADDRESS, BLOCK_HASH_CONTRACT_ADDRESS_FELT, STATEFUL_MAPPING_START,
     STORED_BLOCK_HASH_BUFFER,
 };
-use crate::conversions::{ConversionContext, TryIntoBlockifierAsync};
+use crate::conversions::{transaction_receipt_hash, ConversionContext, TryIntoBlockifierAsync};
 use crate::error::{BlockProcessingError, FeltConversionError};
 use crate::state_update::get_formatted_state_update;
 use crate::types::initial_reads::{capture_extended_initial_reads, extend_initial_reads_storage};
@@ -14,14 +14,16 @@ use blockifier::blockifier_versioned_constants::VersionedConstants;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::transaction::objects::TransactionExecutionInfo;
+use cairo_vm::Felt252;
 use log::{debug, info, warn};
 use num_traits::ToPrimitive;
 use rpc_client::state_reader::AsyncRpcStateReader;
+use rpc_client::utils::execute_with_retry;
 use rpc_client::RpcClient;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
 use starknet::core::types::{
-    BlockId, L1DataAvailabilityMode, MaybePreConfirmedBlockWithTxHashes, MaybePreConfirmedBlockWithTxs,
-    TransactionResponseFlag,
+    BlockId, L1DataAvailabilityMode, MaybePreConfirmedBlockWithReceipts, MaybePreConfirmedBlockWithTxHashes,
+    MaybePreConfirmedBlockWithTxs, TransactionReceipt, TransactionResponseFlag,
 };
 use starknet::providers::Provider;
 use starknet_api::block::{
@@ -43,6 +45,7 @@ const BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV: &str = "SNOS_BLOCKIFIER_TXN_EXECUTOR_C
 pub struct BlockData {
     pub chain_id: starknet_api::core::ChainId,
     pub current_block: starknet::core::types::BlockWithTxs,
+    pub current_block_receipts: HashMap<Felt, TransactionReceipt>,
     pub previous_block: Option<starknet::core::types::BlockWithTxHashes>,
     pub old_block_number: Felt,
     pub old_block_hash: Felt,
@@ -69,19 +72,21 @@ impl BlockData {
 
         let block_id = BlockId::Number(block_number);
         let previous_block_id = if block_number == 0 { None } else { Some(BlockId::Number(block_number - 1)) };
+        let transaction_flags = [TransactionResponseFlag::IncludeProofFacts];
 
         // Fetch chain ID from RPC
-        let chain_id_result =
-            rpc_client.starknet_rpc().chain_id().await.map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
+        let chain_id_result = execute_with_retry("chain_id", || rpc_client.starknet_rpc().chain_id())
+            .await
+            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
         let chain_id = chain_id_from_felt(chain_id_result);
         info!("Provider's chain_id: {}", chain_id);
 
         // Fetch the current block with transactions
-        let current_block = match rpc_client
-            .starknet_rpc()
-            .get_block_with_txs(block_id, Some(&[TransactionResponseFlag::IncludeProofFacts]))
-            .await
-            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+        let current_block = match execute_with_retry("get_block_with_txs(current_block)", || {
+            rpc_client.starknet_rpc().get_block_with_txs(block_id, Some(&transaction_flags))
+        })
+        .await
+        .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
         {
             MaybePreConfirmedBlockWithTxs::Block(block_with_txs) => block_with_txs,
             MaybePreConfirmedBlockWithTxs::PreConfirmedBlock(_) => {
@@ -90,6 +95,25 @@ impl BlockData {
         };
         info!("Successfully fetched block with {} transactions", current_block.transactions.len());
 
+        let current_block_receipts = match execute_with_retry("get_block_with_receipts(current_block)", || {
+            rpc_client.starknet_rpc().get_block_with_receipts(block_id, None)
+        })
+        .await
+        .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+        {
+            MaybePreConfirmedBlockWithReceipts::Block(block_with_receipts) => block_with_receipts
+                .transactions
+                .into_iter()
+                .map(|transaction_with_receipt| {
+                    let receipt = transaction_with_receipt.receipt;
+                    (transaction_receipt_hash(&receipt), receipt)
+                })
+                .collect(),
+            MaybePreConfirmedBlockWithReceipts::PreConfirmedBlock(_) => {
+                return Err(BlockProcessingError::InvalidBlockState("Block receipts are still pending".to_string()));
+            }
+        };
+
         // Get starknet version from the block
         let starknet_version = StarknetVersion::try_from(current_block.starknet_version.as_str())
             .map_err(|e| BlockProcessingError::StarknetVersion(format!("Invalid starknet version: {:?}", e)))?;
@@ -97,11 +121,11 @@ impl BlockData {
 
         // Fetch the previous block if it exists
         let previous_block = match previous_block_id {
-            Some(previous_block_id) => match rpc_client
-                .starknet_rpc()
-                .get_block_with_tx_hashes(previous_block_id)
-                .await
-                .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+            Some(previous_block_id) => match execute_with_retry("get_block_with_tx_hashes(previous_block)", || {
+                rpc_client.starknet_rpc().get_block_with_tx_hashes(previous_block_id)
+            })
+            .await
+            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
             {
                 MaybePreConfirmedBlockWithTxHashes::Block(block_with_txs) => Some(block_with_txs),
                 MaybePreConfirmedBlockWithTxHashes::PreConfirmedBlock(_) => {
@@ -113,11 +137,11 @@ impl BlockData {
 
         // Fetch older block for hash buffer
         let old_block_number_u64 = block_number.saturating_sub(STORED_BLOCK_HASH_BUFFER);
-        let old_block = match rpc_client
-            .starknet_rpc()
-            .get_block_with_tx_hashes(BlockId::Number(old_block_number_u64))
-            .await
-            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+        let old_block = match execute_with_retry("get_block_with_tx_hashes(old_block)", || {
+            rpc_client.starknet_rpc().get_block_with_tx_hashes(BlockId::Number(old_block_number_u64))
+        })
+        .await
+        .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
         {
             MaybePreConfirmedBlockWithTxHashes::Block(block_with_txs_hashes) => block_with_txs_hashes,
             MaybePreConfirmedBlockWithTxHashes::PreConfirmedBlock(_) => {
@@ -129,7 +153,15 @@ impl BlockData {
         let old_block_hash = old_block.block_hash;
         info!("Successfully fetched previous and older blocks");
 
-        Ok(BlockData { chain_id, current_block, previous_block, old_block_number, old_block_hash, starknet_version })
+        Ok(BlockData {
+            chain_id,
+            current_block,
+            current_block_receipts,
+            previous_block,
+            old_block_number,
+            old_block_hash,
+            starknet_version,
+        })
     }
 
     fn blockifier_old_block_number_and_hash(&self) -> Result<Option<BlockHashAndNumber>, BlockProcessingError> {
@@ -185,7 +217,8 @@ impl BlockData {
             self.previous_block.as_ref().map(|previous_block| BlockId::Number(previous_block.block_number));
 
         // Create a single conversion context for all transactions
-        let conversion_ctx = ConversionContext::new(&self.chain_id, block_number, rpc_client);
+        let conversion_ctx =
+            ConversionContext::new(&self.chain_id, block_number, rpc_client, &self.current_block_receipts);
 
         // Convert transactions to blockifier format
         let mut transactions = Vec::new();
@@ -277,12 +310,22 @@ impl BlockData {
             felt
         }));
 
+        let pre_state_class_hashes = initial_reads
+            .class_hashes
+            .iter()
+            .map(|(contract_address, class_hash)| {
+                let address_felt: Felt252 = (*contract_address).into();
+                (address_felt, *class_hash)
+            })
+            .collect::<HashMap<_, _>>();
+
         let processed_state_update = get_formatted_state_update(
             rpc_client,
             previous_block_id,
             block_id,
             accessed_addresses_felt.clone(),
             accessed_classes_felt.clone(),
+            &pre_state_class_hashes,
         )
         .await
         .map_err(|e| {
@@ -570,6 +613,7 @@ mod tests {
                 state_diff_length: 0,
                 transactions: vec![],
             },
+            current_block_receipts: HashMap::new(),
             previous_block: None,
             old_block_number,
             old_block_hash,
