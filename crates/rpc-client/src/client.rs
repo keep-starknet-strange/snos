@@ -80,6 +80,7 @@ impl RpcClientInner {
             .map_err(|e| anyhow!("Failed to parse URL ({}): {}", starknet_rpc_url, e))?;
         let http_client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(RPC_CONNECT_TIMEOUT_SECS))
+            .pool_max_idle_per_host(0)
             .timeout(Duration::from_secs(RPC_REQUEST_TIMEOUT_SECS))
             .build()
             .map_err(|e| anyhow!("Failed to create reqwest client for {}: {}", starknet_rpc_url, e))?;
