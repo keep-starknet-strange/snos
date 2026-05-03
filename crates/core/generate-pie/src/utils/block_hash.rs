@@ -160,14 +160,14 @@ pub(crate) fn core_state_diff_to_thin_state_diff(
 pub async fn compute_block_hash_commitments(
     transactions: &[ExecutableTransaction],
     tx_execution_infos: &[TransactionExecutionInfo],
-    thin_state_diff: &ThinStateDiff,
+    thin_state_diff: ThinStateDiff,
     l1_da_mode: CoreL1DataAvailabilityMode,
     starknet_version: &StarknetVersion,
 ) -> Result<BlockHeaderCommitments, BlockProcessingError> {
     let transaction_hashing_data = build_transaction_hashing_data(transactions, tx_execution_infos)?;
     let (commitments, _measurements) = calculate_block_commitments(
         &transaction_hashing_data,
-        thin_state_diff.clone(),
+        thin_state_diff,
         convert_l1_da_mode(l1_da_mode),
         starknet_version,
     )

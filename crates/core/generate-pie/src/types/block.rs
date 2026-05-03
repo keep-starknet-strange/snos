@@ -289,7 +289,7 @@ impl BlockData {
         };
 
         let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
-            txn_execution_infos.clone().into_iter().map(|execution_info| execution_info.clone().into()).collect();
+            txn_execution_infos.clone().into_iter().map(Into::into).collect();
 
         let access_info = get_comprehensive_access_info(&txn_execution_infos, &initial_reads, self.old_block_number);
         let mut accessed_keys_by_address = access_info.accessed_keys_by_address;
@@ -336,7 +336,7 @@ impl BlockData {
         let block_hash_commitments = compute_block_hash_commitments(
             &starknet_api_txns,
             &txn_execution_infos,
-            &processed_state_update.thin_state_diff,
+            processed_state_update.thin_state_diff.clone(),
             self.current_block.l1_da_mode,
             &self.starknet_version,
         )
@@ -550,14 +550,14 @@ fn populate_alias_contract_keys(
 
     // Process existing storage keys from all contracts
     for (contract_addr, storage_keys) in accessed_keys_by_address.iter() {
+        let contract_felt: Felt = (*contract_addr).into();
+
+        // Skip if it's address 0x1 or 0x2.
+        if is_special_contract_felt(contract_felt) {
+            continue;
+        }
+
         for storage_key in storage_keys {
-            let contract_felt: Felt = (*(contract_addr)).into();
-
-            // Skip if it's address 0x1
-            if is_special_contract_felt(contract_felt) {
-                continue;
-            }
-
             let key_felt: Felt = (*storage_key).into();
 
             // Only add if value >= 128 (requires stateful mapping)

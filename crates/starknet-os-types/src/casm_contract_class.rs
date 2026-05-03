@@ -399,6 +399,10 @@ mod tests {
     use crate::hash::Hash;
 
     const CONTRACT_BYTES: &[u8] = include_bytes!("../../../resources/test_contract.casm.json");
+    const EXPECTED_TEST_CONTRACT_CLASS_HASH: &str = "0x73a7597a1db28cbe2870c4f98d302d4989ad0a12a8ffc441ce965f86a884efd";
+    const EXPECTED_HASH_WITHOUT_SEGMENTATION: &str =
+        "0x19d0d3a56f350492db590c3e79770e0f4edc158a7ea800c2d2e2bf0e57aa08b";
+    const EXPECTED_HASH_WITH_SEGMENTATION: &str = "0x8dbcbb99355868e8a6147ebe4a29fef7c3c06fa24af109f42d67326799cb07";
 
     #[test]
     fn test_serialize_and_deserialize() {
@@ -431,8 +435,7 @@ mod tests {
 
         // Some eccentric type conversions here to load the class hash from string easily, may be
         // improved with more methods on `Hash` / `GenericClassHash`.
-        let expected_class_hash =
-            Felt::from_str("0x73a7597a1db28cbe2870c4f98d302d4989ad0a12a8ffc441ce965f86a884efd").unwrap();
+        let expected_class_hash = Felt::from_str(EXPECTED_TEST_CONTRACT_CLASS_HASH).unwrap();
         assert_eq!(Felt::from(*class_hash), expected_class_hash);
     }
 
@@ -518,14 +521,8 @@ mod tests {
     };
 
     #[rstest]
-    #[case::without_segmentation(
-        TEST_CONTRACT_WITHOUT_SEGMENTATION,
-        "0x19d0d3a56f350492db590c3e79770e0f4edc158a7ea800c2d2e2bf0e57aa08b"
-    )]
-    #[case::with_segmentation(
-        TEST_CONTRACT_WITH_SEGMENTATION,
-        "0x8dbcbb99355868e8a6147ebe4a29fef7c3c06fa24af109f42d67326799cb07"
-    )]
+    #[case::without_segmentation(TEST_CONTRACT_WITHOUT_SEGMENTATION, EXPECTED_HASH_WITHOUT_SEGMENTATION)]
+    #[case::with_segmentation(TEST_CONTRACT_WITH_SEGMENTATION, EXPECTED_HASH_WITH_SEGMENTATION)]
     fn test_compiled_class_hash_without_segmentation(#[case] test_contract: &str, #[case] expected_hash_str: &str) {
         let expected_hash = Felt::from_hex(expected_hash_str).unwrap();
         let expected_compiled_class_hash = GenericClassHash::new(Hash::from(expected_hash));

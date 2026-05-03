@@ -54,7 +54,6 @@ pub struct GenericDeprecatedCompiledClass {
     /// Lazy-initialized StarknetAPI contract class.
     starknet_api_contract_class: OnceCell<Arc<StarknetApiDeprecatedClass>>,
     /// Lazy-initialized StarknetCore contract class.
-    #[allow(dead_code)]
     starknet_core_contract_class: OnceCell<Arc<StarknetCoreDeprecatedClass>>,
     /// Lazy-initialized serialized contract class bytes.
     serialized_class: OnceCell<Vec<u8>>,

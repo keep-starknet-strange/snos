@@ -17,14 +17,16 @@ use starknet::core::types::BlockId;
 use starknet_api::block::BlockHash;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass;
+use starknet_api::state::StorageKey;
 use starknet_os::io::os_input::OsBlockInput;
 use starknet_types_core::felt::Felt;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 // ================================================================================================
 // Type Definitions
 // ================================================================================================
 
 /// Result containing all the information collected from a single block.
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct BlockInfoResult {
     /// The OS block input for the block.
@@ -33,6 +35,22 @@ pub struct BlockInfoResult {
     pub compiled_classes: BTreeMap<CompiledClassHash, CasmContractClass>,
     /// Deprecated compiled classes used in the block.
     pub deprecated_compiled_classes: BTreeMap<ClassHash, ContractClass>,
+    /// Addresses accessed during block execution.
+    pub accessed_addresses: HashSet<ContractAddress>,
+    /// Class hashes accessed during block execution.
+    pub accessed_classes: HashSet<ClassHash>,
+    /// Storage keys accessed by each contract address.
+    pub accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>>,
+    /// Classes migrated from Poseidon to BLAKE hash (SNIP-34).
+    pub migrated_compiled_classes: HashMap<ClassHash, CompiledClassHash>,
+}
+
+impl BlockInfoResult {
+    /// Returns the set of class hashes being migrated (SNIP-34).
+    #[allow(dead_code)]
+    pub fn migrated_class_hashes(&self) -> HashSet<ClassHash> {
+        self.migrated_compiled_classes.keys().copied().collect()
+    }
 }
 
 // ================================================================================================
@@ -117,13 +135,20 @@ pub async fn collect_single_block_info(
     // Step 7: Extract values we need before moving ownership
     let compiled_classes = class_result.compiled_classes.clone();
     let deprecated_compiled_classes = class_result.deprecated_compiled_classes.clone();
-
-    // Step 7b: Extract migrated compiled classes (SNIP-34).
-    let mut class_hashes_to_migrate: Vec<(ClassHash, CompiledClassHash)> = tx_result
+    let accessed_addresses = tx_result.accessed_addresses.clone();
+    let accessed_classes = tx_result.accessed_classes.clone();
+    let accessed_keys_by_address = tx_result.accessed_keys_by_address.clone();
+    let migrated_compiled_classes: HashMap<ClassHash, CompiledClassHash> = tx_result
         .processed_state_update
         .migrated_compiled_classes
         .iter()
         .map(|(class_hash, compiled_class_hash)| (ClassHash(*class_hash), CompiledClassHash(*compiled_class_hash)))
+        .collect();
+
+    // Step 7b: Extract migrated compiled classes (SNIP-34).
+    let mut class_hashes_to_migrate: Vec<(ClassHash, CompiledClassHash)> = migrated_compiled_classes
+        .iter()
+        .map(|(class_hash, compiled_class_hash)| (*class_hash, *compiled_class_hash))
         .collect();
     class_hashes_to_migrate.sort_by_key(|(class_hash, _)| class_hash.0);
 
@@ -139,7 +164,15 @@ pub async fn collect_single_block_info(
 
     info!("Successfully completed construction of OsBlockInput for block {}", block_number);
 
-    Ok(BlockInfoResult { os_block_input, compiled_classes, deprecated_compiled_classes })
+    Ok(BlockInfoResult {
+        os_block_input,
+        compiled_classes,
+        deprecated_compiled_classes,
+        accessed_addresses,
+        accessed_classes,
+        accessed_keys_by_address,
+        migrated_compiled_classes,
+    })
 }
 
 // ================================================================================================

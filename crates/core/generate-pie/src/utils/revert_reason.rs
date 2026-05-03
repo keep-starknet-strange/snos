@@ -86,8 +86,10 @@ mod tests {
     };
     use blockifier::transaction::objects::{RevertError, TransactionExecutionInfo};
     use cairo_vm::types::relocatable::Relocatable;
+    use starknet_api::hash::starknet_keccak_hash;
     use starknet_api::transaction::{RevertedTransactionExecutionStatus, TransactionExecutionStatus};
     use starknet_api::{class_hash, contract_address, felt};
+    use starknet_types_core::felt::Felt;
 
     fn copy_entry_point_for_test(
         depth: usize,
@@ -463,5 +465,16 @@ mod tests {
             }
             status => panic!("expected reverted execution status, got {:?}", status),
         }
+    }
+
+    #[test]
+    fn constructor_revert_reason_hash_regression() {
+        let revert_reason = format_revert_reason_for_block_hash(Some(&constructor_revert_error())).unwrap();
+        let revert_reason_hash = starknet_keccak_hash(revert_reason.as_bytes());
+
+        assert_eq!(
+            revert_reason_hash,
+            Felt::from_hex("0x3d5c1a26ccc599f79dfe517f780f66b8bc318325bc77c9acfafb848de869de4").unwrap()
+        );
     }
 }

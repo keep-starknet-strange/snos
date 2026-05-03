@@ -16,7 +16,6 @@ use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
 
 /// Comprehensive structure that captures all access information from transaction execution
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct BlockAccessInfo {
     /// Storage keys accessed per contract address
