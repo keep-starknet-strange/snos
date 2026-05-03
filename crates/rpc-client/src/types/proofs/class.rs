@@ -1,32 +1,11 @@
 use serde::{Deserialize, Serialize};
 use starknet_core::types::StorageProof;
-use starknet_types_core::felt::Felt;
 
-use crate::error::ProofVerificationError;
-use crate::types::{PoseidonHash, TrieNode};
+use crate::types::TrieNode;
 
-#[allow(dead_code)]
 #[derive(Clone, Deserialize, Serialize)]
 pub struct ClassProof {
-    pub class_commitment: Felt,
     pub class_proof: Vec<TrieNode>,
-}
-
-// Implementations for ClassProof
-impl ClassProof {
-    /// Gets the "class_commitment" which is aka the root node of the class Merkle tree.
-    ///
-    /// Proof always starts with the root node, which means all we have to do is hash the
-    /// first node in the proof to get the same thing.
-    #[allow(clippy::result_large_err)]
-    pub fn class_commitment(&self) -> Result<Felt, ProofVerificationError> {
-        if !self.class_proof.is_empty() {
-            let hash = self.class_proof[0].calculate_node_hash::<PoseidonHash>();
-            Ok(hash)
-        } else {
-            Err(ProofVerificationError::EmptyProof)
-        }
-    }
 }
 
 impl From<StorageProof> for ClassProof {
@@ -41,7 +20,6 @@ impl From<StorageProof> for ClassProof {
                 trie_node
             })
             .collect();
-        let class_commitment = proof.global_roots.classes_tree_root;
-        ClassProof { class_commitment, class_proof }
+        ClassProof { class_proof }
     }
 }
