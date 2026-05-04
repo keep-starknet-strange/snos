@@ -18,20 +18,20 @@ license-file = "LICENSE"
 
 [workspace.dependencies]
 # 0.14.2 baseline: use the published Apollo release tag for the 0.14.2 line.
-starknet_api = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.4", features = [
+starknet_api = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.7-fix", features = [
   "testing",
 ] }
-starknet_os = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.4", features = [
+starknet_os = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.7-fix", features = [
   "testing",
 ] }
-blockifier = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.4", features = [
+blockifier = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.7-fix", features = [
   "testing",
   "reexecution",
 ] }
-starknet_patricia = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.4", features = [
+starknet_patricia = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.7-fix", features = [
   "testing",
 ] }
-shared_execution_objects = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.4" }
+shared_execution_objects = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.7-fix" }
 
 cairo-lang-starknet = "=2.17.0"
 cairo-lang-starknet-classes = "=2.17.0"
