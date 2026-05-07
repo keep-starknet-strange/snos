@@ -3,21 +3,6 @@
 //! These tests provide straightforward validation of the PIE generation workflow
 //! using parameterized test cases.
 //!
-//! There's a special case for pathfinder for blocks in range [1943743,1952704] on Mainnet.
-//!
-//! Official Statement from Starknet:
-//!
-//! ---
-//! Due to the Cairo0 bug we had in regard to some of the deprecated contract hashes not being
-//! recognized by the Class Manager component following the upgrade - some txs that should've passed,
-//! failed. The issue this created is that re-execution of these tx will work as these classes do
-//! exist. Therefore, we ask you to rely on the feeder gateway for re-execution requests between
-//! blocks 1943704-1952704. Unfortunately, Starkscan rely on this fix to be fully functioning again.
-//! ---
-//!
-//! One such txn where re-execution leads to a different result is:
-//! `0x1b63eae2bd1b55f06b76d7b32c60f21a0d3d09d34d89587e01a7185d37c274e`
-
 use cairo_vm::types::layout_name::LayoutName;
 use generate_pie::generate_pie;
 use generate_pie::types::{ChainConfig, OsHintsConfiguration, PieGenerationInput};
@@ -48,31 +33,19 @@ fn get_rpc_url(chain: &str) -> String {
 
 /// Simple PIE generation test with parameterized block numbers
 #[rstest]
-// mainnet blocks (0.14.1)
-#[case("mainnet", vec![4129455])] // first block of 0.14.1
-#[case("mainnet", vec![4346247])] // declare txn
-#[case("mainnet", vec![4256358])] // ready deploy account
-#[case("mainnet", vec![4996611])] // ready proxy 0 deploy account
-#[case("mainnet", vec![4997095])] // accountUpgradable deploy account
-#[case("mainnet", vec![4996555])] // OKX deploy account
-#[case("mainnet", vec![5003456])] // OKX proxy deploy account
-#[case("mainnet", vec![4283703])] // l1 handler USDT bridge
-#[case("mainnet", vec![4286303])] // l1 handler ETH bridge
-#[case("mainnet", vec![4284442])] // l1 handler STRK bridge
-#[case("mainnet", vec![4288250])] // l1 handler USDC bridge
-#[case("mainnet", vec![4303342])] // l1 handler staking minting
-#[case("mainnet", vec![4308192])] // l1 handler wBTC bridge
-// sepolia blocks (0.14.1)
-#[case("sepolia", vec![2934726])] // first 0.14.1 block
-#[case("sepolia", vec![2934727])] // empty block, second block of 0.14.1
-#[case("sepolia", vec![2935507])] // uses cairo0 class
-#[case("sepolia", vec![3023829])] // has declare txn
-#[case("sepolia", vec![3028228])] // deploy account ready multisig
-#[case("sepolia", vec![3028244])] // deploy account ready simple
-#[case("sepolia", vec![3030489])] // l1 handler reverted txn
-#[case("sepolia", vec![3042980])] // l1 handler eth bridge txn
-#[case("sepolia", vec![3048281])] // l1 handler strk bridge txn
-#[case("sepolia", vec![3030480])] // l1 handler random
+// sepolia blocks (0.14.2)
+#[case("sepolia", vec![7984520, 7984521])] // first contiguous 0.14.2 replay window
+#[case("sepolia", vec![8002288, 8002289])] // original failing replay window for the boundary block-hash read
+#[case("sepolia", vec![8138314, 8138315])] // original failing replay window for constructor revert receipt hashing
+#[case("sepolia", vec![8138442, 8138443])] // original failing replay window for revert-heavy receipt hashing
+#[case("sepolia", vec![8138930, 8138931])] // original failing replay window for reverted receipt hashing
+#[case("sepolia", vec![8168452, 8168453])] // original failing replay window for constructor deployment receipt hashing
+#[case("sepolia", vec![8169410, 8169411])] // original failing replay window for repeated constructor deployment receipt hashing
+#[case("sepolia", vec![8555508, 8555509])] // original failing replay window for nested cairo1 summary receipt hashing
+#[case("sepolia", vec![8556024, 8556025])] // original failing replay window for repeated nested cairo1 summary receipt hashing
+#[case("sepolia", vec![8263796, 8263797])] // original failing replay window for Sierra 1.8 declare compilation
+#[case("sepolia", vec![8263876, 8263877])] // original failing replay window for Sierra 1.8 declare compilation
+#[case("sepolia", vec![8264192, 8264193])] // original failing replay window for Sierra 1.8 declare compilation
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64>) {
     println!("🧪 Testing PIE generation for blocks on {}", chain);
@@ -136,9 +109,9 @@ async fn test_pie_generation_with_custom_versioned_constants() {
         }
     };
 
-    // Use a simple block for testing (0.14.1 empty block)
+    // Use a simple block for testing (0.14.2 empty block)
     let chain = "sepolia";
-    let block_numbers = vec![2934727]; // empty block, second block of 0.14.1
+    let block_numbers = vec![7984520, 7984521]; // first contiguous 0.14.2 replay window
 
     println!("🧪 Testing PIE generation with custom versioned constants for blocks on {}", chain);
 

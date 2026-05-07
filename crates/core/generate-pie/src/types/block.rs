@@ -1,26 +1,34 @@
-use crate::constants::{STATEFUL_MAPPING_START, STORED_BLOCK_HASH_BUFFER};
-use crate::conversions::{ConversionContext, TryIntoBlockifierAsync};
+use crate::constants::{
+    is_special_contract_felt, ALIAS_CONTRACT_ADDRESS, BLOCK_HASH_CONTRACT_ADDRESS_FELT, STATEFUL_MAPPING_START,
+    STORED_BLOCK_HASH_BUFFER,
+};
+use crate::conversions::{transaction_receipt_hash, ConversionContext, TryIntoBlockifierAsync};
 use crate::error::{BlockProcessingError, FeltConversionError};
-use crate::state_update::{get_formatted_state_update, get_subcalled_contracts_from_tx_traces};
+use crate::state_update::get_formatted_state_update;
+use crate::types::initial_reads::{capture_extended_initial_reads, extend_initial_reads_storage};
 use crate::types::TransactionProcessingResult;
-use crate::utils::{build_gas_price_vector, get_accessed_keys_with_block_hash};
+use crate::utils::{build_gas_price_vector, compute_block_hash_commitments, get_comprehensive_access_info};
 use blockifier::blockifier::config::TransactionExecutorConfig;
 use blockifier::blockifier::transaction_executor::{TransactionExecutor, TransactionExecutorError};
 use blockifier::blockifier_versioned_constants::VersionedConstants;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
-use blockifier::state::cached_state::CachedState;
 use blockifier::transaction::objects::TransactionExecutionInfo;
+use cairo_vm::Felt252;
 use log::{debug, info, warn};
+use num_traits::ToPrimitive;
 use rpc_client::state_reader::AsyncRpcStateReader;
+use rpc_client::utils::execute_with_retry;
 use rpc_client::RpcClient;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
 use starknet::core::types::{
-    BlockId, ConfirmedBlockId, L1DataAvailabilityMode, MaybePreConfirmedBlockWithTxHashes,
-    MaybePreConfirmedBlockWithTxs,
+    BlockId, L1DataAvailabilityMode, MaybePreConfirmedBlockWithReceipts, MaybePreConfirmedBlockWithTxHashes,
+    MaybePreConfirmedBlockWithTxs, TransactionReceipt, TransactionResponseFlag,
 };
 use starknet::providers::Provider;
-use starknet_api::block::{BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion};
+use starknet_api::block::{
+    BlockHash, BlockHashAndNumber, BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion,
+};
 use starknet_api::contract_address;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
@@ -37,6 +45,7 @@ const BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV: &str = "SNOS_BLOCKIFIER_TXN_EXECUTOR_C
 pub struct BlockData {
     pub chain_id: starknet_api::core::ChainId,
     pub current_block: starknet::core::types::BlockWithTxs,
+    pub current_block_receipts: HashMap<Felt, TransactionReceipt>,
     pub previous_block: Option<starknet::core::types::BlockWithTxHashes>,
     pub old_block_number: Felt,
     pub old_block_hash: Felt,
@@ -63,19 +72,21 @@ impl BlockData {
 
         let block_id = BlockId::Number(block_number);
         let previous_block_id = if block_number == 0 { None } else { Some(BlockId::Number(block_number - 1)) };
+        let transaction_flags = [TransactionResponseFlag::IncludeProofFacts];
 
         // Fetch chain ID from RPC
-        let chain_id_result =
-            rpc_client.starknet_rpc().chain_id().await.map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
+        let chain_id_result = execute_with_retry("chain_id", || rpc_client.starknet_rpc().chain_id())
+            .await
+            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
         let chain_id = chain_id_from_felt(chain_id_result);
         info!("Provider's chain_id: {}", chain_id);
 
         // Fetch the current block with transactions
-        let current_block = match rpc_client
-            .starknet_rpc()
-            .get_block_with_txs(block_id)
-            .await
-            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+        let current_block = match execute_with_retry("get_block_with_txs(current_block)", || {
+            rpc_client.starknet_rpc().get_block_with_txs(block_id, Some(&transaction_flags))
+        })
+        .await
+        .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
         {
             MaybePreConfirmedBlockWithTxs::Block(block_with_txs) => block_with_txs,
             MaybePreConfirmedBlockWithTxs::PreConfirmedBlock(_) => {
@@ -84,6 +95,25 @@ impl BlockData {
         };
         info!("Successfully fetched block with {} transactions", current_block.transactions.len());
 
+        let current_block_receipts = match execute_with_retry("get_block_with_receipts(current_block)", || {
+            rpc_client.starknet_rpc().get_block_with_receipts(block_id, None)
+        })
+        .await
+        .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+        {
+            MaybePreConfirmedBlockWithReceipts::Block(block_with_receipts) => block_with_receipts
+                .transactions
+                .into_iter()
+                .map(|transaction_with_receipt| {
+                    let receipt = transaction_with_receipt.receipt;
+                    (transaction_receipt_hash(&receipt), receipt)
+                })
+                .collect(),
+            MaybePreConfirmedBlockWithReceipts::PreConfirmedBlock(_) => {
+                return Err(BlockProcessingError::InvalidBlockState("Block receipts are still pending".to_string()));
+            }
+        };
+
         // Get starknet version from the block
         let starknet_version = StarknetVersion::try_from(current_block.starknet_version.as_str())
             .map_err(|e| BlockProcessingError::StarknetVersion(format!("Invalid starknet version: {:?}", e)))?;
@@ -91,11 +121,11 @@ impl BlockData {
 
         // Fetch the previous block if it exists
         let previous_block = match previous_block_id {
-            Some(previous_block_id) => match rpc_client
-                .starknet_rpc()
-                .get_block_with_tx_hashes(previous_block_id)
-                .await
-                .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+            Some(previous_block_id) => match execute_with_retry("get_block_with_tx_hashes(previous_block)", || {
+                rpc_client.starknet_rpc().get_block_with_tx_hashes(previous_block_id)
+            })
+            .await
+            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
             {
                 MaybePreConfirmedBlockWithTxHashes::Block(block_with_txs) => Some(block_with_txs),
                 MaybePreConfirmedBlockWithTxHashes::PreConfirmedBlock(_) => {
@@ -107,11 +137,11 @@ impl BlockData {
 
         // Fetch older block for hash buffer
         let old_block_number_u64 = block_number.saturating_sub(STORED_BLOCK_HASH_BUFFER);
-        let old_block = match rpc_client
-            .starknet_rpc()
-            .get_block_with_tx_hashes(BlockId::Number(old_block_number_u64))
-            .await
-            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+        let old_block = match execute_with_retry("get_block_with_tx_hashes(old_block)", || {
+            rpc_client.starknet_rpc().get_block_with_tx_hashes(BlockId::Number(old_block_number_u64))
+        })
+        .await
+        .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
         {
             MaybePreConfirmedBlockWithTxHashes::Block(block_with_txs_hashes) => block_with_txs_hashes,
             MaybePreConfirmedBlockWithTxHashes::PreConfirmedBlock(_) => {
@@ -123,13 +153,45 @@ impl BlockData {
         let old_block_hash = old_block.block_hash;
         info!("Successfully fetched previous and older blocks");
 
-        Ok(BlockData { chain_id, current_block, previous_block, old_block_number, old_block_hash, starknet_version })
+        Ok(BlockData {
+            chain_id,
+            current_block,
+            current_block_receipts,
+            previous_block,
+            old_block_number,
+            old_block_hash,
+            starknet_version,
+        })
+    }
+
+    fn blockifier_old_block_number_and_hash(&self) -> Result<Option<BlockHashAndNumber>, BlockProcessingError> {
+        Ok(self
+            .old_block_number_and_hash(STORED_BLOCK_HASH_BUFFER)?
+            .map(|(number, hash)| BlockHashAndNumber { number, hash }))
+    }
+
+    pub(crate) fn os_old_block_number_and_hash(
+        &self,
+    ) -> Result<Option<(BlockNumber, BlockHash)>, BlockProcessingError> {
+        self.old_block_number_and_hash(1)
+    }
+
+    fn old_block_number_and_hash(
+        &self,
+        minimum_current_block_number: u64,
+    ) -> Result<Option<(BlockNumber, BlockHash)>, BlockProcessingError> {
+        old_block_number_and_hash(
+            self.current_block.block_number,
+            minimum_current_block_number,
+            self.old_block_number,
+            self.old_block_hash,
+        )
     }
 
     /// Processes transactions and extracts execution information.
     ///
-    /// This function fetches transaction traces, executes transactions using Blockifier,
-    /// and extracts accessed data.
+    /// This function converts transactions, executes them using Blockifier, and extracts
+    /// the access information needed for OS input construction.
     ///
     /// # Arguments
     ///
@@ -151,38 +213,19 @@ impl BlockData {
         info!("Processing transactions for block {}", block_number);
 
         let block_id = BlockId::Number(block_number);
-        let confirmed_block_id = ConfirmedBlockId::Number(block_number);
         let previous_block_id =
             self.previous_block.as_ref().map(|previous_block| BlockId::Number(previous_block.block_number));
 
-        // Fetch transaction traces
-        let transaction_traces = rpc_client
-            .starknet_rpc()
-            .trace_block_transactions(confirmed_block_id)
-            .await
-            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
-        info!("Successfully fetched {} transaction traces for block {}", transaction_traces.len(), block_number);
-
-        // Extract accessed contracts and classes from traces
-        let (mut accessed_addresses_felt, accessed_classes_felt) =
-            get_subcalled_contracts_from_tx_traces(&transaction_traces);
-
         // Create a single conversion context for all transactions
         let conversion_ctx =
-            ConversionContext::new(&self.chain_id, block_number, rpc_client, &block_context.block_info().gas_prices);
+            ConversionContext::new(&self.chain_id, block_number, rpc_client, &self.current_block_receipts);
 
         // Convert transactions to blockifier format
         let mut transactions = Vec::new();
-        for (i, (transaction, trace)) in
-            self.current_block.transactions.iter().zip(transaction_traces.iter()).enumerate()
-        {
-            // Convert transaction using the new async trait, passing trace separately
+        for (i, transaction) in self.current_block.transactions.iter().enumerate() {
             let transaction =
-                transaction.clone().try_into_blockifier_async(&conversion_ctx, trace).await.map_err(|e| {
-                    BlockProcessingError::new_custom(format!(
-                        "Failed to convert transaction to blockifier format: {:?}",
-                        e
-                    ))
+                transaction.clone().try_into_blockifier_async(&conversion_ctx).await.map_err(|source| {
+                    BlockProcessingError::TransactionConversion { transaction_index: i, source: Box::new(source) }
                 })?;
             transactions.push(transaction);
 
@@ -214,8 +257,15 @@ impl BlockData {
 
         let blockifier_state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);
 
-        let mut txn_executor =
-            TransactionExecutor::new(CachedState::new(blockifier_state_reader), block_context.clone(), config);
+        // Blockifier must be pre-processed with the boundary old block hash so `get_block_hash`
+        // syscalls observe the same block-hash mapping semantics as the official sequencer path.
+        let mut txn_executor = TransactionExecutor::pre_process_and_create(
+            blockifier_state_reader.clone(),
+            block_context.clone(),
+            self.blockifier_old_block_number_and_hash()?,
+            config,
+        )
+        .map_err(|source| BlockProcessingError::TransactionExecutorCreation { source })?;
         info!("Transaction executor created successfully");
         info!("Executing {} transactions using Blockifier", blockifier_txns.len());
 
@@ -232,12 +282,26 @@ impl BlockData {
         let txn_execution_infos: Vec<TransactionExecutionInfo> =
             execution_outputs.into_iter().map(|(execution_info, _)| execution_info).collect();
 
-        let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
-            txn_execution_infos.clone().into_iter().map(|execution_info| execution_info.clone().into()).collect();
+        let mut initial_reads = {
+            let block_state =
+                txn_executor.block_state.as_ref().ok_or(BlockProcessingError::MissingBlockStateAfterExecution)?;
+            capture_extended_initial_reads(block_state)?
+        };
 
-        // Get accessed keys and populate alias contract keys
-        let mut accessed_keys_by_address =
-            get_accessed_keys_with_block_hash(&txn_execution_infos, self.old_block_number);
+        let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
+            txn_execution_infos.clone().into_iter().map(Into::into).collect();
+
+        let access_info = get_comprehensive_access_info(&txn_execution_infos, &initial_reads, self.old_block_number);
+        let mut accessed_keys_by_address = access_info.accessed_keys_by_address;
+        let accessed_classes_felt = access_info.accessed_class_hashes;
+        let mut accessed_addresses_felt: HashSet<Felt> = access_info
+            .accessed_contract_addresses
+            .into_iter()
+            .map(|contract_addr| {
+                let felt: Felt = contract_addr.into();
+                felt
+            })
+            .collect();
 
         info!("Got accessed keys for {} contracts", accessed_keys_by_address.len());
 
@@ -246,12 +310,22 @@ impl BlockData {
             felt
         }));
 
+        let pre_state_class_hashes = initial_reads
+            .class_hashes
+            .iter()
+            .map(|(contract_address, class_hash)| {
+                let address_felt: Felt252 = (*contract_address).into();
+                (address_felt, *class_hash)
+            })
+            .collect::<HashMap<_, _>>();
+
         let processed_state_update = get_formatted_state_update(
             rpc_client,
             previous_block_id,
             block_id,
             accessed_addresses_felt.clone(),
             accessed_classes_felt.clone(),
+            &pre_state_class_hashes,
         )
         .await
         .map_err(|e| {
@@ -259,12 +333,25 @@ impl BlockData {
         })?;
         info!("Fetched processed state update successfully");
 
+        let block_hash_commitments = compute_block_hash_commitments(
+            &starknet_api_txns,
+            &txn_execution_infos,
+            processed_state_update.thin_state_diff.clone(),
+            self.current_block.l1_da_mode,
+            &self.starknet_version,
+        )
+        .await
+        .map_err(|e| {
+            BlockProcessingError::StateUpdateProcessing(format!("Failed to compute block hash commitments: {:?}", e))
+        })?;
+        info!("Computed block hash commitments for block {}", block_number);
+
         // Convert Felt252 to proper types
         let mut accessed_addresses: HashSet<ContractAddress> = accessed_addresses_felt
             .iter()
             .map(|felt| {
                 ContractAddress::try_from(*felt)
-                    .map_err(|e| BlockProcessingError::new_custom(format!("Invalid contract address: {:?}", e)))
+                    .map_err(|source| BlockProcessingError::InvalidContractAddress { address: *felt, source })
             })
             .collect::<Result<HashSet<_>, _>>()?;
         accessed_addresses.insert(block_context.chain_info().fee_token_addresses.strk_fee_token_address);
@@ -280,6 +367,9 @@ impl BlockData {
         );
 
         populate_alias_contract_keys(&accessed_addresses, &accessed_classes, &mut accessed_keys_by_address);
+        extend_initial_reads_storage(&blockifier_state_reader, &mut initial_reads, &accessed_keys_by_address)
+            .await
+            .map_err(|source| BlockProcessingError::InitialReadsExtension { source })?;
 
         Ok(TransactionProcessingResult {
             starknet_api_txns,
@@ -287,6 +377,8 @@ impl BlockData {
             accessed_addresses,
             accessed_classes,
             accessed_keys_by_address,
+            initial_reads,
+            block_hash_commitments,
             processed_state_update,
         })
     }
@@ -341,6 +433,7 @@ impl BlockData {
             sequencer_address,
             gas_prices: GasPrices { eth_gas_prices, strk_gas_prices },
             use_kzg_da,
+            starknet_version: self.starknet_version,
         };
 
         debug!("Block info created: {:?}", block_info);
@@ -389,6 +482,23 @@ impl BlockData {
     }
 }
 
+fn block_number_from_felt(old_block_number: Felt) -> Result<BlockNumber, BlockProcessingError> {
+    old_block_number.to_u64().map(BlockNumber).ok_or(BlockProcessingError::InvalidOldBlockNumber { old_block_number })
+}
+
+fn old_block_number_and_hash(
+    current_block_number: u64,
+    minimum_current_block_number: u64,
+    old_block_number: Felt,
+    old_block_hash: Felt,
+) -> Result<Option<(BlockNumber, BlockHash)>, BlockProcessingError> {
+    if current_block_number < minimum_current_block_number {
+        return Ok(None);
+    }
+
+    Ok(Some((block_number_from_felt(old_block_number)?, BlockHash(old_block_hash))))
+}
+
 /// Helper function to populate accessed_keys_by_address with special address 0x2
 /// based on accessed addresses, classes, and current storage mapping.
 ///
@@ -402,9 +512,6 @@ fn populate_alias_contract_keys(
     accessed_classes: &HashSet<ClassHash>,
     accessed_keys_by_address: &mut HashMap<ContractAddress, HashSet<StorageKey>>,
 ) {
-    // Special address 0x2 for alias contract
-    let alias_contract_address = ContractAddress::try_from(Felt::TWO).expect("0x2 should be a valid contract address");
-
     let mut alias_keys = HashSet::new();
 
     // Process accessed contract addresses
@@ -412,7 +519,7 @@ fn populate_alias_contract_keys(
         let address_felt: Felt = (*contract_address).into();
 
         // Skip address 0x1 (system contract)
-        if address_felt == Felt::ONE || address_felt == Felt::TWO {
+        if is_special_contract_felt(address_felt) {
             continue;
         }
 
@@ -428,8 +535,8 @@ fn populate_alias_contract_keys(
     for class_hash in accessed_classes {
         let class_hash_felt: Felt = class_hash.0;
 
-        // Skip if it's address 0x1
-        if class_hash_felt == Felt::ONE {
+        // Skip the block-hash contract address, which is not remapped through the alias contract.
+        if class_hash_felt == BLOCK_HASH_CONTRACT_ADDRESS_FELT {
             continue;
         }
 
@@ -443,14 +550,14 @@ fn populate_alias_contract_keys(
 
     // Process existing storage keys from all contracts
     for (contract_addr, storage_keys) in accessed_keys_by_address.iter() {
+        let contract_felt: Felt = (*contract_addr).into();
+
+        // Skip if it's address 0x1 or 0x2.
+        if is_special_contract_felt(contract_felt) {
+            continue;
+        }
+
         for storage_key in storage_keys {
-            let contract_felt: Felt = (*(contract_addr)).into();
-
-            // Skip if it's address 0x1
-            if contract_felt == Felt::ONE || contract_felt == Felt::TWO {
-                continue;
-            }
-
             let key_felt: Felt = (*storage_key).into();
 
             // Only add if value >= 128 (requires stateful mapping)
@@ -465,11 +572,110 @@ fn populate_alias_contract_keys(
 
     // Add all qualifying keys to the alias contract (address 0x2)
     if !alias_keys.is_empty() {
-        accessed_keys_by_address.entry(alias_contract_address).or_default().extend(alias_keys);
+        accessed_keys_by_address.entry(ALIAS_CONTRACT_ADDRESS).or_default().extend(alias_keys);
 
         info!(
-            "Added {} keys to alias contract (0x2) for storage mapping",
-            accessed_keys_by_address.get(&alias_contract_address).unwrap().len()
+            "Added {} keys to alias contract for storage mapping",
+            accessed_keys_by_address.get(&ALIAS_CONTRACT_ADDRESS).unwrap().len()
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    use starknet::core::types::{BlockStatus, BlockWithTxs, L1DataAvailabilityMode, ResourcePrice};
+
+    fn block_data(current_block_number: u64, old_block_number: Felt, old_block_hash: Felt) -> BlockData {
+        BlockData {
+            chain_id: starknet_api::core::ChainId::Other("TEST".to_owned()),
+            current_block: BlockWithTxs {
+                status: BlockStatus::AcceptedOnL2,
+                block_hash: Felt::ZERO,
+                parent_hash: Felt::ZERO,
+                block_number: current_block_number,
+                new_root: Felt::ZERO,
+                timestamp: 0,
+                sequencer_address: Felt::ZERO,
+                l1_gas_price: ResourcePrice { price_in_fri: Felt::ZERO, price_in_wei: Felt::ZERO },
+                l2_gas_price: ResourcePrice { price_in_fri: Felt::ZERO, price_in_wei: Felt::ZERO },
+                l1_data_gas_price: ResourcePrice { price_in_fri: Felt::ZERO, price_in_wei: Felt::ZERO },
+                l1_da_mode: L1DataAvailabilityMode::Calldata,
+                starknet_version: "0.14.2".to_owned(),
+                event_commitment: Felt::ZERO,
+                transaction_commitment: Felt::ZERO,
+                receipt_commitment: Felt::ZERO,
+                state_diff_commitment: Felt::ZERO,
+                event_count: 0,
+                transaction_count: 0,
+                state_diff_length: 0,
+                transactions: vec![],
+            },
+            current_block_receipts: HashMap::new(),
+            previous_block: None,
+            old_block_number,
+            old_block_hash,
+            starknet_version: StarknetVersion::V0_14_2,
+        }
+    }
+
+    #[rstest]
+    #[case::before_buffer(STORED_BLOCK_HASH_BUFFER - 1, Felt::ZERO, Felt::from(9_u8), None)]
+    #[case::at_buffer(STORED_BLOCK_HASH_BUFFER, Felt::ZERO, Felt::from(9_u8), Some((0_u64, Felt::from(9_u8))))]
+    #[case::after_buffer(STORED_BLOCK_HASH_BUFFER + 3, Felt::from(3_u8), Felt::from(12_u8), Some((3_u64, Felt::from(12_u8))))]
+    fn blockifier_old_block_number_and_hash_returns_expected_pair(
+        #[case] current_block_number: u64,
+        #[case] old_block_number: Felt,
+        #[case] old_block_hash: Felt,
+        #[case] expected: Option<(u64, Felt)>,
+    ) {
+        let result = block_data(current_block_number, old_block_number, old_block_hash)
+            .blockifier_old_block_number_and_hash()
+            .unwrap();
+
+        assert_eq!(result.map(|pair| (pair.number.0, pair.hash.0)), expected);
+    }
+
+    #[rstest]
+    #[case::genesis(0, Felt::ZERO, Felt::from(9_u8), None)]
+    #[case::pre_buffer_non_genesis(1, Felt::ZERO, Felt::from(9_u8), Some((0_u64, Felt::from(9_u8))))]
+    #[case::after_buffer(STORED_BLOCK_HASH_BUFFER + 3, Felt::from(3_u8), Felt::from(12_u8), Some((3_u64, Felt::from(12_u8))))]
+    fn os_old_block_number_and_hash_returns_expected_pair(
+        #[case] current_block_number: u64,
+        #[case] old_block_number: Felt,
+        #[case] old_block_hash: Felt,
+        #[case] expected: Option<(u64, Felt)>,
+    ) {
+        let result =
+            block_data(current_block_number, old_block_number, old_block_hash).os_old_block_number_and_hash().unwrap();
+
+        assert_eq!(result.map(|(number, hash)| (number.0, hash.0)), expected);
+    }
+
+    #[rstest]
+    #[case(STORED_BLOCK_HASH_BUFFER)]
+    fn blockifier_old_block_number_and_hash_rejects_non_u64_old_block_number(#[case] current_block_number: u64) {
+        let invalid_old_block_number = Felt::from(u128::from(u64::MAX) + 1);
+        let old_block_hash = Felt::from(9_u8);
+
+        let blockifier_error = block_data(current_block_number, invalid_old_block_number, old_block_hash)
+            .blockifier_old_block_number_and_hash()
+            .unwrap_err();
+
+        assert!(matches!(blockifier_error, BlockProcessingError::InvalidOldBlockNumber { .. }));
+    }
+
+    #[rstest]
+    #[case(1)]
+    fn os_old_block_number_and_hash_rejects_non_u64_old_block_number(#[case] current_block_number: u64) {
+        let invalid_old_block_number = Felt::from(u128::from(u64::MAX) + 1);
+        let old_block_hash = Felt::from(9_u8);
+        let os_error = block_data(current_block_number, invalid_old_block_number, old_block_hash)
+            .os_old_block_number_and_hash()
+            .unwrap_err();
+
+        assert!(matches!(os_error, BlockProcessingError::InvalidOldBlockNumber { .. }));
     }
 }

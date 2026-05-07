@@ -214,6 +214,10 @@ async fn main() -> Result<(), Box<dyn error::Error + Send + Sync>> {
     env_logger::init();
     let args = Args::parse();
 
+    if args.num_blocks == 0 {
+        return Err("--num-blocks must be greater than 0".into());
+    }
+
     // Validate MongoDB parameters
     if args.upload_to_db {
         if args.mongo_uri.is_none() {

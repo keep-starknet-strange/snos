@@ -18,6 +18,10 @@ jobs:
 
   clippy:
     runs-on: ubuntu-latest
+    env:
+      MLIR_SYS_190_PREFIX: /usr/lib/llvm-19
+      LLVM_SYS_191_PREFIX: /usr/lib/llvm-19
+      TABLEGEN_190_PREFIX: /usr/lib/llvm-19
     steps:
       - uses: actions/checkout@v3
       - run: rustup show
@@ -26,6 +30,20 @@ jobs:
         with:
           python-version: "3.9"
           cache: "pip"
+      - name: Install LLVM/MLIR 19 for cairo-native
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            llvm-19 \
+            llvm-19-dev \
+            llvm-19-runtime \
+            clang-19 \
+            clang-tools-19 \
+            libclang-19-dev \
+            lld-19 \
+            libpolly-19-dev \
+            libmlir-19-dev \
+            mlir-19-tools
       - name: "Install Python dependencies"
         run: |
           pip install -r requirements.txt
@@ -35,6 +53,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SNOS_RPC_URL: ${{ secrets.SNOS_RPC_URL }}
+      MLIR_SYS_190_PREFIX: /usr/lib/llvm-19
+      LLVM_SYS_191_PREFIX: /usr/lib/llvm-19
+      TABLEGEN_190_PREFIX: /usr/lib/llvm-19
     steps:
       - uses: actions/checkout@v3
       - run: rustup show
@@ -43,6 +64,20 @@ jobs:
         with:
           python-version: "3.9"
           cache: "pip"
+      - name: Install LLVM/MLIR 19 for cairo-native
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            llvm-19 \
+            llvm-19-dev \
+            llvm-19-runtime \
+            clang-19 \
+            clang-tools-19 \
+            libclang-19-dev \
+            lld-19 \
+            libpolly-19-dev \
+            libmlir-19-dev \
+            mlir-19-tools
       - name: "Install Python dependencies"
         run: |
           pip install -r requirements.txt

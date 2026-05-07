@@ -283,14 +283,21 @@ impl GenericSierraContractClass {
     /// ```
     pub fn compile(&self) -> Result<GenericCasmContractClass, ContractClassError> {
         let cairo_lang_class = self.get_cairo_lang_contract_class()?.clone();
+        let extracted_program = cairo_lang_class
+            .extract_sierra_program(false)
+            .map_err(|error| ContractClassError::HashError(error.to_string()))?;
 
         // Values taken from the defaults of `starknet-sierra-compile`, see here:
         // https://github.com/starkware-libs/cairo/blob/main/crates/bin/starknet-sierra-compile/src/main.rs
         let add_pythonic_hints = false;
         let max_bytecode_size = 180000;
 
-        let casm_contract_class =
-            CairoLangCasmClass::from_contract_class(cairo_lang_class, add_pythonic_hints, max_bytecode_size)?;
+        let casm_contract_class = CairoLangCasmClass::from_contract_class(
+            cairo_lang_class,
+            extracted_program,
+            add_pythonic_hints,
+            max_bytecode_size,
+        )?;
 
         Ok(GenericCasmContractClass::from(casm_contract_class))
     }

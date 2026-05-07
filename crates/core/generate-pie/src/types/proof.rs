@@ -1,3 +1,4 @@
+use crate::constants::BLOCK_HASH_CONTRACT_ADDRESS_FELT;
 use crate::error::BlockProcessingError;
 use crate::utils::{compute_class_commitment, format_commitment_facts};
 use cairo_vm::Felt252;
@@ -6,8 +7,8 @@ use rpc_client::constants::DEFAULT_STORAGE_TREE_HEIGHT;
 use rpc_client::types::ContractProof;
 use starknet::core::types::BlockId;
 use starknet_api::core::ContractAddress;
-use starknet_os::io::os_input::CommitmentInfo;
-use starknet_patricia::hash::hash_trait::HashOutput;
+use starknet_api::hash::HashOutput;
+use starknet_os::commitment_infos::CommitmentInfo;
 use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
 use starknet_types_core::felt::Felt;
 use std::collections::HashMap;
@@ -131,7 +132,7 @@ impl ProofCollectionResult {
         // Extract commitment roots from storage proofs
         let block_hash_storage_proof = self
             .storage_proofs
-            .get(&Felt::ONE)
+            .get(&BLOCK_HASH_CONTRACT_ADDRESS_FELT)
             .ok_or_else(|| BlockProcessingError::new_custom("Missing storage proof for block hash contract"))?;
 
         // Get storage proofs for address 0x1 (block hash storage contract)
@@ -140,9 +141,11 @@ impl ProofCollectionResult {
         let previous_block_hash_storage_proof = match block_id {
             BlockId::Number(block_number) => {
                 if block_number == 0 {
-                    self.previous_storage_proofs.get(&Felt::ONE).unwrap_or(&default_contract_proof)
+                    self.previous_storage_proofs
+                        .get(&BLOCK_HASH_CONTRACT_ADDRESS_FELT)
+                        .unwrap_or(&default_contract_proof)
                 } else {
-                    self.previous_storage_proofs.get(&Felt::ONE).ok_or_else(|| {
+                    self.previous_storage_proofs.get(&BLOCK_HASH_CONTRACT_ADDRESS_FELT).ok_or_else(|| {
                         BlockProcessingError::new_custom("Missing previous storage proof for block hash contract")
                     })?
                 }

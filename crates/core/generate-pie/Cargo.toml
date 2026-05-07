@@ -13,7 +13,7 @@ doctest = false
 yaml = []
 
 [dependencies]
-rpc-client = { path = "../../rpc-client" }
+rpc-client = { path = "../../rpc-client", features = ["cairo_native"] }
 starknet-os-types = { path = "../../starknet-os-types" }
 
 blockifier = { workspace = true }
@@ -40,3 +40,6 @@ starknet-core = { workspace = true }
 starknet-types-core = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+
+[dev-dependencies]
+rstest = { workspace = true }
