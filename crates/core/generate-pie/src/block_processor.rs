@@ -119,12 +119,7 @@ pub async fn collect_single_block_info(
     let deprecated_compiled_classes = class_result.deprecated_compiled_classes.clone();
 
     // Step 7b: Extract migrated compiled classes (SNIP-34).
-    let mut class_hashes_to_migrate: Vec<(ClassHash, CompiledClassHash)> = tx_result
-        .processed_state_update
-        .migrated_compiled_classes
-        .iter()
-        .map(|(class_hash, compiled_class_hash)| (ClassHash(*class_hash), CompiledClassHash(*compiled_class_hash)))
-        .collect();
+    let mut class_hashes_to_migrate = tx_result.class_hashes_to_migrate.clone();
     class_hashes_to_migrate.sort_by_key(|(class_hash, _)| class_hash.0);
 
     // Step 8: Build final OS block input

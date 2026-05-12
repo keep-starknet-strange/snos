@@ -295,9 +295,9 @@ impl GenericCasmContractClass {
     /// Returns a `ContractClassError` if the class hash computation fails.
     fn compute_class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
         let compiled_class = self.get_cairo_lang_contract_class()?;
-        let class_hash_felt = compiled_class.compiled_class_hash();
+        let class_hash_felt = compiled_class.hash(&HashVersion::V1);
 
-        Ok(GenericClassHash::from_bytes_be(class_hash_felt.to_bytes_be()))
+        Ok(GenericClassHash::from_bytes_be(class_hash_felt.0.to_bytes_be()))
     }
 
     /// Gets the class hash for this contract class, computing it if necessary.
@@ -437,6 +437,13 @@ mod tests {
         // improved with more methods on `Hash` / `GenericClassHash`.
         let expected_class_hash = Felt::from_str(EXPECTED_TEST_CONTRACT_CLASS_HASH).unwrap();
         assert_eq!(Felt::from(*class_hash), expected_class_hash);
+    }
+
+    #[test]
+    fn test_class_hash_versions_diverge_for_cairo1_contract() {
+        let generic_class = GenericCasmContractClass::from_bytes(CONTRACT_BYTES.to_vec());
+
+        assert_ne!(generic_class.class_hash().unwrap(), generic_class.class_hash_v2().unwrap());
     }
 
     const TEST_CONTRACT_WITHOUT_SEGMENTATION: &str = indoc! {r#"
