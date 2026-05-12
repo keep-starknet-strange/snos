@@ -48,9 +48,11 @@ pub struct GenericCasmContractClass {
     cairo_lang_contract_class: OnceCell<Arc<CairoLangCasmClass>>,
     /// Lazy-initialized serialized contract class bytes.
     serialized_class: OnceCell<Arc<Vec<u8>>>,
-    /// Lazy-initialized computed class hash (Poseidon - pre-SNIP-34).
+    /// Lazy-initialized pre-SNIP-34 compiled class hash (Poseidon).
+    class_hash_v1: OnceCell<GenericClassHash>,
+    /// Lazy-initialized canonical compiled class hash.
     class_hash: OnceCell<GenericClassHash>,
-    /// Lazy-initialized computed class hash v2 (BLAKE2s - post-SNIP-34).
+    /// Lazy-initialized compiled class hash v2 (BLAKE2s - post-SNIP-34).
     class_hash_v2: OnceCell<GenericClassHash>,
 }
 
@@ -118,6 +120,7 @@ impl GenericCasmContractClass {
             blockifier_contract_class: OnceCell::new(),
             cairo_lang_contract_class: OnceCell::new(),
             serialized_class: OnceCell::from(Arc::new(serialized_class)),
+            class_hash_v1: OnceCell::new(),
             class_hash: OnceCell::new(),
             class_hash_v2: OnceCell::new(),
         }
@@ -284,7 +287,7 @@ impl GenericCasmContractClass {
         Ok(blockifier_class.clone())
     }
 
-    /// Computes the class hash for this contract class.
+    /// Computes the canonical compiled class hash for this contract class.
     ///
     /// # Returns
     ///
@@ -295,15 +298,26 @@ impl GenericCasmContractClass {
     /// Returns a `ContractClassError` if the class hash computation fails.
     fn compute_class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
         let compiled_class = self.get_cairo_lang_contract_class()?;
-        let class_hash_felt = compiled_class.hash(&HashVersion::V1);
+        let class_hash_felt = compiled_class.compiled_class_hash();
 
-        Ok(GenericClassHash::from_bytes_be(class_hash_felt.0.to_bytes_be()))
+        Ok(GenericClassHash::from_bytes_be(class_hash_felt.to_bytes_be()))
     }
 
-    /// Gets the class hash for this contract class, computing it if necessary.
+    /// Computes the pre-SNIP-34 compiled class hash (Poseidon) for this contract class.
     ///
-    /// This returns the **Poseidon hash** (pre-SNIP-34). For the BLAKE2s hash
-    /// (post-SNIP-34), use [`class_hash_v2`](Self::class_hash_v2).
+    /// This is only needed when reconstructing the pre-migration OS state for chains that still
+    /// transition a class from the old Poseidon hash to the post-SNIP-34 BLAKE2s hash.
+    fn compute_pre_snip34_class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
+        let compiled_class = self.get_cairo_lang_contract_class()?;
+        let class_hash = compiled_class.hash(&HashVersion::V1);
+        Ok(GenericClassHash::from_bytes_be(class_hash.0.to_bytes_be()))
+    }
+
+    /// Gets the canonical compiled class hash for this contract class, computing it if necessary.
+    ///
+    /// This follows the default Cairo-lang / Starknet representation for the compiled class and
+    /// should be used for normal replay paths. For the pre-SNIP-34 Poseidon hash, use
+    /// [`pre_snip34_class_hash`](Self::pre_snip34_class_hash).
     ///
     /// # Returns
     ///
@@ -323,6 +337,11 @@ impl GenericCasmContractClass {
     /// ```
     pub fn class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
         self.class_hash.get_or_try_init(|| self.compute_class_hash()).copied()
+    }
+
+    /// Gets the pre-SNIP-34 compiled class hash (Poseidon), computing it if necessary.
+    pub fn pre_snip34_class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
+        self.class_hash_v1.get_or_try_init(|| self.compute_pre_snip34_class_hash()).copied()
     }
 
     /// Computes the class hash v2 (BLAKE2s / SNIP-34) for this contract class.
@@ -369,6 +388,7 @@ impl From<CairoLangCasmClass> for GenericCasmContractClass {
             blockifier_contract_class: Default::default(),
             cairo_lang_contract_class: OnceCell::from(Arc::new(cairo_lang_class)),
             serialized_class: Default::default(),
+            class_hash_v1: Default::default(),
             class_hash: Default::default(),
             class_hash_v2: Default::default(),
         }
@@ -381,6 +401,7 @@ impl From<BlockifierCasmClass> for GenericCasmContractClass {
             blockifier_contract_class: OnceCell::from(Arc::new(blockifier_class)),
             cairo_lang_contract_class: Default::default(),
             serialized_class: Default::default(),
+            class_hash_v1: Default::default(),
             class_hash: Default::default(),
             class_hash_v2: Default::default(),
         }
@@ -440,10 +461,11 @@ mod tests {
     }
 
     #[test]
-    fn test_class_hash_versions_diverge_for_cairo1_contract() {
+    fn test_pre_snip34_class_hash_differs_from_default_hash_for_cairo1_contract() {
         let generic_class = GenericCasmContractClass::from_bytes(CONTRACT_BYTES.to_vec());
 
-        assert_ne!(generic_class.class_hash().unwrap(), generic_class.class_hash_v2().unwrap());
+        assert_ne!(generic_class.class_hash().unwrap(), generic_class.pre_snip34_class_hash().unwrap());
+        assert_eq!(generic_class.class_hash().unwrap(), generic_class.class_hash_v2().unwrap());
     }
 
     const TEST_CONTRACT_WITHOUT_SEGMENTATION: &str = indoc! {r#"

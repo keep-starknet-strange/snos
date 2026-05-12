@@ -629,12 +629,13 @@ fn build_class_hashes_to_migrate(
         .iter()
         .map(|(class_hash, compiled_class_hash_v2)| {
             let class_hash = ClassHash(*class_hash);
-            let compiled_class_hash_v1 = state_reader.get_compiled_class_hash(class_hash).map_err(|source| {
-                BlockProcessingError::StateUpdateProcessing(format!(
-                    "Failed to read pre-migration compiled class hash for {:?}: {}",
-                    class_hash, source
-                ))
-            })?;
+            let compiled_class_hash_v1 =
+                state_reader.get_pre_snip34_compiled_class_hash(class_hash).map_err(|source| {
+                    BlockProcessingError::StateUpdateProcessing(format!(
+                        "Failed to read pre-migration compiled class hash for {:?}: {}",
+                        class_hash, source
+                    ))
+                })?;
             Ok((class_hash, CompiledClassHash(*compiled_class_hash_v2), compiled_class_hash_v1))
         })
         .collect::<Result<Vec<_>, BlockProcessingError>>()?;

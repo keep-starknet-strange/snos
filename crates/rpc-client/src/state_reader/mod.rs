@@ -194,6 +194,26 @@ impl AsyncRpcStateReader {
         self.get_compiled_class_hash_with_version_async(class_hash, CompiledClassHashVersion::V1).await
     }
 
+    pub async fn get_pre_snip34_compiled_class_hash_async(
+        &self,
+        class_hash: ClassHash,
+    ) -> StateResult<CompiledClassHash> {
+        if self.has_no_block() {
+            return Err(StateError::UndeclaredClassHash(class_hash));
+        }
+
+        let block_id = self.block_id.unwrap();
+        debug!("get_pre_snip34_compiled_class_hash for class_hash: {:?}", class_hash);
+        let operation_name = format!("get_pre_snip34_compiled_class_hash(class_hash: {:?})", class_hash);
+
+        let contract_class =
+            execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
+                .await
+                .map_err(provider_error_to_state_error)?;
+
+        compute_pre_snip34_compiled_class_hash(&contract_class)
+    }
+
     pub async fn get_compiled_class_hash_v2_async(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         self.get_compiled_class_hash_with_version_async(class_hash, CompiledClassHashVersion::V2).await
     }
@@ -222,6 +242,10 @@ impl AsyncRpcStateReader {
 
     pub fn get_compiled_class_hash_v2(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         execute_coroutine(self.get_compiled_class_hash_v2_async(class_hash))
+    }
+
+    pub fn get_pre_snip34_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        execute_coroutine(self.get_pre_snip34_compiled_class_hash_async(class_hash))
     }
 }
 
@@ -299,6 +323,21 @@ fn compute_compiled_class_hash_internal(
             // to skip them during casm hash migration.
             return Ok(CompiledClassHash::default());
         }
+    };
+
+    Ok(class_hash.into())
+}
+
+fn compute_pre_snip34_compiled_class_hash(
+    contract_class: &starknet::core::types::ContractClass,
+) -> Result<CompiledClassHash, StateError> {
+    let class_hash = match contract_class {
+        starknet::core::types::ContractClass::Sierra(sierra_class) => {
+            let generic_sierra = convert_sierra_class_for_generic(sierra_class)?;
+            let compiled_class = generic_sierra.compile().map_err(to_state_err)?;
+            compiled_class.pre_snip34_class_hash().map_err(to_state_err)?
+        }
+        starknet::core::types::ContractClass::Legacy(_) => return Ok(CompiledClassHash::default()),
     };
 
     Ok(class_hash.into())
