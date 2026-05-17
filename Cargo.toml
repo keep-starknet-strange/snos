@@ -46,7 +46,7 @@ pathfinder-class-hash = { git = "https://github.com/eqlabs/pathfinder", tag = "v
 
 env_logger = "0.11.6"
 log = "0.4.19"
-reqwest = { version = "0.11.18", features = ["blocking", "json"] }
+reqwest = { version = "0.12.24", features = ["blocking", "json"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
 tokio = { version = "1.37.0", features = ["rt-multi-thread"] }

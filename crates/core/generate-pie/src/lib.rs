@@ -83,6 +83,16 @@ use error::PieGenerationError;
 use types::{PieGenerationInput, PieGenerationResult};
 use utils::sort_abi_entries_for_deprecated_class;
 
+const MAX_PARALLEL_BLOCKS_ENV: &str = "SNOS_MAX_PARALLEL_BLOCKS";
+
+fn read_max_parallel_blocks(default: usize) -> usize {
+    std::env::var(MAX_PARALLEL_BLOCKS_ENV)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(default)
+}
+
 // ================================================================================================
 // Module Declarations
 // ================================================================================================
@@ -158,8 +168,9 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     info!("RPC client initialized for {}", input.rpc_url);
 
     // Create semaphore to limit parallel execution to available CPU cores
-    let max_parallel_blocks =
+    let default_max_parallel_blocks =
         std::thread::available_parallelism().map(|n| n.get()).unwrap_or(DEFAULT_MAX_PARALLEL_BLOCKS);
+    let max_parallel_blocks = read_max_parallel_blocks(default_max_parallel_blocks);
     let semaphore = Arc::new(Semaphore::new(max_parallel_blocks));
     info!("Processing blocks with max parallelism: {} (CPU cores)", max_parallel_blocks);
 
