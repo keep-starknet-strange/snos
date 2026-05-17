@@ -11,6 +11,7 @@ doctest = false
 
 [features]
 yaml = []
+cairo_native = ["rpc-client/cairo_native"]
 
 [dependencies]
 rpc-client = { path = "../../rpc-client" }
