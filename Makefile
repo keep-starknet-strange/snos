@@ -102,7 +102,8 @@ help: ## Show this help message
 	@echo ""
 	@echo "$(YELLOW)Examples:$(RESET)"
 	@echo "  make test-e2e"
-	@echo "  make check-env  # Check environment"
+	@echo "  make setup      # Setup cairo environment"
+	@echo "  make activate   # Print activation command"
 
 ## Building and Development
 build: ## Build all crates in the workspace
@@ -240,7 +241,7 @@ setup: ## Set up development environment
 		./setup-scripts/setup-cairo.sh; \
 	fi
 	@echo "$(GREEN)Environment setup complete!$(RESET)"
-	@echo "$(YELLOW)Remember to activate the environment: source ./snos-env/bin/activate$(RESET)"
+	@echo "$(YELLOW)Remember to activate the environment: source ./venv/bin/activate$(RESET)"
 
 activate: ## Show command to activate Python environment
 	@echo "$(YELLOW)Run this command to activate the Cairo environment:$(RESET)"
