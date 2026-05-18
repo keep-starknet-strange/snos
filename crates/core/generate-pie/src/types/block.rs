@@ -30,7 +30,7 @@ use starknet_api::block::{
     BlockHash, BlockHashAndNumber, BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion,
 };
 use starknet_api::contract_address;
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
 use starknet_api::versioned_constants_logic::VersionedConstantsTrait;
 use starknet_os_types::chain_id::chain_id_from_felt;
@@ -332,6 +332,8 @@ impl BlockData {
             BlockProcessingError::StateUpdateProcessing(format!("Failed to get formatted state update: {:?}", e))
         })?;
         info!("Fetched processed state update successfully");
+        let class_hashes_to_migrate = build_class_hashes_to_migrate(&processed_state_update, &blockifier_state_reader)?;
+        apply_pre_migration_compiled_class_hashes(&mut initial_reads, &class_hashes_to_migrate);
 
         let block_hash_commitments = compute_block_hash_commitments(
             &starknet_api_txns,
@@ -376,6 +378,10 @@ impl BlockData {
             central_txn_execution_infos,
             accessed_addresses,
             accessed_classes,
+            class_hashes_to_migrate: class_hashes_to_migrate
+                .iter()
+                .map(|(class_hash, compiled_class_hash_v2, _)| (*class_hash, *compiled_class_hash_v2))
+                .collect(),
             accessed_keys_by_address,
             initial_reads,
             block_hash_commitments,
@@ -581,6 +587,71 @@ fn populate_alias_contract_keys(
     }
 }
 
+fn validate_migrated_compiled_classes(
+    processed_state_update: &crate::state_update::FormattedStateUpdate,
+    class_hashes_to_migrate: &[(ClassHash, CompiledClassHash, CompiledClassHash)],
+) -> Result<(), BlockProcessingError> {
+    if processed_state_update.migrated_compiled_classes.len() != class_hashes_to_migrate.len() {
+        return Err(BlockProcessingError::StateUpdateProcessing(format!(
+            "Migrated compiled classes mismatch: RPC reported {} entries but Blockifier reported {}",
+            processed_state_update.migrated_compiled_classes.len(),
+            class_hashes_to_migrate.len()
+        )));
+    }
+
+    for (class_hash, compiled_class_hash_v2, _) in class_hashes_to_migrate {
+        let rpc_compiled_class_hash_v2 =
+            processed_state_update.migrated_compiled_classes.get(&class_hash.0).copied().ok_or_else(|| {
+                BlockProcessingError::StateUpdateProcessing(format!(
+                    "Missing migrated compiled class in RPC state update for class hash {:?}",
+                    class_hash
+                ))
+            })?;
+
+        if rpc_compiled_class_hash_v2 != compiled_class_hash_v2.0 {
+            return Err(BlockProcessingError::StateUpdateProcessing(format!(
+                "Migrated compiled class hash mismatch for {:?}: RPC reported {:?}, Blockifier reported {:?}",
+                class_hash, rpc_compiled_class_hash_v2, compiled_class_hash_v2
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+fn build_class_hashes_to_migrate(
+    processed_state_update: &crate::state_update::FormattedStateUpdate,
+    state_reader: &AsyncRpcStateReader,
+) -> Result<Vec<(ClassHash, CompiledClassHash, CompiledClassHash)>, BlockProcessingError> {
+    let class_hashes_to_migrate = processed_state_update
+        .migrated_compiled_classes
+        .iter()
+        .map(|(class_hash, compiled_class_hash_v2)| {
+            let class_hash = ClassHash(*class_hash);
+            let compiled_class_hash_v1 =
+                state_reader.get_pre_snip34_compiled_class_hash(class_hash).map_err(|source| {
+                    BlockProcessingError::StateUpdateProcessing(format!(
+                        "Failed to read pre-migration compiled class hash for {:?}: {}",
+                        class_hash, source
+                    ))
+                })?;
+            Ok((class_hash, CompiledClassHash(*compiled_class_hash_v2), compiled_class_hash_v1))
+        })
+        .collect::<Result<Vec<_>, BlockProcessingError>>()?;
+
+    validate_migrated_compiled_classes(processed_state_update, &class_hashes_to_migrate)?;
+    Ok(class_hashes_to_migrate)
+}
+
+fn apply_pre_migration_compiled_class_hashes(
+    initial_reads: &mut blockifier::state::cached_state::StateMaps,
+    class_hashes_to_migrate: &[(ClassHash, CompiledClassHash, CompiledClassHash)],
+) {
+    for (class_hash, _, compiled_class_hash_v1) in class_hashes_to_migrate {
+        initial_reads.compiled_class_hashes.insert(*class_hash, *compiled_class_hash_v1);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -677,5 +748,39 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(os_error, BlockProcessingError::InvalidOldBlockNumber { .. }));
+    }
+
+    #[test]
+    fn apply_pre_migration_compiled_class_hashes_replaces_v2_with_v1() {
+        let class_hash = ClassHash(Felt::from(11_u8));
+        let compiled_class_hash_v2 = CompiledClassHash(Felt::from(22_u8));
+        let compiled_class_hash_v1 = CompiledClassHash(Felt::from(33_u8));
+        let mut initial_reads = blockifier::state::cached_state::StateMaps::default();
+        initial_reads.compiled_class_hashes.insert(class_hash, compiled_class_hash_v2);
+
+        apply_pre_migration_compiled_class_hashes(
+            &mut initial_reads,
+            &[(class_hash, compiled_class_hash_v2, compiled_class_hash_v1)],
+        );
+
+        assert_eq!(initial_reads.compiled_class_hashes.get(&class_hash), Some(&compiled_class_hash_v1));
+    }
+
+    #[test]
+    fn validate_migrated_compiled_classes_accepts_matching_blockifier_and_rpc_data() {
+        let class_hash = ClassHash(Felt::from(11_u8));
+        let compiled_class_hash_v2 = CompiledClassHash(Felt::from(22_u8));
+        let compiled_class_hash_v1 = CompiledClassHash(Felt::from(33_u8));
+        let processed_state_update = crate::state_update::FormattedStateUpdate {
+            migrated_compiled_classes: HashMap::from([(class_hash.0, compiled_class_hash_v2.0)]),
+            ..Default::default()
+        };
+
+        let result = validate_migrated_compiled_classes(
+            &processed_state_update,
+            &[(class_hash, compiled_class_hash_v2, compiled_class_hash_v1)],
+        );
+
+        assert!(result.is_ok());
     }
 }

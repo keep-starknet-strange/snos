@@ -15,7 +15,7 @@ use std::time::Duration;
 use crate::constants::{MAX_CONCURRENT_PROOF_REQUESTS, MAX_STORAGE_KEYS_PER_REQUEST, STARKNET_RPC_VERSION};
 use crate::types::{ClassProof, ContractProof};
 
-const RPC_REQUEST_TIMEOUT_SECS: u64 = 15;
+const RPC_REQUEST_TIMEOUT_SECS: u64 = 60;
 const RPC_CONNECT_TIMEOUT_SECS: u64 = 5;
 
 pub trait ProofClient {

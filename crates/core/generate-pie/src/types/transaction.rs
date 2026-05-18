@@ -10,7 +10,7 @@ use rpc_client::RpcClient;
 use shared_execution_objects::central_objects::CentralTransactionExecutionInfo;
 use starknet::core::types::BlockId;
 use starknet_api::block_hash::block_hash_calculator::BlockHeaderCommitments;
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
 use std::collections::{HashMap, HashSet};
 
@@ -22,6 +22,7 @@ pub struct TransactionProcessingResult {
     pub central_txn_execution_infos: Vec<CentralTransactionExecutionInfo>,
     pub accessed_addresses: HashSet<ContractAddress>,
     pub accessed_classes: HashSet<ClassHash>,
+    pub class_hashes_to_migrate: Vec<(ClassHash, CompiledClassHash)>,
     pub accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>>,
     pub initial_reads: StateMaps,
     pub block_hash_commitments: BlockHeaderCommitments,

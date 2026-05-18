@@ -13,7 +13,7 @@ use tokio::time::sleep;
 static GLOBAL_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
 
 /// Maximum number of retry attempts for RPC calls.
-const MAX_RETRY_ATTEMPTS: u32 = 3;
+const MAX_RETRY_ATTEMPTS: u32 = 5;
 
 /// Initial delay for exponential backoff (in milliseconds).
 const INITIAL_BACKOFF_MS: u64 = 100;
