@@ -317,8 +317,10 @@ async fn fetch_state_update(
 ) -> Result<starknet::core::types::StateUpdate, StateUpdateError> {
     debug!("Fetching state update for block {:?}", block_id);
 
-    let state_update =
-        rpc_client.starknet_rpc().get_state_update(block_id).await.map_err(StateUpdateError::RpcError)?;
+    let state_update = rpc_client.starknet_rpc().get_state_update(block_id).await.map_err(|error| {
+        warn!("Failed to fetch state update for block {:?}: {}", block_id, error);
+        StateUpdateError::RpcError(error)
+    })?;
 
     match state_update {
         MaybePreConfirmedStateUpdate::Update(update) => {
@@ -463,7 +465,17 @@ async fn process_accessed_addresses(
     let compilation_results: Vec<(Felt, Result<GenericCompiledClass, StateUpdateError>)> = class_results
         .into_par_iter()
         .filter_map(|(class_hash, contract_class_result)| {
-            let contract_class = contract_class_result.ok()?;
+            let contract_class = match contract_class_result {
+                Ok(contract_class) => contract_class,
+                Err(error) => {
+                    warn!(
+                        "Failed to fetch accessed contract class {:#x} while building state update: {}. Dropping this class from the compiled-class set.",
+                        class_hash,
+                        error
+                    );
+                    return None;
+                }
+            };
             let compiled_result = compile_contract_class(contract_class);
             Some((class_hash, compiled_result))
         })
@@ -502,11 +514,11 @@ async fn process_accessed_classes(
 
     // Phase 1: Fetch all contract classes concurrently (network I/O parallelization)
     let class_hashes: Vec<Felt252> = accessed_classes.iter().copied().collect();
-    let class_fetch_results: Vec<(Felt252, Option<starknet::core::types::ContractClass>)> =
+    let class_fetch_results: Vec<(Felt252, Result<starknet::core::types::ContractClass, ProviderError>)> =
         stream::iter(class_hashes.clone())
             .map(|class_hash| async move {
                 debug!("Fetching class hash: {:?}", class_hash);
-                let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash).await.ok();
+                let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash).await;
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
@@ -518,8 +530,19 @@ async fn process_accessed_classes(
     // Phase 2: Compile classes in parallel using rayon (CPU parallelization)
     let compilation_results: Vec<(Felt252, Result<GenericCompiledClass, StateUpdateError>)> = class_fetch_results
         .into_par_iter()
-        .filter_map(|(class_hash, contract_class_opt)| {
-            let contract_class = contract_class_opt?;
+        .filter_map(|(class_hash, contract_class_result)| {
+            let contract_class = match contract_class_result {
+                Ok(contract_class) => contract_class,
+                Err(error) => {
+                    warn!(
+                        "Failed to fetch accessed class {:#x} at block {:?}: {}. Dropping this class from the compiled-class set.",
+                        class_hash,
+                        block_id,
+                        error
+                    );
+                    return None;
+                }
+            };
             let compiled_result = compile_contract_class(contract_class);
             Some((class_hash, compiled_result))
         })

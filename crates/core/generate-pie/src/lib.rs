@@ -81,9 +81,10 @@ use block_processor::collect_single_block_info;
 use cached_state::generate_cached_state_input;
 use error::PieGenerationError;
 use types::{PieGenerationInput, PieGenerationResult};
-use utils::sort_abi_entries_for_deprecated_class;
+use utils::{serialize_os_hints_to_json, sort_abi_entries_for_deprecated_class};
 
 const MAX_PARALLEL_BLOCKS_ENV: &str = "SNOS_MAX_PARALLEL_BLOCKS";
+const DUMP_OS_HINTS_ON_FAILURE_ENV: &str = "SNOS_DUMP_OS_HINTS_ON_FAILURE";
 
 fn read_max_parallel_blocks(default: usize) -> usize {
     std::env::var(MAX_PARALLEL_BLOCKS_ENV)
@@ -91,6 +92,52 @@ fn read_max_parallel_blocks(default: usize) -> usize {
         .and_then(|value| value.parse::<usize>().ok())
         .filter(|value| *value > 0)
         .unwrap_or(default)
+}
+
+fn should_dump_os_hints_on_failure() -> bool {
+    std::env::var(DUMP_OS_HINTS_ON_FAILURE_ENV)
+        .ok()
+        .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
+        .unwrap_or(false)
+}
+
+fn os_hints_dump_path(output_path: Option<&str>, blocks: &[u64]) -> String {
+    if let Some(output_path) = output_path {
+        let output_path = Path::new(output_path);
+        let stem = output_path.file_stem().and_then(|stem| stem.to_str()).unwrap_or("cairo_pie");
+        return output_path.with_file_name(format!("{}.os_hints.json", stem)).to_string_lossy().into_owned();
+    }
+
+    let first_block = blocks.first().copied().unwrap_or_default();
+    let last_block = blocks.last().copied().unwrap_or(first_block);
+    format!("snos_os_hints_{}_{}.json", first_block, last_block)
+}
+
+fn log_os_hints_summary(os_hints: &OsHints) {
+    for (index, block_input) in os_hints.os_input.os_block_inputs.iter().enumerate() {
+        let cached_state_input = os_hints.os_input.cached_state_inputs.get(index);
+        let cached_state_contracts = cached_state_input.map(|input| input.storage.len()).unwrap_or_default();
+        let cached_state_keys = cached_state_input
+            .map(|input| input.storage.values().map(std::collections::HashMap::len).sum::<usize>())
+            .unwrap_or_default();
+        let storage_commitment_fact_count = block_input
+            .address_to_storage_commitment_info
+            .values()
+            .map(|commitment_info| commitment_info.commitment_facts.len())
+            .sum::<usize>();
+
+        info!(
+            "OS input summary for block {}: txs={} storage_commitment_contracts={} storage_commitment_facts={} cached_state_contracts={} cached_state_keys={} declared_class_component_hashes={} migrated_classes={}",
+            block_input.block_info.block_number.0,
+            block_input.transactions.len(),
+            block_input.address_to_storage_commitment_info.len(),
+            storage_commitment_fact_count,
+            cached_state_contracts,
+            cached_state_keys,
+            block_input.declared_class_hash_to_component_hashes.len(),
+            block_input.class_hashes_to_migrate.len()
+        );
+    }
 }
 
 // ================================================================================================
@@ -310,11 +357,30 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         },
     };
     info!("OS hints configuration built successfully for {} blocks", input.blocks.len());
+    log_os_hints_summary(&os_hints);
+    let os_hints_dump_path = if should_dump_os_hints_on_failure() {
+        let dump_path = os_hints_dump_path(input.output_path.as_deref(), &input.blocks);
+        match serialize_os_hints_to_json(&os_hints, &dump_path) {
+            Ok(()) => info!("Pre-serialized OS hints snapshot to {}", dump_path),
+            Err(dump_error) => warn!("Failed to pre-serialize OS hints snapshot to {}: {}", dump_path, dump_error),
+        }
+        Some(dump_path)
+    } else {
+        None
+    };
 
     // Execute the Starknet OS
     info!("Starting OS execution for multi-block processing");
-    let output = run_os_stateless(input.layout, os_hints)
-        .map_err(|e| PieGenerationError::OsExecution(format!("OS execution failed: {:?}", e)))?;
+    let output = match run_os_stateless(input.layout, os_hints) {
+        Ok(output) => output,
+        Err(e) => {
+            warn!("OS execution failed for blocks {:?}: {:?}", input.blocks, e);
+            if let Some(dump_path) = os_hints_dump_path.as_ref() {
+                warn!("OS hints snapshot is available at {}", dump_path);
+            }
+            return Err(PieGenerationError::OsExecution(format!("OS execution failed: {:?}", e)));
+        }
+    };
     info!("Multi-block output generated successfully!");
 
     // Check execution steps and warn if exceeding threshold
