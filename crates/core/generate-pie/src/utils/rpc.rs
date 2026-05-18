@@ -2,7 +2,6 @@ use blockifier::execution::call_info::CallInfo;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use log::{info, warn};
-use rpc_client::client::ProofClient;
 use rpc_client::error::ClientError;
 use rpc_client::types::{ClassProof, ContractData, ContractProof};
 use rpc_client::RpcClient;
@@ -144,7 +143,7 @@ pub(crate) async fn get_class_proofs(
     info!("Fetching class proofs for {} classes", class_hashes.len());
 
     for class_hash in class_hashes {
-        let proof = rpc_client.starknet_rpc().get_class_proof(block_number, class_hash).await.map_err(|e| {
+        let proof = rpc_client.get_class_proof_with_retry(block_number, class_hash).await.map_err(|e| {
             warn!(
                 "Pathfinder class proof request failed for block {} class_hash {:#x}: {}",
                 block_number, class_hash, e
@@ -278,7 +277,7 @@ async fn fetch_storage_proof_for_contract(
     let key_summary = summarize_felts(keys, 8);
     info!("Fetching storage proof for contract {} with {} keys [{}]", contract_address, keys.len(), key_summary);
 
-    rpc_client.starknet_rpc().get_proof(block_number, contract_address, keys).await.map_err(|e| {
+    rpc_client.get_proof_with_retry(block_number, contract_address, keys).await.map_err(|e| {
         warn!(
             "Pathfinder storage proof request failed for block {} contract {:#x} keys={} [{}]: {}",
             block_number,

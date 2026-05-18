@@ -2,15 +2,21 @@
 
 use anyhow::anyhow;
 use futures::stream::{self, StreamExt};
-use log::info;
+use log::{debug, info, warn};
 use reqwest::Url;
+use starknet::core::types::{
+    BlockId, ConfirmedBlockId, MaybePreConfirmedBlockWithTxHashes, MaybePreConfirmedBlockWithTxs,
+    MaybePreConfirmedStateUpdate, TransactionTraceWithHash,
+};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError};
-use starknet_core::types::{ConfirmedBlockId, ContractStorageKeys, StorageKey};
+use starknet_core::types::{ContractStorageKeys, StorageKey};
 use starknet_types_core::felt::Felt;
 use std::collections::VecDeque;
+use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::time::sleep;
 
 use crate::constants::{MAX_CONCURRENT_PROOF_REQUESTS, MAX_STORAGE_KEYS_PER_REQUEST, STARKNET_RPC_VERSION};
 use crate::types::{ClassProof, ContractProof};
@@ -21,6 +27,61 @@ const DEFAULT_RPC_POOL_MAX_IDLE_PER_HOST: usize = 0;
 const RPC_REQUEST_TIMEOUT_ENV: &str = "SNOS_RPC_REQUEST_TIMEOUT_SECS";
 const RPC_CONNECT_TIMEOUT_ENV: &str = "SNOS_RPC_CONNECT_TIMEOUT_SECS";
 const RPC_POOL_MAX_IDLE_PER_HOST_ENV: &str = "SNOS_RPC_POOL_MAX_IDLE_PER_HOST";
+const MAX_RPC_RETRIES: u32 = 5;
+const INITIAL_RPC_RETRY_BACKOFF_MS: u64 = 100;
+const MAX_RPC_RETRY_BACKOFF_MS: u64 = 2000;
+
+pub(crate) fn is_retryable_provider_error(error: &ProviderError) -> bool {
+    matches!(
+        error,
+        ProviderError::Other(_)
+            | ProviderError::RateLimited
+            | ProviderError::StarknetError(starknet::core::types::StarknetError::UnexpectedError(_))
+    )
+}
+
+pub(crate) async fn execute_with_retry<T, F, Fut>(operation_name: &str, mut f: F) -> Result<T, ProviderError>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, ProviderError>>,
+{
+    let mut attempt: u32 = 0;
+    let mut backoff_ms = INITIAL_RPC_RETRY_BACKOFF_MS;
+
+    loop {
+        attempt += 1;
+
+        match f().await {
+            Ok(result) => {
+                if attempt > 1 {
+                    debug!("{}: succeeded after {} attempts", operation_name, attempt);
+                }
+                return Ok(result);
+            }
+            Err(error) => {
+                let retries_used = attempt.saturating_sub(1);
+                let retries_exhausted = retries_used >= MAX_RPC_RETRIES;
+                let is_retryable = is_retryable_provider_error(&error);
+
+                if !is_retryable || retries_exhausted {
+                    if attempt > 1 {
+                        warn!("{}: failed after {} attempts with error: {:?}", operation_name, attempt, error);
+                    }
+                    return Err(error);
+                }
+
+                let retries_left = MAX_RPC_RETRIES.saturating_sub(retries_used);
+                warn!(
+                    "{}: attempt {} failed with retryable error: {:?}, retrying in {}ms ({} retries left)",
+                    operation_name, attempt, error, backoff_ms, retries_left
+                );
+
+                sleep(Duration::from_millis(backoff_ms)).await;
+                backoff_ms = (backoff_ms * 2).min(MAX_RPC_RETRY_BACKOFF_MS);
+            }
+        }
+    }
+}
 
 pub trait ProofClient {
     fn get_proof(
@@ -197,6 +258,107 @@ impl RpcClient {
     #[must_use]
     pub fn starknet_rpc(&self) -> &JsonRpcClient<HttpTransport> {
         &self.inner.starknet_client
+    }
+
+    pub async fn chain_id_with_retry(&self) -> Result<Felt, ProviderError> {
+        execute_with_retry("chain_id", || self.starknet_rpc().chain_id()).await
+    }
+
+    pub async fn get_block_with_txs_with_retry(
+        &self,
+        block_id: BlockId,
+    ) -> Result<MaybePreConfirmedBlockWithTxs, ProviderError> {
+        let operation_name = format!("get_block_with_txs(block_id: {:?})", block_id);
+        execute_with_retry(&operation_name, || self.starknet_rpc().get_block_with_txs(block_id)).await
+    }
+
+    pub async fn get_block_with_tx_hashes_with_retry(
+        &self,
+        block_id: BlockId,
+    ) -> Result<MaybePreConfirmedBlockWithTxHashes, ProviderError> {
+        let operation_name = format!("get_block_with_tx_hashes(block_id: {:?})", block_id);
+        execute_with_retry(&operation_name, || self.starknet_rpc().get_block_with_tx_hashes(block_id)).await
+    }
+
+    pub async fn get_state_update_with_retry(
+        &self,
+        block_id: BlockId,
+    ) -> Result<MaybePreConfirmedStateUpdate, ProviderError> {
+        let operation_name = format!("get_state_update(block_id: {:?})", block_id);
+        execute_with_retry(&operation_name, || self.starknet_rpc().get_state_update(block_id)).await
+    }
+
+    pub async fn trace_block_transactions_with_retry(
+        &self,
+        block_id: ConfirmedBlockId,
+    ) -> Result<Vec<TransactionTraceWithHash>, ProviderError> {
+        let operation_name = format!("trace_block_transactions(block_id: {:?})", block_id);
+        execute_with_retry(&operation_name, || self.starknet_rpc().trace_block_transactions(block_id)).await
+    }
+
+    pub async fn get_storage_at_with_retry(
+        &self,
+        contract_address: Felt,
+        storage_key: Felt,
+        block_id: BlockId,
+    ) -> Result<Felt, ProviderError> {
+        let operation_name = format!(
+            "get_storage_at(contract_address: {:#x}, storage_key: {:#x}, block_id: {:?})",
+            contract_address, storage_key, block_id
+        );
+        execute_with_retry(&operation_name, || {
+            self.starknet_rpc().get_storage_at(contract_address, storage_key, block_id)
+        })
+        .await
+    }
+
+    pub async fn get_nonce_with_retry(&self, block_id: BlockId, contract_address: Felt) -> Result<Felt, ProviderError> {
+        let operation_name = format!("get_nonce(contract_address: {:#x}, block_id: {:?})", contract_address, block_id);
+        execute_with_retry(&operation_name, || self.starknet_rpc().get_nonce(block_id, contract_address)).await
+    }
+
+    pub async fn get_class_hash_at_with_retry(
+        &self,
+        block_id: BlockId,
+        contract_address: Felt,
+    ) -> Result<Felt, ProviderError> {
+        let operation_name =
+            format!("get_class_hash_at(contract_address: {:#x}, block_id: {:?})", contract_address, block_id);
+        execute_with_retry(&operation_name, || self.starknet_rpc().get_class_hash_at(block_id, contract_address)).await
+    }
+
+    pub async fn get_class_with_retry(
+        &self,
+        block_id: BlockId,
+        class_hash: Felt,
+    ) -> Result<starknet::core::types::ContractClass, ProviderError> {
+        let operation_name = format!("get_class(class_hash: {:#x}, block_id: {:?})", class_hash, block_id);
+        execute_with_retry(&operation_name, || self.starknet_rpc().get_class(block_id, class_hash)).await
+    }
+
+    pub async fn get_proof_with_retry(
+        &self,
+        block_number: u64,
+        contract_address: Felt,
+        keys: &[Felt],
+    ) -> Result<ContractProof, ProviderError> {
+        let operation_name = format!(
+            "get_proof(contract_address: {:#x}, keys: {}, block_number: {})",
+            contract_address,
+            keys.len(),
+            block_number
+        );
+        execute_with_retry(&operation_name, || self.starknet_rpc().get_proof(block_number, contract_address, keys))
+            .await
+    }
+
+    pub async fn get_class_proof_with_retry(
+        &self,
+        block_number: u64,
+        class_hash: &Felt,
+    ) -> Result<ClassProof, ProviderError> {
+        let operation_name = format!("get_class_proof(class_hash: {:#x}, block_number: {})", class_hash, block_number);
+        execute_with_retry(&operation_name, || self.starknet_rpc().get_class_proof(block_number, class_hash)).await
     }
 }
 
@@ -410,5 +572,39 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
         )
         .await?
         .try_into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_retryable_provider_error;
+    use starknet::core::types::StarknetError;
+    use starknet::providers::{ProviderError, ProviderImplError};
+    use std::any::Any;
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("test provider impl error")]
+    struct TestProviderImplError;
+
+    impl ProviderImplError for TestProviderImplError {
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    #[test]
+    fn classifies_retryable_provider_errors() {
+        assert!(is_retryable_provider_error(&ProviderError::RateLimited));
+        assert!(is_retryable_provider_error(&ProviderError::Other(Box::new(TestProviderImplError))));
+        assert!(is_retryable_provider_error(&ProviderError::StarknetError(StarknetError::UnexpectedError(
+            "transient".to_string(),
+        ))));
+    }
+
+    #[test]
+    fn classifies_non_retryable_provider_errors() {
+        assert!(!is_retryable_provider_error(&ProviderError::StarknetError(StarknetError::ContractNotFound)));
+        assert!(!is_retryable_provider_error(&ProviderError::StarknetError(StarknetError::ClassHashNotFound)));
+        assert!(!is_retryable_provider_error(&ProviderError::ArrayLengthMismatch));
     }
 }

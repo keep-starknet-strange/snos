@@ -19,7 +19,6 @@ use starknet::core::types::{
     BlockId, ConfirmedBlockId, L1DataAvailabilityMode, MaybePreConfirmedBlockWithTxHashes,
     MaybePreConfirmedBlockWithTxs,
 };
-use starknet::providers::Provider;
 use starknet_api::block::{BlockInfo, BlockNumber, BlockTimestamp, GasPrices, StarknetVersion};
 use starknet_api::contract_address;
 use starknet_api::core::{ClassHash, ContractAddress};
@@ -65,7 +64,7 @@ impl BlockData {
         let previous_block_id = if block_number == 0 { None } else { Some(BlockId::Number(block_number - 1)) };
 
         // Fetch chain ID from RPC
-        let chain_id_result = rpc_client.starknet_rpc().chain_id().await.map_err(|e| {
+        let chain_id_result = rpc_client.chain_id_with_retry().await.map_err(|e| {
             warn!("RPC request chain_id failed while preparing block {}: {:?}", block_number, e);
             BlockProcessingError::RpcClient(Box::new(e))
         })?;
@@ -73,7 +72,7 @@ impl BlockData {
         info!("Provider's chain_id: {}", chain_id);
 
         // Fetch the current block with transactions
-        let current_block = match rpc_client.starknet_rpc().get_block_with_txs(block_id).await.map_err(|e| {
+        let current_block = match rpc_client.get_block_with_txs_with_retry(block_id).await.map_err(|e| {
             warn!("RPC request get_block_with_txs failed for block {}: {:?}", block_number, e);
             BlockProcessingError::RpcClient(Box::new(e))
         })? {
@@ -92,8 +91,7 @@ impl BlockData {
         // Fetch the previous block if it exists
         let previous_block = match previous_block_id {
             Some(previous_block_id) => match rpc_client
-                .starknet_rpc()
-                .get_block_with_tx_hashes(previous_block_id)
+                .get_block_with_tx_hashes_with_retry(previous_block_id)
                 .await
                 .map_err(|e| {
                     warn!(
@@ -116,8 +114,7 @@ impl BlockData {
         // Fetch older block for hash buffer
         let old_block_number_u64 = block_number.saturating_sub(STORED_BLOCK_HASH_BUFFER);
         let old_block = match rpc_client
-            .starknet_rpc()
-            .get_block_with_tx_hashes(BlockId::Number(old_block_number_u64))
+            .get_block_with_tx_hashes_with_retry(BlockId::Number(old_block_number_u64))
             .await
             .map_err(|e| {
                 warn!(
@@ -170,7 +167,7 @@ impl BlockData {
 
         // Fetch transaction traces
         let transaction_traces =
-            rpc_client.starknet_rpc().trace_block_transactions(confirmed_block_id).await.map_err(|e| {
+            rpc_client.trace_block_transactions_with_retry(confirmed_block_id).await.map_err(|e| {
                 warn!("RPC request trace_block_transactions failed for block {}: {:?}", block_number, e);
                 BlockProcessingError::RpcClient(Box::new(e))
             })?;

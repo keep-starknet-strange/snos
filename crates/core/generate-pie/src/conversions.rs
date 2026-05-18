@@ -26,7 +26,6 @@ use starknet::core::types::{
     DeployAccountTransactionV3, Felt, InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3,
     L1HandlerTransaction, ResourceBoundsMapping, Transaction, TransactionTrace, TransactionTraceWithHash,
 };
-use starknet::providers::Provider;
 use starknet_api::block::{GasPrice, GasPrices};
 use starknet_api::contract_class::{ClassInfo, SierraVersion};
 use starknet_api::core::{felt_to_u128, ChainId, PatriciaKey};
@@ -154,7 +153,7 @@ async fn fetch_class_info(
 ) -> Result<ClassInfo, ConversionError> {
     debug!("Fetching class info for hash: {:?} at block: {}", class_hash, block_number);
 
-    let contract_class = rpc_client.starknet_rpc().get_class(BlockId::Number(block_number), class_hash).await?;
+    let contract_class = rpc_client.get_class_with_retry(BlockId::Number(block_number), class_hash).await?;
 
     let (blockifier_contract_class, program_length, abi_length, version) = match contract_class {
         starknet::core::types::ContractClass::Sierra(sierra) => {
