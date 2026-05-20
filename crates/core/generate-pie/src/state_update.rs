@@ -316,10 +316,7 @@ async fn fetch_state_update(
 ) -> Result<starknet::core::types::StateUpdate, StateUpdateError> {
     debug!("Fetching state update for block {:?}", block_id);
 
-    let state_update = rpc_client.get_state_update_with_retry(block_id).await.map_err(|error| {
-        warn!("Failed to fetch state update for block {:?}: {}", block_id, error);
-        StateUpdateError::RpcError(error)
-    })?;
+    let state_update = rpc_client.get_state_update_with_retry(block_id).await.map_err(StateUpdateError::RpcError)?;
 
     match state_update {
         MaybePreConfirmedStateUpdate::Update(update) => {

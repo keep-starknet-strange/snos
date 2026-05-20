@@ -64,18 +64,17 @@ impl BlockData {
         let previous_block_id = if block_number == 0 { None } else { Some(BlockId::Number(block_number - 1)) };
 
         // Fetch chain ID from RPC
-        let chain_id_result = rpc_client.chain_id_with_retry().await.map_err(|e| {
-            warn!("RPC request chain_id failed while preparing block {}: {:?}", block_number, e);
-            BlockProcessingError::RpcClient(Box::new(e))
-        })?;
+        let chain_id_result =
+            rpc_client.chain_id_with_retry().await.map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
         let chain_id = chain_id_from_felt(chain_id_result);
         info!("Provider's chain_id: {}", chain_id);
 
         // Fetch the current block with transactions
-        let current_block = match rpc_client.get_block_with_txs_with_retry(block_id).await.map_err(|e| {
-            warn!("RPC request get_block_with_txs failed for block {}: {:?}", block_number, e);
-            BlockProcessingError::RpcClient(Box::new(e))
-        })? {
+        let current_block = match rpc_client
+            .get_block_with_txs_with_retry(block_id)
+            .await
+            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+        {
             MaybePreConfirmedBlockWithTxs::Block(block_with_txs) => block_with_txs,
             MaybePreConfirmedBlockWithTxs::PreConfirmedBlock(_) => {
                 return Err(BlockProcessingError::InvalidBlockState("Block is still pending".to_string()));
@@ -93,15 +92,7 @@ impl BlockData {
             Some(previous_block_id) => match rpc_client
                 .get_block_with_tx_hashes_with_retry(previous_block_id)
                 .await
-                .map_err(|e| {
-                    warn!(
-                        "RPC request get_block_with_tx_hashes failed for previous block {:?} while preparing block {}: {:?}",
-                        previous_block_id,
-                        block_number,
-                        e
-                    );
-                    BlockProcessingError::RpcClient(Box::new(e))
-                })?
+                .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
             {
                 MaybePreConfirmedBlockWithTxHashes::Block(block_with_txs) => Some(block_with_txs),
                 MaybePreConfirmedBlockWithTxHashes::PreConfirmedBlock(_) => {
@@ -116,13 +107,8 @@ impl BlockData {
         let old_block = match rpc_client
             .get_block_with_tx_hashes_with_retry(BlockId::Number(old_block_number_u64))
             .await
-            .map_err(|e| {
-                warn!(
-                    "RPC request get_block_with_tx_hashes failed for old block {} while preparing block {}: {:?}",
-                    old_block_number_u64, block_number, e
-                );
-                BlockProcessingError::RpcClient(Box::new(e))
-            })? {
+            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+        {
             MaybePreConfirmedBlockWithTxHashes::Block(block_with_txs_hashes) => block_with_txs_hashes,
             MaybePreConfirmedBlockWithTxHashes::PreConfirmedBlock(_) => {
                 return Err(BlockProcessingError::InvalidBlockState("Older block is still pending".to_string()));
@@ -166,11 +152,10 @@ impl BlockData {
             self.previous_block.as_ref().map(|previous_block| BlockId::Number(previous_block.block_number));
 
         // Fetch transaction traces
-        let transaction_traces =
-            rpc_client.trace_block_transactions_with_retry(confirmed_block_id).await.map_err(|e| {
-                warn!("RPC request trace_block_transactions failed for block {}: {:?}", block_number, e);
-                BlockProcessingError::RpcClient(Box::new(e))
-            })?;
+        let transaction_traces = rpc_client
+            .trace_block_transactions_with_retry(confirmed_block_id)
+            .await
+            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
         info!("Successfully fetched {} transaction traces for block {}", transaction_traces.len(), block_number);
 
         // Extract accessed contracts and classes from traces

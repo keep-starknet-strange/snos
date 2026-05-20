@@ -1,5 +1,5 @@
 use anyhow::bail;
-use log::{info, warn};
+use log::info;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use starknet::providers::ProviderError;
@@ -50,31 +50,12 @@ impl ContractData {
         info!("Fetching additional keys for a contract which already have {} keys", keys.len());
         let mut additional_keys = vec![];
         if let Err(errors) = self.verify(keys) {
-            warn!(
-                "Contract proof verification produced {} errors for root {:#x} across {} requested keys",
-                errors.len(),
-                self.root,
-                keys.len()
-            );
-            for (index, error) in errors.iter().take(10).enumerate() {
-                warn!("Proof verification error {}/{}: {:?}", index + 1, errors.len(), error);
-            }
-            if errors.len() > 10 {
-                warn!("... {} additional proof verification errors omitted", errors.len() - 10);
-            }
             for error in errors {
                 match error {
                     ProofVerificationError::NonExistenceProof { key, height, node } => {
                         if let TrieNode::Edge { child: _, path, .. } = &node {
                             if height.0 < DEFAULT_STORAGE_TREE_HEIGHT {
                                 let modified_key = path.get_key_following_edge(key, height);
-                                info!(
-                                    "Derived additional key {:#x} from non-existence proof on root {:#x} (original key {:#x}, height={})",
-                                    modified_key,
-                                    self.root,
-                                    key,
-                                    height.0
-                                );
                                 additional_keys.push(modified_key);
                             }
                         }

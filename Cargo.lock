@@ -3184,7 +3184,6 @@ dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
  "cairo-vm",
- "chrono",
  "clap",
  "env_logger",
  "futures",

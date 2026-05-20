@@ -1,5 +1,5 @@
 use futures::stream::{self, StreamExt};
-use log::{info, warn};
+use log::info;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use starknet::core::types::{BlockId, StarknetError};
 use starknet::providers::ProviderError;
@@ -19,30 +19,6 @@ const ALIAS_CONTRACT_ADDRESS: Felt = Felt::TWO;
 
 fn is_expected_missing_state_error(error: &ProviderError) -> bool {
     matches!(error, ProviderError::StarknetError(StarknetError::ContractNotFound | StarknetError::ClassHashNotFound))
-}
-
-fn log_cached_state_zero_fallback(
-    field_name: &str,
-    block_id: BlockId,
-    contract_address: ContractAddress,
-    key: Option<Felt>,
-    error: &ProviderError,
-) {
-    let key_suffix = key.map(|felt| format!(", key {:#x}", felt)).unwrap_or_default();
-    let message = format!(
-        "Cached state {} read failed at block {:?} for contract {:#x}{}: {}. Falling back to zero.",
-        field_name,
-        block_id,
-        contract_address.0.key(),
-        key_suffix,
-        error
-    );
-
-    if is_expected_missing_state_error(error) {
-        info!("{}", message);
-    } else {
-        warn!("{}", message);
-    }
 }
 
 /// Creates an empty cached state for block 0 (genesis block).
@@ -119,16 +95,7 @@ pub async fn generate_cached_state_input(
                     .await
                 {
                     Ok(storage_value) => Ok(storage_value),
-                    Err(err) if is_expected_missing_state_error(&err) => {
-                        log_cached_state_zero_fallback(
-                            "storage",
-                            block_id,
-                            contract_address,
-                            Some(*storage_key.0.key()),
-                            &err,
-                        );
-                        Ok(Felt::ZERO)
-                    }
+                    Err(err) if is_expected_missing_state_error(&err) => Ok(Felt::ZERO),
                     Err(err) => Err(err),
                 }?;
 
@@ -151,10 +118,7 @@ pub async fn generate_cached_state_input(
     for contract_address in &all_addresses {
         let nonce = match rpc_client.get_nonce_with_retry(block_id, *contract_address.key()).await {
             Ok(nonce) => Ok(nonce),
-            Err(err) if is_expected_missing_state_error(&err) => {
-                log_cached_state_zero_fallback("nonce", block_id, *contract_address, None, &err);
-                Ok(Felt::ZERO)
-            }
+            Err(err) if is_expected_missing_state_error(&err) => Ok(Felt::ZERO),
             Err(err) => Err(err),
         }
         .map_err(|err| Box::new(err) as Box<dyn std::error::Error + Send + Sync>)?;
@@ -177,10 +141,7 @@ pub async fn generate_cached_state_input(
             let class_hash_felt =
                 match rpc_client.get_class_hash_at_with_retry(block_id, *contract_address.key()).await {
                     Ok(class_hash_felt) => Ok(class_hash_felt),
-                    Err(err) if is_expected_missing_state_error(&err) => {
-                        log_cached_state_zero_fallback("class_hash", block_id, *contract_address, None, &err);
-                        Ok(Felt::ZERO)
-                    }
+                    Err(err) if is_expected_missing_state_error(&err) => Ok(Felt::ZERO),
                     Err(err) => Err(err),
                 }
                 .map_err(|err| Box::new(err) as Box<dyn std::error::Error + Send + Sync>)?;
@@ -219,23 +180,12 @@ pub async fn generate_cached_state_input(
     for (class_hash, contract_class_result) in class_fetch_results {
         match contract_class_result {
             Ok(contract_class) => successful_class_fetches.push((class_hash, contract_class)),
-            Err(ProviderError::StarknetError(StarknetError::ClassHashNotFound)) => {
-                info!(
-                    "Cached state class fetch missed previous-state class at block {:?} for class_hash {:#x}. Falling back to compiled_class_hash=0.",
-                    block_id,
-                    class_hash.0
-                );
-            }
+            Err(ProviderError::StarknetError(StarknetError::ClassHashNotFound)) => {}
             Err(err) => {
                 return Err(Box::new(err));
             }
         }
     }
-
-    info!(
-        "Fetched {} contract classes successfully, now computing hashes in parallel...",
-        successful_class_fetches.len()
-    );
 
     // Phase 2: Process contract classes in parallel using rayon (CPU parallelization)
     // For migrated classes, use v1 (Poseidon) hash since cached state represents previous block
@@ -245,32 +195,10 @@ pub async fn generate_cached_state_input(
         .filter_map(|(class_hash, contract_class)| {
             let compiled_hash = if migrated_class_hashes.contains(class_hash) {
                 // Use old Poseidon hash (v1) for migrated classes in cached state
-                match compute_compiled_class_hash(contract_class) {
-                    Ok(compiled_hash) => compiled_hash,
-                    Err(err) => {
-                        warn!(
-                            "Cached state compiled class hash v1 computation failed at block {:?} for class_hash {:#x}: {}. Falling back to zero.",
-                            block_id,
-                            class_hash.0,
-                            err
-                        );
-                        return None;
-                    }
-                }
+                compute_compiled_class_hash(contract_class).ok()?
             } else {
                 // Use BLAKE hash (v2) for non-migrated classes
-                match compute_compiled_class_hash_v2(contract_class) {
-                    Ok(compiled_hash) => compiled_hash,
-                    Err(err) => {
-                        warn!(
-                            "Cached state compiled class hash v2 computation failed at block {:?} for class_hash {:#x}: {}. Falling back to zero.",
-                            block_id,
-                            class_hash.0,
-                            err
-                        );
-                        return None;
-                    }
-                }
+                compute_compiled_class_hash_v2(contract_class).ok()?
             };
             Some((*class_hash, compiled_hash))
         })
@@ -291,14 +219,6 @@ pub async fn generate_cached_state_input(
     let cached_state_input =
         CachedStateInput { storage, address_to_class_hash, address_to_nonce, class_hash_to_compiled_class_hash };
 
-    let storage_key_count = cached_state_input.storage.values().map(HashMap::len).sum::<usize>();
-    info!(
-        "Generated cached state input successfully: storage_contracts={} storage_keys={} nonces={} class_hashes={} compiled_class_hashes={}",
-        cached_state_input.storage.len(),
-        storage_key_count,
-        cached_state_input.address_to_nonce.len(),
-        cached_state_input.address_to_class_hash.len(),
-        cached_state_input.class_hash_to_compiled_class_hash.len()
-    );
+    info!("Generated cached state input successfully!");
     Ok(cached_state_input)
 }

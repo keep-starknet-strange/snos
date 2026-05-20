@@ -1,7 +1,7 @@
 use blockifier::execution::call_info::CallInfo;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
-use log::{info, warn};
+use log::info;
 use rpc_client::error::ClientError;
 use rpc_client::types::{ClassProof, ContractData, ContractProof};
 use rpc_client::RpcClient;
@@ -10,18 +10,6 @@ use starknet_api::core::ContractAddress;
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
-
-fn summarize_felts(values: &[Felt], limit: usize) -> String {
-    if values.is_empty() {
-        return "<entire contract>".to_string();
-    }
-
-    let mut rendered: Vec<String> = values.iter().take(limit).map(|felt| format!("{:#x}", felt)).collect();
-    if values.len() > limit {
-        rendered.push(format!("...(+{} more keys)", values.len() - limit));
-    }
-    rendered.join(", ")
-}
 
 /// Comprehensive structure that captures all access information from transaction execution
 #[allow(dead_code)]
@@ -123,7 +111,6 @@ pub(crate) async fn get_storage_proofs(
 
     for (contract_address, storage_keys) in accessed_keys_by_address {
         let contract_address_felt = *contract_address.key();
-        info!("Requesting storage proof for contract {:#x} with {} keys", contract_address_felt, storage_keys.len());
         let storage_proof =
             get_storage_proof_for_contract(client, *contract_address, storage_keys.clone().into_iter(), block_number)
                 .await?;
@@ -144,10 +131,6 @@ pub(crate) async fn get_class_proofs(
 
     for class_hash in class_hashes {
         let proof = rpc_client.get_class_proof_with_retry(block_number, class_hash).await.map_err(|e| {
-            warn!(
-                "Pathfinder class proof request failed for block {} class_hash {:#x}: {}",
-                block_number, class_hash, e
-            );
             ClientError::CustomError(format!(
                 "class proof request failed for block {} class_hash {:#x}: {}",
                 block_number, class_hash, e
@@ -172,7 +155,6 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     info!("Getting storage proof for contract {}", contract_address);
     let contract_address_felt = *contract_address.key();
     let keys: Vec<_> = storage_keys.map(|storage_key| *storage_key.key()).collect();
-    let requested_key_summary = summarize_felts(&keys, 8);
 
     let mut contract_proof =
         fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &keys, block_number).await?;
@@ -193,36 +175,16 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
 
     let contract_data = match &contract_proof.contract_data {
         None => {
-            warn!(
-                "Storage proof for contract {} at block {} returned no contract_data",
-                contract_address, block_number
-            );
             return Ok(contract_proof);
         }
         Some(contract_data) => contract_data,
     };
-    info!(
-        "Fetched initial storage proof for contract {} at block {}: root={:#x} storage_proof_sets={} contract_nodes={} requested_keys=[{}]",
-        contract_address,
-        block_number,
-        contract_data.root,
-        contract_data.storage_proofs.len(),
-        contract_proof.contract_proof.len(),
-        requested_key_summary
-    );
 
     let additional_keys = if contract_data.root != Felt::ZERO {
         contract_data.get_additional_keys(&keys).map_err(|e| ClientError::CustomError(format!("{}", e)))?
     } else {
         vec![]
     };
-
-    info!(
-        "Got {} additional keys for contract {} [{}]",
-        additional_keys.len(),
-        contract_address,
-        summarize_felts(&additional_keys, 8)
-    );
 
     // Fetch additional proofs required to fill gaps in the storage trie that could make
     // the OS crash otherwise.
@@ -237,7 +199,6 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
                     "Additional storage proof for contract {} at block {} returned no contract_data",
                     contract_address, block_number
                 );
-                warn!("{}", message);
                 return Err(ClientError::CustomError(message));
             }
             Some(contract_data) => {
@@ -249,17 +210,6 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
             }
         }
         contract_proof = merge_storage_proofs(vec![contract_proof.clone(), additional_proof]);
-    }
-
-    if let Some(contract_data) = &contract_proof.contract_data {
-        info!(
-            "Final merged storage proof for contract {} at block {}: root={:#x} storage_proof_sets={} contract_nodes={}",
-            contract_address,
-            block_number,
-            contract_data.root,
-            contract_data.storage_proofs.len(),
-            contract_proof.contract_proof.len()
-        );
     }
 
     Ok(contract_proof)
@@ -274,24 +224,14 @@ async fn fetch_storage_proof_for_contract(
     keys: &[Felt],
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
-    let key_summary = summarize_felts(keys, 8);
-    info!("Fetching storage proof for contract {} with {} keys [{}]", contract_address, keys.len(), key_summary);
+    info!("Fetching storage proof for contract {} with {} keys", contract_address, keys.len());
 
     rpc_client.get_proof_with_retry(block_number, contract_address, keys).await.map_err(|e| {
-        warn!(
-            "Pathfinder storage proof request failed for block {} contract {:#x} keys={} [{}]: {}",
-            block_number,
-            contract_address,
-            keys.len(),
-            key_summary,
-            e
-        );
         ClientError::CustomError(format!(
-            "storage proof request failed for block {} contract {:#x} keys={} [{}]: {}",
+            "storage proof request failed for block {} contract {:#x} keys={}: {}",
             block_number,
             contract_address,
             keys.len(),
-            key_summary,
             e
         ))
     })
