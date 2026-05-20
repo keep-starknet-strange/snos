@@ -153,7 +153,7 @@ async fn fetch_class_info(
 ) -> Result<ClassInfo, ConversionError> {
     debug!("Fetching class info for hash: {:?} at block: {}", class_hash, block_number);
 
-    let contract_class = rpc_client.get_class(BlockId::Number(block_number), class_hash).await?;
+    let contract_class = rpc_client.starknet().get_class(BlockId::Number(block_number), class_hash).await?;
 
     let (blockifier_contract_class, program_length, abi_length, version) = match contract_class {
         starknet::core::types::ContractClass::Sierra(sierra) => {

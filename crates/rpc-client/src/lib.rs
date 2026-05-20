@@ -29,8 +29,8 @@
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let client = RpcClient::try_new("https://your-starknet-node.com")?;
 //!
-//!     let block = client.get_block_with_tx_hashes(BlockId::Number(12345)).await?;
-//!     let proof = client.get_proof(12345, Felt::from(12345), &[Felt::from(12345)]).await?;
+//!     let block = client.starknet().get_block_with_tx_hashes(BlockId::Number(12345)).await?;
+//!     let proof = client.starknet().get_proof(12345, Felt::from(12345), &[Felt::from(12345)]).await?;
 //!
 //!     Ok(())
 //! }

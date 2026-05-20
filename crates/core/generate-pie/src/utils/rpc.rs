@@ -130,7 +130,7 @@ pub(crate) async fn get_class_proofs(
     info!("Fetching class proofs for {} classes", class_hashes.len());
 
     for class_hash in class_hashes {
-        let proof = rpc_client.get_class_proof(block_number, class_hash).await.map_err(|e| {
+        let proof = rpc_client.starknet().get_class_proof(block_number, class_hash).await.map_err(|e| {
             ClientError::CustomError(format!(
                 "class proof request failed for block {} class_hash {:#x}: {}",
                 block_number, class_hash, e
@@ -226,7 +226,7 @@ async fn fetch_storage_proof_for_contract(
 ) -> Result<ContractProof, ClientError> {
     info!("Fetching storage proof for contract {} with {} keys", contract_address, keys.len());
 
-    rpc_client.get_proof(block_number, contract_address, keys).await.map_err(|e| {
+    rpc_client.starknet().get_proof(block_number, contract_address, keys).await.map_err(|e| {
         ClientError::CustomError(format!(
             "storage proof request failed for block {} contract {:#x} keys={}: {}",
             block_number,
