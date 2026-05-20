@@ -31,7 +31,7 @@ const MAX_RPC_RETRIES: u32 = 5;
 const INITIAL_RPC_RETRY_BACKOFF_MS: u64 = 100;
 const MAX_RPC_RETRY_BACKOFF_MS: u64 = 2000;
 
-pub(crate) fn is_retryable_provider_error(error: &ProviderError) -> bool {
+fn is_retryable_provider_error(error: &ProviderError) -> bool {
     matches!(
         error,
         ProviderError::Other(_)
@@ -40,7 +40,7 @@ pub(crate) fn is_retryable_provider_error(error: &ProviderError) -> bool {
     )
 }
 
-pub(crate) async fn execute_with_retry<T, F, Fut>(operation_name: &str, mut f: F) -> Result<T, ProviderError>
+async fn execute_with_retry<T, F, Fut>(operation_name: &str, mut f: F) -> Result<T, ProviderError>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, ProviderError>>,
@@ -188,10 +188,9 @@ impl RpcClientInner {
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let client = RpcClient::new("https://your-starknet-node.com");
+///     let client = RpcClient::try_new("https://your-starknet-node.com")?;
 ///
-///     // Get the latest block
-///     let block = client.starknet_rpc().get_block(BlockId::Latest).await?;
+///     let block = client.get_block_with_tx_hashes(BlockId::Number(12345)).await?;
 ///     println!("Latest block number: {}", block.block_number);
 ///
 ///     Ok(())
@@ -223,16 +222,16 @@ impl RpcClient {
     /// ```rust
     /// use rpc_client::RpcClient;
     ///
-    /// let client = RpcClient::new("https://your-starknet-node.com");
+    /// let client = RpcClient::try_new("https://your-starknet-node.com")?;
+    /// # Ok::<(), anyhow::Error>(())
     /// ```
     pub fn try_new(base_url: &str) -> anyhow::Result<Self> {
         Ok(Self { inner: Arc::new(RpcClientInner::try_new(base_url)?) })
     }
 
-    /// Returns a reference to the underlying Starknet RPC client.
+    /// Returns the underlying Starknet RPC client for low-level access.
     ///
-    /// This client provides access to all standard Starknet RPC endpoints as defined
-    /// in the Starknet RPC specification.
+    /// Prefer the high-level methods on [`RpcClient`] so retry behavior stays consistent.
     ///
     /// # Returns
     ///
@@ -246,11 +245,9 @@ impl RpcClient {
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let client = RpcClient::new("https://your-starknet-node.com");
+    ///     let client = RpcClient::try_new("https://your-starknet-node.com")?;
     ///
-    ///     // Use the Starknet RPC client directly
-    ///     let block = client.starknet_rpc().get_block(BlockId::Latest).await?;
-    ///     println!("Block hash: {:?}", block.block_hash);
+    ///     let _block = client.starknet_rpc().get_block_with_tx_hashes(BlockId::Number(12345)).await?;
     ///
     ///     Ok(())
     /// }
@@ -260,19 +257,16 @@ impl RpcClient {
         &self.inner.starknet_client
     }
 
-    pub async fn chain_id_with_retry(&self) -> Result<Felt, ProviderError> {
+    pub async fn chain_id(&self) -> Result<Felt, ProviderError> {
         execute_with_retry("chain_id", || self.starknet_rpc().chain_id()).await
     }
 
-    pub async fn get_block_with_txs_with_retry(
-        &self,
-        block_id: BlockId,
-    ) -> Result<MaybePreConfirmedBlockWithTxs, ProviderError> {
+    pub async fn get_block_with_txs(&self, block_id: BlockId) -> Result<MaybePreConfirmedBlockWithTxs, ProviderError> {
         let operation_name = format!("get_block_with_txs(block_id: {:?})", block_id);
         execute_with_retry(&operation_name, || self.starknet_rpc().get_block_with_txs(block_id)).await
     }
 
-    pub async fn get_block_with_tx_hashes_with_retry(
+    pub async fn get_block_with_tx_hashes(
         &self,
         block_id: BlockId,
     ) -> Result<MaybePreConfirmedBlockWithTxHashes, ProviderError> {
@@ -280,15 +274,12 @@ impl RpcClient {
         execute_with_retry(&operation_name, || self.starknet_rpc().get_block_with_tx_hashes(block_id)).await
     }
 
-    pub async fn get_state_update_with_retry(
-        &self,
-        block_id: BlockId,
-    ) -> Result<MaybePreConfirmedStateUpdate, ProviderError> {
+    pub async fn get_state_update(&self, block_id: BlockId) -> Result<MaybePreConfirmedStateUpdate, ProviderError> {
         let operation_name = format!("get_state_update(block_id: {:?})", block_id);
         execute_with_retry(&operation_name, || self.starknet_rpc().get_state_update(block_id)).await
     }
 
-    pub async fn trace_block_transactions_with_retry(
+    pub async fn trace_block_transactions(
         &self,
         block_id: ConfirmedBlockId,
     ) -> Result<Vec<TransactionTraceWithHash>, ProviderError> {
@@ -296,7 +287,7 @@ impl RpcClient {
         execute_with_retry(&operation_name, || self.starknet_rpc().trace_block_transactions(block_id)).await
     }
 
-    pub async fn get_storage_at_with_retry(
+    pub async fn get_storage_at(
         &self,
         contract_address: Felt,
         storage_key: Felt,
@@ -312,22 +303,18 @@ impl RpcClient {
         .await
     }
 
-    pub async fn get_nonce_with_retry(&self, block_id: BlockId, contract_address: Felt) -> Result<Felt, ProviderError> {
+    pub async fn get_nonce(&self, block_id: BlockId, contract_address: Felt) -> Result<Felt, ProviderError> {
         let operation_name = format!("get_nonce(contract_address: {:#x}, block_id: {:?})", contract_address, block_id);
         execute_with_retry(&operation_name, || self.starknet_rpc().get_nonce(block_id, contract_address)).await
     }
 
-    pub async fn get_class_hash_at_with_retry(
-        &self,
-        block_id: BlockId,
-        contract_address: Felt,
-    ) -> Result<Felt, ProviderError> {
+    pub async fn get_class_hash_at(&self, block_id: BlockId, contract_address: Felt) -> Result<Felt, ProviderError> {
         let operation_name =
             format!("get_class_hash_at(contract_address: {:#x}, block_id: {:?})", contract_address, block_id);
         execute_with_retry(&operation_name, || self.starknet_rpc().get_class_hash_at(block_id, contract_address)).await
     }
 
-    pub async fn get_class_with_retry(
+    pub async fn get_class(
         &self,
         block_id: BlockId,
         class_hash: Felt,
@@ -336,7 +323,7 @@ impl RpcClient {
         execute_with_retry(&operation_name, || self.starknet_rpc().get_class(block_id, class_hash)).await
     }
 
-    pub async fn get_proof_with_retry(
+    pub async fn get_proof(
         &self,
         block_number: u64,
         contract_address: Felt,
@@ -352,11 +339,7 @@ impl RpcClient {
             .await
     }
 
-    pub async fn get_class_proof_with_retry(
-        &self,
-        block_number: u64,
-        class_hash: &Felt,
-    ) -> Result<ClassProof, ProviderError> {
+    pub async fn get_class_proof(&self, block_number: u64, class_hash: &Felt) -> Result<ClassProof, ProviderError> {
         let operation_name = format!("get_class_proof(class_hash: {:#x}, block_number: {})", class_hash, block_number);
         execute_with_retry(&operation_name, || self.starknet_rpc().get_class_proof(block_number, class_hash)).await
     }

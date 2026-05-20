@@ -23,23 +23,14 @@
 //! ```rust
 //! use rpc_client::RpcClient;
 //! use starknet::core::types::BlockId;
+//! use starknet_types_core::felt::Felt;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Create a new RPC client
-//!     use starknet_core::types::BlockTag;
-//! use starknet_types_core::felt::Felt;
-//! let client = RpcClient::new("https://your-starknet-node.com");
+//!     let client = RpcClient::try_new("https://your-starknet-node.com")?;
 //!
-//!     // Use standard Starknet RPC
-//!     let block = client.starknet_rpc().get_block(BlockId::Tag(BlockTag::Latest)).await?;
-//!
-//!     // Use Pathfinder-specific RPC
-//!     let proof = client.pathfinder_rpc().get_proof(
-//!         12345,
-//!         Felt::from(12345),
-//!         &[Felt::from(12345)]
-//!     ).await?;
+//!     let block = client.get_block_with_tx_hashes(BlockId::Number(12345)).await?;
+//!     let proof = client.get_proof(12345, Felt::from(12345), &[Felt::from(12345)]).await?;
 //!
 //!     Ok(())
 //! }
