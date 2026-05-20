@@ -71,7 +71,7 @@ where
                 }
 
                 let retries_left = MAX_RPC_RETRIES.saturating_sub(retries_used);
-                warn!(
+                info!(
                     "{}: attempt {} failed with retryable error: {:?}, retrying in {}ms ({} retries left)",
                     operation_name, attempt, error, backoff_ms, retries_left
                 );
