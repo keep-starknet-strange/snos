@@ -65,13 +65,13 @@ impl BlockData {
 
         // Fetch chain ID from RPC
         let chain_id_result =
-            rpc_client.starknet().chain_id().await.map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
+            rpc_client.starknet_rpc().chain_id().await.map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
         let chain_id = chain_id_from_felt(chain_id_result);
         info!("Provider's chain_id: {}", chain_id);
 
         // Fetch the current block with transactions
         let current_block = match rpc_client
-            .starknet()
+            .starknet_rpc()
             .get_block_with_txs(block_id)
             .await
             .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
@@ -91,7 +91,7 @@ impl BlockData {
         // Fetch the previous block if it exists
         let previous_block = match previous_block_id {
             Some(previous_block_id) => match rpc_client
-                .starknet()
+                .starknet_rpc()
                 .get_block_with_tx_hashes(previous_block_id)
                 .await
                 .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
@@ -107,7 +107,7 @@ impl BlockData {
         // Fetch older block for hash buffer
         let old_block_number_u64 = block_number.saturating_sub(STORED_BLOCK_HASH_BUFFER);
         let old_block = match rpc_client
-            .starknet()
+            .starknet_rpc()
             .get_block_with_tx_hashes(BlockId::Number(old_block_number_u64))
             .await
             .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
@@ -156,7 +156,7 @@ impl BlockData {
 
         // Fetch transaction traces
         let transaction_traces = rpc_client
-            .starknet()
+            .starknet_rpc()
             .trace_block_transactions(confirmed_block_id)
             .await
             .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;

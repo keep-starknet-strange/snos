@@ -190,7 +190,7 @@ impl RpcClientInner {
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let client = RpcClient::try_new("https://your-starknet-node.com")?;
 ///
-///     let block = client.starknet().get_block_with_tx_hashes(BlockId::Number(12345)).await?;
+///     let block = client.starknet_rpc().get_block_with_tx_hashes(BlockId::Number(12345)).await?;
 ///     println!("Latest block number: {}", block.block_number);
 ///
 ///     Ok(())
@@ -202,7 +202,7 @@ pub struct RpcClient {
     inner: Arc<RpcClientInner>,
 }
 
-/// Retry-enabled Starknet RPC facade returned by [`RpcClient::starknet`].
+/// Retry-enabled Starknet RPC facade returned by [`RpcClient::starknet_rpc`].
 #[derive(Clone, Copy)]
 pub struct StarknetRpc<'a> {
     provider: &'a JsonRpcClient<HttpTransport>,
@@ -240,7 +240,7 @@ impl RpcClient {
     /// All standard Starknet RPC calls should go through this accessor so transport retry
     /// behavior stays consistent across the codebase.
     #[must_use]
-    pub fn starknet(&self) -> StarknetRpc<'_> {
+    pub fn starknet_rpc(&self) -> StarknetRpc<'_> {
         StarknetRpc { provider: &self.inner.starknet_client }
     }
 }

@@ -550,7 +550,7 @@ async fn check_blocks_exist(
     blocks: &[u64],
 ) -> Result<bool, Box<dyn error::Error + Send + Sync>> {
     for &block_num in blocks {
-        match rpc_client.starknet().get_block_with_tx_hashes(BlockId::Number(block_num)).await {
+        match rpc_client.starknet_rpc().get_block_with_tx_hashes(BlockId::Number(block_num)).await {
             Ok(_) => {
                 // Block exists, continue checking
                 continue;

@@ -91,7 +91,7 @@ pub async fn generate_cached_state_input(
         stream::iter(storage_requests)
             .map(|(contract_address, storage_key)| async move {
                 let storage_value = match rpc_client
-                    .starknet()
+                    .starknet_rpc()
                     .get_storage_at(*contract_address.key(), *storage_key.0.key(), block_id)
                     .await
                 {
@@ -117,7 +117,7 @@ pub async fn generate_cached_state_input(
 
     // 2. Get nonces for all addresses
     for contract_address in &all_addresses {
-        let nonce = match rpc_client.starknet().get_nonce(block_id, *contract_address.key()).await {
+        let nonce = match rpc_client.starknet_rpc().get_nonce(block_id, *contract_address.key()).await {
             Ok(nonce) => Ok(nonce),
             Err(err) if is_expected_missing_state_error(&err) => Ok(Felt::ZERO),
             Err(err) => Err(err),
@@ -140,7 +140,7 @@ pub async fn generate_cached_state_input(
             ClassHash(Felt::ZERO)
         } else {
             let class_hash_felt =
-                match rpc_client.starknet().get_class_hash_at(block_id, *contract_address.key()).await {
+                match rpc_client.starknet_rpc().get_class_hash_at(block_id, *contract_address.key()).await {
                     Ok(class_hash_felt) => Ok(class_hash_felt),
                     Err(err) if is_expected_missing_state_error(&err) => Ok(Felt::ZERO),
                     Err(err) => Err(err),
@@ -170,7 +170,7 @@ pub async fn generate_cached_state_input(
     let class_fetch_results: Vec<(ClassHash, Result<starknet::core::types::ContractClass, ProviderError>)> =
         stream::iter(non_zero_class_hashes.clone())
             .map(|class_hash| async move {
-                let contract_class = rpc_client.starknet().get_class(block_id, class_hash.0).await;
+                let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash.0).await;
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)

@@ -72,12 +72,16 @@ impl AsyncRpcStateReader {
         }
 
         let block_id = self.block_id.unwrap();
-        let storage_value =
-            match self.rpc_client.starknet().get_storage_at(*contract_address.key(), *key.0.key(), block_id).await {
-                Ok(value) => Ok(value),
-                Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
-                Err(e) => Err(provider_error_to_state_error(e)),
-            }?;
+        let storage_value = match self
+            .rpc_client
+            .starknet_rpc()
+            .get_storage_at(*contract_address.key(), *key.0.key(), block_id)
+            .await
+        {
+            Ok(value) => Ok(value),
+            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
+            Err(e) => Err(provider_error_to_state_error(e)),
+        }?;
 
         Ok(storage_value)
     }
@@ -91,7 +95,7 @@ impl AsyncRpcStateReader {
         let block_id = self.block_id.unwrap();
         debug!("got a request of get_nonce_at with parameters the contract address: {:?}", contract_address);
 
-        let nonce = match self.rpc_client.starknet().get_nonce(block_id, *contract_address.key()).await {
+        let nonce = match self.rpc_client.starknet_rpc().get_nonce(block_id, *contract_address.key()).await {
             Ok(value) => Ok(value),
             Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
             Err(e) => Err(provider_error_to_state_error(e)),
@@ -108,7 +112,8 @@ impl AsyncRpcStateReader {
         let block_id = self.block_id.unwrap();
         debug!("got a request of get_class_hash_at with parameters the contract address: {:?}", contract_address);
 
-        let class_hash = match self.rpc_client.starknet().get_class_hash_at(block_id, *contract_address.key()).await {
+        let class_hash = match self.rpc_client.starknet_rpc().get_class_hash_at(block_id, *contract_address.key()).await
+        {
             Ok(class_hash) => Ok(class_hash),
             Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(ClassHash::default().0),
             Err(e) => Err(provider_error_to_state_error(e)),
@@ -126,7 +131,7 @@ impl AsyncRpcStateReader {
         let block_id = self.block_id.unwrap();
         debug!("got a request of get_compiled_class with parameters the class hash: {:?}", class_hash);
 
-        let contract_class = match self.rpc_client.starknet().get_class(block_id, class_hash.0).await {
+        let contract_class = match self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0).await {
             Ok(contract_class) => Ok(contract_class),
             // If the ContractClass is declared in the current block,
             // might trigger this error when trying to get it on the previous block.
@@ -193,7 +198,7 @@ impl AsyncRpcStateReader {
 
         let contract_class = self
             .rpc_client
-            .starknet()
+            .starknet_rpc()
             .get_class(block_id, class_hash.0)
             .await
             .map_err(provider_error_to_state_error)?;
