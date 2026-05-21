@@ -8,6 +8,7 @@ use log::info;
 use rpc_client::client::ProofClient;
 use rpc_client::error::ClientError;
 use rpc_client::types::{ClassProof, ContractData, ContractProof};
+use rpc_client::utils::execute_with_retry;
 use rpc_client::RpcClient;
 use starknet_api::contract_address;
 use starknet_api::core::{ClassHash, ContractAddress};
@@ -143,11 +144,16 @@ pub(crate) async fn get_class_proofs(
     info!("Fetching class proofs for {} classes", class_hashes.len());
 
     for class_hash in class_hashes {
-        let proof = rpc_client
-            .starknet_rpc()
-            .get_class_proof(block_number, class_hash)
-            .await
-            .map_err(|e| ClientError::CustomError(format!("{}", e)))?;
+        let operation_name = format!("get_class_proof(block_number: {block_number}, class_hash: {class_hash:#x})");
+        let proof =
+            execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class_proof(block_number, class_hash))
+                .await
+                .map_err(|e| {
+                    ClientError::CustomError(format!(
+                        "class proof request failed for block {} class_hash {:#x}: {}",
+                        block_number, class_hash, e
+                    ))
+                })?;
         // TODO: need to combine these, similar to merge_chunked_storage_proofs above?
         proofs.insert(**class_hash, proof);
     }
@@ -198,8 +204,6 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         vec![]
     };
 
-    info!("Got {} additional keys for contract {}", additional_keys.len(), contract_address);
-
     // Fetch additional proofs required to fill gaps in the storage trie that could make
     // the OS crash otherwise.
     if !additional_keys.is_empty() {
@@ -209,7 +213,11 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         // Combine all storage proofs into a single vector
         match &additional_proof.contract_data {
             None => {
-                panic!("Failed to fetch additional proof for contract {}", contract_address)
+                let message = format!(
+                    "Additional storage proof for contract {} at block {} returned no contract_data",
+                    contract_address, block_number
+                );
+                return Err(ClientError::CustomError(message));
             }
             Some(contract_data) => {
                 additional_proof.contract_data = Some(ContractData {
@@ -236,11 +244,22 @@ async fn fetch_storage_proof_for_contract(
 ) -> Result<ContractProof, ClientError> {
     info!("Fetching storage proof for contract {} with {} keys", contract_address, keys.len());
 
-    rpc_client
-        .starknet_rpc()
-        .get_proof(block_number, contract_address, keys)
+    let operation_name = format!(
+        "get_proof(block_number: {block_number}, contract_address: {contract_address:#x}, keys: {})",
+        keys.len()
+    );
+
+    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_proof(block_number, contract_address, keys))
         .await
-        .map_err(|e| ClientError::CustomError(format!("{}", e)))
+        .map_err(|e| {
+            ClientError::CustomError(format!(
+                "storage proof request failed for block {} contract {:#x} keys={}: {}",
+                block_number,
+                contract_address,
+                keys.len(),
+                e
+            ))
+        })
 }
 
 /// Merges the storage proofs of the SAME contract.
