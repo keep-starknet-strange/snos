@@ -1,10 +1,25 @@
 //! Utility functions for async operations and coroutine execution.
 
+use log::{debug, warn};
+use starknet::core::types::StarknetError;
+use starknet::providers::ProviderError;
+use std::future::Future;
 use std::sync::OnceLock;
+use std::time::Duration;
+use tokio::time::sleep;
 
 /// Global Tokio runtime for executing async operations in non-async contexts.
 /// This is used when there's no current runtime available (e.g., in worker threads).
 static GLOBAL_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+
+/// Maximum number of retry attempts for RPC calls.
+const MAX_RETRY_ATTEMPTS: u32 = 5;
+
+/// Initial delay for exponential backoff (in milliseconds).
+const INITIAL_BACKOFF_MS: u64 = 100;
+
+/// Maximum delay for exponential backoff (in milliseconds).
+const MAX_BACKOFF_MS: u64 = 5000;
 
 /// Gets or creates the global Tokio runtime.
 fn get_global_runtime() -> &'static tokio::runtime::Runtime {
@@ -50,6 +65,47 @@ where
             // No current runtime (e.g., called from a worker thread), use global runtime
             let runtime = get_global_runtime();
             runtime.block_on(coroutine)
+        }
+    }
+}
+
+/// Executes an RPC call with exponential backoff retry logic.
+pub async fn execute_with_retry<T, F, Fut>(operation_name: &str, f: F) -> Result<T, ProviderError>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = Result<T, ProviderError>>,
+{
+    let mut attempts = 0;
+    let mut backoff_ms = INITIAL_BACKOFF_MS;
+
+    loop {
+        attempts += 1;
+
+        match f().await {
+            Ok(result) => {
+                if attempts > 1 {
+                    debug!("{operation_name}: succeeded after {attempts} attempts");
+                }
+                return Ok(result);
+            }
+            Err(e) => {
+                let is_retryable = !matches!(
+                    &e,
+                    ProviderError::StarknetError(StarknetError::ContractNotFound)
+                        | ProviderError::StarknetError(StarknetError::ClassHashNotFound)
+                );
+
+                if !is_retryable || attempts >= MAX_RETRY_ATTEMPTS {
+                    if attempts > 1 {
+                        warn!("{operation_name}: failed after {attempts} attempts with error: {e:?}");
+                    }
+                    return Err(e);
+                }
+
+                warn!("{operation_name}: attempt {attempts} failed with error: {e:?}, retrying in {backoff_ms}ms...");
+                sleep(Duration::from_millis(backoff_ms)).await;
+                backoff_ms = (backoff_ms * 2).min(MAX_BACKOFF_MS);
+            }
         }
     }
 }

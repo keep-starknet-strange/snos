@@ -37,6 +37,7 @@ use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use thiserror::Error;
 
 use crate::error::ToBlockifierError;
+use rpc_client::utils::execute_with_retry;
 use rpc_client::RpcClient;
 
 // ================================================================================================
@@ -154,7 +155,11 @@ async fn fetch_class_info(
 ) -> Result<ClassInfo, ConversionError> {
     debug!("Fetching class info for hash: {:?} at block: {}", class_hash, block_number);
 
-    let contract_class = rpc_client.starknet_rpc().get_class(BlockId::Number(block_number), class_hash).await?;
+    let operation_name = format!("get_class(block_number: {block_number}, class_hash: {class_hash:#x})");
+    let contract_class = execute_with_retry(&operation_name, || {
+        rpc_client.starknet_rpc().get_class(BlockId::Number(block_number), class_hash)
+    })
+    .await?;
 
     let (blockifier_contract_class, program_length, abi_length, version) = match contract_class {
         starknet::core::types::ContractClass::Sierra(sierra) => {

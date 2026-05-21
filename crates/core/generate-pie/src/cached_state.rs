@@ -1,8 +1,8 @@
 use futures::stream::{self, StreamExt};
 use log::info;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use starknet::core::types::BlockId;
-use starknet::providers::Provider;
+use starknet::core::types::{BlockId, StarknetError};
+use starknet::providers::ProviderError;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_os::io::os_input::CachedStateInput;
@@ -11,11 +11,16 @@ use std::collections::{HashMap, HashSet};
 
 use crate::constants::{MAX_CONCURRENT_GET_CLASS_REQUESTS, MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS};
 use rpc_client::state_reader::{compute_compiled_class_hash, compute_compiled_class_hash_v2};
+use rpc_client::utils::execute_with_retry;
 use rpc_client::RpcClient;
 
 // Constants for special contract addresses
 const BLOCK_HASH_CONTRACT_ADDRESS: Felt = Felt::ONE;
 const ALIAS_CONTRACT_ADDRESS: Felt = Felt::TWO;
+
+fn is_expected_missing_state_error(error: &ProviderError) -> bool {
+    matches!(error, ProviderError::StarknetError(StarknetError::ContractNotFound | StarknetError::ClassHashNotFound))
+}
 
 /// Creates an empty cached state for block 0 (genesis block).
 ///
@@ -83,22 +88,35 @@ pub async fn generate_cached_state_input(
     );
 
     // Fetch all storage values concurrently
-    let storage_results: Vec<(ContractAddress, StorageKey, Felt)> = stream::iter(storage_requests)
-        .map(|(contract_address, storage_key)| async move {
-            let storage_value = rpc_client
-                .starknet_rpc()
-                .get_storage_at(*contract_address.key(), *storage_key.0.key(), block_id)
+    let storage_results: Vec<Result<(ContractAddress, StorageKey, Felt), ProviderError>> =
+        stream::iter(storage_requests)
+            .map(|(contract_address, storage_key)| async move {
+                let operation_name = format!(
+                    "get_storage_at(contract_address: {:#x}, storage_key: {:#x}, block_id: {:?})",
+                    contract_address.key(),
+                    storage_key.0.key(),
+                    block_id
+                );
+                let storage_value = match execute_with_retry(&operation_name, || {
+                    rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *storage_key.0.key(), block_id)
+                })
                 .await
-                .unwrap_or(Felt::ZERO); // Default to zero if not found
+                {
+                    Ok(storage_value) => Ok(storage_value),
+                    Err(err) if is_expected_missing_state_error(&err) => Ok(Felt::ZERO),
+                    Err(err) => Err(err),
+                }?;
 
-            (contract_address, storage_key, storage_value)
-        })
-        .buffer_unordered(MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS)
-        .collect()
-        .await;
+                Ok((contract_address, storage_key, storage_value))
+            })
+            .buffer_unordered(MAX_CONCURRENT_GET_STORAGE_AT_REQUESTS)
+            .collect()
+            .await;
 
     // Reconstruct the nested HashMap structure from results
-    for (contract_address, storage_key, storage_value) in storage_results {
+    for result in storage_results {
+        let (contract_address, storage_key, storage_value) =
+            result.map_err(|err| Box::new(err) as Box<dyn std::error::Error + Send + Sync>)?;
         storage.entry(contract_address).or_insert_with(HashMap::new).insert(storage_key, storage_value);
     }
 
@@ -106,7 +124,18 @@ pub async fn generate_cached_state_input(
 
     // 2. Get nonces for all addresses
     for contract_address in &all_addresses {
-        let nonce = rpc_client.starknet_rpc().get_nonce(block_id, *contract_address.key()).await.unwrap_or(Felt::ZERO); // Default to zero if not found
+        let operation_name =
+            format!("get_nonce(contract_address: {:#x}, block_id: {:?})", contract_address.key(), block_id);
+        let nonce = match execute_with_retry(&operation_name, || {
+            rpc_client.starknet_rpc().get_nonce(block_id, *contract_address.key())
+        })
+        .await
+        {
+            Ok(nonce) => Ok(nonce),
+            Err(err) if is_expected_missing_state_error(&err) => Ok(Felt::ZERO),
+            Err(err) => Err(err),
+        }
+        .map_err(|err| Box::new(err) as Box<dyn std::error::Error + Send + Sync>)?;
 
         address_to_nonce.insert(*contract_address, Nonce(nonce));
     }
@@ -123,11 +152,18 @@ pub async fn generate_cached_state_input(
             // Special case for system contracts (block hash and alias contract)
             ClassHash(Felt::ZERO)
         } else {
-            let class_hash_felt = rpc_client
-                .starknet_rpc()
-                .get_class_hash_at(block_id, *contract_address.key())
-                .await
-                .unwrap_or(Felt::ZERO); // Default to zero if not found
+            let operation_name =
+                format!("get_class_hash_at(contract_address: {:#x}, block_id: {:?})", contract_address.key(), block_id);
+            let class_hash_felt = match execute_with_retry(&operation_name, || {
+                rpc_client.starknet_rpc().get_class_hash_at(block_id, *contract_address.key())
+            })
+            .await
+            {
+                Ok(class_hash_felt) => Ok(class_hash_felt),
+                Err(err) if is_expected_missing_state_error(&err) => Ok(Felt::ZERO),
+                Err(err) => Err(err),
+            }
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error + Send + Sync>)?;
             ClassHash(class_hash_felt)
         };
 
@@ -149,25 +185,34 @@ pub async fn generate_cached_state_input(
     );
 
     // Phase 1: Fetch all contract classes concurrently (network I/O parallelization)
-    let class_fetch_results: Vec<(ClassHash, Option<starknet::core::types::ContractClass>)> =
+    let class_fetch_results: Vec<(ClassHash, Result<starknet::core::types::ContractClass, ProviderError>)> =
         stream::iter(non_zero_class_hashes.clone())
             .map(|class_hash| async move {
-                let contract_class = rpc_client.starknet_rpc().get_class(block_id, class_hash.0).await.ok();
+                let operation_name = format!("get_class(class_hash: {:#x}, block_id: {:?})", class_hash.0, block_id);
+                let contract_class =
+                    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
+                        .await;
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
             .collect()
             .await;
 
-    info!("Fetched {} contract classes, now computing hashes in parallel...", class_fetch_results.len());
+    let mut successful_class_fetches = Vec::with_capacity(class_fetch_results.len());
+    for (class_hash, contract_class_result) in class_fetch_results {
+        match contract_class_result {
+            Ok(contract_class) => successful_class_fetches.push((class_hash, contract_class)),
+            Err(ProviderError::StarknetError(StarknetError::ClassHashNotFound)) => {}
+            Err(err) => return Err(Box::new(err)),
+        }
+    }
 
     // Phase 2: Process contract classes in parallel using rayon (CPU parallelization)
     // For migrated classes, use v1 (Poseidon) hash since cached state represents previous block
     // For other classes, use v2 (BLAKE) hash
-    let compiled_class_hash_results: Vec<(ClassHash, CompiledClassHash)> = class_fetch_results
+    let compiled_class_hash_results: Vec<(ClassHash, CompiledClassHash)> = successful_class_fetches
         .par_iter()
-        .filter_map(|(class_hash, contract_class_opt)| {
-            let contract_class = contract_class_opt.as_ref()?;
+        .filter_map(|(class_hash, contract_class)| {
             let compiled_hash = if migrated_class_hashes.contains(class_hash) {
                 // Use old Poseidon hash (v1) for migrated classes in cached state
                 compute_compiled_class_hash(contract_class).ok()?

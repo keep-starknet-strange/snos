@@ -12,12 +12,9 @@ use starknet_api::state::StorageKey;
 use starknet_os_types::deprecated_compiled_class::GenericDeprecatedCompiledClass;
 use starknet_os_types::sierra_contract_class::GenericSierraContractClass;
 use starknet_os_types::starknet_core_addons::decompress_starknet_legacy_contract_class;
-use std::future::Future;
-use std::time::Duration;
-use tokio::time::sleep;
 
 use crate::client::RpcClient;
-use crate::utils::execute_coroutine;
+use crate::utils::{execute_coroutine, execute_with_retry};
 
 #[cfg(test)]
 pub mod tests;
@@ -41,15 +38,6 @@ impl CompiledClassHashVersion {
     }
 }
 
-/// Maximum number of retry attempts for RPC calls
-const MAX_RETRY_ATTEMPTS: u32 = 3;
-
-/// Initial delay for exponential backoff (in milliseconds)
-const INITIAL_BACKOFF_MS: u64 = 100;
-
-/// Maximum delay for exponential backoff (in milliseconds)
-const MAX_BACKOFF_MS: u64 = 5000;
-
 #[derive(Clone)]
 pub struct AsyncRpcStateReader {
     rpc_client: RpcClient,
@@ -59,64 +47,6 @@ pub struct AsyncRpcStateReader {
 impl AsyncRpcStateReader {
     pub fn new(rpc_client: RpcClient, block_id: Option<BlockId>) -> Self {
         Self { rpc_client, block_id }
-    }
-
-    /// Execute an RPC call with exponential backoff retry logic
-    ///
-    /// # Arguments
-    /// * `operation_name` - Name of the operation for logging purposes
-    /// * `f` - The async function to execute with retry logic
-    ///
-    /// # Returns
-    /// The result of the RPC call or an error after all retries are exhausted
-    async fn execute_with_retry<T, F, Fut>(&self, operation_name: &str, f: F) -> Result<T, ProviderError>
-    where
-        F: Fn() -> Fut,
-        Fut: Future<Output = Result<T, ProviderError>>,
-    {
-        let mut attempts = 0;
-        let mut backoff_ms = INITIAL_BACKOFF_MS;
-
-        loop {
-            attempts += 1;
-
-            match f().await {
-                Ok(result) => {
-                    if attempts > 1 {
-                        debug!("{}: succeeded after {} attempts", operation_name, attempts);
-                    }
-                    return Ok(result);
-                }
-                Err(e) => {
-                    // Check if the error is retryable
-                    let is_retryable = match &e {
-                        // Don't retry on semantic errors (contract not found, class not found, etc.)
-                        ProviderError::StarknetError(StarknetError::ContractNotFound)
-                        | ProviderError::StarknetError(StarknetError::ClassHashNotFound) => false,
-                        // Retry on network/transport errors
-                        _ => true,
-                    };
-
-                    if !is_retryable || attempts >= MAX_RETRY_ATTEMPTS {
-                        if attempts > 1 {
-                            warn!("{}: failed after {} attempts with error: {:?}", operation_name, attempts, e);
-                        }
-                        return Err(e);
-                    }
-
-                    warn!(
-                        "{}: attempt {} failed with error: {:?}, retrying in {}ms...",
-                        operation_name, attempts, e, backoff_ms
-                    );
-
-                    // Wait with exponential backoff
-                    sleep(Duration::from_millis(backoff_ms)).await;
-
-                    // Increase backoff for next attempt (exponential backoff with cap)
-                    backoff_ms = (backoff_ms * 2).min(MAX_BACKOFF_MS);
-                }
-            }
-        }
     }
 }
 
@@ -144,11 +74,10 @@ impl AsyncRpcStateReader {
         let block_id = self.block_id.unwrap();
         let operation_name = format!("get_storage_at(contract: {:?}, key: {:?})", contract_address, key);
 
-        let storage_value = match self
-            .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *key.0.key(), block_id)
-            })
-            .await
+        let storage_value = match execute_with_retry(&operation_name, || {
+            self.rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *key.0.key(), block_id)
+        })
+        .await
         {
             Ok(value) => Ok(value),
             Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
@@ -168,11 +97,10 @@ impl AsyncRpcStateReader {
         debug!("got a request of get_nonce_at with parameters the contract address: {:?}", contract_address);
         let operation_name = format!("get_nonce_at(contract: {:?})", contract_address);
 
-        let nonce = match self
-            .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_nonce(block_id, *contract_address.key())
-            })
-            .await
+        let nonce = match execute_with_retry(&operation_name, || {
+            self.rpc_client.starknet_rpc().get_nonce(block_id, *contract_address.key())
+        })
+        .await
         {
             Ok(value) => Ok(value),
             Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
@@ -191,11 +119,10 @@ impl AsyncRpcStateReader {
         debug!("got a request of get_class_hash_at with parameters the contract address: {:?}", contract_address);
         let operation_name = format!("get_class_hash_at(contract: {:?})", contract_address);
 
-        let class_hash = match self
-            .execute_with_retry(&operation_name, || {
-                self.rpc_client.starknet_rpc().get_class_hash_at(block_id, *contract_address.key())
-            })
-            .await
+        let class_hash = match execute_with_retry(&operation_name, || {
+            self.rpc_client.starknet_rpc().get_class_hash_at(block_id, *contract_address.key())
+        })
+        .await
         {
             Ok(class_hash) => Ok(class_hash),
             Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(ClassHash::default().0),
@@ -215,9 +142,10 @@ impl AsyncRpcStateReader {
         debug!("got a request of get_compiled_class with parameters the class hash: {:?}", class_hash);
         let operation_name = format!("get_compiled_class(class_hash: {:?})", class_hash);
 
-        let contract_class = match self
-            .execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
-            .await
+        let contract_class = match execute_with_retry(&operation_name, || {
+            self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0)
+        })
+        .await
         {
             Ok(contract_class) => Ok(contract_class),
             // If the ContractClass is declared in the current block,
@@ -284,10 +212,10 @@ impl AsyncRpcStateReader {
         debug!("get_compiled_class_hash_{} for class_hash: {:?}", version.as_str(), class_hash);
         let operation_name = format!("get_compiled_class_hash_{}(class_hash: {:?})", version.as_str(), class_hash);
 
-        let contract_class = self
-            .execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
-            .await
-            .map_err(provider_error_to_state_error)?;
+        let contract_class =
+            execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
+                .await
+                .map_err(provider_error_to_state_error)?;
 
         compute_compiled_class_hash_internal(&contract_class, version)
     }
