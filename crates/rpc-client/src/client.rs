@@ -10,9 +10,17 @@ use starknet_core::types::{ConfirmedBlockId, ContractStorageKeys, StorageKey};
 use starknet_types_core::felt::Felt;
 use std::collections::VecDeque;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::constants::{MAX_CONCURRENT_PROOF_REQUESTS, MAX_STORAGE_KEYS_PER_REQUEST, STARKNET_RPC_VERSION};
 use crate::types::{ClassProof, ContractProof};
+
+const DEFAULT_RPC_REQUEST_TIMEOUT_SECS: u64 = 60;
+const DEFAULT_RPC_CONNECT_TIMEOUT_SECS: u64 = 5;
+const DEFAULT_RPC_POOL_MAX_IDLE_PER_HOST: usize = 0;
+const RPC_REQUEST_TIMEOUT_ENV: &str = "SNOS_RPC_REQUEST_TIMEOUT_SECS";
+const RPC_CONNECT_TIMEOUT_ENV: &str = "SNOS_RPC_CONNECT_TIMEOUT_SECS";
+const RPC_POOL_MAX_IDLE_PER_HOST_ENV: &str = "SNOS_RPC_POOL_MAX_IDLE_PER_HOST";
 
 pub trait ProofClient {
     fn get_proof(
@@ -50,6 +58,14 @@ struct RpcClientInner {
 }
 
 impl RpcClientInner {
+    fn read_env_u64(name: &str, default: u64) -> u64 {
+        std::env::var(name).ok().and_then(|value| value.parse::<u64>().ok()).unwrap_or(default)
+    }
+
+    fn read_env_usize(name: &str, default: usize) -> usize {
+        std::env::var(name).ok().and_then(|value| value.parse::<usize>().ok()).unwrap_or(default)
+    }
+
     /// Creates a new RPC client inner with both Starknet and Pathfinder clients.
     ///
     /// # Arguments
@@ -72,10 +88,24 @@ impl RpcClientInner {
         let starknet_rpc_url = format!("{}/rpc/{}", base_url, STARKNET_RPC_VERSION);
         info!("Initializing Starknet RPC client with URL: {}", starknet_rpc_url);
 
-        let provider = JsonRpcClient::new(HttpTransport::new(
-            Url::parse(starknet_rpc_url.as_str())
-                .map_err(|e| anyhow!("Failed to parse URL ({}): {}", starknet_rpc_url, e))?,
-        ));
+        let rpc_request_timeout_secs = Self::read_env_u64(RPC_REQUEST_TIMEOUT_ENV, DEFAULT_RPC_REQUEST_TIMEOUT_SECS);
+        let rpc_connect_timeout_secs = Self::read_env_u64(RPC_CONNECT_TIMEOUT_ENV, DEFAULT_RPC_CONNECT_TIMEOUT_SECS);
+        let rpc_pool_max_idle_per_host =
+            Self::read_env_usize(RPC_POOL_MAX_IDLE_PER_HOST_ENV, DEFAULT_RPC_POOL_MAX_IDLE_PER_HOST);
+        info!(
+            "RPC client config: request_timeout={}s connect_timeout={}s pool_max_idle_per_host={}",
+            rpc_request_timeout_secs, rpc_connect_timeout_secs, rpc_pool_max_idle_per_host
+        );
+
+        let starknet_rpc_url = Url::parse(starknet_rpc_url.as_str())
+            .map_err(|e| anyhow!("Failed to parse URL ({}): {}", starknet_rpc_url, e))?;
+        let http_client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(rpc_connect_timeout_secs))
+            .pool_max_idle_per_host(rpc_pool_max_idle_per_host)
+            .timeout(Duration::from_secs(rpc_request_timeout_secs))
+            .build()
+            .map_err(|e| anyhow!("Failed to create reqwest client for {}: {}", starknet_rpc_url, e))?;
+        let provider = JsonRpcClient::new(HttpTransport::new_with_client(starknet_rpc_url, http_client));
 
         Ok(Self { starknet_client: provider })
     }
