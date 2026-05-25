@@ -144,11 +144,11 @@ pub(crate) async fn get_class_proofs(
     info!("Fetching class proofs for {} classes", class_hashes.len());
 
     for class_hash in class_hashes {
-        let proof = rpc_client
-            .starknet_rpc()
-            .get_class_proof(block_number, class_hash)
-            .await
-            .map_err(|e| ClientError::CustomError(format!("{}", e)))?;
+        let operation_name = format!("get_class_proof(block_number: {block_number}, class_hash: {class_hash:#x})");
+        let proof =
+            execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class_proof(block_number, class_hash))
+                .await
+                .map_err(|e| ClientError::CustomError(format!("{}", e)))?;
         // TODO: need to combine these, similar to merge_chunked_storage_proofs above?
         proofs.insert(**class_hash, proof);
     }
