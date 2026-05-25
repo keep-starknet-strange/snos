@@ -446,16 +446,13 @@ async fn process_accessed_addresses(
     info!("Fetched {} contract classes, now compiling in parallel...", class_results.len());
 
     // Phase 3: Compile classes in parallel using rayon (CPU parallelization)
-    let successful_class_results: Vec<_> = class_results
-        .into_iter()
-        .map(|(class_hash, contract_class_result)| {
-            contract_class_result.map_err(StateUpdateError::RpcError).map(|contract_class| (class_hash, contract_class))
-        })
-        .collect::<Result<_, _>>()?;
-
-    let compilation_results: Vec<(Felt, Result<GenericCompiledClass, StateUpdateError>)> = successful_class_results
+    let compilation_results: Vec<(Felt, Result<GenericCompiledClass, StateUpdateError>)> = class_results
         .into_par_iter()
-        .map(|(class_hash, contract_class)| (class_hash, compile_contract_class(contract_class)))
+        .filter_map(|(class_hash, contract_class_result)| {
+            let contract_class = contract_class_result.ok()?;
+            let compiled_result = compile_contract_class(contract_class);
+            Some((class_hash, compiled_result))
+        })
         .collect();
 
     // Add compiled classes to result
@@ -491,14 +488,15 @@ async fn process_accessed_classes(
 
     // Phase 1: Fetch all contract classes concurrently (network I/O parallelization)
     let class_hashes: Vec<Felt252> = accessed_classes.iter().copied().collect();
-    let class_fetch_results: Vec<(Felt252, Result<starknet::core::types::ContractClass, ProviderError>)> =
+    let class_fetch_results: Vec<(Felt252, Option<starknet::core::types::ContractClass>)> =
         stream::iter(class_hashes.clone())
             .map(|class_hash| async move {
                 debug!("Fetching class hash: {:?}", class_hash);
                 let operation_name = format!("get_class(block_id: {block_id:?}, class_hash: {class_hash:?})");
                 let contract_class =
                     execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class(block_id, class_hash))
-                        .await;
+                        .await
+                        .ok();
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
@@ -508,16 +506,13 @@ async fn process_accessed_classes(
     info!("Fetched {} contract classes, now compiling in parallel...", class_fetch_results.len());
 
     // Phase 2: Compile classes in parallel using rayon (CPU parallelization)
-    let successful_class_fetches: Vec<_> = class_fetch_results
-        .into_iter()
-        .map(|(class_hash, contract_class_result)| {
-            contract_class_result.map_err(StateUpdateError::RpcError).map(|contract_class| (class_hash, contract_class))
-        })
-        .collect::<Result<_, _>>()?;
-
-    let compilation_results: Vec<(Felt252, Result<GenericCompiledClass, StateUpdateError>)> = successful_class_fetches
+    let compilation_results: Vec<(Felt252, Result<GenericCompiledClass, StateUpdateError>)> = class_fetch_results
         .into_par_iter()
-        .map(|(class_hash, contract_class)| (class_hash, compile_contract_class(contract_class)))
+        .filter_map(|(class_hash, contract_class_opt)| {
+            let contract_class = contract_class_opt?;
+            let compiled_result = compile_contract_class(contract_class);
+            Some((class_hash, compiled_result))
+        })
         .collect();
 
     // Add compiled classes to result
