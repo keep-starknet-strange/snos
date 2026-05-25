@@ -446,11 +446,12 @@ async fn process_accessed_addresses(
     info!("Fetched {} contract classes, now compiling in parallel...", class_results.len());
 
     // Phase 3: Compile classes in parallel using rayon (CPU parallelization)
-    let mut successful_class_results = Vec::with_capacity(class_results.len());
-    for (class_hash, contract_class_result) in class_results {
-        let contract_class = contract_class_result.map_err(StateUpdateError::RpcError)?;
-        successful_class_results.push((class_hash, contract_class));
-    }
+    let successful_class_results: Vec<_> = class_results
+        .into_iter()
+        .map(|(class_hash, contract_class_result)| {
+            contract_class_result.map_err(StateUpdateError::RpcError).map(|contract_class| (class_hash, contract_class))
+        })
+        .collect::<Result<_, _>>()?;
 
     let compilation_results: Vec<(Felt, Result<GenericCompiledClass, StateUpdateError>)> = successful_class_results
         .into_par_iter()
@@ -507,11 +508,12 @@ async fn process_accessed_classes(
     info!("Fetched {} contract classes, now compiling in parallel...", class_fetch_results.len());
 
     // Phase 2: Compile classes in parallel using rayon (CPU parallelization)
-    let mut successful_class_fetches = Vec::with_capacity(class_fetch_results.len());
-    for (class_hash, contract_class_result) in class_fetch_results {
-        let contract_class = contract_class_result.map_err(StateUpdateError::RpcError)?;
-        successful_class_fetches.push((class_hash, contract_class));
-    }
+    let successful_class_fetches: Vec<_> = class_fetch_results
+        .into_iter()
+        .map(|(class_hash, contract_class_result)| {
+            contract_class_result.map_err(StateUpdateError::RpcError).map(|contract_class| (class_hash, contract_class))
+        })
+        .collect::<Result<_, _>>()?;
 
     let compilation_results: Vec<(Felt252, Result<GenericCompiledClass, StateUpdateError>)> = successful_class_fetches
         .into_par_iter()
