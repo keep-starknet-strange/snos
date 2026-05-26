@@ -148,12 +148,7 @@ pub(crate) async fn get_class_proofs(
         let proof =
             execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class_proof(block_number, class_hash))
                 .await
-                .map_err(|e| {
-                    ClientError::CustomError(format!(
-                        "class proof request failed for block {} class_hash {:#x}: {}",
-                        block_number, class_hash, e
-                    ))
-                })?;
+                .map_err(|e| ClientError::CustomError(format!("{}", e)))?;
         // TODO: need to combine these, similar to merge_chunked_storage_proofs above?
         proofs.insert(**class_hash, proof);
     }
@@ -204,6 +199,8 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         vec![]
     };
 
+    info!("Got {} additional keys for contract {}", additional_keys.len(), contract_address);
+
     // Fetch additional proofs required to fill gaps in the storage trie that could make
     // the OS crash otherwise.
     if !additional_keys.is_empty() {
@@ -213,11 +210,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         // Combine all storage proofs into a single vector
         match &additional_proof.contract_data {
             None => {
-                let message = format!(
-                    "Additional storage proof for contract {} at block {} returned no contract_data",
-                    contract_address, block_number
-                );
-                return Err(ClientError::CustomError(message));
+                panic!("Failed to fetch additional proof for contract {}", contract_address)
             }
             Some(contract_data) => {
                 additional_proof.contract_data = Some(ContractData {
@@ -251,15 +244,7 @@ async fn fetch_storage_proof_for_contract(
 
     execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_proof(block_number, contract_address, keys))
         .await
-        .map_err(|e| {
-            ClientError::CustomError(format!(
-                "storage proof request failed for block {} contract {:#x} keys={}: {}",
-                block_number,
-                contract_address,
-                keys.len(),
-                e
-            ))
-        })
+        .map_err(|e| ClientError::CustomError(format!("{}", e)))
 }
 
 /// Merges the storage proofs of the SAME contract.
