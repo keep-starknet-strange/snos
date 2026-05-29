@@ -32,12 +32,29 @@ fn format_revert_reason_for_block_hash(revert_error: Option<&RevertError>) -> Op
 }
 
 fn should_strip_vm_tracebacks(error_stack: &ErrorStack) -> bool {
+    is_nested_constructor_failure(error_stack) || is_undeployed_contract_failure(error_stack)
+}
+
+/// Constructor-chain failures: a `Constructor` frame wrapped in another "Execution failed" /
+/// Cairo1 revert frame. Pathfinder strips the VM tracebacks for this shape.
+fn is_nested_constructor_failure(error_stack: &ErrorStack) -> bool {
     has_constructor_frame(error_stack)
         && error_stack.stack.iter().any(|segment| match segment {
             ErrorStackSegment::Cairo1RevertSummary(_) => true,
             ErrorStackSegment::StringFrame(frame) => frame.starts_with("Execution failed. Failure reason:\n"),
             _ => false,
         })
+}
+
+/// "Callee not deployed" failures: a contract call targets an address with no class, so the call
+/// never enters Cairo. The chain stores the receipt with the caller's VM traceback stripped
+/// (the canonical receipt for this shape omits the intermediate `Error at pc=...` frames), so the
+/// receipt commitment must be computed over that stripped form.
+fn is_undeployed_contract_failure(error_stack: &ErrorStack) -> bool {
+    error_stack
+        .stack
+        .iter()
+        .any(|segment| matches!(segment, ErrorStackSegment::StringFrame(frame) if frame.contains("is not deployed.")))
 }
 
 fn has_constructor_frame(error_stack: &ErrorStack) -> bool {
@@ -79,7 +96,7 @@ fn copy_entry_point(entry_point: &EntryPointErrorFrame) -> EntryPointErrorFrame 
 
 #[cfg(test)]
 mod tests {
-    use super::{format_revert_reason_for_block_hash, transaction_output_for_block_hash};
+    use super::{format_revert_reason_for_block_hash, should_strip_vm_tracebacks, transaction_output_for_block_hash};
     use blockifier::execution::stack_trace::{
         Cairo1RevertFrame, Cairo1RevertHeader, Cairo1RevertSummary, EntryPointErrorFrame, ErrorStack, ErrorStackHeader,
         ErrorStackSegment, PreambleType, VmExceptionFrame,
@@ -105,6 +122,43 @@ mod tests {
             class_hash,
             selector: Some(starknet_api::core::EntryPointSelector(selector)),
         }
+    }
+
+    /// Real "callee not deployed" revert from Paradex mocknet block 138087, tx
+    /// `0x37e4ace7cf678da99e30d39c32677dd197a7babbd51b4d05e4faccf921cfa8d`: a `CallContract` whose
+    /// callee (class hash `0x0`) is not deployed. Blockifier renders the caller's VM traceback, but
+    /// the canonical chain receipt omits it, so the receipt-hashing path must strip it.
+    fn undeployed_contract_revert_error() -> RevertError {
+        let mut stack = ErrorStack { header: ErrorStackHeader::Execution, stack: Vec::new() };
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            0,
+            PreambleType::CallContract,
+            contract_address!("0x01fa85856d49323676bf3c6d81e19e444285f6f036ebeaa1770887d12b71b0de"),
+            class_hash!("0x073414441639dcd11d1846f287650a00c60c416b9d3ba45d31c651672125b2c2"),
+            felt!("0x015d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
+        )));
+        stack.push(ErrorStackSegment::Vm(VmExceptionFrame {
+            pc: Relocatable::from((0, 35988)),
+            error_attr_value: None,
+            traceback: Some(
+                "Cairo traceback (most recent call last):\nUnknown location (pc=0:330)\nUnknown location \
+                 (pc=0:11695)\n"
+                    .replace("                 ", ""),
+            ),
+        }));
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            1,
+            PreambleType::CallContract,
+            contract_address!("0x041a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf"),
+            class_hash!("0x0"),
+            felt!("0x01987cbd17808b9a23693d4de7e246a443cfe37e6e7fbaeabd7d7e6532b07c3d"),
+        )));
+        stack.push(ErrorStackSegment::StringFrame(
+            "Requested contract address 0x041a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf is not \
+             deployed.\n"
+                .replace("             ", ""),
+        ));
+        RevertError::Execution(stack)
     }
 
     fn constructor_revert_error() -> RevertError {
@@ -475,6 +529,58 @@ mod tests {
         assert_eq!(
             revert_reason_hash,
             Felt::from_hex("0x3d5c1a26ccc599f79dfe517f780f66b8bc318325bc77c9acfafb848de869de4").unwrap()
+        );
+    }
+
+    #[test]
+    fn undeployed_contract_revert_strips_vm_tracebacks_for_block_hash() {
+        let revert_error = undeployed_contract_revert_error();
+        let raw = revert_error.to_string();
+        let formatted = format_revert_reason_for_block_hash(Some(&revert_error)).unwrap();
+
+        // The strip gate must fire for this non-constructor "not deployed" shape.
+        match &revert_error {
+            RevertError::Execution(stack) => assert!(should_strip_vm_tracebacks(stack)),
+            other => panic!("expected execution revert, got {other:?}"),
+        }
+
+        // Blockifier's raw string carries the caller's VM traceback; the receipt form drops it.
+        assert!(raw.contains("Error at pc="));
+        assert!(raw.contains("Cairo traceback (most recent call last):"));
+        assert!(!formatted.contains("Error at pc="));
+        assert!(!formatted.contains("Cairo traceback (most recent call last):"));
+        assert!(formatted.contains("is not deployed."));
+        assert!(formatted.len() < raw.len());
+    }
+
+    #[test]
+    fn transaction_output_uses_stripped_undeployed_revert_reason() {
+        let execution_info =
+            TransactionExecutionInfo { revert_error: Some(undeployed_contract_revert_error()), ..Default::default() };
+
+        let output = transaction_output_for_block_hash(&execution_info);
+
+        match output.execution_status {
+            TransactionExecutionStatus::Reverted(RevertedTransactionExecutionStatus { revert_reason }) => {
+                assert!(!revert_reason.contains("Error at pc="));
+                assert!(revert_reason.contains("is not deployed."));
+            }
+            status => panic!("expected reverted execution status, got {:?}", status),
+        }
+    }
+
+    /// Pins the exact receipt revert-reason bytes for Paradex mocknet block 138087 tx
+    /// `0x37e4ace…`. This hash is the `starknet_keccak` of the 701-char canonical receipt string
+    /// that reproduces the on-chain `receipt_commitment` 0x286ef01f…aaf2b5 (and hence block hash
+    /// 0x43fabc6f…857f50). If this changes, SNOS no longer matches the chain for this shape.
+    #[test]
+    fn undeployed_contract_revert_reason_hash_regression() {
+        let revert_reason = format_revert_reason_for_block_hash(Some(&undeployed_contract_revert_error())).unwrap();
+        let revert_reason_hash = starknet_keccak_hash(revert_reason.as_bytes());
+
+        assert_eq!(
+            revert_reason_hash,
+            Felt::from_hex("0xc31ec2f2982ccf63b72284efb04987782f6bc43b64d0a1fa0092e1e334c67e").unwrap()
         );
     }
 }
