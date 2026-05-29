@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use starknet::core::types::{L1DataAvailabilityMode as CoreL1DataAvailabilityMode, StateDiff as CoreStateDiff};
 use starknet_api::block::StarknetVersion;
@@ -8,6 +10,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::executable_transaction::Transaction as ExecutableTransaction;
 use starknet_api::state::{StorageKey, ThinStateDiff};
 use starknet_api::transaction::fields::TransactionSignature;
+use starknet_types_core::felt::Felt;
 
 use crate::conversions::convert_l1_da_mode;
 use crate::error::BlockProcessingError;
@@ -26,6 +29,7 @@ pub(crate) fn tx_signature_for_hashing(tx: &ExecutableTransaction) -> Transactio
 fn build_transaction_hashing_data(
     transactions: &[ExecutableTransaction],
     tx_execution_infos: &[TransactionExecutionInfo],
+    committed_revert_reasons: &HashMap<Felt, String>,
 ) -> Result<Vec<TransactionHashingData>, BlockProcessingError> {
     if transactions.len() != tx_execution_infos.len() {
         return Err(BlockProcessingError::new_custom(format!(
@@ -39,7 +43,10 @@ fn build_transaction_hashing_data(
         .iter()
         .zip(tx_execution_infos.iter())
         .map(|(tx, tx_execution_info)| {
-            let transaction_output = transaction_output_for_block_hash(tx_execution_info);
+            // Prefer the revert reason committed on-chain (keyed by transaction hash) so the
+            // recomputed receipt commitment matches the block hash regardless of sequencer version.
+            let committed_revert_reason = committed_revert_reasons.get(&tx.tx_hash().0).map(String::as_str);
+            let transaction_output = transaction_output_for_block_hash(tx_execution_info, committed_revert_reason);
 
             TransactionHashingData {
                 transaction_signature: tx_signature_for_hashing(tx),
@@ -163,8 +170,10 @@ pub async fn compute_block_hash_commitments(
     thin_state_diff: ThinStateDiff,
     l1_da_mode: CoreL1DataAvailabilityMode,
     starknet_version: &StarknetVersion,
+    committed_revert_reasons: &HashMap<Felt, String>,
 ) -> Result<BlockHeaderCommitments, BlockProcessingError> {
-    let transaction_hashing_data = build_transaction_hashing_data(transactions, tx_execution_infos)?;
+    let transaction_hashing_data =
+        build_transaction_hashing_data(transactions, tx_execution_infos, committed_revert_reasons)?;
     let (commitments, _measurements) = calculate_block_commitments(
         &transaction_hashing_data,
         thin_state_diff,

@@ -5,14 +5,29 @@ use starknet_api::transaction::{RevertedTransactionExecutionStatus, TransactionE
 
 /// Build the transaction output used for block-hash commitments.
 ///
-/// For nested revert summaries, Pathfinder receipts omit the intermediate VM traceback frames even
-/// though Blockifier's raw `Display` includes them. Receipt commitment hashing is sensitive to the
-/// exact revert-reason string, so we normalize only this receipt-hashing path to the canonical
-/// form.
-pub(crate) fn transaction_output_for_block_hash(execution_info: &TransactionExecutionInfo) -> TransactionOutputForHash {
+/// The receipt commitment hashes `starknet_keccak(revert_reason)` for reverted transactions, so the
+/// recomputed block hash only matches the chain if we use the *exact* revert-reason string the
+/// sequencer committed. Re-deriving that string from Blockifier's `Display` is brittle: the rule
+/// for which intermediate VM tracebacks are kept vs stripped has changed across sequencer versions,
+/// so for blocks produced by an older sequencer the re-derived string does not match what was
+/// committed.
+///
+/// Therefore, when the committed revert reason is available (it always is for synced blocks, via
+/// `get_block_with_receipts`), we use it verbatim. We only fall back to the best-effort
+/// Pathfinder-style normalization when no committed reason is supplied.
+pub(crate) fn transaction_output_for_block_hash(
+    execution_info: &TransactionExecutionInfo,
+    committed_revert_reason: Option<&str>,
+) -> TransactionOutputForHash {
     let mut output = execution_info.output_for_hashing();
 
-    if let Some(revert_reason) = format_revert_reason_for_block_hash(execution_info.revert_error.as_ref()) {
+    if execution_info.revert_error.is_some() {
+        let revert_reason = match committed_revert_reason {
+            // Canonical: the exact string hashed into the on-chain receipt commitment.
+            Some(reason) => reason.to_string(),
+            // Fallback: heuristic normalization of the re-executed revert error.
+            None => format_revert_reason_for_block_hash(execution_info.revert_error.as_ref()).unwrap_or_default(),
+        };
         output.execution_status =
             TransactionExecutionStatus::Reverted(RevertedTransactionExecutionStatus { revert_reason });
     }
@@ -456,7 +471,7 @@ mod tests {
         let execution_info =
             TransactionExecutionInfo { revert_error: Some(constructor_revert_error()), ..Default::default() };
 
-        let output = transaction_output_for_block_hash(&execution_info);
+        let output = transaction_output_for_block_hash(&execution_info, None);
 
         match output.execution_status {
             TransactionExecutionStatus::Reverted(RevertedTransactionExecutionStatus { revert_reason }) => {
@@ -475,6 +490,112 @@ mod tests {
         assert_eq!(
             revert_reason_hash,
             Felt::from_hex("0x3d5c1a26ccc599f79dfe517f780f66b8bc318325bc77c9acfafb848de869de4").unwrap()
+        );
+    }
+
+    // --- CallContract -> CallContract -> "not deployed" revert (no Constructor frame) ---
+
+    // Blockifier's raw `Display` (what Pathfinder's `starknet_traceTransaction` returns, and what
+    // SNOS re-execution produces): the inner VM traceback IS present.
+    const CALL_CHAIN_TRACE_WITH_VM_TRACEBACK: &str = "Transaction execution has failed:\n0: Error in the called contract (contract address: 0x01fa85856d49323676bf3c6d81e19e444285f6f036ebeaa1770887d12b71b0de, class hash: 0x073414441639dcd11d1846f287650a00c60c416b9d3ba45d31c651672125b2c2, selector: 0x015d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad):\nError at pc=0:35988:\nCairo traceback (most recent call last):\nUnknown location (pc=0:330)\nUnknown location (pc=0:11695)\n\n1: Error in the called contract (contract address: 0x041a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf, class hash: 0x0000000000000000000000000000000000000000000000000000000000000000, selector: 0x01987cbd17808b9a23693d4de7e246a443cfe37e6e7fbaeabd7d7e6532b07c3d):\nRequested contract address 0x041a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf is not deployed.\n";
+
+    // The revert reason COMMITTED on-chain for the same tx (from `starknet_getTransactionReceipt`).
+    // The inner VM traceback was STRIPPED by the (old) sequencer at block-production time; this exact
+    // string fed the receipt commitment and therefore the stored block hash. SNOS must hash THIS,
+    // not the re-execution trace.
+    const CALL_CHAIN_COMMITTED_RECEIPT: &str = "Transaction execution has failed:\n0: Error in the called contract (contract address: 0x01fa85856d49323676bf3c6d81e19e444285f6f036ebeaa1770887d12b71b0de, class hash: 0x073414441639dcd11d1846f287650a00c60c416b9d3ba45d31c651672125b2c2, selector: 0x015d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad):\n1: Error in the called contract (contract address: 0x041a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf, class hash: 0x0000000000000000000000000000000000000000000000000000000000000000, selector: 0x01987cbd17808b9a23693d4de7e246a443cfe37e6e7fbaeabd7d7e6532b07c3d):\nRequested contract address 0x041a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf is not deployed.\n";
+
+    // Reconstructs the canonical blockifier error stack for the reverted tx:
+    // CallContract(0) -> VM traceback -> CallContract(1, undeployed, class hash 0x0) -> "not deployed".
+    // There is NO Constructor frame.
+    fn call_contract_chain_not_deployed_revert_error() -> RevertError {
+        let mut stack = ErrorStack { header: ErrorStackHeader::Execution, stack: Vec::new() };
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            0,
+            PreambleType::CallContract,
+            contract_address!("0x01fa85856d49323676bf3c6d81e19e444285f6f036ebeaa1770887d12b71b0de"),
+            class_hash!("0x073414441639dcd11d1846f287650a00c60c416b9d3ba45d31c651672125b2c2"),
+            felt!("0x015d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
+        )));
+        stack.push(ErrorStackSegment::Vm(VmExceptionFrame {
+            pc: Relocatable::from((0, 35988)),
+            error_attr_value: None,
+            traceback: Some(
+                "Cairo traceback (most recent call last):\nUnknown location (pc=0:330)\nUnknown location (pc=0:11695)\n"
+                    .to_string(),
+            ),
+        }));
+        stack.push(ErrorStackSegment::EntryPoint(copy_entry_point_for_test(
+            1,
+            PreambleType::CallContract,
+            contract_address!("0x041a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf"),
+            class_hash!("0x0"),
+            felt!("0x01987cbd17808b9a23693d4de7e246a443cfe37e6e7fbaeabd7d7e6532b07c3d"),
+        )));
+        stack.push(ErrorStackSegment::StringFrame(
+            "Requested contract address 0x041a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf is not \
+             deployed.\n"
+                .replace("             ", ""),
+        ));
+        RevertError::Execution(stack)
+    }
+
+    #[test]
+    fn call_chain_reconstruction_matches_trace() {
+        // Sanity check: our reconstructed error stack renders byte-for-byte like Pathfinder's trace.
+        assert_eq!(call_contract_chain_not_deployed_revert_error().to_string(), CALL_CHAIN_TRACE_WITH_VM_TRACEBACK);
+    }
+
+    // Demonstrates the bug: without the committed revert reason, SNOS re-derives the full trace
+    // (no Constructor frame => heuristic keeps the VM traceback), which differs from what the
+    // sequencer committed => different receipt-reason hash => block hash mismatch.
+    #[test]
+    fn rederived_reason_diverges_from_committed_receipt() {
+        let execution_info = TransactionExecutionInfo {
+            revert_error: Some(call_contract_chain_not_deployed_revert_error()),
+            ..Default::default()
+        };
+
+        let output = transaction_output_for_block_hash(&execution_info, None);
+        let rederived = match output.execution_status {
+            TransactionExecutionStatus::Reverted(RevertedTransactionExecutionStatus { revert_reason }) => revert_reason,
+            status => panic!("expected reverted, got {status:?}"),
+        };
+
+        // The re-derived string keeps the VM traceback and equals the Pathfinder *trace*...
+        assert_eq!(rederived, CALL_CHAIN_TRACE_WITH_VM_TRACEBACK);
+        assert!(rederived.contains("Error at pc=0:35988:"));
+        // ...but NOT the committed *receipt* string, so the receipt-reason hashes diverge.
+        assert_ne!(rederived, CALL_CHAIN_COMMITTED_RECEIPT);
+        assert_ne!(
+            starknet_keccak_hash(rederived.as_bytes()),
+            starknet_keccak_hash(CALL_CHAIN_COMMITTED_RECEIPT.as_bytes())
+        );
+    }
+
+    // Demonstrates the fix: when the committed revert reason is supplied (as it now is, from
+    // `get_block_with_receipts`), SNOS hashes exactly the on-chain string => the receipt-reason
+    // hash matches what the sequencer committed => block hash matches.
+    #[test]
+    fn committed_reason_reproduces_onchain_receipt() {
+        let execution_info = TransactionExecutionInfo {
+            revert_error: Some(call_contract_chain_not_deployed_revert_error()),
+            ..Default::default()
+        };
+
+        let output = transaction_output_for_block_hash(&execution_info, Some(CALL_CHAIN_COMMITTED_RECEIPT));
+        let used = match output.execution_status {
+            TransactionExecutionStatus::Reverted(RevertedTransactionExecutionStatus { revert_reason }) => revert_reason,
+            status => panic!("expected reverted, got {status:?}"),
+        };
+
+        // SNOS now uses the committed string verbatim (VM traceback stripped, as the sequencer committed).
+        assert_eq!(used, CALL_CHAIN_COMMITTED_RECEIPT);
+        assert!(!used.contains("Error at pc=0:35988:"));
+        // And the receipt-reason hash matches the on-chain commitment input.
+        assert_eq!(
+            starknet_keccak_hash(used.as_bytes()),
+            starknet_keccak_hash(CALL_CHAIN_COMMITTED_RECEIPT.as_bytes())
         );
     }
 }
