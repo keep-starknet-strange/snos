@@ -335,12 +335,24 @@ impl BlockData {
         let class_hashes_to_migrate = build_class_hashes_to_migrate(&processed_state_update, &blockifier_state_reader)?;
         apply_pre_migration_compiled_class_hashes(&mut initial_reads, &class_hashes_to_migrate);
 
+        // Revert reasons exactly as committed on-chain (keyed by tx hash). Used for the receipt
+        // commitment so the recomputed block hash matches even when the sequencer's revert-reason
+        // formatting differs from what re-execution would produce.
+        let committed_revert_reasons: HashMap<Felt, String> = self
+            .current_block_receipts
+            .iter()
+            .filter_map(|(tx_hash, receipt)| {
+                receipt.execution_result().revert_reason().map(|reason| (*tx_hash, reason.to_string()))
+            })
+            .collect();
+
         let block_hash_commitments = compute_block_hash_commitments(
             &starknet_api_txns,
             &txn_execution_infos,
             processed_state_update.thin_state_diff.clone(),
             self.current_block.l1_da_mode,
             &self.starknet_version,
+            &committed_revert_reasons,
         )
         .await
         .map_err(|e| {
