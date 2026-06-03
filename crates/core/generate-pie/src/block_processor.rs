@@ -15,7 +15,7 @@ use log::info;
 use rpc_client::RpcClient;
 use starknet::core::types::BlockId;
 use starknet_api::block::BlockHash;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
+use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass;
 use starknet_os::io::os_input::OsBlockInput;
 use starknet_types_core::felt::Felt;
@@ -29,6 +29,8 @@ use std::collections::BTreeMap;
 pub struct BlockInfoResult {
     /// The OS block input for the block.
     pub os_block_input: OsBlockInput,
+    /// The chain ID reported by the RPC provider.
+    pub chain_id: ChainId,
     /// Compiled classes used in the block.
     pub compiled_classes: BTreeMap<CompiledClassHash, CasmContractClass>,
     /// Deprecated compiled classes used in the block.
@@ -134,7 +136,7 @@ pub async fn collect_single_block_info(
 
     info!("Successfully completed construction of OsBlockInput for block {}", block_number);
 
-    Ok(BlockInfoResult { os_block_input, compiled_classes, deprecated_compiled_classes })
+    Ok(BlockInfoResult { os_block_input, chain_id: block_data.chain_id, compiled_classes, deprecated_compiled_classes })
 }
 
 // ================================================================================================

@@ -23,6 +23,17 @@ const RPC_REQUEST_TIMEOUT_ENV: &str = "SNOS_RPC_REQUEST_TIMEOUT_SECS";
 const RPC_CONNECT_TIMEOUT_ENV: &str = "SNOS_RPC_CONNECT_TIMEOUT_SECS";
 const RPC_POOL_MAX_IDLE_PER_HOST_ENV: &str = "SNOS_RPC_POOL_MAX_IDLE_PER_HOST";
 
+fn starknet_rpc_url(base_url: &str) -> String {
+    let base_url = base_url.trim_end_matches('/');
+    let rpc_suffix = format!("/rpc/{}", STARKNET_RPC_VERSION);
+
+    if base_url.ends_with(&rpc_suffix) {
+        base_url.to_owned()
+    } else {
+        format!("{base_url}{rpc_suffix}")
+    }
+}
+
 pub trait ProofClient {
     fn get_proof(
         &self,
@@ -86,7 +97,7 @@ impl RpcClientInner {
     /// let inner = RpcClientInner::new("https://your-starknet-node.com");
     /// ```
     fn try_new(base_url: &str) -> anyhow::Result<Self> {
-        let starknet_rpc_url = format!("{}/rpc/{}", base_url, STARKNET_RPC_VERSION);
+        let starknet_rpc_url = starknet_rpc_url(base_url);
         info!("Initializing Starknet RPC client with URL: {}", starknet_rpc_url);
 
         let rpc_request_timeout_secs = Self::read_env_u64(RPC_REQUEST_TIMEOUT_ENV, DEFAULT_RPC_REQUEST_TIMEOUT_SECS);
@@ -110,6 +121,27 @@ impl RpcClientInner {
         let provider = JsonRpcClient::new(HttpTransport::new_with_client(starknet_rpc_url, http_client));
 
         Ok(Self { starknet_client: provider })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::starknet_rpc_url;
+
+    #[test]
+    fn appends_rpc_version_to_base_url() {
+        assert_eq!(starknet_rpc_url("https://example.com/path"), "https://example.com/path/rpc/v0_10");
+    }
+
+    #[test]
+    fn keeps_already_versioned_rpc_url() {
+        assert_eq!(starknet_rpc_url("https://example.com/path/rpc/v0_10"), "https://example.com/path/rpc/v0_10");
+    }
+
+    #[test]
+    fn trims_trailing_slashes_before_normalizing() {
+        assert_eq!(starknet_rpc_url("https://example.com/path/"), "https://example.com/path/rpc/v0_10");
+        assert_eq!(starknet_rpc_url("https://example.com/path/rpc/v0_10/"), "https://example.com/path/rpc/v0_10");
     }
 }
 

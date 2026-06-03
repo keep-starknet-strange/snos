@@ -1,6 +1,6 @@
 [package]
 name = "rpc-replay"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 
 [[bin]]
@@ -10,7 +10,7 @@ path = "src/main.rs"
 [dependencies]
 # Internal dependencies
 generate-pie = { path = "../core/generate-pie" }
-rpc-client = { path = "../rpc-client", features = ["cairo_native"] }
+rpc-client = { path = "../rpc-client" }
 
 # External dependencies
 aws-config = { workspace = true }

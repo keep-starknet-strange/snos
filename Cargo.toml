@@ -10,33 +10,33 @@ members = [
 ]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.89.0"
 repository = "https://github.com/keep-starknet-strange/snos/"
 license-file = "LICENSE"
 
 [workspace.dependencies]
-# 0.14.2 baseline: use the published Apollo release tag for the 0.14.2 line.
-starknet_api = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.7-fix", features = [
+# 0.14.3 baseline: use the published Apollo release tag for the 0.14.3 line.
+starknet_api = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.3-RC.6", features = [
   "testing",
 ] }
-starknet_os = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.7-fix", features = [
+starknet_os = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.3-RC.6", features = [
   "testing",
 ] }
-blockifier = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.7-fix", features = [
+blockifier = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.3-RC.6", features = [
   "testing",
   "reexecution",
 ] }
-starknet_patricia = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.7-fix", features = [
+starknet_patricia = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.3-RC.6", features = [
   "testing",
 ] }
-shared_execution_objects = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.2-RC.7-fix" }
+shared_execution_objects = { git = "https://github.com/starkware-libs/sequencer", tag = "APOLLO-0.14.3-RC.6" }
 
-cairo-lang-starknet = "=2.17.0"
-cairo-lang-starknet-classes = "=2.17.0"
-cairo-lang-utils = "=2.17.0"
-cairo-lang-casm = "=2.17.0"
+cairo-lang-starknet = "=2.19.0-rc.0"
+cairo-lang-starknet-classes = "=2.19.0-rc.0"
+cairo-lang-utils = "=2.19.0-rc.0"
+cairo-lang-casm = "=2.19.0-rc.0"
 cairo-vm = "=3.2.0"
 
 starknet = {package = "starknet-rust", version = "0.19.0-rc.2"}
