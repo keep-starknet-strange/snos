@@ -10,7 +10,7 @@ path = "src/main.rs"
 [dependencies]
 # Internal dependencies
 generate-pie = { path = "../core/generate-pie" }
-rpc-client = { path = "../rpc-client" }
+rpc-client = { path = "../rpc-client", features = ["cairo_native"] }
 
 # External dependencies
 aws-config = { workspace = true }
