@@ -103,6 +103,7 @@ impl ProofCollectionResult {
                     .chain(current_contract_commitment_facts)
                     .map(|(key, value)| (HashOutput(key), value))
                     .collect();
+            let merged_contract_fact_count = global_contract_commitment_facts.len();
 
             let current_contract_storage_root: Felt =
                 storage_proof.contract_data.as_ref().map(|contract_data| contract_data.root).unwrap_or(Felt::ZERO);
@@ -113,6 +114,15 @@ impl ProofCollectionResult {
                 tree_height: SubTreeHeight(DEFAULT_STORAGE_TREE_HEIGHT as u8),
                 commitment_facts: global_contract_commitment_facts,
             };
+
+            info!(
+                "Prepared storage commitment info for block {:?}, contract {:#x}: previous_root={:#x} updated_root={:#x} merged_facts={}",
+                block_id,
+                contract_address,
+                previous_contract_storage_root,
+                current_contract_storage_root,
+                merged_contract_fact_count
+            );
 
             address_to_storage_commitment_info.insert(
                 ContractAddress::try_from(contract_address)
@@ -177,6 +187,7 @@ impl ProofCollectionResult {
             .chain(current_state_commitment_facts)
             .map(|(k, v)| (HashOutput(k), v))
             .collect();
+        let merged_global_state_fact_count = global_state_commitment_facts.len();
 
         let contract_state_commitment_info = CommitmentInfo {
             previous_root: HashOutput(previous_contract_trie_root),
@@ -184,6 +195,18 @@ impl ProofCollectionResult {
             tree_height: SubTreeHeight(DEFAULT_STORAGE_TREE_HEIGHT as u8),
             commitment_facts: global_state_commitment_facts,
         };
+
+        info!(
+            "Prepared global contract-state commitment for block {:?}: previous_root={:#x} updated_root={:#x} merged_facts={}",
+            block_id,
+            previous_contract_trie_root,
+            current_contract_trie_root,
+            merged_global_state_fact_count
+        );
+        info!(
+            "Prepared class commitment roots for block {:?}: previous_root={:#x} updated_root={:#x}",
+            block_id, previous_root, updated_root
+        );
 
         // Compute class commitment
         let contract_class_commitment_info =
