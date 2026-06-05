@@ -63,11 +63,13 @@
 // Standard library imports
 use std::path::Path;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 // External crate imports
 use anyhow::bail;
 use cairo_vm::types::layout_name::LayoutName;
 use futures::future::join_all;
 use log::{info, warn};
+use rpc_client::utils::{reset_rpc_timing, rpc_timing_snapshot};
 use rpc_client::RpcClient;
 use starknet_api::core::OsChainInfo;
 use starknet_os::{
@@ -79,7 +81,7 @@ use tokio::sync::Semaphore;
 use crate::constants::{DEFAULT_MAX_PARALLEL_BLOCKS, MAX_EXECUTION_STEPS_WARNING_THRESHOLD};
 use block_processor::collect_single_block_info;
 use error::PieGenerationError;
-use types::{PieGenerationInput, PieGenerationResult};
+use types::{PieGenerationInput, PieGenerationResult, PieGenerationTiming};
 use utils::sort_abi_entries_for_deprecated_class;
 
 const MAX_PARALLEL_BLOCKS_ENV: &str = "SNOS_MAX_PARALLEL_BLOCKS";
@@ -154,6 +156,8 @@ pub mod types;
 /// }
 /// ```
 pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResult, PieGenerationError> {
+    reset_rpc_timing();
+    let snos_started_at = Instant::now();
     info!("Starting PIE generation for {} blocks: {:?}", input.blocks.len(), input.blocks);
 
     // Validate input configuration
@@ -299,9 +303,39 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         info!("PIE written to file successfully: {}", output_path);
     }
 
+    let total_elapsed = snos_started_at.elapsed();
+    let rpc_timing = rpc_timing_snapshot();
+    let local_processing_elapsed = total_elapsed.saturating_sub(rpc_timing.wait_elapsed);
+    let timing = PieGenerationTiming {
+        total_processing_time_ms: duration_millis(total_elapsed),
+        rpc_wait_time_ms: duration_millis(rpc_timing.wait_elapsed),
+        execution_time_ms: duration_millis(local_processing_elapsed),
+    };
+    info!(
+        "SNOS processing timing summary for blocks {:?}: total_elapsed={} rpc_wait_elapsed={} local_processing_elapsed={} rpc_calls={} cumulative_rpc_call_elapsed={}",
+        input.blocks,
+        format_duration(total_elapsed),
+        format_duration(rpc_timing.wait_elapsed),
+        format_duration(local_processing_elapsed),
+        rpc_timing.calls,
+        format_duration(rpc_timing.cumulative_call_elapsed)
+    );
     info!("PIE generation completed successfully for blocks {:?}", input.blocks);
 
-    Ok(PieGenerationResult { output, blocks_processed: input.blocks.clone(), output_path: input.output_path.clone() })
+    Ok(PieGenerationResult {
+        output,
+        blocks_processed: input.blocks.clone(),
+        output_path: input.output_path.clone(),
+        timing,
+    })
+}
+
+fn format_duration(duration: Duration) -> String {
+    format!("{:.3}s", duration.as_secs_f64())
+}
+
+fn duration_millis(duration: Duration) -> u64 {
+    duration.as_millis().min(u128::from(u64::MAX)) as u64
 }
 
 pub fn parse_layout(layout: &str) -> anyhow::Result<LayoutName> {

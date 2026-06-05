@@ -4,13 +4,14 @@ use log::warn;
 use starknet::core::types::StarknetError;
 use starknet::providers::ProviderError;
 use std::future::Future;
-use std::sync::OnceLock;
-use std::time::Duration;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use tokio::time::sleep;
 
 /// Global Tokio runtime for executing async operations in non-async contexts.
 /// This is used when there's no current runtime available (e.g., in worker threads).
 static GLOBAL_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+static RPC_TIMING_STATE: OnceLock<Mutex<RpcTimingState>> = OnceLock::new();
 
 /// Maximum number of retry attempts for RPC calls.
 const MAX_RETRY_ATTEMPTS: u32 = 5;
@@ -21,11 +22,73 @@ const INITIAL_BACKOFF_MS: u64 = 100;
 /// Maximum delay for exponential backoff (in milliseconds).
 const MAX_BACKOFF_MS: u64 = 5000;
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RpcTimingSnapshot {
+    pub wait_elapsed: Duration,
+    pub cumulative_call_elapsed: Duration,
+    pub calls: u64,
+}
+
+#[derive(Debug, Default)]
+struct RpcTimingState {
+    active_calls: u64,
+    wait_started_at: Option<Instant>,
+    wait_elapsed: Duration,
+    cumulative_call_elapsed: Duration,
+    calls: u64,
+}
+
 /// Gets or creates the global Tokio runtime.
 fn get_global_runtime() -> &'static tokio::runtime::Runtime {
     GLOBAL_RUNTIME.get_or_init(|| {
         tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("Failed to create global Tokio runtime")
     })
+}
+
+fn rpc_timing_state() -> &'static Mutex<RpcTimingState> {
+    RPC_TIMING_STATE.get_or_init(|| Mutex::new(RpcTimingState::default()))
+}
+
+pub fn reset_rpc_timing() {
+    *rpc_timing_state().lock().expect("RPC timing mutex poisoned") = RpcTimingState::default();
+}
+
+pub fn rpc_timing_snapshot() -> RpcTimingSnapshot {
+    let state = rpc_timing_state().lock().expect("RPC timing mutex poisoned");
+    let mut wait_elapsed = state.wait_elapsed;
+
+    if let Some(wait_started_at) = state.wait_started_at {
+        wait_elapsed += wait_started_at.elapsed();
+    }
+
+    RpcTimingSnapshot { wait_elapsed, cumulative_call_elapsed: state.cumulative_call_elapsed, calls: state.calls }
+}
+
+fn record_rpc_call_started() -> Instant {
+    let now = Instant::now();
+    let mut state = rpc_timing_state().lock().expect("RPC timing mutex poisoned");
+
+    if state.active_calls == 0 {
+        state.wait_started_at = Some(now);
+    }
+    state.active_calls += 1;
+
+    now
+}
+
+fn record_rpc_call_finished(call_started_at: Instant) {
+    let now = Instant::now();
+    let mut state = rpc_timing_state().lock().expect("RPC timing mutex poisoned");
+
+    state.calls += 1;
+    state.cumulative_call_elapsed += now.duration_since(call_started_at);
+    state.active_calls = state.active_calls.saturating_sub(1);
+
+    if state.active_calls == 0 {
+        if let Some(wait_started_at) = state.wait_started_at.take() {
+            state.wait_elapsed += now.duration_since(wait_started_at);
+        }
+    }
 }
 
 /// Executes a coroutine (future) in a Tokio runtime context.
@@ -81,7 +144,11 @@ where
     loop {
         attempts += 1;
 
-        match f().await {
+        let call_started_at = record_rpc_call_started();
+        let result = f().await;
+        record_rpc_call_finished(call_started_at);
+
+        match result {
             Ok(result) => {
                 if attempts > 1 {
                     warn!("{operation_name}: succeeded after {attempts} attempts");
@@ -111,5 +178,50 @@ where
                 backoff_ms = (backoff_ms * 2).min(MAX_BACKOFF_MS);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn rpc_timing_tracks_successful_rpc_wait() {
+        let before = rpc_timing_snapshot();
+
+        execute_with_retry("timed_sleep", || async {
+            sleep(Duration::from_millis(5)).await;
+            Ok::<_, ProviderError>(())
+        })
+        .await
+        .unwrap();
+
+        let after = rpc_timing_snapshot();
+        assert!(after.calls >= before.calls + 1);
+        assert!(after.wait_elapsed >= before.wait_elapsed);
+        assert!(after.cumulative_call_elapsed >= before.cumulative_call_elapsed + Duration::from_millis(5));
+    }
+
+    #[tokio::test]
+    async fn rpc_timing_counts_overlapped_wait_once_for_wall_clock_summary() {
+        let before = rpc_timing_snapshot();
+
+        let first = execute_with_retry("timed_sleep_1", || async {
+            sleep(Duration::from_millis(20)).await;
+            Ok::<_, ProviderError>(())
+        });
+        let second = execute_with_retry("timed_sleep_2", || async {
+            sleep(Duration::from_millis(20)).await;
+            Ok::<_, ProviderError>(())
+        });
+
+        let (first_result, second_result) = tokio::join!(first, second);
+        first_result.unwrap();
+        second_result.unwrap();
+
+        let after = rpc_timing_snapshot();
+        assert!(after.calls >= before.calls + 2);
+        assert!(after.wait_elapsed >= before.wait_elapsed);
+        assert!(after.cumulative_call_elapsed >= before.cumulative_call_elapsed + Duration::from_millis(40));
     }
 }

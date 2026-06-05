@@ -91,4 +91,17 @@ pub struct PieGenerationResult {
     pub blocks_processed: Vec<u64>,
     /// The output file path where the PIE was saved (if specified).
     pub output_path: Option<String>,
+    /// Timing details for the SNOS run.
+    pub timing: PieGenerationTiming,
+}
+
+/// Wall-clock timing details for a SNOS run.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct PieGenerationTiming {
+    /// Total wall-clock time spent in SNOS processing.
+    pub total_processing_time_ms: u64,
+    /// Wall-clock time spent with at least one RPC call in flight.
+    pub rpc_wait_time_ms: u64,
+    /// Wall-clock time spent on local execution/processing outside RPC waits.
+    pub execution_time_ms: u64,
 }
