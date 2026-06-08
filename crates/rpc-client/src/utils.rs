@@ -84,7 +84,7 @@ where
         match f().await {
             Ok(result) => {
                 if attempts > 1 {
-                    debug!("{operation_name}: succeeded after {attempts} attempts");
+                    warn!("{operation_name}: succeeded after {attempts} attempts");
                 }
                 return Ok(result);
             }
@@ -98,6 +98,10 @@ where
                 if !is_retryable || attempts >= MAX_RETRY_ATTEMPTS {
                     if attempts > 1 {
                         warn!("{operation_name}: failed after {attempts} attempts with error: {e:?}");
+                    } else {
+                        warn!(
+                            "{operation_name}: failed on first attempt with error: {e:?} (retryable: {is_retryable})"
+                        );
                     }
                     return Err(e);
                 }
