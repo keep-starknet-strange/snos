@@ -1,6 +1,6 @@
 //! Utility functions for async operations and coroutine execution.
 
-use log::{debug, warn};
+use log::warn;
 use starknet::core::types::StarknetError;
 use starknet::providers::ProviderError;
 use std::future::Future;
