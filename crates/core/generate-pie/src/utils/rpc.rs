@@ -8,7 +8,6 @@ use log::info;
 use rpc_client::client::ProofClient;
 use rpc_client::error::ClientError;
 use rpc_client::types::{ClassProof, ContractData, ContractProof};
-use rpc_client::utils::execute_with_retry;
 use rpc_client::RpcClient;
 use starknet_api::contract_address;
 use starknet_api::core::{ClassHash, ContractAddress};
@@ -236,13 +235,9 @@ async fn fetch_storage_proof_for_contract(
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
     info!("Fetching storage proof for contract {} with {} keys", contract_address, keys.len());
-
-    let operation_name = format!(
-        "get_proof(block_number: {block_number}, contract_address: {contract_address:#x}, keys: {})",
-        keys.len()
-    );
-
-    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_proof(block_number, contract_address, keys))
+    rpc_client
+        .starknet_rpc()
+        .get_proof(block_number, contract_address, keys)
         .await
         .map_err(|e| ClientError::CustomError(format!("{}", e)))
 }
