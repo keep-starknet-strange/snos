@@ -8,6 +8,7 @@ use log::info;
 use rpc_client::client::ProofClient;
 use rpc_client::error::ClientError;
 use rpc_client::types::{ClassProof, ContractData, ContractProof};
+use rpc_client::utils::execute_with_retry;
 use rpc_client::RpcClient;
 use starknet_api::contract_address;
 use starknet_api::core::{ClassHash, ContractAddress};
