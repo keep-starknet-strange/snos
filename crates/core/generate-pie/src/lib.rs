@@ -69,7 +69,7 @@ use cairo_vm::types::layout_name::LayoutName;
 use futures::future::join_all;
 use log::{info, warn};
 use rpc_client::RpcClient;
-use starknet_api::core::OsChainInfo;
+use starknet_api::core::{ChainId, OsChainInfo};
 use starknet_os::{
     io::os_input::{OsHints, OsHintsConfig, StarknetOsInput},
     runner::run_os_stateless,
@@ -206,6 +206,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
             Ok::<_, PieGenerationError>((
                 block_info.os_block_input,
+                block_info.chain_id,
                 block_info.compiled_classes,
                 block_info.deprecated_compiled_classes,
             ))
@@ -220,11 +221,23 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     let mut os_block_inputs = Vec::new();
     let mut compiled_classes = std::collections::BTreeMap::new();
     let mut deprecated_compiled_classes = std::collections::BTreeMap::new();
+    let mut provider_chain_id: Option<ChainId> = None;
 
     for result in results {
         // First unwrap the JoinHandle, then unwrap the inner Result
-        let (block_input, block_compiled_classes, block_deprecated_compiled_classes) =
+        let (block_input, block_chain_id, block_compiled_classes, block_deprecated_compiled_classes) =
             result.map_err(|e| PieGenerationError::RpcClient(format!("Task join error: {:?}", e)))??;
+
+        if let Some(provider_chain_id) = &provider_chain_id {
+            if provider_chain_id != &block_chain_id {
+                return Err(PieGenerationError::InvalidConfig(format!(
+                    "Blocks belong to different chains: {:?} and {:?}",
+                    provider_chain_id, block_chain_id
+                )));
+            }
+        } else {
+            provider_chain_id = Some(block_chain_id);
+        }
 
         // Add block input to our collection
         os_block_inputs.push(block_input);
@@ -246,6 +259,13 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
     info!("=== Finalizing multi-block processing ===");
     info!("OS inputs prepared with {} block inputs", os_block_inputs.len());
+    let os_chain_id = provider_chain_id.unwrap_or_else(|| input.chain_config.chain_id.clone());
+    if os_chain_id != input.chain_config.chain_id {
+        warn!(
+            "Using provider chain_id {:?} for OS hints instead of configured chain_id {:?}",
+            os_chain_id, input.chain_config.chain_id
+        );
+    }
 
     // Build OS hints configuration
     info!("Building OS hints configuration for multi-block processing");
@@ -255,7 +275,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
             full_output: input.os_hints_config.full_output,
             use_kzg_da: input.os_hints_config.use_kzg_da,
             chain_info: OsChainInfo {
-                chain_id: input.chain_config.chain_id,
+                chain_id: os_chain_id,
                 strk_fee_token_address: input.chain_config.strk_fee_token_address,
             },
             public_keys: input.public_keys.clone(),
