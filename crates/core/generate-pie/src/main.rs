@@ -3,6 +3,9 @@
 //! This binary demonstrates how to use the generate-pie library to generate
 //! Cairo PIE files from Starknet blocks.
 
+use std::collections::BTreeSet;
+use std::str::FromStr;
+
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser;
 use generate_pie::constants::{DEFAULT_SEPOLIA_ETH_FEE_TOKEN, DEFAULT_SEPOLIA_STRK_FEE_TOKEN};
@@ -11,14 +14,76 @@ use generate_pie::utils::load_versioned_constants;
 use generate_pie::{generate_pie, parse_layout, parse_public_key};
 use log::{error, info};
 
+/// Represents a range of block numbers (inclusive).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct BlockRange {
+    start: u64,
+    end: u64,
+}
+
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+enum CliInputError {
+    #[error("Invalid range format '{input}'. Expected format: start,end (e.g., 1,999).")]
+    InvalidRangeFormat { input: String },
+    #[error("Invalid start value '{value}'. Must be a positive integer.")]
+    InvalidStartValue { value: String },
+    #[error("Invalid end value '{value}'. Must be a positive integer.")]
+    InvalidEndValue { value: String },
+    #[error("Invalid range: start ({start}) must be less than or equal to end ({end}).")]
+    InvalidRangeBounds { start: u64, end: u64 },
+    #[error("At least one block number must be provided. Use --blocks and/or --range.")]
+    EmptyBlockSelection,
+    #[error("Invalid versioned constants configuration: {message}")]
+    VersionedConstantsConfig { message: String },
+}
+
+#[derive(Debug, thiserror::Error)]
+enum AppError {
+    #[error(transparent)]
+    CliInput(#[from] CliInputError),
+    #[error(transparent)]
+    PieGeneration(#[from] generate_pie::error::PieGenerationError),
+}
+
+impl BlockRange {
+    /// Returns an iterator over all block numbers in this range (inclusive).
+    fn iter(&self) -> impl Iterator<Item = u64> {
+        self.start..=self.end
+    }
+}
+
+impl FromStr for BlockRange {
+    type Err = CliInputError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (start_raw, end_raw) =
+            s.split_once(',').ok_or_else(|| CliInputError::InvalidRangeFormat { input: s.to_string() })?;
+
+        let start: u64 =
+            start_raw.trim().parse().map_err(|_| CliInputError::InvalidStartValue { value: start_raw.to_string() })?;
+        let end: u64 =
+            end_raw.trim().parse().map_err(|_| CliInputError::InvalidEndValue { value: end_raw.to_string() })?;
+
+        if start > end {
+            return Err(CliInputError::InvalidRangeBounds { start, end });
+        }
+
+        Ok(BlockRange { start, end })
+    }
+}
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 #[command(name = "snos")]
 #[command(about = "SNOS - Starknet OS for block processing")]
 struct Cli {
-    /// Block number(s) to process
-    #[arg(short, long, value_delimiter = ',', required = true, env = "SNOS_BLOCKS")]
+    /// Block number(s) to process (comma-separated)
+    #[arg(short, long, value_delimiter = ',', env = "SNOS_BLOCKS")]
     blocks: Vec<u64>,
+
+    /// Block range to process (format: start,end - inclusive)
+    #[arg(short = 'R', long, env = "SNOS_RANGE")]
+    range: Option<BlockRange>,
 
     /// RPC URL to connect to
     #[arg(short, long, required = true, env = "SNOS_RPC_URL")]
@@ -56,6 +121,20 @@ struct Cli {
     #[arg(long, value_delimiter = ',', value_parser = parse_public_key, env = "SNOS_PUBLIC_KEYS")]
     public_keys: Option<Vec<starknet_types_core::felt::Felt>>,
 }
+
+fn collect_blocks(blocks: Vec<u64>, range: Option<BlockRange>) -> Result<Vec<u64>, CliInputError> {
+    let mut selected_blocks: BTreeSet<u64> = blocks.into_iter().collect();
+
+    if let Some(range) = range {
+        selected_blocks.extend(range.iter());
+    }
+
+    if selected_blocks.is_empty() {
+        return Err(CliInputError::EmptyBlockSelection);
+    }
+
+    Ok(selected_blocks.into_iter().collect())
+}
 /// Main entry point for the generate-pie application.
 ///
 /// This function demonstrates the usage of the generate-pie library by:
@@ -78,30 +157,34 @@ struct Cli {
 /// - OS execution errors
 /// - File I/O errors
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn main() -> Result<(), AppError> {
     // Initialize logging
     env_logger::init();
 
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
 
     info!("Starting SNOS PIE generation application");
 
-    // Validate that at least one block is provided
-    if cli.blocks.is_empty() {
-        error!("At least one block number must be provided");
-        std::process::exit(1);
+    if let Some(range) = cli.range {
+        info!("Adding blocks from range {} to {} (inclusive)", range.start, range.end);
     }
+
+    let blocks = collect_blocks(std::mem::take(&mut cli.blocks), cli.range).map_err(|e| {
+        error!("{e}");
+        e
+    })?;
 
     // Load versioned constants from file if provided
     let versioned_constants = load_versioned_constants(cli.versioned_constants_path.as_deref()).map_err(|e| {
-        error!("{}", e);
-        e
+        let typed_error = CliInputError::VersionedConstantsConfig { message: e };
+        error!("{typed_error}");
+        typed_error
     })?;
 
     // Build the input configuration
     let input = PieGenerationInput {
         rpc_url: cli.rpc_url.clone(),
-        blocks: cli.blocks.clone(),
+        blocks,
         chain_config: ChainConfig::new(&cli.chain, &cli.strk_fee_token_address, &cli.eth_fee_token_address, cli.is_l3),
         os_hints_config: OsHintsConfiguration::default_with_is_l3(cli.is_l3),
         output_path: cli.output.clone(),
@@ -134,20 +217,84 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     // Call the core PIE generation function
-    match generate_pie(input).await {
-        Ok(result) => {
-            info!("PIE generation completed successfully!");
-            info!("  Blocks processed: {:?}", result.blocks_processed);
-            if let Some(output_path) = result.output_path {
-                info!("  Output written to: {}", output_path);
-            }
-        }
-        Err(e) => {
-            error!("PIE generation failed: {}", e);
-            return Err(e.into());
-        }
+    let result = generate_pie(input).await.map_err(|e| {
+        error!("PIE generation failed: {}", e);
+        e
+    })?;
+
+    info!("PIE generation completed successfully!");
+    info!("  Blocks processed: {:?}", result.blocks_processed);
+    if let Some(output_path) = result.output_path {
+        info!("  Output written to: {}", output_path);
     }
 
     info!("SNOS execution completed successfully!");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case("1,3", BlockRange { start: 1, end: 3 }, vec![1, 2, 3])]
+    #[case(" 4 , 5 ", BlockRange { start: 4, end: 5 }, vec![4, 5])]
+    fn block_range_parses_valid_input(
+        #[case] input: &str,
+        #[case] expected_range: BlockRange,
+        #[case] expected_blocks: Vec<u64>,
+    ) {
+        let range = BlockRange::from_str(input).expect("valid range should parse");
+
+        assert_eq!(range, expected_range);
+        assert_eq!(range.iter().collect::<Vec<_>>(), expected_blocks);
+    }
+
+    #[rstest]
+    #[case(
+        "1",
+        CliInputError::InvalidRangeFormat {
+            input: "1".to_string()
+        }
+    )]
+    #[case(
+        "abc,2",
+        CliInputError::InvalidStartValue {
+            value: "abc".to_string()
+        }
+    )]
+    #[case(
+        "1,xyz",
+        CliInputError::InvalidEndValue {
+            value: "xyz".to_string()
+        }
+    )]
+    #[case("9,2", CliInputError::InvalidRangeBounds { start: 9, end: 2 })]
+    fn block_range_rejects_invalid_input(#[case] input: &str, #[case] expected_error: CliInputError) {
+        let error = BlockRange::from_str(input).expect_err("invalid range should fail");
+
+        assert_eq!(error, expected_error);
+    }
+
+    #[rstest]
+    #[case(vec![5, 3, 5, 4], None, Ok(vec![3, 4, 5]))]
+    #[case(vec![], Some(BlockRange { start: 7, end: 9 }), Ok(vec![7, 8, 9]))]
+    #[case(vec![10, 12], Some(BlockRange { start: 11, end: 12 }), Ok(vec![10, 11, 12]))]
+    #[case(vec![], None, Err(CliInputError::EmptyBlockSelection))]
+    fn collect_blocks_handles_inputs(
+        #[case] blocks: Vec<u64>,
+        #[case] range: Option<BlockRange>,
+        #[case] expected: Result<Vec<u64>, CliInputError>,
+    ) {
+        assert_eq!(collect_blocks(blocks, range), expected);
+    }
+
+    #[test]
+    fn cli_parses_range_argument_into_block_range() {
+        let cli = Cli::try_parse_from(["snos", "--rpc-url", "http://localhost:8545", "--range", "4,6"])
+            .expect("cli should parse range argument");
+
+        assert_eq!(cli.range, Some(BlockRange { start: 4, end: 6 }));
+    }
 }
