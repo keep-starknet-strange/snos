@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use crate::constants::{MAX_CONCURRENT_PROOF_REQUESTS, MAX_STORAGE_KEYS_PER_REQUEST, STARKNET_RPC_VERSION};
 use crate::types::{ClassProof, ContractProof};
+use crate::utils::execute_with_retry;
 
 const DEFAULT_RPC_REQUEST_TIMEOUT_SECS: u64 = 60;
 const DEFAULT_RPC_CONNECT_TIMEOUT_SECS: u64 = 5;
@@ -248,40 +249,40 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
         contract_address: Felt,
         keys: &[Felt],
     ) -> Result<ContractProof, ProviderError> {
-        // TODO: Return proper errors
-        let mut proofs = VecDeque::new();
-
         if keys.is_empty() {
-            // Get proof for the entire contract
-            let proof = self.get_proof_one_key(block_number, contract_address, None).await?;
-            proofs.push_back(proof);
-        } else {
-            // Get proofs for each key chunk concurrently
-            let chunks: Vec<_> = keys.chunks(MAX_STORAGE_KEYS_PER_REQUEST).map(|c| c.to_vec()).collect();
-
-            info!(
-                "Fetching proofs for {} chunks with max {} concurrent requests",
-                chunks.len(),
-                MAX_CONCURRENT_PROOF_REQUESTS
-            );
-
-            // Create futures for all chunks and execute them concurrently
-            let chunk_proofs: Vec<ContractProof> = stream::iter(chunks)
-                .map(|chunk| {
-                    let chunk_len = chunk.len();
-                    async move {
-                        info!("Calling RPC with {} keys", chunk_len);
-                        self.get_proof_multiple_keys(block_number, contract_address, &chunk).await
-                    }
-                })
-                .buffer_unordered(MAX_CONCURRENT_PROOF_REQUESTS)
-                .collect::<Vec<_>>()
-                .await
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()?;
-
-            proofs.extend(chunk_proofs);
+            let operation_name =
+                format!("get_proof(block_number: {block_number}, contract_address: {contract_address:#x}, keys: 0)");
+            return execute_with_retry(&operation_name, || {
+                self.get_proof_one_key(block_number, contract_address, None)
+            })
+            .await;
         }
+
+        let proof_chunks = fetch_proof_chunks(
+            block_number,
+            contract_address,
+            keys,
+            MAX_STORAGE_KEYS_PER_REQUEST,
+            MAX_CONCURRENT_PROOF_REQUESTS,
+            |chunk_index, chunk| {
+                let operation_name = format!(
+                    "get_proof(block_number: {block_number}, contract_address: {contract_address:#x}, total_keys: {}, chunk_index: {}, chunk_keys: {})",
+                    keys.len(),
+                    chunk_index,
+                    chunk.len()
+                );
+                async move {
+                    execute_with_retry(&operation_name, || {
+                        self.get_proof_multiple_keys(block_number, contract_address, &chunk)
+                    })
+                    .await
+                }
+            },
+        )
+        .await?;
+
+        // TODO: Return proper errors
+        let mut proofs: VecDeque<_> = proof_chunks.into();
 
         // Merge all the proofs into a single proof
         let mut proof = proofs.pop_front().ok_or(ProviderError::ArrayLengthMismatch)?;
@@ -411,5 +412,107 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
         )
         .await?
         .try_into()
+    }
+}
+
+async fn fetch_proof_chunks<F, Fut>(
+    block_number: u64,
+    contract_address: Felt,
+    keys: &[Felt],
+    max_keys_per_request: usize,
+    max_concurrent_proof_requests: usize,
+    fetch_chunk: F,
+) -> Result<Vec<ContractProof>, ProviderError>
+where
+    F: Fn(usize, Vec<Felt>) -> Fut + Clone,
+    Fut: std::future::Future<Output = Result<ContractProof, ProviderError>>,
+{
+    let chunks: Vec<_> = keys.chunks(max_keys_per_request).map(|chunk| chunk.to_vec()).collect();
+
+    info!("Fetching proofs for {} chunks with max {} concurrent requests", chunks.len(), max_concurrent_proof_requests);
+
+    stream::iter(chunks.into_iter().enumerate())
+        .map(|(chunk_index, chunk)| {
+            let fetch_chunk = fetch_chunk.clone();
+            async move {
+                info!(
+                    "Calling RPC for contract {:x} at block {:x} with chunk {} / {} keys",
+                    contract_address,
+                    block_number,
+                    chunk_index,
+                    chunk.len()
+                );
+                fetch_chunk(chunk_index, chunk).await
+            }
+        })
+        .buffer_unordered(max_concurrent_proof_requests)
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use tokio::sync::Mutex;
+
+    use super::*;
+
+    fn dummy_contract_proof(chunk_index: usize) -> ContractProof {
+        ContractProof {
+            contract_data: Some(crate::types::ContractData {
+                root: Felt::from(chunk_index as u64 + 1),
+                storage_proofs: vec![vec![]],
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn fetch_proof_chunks_retries_only_failed_chunk() {
+        let keys: Vec<Felt> = (0..181).map(Felt::from).collect();
+        let attempts: Arc<Mutex<HashMap<usize, usize>>> = Arc::new(Mutex::new(HashMap::new()));
+
+        let proofs = fetch_proof_chunks(42, Felt::from(7_u64), &keys, 90, 10, {
+            let attempts = Arc::clone(&attempts);
+            move |chunk_index, chunk| {
+                let attempts = Arc::clone(&attempts);
+                let chunk_len = chunk.len();
+                let operation_name = format!("test chunk {chunk_index} ({chunk_len} keys)");
+                async move {
+                    execute_with_retry(&operation_name, || {
+                        let attempts = Arc::clone(&attempts);
+                        async move {
+                            let current_attempt = {
+                                let mut attempts = attempts.lock().await;
+                                let entry = attempts.entry(chunk_index).or_insert(0);
+                                *entry += 1;
+                                *entry
+                            };
+
+                            if chunk_index == 1 && current_attempt == 1 {
+                                return Err(ProviderError::RateLimited);
+                            }
+
+                            assert!(chunk_len <= 90);
+                            Ok(dummy_contract_proof(chunk_index))
+                        }
+                    })
+                    .await
+                }
+            }
+        })
+        .await
+        .expect("chunk fetch should succeed after retrying the flaky chunk");
+
+        assert_eq!(proofs.len(), 3);
+
+        let attempts = attempts.lock().await;
+        assert_eq!(attempts.get(&0), Some(&1));
+        assert_eq!(attempts.get(&1), Some(&2));
+        assert_eq!(attempts.get(&2), Some(&1));
     }
 }
