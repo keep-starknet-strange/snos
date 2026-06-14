@@ -22,6 +22,8 @@ const DEFAULT_RPC_POOL_MAX_IDLE_PER_HOST: usize = 0;
 const RPC_REQUEST_TIMEOUT_ENV: &str = "SNOS_RPC_REQUEST_TIMEOUT_SECS";
 const RPC_CONNECT_TIMEOUT_ENV: &str = "SNOS_RPC_CONNECT_TIMEOUT_SECS";
 const RPC_POOL_MAX_IDLE_PER_HOST_ENV: &str = "SNOS_RPC_POOL_MAX_IDLE_PER_HOST";
+const MAX_STORAGE_KEYS_PER_REQUEST_ENV: &str = "SNOS_MAX_STORAGE_KEYS_PER_PROOF_REQUEST";
+const MAX_CONCURRENT_PROOF_REQUESTS_ENV: &str = "SNOS_MAX_CONCURRENT_PROOF_REQUESTS";
 
 pub trait ProofClient {
     fn get_proof(
@@ -258,12 +260,17 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
             .await;
         }
 
+        let max_storage_keys_per_request =
+            RpcClientInner::read_env_usize(MAX_STORAGE_KEYS_PER_REQUEST_ENV, MAX_STORAGE_KEYS_PER_REQUEST).max(1);
+        let max_concurrent_proof_requests =
+            RpcClientInner::read_env_usize(MAX_CONCURRENT_PROOF_REQUESTS_ENV, MAX_CONCURRENT_PROOF_REQUESTS).max(1);
+
         let proof_chunks = fetch_proof_chunks(
             block_number,
             contract_address,
             keys,
-            MAX_STORAGE_KEYS_PER_REQUEST,
-            MAX_CONCURRENT_PROOF_REQUESTS,
+            max_storage_keys_per_request,
+            max_concurrent_proof_requests,
             |chunk_index, chunk| {
                 let operation_name = format!(
                     "get_proof(block_number: {block_number}, contract_address: {contract_address:#x}, total_keys: {}, chunk_index: {}, chunk_keys: {})",
