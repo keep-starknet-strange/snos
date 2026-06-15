@@ -310,6 +310,15 @@ fn extract_migrated_compiled_classes(state_diff: &StateDiff) -> HashMap<Felt252,
         .unwrap_or_default()
 }
 
+fn collect_fetched_items<K, T>(
+    fetched_results: Vec<(K, Result<T, ProviderError>)>,
+) -> Result<Vec<(K, T)>, StateUpdateError> {
+    fetched_results
+        .into_iter()
+        .map(|(key, result)| result.map(|value| (key, value)).map_err(StateUpdateError::RpcError))
+        .collect()
+}
+
 /// Builds compiled classes from accessed addresses and classes.
 async fn build_compiled_classes(
     rpc_client: &RpcClient,
@@ -446,23 +455,20 @@ async fn process_accessed_addresses(
     info!("Fetched {} contract classes, now compiling in parallel...", class_results.len());
 
     // Phase 3: Compile classes in parallel using rayon (CPU parallelization)
-    let compilation_results: Vec<(Felt, Result<GenericCompiledClass, StateUpdateError>)> = class_results
+    let fetched_classes = collect_fetched_items(class_results)?;
+
+    let compilation_results: Vec<Result<(Felt, GenericCompiledClass), StateUpdateError>> = fetched_classes
         .into_par_iter()
-        .filter_map(|(class_hash, contract_class_result)| {
-            let contract_class = contract_class_result.ok()?;
-            let compiled_result = compile_contract_class(contract_class);
-            Some((class_hash, compiled_result))
+        .map(|(class_hash, contract_class)| {
+            let compiled_class = compile_contract_class(contract_class)?;
+            Ok((class_hash, compiled_class))
         })
         .collect();
 
     // Add compiled classes to result
-    for (class_hash, compiled_result) in compilation_results {
-        match compiled_result {
-            Ok(compiled_class) => {
-                add_compiled_class_internal(class_hash, compiled_class, class_hash_to_compiled_class_hash, result)?;
-            }
-            Err(e) => return Err(e),
-        }
+    for compiled_result in compilation_results {
+        let (class_hash, compiled_class) = compiled_result?;
+        add_compiled_class_internal(class_hash, compiled_class, class_hash_to_compiled_class_hash, result)?;
     }
 
     Ok(())
@@ -488,41 +494,37 @@ async fn process_accessed_classes(
 
     // Phase 1: Fetch all contract classes concurrently (network I/O parallelization)
     let class_hashes: Vec<Felt252> = accessed_classes.iter().copied().collect();
-    let class_fetch_results: Vec<(Felt252, Option<starknet::core::types::ContractClass>)> =
+    let class_fetch_results: Vec<(Felt252, Result<starknet::core::types::ContractClass, ProviderError>)> =
         stream::iter(class_hashes.clone())
             .map(|class_hash| async move {
                 debug!("Fetching class hash: {:?}", class_hash);
                 let operation_name = format!("get_class(block_id: {block_id:?}, class_hash: {class_hash:?})");
                 let contract_class =
                     execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class(block_id, class_hash))
-                        .await
-                        .ok();
+                        .await;
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
             .collect()
             .await;
 
-    info!("Fetched {} contract classes, now compiling in parallel...", class_fetch_results.len());
+    let fetched_classes = collect_fetched_items(class_fetch_results)?;
+
+    info!("Fetched {} contract classes, now compiling in parallel...", fetched_classes.len());
 
     // Phase 2: Compile classes in parallel using rayon (CPU parallelization)
-    let compilation_results: Vec<(Felt252, Result<GenericCompiledClass, StateUpdateError>)> = class_fetch_results
+    let compilation_results: Vec<Result<(Felt252, GenericCompiledClass), StateUpdateError>> = fetched_classes
         .into_par_iter()
-        .filter_map(|(class_hash, contract_class_opt)| {
-            let contract_class = contract_class_opt?;
-            let compiled_result = compile_contract_class(contract_class);
-            Some((class_hash, compiled_result))
+        .map(|(class_hash, contract_class)| {
+            let compiled_class = compile_contract_class(contract_class)?;
+            Ok((class_hash, compiled_class))
         })
         .collect();
 
     // Add compiled classes to result
-    for (class_hash, compiled_result) in compilation_results {
-        match compiled_result {
-            Ok(compiled_class) => {
-                add_compiled_class_internal(class_hash, compiled_class, class_hash_to_compiled_class_hash, result)?;
-            }
-            Err(e) => return Err(e),
-        }
+    for compiled_result in compilation_results {
+        let (class_hash, compiled_class) = compiled_result?;
+        add_compiled_class_internal(class_hash, compiled_class, class_hash_to_compiled_class_hash, result)?;
     }
 
     Ok(())
@@ -626,6 +628,20 @@ fn compile_contract_class(
     };
 
     Ok(compiled_class)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collect_fetched_items_propagates_rpc_errors() {
+        let fetched_results = vec![(Felt::ONE, Ok("ok")), (Felt::TWO, Err(ProviderError::RateLimited))];
+
+        let error = collect_fetched_items(fetched_results).expect_err("rpc errors must not be dropped");
+
+        assert!(matches!(error, StateUpdateError::RpcError(ProviderError::RateLimited)));
+    }
 }
 
 /// Formats declared classes for OS consumption by setting compiled class hashes to zero.

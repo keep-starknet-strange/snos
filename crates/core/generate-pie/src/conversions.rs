@@ -63,6 +63,8 @@ pub enum ConversionError {
     FieldConversionFailed { field: String, reason: String },
     #[error("Missing transaction receipt for {tx_hash:#x}")]
     MissingTransactionReceipt { tx_hash: Felt },
+    #[error("Missing proof facts in RPC response for transaction {tx_hash:#x}")]
+    MissingProofFacts { tx_hash: Felt },
 }
 
 // ================================================================================================
@@ -306,8 +308,11 @@ pub(crate) fn transaction_receipt_hash(receipt: &TransactionReceipt) -> Felt {
     }
 }
 
-fn proof_facts_from_rpc(proof_facts: Option<Vec<Felt>>) -> starknet_api::transaction::fields::ProofFacts {
-    proof_facts.unwrap_or_default().into()
+fn proof_facts_from_rpc(
+    tx_hash: Felt,
+    proof_facts: Option<Vec<Felt>>,
+) -> Result<starknet_api::transaction::fields::ProofFacts, ConversionError> {
+    proof_facts.ok_or(ConversionError::MissingProofFacts { tx_hash }).map(Into::into)
 }
 
 #[allow(clippy::result_large_err)]
@@ -425,7 +430,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV3
             account_deployment_data: starknet_api::transaction::fields::AccountDeploymentData(
                 self.account_deployment_data,
             ),
-            proof_facts: proof_facts_from_rpc(self.proof_facts),
+            proof_facts: proof_facts_from_rpc(self.transaction_hash, self.proof_facts)?,
         });
 
         let invoke_tx = starknet_api::executable_transaction::InvokeTransaction::create(api_tx, ctx.chain_id)?;
@@ -794,5 +799,37 @@ mod tests {
 
         assert_eq!(converted_tx.proof_facts_length(), 3);
         assert_eq!(converted_tx.tx_hash().0, tx.transaction_hash);
+    }
+
+    #[tokio::test]
+    async fn invoke_v3_conversion_rejects_missing_proof_facts() {
+        let chain_id = ChainId::Sepolia;
+        let rpc_client = RpcClient::try_new("http://localhost:9545").expect("valid dummy rpc url");
+        let transaction_receipts = HashMap::new();
+        let ctx = ConversionContext::new(&chain_id, 9112643, &rpc_client, &transaction_receipts);
+        let tx = InvokeTransactionV3 {
+            transaction_hash: Felt::from(123_u64),
+            sender_address: Felt::from_hex_unchecked(
+                "0x041c9dbe8ab9b414fa0ec4d22b7a41d80a3911b77a2c9c819ce949faa5edb9f9",
+            ),
+            calldata: vec![Felt::ONE],
+            signature: vec![Felt::TWO],
+            nonce: Felt::from(7_u64),
+            resource_bounds: ResourceBoundsMapping {
+                l1_gas: ResourceBounds { max_amount: 1_000_000, max_price_per_unit: 1 },
+                l2_gas: ResourceBounds { max_amount: 2_000_000, max_price_per_unit: 3 },
+                l1_data_gas: ResourceBounds { max_amount: 4_000_000, max_price_per_unit: 5 },
+            },
+            tip: 0,
+            paymaster_data: vec![],
+            account_deployment_data: vec![],
+            nonce_data_availability_mode: DataAvailabilityMode::L1,
+            fee_data_availability_mode: DataAvailabilityMode::L1,
+            proof_facts: None,
+        };
+
+        let error = tx.try_into_blockifier_async(&ctx).await.expect_err("missing proof facts must fail");
+
+        assert!(matches!(error, ConversionError::MissingProofFacts { tx_hash } if tx_hash == Felt::from(123_u64)));
     }
 }

@@ -151,9 +151,8 @@ impl TryFrom<StorageProof> for ContractProof {
             contract_commitment: proof.global_roots.contracts_tree_root,
             class_commitment: Some(proof.global_roots.classes_tree_root),
             contract_proof: snos_contract_proof,
-            // TODO: Remove the unwrap. Make the root field Optional if possible or handle the error
             contract_data: Some(ContractData {
-                root: contract_leaf.storage_root.unwrap(),
+                root: contract_leaf.storage_root.ok_or(ProviderError::ArrayLengthMismatch)?,
                 storage_proofs: snos_storage_proofs,
             }),
         })
