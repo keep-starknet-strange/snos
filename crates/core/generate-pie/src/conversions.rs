@@ -308,6 +308,7 @@ pub(crate) fn transaction_receipt_hash(receipt: &TransactionReceipt) -> Felt {
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn proof_facts_from_rpc(
     tx_hash: Felt,
     proof_facts: Option<Vec<Felt>>,

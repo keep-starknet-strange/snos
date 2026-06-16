@@ -150,6 +150,10 @@ struct CompiledClassBuildInputs<'a> {
     accessed_classes: &'a HashSet<Felt252>,
 }
 
+type AddressBlockLookup = (Felt252, BlockId, bool);
+type AddressClassFetch = (Felt252, BlockId, bool, Felt);
+type AddressClassFetchPlan = (Vec<AddressBlockLookup>, Vec<AddressClassFetch>);
+
 /// Result containing processed contract class data.
 pub struct ContractClassProcessingResult {
     pub compiled_classes: std::collections::BTreeMap<
@@ -324,7 +328,7 @@ fn plan_accessed_address_class_fetches(
     pre_state_class_hashes: &HashMap<Felt252, ClassHash>,
     previous_block_id: PreviousBlockId,
     block_id: BlockId,
-) -> (Vec<(Felt252, BlockId, bool)>, Vec<(Felt252, BlockId, bool, Felt)>) {
+) -> AddressClassFetchPlan {
     let mut address_block_pairs = Vec::new();
     let mut class_fetch_pairs = Vec::new();
 
@@ -422,12 +426,8 @@ async fn process_accessed_addresses(
 
     // Phase 1: Reuse pre-state class hashes from Blockifier when available, and only hit RPC
     // for the remaining previous-block lookups plus all current-block lookups.
-    let (address_block_pairs, mut class_fetch_pairs) = plan_accessed_address_class_fetches(
-        &addresses_to_process,
-        pre_state_class_hashes,
-        previous_block_id,
-        block_id,
-    );
+    let (address_block_pairs, mut class_fetch_pairs) =
+        plan_accessed_address_class_fetches(&addresses_to_process, pre_state_class_hashes, previous_block_id, block_id);
 
     let class_hash_results: Vec<(Felt252, BlockId, bool, Result<Felt, ProviderError>)> =
         stream::iter(address_block_pairs)
@@ -654,6 +654,15 @@ fn compile_contract_class(
     Ok(compiled_class)
 }
 
+/// Formats declared classes for OS consumption by setting compiled class hashes to zero.
+fn format_declared_classes(state_diff: &StateDiff, class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>) {
+    debug!("Formatting {} declared classes", state_diff.declared_classes.len());
+
+    for class in &state_diff.declared_classes {
+        class_hash_to_compiled_class_hash.insert(class.class_hash, Felt::ZERO);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -694,14 +703,5 @@ mod tests {
 
         assert_eq!(class_fetch_pairs, vec![(address, BlockId::Number(10), true, previous_class_hash.0)]);
         assert_eq!(address_block_pairs, vec![(address, block_id, false)]);
-    }
-}
-
-/// Formats declared classes for OS consumption by setting compiled class hashes to zero.
-fn format_declared_classes(state_diff: &StateDiff, class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>) {
-    debug!("Formatting {} declared classes", state_diff.declared_classes.len());
-
-    for class in &state_diff.declared_classes {
-        class_hash_to_compiled_class_hash.insert(class.class_hash, Felt::ZERO);
     }
 }
