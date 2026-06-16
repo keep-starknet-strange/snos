@@ -319,6 +319,36 @@ fn collect_fetched_items<K, T>(
         .collect()
 }
 
+fn plan_accessed_address_class_fetches(
+    addresses_to_process: &[Felt252],
+    pre_state_class_hashes: &HashMap<Felt252, ClassHash>,
+    previous_block_id: PreviousBlockId,
+    block_id: BlockId,
+) -> (Vec<(Felt252, BlockId, bool)>, Vec<(Felt252, BlockId, bool, Felt)>) {
+    let mut address_block_pairs = Vec::new();
+    let mut class_fetch_pairs = Vec::new();
+
+    for address in addresses_to_process {
+        if let Some(previous_block_id) = previous_block_id {
+            if let Some(previous_class_hash) = pre_state_class_hashes.get(address) {
+                if previous_class_hash.0 == Felt::ZERO {
+                    debug!(
+                        "Contract {:?} has no class hash in the previous state; skipping previous class fetch",
+                        address
+                    );
+                } else {
+                    class_fetch_pairs.push((*address, previous_block_id, true, previous_class_hash.0));
+                }
+            } else {
+                address_block_pairs.push((*address, previous_block_id, true));
+            }
+        }
+        address_block_pairs.push((*address, block_id, false));
+    }
+
+    (address_block_pairs, class_fetch_pairs)
+}
+
 /// Builds compiled classes from accessed addresses and classes.
 async fn build_compiled_classes(
     rpc_client: &RpcClient,
@@ -392,18 +422,12 @@ async fn process_accessed_addresses(
 
     // Phase 1: Reuse pre-state class hashes from Blockifier when available, and only hit RPC
     // for the remaining previous-block lookups plus all current-block lookups.
-    let mut address_block_pairs = Vec::new();
-    let mut class_fetch_pairs = Vec::new();
-    for address in &addresses_to_process {
-        if let Some(previous_block_id) = previous_block_id {
-            if let Some(previous_class_hash) = pre_state_class_hashes.get(address) {
-                class_fetch_pairs.push((*address, previous_block_id, true, previous_class_hash.0));
-            } else {
-                address_block_pairs.push((*address, previous_block_id, true));
-            }
-        }
-        address_block_pairs.push((*address, block_id, false));
-    }
+    let (address_block_pairs, mut class_fetch_pairs) = plan_accessed_address_class_fetches(
+        &addresses_to_process,
+        pre_state_class_hashes,
+        previous_block_id,
+        block_id,
+    );
 
     let class_hash_results: Vec<(Felt252, BlockId, bool, Result<Felt, ProviderError>)> =
         stream::iter(address_block_pairs)
@@ -641,6 +665,35 @@ mod tests {
         let error = collect_fetched_items(fetched_results).expect_err("rpc errors must not be dropped");
 
         assert!(matches!(error, StateUpdateError::RpcError(ProviderError::RateLimited)));
+    }
+
+    #[test]
+    fn plan_accessed_address_class_fetches_skips_zero_pre_state_class_hashes() {
+        let address = Felt::from_hex_unchecked("0x123");
+        let previous_block_id = Some(BlockId::Number(10));
+        let block_id = BlockId::Number(11);
+        let pre_state_class_hashes = HashMap::from([(address, ClassHash::default())]);
+
+        let (address_block_pairs, class_fetch_pairs) =
+            plan_accessed_address_class_fetches(&[address], &pre_state_class_hashes, previous_block_id, block_id);
+
+        assert!(class_fetch_pairs.is_empty(), "zero pre-state class hashes must not trigger get_class()");
+        assert_eq!(address_block_pairs, vec![(address, block_id, false)]);
+    }
+
+    #[test]
+    fn plan_accessed_address_class_fetches_reuses_non_zero_pre_state_class_hashes() {
+        let address = Felt::from_hex_unchecked("0x123");
+        let previous_class_hash = ClassHash(Felt::from_hex_unchecked("0x456"));
+        let previous_block_id = Some(BlockId::Number(10));
+        let block_id = BlockId::Number(11);
+        let pre_state_class_hashes = HashMap::from([(address, previous_class_hash)]);
+
+        let (address_block_pairs, class_fetch_pairs) =
+            plan_accessed_address_class_fetches(&[address], &pre_state_class_hashes, previous_block_id, block_id);
+
+        assert_eq!(class_fetch_pairs, vec![(address, BlockId::Number(10), true, previous_class_hash.0)]);
+        assert_eq!(address_block_pairs, vec![(address, block_id, false)]);
     }
 }
 

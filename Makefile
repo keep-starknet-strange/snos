@@ -3,6 +3,8 @@
 
 DEFAULT_NETWORK := sepolia
 DEFAULT_BLOCK_NUMBERS := 924015
+E2E_TEST_THREADS ?= 1
+E2E_SNOS_MAX_PARALLEL_BLOCKS ?= 1
 
 # Starknet Sepolia
 SEPOLIA_RPC_URL ?= https://pathfinder-sepolia.d.karnot.xyz
@@ -143,7 +145,8 @@ test-e2e: ## Run simple parameterized PIE generation tests
 	RUST_LOG=info \
 	SNOS_RPC_URL="$(MAINNET_RPC_URL)" \
 	SNOS_RPC_URL_SEPOLIA="$(SEPOLIA_RPC_URL)" \
-	cargo test -p e2e-tests test_pie_generation -- --nocapture
+	SNOS_MAX_PARALLEL_BLOCKS="$(E2E_SNOS_MAX_PARALLEL_BLOCKS)" \
+	cargo test -p e2e-tests test_pie_generation -- --nocapture --test-threads=$(E2E_TEST_THREADS)
 
 test-all: test-workspace test-e2e ## Run all tests (unit + integration + e2e)
 
