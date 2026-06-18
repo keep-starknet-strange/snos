@@ -150,8 +150,27 @@ struct CompiledClassBuildInputs<'a> {
     accessed_classes: &'a HashSet<Felt252>,
 }
 
-type AddressBlockLookup = (Felt252, BlockId, bool);
-type AddressClassFetch = (Felt252, BlockId, bool, Felt);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StateScope {
+    Previous,
+    Current,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AddressBlockLookup {
+    address: Felt252,
+    block_id: BlockId,
+    scope: StateScope,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AddressClassFetch {
+    address: Felt252,
+    block_id: BlockId,
+    scope: StateScope,
+    class_hash: Felt,
+}
+
 type AddressClassFetchPlan = (Vec<AddressBlockLookup>, Vec<AddressClassFetch>);
 
 /// Result containing processed contract class data.
@@ -341,13 +360,22 @@ fn plan_accessed_address_class_fetches(
                         address
                     );
                 } else {
-                    class_fetch_pairs.push((*address, previous_block_id, true, previous_class_hash.0));
+                    class_fetch_pairs.push(AddressClassFetch {
+                        address: *address,
+                        block_id: previous_block_id,
+                        scope: StateScope::Previous,
+                        class_hash: previous_class_hash.0,
+                    });
                 }
             } else {
-                address_block_pairs.push((*address, previous_block_id, true));
+                address_block_pairs.push(AddressBlockLookup {
+                    address: *address,
+                    block_id: previous_block_id,
+                    scope: StateScope::Previous,
+                });
             }
         }
-        address_block_pairs.push((*address, block_id, false));
+        address_block_pairs.push(AddressBlockLookup { address: *address, block_id, scope: StateScope::Current });
     }
 
     (address_block_pairs, class_fetch_pairs)
@@ -429,32 +457,58 @@ async fn process_accessed_addresses(
     let (address_block_pairs, mut class_fetch_pairs) =
         plan_accessed_address_class_fetches(&addresses_to_process, pre_state_class_hashes, previous_block_id, block_id);
 
-    let class_hash_results: Vec<(Felt252, BlockId, bool, Result<Felt, ProviderError>)> =
-        stream::iter(address_block_pairs)
-            .map(|(address, bid, is_prev)| async move {
-                let operation_name = format!("get_class_hash_at(block_id: {bid:?}, address: {address:?})");
-                let class_hash =
-                    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class_hash_at(bid, address))
-                        .await;
-                (address, bid, is_prev, class_hash)
+    let class_hash_results: Vec<(AddressBlockLookup, Result<Felt, ProviderError>)> = stream::iter(address_block_pairs)
+        .map(|lookup| async move {
+            let operation_name =
+                format!("get_class_hash_at(block_id: {:?}, address: {:?})", lookup.block_id, lookup.address);
+            let class_hash = execute_with_retry(&operation_name, || {
+                rpc_client.starknet_rpc().get_class_hash_at(lookup.block_id, lookup.address)
             })
-            .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
-            .collect()
             .await;
+            (lookup, class_hash)
+        })
+        .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
+        .collect()
+        .await;
+
+    let mut addresses_present_in_previous_state: HashSet<Felt252> = pre_state_class_hashes
+        .iter()
+        .filter_map(|(address, class_hash)| (class_hash.0 != Felt::ZERO).then_some(*address))
+        .collect();
+    for (lookup, class_hash_result) in &class_hash_results {
+        if lookup.scope == StateScope::Previous
+            && matches!(class_hash_result, Ok(class_hash) if *class_hash != Felt::ZERO)
+        {
+            addresses_present_in_previous_state.insert(lookup.address);
+        }
+    }
 
     // Phase 2: Fetch all contract classes concurrently.
-    for (address, bid, is_prev, class_hash_result) in class_hash_results {
+    for (lookup, class_hash_result) in class_hash_results {
         match class_hash_result {
             Ok(class_hash) => {
-                class_fetch_pairs.push((address, bid, is_prev, class_hash));
+                class_fetch_pairs.push(AddressClassFetch {
+                    address: lookup.address,
+                    block_id: lookup.block_id,
+                    scope: lookup.scope,
+                    class_hash,
+                });
             }
             Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
-                if is_prev {
-                    debug!("Contract {:?} not found in previous block (likely deployed in current block)", address);
+                if lookup.scope == StateScope::Previous {
+                    debug!(
+                        "Contract {:?} not found in previous block (likely deployed in current block)",
+                        lookup.address
+                    );
+                } else if addresses_present_in_previous_state.contains(&lookup.address) {
+                    return Err(StateUpdateError::ConversionFailed(format!(
+                        "Contract {:#x} was present in the previous state but RPC reported ContractNotFound in current block {:?}",
+                        lookup.address, lookup.block_id
+                    )));
                 } else {
                     debug!(
                         "Contract {:?} not found in current block {:?}; skipping class fetch for non-deployed accessed address",
-                        address, bid
+                        lookup.address, lookup.block_id
                     );
                 }
             }
@@ -466,11 +520,14 @@ async fn process_accessed_addresses(
 
     let class_results: Vec<(Felt, Result<starknet::core::types::ContractClass, ProviderError>)> =
         stream::iter(class_fetch_pairs)
-            .map(|(_, bid, _, class_hash)| async move {
-                let operation_name = format!("get_class(block_id: {bid:?}, class_hash: {class_hash:?})");
-                let contract_class =
-                    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class(bid, class_hash)).await;
-                (class_hash, contract_class)
+            .map(|fetch| async move {
+                let operation_name =
+                    format!("get_class(block_id: {:?}, class_hash: {:?})", fetch.block_id, fetch.class_hash);
+                let contract_class = execute_with_retry(&operation_name, || {
+                    rpc_client.starknet_rpc().get_class(fetch.block_id, fetch.class_hash)
+                })
+                .await;
+                (fetch.class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
             .collect()
@@ -666,6 +723,7 @@ fn format_declared_classes(state_diff: &StateDiff, class_hash_to_compiled_class_
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
     #[test]
     fn collect_fetched_items_propagates_rpc_errors() {
@@ -676,24 +734,22 @@ mod tests {
         assert!(matches!(error, StateUpdateError::RpcError(ProviderError::RateLimited)));
     }
 
-    #[test]
-    fn plan_accessed_address_class_fetches_skips_zero_pre_state_class_hashes() {
+    #[rstest]
+    #[case::zero_pre_state_hash(ClassHash::default(), vec![])]
+    #[case::non_zero_pre_state_hash(
+        ClassHash(Felt::from_hex_unchecked("0x456")),
+        vec![AddressClassFetch {
+            address: Felt::from_hex_unchecked("0x123"),
+            block_id: BlockId::Number(10),
+            scope: StateScope::Previous,
+            class_hash: Felt::from_hex_unchecked("0x456"),
+        }]
+    )]
+    fn plan_accessed_address_class_fetches_respects_pre_state_class_hash(
+        #[case] previous_class_hash: ClassHash,
+        #[case] expected_class_fetch_pairs: Vec<AddressClassFetch>,
+    ) {
         let address = Felt::from_hex_unchecked("0x123");
-        let previous_block_id = Some(BlockId::Number(10));
-        let block_id = BlockId::Number(11);
-        let pre_state_class_hashes = HashMap::from([(address, ClassHash::default())]);
-
-        let (address_block_pairs, class_fetch_pairs) =
-            plan_accessed_address_class_fetches(&[address], &pre_state_class_hashes, previous_block_id, block_id);
-
-        assert!(class_fetch_pairs.is_empty(), "zero pre-state class hashes must not trigger get_class()");
-        assert_eq!(address_block_pairs, vec![(address, block_id, false)]);
-    }
-
-    #[test]
-    fn plan_accessed_address_class_fetches_reuses_non_zero_pre_state_class_hashes() {
-        let address = Felt::from_hex_unchecked("0x123");
-        let previous_class_hash = ClassHash(Felt::from_hex_unchecked("0x456"));
         let previous_block_id = Some(BlockId::Number(10));
         let block_id = BlockId::Number(11);
         let pre_state_class_hashes = HashMap::from([(address, previous_class_hash)]);
@@ -701,7 +757,7 @@ mod tests {
         let (address_block_pairs, class_fetch_pairs) =
             plan_accessed_address_class_fetches(&[address], &pre_state_class_hashes, previous_block_id, block_id);
 
-        assert_eq!(class_fetch_pairs, vec![(address, BlockId::Number(10), true, previous_class_hash.0)]);
-        assert_eq!(address_block_pairs, vec![(address, block_id, false)]);
+        assert_eq!(class_fetch_pairs, expected_class_fetch_pairs);
+        assert_eq!(address_block_pairs, vec![AddressBlockLookup { address, block_id, scope: StateScope::Current }]);
     }
 }

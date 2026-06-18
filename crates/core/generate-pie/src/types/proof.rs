@@ -30,13 +30,29 @@ pub struct CommitmentCalculationResult {
 
 fn required_contract_data<'a>(
     proof: &'a ContractProof,
-    context: &str,
+    proof_side: &'static str,
+    contract_address: Felt,
 ) -> Result<&'a rpc_client::types::ContractData, BlockProcessingError> {
-    proof.contract_data.as_ref().ok_or_else(|| BlockProcessingError::new_custom(context.to_string()))
+    proof.contract_data.as_ref().ok_or(BlockProcessingError::MissingProofFieldForContract {
+        proof_side,
+        proof_kind: "storage",
+        field: "contract_data",
+        contract_address,
+    })
 }
 
-fn required_class_commitment(proof: &ContractProof, context: &str) -> Result<Felt, BlockProcessingError> {
-    proof.class_commitment.ok_or_else(|| BlockProcessingError::new_custom(context.to_string()))
+fn required_class_commitment(
+    proof: &ContractProof,
+    proof_side: &'static str,
+    proof_kind: &'static str,
+    contract_address: Felt,
+) -> Result<Felt, BlockProcessingError> {
+    proof.class_commitment.ok_or(BlockProcessingError::MissingProofFieldForContract {
+        proof_side,
+        proof_kind,
+        field: "class_commitment",
+        contract_address,
+    })
 }
 
 impl ProofCollectionResult {
@@ -80,14 +96,13 @@ impl ProofCollectionResult {
                         })?;
 
                     let previous_contract_data =
-                        required_contract_data(previous_storage_proof, "Previous storage proof missing contract data")?;
+                        required_contract_data(previous_storage_proof, "previous", contract_address)?;
 
                     (format_commitment_facts(&previous_contract_data.storage_proofs), previous_contract_data.root)
                 }
             };
 
-            let current_contract_data =
-                required_contract_data(&storage_proof, "Current storage proof missing contract data")?;
+            let current_contract_data = required_contract_data(&storage_proof, "current", contract_address)?;
 
             let current_contract_commitment_facts = format_commitment_facts(&current_contract_data.storage_proofs);
 
@@ -147,13 +162,17 @@ impl ProofCollectionResult {
         // Class commitment tree roots
         let updated_root = required_class_commitment(
             block_hash_storage_proof,
-            "Current block hash storage proof missing class commitment",
+            "current",
+            "block-hash storage",
+            BLOCK_HASH_CONTRACT_ADDRESS_FELT,
         )?;
         let previous_root = match block_id {
             BlockId::Number(0) => Felt::ZERO,
             BlockId::Number(_) => required_class_commitment(
                 previous_block_hash_storage_proof,
-                "Previous block hash storage proof missing class commitment",
+                "previous",
+                "block-hash storage",
+                BLOCK_HASH_CONTRACT_ADDRESS_FELT,
             )?,
             _ => return Err(BlockProcessingError::new_custom(format!("unexpected block_id {:?}", block_id))),
         };

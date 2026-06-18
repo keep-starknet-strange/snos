@@ -308,7 +308,10 @@ pub(crate) fn transaction_receipt_hash(receipt: &TransactionReceipt) -> Felt {
     }
 }
 
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "ConversionError is shared across transaction conversions and not worth boxing here"
+)]
 fn proof_facts_from_rpc(
     tx_hash: Felt,
     proof_facts: Option<Vec<Felt>>,
@@ -832,5 +835,44 @@ mod tests {
         let error = tx.try_into_blockifier_async(&ctx).await.expect_err("missing proof facts must fail");
 
         assert!(matches!(error, ConversionError::MissingProofFacts { tx_hash } if tx_hash == Felt::from(123_u64)));
+    }
+
+    #[tokio::test]
+    async fn invoke_v3_conversion_accepts_empty_proof_facts() {
+        let chain_id = ChainId::Sepolia;
+        let rpc_client = RpcClient::try_new("http://localhost:9545").expect("valid dummy rpc url");
+        let transaction_receipts = HashMap::new();
+        let ctx = ConversionContext::new(&chain_id, 9112643, &rpc_client, &transaction_receipts);
+        let tx = InvokeTransactionV3 {
+            transaction_hash: Felt::ZERO,
+            sender_address: Felt::from_hex_unchecked(
+                "0x041c9dbe8ab9b414fa0ec4d22b7a41d80a3911b77a2c9c819ce949faa5edb9f9",
+            ),
+            calldata: vec![Felt::ONE],
+            signature: vec![Felt::TWO],
+            nonce: Felt::from(7_u64),
+            resource_bounds: ResourceBoundsMapping {
+                l1_gas: ResourceBounds { max_amount: 1_000_000, max_price_per_unit: 1 },
+                l2_gas: ResourceBounds { max_amount: 2_000_000, max_price_per_unit: 3 },
+                l1_data_gas: ResourceBounds { max_amount: 4_000_000, max_price_per_unit: 5 },
+            },
+            tip: 0,
+            paymaster_data: vec![],
+            account_deployment_data: vec![],
+            nonce_data_availability_mode: DataAvailabilityMode::L1,
+            fee_data_availability_mode: DataAvailabilityMode::L1,
+            proof_facts: Some(vec![]),
+        };
+
+        let result = tx.try_into_blockifier_async(&ctx).await.expect("empty proof facts should be accepted");
+
+        let converted_tx = match result.starknet_api_tx {
+            starknet_api::executable_transaction::Transaction::Account(
+                starknet_api::executable_transaction::AccountTransaction::Invoke(invoke_tx),
+            ) => invoke_tx,
+            other => panic!("expected invoke account transaction, got {other:?}"),
+        };
+
+        assert_eq!(converted_tx.proof_facts_length(), 0);
     }
 }
