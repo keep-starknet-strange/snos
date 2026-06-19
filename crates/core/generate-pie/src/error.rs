@@ -1,7 +1,6 @@
 //! Error types for pie generation, felt conversion operations, and block processing.
 
 use crate::conversions::ConversionError;
-use crate::state_update::StateUpdateError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
 use rpc_client::error::ClientError;
@@ -12,6 +11,8 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use starknet_os_types::starknet_core_addons::LegacyContractDecompressionError;
+
+pub use crate::state_update::StateUpdateError;
 
 /// Main error type for PIE generation.
 ///
@@ -27,7 +28,7 @@ pub enum PieGenerationError {
         block_number: u64,
         /// The underlying error that caused the failure.
         #[source]
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<BlockProcessingError>,
     },
 
     /// RPC client-related error.
