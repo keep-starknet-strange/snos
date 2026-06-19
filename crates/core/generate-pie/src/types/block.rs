@@ -13,6 +13,7 @@ use blockifier::blockifier::transaction_executor::{TransactionExecutor, Transact
 use blockifier::blockifier_versioned_constants::VersionedConstants;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use blockifier::state::cached_state::StateMaps;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use log::{debug, info, warn};
@@ -39,6 +40,7 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 
 const BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV: &str = "SNOS_BLOCKIFIER_TXN_EXECUTOR_CONFIG";
+const ALIAS_INITIAL_READ_VALIDATION_RETRIES: usize = 3;
 
 /// Result containing fetched block data needed for processing.
 #[derive(Debug)]
@@ -384,6 +386,12 @@ impl BlockData {
         extend_initial_reads_storage(&blockifier_state_reader, &mut initial_reads, &accessed_keys_by_address)
             .await
             .map_err(|source| BlockProcessingError::InitialReadsExtension { source })?;
+        ensure_alias_contract_initial_reads_consistency(
+            &blockifier_state_reader,
+            &mut initial_reads,
+            &processed_state_update.thin_state_diff,
+        )
+        .await?;
 
         Ok(TransactionProcessingResult {
             starknet_api_txns,
@@ -599,6 +607,126 @@ fn populate_alias_contract_keys(
     }
 }
 
+fn alias_counter_storage_key() -> StorageKey {
+    StorageKey::try_from(Felt::ZERO).expect("zero should always be a valid storage key")
+}
+
+fn validate_alias_contract_initial_reads(
+    initial_reads: &StateMaps,
+    alias_storage_diffs: &[(StorageKey, Felt)],
+) -> Result<(), String> {
+    if alias_storage_diffs.is_empty() {
+        return Ok(());
+    }
+
+    let counter_key = alias_counter_storage_key();
+    let current_counter = alias_storage_diffs
+        .iter()
+        .find_map(|(key, value)| (*key == counter_key).then_some(*value))
+        .ok_or_else(|| "alias contract diff is missing the counter key 0x0".to_string())?;
+    let previous_counter = initial_reads
+        .storage
+        .get(&(ALIAS_CONTRACT_ADDRESS, counter_key))
+        .copied()
+        .ok_or_else(|| "initial reads are missing the alias counter key 0x0".to_string())?;
+
+    let mut alias_entries: Vec<_> =
+        alias_storage_diffs.iter().filter(|(key, _)| *key != counter_key).copied().collect();
+    alias_entries.sort_by_key(|(_, value)| *value);
+
+    let mut expected_next_alias =
+        if previous_counter == Felt::ZERO { STATEFUL_MAPPING_START } else { previous_counter };
+
+    for (alias_key, new_alias_value) in &alias_entries {
+        let previous_value = initial_reads
+            .storage
+            .get(&(ALIAS_CONTRACT_ADDRESS, *alias_key))
+            .copied()
+            .ok_or_else(|| format!("initial reads are missing alias key {:#x}", Into::<Felt>::into(*alias_key)))?;
+
+        if previous_value != Felt::ZERO {
+            return Err(format!(
+                "alias key {:#x} should be zero in the previous state but SNOS fetched {:#x}",
+                Into::<Felt>::into(*alias_key),
+                previous_value
+            ));
+        }
+
+        if *new_alias_value != expected_next_alias {
+            return Err(format!(
+                "alias key {:#x} has new value {:#x}, expected next alias {:#x}",
+                Into::<Felt>::into(*alias_key),
+                *new_alias_value,
+                expected_next_alias
+            ));
+        }
+
+        expected_next_alias += Felt::ONE;
+    }
+
+    let expected_counter = if alias_entries.is_empty() && previous_counter == Felt::ZERO {
+        STATEFUL_MAPPING_START
+    } else if alias_entries.is_empty() {
+        previous_counter
+    } else {
+        expected_next_alias
+    };
+
+    if current_counter != expected_counter {
+        return Err(format!(
+            "alias counter advanced to {:#x}, expected {:#x} from previous counter {:#x} and {} new aliases",
+            current_counter,
+            expected_counter,
+            previous_counter,
+            alias_entries.len()
+        ));
+    }
+
+    Ok(())
+}
+
+async fn ensure_alias_contract_initial_reads_consistency(
+    state_reader: &AsyncRpcStateReader,
+    initial_reads: &mut StateMaps,
+    thin_state_diff: &starknet_api::state::ThinStateDiff,
+) -> Result<(), BlockProcessingError> {
+    let Some(alias_storage_diffs) = thin_state_diff.storage_diffs.get(&ALIAS_CONTRACT_ADDRESS) else {
+        return Ok(());
+    };
+
+    let alias_storage_diffs: Vec<_> = alias_storage_diffs.iter().map(|(key, value)| (*key, *value)).collect();
+    let keys_to_refresh: Vec<_> = alias_storage_diffs.iter().map(|(key, _)| *key).collect();
+    for attempt in 1..=ALIAS_INITIAL_READ_VALIDATION_RETRIES {
+        match validate_alias_contract_initial_reads(initial_reads, &alias_storage_diffs) {
+            Ok(()) => return Ok(()),
+            Err(details) if attempt < ALIAS_INITIAL_READ_VALIDATION_RETRIES => {
+                warn!(
+                    "Alias contract initial reads inconsistent on attempt {}: {}. Refetching {} alias keys.",
+                    attempt,
+                    details,
+                    keys_to_refresh.len()
+                );
+
+                for key in &keys_to_refresh {
+                    let value = state_reader
+                        .get_storage_at_async(ALIAS_CONTRACT_ADDRESS, *key)
+                        .await
+                        .map_err(|source| BlockProcessingError::InitialReadsExtension { source })?;
+                    initial_reads.storage.insert((ALIAS_CONTRACT_ADDRESS, *key), value);
+                }
+            }
+            Err(details) => {
+                return Err(BlockProcessingError::StateUpdateProcessing(format!(
+                    "Alias contract initial reads remain inconsistent after {} attempts: {}",
+                    attempt, details
+                )));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn validate_migrated_compiled_classes(
     processed_state_update: &crate::state_update::FormattedStateUpdate,
     class_hashes_to_migrate: &[(ClassHash, CompiledClassHash, CompiledClassHash)],
@@ -794,5 +922,52 @@ mod tests {
         );
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_alias_contract_initial_reads_accepts_consecutive_alias_allocations() {
+        let counter_key = alias_counter_storage_key();
+        let alias_key_a = StorageKey::try_from(Felt::from_hex_unchecked("0x80")).unwrap();
+        let alias_key_b = StorageKey::try_from(Felt::from_hex_unchecked("0x81")).unwrap();
+        let mut initial_reads = StateMaps::default();
+        initial_reads.storage.insert((ALIAS_CONTRACT_ADDRESS, counter_key), Felt::from(0x80_u64));
+        initial_reads.storage.insert((ALIAS_CONTRACT_ADDRESS, alias_key_a), Felt::ZERO);
+        initial_reads.storage.insert((ALIAS_CONTRACT_ADDRESS, alias_key_b), Felt::ZERO);
+
+        let alias_storage_diffs = vec![
+            (alias_key_a, Felt::from(0x80_u64)),
+            (alias_key_b, Felt::from(0x81_u64)),
+            (counter_key, Felt::from(0x82_u64)),
+        ];
+
+        assert!(validate_alias_contract_initial_reads(&initial_reads, &alias_storage_diffs).is_ok());
+    }
+
+    #[test]
+    fn validate_alias_contract_initial_reads_rejects_non_zero_previous_alias_value() {
+        let counter_key = alias_counter_storage_key();
+        let alias_key = StorageKey::try_from(Felt::from_hex_unchecked("0x80")).unwrap();
+        let mut initial_reads = StateMaps::default();
+        initial_reads.storage.insert((ALIAS_CONTRACT_ADDRESS, counter_key), Felt::from(0x80_u64));
+        initial_reads.storage.insert((ALIAS_CONTRACT_ADDRESS, alias_key), Felt::from(0x999_u64));
+
+        let alias_storage_diffs = vec![(alias_key, Felt::from(0x80_u64)), (counter_key, Felt::from(0x81_u64))];
+
+        let error = validate_alias_contract_initial_reads(&initial_reads, &alias_storage_diffs).unwrap_err();
+        assert!(error.contains("should be zero in the previous state"));
+    }
+
+    #[test]
+    fn validate_alias_contract_initial_reads_rejects_counter_one_too_low() {
+        let counter_key = alias_counter_storage_key();
+        let alias_key = StorageKey::try_from(Felt::from_hex_unchecked("0x80")).unwrap();
+        let mut initial_reads = StateMaps::default();
+        initial_reads.storage.insert((ALIAS_CONTRACT_ADDRESS, counter_key), Felt::from(0x80_u64));
+        initial_reads.storage.insert((ALIAS_CONTRACT_ADDRESS, alias_key), Felt::ZERO);
+
+        let alias_storage_diffs = vec![(alias_key, Felt::from(0x80_u64)), (counter_key, Felt::from(0x80_u64))];
+
+        let error = validate_alias_contract_initial_reads(&initial_reads, &alias_storage_diffs).unwrap_err();
+        assert!(error.contains("alias counter advanced"));
     }
 }

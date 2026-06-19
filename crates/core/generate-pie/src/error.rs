@@ -164,6 +164,19 @@ pub enum BlockProcessingError {
         source: StarknetApiError,
     },
 
+    /// Missing field in an RPC proof payload.
+    #[error("Missing proof field `{field}` in {proof_side} {proof_kind} proof")]
+    MissingProofField { proof_side: &'static str, proof_kind: &'static str, field: &'static str },
+
+    /// Missing field in an RPC proof payload for a specific contract.
+    #[error("Missing proof field `{field}` in {proof_side} {proof_kind} proof for contract {contract_address:#x}")]
+    MissingProofFieldForContract {
+        proof_side: &'static str,
+        proof_kind: &'static str,
+        field: &'static str,
+        contract_address: Felt,
+    },
+
     /// Initial reads storage extension error.
     #[error("Failed to extend initial reads storage witness: {source}")]
     InitialReadsExtension {

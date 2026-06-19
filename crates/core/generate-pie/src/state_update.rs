@@ -150,6 +150,29 @@ struct CompiledClassBuildInputs<'a> {
     accessed_classes: &'a HashSet<Felt252>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StateScope {
+    Previous,
+    Current,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AddressBlockLookup {
+    address: Felt252,
+    block_id: BlockId,
+    scope: StateScope,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AddressClassFetch {
+    address: Felt252,
+    block_id: BlockId,
+    scope: StateScope,
+    class_hash: Felt,
+}
+
+type AddressClassFetchPlan = (Vec<AddressBlockLookup>, Vec<AddressClassFetch>);
+
 /// Result containing processed contract class data.
 pub struct ContractClassProcessingResult {
     pub compiled_classes: std::collections::BTreeMap<
@@ -310,6 +333,54 @@ fn extract_migrated_compiled_classes(state_diff: &StateDiff) -> HashMap<Felt252,
         .unwrap_or_default()
 }
 
+fn collect_fetched_items<K, T>(
+    fetched_results: Vec<(K, Result<T, ProviderError>)>,
+) -> Result<Vec<(K, T)>, StateUpdateError> {
+    fetched_results
+        .into_iter()
+        .map(|(key, result)| result.map(|value| (key, value)).map_err(StateUpdateError::RpcError))
+        .collect()
+}
+
+fn plan_accessed_address_class_fetches(
+    addresses_to_process: &[Felt252],
+    pre_state_class_hashes: &HashMap<Felt252, ClassHash>,
+    previous_block_id: PreviousBlockId,
+    block_id: BlockId,
+) -> AddressClassFetchPlan {
+    let mut address_block_pairs = Vec::new();
+    let mut class_fetch_pairs = Vec::new();
+
+    for address in addresses_to_process {
+        if let Some(previous_block_id) = previous_block_id {
+            if let Some(previous_class_hash) = pre_state_class_hashes.get(address) {
+                if previous_class_hash.0 == Felt::ZERO {
+                    debug!(
+                        "Contract {:?} has no class hash in the previous state; skipping previous class fetch",
+                        address
+                    );
+                } else {
+                    class_fetch_pairs.push(AddressClassFetch {
+                        address: *address,
+                        block_id: previous_block_id,
+                        scope: StateScope::Previous,
+                        class_hash: previous_class_hash.0,
+                    });
+                }
+            } else {
+                address_block_pairs.push(AddressBlockLookup {
+                    address: *address,
+                    block_id: previous_block_id,
+                    scope: StateScope::Previous,
+                });
+            }
+        }
+        address_block_pairs.push(AddressBlockLookup { address: *address, block_id, scope: StateScope::Current });
+    }
+
+    (address_block_pairs, class_fetch_pairs)
+}
+
 /// Builds compiled classes from accessed addresses and classes.
 async fn build_compiled_classes(
     rpc_client: &RpcClient,
@@ -383,45 +454,61 @@ async fn process_accessed_addresses(
 
     // Phase 1: Reuse pre-state class hashes from Blockifier when available, and only hit RPC
     // for the remaining previous-block lookups plus all current-block lookups.
-    let mut address_block_pairs = Vec::new();
-    let mut class_fetch_pairs = Vec::new();
-    for address in &addresses_to_process {
-        if let Some(previous_block_id) = previous_block_id {
-            if let Some(previous_class_hash) = pre_state_class_hashes.get(address) {
-                class_fetch_pairs.push((*address, previous_block_id, true, previous_class_hash.0));
-            } else {
-                address_block_pairs.push((*address, previous_block_id, true));
-            }
+    let (address_block_pairs, mut class_fetch_pairs) =
+        plan_accessed_address_class_fetches(&addresses_to_process, pre_state_class_hashes, previous_block_id, block_id);
+
+    let class_hash_results: Vec<(AddressBlockLookup, Result<Felt, ProviderError>)> = stream::iter(address_block_pairs)
+        .map(|lookup| async move {
+            let operation_name =
+                format!("get_class_hash_at(block_id: {:?}, address: {:?})", lookup.block_id, lookup.address);
+            let class_hash = execute_with_retry(&operation_name, || {
+                rpc_client.starknet_rpc().get_class_hash_at(lookup.block_id, lookup.address)
+            })
+            .await;
+            (lookup, class_hash)
+        })
+        .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
+        .collect()
+        .await;
+
+    let mut addresses_present_in_previous_state: HashSet<Felt252> = pre_state_class_hashes
+        .iter()
+        .filter_map(|(address, class_hash)| (class_hash.0 != Felt::ZERO).then_some(*address))
+        .collect();
+    for (lookup, class_hash_result) in &class_hash_results {
+        if lookup.scope == StateScope::Previous
+            && matches!(class_hash_result, Ok(class_hash) if *class_hash != Felt::ZERO)
+        {
+            addresses_present_in_previous_state.insert(lookup.address);
         }
-        address_block_pairs.push((*address, block_id, false));
     }
 
-    let class_hash_results: Vec<(Felt252, BlockId, bool, Result<Felt, ProviderError>)> =
-        stream::iter(address_block_pairs)
-            .map(|(address, bid, is_prev)| async move {
-                let operation_name = format!("get_class_hash_at(block_id: {bid:?}, address: {address:?})");
-                let class_hash =
-                    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class_hash_at(bid, address))
-                        .await;
-                (address, bid, is_prev, class_hash)
-            })
-            .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
-            .collect()
-            .await;
-
     // Phase 2: Fetch all contract classes concurrently.
-    for (address, bid, is_prev, class_hash_result) in class_hash_results {
+    for (lookup, class_hash_result) in class_hash_results {
         match class_hash_result {
             Ok(class_hash) => {
-                class_fetch_pairs.push((address, bid, is_prev, class_hash));
+                class_fetch_pairs.push(AddressClassFetch {
+                    address: lookup.address,
+                    block_id: lookup.block_id,
+                    scope: lookup.scope,
+                    class_hash,
+                });
             }
             Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
-                if is_prev {
-                    debug!("Contract {:?} not found in previous block (likely deployed in current block)", address);
+                if lookup.scope == StateScope::Previous {
+                    debug!(
+                        "Contract {:?} not found in previous block (likely deployed in current block)",
+                        lookup.address
+                    );
+                } else if addresses_present_in_previous_state.contains(&lookup.address) {
+                    return Err(StateUpdateError::ConversionFailed(format!(
+                        "Contract {:#x} was present in the previous state but RPC reported ContractNotFound in current block {:?}",
+                        lookup.address, lookup.block_id
+                    )));
                 } else {
                     debug!(
                         "Contract {:?} not found in current block {:?}; skipping class fetch for non-deployed accessed address",
-                        address, bid
+                        lookup.address, lookup.block_id
                     );
                 }
             }
@@ -433,11 +520,14 @@ async fn process_accessed_addresses(
 
     let class_results: Vec<(Felt, Result<starknet::core::types::ContractClass, ProviderError>)> =
         stream::iter(class_fetch_pairs)
-            .map(|(_, bid, _, class_hash)| async move {
-                let operation_name = format!("get_class(block_id: {bid:?}, class_hash: {class_hash:?})");
-                let contract_class =
-                    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class(bid, class_hash)).await;
-                (class_hash, contract_class)
+            .map(|fetch| async move {
+                let operation_name =
+                    format!("get_class(block_id: {:?}, class_hash: {:?})", fetch.block_id, fetch.class_hash);
+                let contract_class = execute_with_retry(&operation_name, || {
+                    rpc_client.starknet_rpc().get_class(fetch.block_id, fetch.class_hash)
+                })
+                .await;
+                (fetch.class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
             .collect()
@@ -446,23 +536,20 @@ async fn process_accessed_addresses(
     info!("Fetched {} contract classes, now compiling in parallel...", class_results.len());
 
     // Phase 3: Compile classes in parallel using rayon (CPU parallelization)
-    let compilation_results: Vec<(Felt, Result<GenericCompiledClass, StateUpdateError>)> = class_results
+    let fetched_classes = collect_fetched_items(class_results)?;
+
+    let compilation_results: Vec<Result<(Felt, GenericCompiledClass), StateUpdateError>> = fetched_classes
         .into_par_iter()
-        .filter_map(|(class_hash, contract_class_result)| {
-            let contract_class = contract_class_result.ok()?;
-            let compiled_result = compile_contract_class(contract_class);
-            Some((class_hash, compiled_result))
+        .map(|(class_hash, contract_class)| {
+            let compiled_class = compile_contract_class(contract_class)?;
+            Ok((class_hash, compiled_class))
         })
         .collect();
 
     // Add compiled classes to result
-    for (class_hash, compiled_result) in compilation_results {
-        match compiled_result {
-            Ok(compiled_class) => {
-                add_compiled_class_internal(class_hash, compiled_class, class_hash_to_compiled_class_hash, result)?;
-            }
-            Err(e) => return Err(e),
-        }
+    for compiled_result in compilation_results {
+        let (class_hash, compiled_class) = compiled_result?;
+        add_compiled_class_internal(class_hash, compiled_class, class_hash_to_compiled_class_hash, result)?;
     }
 
     Ok(())
@@ -488,41 +575,37 @@ async fn process_accessed_classes(
 
     // Phase 1: Fetch all contract classes concurrently (network I/O parallelization)
     let class_hashes: Vec<Felt252> = accessed_classes.iter().copied().collect();
-    let class_fetch_results: Vec<(Felt252, Option<starknet::core::types::ContractClass>)> =
+    let class_fetch_results: Vec<(Felt252, Result<starknet::core::types::ContractClass, ProviderError>)> =
         stream::iter(class_hashes.clone())
             .map(|class_hash| async move {
                 debug!("Fetching class hash: {:?}", class_hash);
                 let operation_name = format!("get_class(block_id: {block_id:?}, class_hash: {class_hash:?})");
                 let contract_class =
                     execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class(block_id, class_hash))
-                        .await
-                        .ok();
+                        .await;
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
             .collect()
             .await;
 
-    info!("Fetched {} contract classes, now compiling in parallel...", class_fetch_results.len());
+    let fetched_classes = collect_fetched_items(class_fetch_results)?;
+
+    info!("Fetched {} contract classes, now compiling in parallel...", fetched_classes.len());
 
     // Phase 2: Compile classes in parallel using rayon (CPU parallelization)
-    let compilation_results: Vec<(Felt252, Result<GenericCompiledClass, StateUpdateError>)> = class_fetch_results
+    let compilation_results: Vec<Result<(Felt252, GenericCompiledClass), StateUpdateError>> = fetched_classes
         .into_par_iter()
-        .filter_map(|(class_hash, contract_class_opt)| {
-            let contract_class = contract_class_opt?;
-            let compiled_result = compile_contract_class(contract_class);
-            Some((class_hash, compiled_result))
+        .map(|(class_hash, contract_class)| {
+            let compiled_class = compile_contract_class(contract_class)?;
+            Ok((class_hash, compiled_class))
         })
         .collect();
 
     // Add compiled classes to result
-    for (class_hash, compiled_result) in compilation_results {
-        match compiled_result {
-            Ok(compiled_class) => {
-                add_compiled_class_internal(class_hash, compiled_class, class_hash_to_compiled_class_hash, result)?;
-            }
-            Err(e) => return Err(e),
-        }
+    for compiled_result in compilation_results {
+        let (class_hash, compiled_class) = compiled_result?;
+        add_compiled_class_internal(class_hash, compiled_class, class_hash_to_compiled_class_hash, result)?;
     }
 
     Ok(())
@@ -634,5 +717,47 @@ fn format_declared_classes(state_diff: &StateDiff, class_hash_to_compiled_class_
 
     for class in &state_diff.declared_classes {
         class_hash_to_compiled_class_hash.insert(class.class_hash, Felt::ZERO);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[test]
+    fn collect_fetched_items_propagates_rpc_errors() {
+        let fetched_results = vec![(Felt::ONE, Ok("ok")), (Felt::TWO, Err(ProviderError::RateLimited))];
+
+        let error = collect_fetched_items(fetched_results).expect_err("rpc errors must not be dropped");
+
+        assert!(matches!(error, StateUpdateError::RpcError(ProviderError::RateLimited)));
+    }
+
+    #[rstest]
+    #[case::zero_pre_state_hash(ClassHash::default(), vec![])]
+    #[case::non_zero_pre_state_hash(
+        ClassHash(Felt::from_hex_unchecked("0x456")),
+        vec![AddressClassFetch {
+            address: Felt::from_hex_unchecked("0x123"),
+            block_id: BlockId::Number(10),
+            scope: StateScope::Previous,
+            class_hash: Felt::from_hex_unchecked("0x456"),
+        }]
+    )]
+    fn plan_accessed_address_class_fetches_respects_pre_state_class_hash(
+        #[case] previous_class_hash: ClassHash,
+        #[case] expected_class_fetch_pairs: Vec<AddressClassFetch>,
+    ) {
+        let address = Felt::from_hex_unchecked("0x123");
+        let previous_block_id = Some(BlockId::Number(10));
+        let block_id = BlockId::Number(11);
+        let pre_state_class_hashes = HashMap::from([(address, previous_class_hash)]);
+
+        let (address_block_pairs, class_fetch_pairs) =
+            plan_accessed_address_class_fetches(&[address], &pre_state_class_hashes, previous_block_id, block_id);
+
+        assert_eq!(class_fetch_pairs, expected_class_fetch_pairs);
+        assert_eq!(address_block_pairs, vec![AddressBlockLookup { address, block_id, scope: StateScope::Current }]);
     }
 }
