@@ -1,8 +1,10 @@
 //! Error types for pie generation, felt conversion operations, and block processing.
 
 use crate::conversions::ConversionError;
+use crate::state_update::StateUpdateError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
+use rpc_client::error::ClientError;
 use starknet::core::types::Felt;
 use starknet::providers::ProviderError;
 use starknet_api::core::{ClassHash, ContractAddress};
@@ -31,6 +33,10 @@ pub enum PieGenerationError {
     /// RPC client-related error.
     #[error("RPC client error: {0}")]
     RpcClient(String),
+
+    /// A worker task panicked or was cancelled while collecting block data.
+    #[error("Task join error: {0}")]
+    TaskJoin(#[from] tokio::task::JoinError),
 
     /// OS execution related error.
     #[error("OS execution error: {0}")]
@@ -132,13 +138,17 @@ pub enum BlockProcessingError {
     #[error("State update processing error: {0}")]
     StateUpdateProcessing(String),
 
+    /// Structured state update error.
+    #[error("State update error: {0}")]
+    StateUpdate(#[source] StateUpdateError),
+
     /// Storage proof error.
     #[error("Storage proof error: {0}")]
-    StorageProof(String),
+    StorageProof(#[source] ClientError),
 
     /// Class proof error.
     #[error("Class proof error: {0}")]
-    ClassProof(String),
+    ClassProof(#[source] ClientError),
 
     /// Contract class conversion error.
     #[error("Contract class conversion error: {0}")]

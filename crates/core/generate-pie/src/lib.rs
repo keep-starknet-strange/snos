@@ -223,8 +223,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
 
     for result in results {
         // First unwrap the JoinHandle, then unwrap the inner Result
-        let (block_input, block_compiled_classes, block_deprecated_compiled_classes) =
-            result.map_err(|e| PieGenerationError::RpcClient(format!("Task join error: {:?}", e)))??;
+        let (block_input, block_compiled_classes, block_deprecated_compiled_classes) = result??;
 
         // Add block input to our collection
         os_block_inputs.push(block_input);
