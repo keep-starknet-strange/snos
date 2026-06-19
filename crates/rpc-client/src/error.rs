@@ -1,5 +1,6 @@
 //! Error types for Pathfinder RPC operations and proof verification.
 
+use starknet::providers::ProviderError;
 use starknet_types_core::felt::Felt;
 
 use crate::types::{Height, TrieNode};
@@ -11,6 +12,10 @@ use crate::types::{Height, TrieNode};
 /// custom application errors.
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError {
+    /// A Starknet provider error occurred while calling an RPC endpoint.
+    #[error("Provider error: {0}")]
+    ProviderError(#[from] ProviderError),
+
     /// A network or HTTP request error occurred.
     #[error("Encountered a request error: {0}")]
     ReqwestError(#[from] reqwest::Error),

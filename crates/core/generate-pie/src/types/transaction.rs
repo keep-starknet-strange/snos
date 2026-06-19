@@ -56,15 +56,15 @@ impl TransactionProcessingResult {
         // Fetch storage proofs for the current block
         let storage_proofs = get_storage_proofs(rpc_client, block_number, &self.accessed_keys_by_address)
             .await
-            .map_err(|e| BlockProcessingError::StorageProof(format!("Failed to fetch storage proofs: {:?}", e)))?;
+            .map_err(BlockProcessingError::StorageProof)?;
         info!("Got {} storage proofs for block {}", storage_proofs.len(), block_number);
 
         // Fetch storage proofs for the previous block
         let previous_storage_proofs = match previous_block_id {
             Some(BlockId::Number(previous_block_id)) => {
-                get_storage_proofs(rpc_client, previous_block_id, &self.accessed_keys_by_address).await.map_err(
-                    |e| BlockProcessingError::StorageProof(format!("Failed to fetch previous storage proofs: {:?}", e)),
-                )?
+                get_storage_proofs(rpc_client, previous_block_id, &self.accessed_keys_by_address)
+                    .await
+                    .map_err(BlockProcessingError::StorageProof)?
             }
             // No previous storage proofs for block 0
             None => HashMap::new(),
@@ -93,15 +93,15 @@ impl TransactionProcessingResult {
         // Fetch class proofs for the current block
         let class_proofs = get_class_proofs(rpc_client, block_number, &class_hashes[..])
             .await
-            .map_err(|e| BlockProcessingError::ClassProof(format!("Failed to fetch class proofs: {:?}", e)))?;
+            .map_err(BlockProcessingError::ClassProof)?;
         info!("Got {} class proofs for {} class hashes", class_proofs.len(), class_hashes.len());
 
         // Fetch previous class proofs
         let previous_class_proofs = match previous_block_id {
             Some(BlockId::Number(previous_block_id)) => {
-                get_class_proofs(rpc_client, previous_block_id, &class_hashes[..]).await.map_err(|e| {
-                    BlockProcessingError::ClassProof(format!("Failed to fetch previous class proofs: {:?}", e))
-                })?
+                get_class_proofs(rpc_client, previous_block_id, &class_hashes[..])
+                    .await
+                    .map_err(BlockProcessingError::ClassProof)?
             }
             _ => Default::default(),
         };

@@ -330,9 +330,7 @@ impl BlockData {
             &pre_state_class_hashes,
         )
         .await
-        .map_err(|e| {
-            BlockProcessingError::StateUpdateProcessing(format!("Failed to get formatted state update: {:?}", e))
-        })?;
+        .map_err(BlockProcessingError::StateUpdate)?;
         info!("Fetched processed state update successfully");
         let class_hashes_to_migrate = build_class_hashes_to_migrate(&processed_state_update, &blockifier_state_reader)?;
         apply_pre_migration_compiled_class_hashes(&mut initial_reads, &class_hashes_to_migrate);

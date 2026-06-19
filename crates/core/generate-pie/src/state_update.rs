@@ -242,13 +242,14 @@ pub(crate) async fn get_formatted_state_update(
     accessed_addresses: HashSet<Felt>,
     accessed_classes: HashSet<Felt>,
     pre_state_class_hashes: &HashMap<Felt252, ClassHash>,
-) -> Result<FormattedStateUpdate, Box<dyn std::error::Error>> {
+) -> Result<FormattedStateUpdate, StateUpdateError> {
     info!("Starting state update processing for block {:?}", block_id);
 
     // Fetch and validate state update
     let state_update = fetch_state_update(rpc_client, block_id).await?;
     let state_diff = &state_update.state_diff;
-    let thin_state_diff = core_state_diff_to_thin_state_diff(state_diff)?;
+    let thin_state_diff = core_state_diff_to_thin_state_diff(state_diff)
+        .map_err(|e| StateUpdateError::ConversionFailed(format!("Failed to convert state diff: {e}")))?;
 
     // Extract declared classes
     let declared_classes = extract_declared_classes(state_diff);

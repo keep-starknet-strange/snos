@@ -148,7 +148,7 @@ pub(crate) async fn get_class_proofs(
         let proof =
             execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class_proof(block_number, class_hash))
                 .await
-                .map_err(|e| ClientError::CustomError(format!("{}", e)))?;
+                .map_err(ClientError::ProviderError)?;
         // TODO: need to combine these, similar to merge_chunked_storage_proofs above?
         proofs.insert(**class_hash, proof);
     }
@@ -236,11 +236,7 @@ async fn fetch_storage_proof_for_contract(
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
     info!("Fetching storage proof for contract {} with {} keys", contract_address, keys.len());
-    rpc_client
-        .starknet_rpc()
-        .get_proof(block_number, contract_address, keys)
-        .await
-        .map_err(|e| ClientError::CustomError(format!("{}", e)))
+    rpc_client.starknet_rpc().get_proof(block_number, contract_address, keys).await.map_err(ClientError::ProviderError)
 }
 
 /// Merges the storage proofs of the SAME contract.
