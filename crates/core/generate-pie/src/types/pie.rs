@@ -2,6 +2,7 @@ use blockifier::blockifier_versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use starknet_os::io::os_output::StarknetOsRunnerOutput;
 use starknet_types_core::felt::Felt;
+use std::collections::HashMap;
 
 use crate::error::PieGenerationError;
 use crate::types::{ChainConfig, OsHintsConfiguration};
@@ -96,7 +97,7 @@ pub struct PieGenerationResult {
 }
 
 /// Wall-clock timing details for a SNOS run.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PieGenerationTiming {
     /// Total wall-clock time spent in SNOS processing.
     pub total_processing_time_ms: u64,
@@ -104,4 +105,6 @@ pub struct PieGenerationTiming {
     pub rpc_wait_time_ms: u64,
     /// Wall-clock time spent on local execution/processing outside RPC waits.
     pub execution_time_ms: u64,
+    /// RPC calls grouped by method name, including a `total` entry.
+    pub rpc_calls_by_method: HashMap<String, u64>,
 }

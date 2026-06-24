@@ -306,19 +306,23 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     let total_elapsed = snos_started_at.elapsed();
     let rpc_timing = rpc_timing_snapshot();
     let local_processing_elapsed = total_elapsed.saturating_sub(rpc_timing.wait_elapsed);
+    let mut rpc_calls_by_method = rpc_timing.calls_by_method;
+    rpc_calls_by_method.insert("total".to_string(), rpc_timing.calls);
     let timing = PieGenerationTiming {
         total_processing_time_ms: duration_millis(total_elapsed),
         rpc_wait_time_ms: duration_millis(rpc_timing.wait_elapsed),
         execution_time_ms: duration_millis(local_processing_elapsed),
+        rpc_calls_by_method,
     };
     info!(
-        "SNOS processing timing summary for blocks {:?}: total_elapsed={} rpc_wait_elapsed={} local_processing_elapsed={} rpc_calls={} cumulative_rpc_call_elapsed={}",
+        "SNOS processing timing summary for blocks {:?}: total_elapsed={} rpc_wait_elapsed={} local_processing_elapsed={} rpc_calls={} cumulative_rpc_call_elapsed={} rpc_calls_by_method={:?}",
         input.blocks,
         format_duration(total_elapsed),
         format_duration(rpc_timing.wait_elapsed),
         format_duration(local_processing_elapsed),
         rpc_timing.calls,
-        format_duration(rpc_timing.cumulative_call_elapsed)
+        format_duration(rpc_timing.cumulative_call_elapsed),
+        timing.rpc_calls_by_method
     );
     info!("PIE generation completed successfully for blocks {:?}", input.blocks);
 

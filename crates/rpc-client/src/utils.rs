@@ -3,6 +3,7 @@
 use log::warn;
 use starknet::core::types::StarknetError;
 use starknet::providers::ProviderError;
+use std::collections::HashMap;
 use std::future::Future;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -22,11 +23,12 @@ const INITIAL_BACKOFF_MS: u64 = 100;
 /// Maximum delay for exponential backoff (in milliseconds).
 const MAX_BACKOFF_MS: u64 = 5000;
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct RpcTimingSnapshot {
     pub wait_elapsed: Duration,
     pub cumulative_call_elapsed: Duration,
     pub calls: u64,
+    pub calls_by_method: HashMap<String, u64>,
 }
 
 #[derive(Debug, Default)]
@@ -36,6 +38,7 @@ struct RpcTimingState {
     wait_elapsed: Duration,
     cumulative_call_elapsed: Duration,
     calls: u64,
+    calls_by_method: HashMap<String, u64>,
 }
 
 /// Gets or creates the global Tokio runtime.
@@ -61,10 +64,15 @@ pub fn rpc_timing_snapshot() -> RpcTimingSnapshot {
         wait_elapsed += wait_started_at.elapsed();
     }
 
-    RpcTimingSnapshot { wait_elapsed, cumulative_call_elapsed: state.cumulative_call_elapsed, calls: state.calls }
+    RpcTimingSnapshot {
+        wait_elapsed,
+        cumulative_call_elapsed: state.cumulative_call_elapsed,
+        calls: state.calls,
+        calls_by_method: state.calls_by_method.clone(),
+    }
 }
 
-fn record_rpc_call_started() -> Instant {
+fn record_rpc_call_started(operation_name: &str) -> (Instant, String) {
     let now = Instant::now();
     let mut state = rpc_timing_state().lock().expect("RPC timing mutex poisoned");
 
@@ -73,14 +81,15 @@ fn record_rpc_call_started() -> Instant {
     }
     state.active_calls += 1;
 
-    now
+    (now, rpc_method_name(operation_name).to_string())
 }
 
-fn record_rpc_call_finished(call_started_at: Instant) {
+fn record_rpc_call_finished(call_started_at: Instant, method_name: &str) {
     let now = Instant::now();
     let mut state = rpc_timing_state().lock().expect("RPC timing mutex poisoned");
 
     state.calls += 1;
+    *state.calls_by_method.entry(method_name.to_string()).or_default() += 1;
     state.cumulative_call_elapsed += now.duration_since(call_started_at);
     state.active_calls = state.active_calls.saturating_sub(1);
 
@@ -88,6 +97,19 @@ fn record_rpc_call_finished(call_started_at: Instant) {
         if let Some(wait_started_at) = state.wait_started_at.take() {
             state.wait_elapsed += now.duration_since(wait_started_at);
         }
+    }
+}
+
+fn rpc_method_name(operation_name: &str) -> &str {
+    let base_name = operation_name.split(['(', ' ']).next().unwrap_or(operation_name);
+
+    match base_name {
+        "get_nonce_at" => "get_nonce",
+        "get_compiled_class"
+        | "get_pre_snip34_compiled_class_hash"
+        | "get_compiled_class_hash_v1"
+        | "get_compiled_class_hash_v2" => "get_class",
+        method_name => method_name,
     }
 }
 
@@ -144,9 +166,9 @@ where
     loop {
         attempts += 1;
 
-        let call_started_at = record_rpc_call_started();
+        let (call_started_at, method_name) = record_rpc_call_started(operation_name);
         let result = f().await;
-        record_rpc_call_finished(call_started_at);
+        record_rpc_call_finished(call_started_at, &method_name);
 
         match result {
             Ok(result) => {
@@ -198,6 +220,10 @@ mod tests {
 
         let after = rpc_timing_snapshot();
         assert!(after.calls >= before.calls + 1);
+        assert!(
+            after.calls_by_method.get("timed_sleep").copied().unwrap_or_default()
+                >= before.calls_by_method.get("timed_sleep").copied().unwrap_or_default() + 1
+        );
         assert!(after.wait_elapsed >= before.wait_elapsed);
         assert!(after.cumulative_call_elapsed >= before.cumulative_call_elapsed + Duration::from_millis(5));
     }
@@ -221,7 +247,22 @@ mod tests {
 
         let after = rpc_timing_snapshot();
         assert!(after.calls >= before.calls + 2);
+        assert!(
+            after.calls_by_method.get("timed_sleep_1").copied().unwrap_or_default()
+                >= before.calls_by_method.get("timed_sleep_1").copied().unwrap_or_default() + 1
+        );
+        assert!(
+            after.calls_by_method.get("timed_sleep_2").copied().unwrap_or_default()
+                >= before.calls_by_method.get("timed_sleep_2").copied().unwrap_or_default() + 1
+        );
         assert!(after.wait_elapsed >= before.wait_elapsed);
         assert!(after.cumulative_call_elapsed >= before.cumulative_call_elapsed + Duration::from_millis(40));
+    }
+
+    #[test]
+    fn rpc_method_name_normalizes_state_reader_helpers_to_rpc_methods() {
+        assert_eq!(rpc_method_name("get_nonce_at(contract: 0x123)"), "get_nonce");
+        assert_eq!(rpc_method_name("get_compiled_class_hash_v2(class_hash: 0x456)"), "get_class");
+        assert_eq!(rpc_method_name("get_proof(block_number: 1, keys: 3)"), "get_proof");
     }
 }
