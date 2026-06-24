@@ -126,7 +126,7 @@ impl ProofCollectionResult {
                 block_id,
                 contract_address,
                 previous_contract_storage_root,
-                current_contract_storage_root,
+                current_contract_data.root,
                 merged_contract_fact_count
             );
 
