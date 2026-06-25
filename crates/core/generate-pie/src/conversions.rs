@@ -15,12 +15,13 @@
 //! 5. **Zero-Copy**: Avoids unnecessary cloning where possible
 
 use std::collections::HashMap;
+use std::env;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use cairo_lang_starknet_classes::contract_class::version_id_from_serialized_sierra_program;
-use log::debug;
+use log::{debug, info};
 use starknet::core::types::{
     BlockId, DataAvailabilityMode, DeclareTransaction, DeclareTransactionV0, DeclareTransactionV1,
     DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV1,
@@ -42,6 +43,8 @@ use crate::constants::DEFAULT_PAID_FEE_ON_L1;
 use crate::error::ToBlockifierError;
 use rpc_client::utils::execute_with_retry;
 use rpc_client::RpcClient;
+
+pub const DISABLE_FEE_CHARGE_ENV_VAR: &str = "SNOS_DISABLE_FEE_CHARGE";
 
 // ================================================================================================
 // Error Types
@@ -231,10 +234,12 @@ async fn fetch_class_info(
 fn create_account_transaction_result(
     starknet_api_tx: starknet_api::executable_transaction::Transaction,
     account_tx: starknet_api::executable_transaction::AccountTransaction,
+    tx_hash: Felt,
     receipt_fee_amount: Option<&Felt>,
 ) -> TransactionConversionResult {
-    let mut charge_fee = true;
-    if matches!(receipt_fee_amount, Some(amount) if *amount == Felt::ZERO) {
+    let disable_fee_charge = disable_fee_charge_for_account_transactions();
+    let mut charge_fee = !disable_fee_charge;
+    if disable_fee_charge || matches!(receipt_fee_amount, Some(amount) if *amount == Felt::ZERO) {
         charge_fee = false;
     } else if account_tx.version().0 == Felt::ZERO {
         charge_fee = false;
@@ -254,6 +259,15 @@ fn create_account_transaction_result(
     }
     let mut txn = AccountTransaction::new_for_sequencing(account_tx);
     txn.execution_flags.charge_fee = charge_fee;
+    info!(
+        "Converted account transaction for SNOS replay: tx_hash={:#x}, version={:?}, resource_bounds={:?}, receipt_fee_amount={:?}, disable_fee_charge={}, charge_fee={}",
+        tx_hash,
+        txn.tx.version(),
+        txn.tx.resource_bounds(),
+        receipt_fee_amount,
+        disable_fee_charge,
+        charge_fee
+    );
 
     TransactionConversionResult {
         starknet_api_tx,
@@ -299,6 +313,12 @@ fn extract_receipt_fee_amount(receipt: &TransactionReceipt) -> &Felt {
         TransactionReceipt::Deploy(receipt) => &receipt.actual_fee.amount,
         TransactionReceipt::DeployAccount(receipt) => &receipt.actual_fee.amount,
     }
+}
+
+fn disable_fee_charge_for_account_transactions() -> bool {
+    env::var(DISABLE_FEE_CHARGE_ENV_VAR)
+        .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True" | "yes" | "YES" | "Yes"))
+        .unwrap_or(false)
 }
 
 fn receipt_fee_amount_for_tx(transaction_receipts: &HashMap<Felt, TransactionReceipt>, tx_hash: Felt) -> Option<&Felt> {
@@ -412,7 +432,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV1
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
         let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, self.transaction_hash, receipt_fee_amount))
     }
 }
 
@@ -450,7 +470,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV3
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
         let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, self.transaction_hash, receipt_fee_amount))
     }
 }
 
@@ -483,7 +503,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
         let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, self.transaction_hash, receipt_fee_amount))
     }
 }
 
@@ -516,7 +536,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
         let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, self.transaction_hash, receipt_fee_amount))
     }
 }
 
@@ -550,7 +570,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
         let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, self.transaction_hash, receipt_fee_amount))
     }
 }
 
@@ -591,7 +611,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
         let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, self.transaction_hash, receipt_fee_amount))
     }
 }
 
@@ -625,7 +645,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeployAccountTransa
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
         let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, self.transaction_hash, receipt_fee_amount))
     }
 }
 
@@ -663,7 +683,7 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeployAccountTransa
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
         let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, self.transaction_hash, receipt_fee_amount))
     }
 }
 

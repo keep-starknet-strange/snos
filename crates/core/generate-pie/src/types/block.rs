@@ -32,6 +32,7 @@ use starknet_api::block::{
 };
 use starknet_api::contract_address;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress};
+use starknet_api::executable_transaction::Transaction;
 use starknet_api::state::StorageKey;
 use starknet_api::versioned_constants_logic::VersionedConstantsTrait;
 use starknet_os_types::chain_id::chain_id_from_felt;
@@ -244,6 +245,11 @@ impl BlockData {
         let blockifier_txns: Vec<_> = transactions.iter().map(|txn_result| txn_result.blockifier_tx.clone()).collect();
         let starknet_api_txns: Vec<_> =
             transactions.iter().map(|txn_result| txn_result.starknet_api_tx.clone()).collect();
+        let account_contract_addresses = account_contract_addresses(&starknet_api_txns);
+        info!(
+            "Collected {} account contract addresses for SNOS initial-read hydration",
+            account_contract_addresses.len()
+        );
 
         // Execute transactions using Blockifier
         let config: TransactionExecutorConfig = match env::var(BLOCKIFIER_TXN_EXECUTOR_CONFIG_ENV) {
@@ -287,7 +293,7 @@ impl BlockData {
         let mut initial_reads = {
             let block_state =
                 txn_executor.block_state.as_ref().ok_or(BlockProcessingError::MissingBlockStateAfterExecution)?;
-            capture_extended_initial_reads(block_state)?
+            capture_extended_initial_reads(block_state, &account_contract_addresses)?
         };
 
         let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
@@ -504,6 +510,16 @@ impl BlockData {
 
         Ok(BlockContext::new(block_info, chain_info, versioned_constants, bouncer_config))
     }
+}
+
+fn account_contract_addresses(transactions: &[Transaction]) -> HashSet<ContractAddress> {
+    transactions
+        .iter()
+        .filter_map(|transaction| match transaction {
+            Transaction::Account(account_transaction) => Some(account_transaction.sender_address()),
+            Transaction::L1Handler(_) => None,
+        })
+        .collect()
 }
 
 fn block_number_from_felt(old_block_number: Felt) -> Result<BlockNumber, BlockProcessingError> {

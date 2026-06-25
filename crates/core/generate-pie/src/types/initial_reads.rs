@@ -4,6 +4,7 @@ use blockifier::state::cached_state::{CachedState, StateMaps};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::StateReader;
 use futures::stream::{self, StreamExt, TryStreamExt};
+use log::{debug, info};
 use rpc_client::state_reader::AsyncRpcStateReader;
 use starknet_api::core::ContractAddress;
 use starknet_api::state::StorageKey;
@@ -13,12 +14,30 @@ use std::future::Future;
 
 pub(crate) fn capture_extended_initial_reads<S: StateReader>(
     block_state: &CachedState<S>,
+    extra_contract_addresses: &HashSet<ContractAddress>,
 ) -> Result<StateMaps, BlockProcessingError> {
     // The first snapshot tells us which metadata needs to be hydrated into Blockifier's witness.
     // The second snapshot captures that expanded witness after those reads have been forced.
     let hydration_targets = get_initial_reads_snapshot(block_state, "capture initial reads for hydration")?;
-    hydrate_initial_reads(block_state, &hydration_targets)?;
-    get_extended_initial_reads_snapshot(block_state)
+
+    if !extra_contract_addresses.is_empty() {
+        info!("Hydrating {} extra contract addresses into SNOS initial reads", extra_contract_addresses.len());
+        for contract_address in extra_contract_addresses {
+            let address_felt: Felt = (*contract_address).into();
+            debug!("Hydrating extra SNOS initial-read metadata for contract {address_felt:#x}");
+        }
+    }
+
+    hydrate_initial_reads(block_state, &hydration_targets, extra_contract_addresses)?;
+    let initial_reads = get_extended_initial_reads_snapshot(block_state)?;
+    info!(
+        "Captured SNOS initial reads: storage_entries={}, class_hashes={}, nonces={}, compiled_class_hashes={}",
+        initial_reads.storage.len(),
+        initial_reads.class_hashes.len(),
+        initial_reads.nonces.len(),
+        initial_reads.compiled_class_hashes.len()
+    );
+    Ok(initial_reads)
 }
 
 pub(crate) fn accessed_keys_from_initial_reads(
@@ -60,8 +79,9 @@ pub(crate) async fn extend_initial_reads_storage(
 fn hydrate_initial_reads<S: StateReader>(
     block_state: &CachedState<S>,
     hydration_targets: &StateMaps,
+    extra_contract_addresses: &HashSet<ContractAddress>,
 ) -> Result<(), BlockProcessingError> {
-    hydrate_initial_read_contract_metadata(block_state, hydration_targets)?;
+    hydrate_initial_read_contract_metadata(block_state, hydration_targets, extra_contract_addresses)?;
     hydrate_initial_read_declared_classes(block_state, hydration_targets)
 }
 
@@ -86,9 +106,11 @@ fn get_initial_reads_snapshot<S: StateReader>(
 fn hydrate_initial_read_contract_metadata<S: StateReader>(
     block_state: &CachedState<S>,
     raw_initial_reads: &StateMaps,
+    extra_contract_addresses: &HashSet<ContractAddress>,
 ) -> Result<(), BlockProcessingError> {
     let mut hydrated_contract_addresses = raw_initial_reads.get_contract_addresses();
     hydrated_contract_addresses.extend(SPECIAL_CONTRACT_ADDRESSES);
+    hydrated_contract_addresses.extend(extra_contract_addresses.iter().copied());
 
     for contract_address in hydrated_contract_addresses {
         block_state
@@ -241,7 +263,7 @@ mod tests {
         block_state.get_storage_at(contract_address, contract_storage_key).unwrap();
         block_state.get_compiled_class(declared_class_hash).unwrap();
 
-        let initial_reads = capture_extended_initial_reads(&block_state).unwrap();
+        let initial_reads = capture_extended_initial_reads(&block_state, &HashSet::new()).unwrap();
 
         assert_eq!(initial_reads.storage.get(&(contract_address, contract_storage_key)), Some(&Felt::from(11_u8)));
         assert_eq!(initial_reads.class_hashes.get(&contract_address), Some(&contract_class_hash));
@@ -252,6 +274,29 @@ mod tests {
         assert_eq!(initial_reads.nonces.get(&ALIAS_CONTRACT_ADDRESS), Some(&Nonce(Felt::from(2_u8))));
         assert_eq!(initial_reads.compiled_class_hashes.get(&declared_class_hash), Some(&declared_compiled_class_hash));
         assert!(initial_reads.declared_contracts.is_empty());
+    }
+
+    #[test]
+    fn capture_extended_initial_reads_hydrates_extra_contract_metadata() {
+        let account_address = contract_address!("0x424f4f545354524150");
+        let account_class_hash = ClassHash(Felt::from(88_u8));
+        let account_nonce = Nonce(Felt::from(3_u8));
+        let block_hash_class_hash = ClassHash(Felt::from(44_u8));
+        let alias_class_hash = ClassHash(Felt::from(55_u8));
+
+        let mut state_reader = DictStateReader::default();
+        state_reader.address_to_class_hash.insert(account_address, account_class_hash);
+        state_reader.address_to_nonce.insert(account_address, account_nonce);
+        state_reader.address_to_class_hash.insert(BLOCK_HASH_CONTRACT_ADDRESS, block_hash_class_hash);
+        state_reader.address_to_nonce.insert(BLOCK_HASH_CONTRACT_ADDRESS, Nonce(Felt::ONE));
+        state_reader.address_to_class_hash.insert(ALIAS_CONTRACT_ADDRESS, alias_class_hash);
+        state_reader.address_to_nonce.insert(ALIAS_CONTRACT_ADDRESS, Nonce(Felt::from(2_u8)));
+
+        let block_state = CachedState::new(state_reader);
+        let initial_reads = capture_extended_initial_reads(&block_state, &HashSet::from([account_address])).unwrap();
+
+        assert_eq!(initial_reads.class_hashes.get(&account_address), Some(&account_class_hash));
+        assert_eq!(initial_reads.nonces.get(&account_address), Some(&account_nonce));
     }
 
     #[tokio::test]
