@@ -231,9 +231,12 @@ async fn fetch_class_info(
 fn create_account_transaction_result(
     starknet_api_tx: starknet_api::executable_transaction::Transaction,
     account_tx: starknet_api::executable_transaction::AccountTransaction,
+    receipt_fee_amount: Option<&Felt>,
 ) -> TransactionConversionResult {
     let mut charge_fee = true;
-    if account_tx.version().0 == Felt::ZERO {
+    if matches!(receipt_fee_amount, Some(amount) if *amount == Felt::ZERO) {
+        charge_fee = false;
+    } else if account_tx.version().0 == Felt::ZERO {
         charge_fee = false;
     } else {
         match account_tx.resource_bounds() {
@@ -296,6 +299,10 @@ fn extract_receipt_fee_amount(receipt: &TransactionReceipt) -> &Felt {
         TransactionReceipt::Deploy(receipt) => &receipt.actual_fee.amount,
         TransactionReceipt::DeployAccount(receipt) => &receipt.actual_fee.amount,
     }
+}
+
+fn receipt_fee_amount_for_tx(transaction_receipts: &HashMap<Felt, TransactionReceipt>, tx_hash: Felt) -> Option<&Felt> {
+    transaction_receipts.get(&tx_hash).map(extract_receipt_fee_amount)
 }
 
 pub(crate) fn transaction_receipt_hash(receipt: &TransactionReceipt) -> Felt {
@@ -404,7 +411,8 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV1
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Invoke(invoke_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
     }
 }
 
@@ -441,7 +449,8 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for InvokeTransactionV3
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Invoke(invoke_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
     }
 }
 
@@ -473,7 +482,8 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
     }
 }
 
@@ -505,7 +515,8 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
     }
 }
 
@@ -538,7 +549,8 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
     }
 }
 
@@ -578,7 +590,8 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeclareTransactionV
         let account_tx = starknet_api::executable_transaction::AccountTransaction::Declare(declare_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
     }
 }
 
@@ -611,7 +624,8 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeployAccountTransa
             starknet_api::executable_transaction::AccountTransaction::DeployAccount(deploy_account_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
     }
 }
 
@@ -648,7 +662,8 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for DeployAccountTransa
             starknet_api::executable_transaction::AccountTransaction::DeployAccount(deploy_account_tx.clone());
         let starknet_api_tx = starknet_api::executable_transaction::Transaction::Account(account_tx.clone());
 
-        Ok(create_account_transaction_result(starknet_api_tx, account_tx))
+        let receipt_fee_amount = receipt_fee_amount_for_tx(ctx.transaction_receipts, self.transaction_hash);
+        Ok(create_account_transaction_result(starknet_api_tx, account_tx, receipt_fee_amount))
     }
 }
 
