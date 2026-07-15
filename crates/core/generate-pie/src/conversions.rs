@@ -238,12 +238,16 @@ fn create_account_transaction_result(
     } else {
         match account_tx.resource_bounds() {
             ValidResourceBounds::AllResources(all_resources) => {
-                if all_resources.l2_gas.max_amount.0 == 0 {
+                if all_resources.l2_gas.max_amount.0 == 0
+                    || (resource_bound_has_zero_fee(&all_resources.l1_gas)
+                        && resource_bound_has_zero_fee(&all_resources.l1_data_gas)
+                        && resource_bound_has_zero_fee(&all_resources.l2_gas))
+                {
                     charge_fee = false;
                 }
             }
             ValidResourceBounds::L1Gas(l1_gas) => {
-                if l1_gas.max_amount.0 == 0 {
+                if resource_bound_has_zero_fee(&l1_gas) {
                     charge_fee = false;
                 }
             }
@@ -256,6 +260,10 @@ fn create_account_transaction_result(
         starknet_api_tx,
         blockifier_tx: blockifier::transaction::transaction_execution::Transaction::Account(txn),
     }
+}
+
+fn resource_bound_has_zero_fee(resource_bound: &ResourceBounds) -> bool {
+    resource_bound.max_amount.0 == 0 || resource_bound.max_price_per_unit.0 == 0
 }
 
 /// Creates a transaction conversion result for L1 handler transactions.
@@ -723,6 +731,26 @@ impl TryIntoBlockifierAsync<TransactionConversionResult> for Transaction {
 mod tests {
     use super::*;
     use starknet::core::types::{DataAvailabilityMode, ResourceBounds, ResourceBoundsMapping};
+
+    #[test]
+    fn resource_bound_is_fee_free_when_amount_or_price_is_zero() {
+        let charged = starknet_api::transaction::fields::ResourceBounds {
+            max_amount: GasAmount(1),
+            max_price_per_unit: GasPrice(1),
+        };
+        let zero_amount = starknet_api::transaction::fields::ResourceBounds {
+            max_amount: GasAmount(0),
+            max_price_per_unit: GasPrice(1),
+        };
+        let zero_price = starknet_api::transaction::fields::ResourceBounds {
+            max_amount: GasAmount(1),
+            max_price_per_unit: GasPrice(0),
+        };
+
+        assert!(!resource_bound_has_zero_fee(&charged));
+        assert!(resource_bound_has_zero_fee(&zero_amount));
+        assert!(resource_bound_has_zero_fee(&zero_price));
+    }
 
     #[tokio::test]
     async fn invoke_v3_conversion_preserves_proof_facts() {
