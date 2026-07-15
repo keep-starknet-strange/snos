@@ -4,7 +4,7 @@ use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::StateMaps;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
-use log::info;
+use log::{info, warn};
 use rpc_client::client::ProofClient;
 use rpc_client::error::ClientError;
 use rpc_client::types::{ClassProof, ContractData, ContractProof};
@@ -15,6 +15,14 @@ use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
+
+fn summarize_felts(values: &[Felt], limit: usize) -> String {
+    let mut summary: Vec<String> = values.iter().take(limit).map(|felt| format!("{:#x}", felt)).collect();
+    if values.len() > limit {
+        summary.push(format!("... +{}", values.len() - limit));
+    }
+    summary.join(", ")
+}
 
 /// Comprehensive structure that captures all access information from transaction execution
 #[derive(Debug, Clone)]
@@ -148,7 +156,12 @@ pub(crate) async fn get_class_proofs(
         let proof =
             execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class_proof(block_number, class_hash))
                 .await
-                .map_err(ClientError::ProviderError)?;
+                .map_err(|e| {
+                    let message =
+                        format!("class proof request failed for block {block_number} class_hash {class_hash:#x}: {e}");
+                    warn!("{message}");
+                    ClientError::CustomError(message)
+                })?;
         // TODO: need to combine these, similar to merge_chunked_storage_proofs above?
         proofs.insert(**class_hash, proof);
     }
@@ -188,10 +201,24 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
 
     let contract_data = match &contract_proof.contract_data {
         None => {
+            warn!(
+                "Storage proof for contract {} at block {} returned no contract_data",
+                contract_address, block_number
+            );
             return Ok(contract_proof);
         }
         Some(contract_data) => contract_data,
     };
+
+    info!(
+        "Fetched initial storage proof for contract {} at block {}: root={:#x} storage_proof_sets={} contract_nodes={} requested_keys=[{}]",
+        contract_address,
+        block_number,
+        contract_data.root,
+        contract_data.storage_proofs.len(),
+        contract_proof.contract_proof.len(),
+        summarize_felts(&keys, 8)
+    );
 
     let additional_keys = if contract_data.root != Felt::ZERO {
         contract_data.get_additional_keys(&keys).map_err(|e| ClientError::CustomError(format!("{}", e)))?
@@ -199,7 +226,12 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         vec![]
     };
 
-    info!("Got {} additional keys for contract {}", additional_keys.len(), contract_address);
+    info!(
+        "Got {} additional keys for contract {} [{}]",
+        additional_keys.len(),
+        contract_address,
+        summarize_felts(&additional_keys, 8)
+    );
 
     // Fetch additional proofs required to fill gaps in the storage trie that could make
     // the OS crash otherwise.
@@ -210,7 +242,12 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         // Combine all storage proofs into a single vector
         match &additional_proof.contract_data {
             None => {
-                panic!("Failed to fetch additional proof for contract {}", contract_address)
+                let message = format!(
+                    "Additional storage proof for contract {} at block {} returned no contract_data",
+                    contract_address, block_number
+                );
+                warn!("{message}");
+                return Err(ClientError::CustomError(message));
             }
             Some(contract_data) => {
                 additional_proof.contract_data = Some(ContractData {
@@ -221,6 +258,17 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
             }
         }
         contract_proof = merge_storage_proofs(vec![contract_proof.clone(), additional_proof]);
+    }
+
+    if let Some(contract_data) = &contract_proof.contract_data {
+        info!(
+            "Final merged storage proof for contract {} at block {}: root={:#x} storage_proof_sets={} contract_nodes={}",
+            contract_address,
+            block_number,
+            contract_data.root,
+            contract_data.storage_proofs.len(),
+            contract_proof.contract_proof.len()
+        );
     }
 
     Ok(contract_proof)
@@ -235,8 +283,32 @@ async fn fetch_storage_proof_for_contract(
     keys: &[Felt],
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
-    info!("Fetching storage proof for contract {} with {} keys", contract_address, keys.len());
-    rpc_client.starknet_rpc().get_proof(block_number, contract_address, keys).await.map_err(ClientError::ProviderError)
+    info!(
+        "Fetching storage proof for contract {} with {} keys [{}]",
+        contract_address,
+        keys.len(),
+        summarize_felts(keys, 8)
+    );
+
+    let operation_name = format!(
+        "get_proof(block_number: {block_number}, contract_address: {contract_address:#x}, keys: {})",
+        keys.len()
+    );
+
+    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_proof(block_number, contract_address, keys))
+        .await
+        .map_err(|e| {
+            let message = format!(
+                "storage proof request failed for block {} contract {:#x} keys={} [{}]: {}",
+                block_number,
+                contract_address,
+                keys.len(),
+                summarize_felts(keys, 8),
+                e
+            );
+            warn!("{message}");
+            ClientError::CustomError(message)
+        })
 }
 
 /// Merges the storage proofs of the SAME contract.

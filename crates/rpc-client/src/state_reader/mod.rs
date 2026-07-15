@@ -2,7 +2,7 @@ use blockifier::execution::contract_class::{CompiledClassV0, CompiledClassV1, Ru
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
 use cairo_lang_starknet_classes::contract_class::version_id_from_serialized_sierra_program;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use starknet::core::types::{BlockId, Felt, StarknetError};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::contract_class::compiled_class_hash::{HashVersion, HashableCompiledClass};
@@ -50,6 +50,26 @@ impl AsyncRpcStateReader {
     }
 }
 
+fn log_cached_state_zero_fallback(
+    field_name: &str,
+    block_id: BlockId,
+    contract_address: ContractAddress,
+    key: Option<StorageKey>,
+    error: &ProviderError,
+) {
+    let key_suffix = key.map(|key| format!(", key={:#x}", Felt::from(*key.0.key()))).unwrap_or_default();
+    let message = format!(
+        "Cached state {field_name} fallback to zero for block {block_id:?}, contract={:#x}{key_suffix}: {error}",
+        Felt::from(*contract_address.key())
+    );
+
+    match error {
+        ProviderError::StarknetError(StarknetError::ContractNotFound) => info!("{message}"),
+        ProviderError::StarknetError(StarknetError::ClassHashNotFound) => info!("{message}"),
+        _ => warn!("{message}"),
+    }
+}
+
 // Helper function to convert provider error to state error
 fn provider_error_to_state_error(provider_error: ProviderError) -> StateError {
     StateError::StateReadError(provider_error.to_string())
@@ -80,7 +100,10 @@ impl AsyncRpcStateReader {
         .await
         {
             Ok(value) => Ok(value.value()),
-            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
+            Err(err @ ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
+                log_cached_state_zero_fallback("storage", block_id, contract_address, Some(key), &err);
+                Ok(Felt::ZERO)
+            }
             Err(e) => Err(provider_error_to_state_error(e)),
         }?;
 
@@ -103,7 +126,10 @@ impl AsyncRpcStateReader {
         .await
         {
             Ok(value) => Ok(value),
-            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
+            Err(err @ ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
+                log_cached_state_zero_fallback("nonce", block_id, contract_address, None, &err);
+                Ok(Felt::ZERO)
+            }
             Err(e) => Err(provider_error_to_state_error(e)),
         }?;
         Ok(Nonce(nonce))
@@ -125,7 +151,10 @@ impl AsyncRpcStateReader {
         .await
         {
             Ok(class_hash) => Ok(class_hash),
-            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(ClassHash::default().0),
+            Err(err @ ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
+                log_cached_state_zero_fallback("class_hash", block_id, contract_address, None, &err);
+                Ok(ClassHash::default().0)
+            }
             Err(e) => Err(provider_error_to_state_error(e)),
         }?;
 
