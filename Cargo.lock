@@ -125,8 +125,8 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "apollo_compilation_utils"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "cairo-lang-sierra",
  "cairo-lang-starknet-classes",
@@ -142,8 +142,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_compile_to_native"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_compilation_utils",
  "apollo_compile_to_native_types",
@@ -154,8 +154,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_compile_to_native_types"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_config",
  "serde",
@@ -164,8 +164,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_config"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_infra_utils",
  "clap",
@@ -182,8 +182,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_infra_utils"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_proc_macros",
  "assert-json-diff",
@@ -205,8 +205,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_metrics"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_time",
  "const_format",
@@ -219,8 +219,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_proc_macros"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_proc_macros_lib",
  "metrics 0.24.3",
@@ -228,8 +228,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_proc_macros_lib"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "lazy_static",
  "proc-macro2",
@@ -239,8 +239,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_sizeof"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_sizeof_macros",
  "starknet-types-core",
@@ -248,8 +248,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_sizeof_macros"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -258,8 +258,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_starknet_os_program"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_infra_utils",
  "cairo-vm",
@@ -273,8 +273,8 @@ dependencies = [
 
 [[package]]
 name = "apollo_time"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "chrono",
 ]
@@ -299,10 +299,10 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3df4dcc01ff89867cd86b0da835f23c3f02738353aaee7dde7495af71363b8d5"
 dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
 ]
 
 [[package]]
@@ -312,14 +312,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43d68f2d516162846c1238e755a7c4d131b892b70cc70c471a8e3ca3ed818fce"
 dependencies = [
  "ahash 0.8.12",
- "ark-ff",
- "ark-poly",
- "ark-serialize",
- "ark-std",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
  "educe 0.6.0",
  "fnv",
  "hashbrown 0.15.5",
  "itertools 0.13.0",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "zeroize",
+]
+
+[[package]]
+name = "ark-ec"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8352a2b2aedf6ba2cc38f7520fc51191d518dde96175c729af19f2d059f191c4"
+dependencies = [
+ "ahash 0.8.12",
+ "ark-ff 0.6.0",
+ "ark-poly 0.6.0",
+ "ark-serialize 0.6.0",
+ "ark-std 0.6.0",
+ "educe 0.6.0",
+ "fnv",
+ "hashbrown 0.17.1",
+ "itertools 0.14.0",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -332,10 +353,10 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a177aba0ed1e0fbb62aa9f6d0502e9b46dad8c2eab04c14258a1212d2557ea70"
 dependencies = [
- "ark-ff-asm",
- "ark-ff-macros",
- "ark-serialize",
- "ark-std",
+ "ark-ff-asm 0.5.0",
+ "ark-ff-macros 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
  "arrayvec",
  "digest 0.10.7",
  "educe 0.6.0",
@@ -347,10 +368,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-ff"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7a806ac6c8307b929df4645776290a50ee2aac754ad09d8bdf73391309e43af"
+dependencies = [
+ "ark-ff-asm 0.6.0",
+ "ark-ff-macros 0.6.0",
+ "ark-serialize 0.6.0",
+ "ark-std 0.6.0",
+ "digest 0.10.7",
+ "educe 0.6.0",
+ "num-bigint",
+ "num-traits",
+ "zeroize",
+]
+
+[[package]]
 name = "ark-ff-asm"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62945a2f7e6de02a31fe400aa489f0e0f5b2502e69f95f853adb82a96c7a6b60"
+dependencies = [
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "ark-ff-asm"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1479009684adc073dff49a1025d3a7065b317a9ead25aaaca38cdc70058ba8a2"
 dependencies = [
  "quote",
  "syn 2.0.117",
@@ -370,18 +418,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-ff-macros"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a0691ed21ef00ef89c1e9bda832eba493dda3ec2f8d892fb25b705f73f06bb8"
+dependencies = [
+ "num-bigint",
+ "num-traits",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "ark-poly"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "579305839da207f02b89cd1679e50e67b4331e2f9294a57693e5051b7703fe27"
 dependencies = [
  "ahash 0.8.12",
- "ark-ff",
- "ark-serialize",
- "ark-std",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
  "educe 0.6.0",
  "fnv",
  "hashbrown 0.15.5",
+]
+
+[[package]]
+name = "ark-poly"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75f55af10b672002b8d953e230282c51206842e20e5791a94432219b4201de5c"
+dependencies = [
+ "ahash 0.8.12",
+ "ark-ff 0.6.0",
+ "ark-serialize 0.6.0",
+ "ark-std 0.6.0",
+ "educe 0.6.0",
+ "fnv",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -390,9 +466,20 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8bd211c48debd3037b48873a7aa22c3aba034e83388aa4124795c9f220b88c7"
 dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-std",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-secp256k1"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a41b34e9124731f4834db5a8f92ce085a47cd6f006fdb50359ea508d6256341d"
+dependencies = [
+ "ark-ec 0.6.0",
+ "ark-ff 0.6.0",
+ "ark-std 0.6.0",
 ]
 
 [[package]]
@@ -401,9 +488,20 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5cf8be5820de567729bfa73a410ddd07cec8ad102d9a4bf61fd6b2e60db264e8"
 dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-std",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-secp256r1"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8e7450e67fdd507af9e1b70dbabffe335d425cbcdeb531b8979b3a8e838fd78"
+dependencies = [
+ "ark-ec 0.6.0",
+ "ark-ff 0.6.0",
+ "ark-std 0.6.0",
 ]
 
 [[package]]
@@ -412,9 +510,21 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f4d068aaf107ebcd7dfb52bc748f8030e0fc930ac8e360146ca54c1203088f7"
 dependencies = [
- "ark-serialize-derive",
- "ark-std",
+ "ark-serialize-derive 0.5.0",
+ "ark-std 0.5.0",
  "arrayvec",
+ "digest 0.10.7",
+ "num-bigint",
+]
+
+[[package]]
+name = "ark-serialize"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a74dd304fd536fb95d0a328e72be759209cc496a9da094c5bc56e5fea4f9e86b"
+dependencies = [
+ "ark-serialize-derive 0.6.0",
+ "ark-std 0.6.0",
  "digest 0.10.7",
  "num-bigint",
 ]
@@ -431,10 +541,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-serialize-derive"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f153690697a2b91e5e1251ff98411ee5371500a111a0fd317a70e588eb300f9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "ark-std"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "246a225cc6131e9ee4f24619af0f19d67761fff15d7ccc22e42b80846e69449a"
+dependencies = [
+ "num-traits",
+ "rand 0.8.5",
+]
+
+[[package]]
+name = "ark-std"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "367c9c827ed431bff6868b7aa926e05b16eb46603cc8b6e768e4a5553fa1d155"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
@@ -1078,8 +1209,8 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "anyhow",
  "apollo_compilation_utils",
@@ -1088,10 +1219,10 @@ dependencies = [
  "apollo_config",
  "apollo_infra_utils",
  "apollo_metrics",
- "ark-ec",
- "ark-ff",
- "ark-secp256k1",
- "ark-secp256r1",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-secp256k1 0.5.0",
+ "ark-secp256r1 0.5.0",
  "blockifier_test_utils",
  "cached",
  "cairo-lang-casm",
@@ -1130,8 +1261,8 @@ dependencies = [
 
 [[package]]
 name = "blockifier_test_utils"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_infra_utils",
  "cairo-lang-starknet-classes",
@@ -1293,9 +1424,9 @@ checksum = "ade8366b8bd5ba243f0a58f036cc0ca8a2f069cff1a2351ef1cac6b083e16fc0"
 
 [[package]]
 name = "cairo-lang-casm"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca8ba4a3d44e9911b757ab231d09c370753ba717fe8b335dffbb6f7b137296fe"
+checksum = "183d72ae89dff2581523134f127734996b2cae3aefc44df22cae62ab472abdaf"
 dependencies = [
  "cairo-lang-utils",
  "indoc",
@@ -1307,9 +1438,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-compiler"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3503898c518d6e8ed5e958d30aa2745bf099c1600b5fde486210719b98a2d10"
+checksum = "4b68b7c69156f0b68ebb5421ec063ad4afb86e38590a04360992fd7b795a1558"
 dependencies = [
  "anyhow",
  "cairo-lang-defs",
@@ -1334,9 +1465,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-debug"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed1a9a5aac7b9220d811d8a745fe5e35a7043f741e267a8b00a4c5763b48b1d7"
+checksum = "483cb988d3346be274dfa4d8055f8f2730b1f49efd08dc6f13195124534ec5bf"
 dependencies = [
  "cairo-lang-utils",
  "id-arena",
@@ -1345,9 +1476,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-defs"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d804565b31e141d7909e26a43fb251cf6ec68d36d9918f2e4a970d4326c70bd3"
+checksum = "b5f99066c060b1c24dc561d91089d72eee1347641a4e1e491eeb5b531bcb00ac"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-diagnostics",
@@ -1366,9 +1497,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-diagnostics"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4555f8c2563fa070c2c492bb4a20ee8d9e87ec67239593dab7545a17f8a7d7b"
+checksum = "a023b2968c8c790409dc32d91fb91e25be0b0a8ea46ae95765b2a255524d82b2"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-filesystem",
@@ -1380,9 +1511,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-eq-solver"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfd052b0c34bac485aefb13f2ba38e5159913f05f6001915db473b6a0ebcd2b9"
+checksum = "009d120c9080d7b07d9d88ecf268f8205be24fd82455982fb30afcee26966061"
 dependencies = [
  "cairo-lang-utils",
  "good_lp",
@@ -1390,9 +1521,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-filesystem"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d897c5268fff99a2f093a7d9fd23480ef0a46f7130d6640934bcb13ecc08f9f"
+checksum = "992565f89687b51b7d2c68a6ba9f141f50f1513cea0633b625699d7054522fc9"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-proc-macros",
@@ -1408,9 +1539,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-formatter"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05a5fd77897cc7afe835c3c97720835d01fa203aa968777f8df1ae8e6901e748"
+checksum = "24b10b2842e10206ff4a777600414dda10607335bb327151f78f7b4c2f890b3b"
 dependencies = [
  "anyhow",
  "cairo-lang-diagnostics",
@@ -1428,9 +1559,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-lowering"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d1d5fc3122388882be9c8774ee836d2c7a4db1333c08ff82f36d8f43e84c57c"
+checksum = "f967c60c5e8cec3b2da58c9e8e92ac3cc8218b036bc87846a20d25dda070a654"
 dependencies = [
  "assert_matches",
  "cairo-lang-debug",
@@ -1458,9 +1589,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-parser"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "324f258615e2876db65be5eb439999d35f432976c0cf2717778c183ee0ba4708"
+checksum = "2b5457a724381a0f393843acb7554dc4c620bfbbcf5dd984b43c59b668ed3677"
 dependencies = [
  "cairo-lang-diagnostics",
  "cairo-lang-filesystem",
@@ -1478,9 +1609,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-plugins"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "133dc9d41b82e97f348e4589d58116473e63bbe97bf8669260a945b5482faec0"
+checksum = "d1654b7170385dd9beedb55dbdc477c978555f3f150736bacda3a9c82cc6c716"
 dependencies = [
  "cairo-lang-defs",
  "cairo-lang-diagnostics",
@@ -1502,9 +1633,9 @@ checksum = "123ac0ecadf31bacae77436d72b88fa9caef2b8e92c89ce63a125ae911a12fae"
 
 [[package]]
 name = "cairo-lang-proc-macros"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b253829795dd9e12560f55654631d1605eea1be4d6790eb02e6719e79bde5be"
+checksum = "9d79f89d4f557faa2d626e63c1c95e0b1e3148a32dc8b73a155f1e981b8f4bdb"
 dependencies = [
  "cairo-lang-debug",
  "proc-macro2",
@@ -1515,9 +1646,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-project"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cde3434b466ab9b03d402dbc79cc57adfb9d25a5e4d614c0060cccd955379d8"
+checksum = "2b5c89af4169ab03d2d314d81864cd17a0362608868e709a6a9e39fe9fcdf8c2"
 dependencies = [
  "cairo-lang-filesystem",
  "cairo-lang-utils",
@@ -1528,9 +1659,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-runnable-utils"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3269a2e149811c7a714cd3a465902b1897a9b372c589188b3f53a746e3691b02"
+checksum = "814f5c50c7f8d788c444752021e2c04a4804d5f7f80bdbdc438bc12067c38d8a"
 dependencies = [
  "cairo-lang-casm",
  "cairo-lang-sierra",
@@ -1545,13 +1676,13 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-runner"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0603bfe3285f0b1978aa98741a8fcd757239082a22ca21f3db281a914145d7a1"
+checksum = "61efd8ddb42b79eb19ed72992e431c3a9f5ca86347abd0d16efcfb9cebe00ac0"
 dependencies = [
- "ark-ff",
- "ark-secp256k1",
- "ark-secp256r1",
+ "ark-ff 0.6.0",
+ "ark-secp256k1 0.6.0",
+ "ark-secp256r1 0.6.0",
  "cairo-lang-casm",
  "cairo-lang-lowering",
  "cairo-lang-runnable-utils",
@@ -1577,9 +1708,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-semantic"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c2be71c26fc76ff91b1c224d54bede226ba6b66ec6892a4e5c98ad53f399021"
+checksum = "695f0bc4c2dc8037bba54e097d75a65e0b451baf734dae21eae91d7e45cd59e5"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-defs",
@@ -1599,7 +1730,7 @@ dependencies = [
  "postcard",
  "salsa",
  "serde",
- "sha3 0.11.0",
+ "sha3 0.12.0",
  "starknet-types-core",
  "toml",
  "tracing",
@@ -1607,9 +1738,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-sierra"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24a109344978f9338afbfceb801af131e41f5b5c7951a2c8f584d9092fd565aa"
+checksum = "2293b7ab2d3c9e1f971033bfa615be1a505a1d6970d4f5143b52c3da00ccaaaf"
 dependencies = [
  "anyhow",
  "cairo-lang-utils",
@@ -1625,7 +1756,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "sha3 0.11.0",
+ "sha3 0.12.0",
  "smol_str",
  "starknet-types-core",
  "thiserror 2.0.17",
@@ -1633,9 +1764,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-sierra-ap-change"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a7e5837455553b09f926ef1e9aab6622fb6091f900d932c979ab722f080e837"
+checksum = "d59f27df9fe31d67defd884b4367a03faf7ab42bbaba1ea6243c84dbfae86dfb"
 dependencies = [
  "cairo-lang-eq-solver",
  "cairo-lang-sierra",
@@ -1649,9 +1780,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-sierra-gas"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17f7337921f6fde562433a015a11ac1367b0cb8f52ede2c3af927d96d5aa3442"
+checksum = "6fdf787006381f9f71a93be3cd3e35c8dbc39671e29bfb2f9bdc69106eef3024"
 dependencies = [
  "cairo-lang-eq-solver",
  "cairo-lang-sierra",
@@ -1665,9 +1796,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-sierra-generator"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50a144c32b66f0ede481c8b9bd285722373e3848ae3fabead0080511471039cb"
+checksum = "b02ea4db29e248f393389ed8318db52629a93e6ef5e9d6ce284d5ca9fd7fd66c"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-defs",
@@ -1690,9 +1821,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-sierra-to-casm"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cac7497b6627e7c4b69edd9c305eb254298d77a0801bd0b6b3122d53c62d7f07"
+checksum = "294009e7368e2974ca8b6c0cef6144d92745753348cc6b3f3db886ae84be23d2"
 dependencies = [
  "assert_matches",
  "cairo-lang-casm",
@@ -1711,9 +1842,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-sierra-type-size"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e2c6feaf7f1255e43321e34e3744a9ef853fce98960ab138988c048029c57e6"
+checksum = "e8fb38d1f89270a7b78ec2263980572375c1582061d22586f9199fa385dcd383"
 dependencies = [
  "cairo-lang-sierra",
  "cairo-lang-utils",
@@ -1721,9 +1852,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-starknet"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd34ae52728e9acb14ac15c2529736493a2c02e144f0233bab55d66c3fdbfd57"
+checksum = "cdfb58e771f5beba2db38e75364234b625ac7b6410f4f3fcd5810ea89b9c838d"
 dependencies = [
  "anyhow",
  "cairo-lang-compiler",
@@ -1754,9 +1885,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-starknet-classes"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b4961af6fc9d7fa615b20f9dd48df9c63bff3cc54113fe33aeade99b4219e1c"
+checksum = "f27b641ec3082f2d2dba0ca6828b1946e8bfbf21260175e4a72de1e10c5248c4"
 dependencies = [
  "cairo-lang-casm",
  "cairo-lang-sierra",
@@ -1770,7 +1901,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_json",
- "sha3 0.11.0",
+ "sha3 0.12.0",
  "smol_str",
  "starknet-types-core",
  "thiserror 2.0.17",
@@ -1778,9 +1909,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-syntax"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c81138a4f169c8d19752fc438e7aadc443123454eb5f1f2b219ca0953a952071"
+checksum = "27da0777ac026094e8f67d32061a77a12cb91035dcf3c6fd92b6b989d6fef3f8"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-filesystem",
@@ -1797,9 +1928,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-syntax-codegen"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6380c1fa17b96823eac53d6a57de949402ee55d2b4d14ae722ac9287f0efc3c1"
+checksum = "e26f34eb95496f27df57a7630fc533eabd8f631f9912a2579421b3095fcc5157"
 dependencies = [
  "genco",
  "xshell",
@@ -1807,9 +1938,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-test-utils"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e93debf5e87605b99bf3fa26f2c1e262d76173d3e5bfb96588cf76e4288dafde"
+checksum = "cfcd1f9e894db6bc4197a23599a6013930d3b1b98d7dae249d968650882a56c6"
 dependencies = [
  "cairo-lang-formatter",
  "cairo-lang-proc-macros",
@@ -1821,9 +1952,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-utils"
-version = "2.19.0-rc.0"
+version = "2.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ac2d569ef99caab85f4b92d668e61d30ec4877dc24353bb1d1b68b5fb09bf9d"
+checksum = "baa5f9eff3268b851283232236ffb9af87ecd12320418daf91e2da45c7d039c5"
 dependencies = [
  "hashbrown 0.17.1",
  "indexmap 2.13.0",
@@ -1848,10 +1979,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eaaf48d22c1c9a0bb5aedf0a66f5b1a37f41dc3df5ce18480ce2abbed9a88657"
 dependencies = [
  "aquamarine",
- "ark-ec",
- "ark-ff",
- "ark-secp256k1",
- "ark-secp256r1",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-secp256k1 0.5.0",
+ "ark-secp256r1 0.5.0",
  "bumpalo",
  "cairo-lang-lowering",
  "cairo-lang-runner",
@@ -2609,11 +2740,12 @@ checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
 
 [[package]]
 name = "diffy"
-version = "0.4.2"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b545b8c50194bdd008283985ab0b31dba153cfd5b3066a92770634fbc0d7d291"
+checksum = "10aec8f7f9393bd6a4f2762be0ceb012d3cbe2478987258cc9960de148561914"
 dependencies = [
- "nu-ansi-term",
+ "anstyle",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -3953,9 +4085,9 @@ dependencies = [
 
 [[package]]
 name = "inventory"
-version = "0.3.21"
+version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc61209c082fbeb19919bee74b176221b27223e27b65d781eb91af24eb1fb46e"
+checksum = "a4f0c30c76f2f4ccee3fe55a2435f691ca00c0e4bd87abe4f4a851b1d4dac39b"
 dependencies = [
  "rustversion",
 ]
@@ -4817,8 +4949,8 @@ dependencies = [
 
 [[package]]
 name = "papyrus_common"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "cairo-lang-starknet-classes",
  "indexmap 2.13.0",
@@ -5925,14 +6057,14 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 
 [[package]]
 name = "salsa"
-version = "0.26.0"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f77debccd43ba198e9cee23efd7f10330ff445e46a98a2b107fed9094a1ee676"
+checksum = "4612ff789805e65c87e9b38cb749a293212a615af065bed8a2001086801498c3"
 dependencies = [
  "boxcar",
  "crossbeam-queue",
  "crossbeam-utils",
- "hashbrown 0.15.5",
+ "hashbrown 0.17.1",
  "hashlink",
  "indexmap 2.13.0",
  "intrusive-collections",
@@ -5946,19 +6078,20 @@ dependencies = [
  "smallvec",
  "thin-vec",
  "tracing",
+ "typeid",
 ]
 
 [[package]]
 name = "salsa-macro-rules"
-version = "0.26.0"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea07adbf42d91cc076b7daf3b38bc8168c19eb362c665964118a89bc55ef19a5"
+checksum = "58e354cbac6939b9b09cd9c11fb419a53e64b4a0f755d929f56a09f4cc752e41"
 
 [[package]]
 name = "salsa-macros"
-version = "0.26.0"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d16d4d8b66451b9c75ddf740b7fc8399bc7b8ba33e854a5d7526d18708f67b05"
+checksum = "3067861075c2b80608f84ad49fb88f2c7610b94cdf8b4201e79ddee87f8980c8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6279,12 +6412,13 @@ dependencies = [
 
 [[package]]
 name = "sha3"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be176f1a57ce4e3d31c1a166222d9768de5954f811601fb7ca06fc8203905ce1"
+checksum = "bc9bad02c26382724b2d2692c6f179285e4b54eeecd7968f52a50059c3c11759"
 dependencies = [
  "digest 0.11.3",
  "keccak 0.2.0",
+ "sponge-cursor",
 ]
 
 [[package]]
@@ -6298,8 +6432,8 @@ dependencies = [
 
 [[package]]
 name = "shared_execution_objects"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "blockifier",
  "serde",
@@ -6413,6 +6547,12 @@ dependencies = [
  "base64ct",
  "der",
 ]
+
+[[package]]
+name = "sponge-cursor"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a0219bd7d979d58245a4f41f695e1ac9f8befdffadd7f61f1bae9e39abc6620"
 
 [[package]]
 name = "sprs"
@@ -6758,8 +6898,8 @@ dependencies = [
 
 [[package]]
 name = "starknet_api"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_infra_utils",
  "apollo_sizeof",
@@ -6797,8 +6937,8 @@ dependencies = [
 
 [[package]]
 name = "starknet_committer"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_config",
  "async-trait",
@@ -6822,15 +6962,15 @@ dependencies = [
 
 [[package]]
 name = "starknet_os"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_starknet_os_program",
  "ark-bls12-381",
- "ark-ff",
- "ark-poly",
- "ark-secp256k1",
- "ark-secp256r1",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
+ "ark-secp256k1 0.5.0",
+ "ark-secp256r1 0.5.0",
  "blake2",
  "blockifier",
  "c-kzg",
@@ -6870,8 +7010,8 @@ dependencies = [
 
 [[package]]
 name = "starknet_patricia"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "async-recursion",
  "derive_more",
@@ -6891,8 +7031,8 @@ dependencies = [
 
 [[package]]
 name = "starknet_patricia_storage"
-version = "0.19.0-rc.0"
-source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.6#613f8410ecdf31915c706781da5f658ea3d05cb6"
+version = "0.19.0-rc.2"
+source = "git+https://github.com/starkware-libs/sequencer?tag=APOLLO-0.14.3-RC.15#12cf3b7d4a55478183662523c10eddb1d71243bf"
 dependencies = [
  "apollo_config",
  "async-trait",

@@ -162,6 +162,7 @@ fn build_os_block_input(
         tx_execution_infos: tx_result.central_txn_execution_infos,
         declared_class_hash_to_component_hashes: class_result.declared_class_hash_component_hashes,
         block_info: block_context.block_info().clone(),
+        starknet_version_override: None,
         block_hash_commitments: tx_result.block_hash_commitments,
         prev_block_hash: block_data
             .previous_block
