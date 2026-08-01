@@ -125,7 +125,7 @@ impl RpcClientInner {
 }
 
 #[cfg(test)]
-mod tests {
+mod url_tests {
     use super::starknet_rpc_url;
 
     #[test]
