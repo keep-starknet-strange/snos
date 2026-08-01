@@ -57,11 +57,10 @@ pub fn sort_abi_entries_for_deprecated_class(
                 if let Some(attr_obj) = attr.as_object_mut() {
                     // Remove empty accessible_scopes arrays
                     match attr_obj.get("accessible_scopes") {
-                        Some(serde_json::Value::Array(array)) => {
-                            if array.is_empty() {
-                                attr_obj.remove("accessible_scopes");
-                            }
+                        Some(serde_json::Value::Array(array)) if array.is_empty() => {
+                            attr_obj.remove("accessible_scopes");
                         }
+                        Some(serde_json::Value::Array(_)) => {}
                         Some(_) => {
                             return Err("Program attribute 'accessible_scopes' was not an array type".into());
                         }

@@ -20,11 +20,13 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     git \
     ca-certificates \
+    wget \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Rust for linux/amd64.
 # Keep the image builder aligned with the workspace toolchain used for local validation.
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.89 \
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95 \
     && . /usr/local/cargo/env \
     && rustup target add x86_64-unknown-linux-gnu
 
@@ -56,10 +58,34 @@ RUN if find /usr/local/cargo/git/checkouts -name "requirements.txt" -path "*/scr
         echo "No requirements.txt found, skipping pip install"; \
     fi
 
+# Install the LLVM/MLIR toolchain required by cairo-native.
+RUN wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+        | gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main" \
+        > /etc/apt/sources.list.d/llvm.list \
+    && apt-get update \
+    && apt-get install -y \
+        llvm-19 \
+        llvm-19-dev \
+        llvm-19-runtime \
+        clang-19 \
+        clang-tools-19 \
+        libclang-19-dev \
+        lld-19 \
+        libpolly-19-dev \
+        libmlir-19-dev \
+        mlir-19-tools \
+        libzstd-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV MLIR_SYS_190_PREFIX=/usr/lib/llvm-19
+ENV LLVM_SYS_191_PREFIX=/usr/lib/llvm-19
+ENV TABLEGEN_190_PREFIX=/usr/lib/llvm-19
+
 # Build the rpc-replay binary
 RUN . sequencer_venv/bin/activate \
     && . /usr/local/cargo/env \
-    && cargo build --release --bin rpc-replay
+    && RUSTFLAGS="-C link-arg=-fuse-ld=lld" cargo build --bin rpc-replay
 
 # Runtime stage
 FROM --platform=linux/amd64 ubuntu:22.04
@@ -71,8 +97,18 @@ RUN apt-get update && apt-get install -y \
     libgmp10 \
     python3 \
     python3-venv \
+    wget \
+    gnupg \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
+
+RUN wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+        | gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main" \
+        > /etc/apt/sources.list.d/llvm.list \
+    && apt-get update \
+    && apt-get install -y llvm-19-runtime libmlir-19 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
 RUN useradd -m -u 1000 appuser
@@ -81,7 +117,7 @@ RUN useradd -m -u 1000 appuser
 RUN mkdir -p /app/output /app/logs && chown -R appuser:appuser /app
 
 # Copy the binary from builder stage
-COPY --from=builder /app/target/release/rpc-replay /usr/local/bin/rpc-replay
+COPY --from=builder /app/target/debug/rpc-replay /usr/local/bin/rpc-replay
 
 # Copy Python virtual environment
 COPY --from=builder /app/sequencer_venv /app/sequencer_venv
@@ -107,6 +143,7 @@ ENV AWS_S3_BUCKET=""
 ENV AWS_ACCESS_KEY_ID=""
 ENV AWS_SECRET_ACCESS_KEY=""
 ENV PATH=/app/sequencer_venv/bin:$PATH
+ENV LD_LIBRARY_PATH=/usr/lib/llvm-19/lib
 
 # Expose volumes for output files and logs
 VOLUME ["/app/output", "/app/logs"]
