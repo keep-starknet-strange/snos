@@ -1,0 +1,19 @@
+{
+  "url": "https://api.github.com/repos/keep-starknet-strange/snos/issues/529",
+  "repository_url": "https://api.github.com/repos/keep-starknet-strange/snos",
+  "labels": [],
+  "state": "open",
+  "labels": [],
+  "title": "bug:",
+  "body": "**SNOS version:**\n\n**Current behavior:**\n\n**Expected behavior:**\n\n**Steps to reproduce:**\n\n**Related code:**\n\n```insert short code snippets here```",
+  "user": {"login": "pablomulti"},
+  "comments_url": "https://api.github.com/repos/keep-starknet-strange/snos/issues/529/comments",
+  "events_url": "https://api.github.com/repos/keep-starknet-strange/snos/issues/529/events",
+  "html_url": "https://github.com/keep-starknet-strange/snos/issues/529",
+  "id": 3688891503,
+  "number": 529,
+  "closed_at": null,
+  "updated_at": "2025-11-07T22:08:51Z",
+  "created_at": "2025-11-07T22:08:51Z",
+  "pull_request": {"url": "", "html_url": "", "diff_url": "", "patch_url": ""}
+}
