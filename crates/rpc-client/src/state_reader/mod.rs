@@ -57,10 +57,10 @@ fn log_cached_state_zero_fallback(
     key: Option<StorageKey>,
     error: &ProviderError,
 ) {
-    let key_suffix = key.map(|key| format!(", key={:#x}", Felt::from(*key.0.key()))).unwrap_or_default();
+    let key_suffix = key.map(|key| format!(", key={:#x}", *key.0.key())).unwrap_or_default();
     let message = format!(
         "Cached state {field_name} fallback to zero for block {block_id:?}, contract={:#x}{key_suffix}: {error}",
-        Felt::from(*contract_address.key())
+        *contract_address.key()
     );
 
     match error {

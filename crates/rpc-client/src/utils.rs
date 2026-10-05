@@ -219,10 +219,10 @@ mod tests {
         .unwrap();
 
         let after = rpc_timing_snapshot();
-        assert!(after.calls >= before.calls + 1);
+        assert!(after.calls > before.calls);
         assert!(
             after.calls_by_method.get("timed_sleep").copied().unwrap_or_default()
-                >= before.calls_by_method.get("timed_sleep").copied().unwrap_or_default() + 1
+                > before.calls_by_method.get("timed_sleep").copied().unwrap_or_default()
         );
         assert!(after.wait_elapsed >= before.wait_elapsed);
         assert!(after.cumulative_call_elapsed >= before.cumulative_call_elapsed + Duration::from_millis(5));
@@ -249,11 +249,11 @@ mod tests {
         assert!(after.calls >= before.calls + 2);
         assert!(
             after.calls_by_method.get("timed_sleep_1").copied().unwrap_or_default()
-                >= before.calls_by_method.get("timed_sleep_1").copied().unwrap_or_default() + 1
+                > before.calls_by_method.get("timed_sleep_1").copied().unwrap_or_default()
         );
         assert!(
             after.calls_by_method.get("timed_sleep_2").copied().unwrap_or_default()
-                >= before.calls_by_method.get("timed_sleep_2").copied().unwrap_or_default() + 1
+                > before.calls_by_method.get("timed_sleep_2").copied().unwrap_or_default()
         );
         assert!(after.wait_elapsed >= before.wait_elapsed);
         assert!(after.cumulative_call_elapsed >= before.cumulative_call_elapsed + Duration::from_millis(40));
