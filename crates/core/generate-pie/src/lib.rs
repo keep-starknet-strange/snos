@@ -70,6 +70,7 @@ use cairo_vm::types::layout_name::LayoutName;
 use futures::future::join_all;
 use log::{info, warn};
 use rpc_client::utils::RpcTimingSnapshot;
+pub use rpc_client::witness::RpcWitness;
 use rpc_client::RpcClient;
 use starknet_api::core::OsChainInfo;
 use starknet_os::{
@@ -175,17 +176,39 @@ pub struct PreparedPieGeneration {
 
 /// Collect all RPC-backed block inputs without running the Starknet OS.
 pub async fn prepare_pie(input: PieGenerationInput) -> Result<PreparedPieGeneration, PieGenerationError> {
+    let rpc_client = RpcClient::try_new(&input.rpc_url)
+        .map_err(|e| PieGenerationError::RpcClient(format!("Failed to initialize RPC client: {:?}", e)))?;
+    prepare_pie_with_client(input, rpc_client).await
+}
+
+/// Build a portable request/response witness while preparing a block against RPC.
+pub async fn record_rpc_witness(input: PieGenerationInput) -> Result<RpcWitness, PieGenerationError> {
+    let blocks = input.blocks.clone();
+    let (rpc_client, recorder) = RpcClient::try_new_recording(&input.rpc_url)
+        .map_err(|e| PieGenerationError::RpcClient(format!("Failed to initialize recording RPC client: {e:?}")))?;
+    prepare_pie_with_client(input, rpc_client).await?;
+    recorder.snapshot(blocks).map_err(|e| PieGenerationError::RpcClient(format!("Failed to snapshot RPC witness: {e}")))
+}
+
+/// Prepare a SNOS run entirely from a previously recorded RPC witness.
+pub async fn prepare_pie_from_witness(
+    input: PieGenerationInput,
+    witness: RpcWitness,
+) -> Result<PreparedPieGeneration, PieGenerationError> {
+    let rpc_client = RpcClient::from_witness(witness)
+        .map_err(|e| PieGenerationError::RpcClient(format!("Failed to initialize witness RPC client: {e}")))?;
+    prepare_pie_with_client(input, rpc_client).await
+}
+
+async fn prepare_pie_with_client(
+    input: PieGenerationInput,
+    rpc_client: RpcClient,
+) -> Result<PreparedPieGeneration, PieGenerationError> {
     let snos_started_at = Instant::now();
     info!("Starting PIE preparation for {} blocks: {:?}", input.blocks.len(), input.blocks);
 
-    // Validate input configuration
     input.validate()?;
     info!("Input configuration validated successfully");
-
-    // Initialize RPC client
-    let rpc_client = RpcClient::try_new(&input.rpc_url)
-        .map_err(|e| PieGenerationError::RpcClient(format!("Failed to initialize RPC client: {:?}", e)))?;
-    info!("RPC client initialized for {}", input.rpc_url);
 
     // Create semaphore to limit parallel execution to available CPU cores
     let default_max_parallel_blocks =

@@ -15,6 +15,7 @@ use std::time::Duration;
 use crate::constants::{MAX_CONCURRENT_PROOF_REQUESTS, MAX_STORAGE_KEYS_PER_REQUEST, STARKNET_RPC_VERSION};
 use crate::types::{ClassProof, ContractProof};
 use crate::utils::{execute_with_retry, RpcTimingRecorder, RpcTimingSnapshot};
+use crate::witness::{RpcTransport, RpcWitness, RpcWitnessRecorder, WitnessTransportError};
 
 const DEFAULT_RPC_REQUEST_TIMEOUT_SECS: u64 = 60;
 const DEFAULT_RPC_CONNECT_TIMEOUT_SECS: u64 = 5;
@@ -59,7 +60,7 @@ pub trait ProofClient {
 /// client, providing a unified interface for accessing different types of RPC endpoints.
 struct RpcClientInner {
     /// Starknet-rs client for accessing standard Starknet RPC endpoints.
-    starknet_client: JsonRpcClient<HttpTransport>,
+    starknet_client: JsonRpcClient<RpcTransport>,
     /// Timing state scoped to this SNOS run and shared by cloned clients.
     timing: RpcTimingRecorder,
 }
@@ -113,7 +114,8 @@ impl RpcClientInner {
             .build()
             .map_err(|e| anyhow!("Failed to create reqwest client for {}: {}", starknet_rpc_url, e))?;
 
-        let provider = JsonRpcClient::new(HttpTransport::new_with_client(starknet_rpc_url, http_client));
+        let provider =
+            JsonRpcClient::new(RpcTransport::Http(HttpTransport::new_with_client(starknet_rpc_url, http_client)));
 
         Ok(Self { starknet_client: provider, timing: RpcTimingRecorder::default() })
     }
@@ -176,6 +178,22 @@ impl RpcClient {
         Ok(Self { inner: Arc::new(RpcClientInner::try_new(base_url)?) })
     }
 
+    pub fn try_new_recording(base_url: &str) -> anyhow::Result<(Self, RpcWitnessRecorder)> {
+        let starknet_rpc_url = Url::parse(&format!("{base_url}/rpc/{STARKNET_RPC_VERSION}"))?;
+        let http = HttpTransport::new(starknet_rpc_url);
+        let (transport, recorder) = RpcTransport::recording(http);
+        let inner =
+            RpcClientInner { starknet_client: JsonRpcClient::new(transport), timing: RpcTimingRecorder::default() };
+        Ok((Self { inner: Arc::new(inner) }, recorder))
+    }
+
+    pub fn from_witness(witness: RpcWitness) -> Result<Self, WitnessTransportError> {
+        let transport = RpcTransport::witness(witness)?;
+        let inner =
+            RpcClientInner { starknet_client: JsonRpcClient::new(transport), timing: RpcTimingRecorder::default() };
+        Ok(Self { inner: Arc::new(inner) })
+    }
+
     /// Returns a reference to the underlying Starknet RPC client.
     ///
     /// This client provides access to all standard Starknet RPC endpoints as defined
@@ -203,7 +221,7 @@ impl RpcClient {
     /// }
     /// ```
     #[must_use]
-    pub fn starknet_rpc(&self) -> &JsonRpcClient<HttpTransport> {
+    pub fn starknet_rpc(&self) -> &JsonRpcClient<RpcTransport> {
         &self.inner.starknet_client
     }
 
@@ -216,7 +234,7 @@ impl RpcClient {
     }
 }
 
-impl ProofClient for JsonRpcClient<HttpTransport> {
+impl ProofClient for JsonRpcClient<RpcTransport> {
     /// Gets storage proofs for the specified contract and keys at the given block number.
     ///
     /// This method retrieves storage proofs for multiple keys in a single contract.
