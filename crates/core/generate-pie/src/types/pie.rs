@@ -105,6 +105,8 @@ pub struct PieGenerationTiming {
     pub rpc_wait_time_ms: u64,
     /// Wall-clock time spent on local execution/processing outside RPC waits.
     pub execution_time_ms: u64,
+    /// Wall-clock time spent waiting to enter the caller-controlled finalization lane.
+    pub finalization_wait_time_ms: u64,
     /// RPC calls grouped by method name, including a `total` entry.
     pub rpc_calls_by_method: HashMap<String, u64>,
 }
