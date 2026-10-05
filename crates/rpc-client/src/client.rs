@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use crate::constants::{MAX_CONCURRENT_PROOF_REQUESTS, MAX_STORAGE_KEYS_PER_REQUEST, STARKNET_RPC_VERSION};
 use crate::types::{ClassProof, ContractProof};
-use crate::utils::execute_with_retry;
+use crate::utils::{execute_with_retry, RpcTimingRecorder, RpcTimingSnapshot};
 
 const DEFAULT_RPC_REQUEST_TIMEOUT_SECS: u64 = 60;
 const DEFAULT_RPC_CONNECT_TIMEOUT_SECS: u64 = 5;
@@ -26,23 +26,27 @@ const RPC_POOL_MAX_IDLE_PER_HOST_ENV: &str = "SNOS_RPC_POOL_MAX_IDLE_PER_HOST";
 pub trait ProofClient {
     fn get_proof(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         keys: &[Felt],
     ) -> impl std::future::Future<Output = Result<ContractProof, ProviderError>> + Send;
     fn get_class_proof(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         class_hash: &Felt,
     ) -> impl std::future::Future<Output = Result<ClassProof, ProviderError>> + Send;
     fn get_proof_one_key(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         key: Option<Felt>,
     ) -> impl std::future::Future<Output = Result<ContractProof, ProviderError>> + Send;
     fn get_proof_multiple_keys(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         keys: &[Felt],
@@ -56,6 +60,8 @@ pub trait ProofClient {
 struct RpcClientInner {
     /// Starknet-rs client for accessing standard Starknet RPC endpoints.
     starknet_client: JsonRpcClient<HttpTransport>,
+    /// Timing state scoped to this SNOS run and shared by cloned clients.
+    timing: RpcTimingRecorder,
 }
 
 impl RpcClientInner {
@@ -109,7 +115,7 @@ impl RpcClientInner {
 
         let provider = JsonRpcClient::new(HttpTransport::new_with_client(starknet_rpc_url, http_client));
 
-        Ok(Self { starknet_client: provider })
+        Ok(Self { starknet_client: provider, timing: RpcTimingRecorder::default() })
     }
 }
 
@@ -200,6 +206,14 @@ impl RpcClient {
     pub fn starknet_rpc(&self) -> &JsonRpcClient<HttpTransport> {
         &self.inner.starknet_client
     }
+
+    pub fn timing(&self) -> &RpcTimingRecorder {
+        &self.inner.timing
+    }
+
+    pub fn timing_snapshot(&self) -> RpcTimingSnapshot {
+        self.inner.timing.snapshot()
+    }
 }
 
 impl ProofClient for JsonRpcClient<HttpTransport> {
@@ -245,6 +259,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     /// ```
     async fn get_proof(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         keys: &[Felt],
@@ -252,8 +267,8 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
         if keys.is_empty() {
             let operation_name =
                 format!("get_proof(block_number: {block_number}, contract_address: {contract_address:#x}, keys: 0)");
-            return execute_with_retry(&operation_name, || {
-                self.get_proof_one_key(block_number, contract_address, None)
+            return execute_with_retry(timing, &operation_name, || {
+                self.get_proof_one_key(timing, block_number, contract_address, None)
             })
             .await;
         }
@@ -272,8 +287,8 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
                     chunk.len()
                 );
                 async move {
-                    execute_with_retry(&operation_name, || {
-                        self.get_proof_multiple_keys(block_number, contract_address, &chunk)
+                    execute_with_retry(timing, &operation_name, || {
+                        self.get_proof_multiple_keys(timing, block_number, contract_address, &chunk)
                     })
                     .await
                 }
@@ -334,7 +349,12 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///     Ok(())
     /// }
     /// ```
-    async fn get_class_proof(&self, block_number: u64, class_hash: &Felt) -> Result<ClassProof, ProviderError> {
+    async fn get_class_proof(
+        &self,
+        _timing: &RpcTimingRecorder,
+        block_number: u64,
+        class_hash: &Felt,
+    ) -> Result<ClassProof, ProviderError> {
         info!("Querying starknet_getStorageProofs for class {:x} at block {:x}", class_hash, block_number);
 
         Ok(self.get_storage_proof(ConfirmedBlockId::Number(block_number), [*class_hash], [], []).await?.into())
@@ -361,12 +381,13 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     /// Returns a `ClientError` if the RPC request fails or the response cannot be parsed.
     async fn get_proof_one_key(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         key: Option<Felt>,
     ) -> Result<ContractProof, ProviderError> {
         let keys = if let Some(key) = key { vec![key] } else { Vec::new() };
-        self.get_proof_multiple_keys(block_number, contract_address, &keys).await
+        self.get_proof_multiple_keys(timing, block_number, contract_address, &keys).await
     }
 
     /// Gets a proof for multiple keys for the given contract at the given block number.
@@ -390,6 +411,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     /// Returns a `ClientError` if the RPC request fails or the response cannot be parsed.
     async fn get_proof_multiple_keys(
         &self,
+        _timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         storage_keys: &[Felt],
@@ -483,7 +505,8 @@ mod tests {
                 let chunk_len = chunk.len();
                 let operation_name = format!("test chunk {chunk_index} ({chunk_len} keys)");
                 async move {
-                    execute_with_retry(&operation_name, || {
+                    let timing = RpcTimingRecorder::default();
+                    execute_with_retry(&timing, &operation_name, || {
                         let attempts = Arc::clone(&attempts);
                         async move {
                             let current_attempt = {

@@ -12,7 +12,6 @@ use tokio::time::sleep;
 /// Global Tokio runtime for executing async operations in non-async contexts.
 /// This is used when there's no current runtime available (e.g., in worker threads).
 static GLOBAL_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
-static RPC_TIMING_STATE: OnceLock<Mutex<RpcTimingState>> = OnceLock::new();
 
 /// Maximum number of retry attempts for RPC calls.
 const MAX_RETRY_ATTEMPTS: u32 = 5;
@@ -41,6 +40,15 @@ struct RpcTimingState {
     calls_by_method: HashMap<String, u64>,
 }
 
+/// Per-SNOS-run RPC timing state.
+///
+/// Each [`crate::RpcClient`] owns one recorder and shares it with its clones,
+/// so concurrent SNOS runs cannot reset or read each other's measurements.
+#[derive(Debug, Default)]
+pub struct RpcTimingRecorder {
+    state: Mutex<RpcTimingState>,
+}
+
 /// Gets or creates the global Tokio runtime.
 fn get_global_runtime() -> &'static tokio::runtime::Runtime {
     GLOBAL_RUNTIME.get_or_init(|| {
@@ -48,54 +56,48 @@ fn get_global_runtime() -> &'static tokio::runtime::Runtime {
     })
 }
 
-fn rpc_timing_state() -> &'static Mutex<RpcTimingState> {
-    RPC_TIMING_STATE.get_or_init(|| Mutex::new(RpcTimingState::default()))
-}
+impl RpcTimingRecorder {
+    pub fn snapshot(&self) -> RpcTimingSnapshot {
+        let state = self.state.lock().expect("RPC timing mutex poisoned");
+        let mut wait_elapsed = state.wait_elapsed;
 
-pub fn reset_rpc_timing() {
-    *rpc_timing_state().lock().expect("RPC timing mutex poisoned") = RpcTimingState::default();
-}
+        if let Some(wait_started_at) = state.wait_started_at {
+            wait_elapsed += wait_started_at.elapsed();
+        }
 
-pub fn rpc_timing_snapshot() -> RpcTimingSnapshot {
-    let state = rpc_timing_state().lock().expect("RPC timing mutex poisoned");
-    let mut wait_elapsed = state.wait_elapsed;
-
-    if let Some(wait_started_at) = state.wait_started_at {
-        wait_elapsed += wait_started_at.elapsed();
+        RpcTimingSnapshot {
+            wait_elapsed,
+            cumulative_call_elapsed: state.cumulative_call_elapsed,
+            calls: state.calls,
+            calls_by_method: state.calls_by_method.clone(),
+        }
     }
 
-    RpcTimingSnapshot {
-        wait_elapsed,
-        cumulative_call_elapsed: state.cumulative_call_elapsed,
-        calls: state.calls,
-        calls_by_method: state.calls_by_method.clone(),
+    fn call_started(&self, operation_name: &str) -> (Instant, String) {
+        let now = Instant::now();
+        let mut state = self.state.lock().expect("RPC timing mutex poisoned");
+
+        if state.active_calls == 0 {
+            state.wait_started_at = Some(now);
+        }
+        state.active_calls += 1;
+
+        (now, rpc_method_name(operation_name).to_string())
     }
-}
 
-fn record_rpc_call_started(operation_name: &str) -> (Instant, String) {
-    let now = Instant::now();
-    let mut state = rpc_timing_state().lock().expect("RPC timing mutex poisoned");
+    fn call_finished(&self, call_started_at: Instant, method_name: &str) {
+        let now = Instant::now();
+        let mut state = self.state.lock().expect("RPC timing mutex poisoned");
 
-    if state.active_calls == 0 {
-        state.wait_started_at = Some(now);
-    }
-    state.active_calls += 1;
+        state.calls += 1;
+        *state.calls_by_method.entry(method_name.to_string()).or_default() += 1;
+        state.cumulative_call_elapsed += now.duration_since(call_started_at);
+        state.active_calls = state.active_calls.saturating_sub(1);
 
-    (now, rpc_method_name(operation_name).to_string())
-}
-
-fn record_rpc_call_finished(call_started_at: Instant, method_name: &str) {
-    let now = Instant::now();
-    let mut state = rpc_timing_state().lock().expect("RPC timing mutex poisoned");
-
-    state.calls += 1;
-    *state.calls_by_method.entry(method_name.to_string()).or_default() += 1;
-    state.cumulative_call_elapsed += now.duration_since(call_started_at);
-    state.active_calls = state.active_calls.saturating_sub(1);
-
-    if state.active_calls == 0 {
-        if let Some(wait_started_at) = state.wait_started_at.take() {
-            state.wait_elapsed += now.duration_since(wait_started_at);
+        if state.active_calls == 0 {
+            if let Some(wait_started_at) = state.wait_started_at.take() {
+                state.wait_elapsed += now.duration_since(wait_started_at);
+            }
         }
     }
 }
@@ -155,7 +157,11 @@ where
 }
 
 /// Executes an RPC call with exponential backoff retry logic.
-pub async fn execute_with_retry<T, F, Fut>(operation_name: &str, f: F) -> Result<T, ProviderError>
+pub async fn execute_with_retry<T, F, Fut>(
+    timing: &RpcTimingRecorder,
+    operation_name: &str,
+    f: F,
+) -> Result<T, ProviderError>
 where
     F: Fn() -> Fut,
     Fut: Future<Output = Result<T, ProviderError>>,
@@ -166,9 +172,9 @@ where
     loop {
         attempts += 1;
 
-        let (call_started_at, method_name) = record_rpc_call_started(operation_name);
+        let (call_started_at, method_name) = timing.call_started(operation_name);
         let result = f().await;
-        record_rpc_call_finished(call_started_at, &method_name);
+        timing.call_finished(call_started_at, &method_name);
 
         match result {
             Ok(result) => {
@@ -209,16 +215,17 @@ mod tests {
 
     #[tokio::test]
     async fn rpc_timing_tracks_successful_rpc_wait() {
-        let before = rpc_timing_snapshot();
+        let timing = RpcTimingRecorder::default();
+        let before = timing.snapshot();
 
-        execute_with_retry("timed_sleep", || async {
+        execute_with_retry(&timing, "timed_sleep", || async {
             sleep(Duration::from_millis(5)).await;
             Ok::<_, ProviderError>(())
         })
         .await
         .unwrap();
 
-        let after = rpc_timing_snapshot();
+        let after = timing.snapshot();
         assert!(after.calls > before.calls);
         assert!(
             after.calls_by_method.get("timed_sleep").copied().unwrap_or_default()
@@ -230,13 +237,14 @@ mod tests {
 
     #[tokio::test]
     async fn rpc_timing_counts_overlapped_wait_once_for_wall_clock_summary() {
-        let before = rpc_timing_snapshot();
+        let timing = RpcTimingRecorder::default();
+        let before = timing.snapshot();
 
-        let first = execute_with_retry("timed_sleep_1", || async {
+        let first = execute_with_retry(&timing, "timed_sleep_1", || async {
             sleep(Duration::from_millis(20)).await;
             Ok::<_, ProviderError>(())
         });
-        let second = execute_with_retry("timed_sleep_2", || async {
+        let second = execute_with_retry(&timing, "timed_sleep_2", || async {
             sleep(Duration::from_millis(20)).await;
             Ok::<_, ProviderError>(())
         });
@@ -245,7 +253,7 @@ mod tests {
         first_result.unwrap();
         second_result.unwrap();
 
-        let after = rpc_timing_snapshot();
+        let after = timing.snapshot();
         assert!(after.calls >= before.calls + 2);
         assert!(
             after.calls_by_method.get("timed_sleep_1").copied().unwrap_or_default()
@@ -257,6 +265,34 @@ mod tests {
         );
         assert!(after.wait_elapsed >= before.wait_elapsed);
         assert!(after.cumulative_call_elapsed >= before.cumulative_call_elapsed + Duration::from_millis(40));
+    }
+
+    #[tokio::test]
+    async fn rpc_timing_is_isolated_between_concurrent_runs() {
+        let first_timing = RpcTimingRecorder::default();
+        let second_timing = RpcTimingRecorder::default();
+
+        let first = execute_with_retry(&first_timing, "first_method", || async {
+            sleep(Duration::from_millis(20)).await;
+            Ok::<_, ProviderError>(())
+        });
+        let second = execute_with_retry(&second_timing, "second_method", || async {
+            sleep(Duration::from_millis(10)).await;
+            Ok::<_, ProviderError>(())
+        });
+
+        let (first_result, second_result) = tokio::join!(first, second);
+        first_result.unwrap();
+        second_result.unwrap();
+
+        let first = first_timing.snapshot();
+        let second = second_timing.snapshot();
+        assert_eq!(first.calls, 1);
+        assert_eq!(first.calls_by_method.get("first_method"), Some(&1));
+        assert!(!first.calls_by_method.contains_key("second_method"));
+        assert_eq!(second.calls, 1);
+        assert_eq!(second.calls_by_method.get("second_method"), Some(&1));
+        assert!(!second.calls_by_method.contains_key("first_method"));
     }
 
     #[test]

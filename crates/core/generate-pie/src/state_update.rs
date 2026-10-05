@@ -301,11 +301,12 @@ async fn fetch_state_update(
 ) -> Result<starknet::core::types::StateUpdate, StateUpdateError> {
     debug!("Fetching state update for block {:?}", block_id);
 
-    let state_update = execute_with_retry(&format!("get_state_update(block_id: {block_id:?})"), || {
-        rpc_client.starknet_rpc().get_state_update(block_id)
-    })
-    .await
-    .map_err(StateUpdateError::RpcError)?;
+    let state_update =
+        execute_with_retry(rpc_client.timing(), &format!("get_state_update(block_id: {block_id:?})"), || {
+            rpc_client.starknet_rpc().get_state_update(block_id)
+        })
+        .await
+        .map_err(StateUpdateError::RpcError)?;
 
     match state_update {
         MaybePreConfirmedStateUpdate::Update(update) => {
@@ -462,7 +463,7 @@ async fn process_accessed_addresses(
         .map(|lookup| async move {
             let operation_name =
                 format!("get_class_hash_at(block_id: {:?}, address: {:?})", lookup.block_id, lookup.address);
-            let class_hash = execute_with_retry(&operation_name, || {
+            let class_hash = execute_with_retry(rpc_client.timing(), &operation_name, || {
                 rpc_client.starknet_rpc().get_class_hash_at(lookup.block_id, lookup.address)
             })
             .await;
@@ -524,7 +525,7 @@ async fn process_accessed_addresses(
             .map(|fetch| async move {
                 let operation_name =
                     format!("get_class(block_id: {:?}, class_hash: {:?})", fetch.block_id, fetch.class_hash);
-                let contract_class = execute_with_retry(&operation_name, || {
+                let contract_class = execute_with_retry(rpc_client.timing(), &operation_name, || {
                     rpc_client.starknet_rpc().get_class(fetch.block_id, fetch.class_hash)
                 })
                 .await;
@@ -581,9 +582,10 @@ async fn process_accessed_classes(
             .map(|class_hash| async move {
                 debug!("Fetching class hash: {:?}", class_hash);
                 let operation_name = format!("get_class(block_id: {block_id:?}, class_hash: {class_hash:?})");
-                let contract_class =
-                    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class(block_id, class_hash))
-                        .await;
+                let contract_class = execute_with_retry(rpc_client.timing(), &operation_name, || {
+                    rpc_client.starknet_rpc().get_class(block_id, class_hash)
+                })
+                .await;
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)
@@ -636,9 +638,10 @@ async fn process_declared_classes(
             .map(|class_hash| async move {
                 debug!("Fetching declared class: {:?}", class_hash);
                 let operation_name = format!("get_class(block_id: {block_id:?}, class_hash: {class_hash:?})");
-                let contract_class =
-                    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class(block_id, class_hash))
-                        .await;
+                let contract_class = execute_with_retry(rpc_client.timing(), &operation_name, || {
+                    rpc_client.starknet_rpc().get_class(block_id, class_hash)
+                })
+                .await;
                 (class_hash, contract_class)
             })
             .buffer_unordered(MAX_CONCURRENT_GET_CLASS_REQUESTS)

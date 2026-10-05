@@ -163,7 +163,7 @@ async fn fetch_class_info(
     debug!("Fetching class info for hash: {:?} at block: {}", class_hash, block_number);
 
     let operation_name = format!("get_class(class_hash: {class_hash:?}, block_number: {block_number})");
-    let contract_class = execute_with_retry(&operation_name, || {
+    let contract_class = execute_with_retry(rpc_client.timing(), &operation_name, || {
         rpc_client.starknet_rpc().get_class(BlockId::Number(block_number), class_hash)
     })
     .await?;

@@ -153,15 +153,16 @@ pub(crate) async fn get_class_proofs(
 
     for class_hash in class_hashes {
         let operation_name = format!("get_class_proof(block_number: {block_number}, class_hash: {class_hash:#x})");
-        let proof =
-            execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class_proof(block_number, class_hash))
-                .await
-                .map_err(|e| {
-                    let message =
-                        format!("class proof request failed for block {block_number} class_hash {class_hash:#x}: {e}");
-                    warn!("{message}");
-                    ClientError::CustomError(message)
-                })?;
+        let proof = execute_with_retry(rpc_client.timing(), &operation_name, || {
+            rpc_client.starknet_rpc().get_class_proof(rpc_client.timing(), block_number, class_hash)
+        })
+        .await
+        .map_err(|e| {
+            let message =
+                format!("class proof request failed for block {block_number} class_hash {class_hash:#x}: {e}");
+            warn!("{message}");
+            ClientError::CustomError(message)
+        })?;
         // TODO: need to combine these, similar to merge_chunked_storage_proofs above?
         proofs.insert(**class_hash, proof);
     }
@@ -295,20 +296,22 @@ async fn fetch_storage_proof_for_contract(
         keys.len()
     );
 
-    execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_proof(block_number, contract_address, keys))
-        .await
-        .map_err(|e| {
-            let message = format!(
-                "storage proof request failed for block {} contract {:#x} keys={} [{}]: {}",
-                block_number,
-                contract_address,
-                keys.len(),
-                summarize_felts(keys, 8),
-                e
-            );
-            warn!("{message}");
-            ClientError::CustomError(message)
-        })
+    execute_with_retry(rpc_client.timing(), &operation_name, || {
+        rpc_client.starknet_rpc().get_proof(rpc_client.timing(), block_number, contract_address, keys)
+    })
+    .await
+    .map_err(|e| {
+        let message = format!(
+            "storage proof request failed for block {} contract {:#x} keys={} [{}]: {}",
+            block_number,
+            contract_address,
+            keys.len(),
+            summarize_felts(keys, 8),
+            e
+        );
+        warn!("{message}");
+        ClientError::CustomError(message)
+    })
 }
 
 /// Merges the storage proofs of the SAME contract.

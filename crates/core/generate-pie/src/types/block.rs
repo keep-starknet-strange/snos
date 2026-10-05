@@ -77,14 +77,15 @@ impl BlockData {
         let transaction_flags = [TransactionResponseFlag::IncludeProofFacts];
 
         // Fetch chain ID from RPC
-        let chain_id_result = execute_with_retry("chain_id", || rpc_client.starknet_rpc().chain_id())
-            .await
-            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
+        let chain_id_result =
+            execute_with_retry(rpc_client.timing(), "chain_id", || rpc_client.starknet_rpc().chain_id())
+                .await
+                .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?;
         let chain_id = chain_id_from_felt(chain_id_result);
         info!("Provider's chain_id: {}", chain_id);
 
         // Fetch the current block with transactions
-        let current_block = match execute_with_retry("get_block_with_txs(current_block)", || {
+        let current_block = match execute_with_retry(rpc_client.timing(), "get_block_with_txs(current_block)", || {
             rpc_client.starknet_rpc().get_block_with_txs(block_id, Some(&transaction_flags))
         })
         .await
@@ -97,24 +98,27 @@ impl BlockData {
         };
         info!("Successfully fetched block with {} transactions", current_block.transactions.len());
 
-        let current_block_receipts = match execute_with_retry("get_block_with_receipts(current_block)", || {
-            rpc_client.starknet_rpc().get_block_with_receipts(block_id, None)
-        })
-        .await
-        .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
-        {
-            MaybePreConfirmedBlockWithReceipts::Block(block_with_receipts) => block_with_receipts
-                .transactions
-                .into_iter()
-                .map(|transaction_with_receipt| {
-                    let receipt = transaction_with_receipt.receipt;
-                    (transaction_receipt_hash(&receipt), receipt)
-                })
-                .collect(),
-            MaybePreConfirmedBlockWithReceipts::PreConfirmedBlock(_) => {
-                return Err(BlockProcessingError::InvalidBlockState("Block receipts are still pending".to_string()));
-            }
-        };
+        let current_block_receipts =
+            match execute_with_retry(rpc_client.timing(), "get_block_with_receipts(current_block)", || {
+                rpc_client.starknet_rpc().get_block_with_receipts(block_id, None)
+            })
+            .await
+            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+            {
+                MaybePreConfirmedBlockWithReceipts::Block(block_with_receipts) => block_with_receipts
+                    .transactions
+                    .into_iter()
+                    .map(|transaction_with_receipt| {
+                        let receipt = transaction_with_receipt.receipt;
+                        (transaction_receipt_hash(&receipt), receipt)
+                    })
+                    .collect(),
+                MaybePreConfirmedBlockWithReceipts::PreConfirmedBlock(_) => {
+                    return Err(BlockProcessingError::InvalidBlockState(
+                        "Block receipts are still pending".to_string(),
+                    ));
+                }
+            };
 
         // Get starknet version from the block
         let starknet_version = StarknetVersion::try_from(current_block.starknet_version.as_str())
@@ -123,23 +127,27 @@ impl BlockData {
 
         // Fetch the previous block if it exists
         let previous_block = match previous_block_id {
-            Some(previous_block_id) => match execute_with_retry("get_block_with_tx_hashes(previous_block)", || {
-                rpc_client.starknet_rpc().get_block_with_tx_hashes(previous_block_id)
-            })
-            .await
-            .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
-            {
-                MaybePreConfirmedBlockWithTxHashes::Block(block_with_txs) => Some(block_with_txs),
-                MaybePreConfirmedBlockWithTxHashes::PreConfirmedBlock(_) => {
-                    return Err(BlockProcessingError::InvalidBlockState("Previous block is still pending".to_string()));
+            Some(previous_block_id) => {
+                match execute_with_retry(rpc_client.timing(), "get_block_with_tx_hashes(previous_block)", || {
+                    rpc_client.starknet_rpc().get_block_with_tx_hashes(previous_block_id)
+                })
+                .await
+                .map_err(|e| BlockProcessingError::RpcClient(Box::new(e)))?
+                {
+                    MaybePreConfirmedBlockWithTxHashes::Block(block_with_txs) => Some(block_with_txs),
+                    MaybePreConfirmedBlockWithTxHashes::PreConfirmedBlock(_) => {
+                        return Err(BlockProcessingError::InvalidBlockState(
+                            "Previous block is still pending".to_string(),
+                        ));
+                    }
                 }
-            },
+            }
             None => None,
         };
 
         // Fetch older block for hash buffer
         let old_block_number_u64 = block_number.saturating_sub(STORED_BLOCK_HASH_BUFFER);
-        let old_block = match execute_with_retry("get_block_with_tx_hashes(old_block)", || {
+        let old_block = match execute_with_retry(rpc_client.timing(), "get_block_with_tx_hashes(old_block)", || {
             rpc_client.starknet_rpc().get_block_with_tx_hashes(BlockId::Number(old_block_number_u64))
         })
         .await

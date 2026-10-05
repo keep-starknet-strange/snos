@@ -94,7 +94,7 @@ impl AsyncRpcStateReader {
         let block_id = self.block_id.unwrap();
         let operation_name = format!("get_storage_at(contract: {:?}, key: {:?})", contract_address, key);
 
-        let storage_value = match execute_with_retry(&operation_name, || {
+        let storage_value = match execute_with_retry(self.rpc_client.timing(), &operation_name, || {
             self.rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *key.0.key(), block_id, None)
         })
         .await
@@ -120,7 +120,7 @@ impl AsyncRpcStateReader {
         debug!("got a request of get_nonce_at with parameters the contract address: {:?}", contract_address);
         let operation_name = format!("get_nonce_at(contract: {:?})", contract_address);
 
-        let nonce = match execute_with_retry(&operation_name, || {
+        let nonce = match execute_with_retry(self.rpc_client.timing(), &operation_name, || {
             self.rpc_client.starknet_rpc().get_nonce(block_id, *contract_address.key())
         })
         .await
@@ -145,7 +145,7 @@ impl AsyncRpcStateReader {
         debug!("got a request of get_class_hash_at with parameters the contract address: {:?}", contract_address);
         let operation_name = format!("get_class_hash_at(contract: {:?})", contract_address);
 
-        let class_hash = match execute_with_retry(&operation_name, || {
+        let class_hash = match execute_with_retry(self.rpc_client.timing(), &operation_name, || {
             self.rpc_client.starknet_rpc().get_class_hash_at(block_id, *contract_address.key())
         })
         .await
@@ -171,7 +171,7 @@ impl AsyncRpcStateReader {
         debug!("got a request of get_compiled_class with parameters the class hash: {:?}", class_hash);
         let operation_name = format!("get_compiled_class(class_hash: {:?})", class_hash);
 
-        let contract_class = match execute_with_retry(&operation_name, || {
+        let contract_class = match execute_with_retry(self.rpc_client.timing(), &operation_name, || {
             self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0)
         })
         .await
@@ -235,10 +235,11 @@ impl AsyncRpcStateReader {
         debug!("get_pre_snip34_compiled_class_hash for class_hash: {:?}", class_hash);
         let operation_name = format!("get_pre_snip34_compiled_class_hash(class_hash: {:?})", class_hash);
 
-        let contract_class =
-            execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
-                .await
-                .map_err(provider_error_to_state_error)?;
+        let contract_class = execute_with_retry(self.rpc_client.timing(), &operation_name, || {
+            self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0)
+        })
+        .await
+        .map_err(provider_error_to_state_error)?;
 
         compute_pre_snip34_compiled_class_hash(&contract_class)
     }
@@ -261,10 +262,11 @@ impl AsyncRpcStateReader {
         debug!("get_compiled_class_hash_{} for class_hash: {:?}", version.as_str(), class_hash);
         let operation_name = format!("get_compiled_class_hash_{}(class_hash: {:?})", version.as_str(), class_hash);
 
-        let contract_class =
-            execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
-                .await
-                .map_err(provider_error_to_state_error)?;
+        let contract_class = execute_with_retry(self.rpc_client.timing(), &operation_name, || {
+            self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0)
+        })
+        .await
+        .map_err(provider_error_to_state_error)?;
 
         compute_compiled_class_hash_internal(&contract_class, version)
     }

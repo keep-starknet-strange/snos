@@ -69,7 +69,6 @@ use anyhow::bail;
 use cairo_vm::types::layout_name::LayoutName;
 use futures::future::join_all;
 use log::{info, warn};
-use rpc_client::utils::{reset_rpc_timing, rpc_timing_snapshot};
 use rpc_client::RpcClient;
 use starknet_api::core::OsChainInfo;
 use starknet_os::{
@@ -156,7 +155,6 @@ pub mod types;
 /// }
 /// ```
 pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResult, PieGenerationError> {
-    reset_rpc_timing();
     let snos_started_at = Instant::now();
     info!("Starting PIE generation for {} blocks: {:?}", input.blocks.len(), input.blocks);
 
@@ -304,7 +302,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     }
 
     let total_elapsed = snos_started_at.elapsed();
-    let rpc_timing = rpc_timing_snapshot();
+    let rpc_timing = rpc_client.timing_snapshot();
     let local_processing_elapsed = total_elapsed.saturating_sub(rpc_timing.wait_elapsed);
     let mut rpc_calls_by_method = rpc_timing.calls_by_method;
     rpc_calls_by_method.insert("total".to_string(), rpc_timing.calls);
