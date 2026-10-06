@@ -53,37 +53,42 @@ impl TransactionProcessingResult {
 
         let previous_block_id = if block_number == 0 { None } else { Some(BlockId::Number(block_number - 1)) };
 
-        // Fetch storage proofs for the current block
-        let storage_proofs = get_storage_proofs(rpc_client, block_number, &self.accessed_keys_by_address)
-            .await
-            .map_err(BlockProcessingError::StorageProof)?;
-        info!("Got {} storage proofs for block {}", storage_proofs.len(), block_number);
-
-        // Fetch storage proofs for the previous block
-        let previous_storage_proofs = match previous_block_id {
-            Some(BlockId::Number(previous_block_id)) => {
-                get_storage_proofs(rpc_client, previous_block_id, &self.accessed_keys_by_address)
-                    .await
-                    .map_err(BlockProcessingError::StorageProof)?
-            }
-            // No previous storage proofs for block 0
-            None => HashMap::new(),
-            _ => {
-                let mut map = HashMap::new();
-                // Add a default proof for the block hash contract
-                map.insert(
-                    BLOCK_HASH_CONTRACT_ADDRESS_FELT,
-                    ContractProof {
-                        state_commitment: Default::default(),
-                        class_commitment: None,
-                        contract_commitment: Default::default(),
-                        contract_proof: Vec::new(),
-                        contract_data: None,
-                    },
-                );
-                map
+        // Current and previous state are independent. Fetch them together so a
+        // historical node can overlap their trie reconstruction work.
+        let current_storage_proofs = async {
+            get_storage_proofs(rpc_client, block_number, &self.accessed_keys_by_address)
+                .await
+                .map_err(BlockProcessingError::StorageProof)
+        };
+        let previous_storage_proofs = async {
+            match previous_block_id {
+                Some(BlockId::Number(previous_block_id)) => {
+                    get_storage_proofs(rpc_client, previous_block_id, &self.accessed_keys_by_address)
+                        .await
+                        .map_err(BlockProcessingError::StorageProof)
+                }
+                // No previous storage proofs for block 0
+                None => Ok(HashMap::new()),
+                _ => {
+                    let mut map = HashMap::new();
+                    // Add a default proof for the block hash contract
+                    map.insert(
+                        BLOCK_HASH_CONTRACT_ADDRESS_FELT,
+                        ContractProof {
+                            state_commitment: Default::default(),
+                            class_commitment: None,
+                            contract_commitment: Default::default(),
+                            contract_proof: Vec::new(),
+                            contract_data: None,
+                        },
+                    );
+                    Ok(map)
+                }
             }
         };
+        let (storage_proofs, previous_storage_proofs) =
+            tokio::try_join!(current_storage_proofs, previous_storage_proofs)?;
+        info!("Got {} storage proofs for block {}", storage_proofs.len(), block_number);
         info!("Got {} previous storage proofs", previous_storage_proofs.len());
 
         // Collect class hashes for proof fetching
