@@ -483,7 +483,7 @@ where
 
     info!("Fetching proofs for {} chunks with max {} concurrent requests", chunks.len(), max_concurrent_proof_requests);
 
-    stream::iter(chunks.into_iter().enumerate())
+    let mut proofs = stream::iter(chunks.into_iter().enumerate())
         .map(|(chunk_index, chunk)| {
             let fetch_chunk = fetch_chunk.clone();
             async move {
@@ -494,14 +494,19 @@ where
                     chunk_index,
                     chunk.len()
                 );
-                fetch_chunk(chunk_index, chunk).await
+                fetch_chunk(chunk_index, chunk).await.map(|proof| (chunk_index, proof))
             }
         })
         .buffer_unordered(max_concurrent_proof_requests)
         .collect::<Vec<_>>()
         .await
         .into_iter()
-        .collect::<Result<Vec<_>, _>>()
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Network completion order is nondeterministic. Preserve request order so
+    // the merged proof vectors stay aligned with the corresponding key chunks.
+    proofs.sort_unstable_by_key(|(chunk_index, _)| *chunk_index);
+    Ok(proofs.into_iter().map(|(_, proof)| proof).collect())
 }
 
 #[cfg(test)]
@@ -562,6 +567,10 @@ mod tests {
         .expect("chunk fetch should succeed after retrying the flaky chunk");
 
         assert_eq!(proofs.len(), 3);
+        assert_eq!(
+            proofs.iter().map(|proof| proof.contract_data.as_ref().unwrap().root).collect::<Vec<_>>(),
+            vec![Felt::ONE, Felt::TWO, Felt::THREE]
+        );
 
         let attempts = attempts.lock().await;
         assert_eq!(attempts.get(&0), Some(&1));
