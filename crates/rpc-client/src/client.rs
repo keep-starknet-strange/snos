@@ -2,7 +2,7 @@
 
 use anyhow::anyhow;
 use futures::stream::{self, StreamExt};
-use log::info;
+use log::{debug, info};
 use reqwest::Url;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError};
@@ -309,7 +309,7 @@ impl ProofClient for JsonRpcClient<RpcTransport> {
             RpcClientInner::read_env_usize(MAX_STORAGE_KEYS_PER_REQUEST_ENV, MAX_STORAGE_KEYS_PER_REQUEST).max(1);
         let max_concurrent_proof_requests =
             RpcClientInner::read_env_usize(MAX_CONCURRENT_PROOF_REQUESTS_ENV, MAX_CONCURRENT_PROOF_REQUESTS).max(1);
-        info!(
+        debug!(
             "Storage proof batching config: max_keys_per_request={} max_concurrent_requests={}",
             max_storage_keys_per_request, max_concurrent_proof_requests
         );
@@ -395,7 +395,7 @@ impl ProofClient for JsonRpcClient<RpcTransport> {
         block_number: u64,
         class_hash: &Felt,
     ) -> Result<ClassProof, ProviderError> {
-        info!("Querying starknet_getStorageProofs for class {:x} at block {:x}", class_hash, block_number);
+        debug!("Querying starknet_getStorageProofs for class {:x} at block {:x}", class_hash, block_number);
 
         Ok(self.get_storage_proof(ConfirmedBlockId::Number(block_number), [*class_hash], [], []).await?.into())
     }
@@ -456,7 +456,7 @@ impl ProofClient for JsonRpcClient<RpcTransport> {
         contract_address: Felt,
         storage_keys: &[Felt],
     ) -> Result<ContractProof, ProviderError> {
-        info!(
+        debug!(
             "Querying starknet_getStorageProof for address {:x} with {} keys at block {:x}",
             contract_address,
             storage_keys.len(),
@@ -491,13 +491,17 @@ where
 {
     let chunks: Vec<_> = keys.chunks(max_keys_per_request).map(|chunk| chunk.to_vec()).collect();
 
-    info!("Fetching proofs for {} chunks with max {} concurrent requests", chunks.len(), max_concurrent_proof_requests);
+    debug!(
+        "Fetching proofs for {} chunks with max {} concurrent requests",
+        chunks.len(),
+        max_concurrent_proof_requests
+    );
 
     let mut proofs = stream::iter(chunks.into_iter().enumerate())
         .map(|(chunk_index, chunk)| {
             let fetch_chunk = fetch_chunk.clone();
             async move {
-                info!(
+                debug!(
                     "Calling RPC for contract {:x} at block {:x} with chunk {} / {} keys",
                     contract_address,
                     block_number,

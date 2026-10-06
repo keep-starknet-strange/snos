@@ -5,7 +5,7 @@ use blockifier::state::cached_state::StateMaps;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use futures::stream::{self, StreamExt};
-use log::{info, warn};
+use log::{debug, info, warn};
 use rpc_client::client::ProofClient;
 use rpc_client::error::ClientError;
 use rpc_client::types::{ClassProof, ContractData, ContractProof};
@@ -195,7 +195,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     storage_keys: KeyIter,
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
-    info!("Getting storage proof for contract {}", contract_address);
+    debug!("Getting storage proof for contract {}", contract_address);
     let contract_address_felt = *contract_address.key();
     // The accessed keys originate from hash-based collections.  Keep proof
     // requests deterministic so a witness recorded in one process can be
@@ -230,7 +230,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         Some(contract_data) => contract_data,
     };
 
-    info!(
+    debug!(
         "Fetched initial storage proof for contract {} at block {}: root={:#x} storage_proof_sets={} contract_nodes={} requested_keys=[{}]",
         contract_address,
         block_number,
@@ -246,7 +246,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         vec![]
     };
 
-    info!(
+    debug!(
         "Got {} additional keys for contract {} [{}]",
         additional_keys.len(),
         contract_address,
@@ -281,7 +281,7 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     }
 
     if let Some(contract_data) = &contract_proof.contract_data {
-        info!(
+        debug!(
             "Final merged storage proof for contract {} at block {}: root={:#x} storage_proof_sets={} contract_nodes={}",
             contract_address,
             block_number,
@@ -310,7 +310,7 @@ async fn fetch_storage_proof_for_contract(
     keys: &[Felt],
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
-    info!(
+    debug!(
         "Fetching storage proof for contract {} with {} keys [{}]",
         contract_address,
         keys.len(),
@@ -343,7 +343,7 @@ async fn fetch_storage_proof_for_contract(
 /// Merges the storage proofs of the SAME contract.
 /// It takes a vector of [ContractProof] and returns a single [ContractProof]
 fn merge_storage_proofs(proofs: Vec<ContractProof>) -> ContractProof {
-    info!("Merging {} storage proofs", proofs.len());
+    debug!("Merging {} storage proofs", proofs.len());
     let class_commitment = proofs[0].class_commitment;
     let contract_commitment = proofs[0].contract_commitment;
     let state_commitment = proofs[0].state_commitment;
