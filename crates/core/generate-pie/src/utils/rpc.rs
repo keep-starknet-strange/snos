@@ -4,7 +4,8 @@ use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::StateMaps;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
-use log::info;
+use futures::stream::{self, StreamExt};
+use log::{debug, info, warn};
 use rpc_client::client::ProofClient;
 use rpc_client::error::ClientError;
 use rpc_client::types::{ClassProof, ContractData, ContractProof};
@@ -15,6 +16,17 @@ use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
+
+const MAX_CONCURRENT_PROOF_CONTRACTS_ENV: &str = "SNOS_MAX_CONCURRENT_PROOF_CONTRACTS";
+const DEFAULT_MAX_CONCURRENT_PROOF_CONTRACTS: usize = 1;
+
+fn summarize_felts(values: &[Felt], limit: usize) -> String {
+    let mut summary: Vec<String> = values.iter().take(limit).map(|felt| format!("{:#x}", felt)).collect();
+    if values.len() > limit {
+        summary.push(format!("... +{}", values.len() - limit));
+    }
+    summary.join(", ")
+}
 
 /// Comprehensive structure that captures all access information from transaction execution
 #[derive(Debug, Clone)]
@@ -119,19 +131,31 @@ pub(crate) async fn get_storage_proofs(
     block_number: u64,
     accessed_keys_by_address: &HashMap<ContractAddress, HashSet<StorageKey>>,
 ) -> Result<HashMap<Felt, ContractProof>, ClientError> {
-    let mut storage_proofs = HashMap::new();
+    let max_concurrent_contracts = std::env::var(MAX_CONCURRENT_PROOF_CONTRACTS_ENV)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(DEFAULT_MAX_CONCURRENT_PROOF_CONTRACTS)
+        .max(1);
+    info!(
+        "Fetching storage proofs for {} contracts with max {} concurrent contracts",
+        accessed_keys_by_address.len(),
+        max_concurrent_contracts
+    );
+    let contracts: Vec<_> = accessed_keys_by_address.iter().map(|(address, keys)| (*address, keys.clone())).collect();
 
-    info!("Fetching storage proofs for {} contracts", accessed_keys_by_address.len());
-
-    for (contract_address, storage_keys) in accessed_keys_by_address {
-        let contract_address_felt = *contract_address.key();
-        let storage_proof =
-            get_storage_proof_for_contract(client, *contract_address, storage_keys.clone().into_iter(), block_number)
-                .await?;
-        storage_proofs.insert(contract_address_felt, storage_proof);
-    }
-
-    Ok(storage_proofs)
+    stream::iter(contracts)
+        .map(|(contract_address, storage_keys)| async move {
+            let contract_address_felt = *contract_address.key();
+            let storage_proof =
+                get_storage_proof_for_contract(client, contract_address, storage_keys.into_iter(), block_number)
+                    .await?;
+            Ok((contract_address_felt, storage_proof))
+        })
+        .buffer_unordered(max_concurrent_contracts)
+        .collect::<Vec<Result<_, ClientError>>>()
+        .await
+        .into_iter()
+        .collect()
 }
 
 pub(crate) async fn get_class_proofs(
@@ -145,10 +169,16 @@ pub(crate) async fn get_class_proofs(
 
     for class_hash in class_hashes {
         let operation_name = format!("get_class_proof(block_number: {block_number}, class_hash: {class_hash:#x})");
-        let proof =
-            execute_with_retry(&operation_name, || rpc_client.starknet_rpc().get_class_proof(block_number, class_hash))
-                .await
-                .map_err(ClientError::ProviderError)?;
+        let proof = execute_with_retry(rpc_client.timing(), &operation_name, || {
+            rpc_client.starknet_rpc().get_class_proof(rpc_client.timing(), block_number, class_hash)
+        })
+        .await
+        .map_err(|e| {
+            let message =
+                format!("class proof request failed for block {block_number} class_hash {class_hash:#x}: {e}");
+            warn!("{message}");
+            ClientError::CustomError(message)
+        })?;
         // TODO: need to combine these, similar to merge_chunked_storage_proofs above?
         proofs.insert(**class_hash, proof);
     }
@@ -165,9 +195,12 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     storage_keys: KeyIter,
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
-    info!("Getting storage proof for contract {}", contract_address);
+    debug!("Getting storage proof for contract {}", contract_address);
     let contract_address_felt = *contract_address.key();
-    let keys: Vec<_> = storage_keys.map(|storage_key| *storage_key.key()).collect();
+    // The accessed keys originate from hash-based collections.  Keep proof
+    // requests deterministic so a witness recorded in one process can be
+    // replayed in another process with a different hash seed.
+    let keys = sorted_storage_keys(storage_keys);
 
     let mut contract_proof =
         fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &keys, block_number).await?;
@@ -188,10 +221,24 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
 
     let contract_data = match &contract_proof.contract_data {
         None => {
+            warn!(
+                "Storage proof for contract {} at block {} returned no contract_data",
+                contract_address, block_number
+            );
             return Ok(contract_proof);
         }
         Some(contract_data) => contract_data,
     };
+
+    debug!(
+        "Fetched initial storage proof for contract {} at block {}: root={:#x} storage_proof_sets={} contract_nodes={} requested_keys=[{}]",
+        contract_address,
+        block_number,
+        contract_data.root,
+        contract_data.storage_proofs.len(),
+        contract_proof.contract_proof.len(),
+        summarize_felts(&keys, 8)
+    );
 
     let additional_keys = if contract_data.root != Felt::ZERO {
         contract_data.get_additional_keys(&keys).map_err(|e| ClientError::CustomError(format!("{}", e)))?
@@ -199,7 +246,12 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         vec![]
     };
 
-    info!("Got {} additional keys for contract {}", additional_keys.len(), contract_address);
+    debug!(
+        "Got {} additional keys for contract {} [{}]",
+        additional_keys.len(),
+        contract_address,
+        summarize_felts(&additional_keys, 8)
+    );
 
     // Fetch additional proofs required to fill gaps in the storage trie that could make
     // the OS crash otherwise.
@@ -210,7 +262,12 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         // Combine all storage proofs into a single vector
         match &additional_proof.contract_data {
             None => {
-                panic!("Failed to fetch additional proof for contract {}", contract_address)
+                let message = format!(
+                    "Additional storage proof for contract {} at block {} returned no contract_data",
+                    contract_address, block_number
+                );
+                warn!("{message}");
+                return Err(ClientError::CustomError(message));
             }
             Some(contract_data) => {
                 additional_proof.contract_data = Some(ContractData {
@@ -223,7 +280,25 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
         contract_proof = merge_storage_proofs(vec![contract_proof.clone(), additional_proof]);
     }
 
+    if let Some(contract_data) = &contract_proof.contract_data {
+        debug!(
+            "Final merged storage proof for contract {} at block {}: root={:#x} storage_proof_sets={} contract_nodes={}",
+            contract_address,
+            block_number,
+            contract_data.root,
+            contract_data.storage_proofs.len(),
+            contract_proof.contract_proof.len()
+        );
+    }
+
     Ok(contract_proof)
+}
+
+fn sorted_storage_keys<KeyIter: Iterator<Item = StorageKey>>(storage_keys: KeyIter) -> Vec<Felt> {
+    let mut keys: Vec<_> = storage_keys.map(|storage_key| *storage_key.key()).collect();
+    keys.sort_unstable();
+    keys.dedup();
+    keys
 }
 
 /// Fetches the state + storage proof for a single contract for all the specified keys.
@@ -235,14 +310,40 @@ async fn fetch_storage_proof_for_contract(
     keys: &[Felt],
     block_number: u64,
 ) -> Result<ContractProof, ClientError> {
-    info!("Fetching storage proof for contract {} with {} keys", contract_address, keys.len());
-    rpc_client.starknet_rpc().get_proof(block_number, contract_address, keys).await.map_err(ClientError::ProviderError)
+    debug!(
+        "Fetching storage proof for contract {} with {} keys [{}]",
+        contract_address,
+        keys.len(),
+        summarize_felts(keys, 8)
+    );
+
+    let operation_name = format!(
+        "get_proof(block_number: {block_number}, contract_address: {contract_address:#x}, keys: {})",
+        keys.len()
+    );
+
+    execute_with_retry(rpc_client.timing(), &operation_name, || {
+        rpc_client.starknet_rpc().get_proof(rpc_client.timing(), block_number, contract_address, keys)
+    })
+    .await
+    .map_err(|e| {
+        let message = format!(
+            "storage proof request failed for block {} contract {:#x} keys={} [{}]: {}",
+            block_number,
+            contract_address,
+            keys.len(),
+            summarize_felts(keys, 8),
+            e
+        );
+        warn!("{message}");
+        ClientError::CustomError(message)
+    })
 }
 
 /// Merges the storage proofs of the SAME contract.
 /// It takes a vector of [ContractProof] and returns a single [ContractProof]
 fn merge_storage_proofs(proofs: Vec<ContractProof>) -> ContractProof {
-    info!("Merging {} storage proofs", proofs.len());
+    debug!("Merging {} storage proofs", proofs.len());
     let class_commitment = proofs[0].class_commitment;
     let contract_commitment = proofs[0].contract_commitment;
     let state_commitment = proofs[0].state_commitment;
@@ -419,5 +520,12 @@ mod tests {
         assert!(access_info.accessed_contract_addresses.contains(&storage_contract));
         assert!(access_info.accessed_contract_addresses.contains(&class_hash_contract));
         assert!(access_info.accessed_contract_addresses.contains(&nonce_contract));
+    }
+
+    #[test]
+    fn storage_proof_keys_are_sorted_and_deduplicated() {
+        let keys = [3_u64, 1, 2, 1].into_iter().map(|value| StorageKey::try_from(Felt::from(value)).unwrap());
+
+        assert_eq!(sorted_storage_keys(keys), vec![Felt::ONE, Felt::TWO, Felt::THREE]);
     }
 }

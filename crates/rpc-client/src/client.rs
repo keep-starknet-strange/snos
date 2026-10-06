@@ -2,7 +2,7 @@
 
 use anyhow::anyhow;
 use futures::stream::{self, StreamExt};
-use log::info;
+use log::{debug, info};
 use reqwest::Url;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError};
@@ -14,7 +14,8 @@ use std::time::Duration;
 
 use crate::constants::{MAX_CONCURRENT_PROOF_REQUESTS, MAX_STORAGE_KEYS_PER_REQUEST, STARKNET_RPC_VERSION};
 use crate::types::{ClassProof, ContractProof};
-use crate::utils::execute_with_retry;
+use crate::utils::{execute_with_retry, RpcTimingRecorder, RpcTimingSnapshot};
+use crate::witness::{RpcTransport, RpcWitness, RpcWitnessRecorder, WitnessTransportError};
 
 const DEFAULT_RPC_REQUEST_TIMEOUT_SECS: u64 = 60;
 const DEFAULT_RPC_CONNECT_TIMEOUT_SECS: u64 = 5;
@@ -22,27 +23,33 @@ const DEFAULT_RPC_POOL_MAX_IDLE_PER_HOST: usize = 0;
 const RPC_REQUEST_TIMEOUT_ENV: &str = "SNOS_RPC_REQUEST_TIMEOUT_SECS";
 const RPC_CONNECT_TIMEOUT_ENV: &str = "SNOS_RPC_CONNECT_TIMEOUT_SECS";
 const RPC_POOL_MAX_IDLE_PER_HOST_ENV: &str = "SNOS_RPC_POOL_MAX_IDLE_PER_HOST";
+const MAX_STORAGE_KEYS_PER_REQUEST_ENV: &str = "SNOS_MAX_STORAGE_KEYS_PER_PROOF_REQUEST";
+const MAX_CONCURRENT_PROOF_REQUESTS_ENV: &str = "SNOS_MAX_CONCURRENT_PROOF_REQUESTS";
 
 pub trait ProofClient {
     fn get_proof(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         keys: &[Felt],
     ) -> impl std::future::Future<Output = Result<ContractProof, ProviderError>> + Send;
     fn get_class_proof(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         class_hash: &Felt,
     ) -> impl std::future::Future<Output = Result<ClassProof, ProviderError>> + Send;
     fn get_proof_one_key(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         key: Option<Felt>,
     ) -> impl std::future::Future<Output = Result<ContractProof, ProviderError>> + Send;
     fn get_proof_multiple_keys(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         keys: &[Felt],
@@ -55,7 +62,9 @@ pub trait ProofClient {
 /// client, providing a unified interface for accessing different types of RPC endpoints.
 struct RpcClientInner {
     /// Starknet-rs client for accessing standard Starknet RPC endpoints.
-    starknet_client: JsonRpcClient<HttpTransport>,
+    starknet_client: JsonRpcClient<RpcTransport>,
+    /// Timing state scoped to this SNOS run and shared by cloned clients.
+    timing: RpcTimingRecorder,
 }
 
 impl RpcClientInner {
@@ -107,9 +116,10 @@ impl RpcClientInner {
             .build()
             .map_err(|e| anyhow!("Failed to create reqwest client for {}: {}", starknet_rpc_url, e))?;
 
-        let provider = JsonRpcClient::new(HttpTransport::new_with_client(starknet_rpc_url, http_client));
+        let provider =
+            JsonRpcClient::new(RpcTransport::Http(HttpTransport::new_with_client(starknet_rpc_url, http_client)));
 
-        Ok(Self { starknet_client: provider })
+        Ok(Self { starknet_client: provider, timing: RpcTimingRecorder::default() })
     }
 }
 
@@ -170,6 +180,34 @@ impl RpcClient {
         Ok(Self { inner: Arc::new(RpcClientInner::try_new(base_url)?) })
     }
 
+    pub fn try_new_recording(base_url: &str) -> anyhow::Result<(Self, RpcWitnessRecorder)> {
+        let starknet_rpc_url = Url::parse(&format!("{base_url}/rpc/{STARKNET_RPC_VERSION}"))?;
+        let rpc_request_timeout_secs =
+            RpcClientInner::read_env_u64(RPC_REQUEST_TIMEOUT_ENV, DEFAULT_RPC_REQUEST_TIMEOUT_SECS);
+        let rpc_connect_timeout_secs =
+            RpcClientInner::read_env_u64(RPC_CONNECT_TIMEOUT_ENV, DEFAULT_RPC_CONNECT_TIMEOUT_SECS);
+        let rpc_pool_max_idle_per_host =
+            RpcClientInner::read_env_usize(RPC_POOL_MAX_IDLE_PER_HOST_ENV, DEFAULT_RPC_POOL_MAX_IDLE_PER_HOST);
+        let http_client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(rpc_connect_timeout_secs))
+            .pool_max_idle_per_host(rpc_pool_max_idle_per_host)
+            .timeout(Duration::from_secs(rpc_request_timeout_secs))
+            .build()
+            .map_err(|e| anyhow!("Failed to create recording reqwest client for {starknet_rpc_url}: {e}"))?;
+        let http = HttpTransport::new_with_client(starknet_rpc_url, http_client);
+        let (transport, recorder) = RpcTransport::recording(http);
+        let inner =
+            RpcClientInner { starknet_client: JsonRpcClient::new(transport), timing: RpcTimingRecorder::default() };
+        Ok((Self { inner: Arc::new(inner) }, recorder))
+    }
+
+    pub fn from_witness(witness: RpcWitness) -> Result<Self, WitnessTransportError> {
+        let transport = RpcTransport::witness(witness)?;
+        let inner =
+            RpcClientInner { starknet_client: JsonRpcClient::new(transport), timing: RpcTimingRecorder::default() };
+        Ok(Self { inner: Arc::new(inner) })
+    }
+
     /// Returns a reference to the underlying Starknet RPC client.
     ///
     /// This client provides access to all standard Starknet RPC endpoints as defined
@@ -197,12 +235,20 @@ impl RpcClient {
     /// }
     /// ```
     #[must_use]
-    pub fn starknet_rpc(&self) -> &JsonRpcClient<HttpTransport> {
+    pub fn starknet_rpc(&self) -> &JsonRpcClient<RpcTransport> {
         &self.inner.starknet_client
+    }
+
+    pub fn timing(&self) -> &RpcTimingRecorder {
+        &self.inner.timing
+    }
+
+    pub fn timing_snapshot(&self) -> RpcTimingSnapshot {
+        self.inner.timing.snapshot()
     }
 }
 
-impl ProofClient for JsonRpcClient<HttpTransport> {
+impl ProofClient for JsonRpcClient<RpcTransport> {
     /// Gets storage proofs for the specified contract and keys at the given block number.
     ///
     /// This method retrieves storage proofs for multiple keys in a single contract.
@@ -245,6 +291,7 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     /// ```
     async fn get_proof(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         keys: &[Felt],
@@ -252,18 +299,26 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
         if keys.is_empty() {
             let operation_name =
                 format!("get_proof(block_number: {block_number}, contract_address: {contract_address:#x}, keys: 0)");
-            return execute_with_retry(&operation_name, || {
-                self.get_proof_one_key(block_number, contract_address, None)
+            return execute_with_retry(timing, &operation_name, || {
+                self.get_proof_one_key(timing, block_number, contract_address, None)
             })
             .await;
         }
 
+        let max_storage_keys_per_request =
+            RpcClientInner::read_env_usize(MAX_STORAGE_KEYS_PER_REQUEST_ENV, MAX_STORAGE_KEYS_PER_REQUEST).max(1);
+        let max_concurrent_proof_requests =
+            RpcClientInner::read_env_usize(MAX_CONCURRENT_PROOF_REQUESTS_ENV, MAX_CONCURRENT_PROOF_REQUESTS).max(1);
+        debug!(
+            "Storage proof batching config: max_keys_per_request={} max_concurrent_requests={}",
+            max_storage_keys_per_request, max_concurrent_proof_requests
+        );
         let proof_chunks = fetch_proof_chunks(
             block_number,
             contract_address,
             keys,
-            MAX_STORAGE_KEYS_PER_REQUEST,
-            MAX_CONCURRENT_PROOF_REQUESTS,
+            max_storage_keys_per_request,
+            max_concurrent_proof_requests,
             |chunk_index, chunk| {
                 let operation_name = format!(
                     "get_proof(block_number: {block_number}, contract_address: {contract_address:#x}, total_keys: {}, chunk_index: {}, chunk_keys: {})",
@@ -272,8 +327,8 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
                     chunk.len()
                 );
                 async move {
-                    execute_with_retry(&operation_name, || {
-                        self.get_proof_multiple_keys(block_number, contract_address, &chunk)
+                    execute_with_retry(timing, &operation_name, || {
+                        self.get_proof_multiple_keys(timing, block_number, contract_address, &chunk)
                     })
                     .await
                 }
@@ -334,8 +389,13 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     ///     Ok(())
     /// }
     /// ```
-    async fn get_class_proof(&self, block_number: u64, class_hash: &Felt) -> Result<ClassProof, ProviderError> {
-        info!("Querying starknet_getStorageProofs for class {:x} at block {:x}", class_hash, block_number);
+    async fn get_class_proof(
+        &self,
+        _timing: &RpcTimingRecorder,
+        block_number: u64,
+        class_hash: &Felt,
+    ) -> Result<ClassProof, ProviderError> {
+        debug!("Querying starknet_getStorageProofs for class {:x} at block {:x}", class_hash, block_number);
 
         Ok(self.get_storage_proof(ConfirmedBlockId::Number(block_number), [*class_hash], [], []).await?.into())
     }
@@ -361,12 +421,13 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     /// Returns a `ClientError` if the RPC request fails or the response cannot be parsed.
     async fn get_proof_one_key(
         &self,
+        timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         key: Option<Felt>,
     ) -> Result<ContractProof, ProviderError> {
         let keys = if let Some(key) = key { vec![key] } else { Vec::new() };
-        self.get_proof_multiple_keys(block_number, contract_address, &keys).await
+        self.get_proof_multiple_keys(timing, block_number, contract_address, &keys).await
     }
 
     /// Gets a proof for multiple keys for the given contract at the given block number.
@@ -390,11 +451,12 @@ impl ProofClient for JsonRpcClient<HttpTransport> {
     /// Returns a `ClientError` if the RPC request fails or the response cannot be parsed.
     async fn get_proof_multiple_keys(
         &self,
+        _timing: &RpcTimingRecorder,
         block_number: u64,
         contract_address: Felt,
         storage_keys: &[Felt],
     ) -> Result<ContractProof, ProviderError> {
-        info!(
+        debug!(
             "Querying starknet_getStorageProof for address {:x} with {} keys at block {:x}",
             contract_address,
             storage_keys.len(),
@@ -429,27 +491,36 @@ where
 {
     let chunks: Vec<_> = keys.chunks(max_keys_per_request).map(|chunk| chunk.to_vec()).collect();
 
-    info!("Fetching proofs for {} chunks with max {} concurrent requests", chunks.len(), max_concurrent_proof_requests);
+    debug!(
+        "Fetching proofs for {} chunks with max {} concurrent requests",
+        chunks.len(),
+        max_concurrent_proof_requests
+    );
 
-    stream::iter(chunks.into_iter().enumerate())
+    let mut proofs = stream::iter(chunks.into_iter().enumerate())
         .map(|(chunk_index, chunk)| {
             let fetch_chunk = fetch_chunk.clone();
             async move {
-                info!(
+                debug!(
                     "Calling RPC for contract {:x} at block {:x} with chunk {} / {} keys",
                     contract_address,
                     block_number,
                     chunk_index,
                     chunk.len()
                 );
-                fetch_chunk(chunk_index, chunk).await
+                fetch_chunk(chunk_index, chunk).await.map(|proof| (chunk_index, proof))
             }
         })
         .buffer_unordered(max_concurrent_proof_requests)
         .collect::<Vec<_>>()
         .await
         .into_iter()
-        .collect::<Result<Vec<_>, _>>()
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Network completion order is nondeterministic. Preserve request order so
+    // the merged proof vectors stay aligned with the corresponding key chunks.
+    proofs.sort_unstable_by_key(|(chunk_index, _)| *chunk_index);
+    Ok(proofs.into_iter().map(|(_, proof)| proof).collect())
 }
 
 #[cfg(test)]
@@ -483,7 +554,8 @@ mod tests {
                 let chunk_len = chunk.len();
                 let operation_name = format!("test chunk {chunk_index} ({chunk_len} keys)");
                 async move {
-                    execute_with_retry(&operation_name, || {
+                    let timing = RpcTimingRecorder::default();
+                    execute_with_retry(&timing, &operation_name, || {
                         let attempts = Arc::clone(&attempts);
                         async move {
                             let current_attempt = {
@@ -509,6 +581,10 @@ mod tests {
         .expect("chunk fetch should succeed after retrying the flaky chunk");
 
         assert_eq!(proofs.len(), 3);
+        assert_eq!(
+            proofs.iter().map(|proof| proof.contract_data.as_ref().unwrap().root).collect::<Vec<_>>(),
+            vec![Felt::ONE, Felt::TWO, Felt::THREE]
+        );
 
         let attempts = attempts.lock().await;
         assert_eq!(attempts.get(&0), Some(&1));

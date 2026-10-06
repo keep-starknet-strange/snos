@@ -51,5 +51,6 @@ pub mod error;
 pub mod state_reader;
 pub mod types;
 pub mod utils;
+pub mod witness;
 
 pub use client::RpcClient;

@@ -63,11 +63,14 @@
 // Standard library imports
 use std::path::Path;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 // External crate imports
 use anyhow::bail;
 use cairo_vm::types::layout_name::LayoutName;
 use futures::future::join_all;
 use log::{info, warn};
+use rpc_client::utils::RpcTimingSnapshot;
+pub use rpc_client::witness::RpcWitness;
 use rpc_client::RpcClient;
 use starknet_api::core::OsChainInfo;
 use starknet_os::{
@@ -79,7 +82,7 @@ use tokio::sync::Semaphore;
 use crate::constants::{DEFAULT_MAX_PARALLEL_BLOCKS, MAX_EXECUTION_STEPS_WARNING_THRESHOLD};
 use block_processor::collect_single_block_info;
 use error::PieGenerationError;
-use types::{PieGenerationInput, PieGenerationResult};
+use types::{PieGenerationInput, PieGenerationResult, PieGenerationTiming};
 use utils::sort_abi_entries_for_deprecated_class;
 
 const MAX_PARALLEL_BLOCKS_ENV: &str = "SNOS_MAX_PARALLEL_BLOCKS";
@@ -154,16 +157,58 @@ pub mod types;
 /// }
 /// ```
 pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResult, PieGenerationError> {
-    info!("Starting PIE generation for {} blocks: {:?}", input.blocks.len(), input.blocks);
+    execute_prepared_pie(prepare_pie(input).await?)
+}
 
-    // Validate input configuration
-    input.validate()?;
-    info!("Input configuration validated successfully");
+/// RPC-derived inputs prepared for synchronous Starknet OS execution.
+///
+/// Keeping the fields private lets callers control admission to the expensive
+/// finalization phase without depending on Starknet OS internals.
+pub struct PreparedPieGeneration {
+    layout: LayoutName,
+    os_hints: OsHints,
+    blocks: Vec<u64>,
+    output_path: Option<String>,
+    started_at: Instant,
+    prepared_at: Instant,
+    rpc_timing: RpcTimingSnapshot,
+}
 
-    // Initialize RPC client
+/// Collect all RPC-backed block inputs without running the Starknet OS.
+pub async fn prepare_pie(input: PieGenerationInput) -> Result<PreparedPieGeneration, PieGenerationError> {
     let rpc_client = RpcClient::try_new(&input.rpc_url)
         .map_err(|e| PieGenerationError::RpcClient(format!("Failed to initialize RPC client: {:?}", e)))?;
-    info!("RPC client initialized for {}", input.rpc_url);
+    prepare_pie_with_client(input, rpc_client).await
+}
+
+/// Build a portable request/response witness while preparing a block against RPC.
+pub async fn record_rpc_witness(input: PieGenerationInput) -> Result<RpcWitness, PieGenerationError> {
+    let blocks = input.blocks.clone();
+    let (rpc_client, recorder) = RpcClient::try_new_recording(&input.rpc_url)
+        .map_err(|e| PieGenerationError::RpcClient(format!("Failed to initialize recording RPC client: {e:?}")))?;
+    prepare_pie_with_client(input, rpc_client).await?;
+    recorder.snapshot(blocks).map_err(|e| PieGenerationError::RpcClient(format!("Failed to snapshot RPC witness: {e}")))
+}
+
+/// Prepare a SNOS run entirely from a previously recorded RPC witness.
+pub async fn prepare_pie_from_witness(
+    input: PieGenerationInput,
+    witness: RpcWitness,
+) -> Result<PreparedPieGeneration, PieGenerationError> {
+    let rpc_client = RpcClient::from_witness(witness)
+        .map_err(|e| PieGenerationError::RpcClient(format!("Failed to initialize witness RPC client: {e}")))?;
+    prepare_pie_with_client(input, rpc_client).await
+}
+
+async fn prepare_pie_with_client(
+    input: PieGenerationInput,
+    rpc_client: RpcClient,
+) -> Result<PreparedPieGeneration, PieGenerationError> {
+    let snos_started_at = Instant::now();
+    info!("Starting PIE preparation for {} blocks: {:?}", input.blocks.len(), input.blocks);
+
+    input.validate()?;
+    info!("Input configuration validated successfully");
 
     // Create semaphore to limit parallel execution to available CPU cores
     let default_max_parallel_blocks =
@@ -264,9 +309,30 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     };
     info!("OS hints configuration built successfully for {} blocks", input.blocks.len());
 
+    let rpc_timing = rpc_client.timing_snapshot();
+
+    Ok(PreparedPieGeneration {
+        layout: input.layout,
+        os_hints,
+        blocks: input.blocks,
+        output_path: input.output_path,
+        started_at: snos_started_at,
+        prepared_at: Instant::now(),
+        rpc_timing,
+    })
+}
+
+/// Run the synchronous Starknet OS and validate its PIE from prepared inputs.
+///
+/// Callers may place their own admission control between [`prepare_pie`] and
+/// this function without serializing RPC work.
+pub fn execute_prepared_pie(prepared: PreparedPieGeneration) -> Result<PieGenerationResult, PieGenerationError> {
+    let PreparedPieGeneration { layout, os_hints, blocks, output_path, started_at, prepared_at, rpc_timing } = prepared;
+    let finalization_wait = prepared_at.elapsed();
+
     // Execute the Starknet OS
     info!("Starting OS execution for multi-block processing");
-    let output = run_os_stateless(input.layout, os_hints)
+    let output = run_os_stateless(layout, os_hints)
         .map_err(|e| PieGenerationError::OsExecution(format!("OS execution failed: {:?}", e)))?;
     info!("Multi-block output generated successfully!");
 
@@ -288,7 +354,7 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
     info!("Cairo PIE validation completed successfully");
 
     // Save to file if a path is specified
-    if let Some(output_path) = &input.output_path {
+    if let Some(output_path) = &output_path {
         info!("Writing PIE to file: {}", output_path);
         output.cairo_pie.write_zip_file(Path::new(output_path), true).map_err(|e| {
             PieGenerationError::Io(std::io::Error::other(format!(
@@ -299,9 +365,40 @@ pub async fn generate_pie(input: PieGenerationInput) -> Result<PieGenerationResu
         info!("PIE written to file successfully: {}", output_path);
     }
 
-    info!("PIE generation completed successfully for blocks {:?}", input.blocks);
+    let total_elapsed = started_at.elapsed();
+    let local_processing_elapsed =
+        total_elapsed.saturating_sub(rpc_timing.wait_elapsed).saturating_sub(finalization_wait);
+    let mut rpc_calls_by_method = rpc_timing.calls_by_method;
+    rpc_calls_by_method.insert("total".to_string(), rpc_timing.calls);
+    let timing = PieGenerationTiming {
+        total_processing_time_ms: duration_millis(total_elapsed),
+        rpc_wait_time_ms: duration_millis(rpc_timing.wait_elapsed),
+        execution_time_ms: duration_millis(local_processing_elapsed),
+        finalization_wait_time_ms: duration_millis(finalization_wait),
+        rpc_calls_by_method,
+    };
+    info!(
+        "SNOS processing timing summary for blocks {:?}: total_elapsed={} rpc_wait_elapsed={} finalization_wait_elapsed={} local_processing_elapsed={} rpc_calls={} cumulative_rpc_call_elapsed={} rpc_calls_by_method={:?}",
+        blocks,
+        format_duration(total_elapsed),
+        format_duration(rpc_timing.wait_elapsed),
+        format_duration(finalization_wait),
+        format_duration(local_processing_elapsed),
+        rpc_timing.calls,
+        format_duration(rpc_timing.cumulative_call_elapsed),
+        timing.rpc_calls_by_method
+    );
+    info!("PIE generation completed successfully for blocks {:?}", blocks);
 
-    Ok(PieGenerationResult { output, blocks_processed: input.blocks.clone(), output_path: input.output_path.clone() })
+    Ok(PieGenerationResult { output, blocks_processed: blocks, output_path, timing })
+}
+
+fn format_duration(duration: Duration) -> String {
+    format!("{:.3}s", duration.as_secs_f64())
+}
+
+fn duration_millis(duration: Duration) -> u64 {
+    duration.as_millis().min(u128::from(u64::MAX)) as u64
 }
 
 pub fn parse_layout(layout: &str) -> anyhow::Result<LayoutName> {

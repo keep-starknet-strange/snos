@@ -2,7 +2,7 @@ use blockifier::execution::contract_class::{CompiledClassV0, CompiledClassV1, Ru
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
 use cairo_lang_starknet_classes::contract_class::version_id_from_serialized_sierra_program;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use starknet::core::types::{BlockId, Felt, StarknetError};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::contract_class::compiled_class_hash::{HashVersion, HashableCompiledClass};
@@ -50,6 +50,26 @@ impl AsyncRpcStateReader {
     }
 }
 
+fn log_cached_state_zero_fallback(
+    field_name: &str,
+    block_id: BlockId,
+    contract_address: ContractAddress,
+    key: Option<StorageKey>,
+    error: &ProviderError,
+) {
+    let key_suffix = key.map(|key| format!(", key={:#x}", *key.0.key())).unwrap_or_default();
+    let message = format!(
+        "Cached state {field_name} fallback to zero for block {block_id:?}, contract={:#x}{key_suffix}: {error}",
+        *contract_address.key()
+    );
+
+    match error {
+        ProviderError::StarknetError(StarknetError::ContractNotFound) => info!("{message}"),
+        ProviderError::StarknetError(StarknetError::ClassHashNotFound) => info!("{message}"),
+        _ => warn!("{message}"),
+    }
+}
+
 // Helper function to convert provider error to state error
 fn provider_error_to_state_error(provider_error: ProviderError) -> StateError {
     StateError::StateReadError(provider_error.to_string())
@@ -74,13 +94,16 @@ impl AsyncRpcStateReader {
         let block_id = self.block_id.unwrap();
         let operation_name = format!("get_storage_at(contract: {:?}, key: {:?})", contract_address, key);
 
-        let storage_value = match execute_with_retry(&operation_name, || {
+        let storage_value = match execute_with_retry(self.rpc_client.timing(), &operation_name, || {
             self.rpc_client.starknet_rpc().get_storage_at(*contract_address.key(), *key.0.key(), block_id, None)
         })
         .await
         {
             Ok(value) => Ok(value.value()),
-            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
+            Err(err @ ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
+                log_cached_state_zero_fallback("storage", block_id, contract_address, Some(key), &err);
+                Ok(Felt::ZERO)
+            }
             Err(e) => Err(provider_error_to_state_error(e)),
         }?;
 
@@ -97,13 +120,16 @@ impl AsyncRpcStateReader {
         debug!("got a request of get_nonce_at with parameters the contract address: {:?}", contract_address);
         let operation_name = format!("get_nonce_at(contract: {:?})", contract_address);
 
-        let nonce = match execute_with_retry(&operation_name, || {
+        let nonce = match execute_with_retry(self.rpc_client.timing(), &operation_name, || {
             self.rpc_client.starknet_rpc().get_nonce(block_id, *contract_address.key())
         })
         .await
         {
             Ok(value) => Ok(value),
-            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt::ZERO),
+            Err(err @ ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
+                log_cached_state_zero_fallback("nonce", block_id, contract_address, None, &err);
+                Ok(Felt::ZERO)
+            }
             Err(e) => Err(provider_error_to_state_error(e)),
         }?;
         Ok(Nonce(nonce))
@@ -119,13 +145,16 @@ impl AsyncRpcStateReader {
         debug!("got a request of get_class_hash_at with parameters the contract address: {:?}", contract_address);
         let operation_name = format!("get_class_hash_at(contract: {:?})", contract_address);
 
-        let class_hash = match execute_with_retry(&operation_name, || {
+        let class_hash = match execute_with_retry(self.rpc_client.timing(), &operation_name, || {
             self.rpc_client.starknet_rpc().get_class_hash_at(block_id, *contract_address.key())
         })
         .await
         {
             Ok(class_hash) => Ok(class_hash),
-            Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(ClassHash::default().0),
+            Err(err @ ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
+                log_cached_state_zero_fallback("class_hash", block_id, contract_address, None, &err);
+                Ok(ClassHash::default().0)
+            }
             Err(e) => Err(provider_error_to_state_error(e)),
         }?;
 
@@ -142,7 +171,7 @@ impl AsyncRpcStateReader {
         debug!("got a request of get_compiled_class with parameters the class hash: {:?}", class_hash);
         let operation_name = format!("get_compiled_class(class_hash: {:?})", class_hash);
 
-        let contract_class = match execute_with_retry(&operation_name, || {
+        let contract_class = match execute_with_retry(self.rpc_client.timing(), &operation_name, || {
             self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0)
         })
         .await
@@ -206,10 +235,11 @@ impl AsyncRpcStateReader {
         debug!("get_pre_snip34_compiled_class_hash for class_hash: {:?}", class_hash);
         let operation_name = format!("get_pre_snip34_compiled_class_hash(class_hash: {:?})", class_hash);
 
-        let contract_class =
-            execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
-                .await
-                .map_err(provider_error_to_state_error)?;
+        let contract_class = execute_with_retry(self.rpc_client.timing(), &operation_name, || {
+            self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0)
+        })
+        .await
+        .map_err(provider_error_to_state_error)?;
 
         compute_pre_snip34_compiled_class_hash(&contract_class)
     }
@@ -232,10 +262,11 @@ impl AsyncRpcStateReader {
         debug!("get_compiled_class_hash_{} for class_hash: {:?}", version.as_str(), class_hash);
         let operation_name = format!("get_compiled_class_hash_{}(class_hash: {:?})", version.as_str(), class_hash);
 
-        let contract_class =
-            execute_with_retry(&operation_name, || self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0))
-                .await
-                .map_err(provider_error_to_state_error)?;
+        let contract_class = execute_with_retry(self.rpc_client.timing(), &operation_name, || {
+            self.rpc_client.starknet_rpc().get_class(block_id, class_hash.0)
+        })
+        .await
+        .map_err(provider_error_to_state_error)?;
 
         compute_compiled_class_hash_internal(&contract_class, version)
     }
