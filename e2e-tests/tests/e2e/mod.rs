@@ -46,6 +46,10 @@ fn get_rpc_url(chain: &str) -> String {
 #[case("sepolia", vec![8263796, 8263797])] // original failing replay window for Sierra 1.8 declare compilation
 #[case("sepolia", vec![8263876, 8263877])] // original failing replay window for Sierra 1.8 declare compilation
 #[case("sepolia", vec![8264192, 8264193])] // original failing replay window for Sierra 1.8 declare compilation
+// mainnet blocks (0.14.4)
+#[case("mainnet", vec![15976751, 15976752])] // first 0.14.4 blocks (the parent block is still 0.14.3)
+#[case("mainnet", vec![15977437])] // 0.14.4 declare
+#[case("mainnet", vec![15977852])] // 0.14.4 invoke carrying SNIP-36 proof facts
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pie_generation(#[case] chain: &str, #[case] block_numbers: Vec<u64>) {
     println!("🧪 Testing PIE generation for blocks on {}", chain);
