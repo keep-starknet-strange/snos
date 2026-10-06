@@ -180,7 +180,19 @@ impl RpcClient {
 
     pub fn try_new_recording(base_url: &str) -> anyhow::Result<(Self, RpcWitnessRecorder)> {
         let starknet_rpc_url = Url::parse(&format!("{base_url}/rpc/{STARKNET_RPC_VERSION}"))?;
-        let http = HttpTransport::new(starknet_rpc_url);
+        let rpc_request_timeout_secs =
+            RpcClientInner::read_env_u64(RPC_REQUEST_TIMEOUT_ENV, DEFAULT_RPC_REQUEST_TIMEOUT_SECS);
+        let rpc_connect_timeout_secs =
+            RpcClientInner::read_env_u64(RPC_CONNECT_TIMEOUT_ENV, DEFAULT_RPC_CONNECT_TIMEOUT_SECS);
+        let rpc_pool_max_idle_per_host =
+            RpcClientInner::read_env_usize(RPC_POOL_MAX_IDLE_PER_HOST_ENV, DEFAULT_RPC_POOL_MAX_IDLE_PER_HOST);
+        let http_client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(rpc_connect_timeout_secs))
+            .pool_max_idle_per_host(rpc_pool_max_idle_per_host)
+            .timeout(Duration::from_secs(rpc_request_timeout_secs))
+            .build()
+            .map_err(|e| anyhow!("Failed to create recording reqwest client for {starknet_rpc_url}: {e}"))?;
+        let http = HttpTransport::new_with_client(starknet_rpc_url, http_client);
         let (transport, recorder) = RpcTransport::recording(http);
         let inner =
             RpcClientInner { starknet_client: JsonRpcClient::new(transport), timing: RpcTimingRecorder::default() };
