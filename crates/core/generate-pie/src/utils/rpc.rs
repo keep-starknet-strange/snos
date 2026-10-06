@@ -181,7 +181,10 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
 ) -> Result<ContractProof, ClientError> {
     info!("Getting storage proof for contract {}", contract_address);
     let contract_address_felt = *contract_address.key();
-    let keys: Vec<_> = storage_keys.map(|storage_key| *storage_key.key()).collect();
+    // The accessed keys originate from hash-based collections.  Keep proof
+    // requests deterministic so a witness recorded in one process can be
+    // replayed in another process with a different hash seed.
+    let keys = sorted_storage_keys(storage_keys);
 
     let mut contract_proof =
         fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &keys, block_number).await?;
@@ -273,6 +276,13 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     }
 
     Ok(contract_proof)
+}
+
+fn sorted_storage_keys<KeyIter: Iterator<Item = StorageKey>>(storage_keys: KeyIter) -> Vec<Felt> {
+    let mut keys: Vec<_> = storage_keys.map(|storage_key| *storage_key.key()).collect();
+    keys.sort_unstable();
+    keys.dedup();
+    keys
 }
 
 /// Fetches the state + storage proof for a single contract for all the specified keys.
@@ -494,5 +504,12 @@ mod tests {
         assert!(access_info.accessed_contract_addresses.contains(&storage_contract));
         assert!(access_info.accessed_contract_addresses.contains(&class_hash_contract));
         assert!(access_info.accessed_contract_addresses.contains(&nonce_contract));
+    }
+
+    #[test]
+    fn storage_proof_keys_are_sorted_and_deduplicated() {
+        let keys = [3_u64, 1, 2, 1].into_iter().map(|value| StorageKey::try_from(Felt::from(value)).unwrap());
+
+        assert_eq!(sorted_storage_keys(keys), vec![Felt::ONE, Felt::TWO, Felt::THREE]);
     }
 }
