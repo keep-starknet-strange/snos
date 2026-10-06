@@ -4,6 +4,7 @@ use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::StateMaps;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
+use futures::stream::{self, StreamExt};
 use log::{info, warn};
 use rpc_client::client::ProofClient;
 use rpc_client::error::ClientError;
@@ -15,6 +16,9 @@ use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 use std::collections::{HashMap, HashSet};
+
+const MAX_CONCURRENT_PROOF_CONTRACTS_ENV: &str = "SNOS_MAX_CONCURRENT_PROOF_CONTRACTS";
+const DEFAULT_MAX_CONCURRENT_PROOF_CONTRACTS: usize = 1;
 
 fn summarize_felts(values: &[Felt], limit: usize) -> String {
     let mut summary: Vec<String> = values.iter().take(limit).map(|felt| format!("{:#x}", felt)).collect();
@@ -127,19 +131,31 @@ pub(crate) async fn get_storage_proofs(
     block_number: u64,
     accessed_keys_by_address: &HashMap<ContractAddress, HashSet<StorageKey>>,
 ) -> Result<HashMap<Felt, ContractProof>, ClientError> {
-    let mut storage_proofs = HashMap::new();
+    let max_concurrent_contracts = std::env::var(MAX_CONCURRENT_PROOF_CONTRACTS_ENV)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(DEFAULT_MAX_CONCURRENT_PROOF_CONTRACTS)
+        .max(1);
+    info!(
+        "Fetching storage proofs for {} contracts with max {} concurrent contracts",
+        accessed_keys_by_address.len(),
+        max_concurrent_contracts
+    );
+    let contracts: Vec<_> = accessed_keys_by_address.iter().map(|(address, keys)| (*address, keys.clone())).collect();
 
-    info!("Fetching storage proofs for {} contracts", accessed_keys_by_address.len());
-
-    for (contract_address, storage_keys) in accessed_keys_by_address {
-        let contract_address_felt = *contract_address.key();
-        let storage_proof =
-            get_storage_proof_for_contract(client, *contract_address, storage_keys.clone().into_iter(), block_number)
-                .await?;
-        storage_proofs.insert(contract_address_felt, storage_proof);
-    }
-
-    Ok(storage_proofs)
+    stream::iter(contracts)
+        .map(|(contract_address, storage_keys)| async move {
+            let contract_address_felt = *contract_address.key();
+            let storage_proof =
+                get_storage_proof_for_contract(client, contract_address, storage_keys.into_iter(), block_number)
+                    .await?;
+            Ok((contract_address_felt, storage_proof))
+        })
+        .buffer_unordered(max_concurrent_contracts)
+        .collect::<Vec<Result<_, ClientError>>>()
+        .await
+        .into_iter()
+        .collect()
 }
 
 pub(crate) async fn get_class_proofs(
