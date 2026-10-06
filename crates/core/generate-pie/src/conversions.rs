@@ -63,8 +63,6 @@ pub enum ConversionError {
     FieldConversionFailed { field: String, reason: String },
     #[error("Missing transaction receipt for {tx_hash:#x}")]
     MissingTransactionReceipt { tx_hash: Felt },
-    #[error("Missing proof facts in RPC response for transaction {tx_hash:#x}")]
-    MissingProofFacts { tx_hash: Felt },
 }
 
 // ================================================================================================
@@ -321,10 +319,13 @@ pub(crate) fn transaction_receipt_hash(receipt: &TransactionReceipt) -> Felt {
     reason = "ConversionError is shared across transaction conversions and not worth boxing here"
 )]
 fn proof_facts_from_rpc(
-    tx_hash: Felt,
+    _tx_hash: Felt,
     proof_facts: Option<Vec<Felt>>,
 ) -> Result<starknet_api::transaction::fields::ProofFacts, ConversionError> {
-    proof_facts.ok_or(ConversionError::MissingProofFacts { tx_hash }).map(Into::into)
+    // RPC v0.10 predates the proof_facts response flag and omits the field for
+    // transactions that have no facts. Treat that representation the same as
+    // v0.10.2's explicit empty array while preserving non-empty facts.
+    Ok(proof_facts.unwrap_or_default().into())
 }
 
 #[allow(clippy::result_large_err)]
@@ -834,7 +835,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invoke_v3_conversion_rejects_missing_proof_facts() {
+    async fn invoke_v3_conversion_treats_missing_proof_facts_as_empty() {
         let chain_id = ChainId::Sepolia;
         let rpc_client = RpcClient::try_new("http://localhost:9545").expect("valid dummy rpc url");
         let transaction_receipts = HashMap::new();
@@ -860,9 +861,16 @@ mod tests {
             proof_facts: None,
         };
 
-        let error = tx.try_into_blockifier_async(&ctx).await.expect_err("missing proof facts must fail");
+        let result = tx.try_into_blockifier_async(&ctx).await.expect("missing proof facts should mean no proof facts");
 
-        assert!(matches!(error, ConversionError::MissingProofFacts { tx_hash } if tx_hash == Felt::from(123_u64)));
+        let converted_tx = match result.starknet_api_tx {
+            starknet_api::executable_transaction::Transaction::Account(
+                starknet_api::executable_transaction::AccountTransaction::Invoke(invoke_tx),
+            ) => invoke_tx,
+            other => panic!("expected invoke account transaction, got {other:?}"),
+        };
+
+        assert_eq!(converted_tx.proof_facts_length(), 0);
     }
 
     #[tokio::test]
