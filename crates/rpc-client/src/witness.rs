@@ -48,6 +48,10 @@ pub struct RpcWitness {
 }
 
 impl RpcWitness {
+    pub fn schema_version(&self) -> u32 {
+        self.schema_version
+    }
+
     pub fn merge(witnesses: impl IntoIterator<Item = Self>) -> Result<Self, WitnessTransportError> {
         let mut merged = Self {
             schema_version: RPC_WITNESS_SCHEMA_VERSION,
