@@ -1,3 +1,4 @@
+use crate::blocking::run_blocking;
 use crate::constants::{
     is_special_contract_felt, ALIAS_CONTRACT_ADDRESS, BLOCK_HASH_CONTRACT_ADDRESS_FELT, STATEFUL_MAPPING_START,
     STORED_BLOCK_HASH_BUFFER,
@@ -258,37 +259,44 @@ impl BlockData {
         };
 
         let blockifier_state_reader = AsyncRpcStateReader::new(rpc_client.clone(), previous_block_id);
+        let execution_state_reader = blockifier_state_reader.clone();
+        let execution_context = block_context.clone();
+        let old_block_number_and_hash = self.blockifier_old_block_number_and_hash()?;
 
-        // Blockifier must be pre-processed with the boundary old block hash so `get_block_hash`
-        // syscalls observe the same block-hash mapping semantics as the official sequencer path.
-        let mut txn_executor = TransactionExecutor::pre_process_and_create(
-            blockifier_state_reader.clone(),
-            block_context.clone(),
-            self.blockifier_old_block_number_and_hash()?,
-            config,
-        )
-        .map_err(|source| BlockProcessingError::TransactionExecutorCreation { source })?;
-        info!("Transaction executor created successfully");
-        info!("Executing {} transactions using Blockifier", blockifier_txns.len());
+        // Blockifier synchronously joins its execution threads, which can wait on
+        // RPC connections driven by this async runtime. Keep the whole synchronous
+        // phase off its workers, including preprocessing and initial-read hydration.
+        let (txn_execution_infos, mut initial_reads) = run_blocking(move || {
+            // Preserve the boundary old block hash used by get_block_hash syscalls.
+            let mut txn_executor = TransactionExecutor::pre_process_and_create(
+                execution_state_reader,
+                execution_context,
+                old_block_number_and_hash,
+                config,
+            )
+            .map_err(|source| BlockProcessingError::TransactionExecutorCreation { source })?;
+            info!("Transaction executor created successfully");
+            info!("Executing {} transactions using Blockifier", blockifier_txns.len());
 
-        // Execute transactions
-        let execution_deadline = None;
-        let execution_outputs: Vec<_> = txn_executor
-            .execute_txs(&blockifier_txns, execution_deadline)
-            .into_iter()
-            .collect::<Result<_, TransactionExecutorError>>()
-            .map_err(BlockProcessingError::TransactionExecution)?;
+            let execution_deadline = None;
+            let execution_outputs: Vec<_> = txn_executor
+                .execute_txs(&blockifier_txns, execution_deadline)
+                .into_iter()
+                .collect::<Result<_, TransactionExecutorError>>()
+                .map_err(BlockProcessingError::TransactionExecution)?;
 
-        info!("{} transactions executed successfully", blockifier_txns.len());
+            info!("{} transactions executed successfully", blockifier_txns.len());
 
-        let txn_execution_infos: Vec<TransactionExecutionInfo> =
-            execution_outputs.into_iter().map(|(execution_info, _)| execution_info).collect();
-
-        let mut initial_reads = {
+            let txn_execution_infos: Vec<TransactionExecutionInfo> =
+                execution_outputs.into_iter().map(|(execution_info, _)| execution_info).collect();
             let block_state =
                 txn_executor.block_state.as_ref().ok_or(BlockProcessingError::MissingBlockStateAfterExecution)?;
-            capture_extended_initial_reads(block_state)?
-        };
+            let initial_reads = capture_extended_initial_reads(block_state)?;
+
+            Ok::<_, BlockProcessingError>((txn_execution_infos, initial_reads))
+        })
+        .await
+        .map_err(|error| BlockProcessingError::Custom(format!("Transaction execution task failed: {error}")))??;
 
         let central_txn_execution_infos: Vec<CentralTransactionExecutionInfo> =
             txn_execution_infos.clone().into_iter().map(Into::into).collect();
