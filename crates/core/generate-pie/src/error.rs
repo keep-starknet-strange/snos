@@ -116,6 +116,13 @@ pub enum BlockProcessingError {
     #[error("Transaction execution error: {0}")]
     TransactionExecution(#[from] blockifier::blockifier::transaction_executor::TransactionExecutorError),
 
+    /// The blocking transaction execution task failed.
+    #[error("Transaction execution task failed: {source}")]
+    TransactionExecutionTask {
+        #[source]
+        source: tokio::task::JoinError,
+    },
+
     /// Context building error.
     #[error("Context building error: {0}")]
     ContextBuilding(#[from] FeltConversionError),

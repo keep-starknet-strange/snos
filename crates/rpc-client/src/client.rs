@@ -56,6 +56,7 @@ pub trait ProofClient {
 struct RpcClientInner {
     /// Starknet-rs client for accessing standard Starknet RPC endpoints.
     starknet_client: JsonRpcClient<HttpTransport>,
+    base_url: String,
 }
 
 impl RpcClientInner {
@@ -109,7 +110,7 @@ impl RpcClientInner {
 
         let provider = JsonRpcClient::new(HttpTransport::new_with_client(starknet_rpc_url, http_client));
 
-        Ok(Self { starknet_client: provider })
+        Ok(Self { starknet_client: provider, base_url: base_url.to_owned() })
     }
 }
 
@@ -168,6 +169,14 @@ impl RpcClient {
     /// ```
     pub fn try_new(base_url: &str) -> anyhow::Result<Self> {
         Ok(Self { inner: Arc::new(RpcClientInner::try_new(base_url)?) })
+    }
+
+    /// Creates a client with an independent HTTP connection pool.
+    ///
+    /// SNOS uses this for synchronous Blockifier state reads so that connections
+    /// driven by the dedicated sync runtime are never reused by async preparation.
+    pub fn try_clone_isolated(&self) -> anyhow::Result<Self> {
+        Self::try_new(&self.inner.base_url)
     }
 
     /// Returns a reference to the underlying Starknet RPC client.
@@ -460,6 +469,15 @@ mod tests {
     use tokio::sync::Mutex;
 
     use super::*;
+
+    #[test]
+    fn isolated_clone_has_its_own_connection_pool() {
+        let client = RpcClient::try_new("http://localhost:9545").unwrap();
+        let isolated = client.try_clone_isolated().unwrap();
+
+        assert!(!Arc::ptr_eq(&client.inner, &isolated.inner));
+        assert_eq!(client.inner.base_url, isolated.inner.base_url);
+    }
 
     fn dummy_contract_proof(chunk_index: usize) -> ContractProof {
         ContractProof {
