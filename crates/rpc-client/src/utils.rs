@@ -24,7 +24,12 @@ const MAX_BACKOFF_MS: u64 = 5000;
 /// Gets or creates the global Tokio runtime.
 fn get_global_runtime() -> &'static tokio::runtime::Runtime {
     GLOBAL_RUNTIME.get_or_init(|| {
-        tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("Failed to create global Tokio runtime")
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .thread_name("snos-rpc-runtime")
+            .enable_all()
+            .build()
+            .expect("Failed to create global Tokio runtime")
     })
 }
 
@@ -34,9 +39,9 @@ fn get_global_runtime() -> &'static tokio::runtime::Runtime {
 /// block on a coroutine but want to maintain the current runtime context. It's particularly
 /// helpful when integrating async code with synchronous interfaces.
 ///
-/// This function works in two modes:
-/// 1. If called from within a Tokio runtime context, it uses the current runtime
-/// 2. If called from outside a runtime (e.g., worker threads), it uses a global runtime
+/// All synchronous state reads are driven by the same dedicated runtime. This keeps
+/// the HTTP reactor stable when Blockifier moves state-reader calls between worker
+/// threads.
 ///
 /// # Arguments
 ///
@@ -48,24 +53,18 @@ fn get_global_runtime() -> &'static tokio::runtime::Runtime {
 ///
 /// # Note
 ///
-/// This function will create a global multi-threaded Tokio runtime on first use
-/// if called outside a runtime context. This makes it safe to use from any thread,
-/// including worker threads spawned by external libraries.
+/// This function creates one two-worker runtime on first use. It deliberately avoids
+/// creating a runtime per state read, since a SNOS job can perform tens of thousands
+/// of reads.
 pub fn execute_coroutine<F, T>(coroutine: F) -> T
 where
     F: std::future::Future<Output = T>,
 {
-    // Try to use the current runtime if available (e.g., when in an async context)
-    match tokio::runtime::Handle::try_current() {
-        Ok(handle) => {
-            // We're in a runtime context, use block_in_place for efficiency
-            tokio::task::block_in_place(|| handle.block_on(coroutine))
-        }
-        Err(_) => {
-            // No current runtime (e.g., called from a worker thread), use global runtime
-            let runtime = get_global_runtime();
-            runtime.block_on(coroutine)
-        }
+    let runtime = get_global_runtime();
+    if tokio::runtime::Handle::try_current().is_ok() {
+        tokio::task::block_in_place(|| runtime.block_on(coroutine))
+    } else {
+        runtime.block_on(coroutine)
     }
 }
 
@@ -111,5 +110,19 @@ where
                 backoff_ms = (backoff_ms * 2).min(MAX_BACKOFF_MS);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::execute_coroutine;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn sync_bridge_uses_dedicated_runtime() {
+        let thread_name = execute_coroutine(async {
+            tokio::spawn(async { std::thread::current().name().map(str::to_owned) }).await.unwrap()
+        });
+
+        assert_eq!(thread_name.as_deref(), Some("snos-rpc-runtime"));
     }
 }
